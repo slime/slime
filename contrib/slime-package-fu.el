@@ -26,7 +26,9 @@
       (block nil
 	(while (re-search-forward slime-defpackage-regexp nil t)
 	  (when (slime-package-equal package (slime-sexp-at-point))
-	    (return (make-slime-file-location (buffer-file-name) (point)))))))))
+            (backward-sexp)
+	    (return (make-slime-file-location (buffer-file-name)
+                                              (1- (point))))))))))
 
 (defun slime-package-equal (designator1 designator2)
   ;; First try to be lucky and compare the strings themselves (for the
