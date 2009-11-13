@@ -758,11 +758,13 @@ forward keywords to OPERATOR."
               (applicable-methods-keywords
                #'allocate-instance (list class))
             (multiple-value-bind (initialize-instance-keywords ii-aokp)
-                (applicable-methods-keywords
-                 #'initialize-instance (list (swank-mop:class-prototype class)))
-              (multiple-value-bind (shared-initialize-keywords si-aokp)
+                (ignore-errors
                   (applicable-methods-keywords
-                   #'shared-initialize (list (swank-mop:class-prototype class) t))
+                   #'initialize-instance (list (swank-mop:class-prototype class))))
+              (multiple-value-bind (shared-initialize-keywords si-aokp)
+                  (ignore-errors
+                    (applicable-methods-keywords
+                     #'shared-initialize (list (swank-mop:class-prototype class) t)))
                 (values (append slot-init-keywords
                                 allocate-instance-keywords
                                 initialize-instance-keywords
@@ -780,8 +782,9 @@ forward keywords to OPERATOR."
             (extra-keywords/slots class)
           (declare (ignore class-aokp))
           (multiple-value-bind (shared-initialize-keywords si-aokp)
-              (applicable-methods-keywords
-               #'shared-initialize (list (swank-mop:class-prototype class) t))
+              (ignore-errors
+                (applicable-methods-keywords
+                 #'shared-initialize (list (swank-mop:class-prototype class) t)))
             ;; FIXME: much as it would be nice to include the
             ;; applicable keywords from
             ;; UPDATE-INSTANCE-FOR-DIFFERENT-CLASS, I don't really see

@@ -1,3 +1,10 @@
+2009-11-13  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-arglists.lisp (extra-keywords/make-instance)
+	(extra-keywords/change-class): Wrap call to CLASS-PROTOTYPE in an
+	IGNORE-ERRORS because computing a class-prototype involves
+	evaluating initforms which may be calls to ERROR.
+
 2009-11-07  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-package-fu.el (slime-find-package-definition-regexp): Go
