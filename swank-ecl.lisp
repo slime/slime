@@ -15,16 +15,20 @@
 (defvar *tmp*)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-(if (find-package :gray)
-  (import-from :gray *gray-stream-symbols* :swank-backend)
-  (import-from :ext *gray-stream-symbols* :swank-backend))
+  (if (find-package :gray)
+      (import-from :gray *gray-stream-symbols* :swank-backend)
+      (import-from :ext *gray-stream-symbols* :swank-backend))
 
-(swank-backend::import-swank-mop-symbols :clos
- '(:eql-specializer
-   :eql-specializer-object
-   :generic-function-declarations
-   :specializer-direct-methods
-   :compute-applicable-methods-using-classes)))
+  (swank-backend::import-swank-mop-symbols :clos
+    '(:eql-specializer
+      :eql-specializer-object
+      :generic-function-declarations
+      :specializer-direct-methods
+      :compute-applicable-methods-using-classes)))
+
+(defun swank-mop:compute-applicable-methods-using-classes (gf classes)
+  (declare (ignore gf classes))
+  (values nil nil))
 
 
 ;;;; TCP Server

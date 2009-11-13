@@ -1,5 +1,11 @@
 2009-11-13  Stas Boukarev  <stassats@gmail.com>
 
+	* swank-ecl.lisp (swank-mop:compute-applicable-methods-using-classes):
+	Add a dummy function. ECL doesn't have it, but some contribs are using it.
+	Patch by Andy Hefner.
+
+2009-11-13  Stas Boukarev  <stassats@gmail.com>
+
 	* swank-ecl.lisp (function-name): Use clos:generic-function-name
 	for generic functions.
 	(arglist): Check fro symbol before calling special-operator-p and
