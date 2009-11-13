@@ -1,3 +1,11 @@
+2009-11-13  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-ecl.lisp (function-name): Use clos:generic-function-name
+	for generic functions.
+	(arglist): Check fro symbol before calling special-operator-p and
+	macro-function.
+	Patch by Andy Hefner.
+
 2009-11-06  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-ecl.lisp (grovel-docstring-for-arglist): ECL's arglists

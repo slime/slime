@@ -206,9 +206,9 @@
           :not-available ))))
 
 (defimplementation arglist (name)
-  (cond ((special-operator-p name)
+  (cond ((and (symbolp name) (special-operator-p name))
          (grovel-docstring-for-arglist name 'function))
-        ((macro-function name)
+        ((and (symbolp name) (macro-function name))
          (grovel-docstring-for-arglist name 'function))
         ((or (functionp name) (fboundp name))
          (multiple-value-bind (name fndef)
@@ -228,7 +228,9 @@
         (t :not-available)))
 
 (defimplementation function-name (f)
-  (si:compiled-function-name f))
+  (typecase f
+    (generic-function (clos:generic-function-name f))
+    (function (si:compiled-function-name f))))
 
 (defimplementation macroexpand-all (form)
   ;;; FIXME! This is not the same as a recursive macroexpansion!
