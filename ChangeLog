@@ -1,5 +1,8 @@
 2009-11-13  Stas Boukarev  <stassats@gmail.com>
 
+	* swank.lisp (classify-symbol): Check fbound before calling fdefinition,
+	ECL doesn't like (fdefinition nil).
+
 	* swank-ecl.lisp (swank-mop:compute-applicable-methods-using-classes):
 	Add a dummy function. ECL doesn't have it, but some contribs are using it.
 	Patch by Andy Hefner.
