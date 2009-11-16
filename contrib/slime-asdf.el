@@ -87,13 +87,18 @@ returns it if it's in `system-names'."
 (defun slime-browse-system (name)
   "Browse files in an ASDF system using Dired."
   (interactive (list (slime-read-system-name)))
-  (slime-eval-async 
-   `(cl:directory-namestring
-     (cl:truename
-      (asdf:system-definition-pathname (asdf:find-system ,name))))
+  (slime-eval-async `(asdf-system-directory ,name)
    (lambda (directory)
      (when directory
        (dired directory)))))
+
+(defun slime-rgrep-system (system-name regexp)
+  (interactive (list (slime-read-system-name
+                      nil
+                      (slime-eval `(swank:asdf-determine-system ,(buffer-file-name))))
+                     (grep-read-regexp)))
+  (rgrep regexp "*.lisp"
+         (slime-eval `(swank:asdf-system-directory ,system-name))))
 
 (defslime-repl-shortcut slime-repl-load/force-system ("force-load-system")
   (:handler (lambda ()

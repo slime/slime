@@ -1,3 +1,10 @@
+2009-11-16  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-asdf.lisp (asdf-determine-system): New function for
+	determining to what system a file belongs.
+
+	* slime-asdf.el (slime-rgrep-system): New function.
+
 2009-11-13  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-arglists.lisp (extra-keywords/make-instance)

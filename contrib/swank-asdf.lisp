@@ -73,18 +73,29 @@ already knows."
                  (asdf-module-files component))))
           (asdf:module-components module)))
 
-(defslimefun asdf-system-files (system)
+(defslimefun asdf-system-files (name)
   (let* ((files (mapcar #'namestring
-                        (asdf-module-files (asdf:find-system system))))
-         (main-file (find system files
+                        (asdf-module-files (asdf:find-system name))))
+         (main-file (find name files
                           :test #'string-equal
                           :key #'pathname-name)))
     (if main-file
         (cons main-file (remove main-file files :test #'equalp))
         files)))
 
-(defslimefun asdf-system-loaded-p (system)
+(defslimefun asdf-system-loaded-p (name)
   (gethash 'asdf:load-op
-           (asdf::component-operation-times (asdf:find-system system))))
+           (asdf::component-operation-times (asdf:find-system name))))
+
+(defslimefun asdf-system-directory (name)
+  (cl:directory-namestring
+   (cl:truename
+    (asdf:system-definition-pathname (asdf:find-system name)))))
+
+(defslimefun asdf-determine-system (file)
+  (find-if (lambda (system)
+             (member file (asdf-system-files system)
+                     :test #'equal))
+           (list-all-systems-known-to-asdf)))
 
 (provide :swank-asdf)
