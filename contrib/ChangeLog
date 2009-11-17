@@ -1,3 +1,19 @@
+2009-11-17  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	M-x slime-isearch-system will run `isearch-forward' on all files
+	pertaining to an ASDF system.
+
+	M-x slime-query-replace-system will run `query-replace' on all
+	files pertaining to an ASDF system.
+
+	* slime-asdf.el (slime-read-system-name): Refactored so callers
+	have choice over how the default value is computed.
+	(slime-find-asd-file): Renamed from `slime-find-asd'.
+	(slime-determine-asdf-system): New helper.
+	(slime-isearch-system): New function. Depends on functionality
+	only available on GNU Emacs 23.1.x.
+	(slime-query-replace-system): New function.
+
 2009-11-17  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-asdf.lisp (asdf-determine-system): Rewritten to be much

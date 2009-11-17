@@ -20,23 +20,28 @@
 (require 'slime-repl)
 (slime-require :swank-asdf)
 
-(defun slime-load-system (&optional system)
-  "Compile and load an ASDF system.  
-
-Default system name is taken from first file matching *.asd in current
-buffer's working directory"
-  (interactive (list (slime-read-system-name)))
-  (slime-oos system "LOAD-OP"))
+;;; Utilities
 
 (defvar slime-system-history nil
   "History list for ASDF system names.")
 
-(defun slime-read-system-name (&optional prompt default-value)
-  "Read a system name from the minibuffer, prompting with PROMPT."
+(defun slime-read-system-name (&optional prompt 
+                                         default-value
+                                         determine-default-accurately)
+  "Read a system name from the minibuffer, prompting with PROMPT.
+If no `default-value' is given, one is tried to be determined: if
+`determine-default-accurately' is true, by an RPC request which
+grovels through all defined systems; if it's not true, by looking
+in the directory of the current buffer."
   (let* ((completion-ignore-case nil)
          (prompt (or prompt "System"))
          (system-names (slime-eval `(swank:list-asdf-systems)))
-         (default-value (or default-value (slime-find-asd system-names)))
+         (default-value (or default-value 
+                            (if determine-default-accurately
+                                (slime-determine-asdf-system (buffer-file-name))
+                                (slime-find-asd-file (or default-directory
+                                                         (buffer-file-name))
+                                                     system-names))))
          (prompt (concat prompt (if default-value
                                     (format " (default `%s'): " default-value)
                                     ": "))))
@@ -44,21 +49,24 @@ buffer's working directory"
                      nil nil nil
                      'slime-system-history default-value)))
 
-(defun slime-find-asd (system-names)
-  "Tries to find an ASDF system definition in the default
-directory or in the directory belonging to the current buffer and
-returns it if it's in `system-names'."
-  (let ((asdf-systems-in-directory
-         (directory-files
-          (file-name-directory (or default-directory
-                                   (buffer-file-name)))
-          nil "\.asd$")))
-    (loop for system in asdf-systems-in-directory
+
+
+(defun slime-find-asd-file (directory system-names)
+  "Tries to find an ASDF system definition file in the
+`directory' and returns it if it's in `system-names'."
+  (let ((asd-files
+         (directory-files (file-name-directory directory) nil "\.asd$")))
+    (loop for system in asd-files
           for candidate = (file-name-sans-extension system)
           when (find candidate system-names :test #'string-equal)
             do (return candidate))))
 
+(defun slime-determine-asdf-system (filename)
+  "Try to determine the asdf system that `filename' belongs to."
+  (slime-eval `(swank:asdf-determine-system ,filename)))
+
 (defun slime-oos (system operation &rest keyword-args)
+  "Operate On System."
   (slime-save-some-lisp-buffers)
   (slime-display-output-buffer)
   (message "Performing ASDF %S%s on system %S"
@@ -67,6 +75,17 @@ returns it if it's in `system-names'."
   (slime-repl-shortcut-eval-async
    `(swank:operate-on-system-for-emacs ,system ,operation ,@keyword-args)
    #'slime-compilation-finished))
+
+
+;;; Interactive functions
+
+(defun slime-load-system (&optional system)
+  "Compile and load an ASDF system.  
+
+Default system name is taken from first file matching *.asd in current
+buffer's working directory"
+  (interactive (list (slime-read-system-name)))
+  (slime-oos system "LOAD-OP"))
 
 (defun slime-open-system (name &optional load)
   "Open all files in an ASDF system."
@@ -87,18 +106,58 @@ returns it if it's in `system-names'."
 (defun slime-browse-system (name)
   "Browse files in an ASDF system using Dired."
   (interactive (list (slime-read-system-name)))
-  (slime-eval-async `(asdf-system-directory ,name)
+  (slime-eval-async `(swank:asdf-system-directory ,name)
    (lambda (directory)
      (when directory
        (dired directory)))))
 
-(defun slime-rgrep-system (system-name regexp)
-  (interactive (list (slime-read-system-name
-                      nil
-                      (slime-eval `(swank:asdf-determine-system ,(buffer-file-name))))
+(defun slime-rgrep-system (sys-name regexp)
+  "Run `rgrep' on the base directory of an ASDF system."
+  (interactive (list (slime-read-system-name nil nil t)
                      (grep-read-regexp)))
   (rgrep regexp "*.lisp"
-         (slime-eval `(swank:asdf-system-directory ,system-name))))
+         (slime-eval `(swank:asdf-system-directory ,sys-name))))
+
+(if (boundp 'multi-isearch-next-buffer-function)
+
+    (defun slime-isearch-system (sys-name)
+      "Run `isearch-forward' on the files of an ASDF system."
+      (interactive (list (slime-read-system-name nil nil t)))
+      (let* ((files (slime-eval `(swank:asdf-system-files ,sys-name)))
+             (multi-isearch-next-buffer-function
+              (lexical-let* 
+                  ((buffers-forward  (mapcar #'find-file-noselect files))
+                   (buffers-backward (reverse buffers-forward)))
+                #'(lambda (current-buffer wrap)
+                    ;; Contrary to the the docstring of
+                    ;; `multi-isearch-next-buffer-function', the first
+                    ;; arg is not necessarily a buffer. Report sent
+                    ;; upstream. (2009-11-17)
+                    (setq current-buffer (or current-buffer (current-buffer)))
+                    (let* ((buffers (if isearch-forward
+                                        buffers-forward
+                                        buffers-backward)))
+                      (if wrap
+                          (car buffers)
+                          (second (memq current-buffer buffers))))))))
+        (isearch-forward)))
+
+    (defun slime-isearch-system ()
+      (interactive)
+      (error "This command is only supported on GNU Emacs >23.1.x.")))
+
+(defun slime-query-replace-system (name from to &optional delimited)
+  "Run `query-replace' on an ASDF system."
+  (interactive 
+   (let* ((system (slime-read-system-name nil nil t))
+          (common (query-replace-read-args 
+                   (format "Query replace throughout `%s'" system) t t)))
+     (list system (nth 0 common) (nth 1 common) (nth 2 common))))
+  (tags-query-replace from to delimited 
+                      '(slime-eval `(swank:asdf-system-files ,name))))
+
+
+;;; REPL shortcuts
 
 (defslime-repl-shortcut slime-repl-load/force-system ("force-load-system")
   (:handler (lambda ()
@@ -148,6 +207,9 @@ returns it if it's in `system-names'."
               (interactive)
               (call-interactively 'slime-browse-system)))
   (:one-liner "Browse files in an ASDF system using Dired."))
+
+
+;;; Initialization
 
 (defun slime-asdf-on-connect ()
   (slime-eval-async '(swank:swank-require :swank-asdf)))
