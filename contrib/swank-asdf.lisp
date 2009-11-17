@@ -9,6 +9,7 @@
 
 (in-package :swank)
 
+#-asdf
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :asdf))
 
@@ -65,12 +66,12 @@ already knows."
           :test #'string=))
 
 (defun asdf-module-files (module)
-  (mapcan #'(lambda (component)
-              (typecase component
-                (asdf:cl-source-file
-                 (list (asdf:component-pathname component)))
-                (asdf:module
-                 (asdf-module-files component))))
+  (mapcan (lambda (component)
+            (typecase component
+              (asdf:cl-source-file
+               (list (asdf:component-pathname component)))
+              (asdf:module
+               (asdf-module-files component))))
           (asdf:module-components module)))
 
 (defslimefun asdf-system-files (name)
@@ -92,10 +93,25 @@ already knows."
    (cl:truename
     (asdf:system-definition-pathname (asdf:find-system name)))))
 
+;;; This looks a little bit ugly, but it needs to be fast because
+;;; there can be many systems with many files
+(defun system-contains-file-p (module pathname pathname-name)
+  (dolist (component (asdf:module-components module))
+    (typecase component
+      (asdf:cl-source-file
+       (when (and (equal pathname-name
+                         (pathname-name
+                          (asdf:component-relative-pathname component)))
+                  (equal pathname (asdf:component-pathname component)))
+         (return t)))
+      (asdf:module
+       (system-contains-file-p component pathname pathname-name)))))
+
 (defslimefun asdf-determine-system (file)
-  (find-if (lambda (system)
-             (member file (asdf-system-files system)
-                     :test #'equal))
-           (list-all-systems-known-to-asdf)))
+  (loop with pathname = (pathname file)
+        with pathname-name = (pathname-name pathname)
+        for (nil . system) being the hash-value of asdf::*defined-systems*
+        when (system-contains-file-p system pathname pathname-name)
+        return (asdf:component-name system)))
 
 (provide :swank-asdf)

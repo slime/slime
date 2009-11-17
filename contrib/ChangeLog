@@ -1,3 +1,8 @@
+2009-11-17  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-asdf.lisp (asdf-determine-system): Rewritten to be much
+	faster and to cons less (and look ugly).
+
 2009-11-16  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-asdf.lisp (asdf-determine-system): New function for
