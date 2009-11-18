@@ -676,9 +676,10 @@ the interactions.
 The buffer @code{*inferior-lisp*} contains the Lisp process's own
 top-level. This direct access to Lisp is useful for troubleshooting,
 and some degree of @SLIME{} integration is available using the
-@code{inferior-slime-mode}. However, in normal use we recommend using
-the fully-integrated @SLIME{} @REPL{} (@pxref{REPL}) and ignoring the
-@code{*inferior-lisp*} buffer.
+inferior-slime-mode.  Many people load the better integrated @SLIME{}
+@REPL{} contrib module (@pxref{REPL}) and ignore
+the @code{*inferior-lisp*} buffer.  (@pxref{Loading Contribs} for
+information on how to enable the REPL.)
 
 @c ----------------------- 
 @node Multithreading
@@ -2125,6 +2126,22 @@ looks like:
 
 After starting SLIME, the commands of both packages should be
 available.
+
+The REPL and @code{slime-fancy} modules deserve special mention.  Many
+users consider the REPL (@pxref{REPL}) essential
+while @code{slime-fancy} (@pxref{slime-fancy}) loads the REPL and
+almost all of the popular contribs.  So, if you aren't sure what to
+choose start with:
+
+@example
+(slime-setup '(slime-repl)) ; repl only
+@end example
+
+If you like what you see try this:
+
+@example
+(slime-setup '(slime-fancy)) ; almost everything
+@end example
 
 @c ----------------------- 
 @node REPL

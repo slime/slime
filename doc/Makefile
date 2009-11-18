@@ -36,6 +36,12 @@ html/index.html: $(TEXI)
 html.tgz: html/index.html
 	tar -czf $@ html
 
+DOCDIR=/project/slime/public_html/doc
+# invoke this like: make CLUSER=heller publish
+publish: html.tgz
+	scp html.tgz $(CLUSER)@common-lisp.net:$(DOCDIR)
+	ssh $(CLUSER)@common-lisp.net "cd $(DOCDIR); tar -zxf html.tgz"
+
 slime.pdf: $(TEXI)
 	texi2pdf $<
 
