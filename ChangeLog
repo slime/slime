@@ -1,3 +1,10 @@
+2009-11-19  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el (slime-minibuffer-map): Nee `slime-read-expression-map'
+	(slime-minibuffer-history): Nee `slime-read-expression-history'
+	(slime-minibuffer-setup-hook): Extracted.
+	(slime-read-from-minibuffer): Adapted accordingly.
+
 2009-11-13  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (classify-symbol): Check fbound before calling fdefinition,

@@ -3743,7 +3743,7 @@ for the most recently enclosed macro or function."
             ((memq (char-before) '(?\t ?\ ))
              (slime-echo-arglist))))))
 
-(defvar slime-read-expression-map
+(defvar slime-minibuffer-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map minibuffer-local-map)
     (define-key map "\t" 'slime-complete-symbol)
@@ -3751,23 +3751,25 @@ for the most recently enclosed macro or function."
     map)
   "Minibuffer keymap used for reading CL expressions.")
 
-(defvar slime-read-expression-history '()
+(defvar slime-minibuffer-history '()
   "History list of expressions read from the minibuffer.")
  
-(defun slime-read-from-minibuffer (prompt &optional initial-value)
+(defun slime-minibuffer-setup-hook ()
+  (cons (lexical-let ((package (slime-current-package))
+                      (connection (slime-connection)))
+          (lambda ()
+            (setq slime-buffer-package package)
+            (setq slime-buffer-connection connection)
+            (set-syntax-table lisp-mode-syntax-table)))
+        minibuffer-setup-hook))
+
+(defun slime-read-from-minibuffer (prompt &optional initial-value history)
   "Read a string from the minibuffer, prompting with PROMPT.  
 If INITIAL-VALUE is non-nil, it is inserted into the minibuffer before
 reading input.  The result is a string (\"\" if no input was given)."
-  (let ((minibuffer-setup-hook 
-         (cons (lexical-let ((package (slime-current-package))
-                             (connection (slime-connection)))
-                 (lambda ()
-                   (setq slime-buffer-package package)
-                   (setq slime-buffer-connection connection)
-                   (set-syntax-table lisp-mode-syntax-table)))
-	       minibuffer-setup-hook)))
-    (read-from-minibuffer prompt initial-value slime-read-expression-map
-			  nil 'slime-read-expression-history)))
+  (let ((minibuffer-setup-hook (slime-minibuffer-setup-hook)))
+    (read-from-minibuffer prompt initial-value slime-minibuffer-map
+			  nil 'slime-minibuffer-history)))
 
 (defun slime-bogus-completion-alist (list)
   "Make an alist out of list.

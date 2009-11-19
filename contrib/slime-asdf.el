@@ -149,12 +149,14 @@ buffer's working directory"
 (defun slime-query-replace-system (name from to &optional delimited)
   "Run `query-replace' on an ASDF system."
   (interactive 
-   (let* ((system (slime-read-system-name nil nil t))
+   (let* ((minibuffer-setup-hook (slime-minibuffer-setup-hook))
+	  (minibuffer-local-map slime-minibuffer-map)
+	  (system (slime-read-system-name nil nil t))
           (common (query-replace-read-args 
                    (format "Query replace throughout `%s'" system) t t)))
      (list system (nth 0 common) (nth 1 common) (nth 2 common))))
   (tags-query-replace from to delimited 
-                      '(slime-eval `(swank:asdf-system-files ,name))))
+		      '(slime-eval `(swank:asdf-system-files ,name))))
 
 
 ;;; REPL shortcuts

@@ -1,3 +1,12 @@
+2009-11-19  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-asdf.el (slime-query-replace-system): Enable TAB
+	completion of symbol names.
+
+	* slime-fuzzy.el (slime-fuzzy-completions): Do not use
+	`slime-find-buffer-package' it's an internal operation of
+	`slime-current-buffer'.
+
 2009-11-17  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	M-x slime-isearch-system will run `isearch-forward' on all files
