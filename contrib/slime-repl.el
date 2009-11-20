@@ -896,7 +896,8 @@ If REGEXP is non-nil, only lines matching REGEXP are considered."
          (pos0 (cond ((slime-repl-history-search-in-progress-p)
                       slime-repl-input-history-position)
                      (t min-pos)))
-         (pos (slime-repl-position-in-history pos0 direction (or regexp "")))
+         (pos (slime-repl-position-in-history pos0 direction (or regexp "")
+                                              (slime-repl-current-input)))
          (msg nil))
     (cond ((and (< min-pos pos) (< pos max-pos))
            (slime-repl-replace-input (nth pos slime-repl-input-history))
@@ -922,9 +923,11 @@ If REGEXP is non-nil, only lines matching REGEXP are considered."
 (defun slime-repl-terminate-history-search ()
   (setq last-command this-command))
 
-(defun slime-repl-position-in-history (start-pos direction regexp)
-  "Return the position of the history item matching regexp.
-Return -1 resp. the length of the history if no item matches"
+(defun slime-repl-position-in-history (start-pos direction regexp
+                                       &optional exclude-string)
+  "Return the position of the history item matching REGEXP.
+Return -1 resp. the length of the history if no item matches.
+If EXCLUDE-STRING is specified then it's excluded from the search."
   ;; Loop through the history list looking for a matching line
   (let* ((step (ecase direction
                  (forward -1)
@@ -934,7 +937,10 @@ Return -1 resp. the length of the history if no item matches"
     (loop for pos = (+ start-pos step) then (+ pos step)
           if (< pos 0) return -1
           if (<= len pos) return len
-          if (string-match regexp (nth pos history)) return pos)))
+          for history-item = (nth pos history)
+          if (and (string-match regexp history-item)
+                  (not (equal history-item exclude-string)))
+          return pos)))
 
 (defun slime-repl-previous-input ()
   "Cycle backwards through input history.

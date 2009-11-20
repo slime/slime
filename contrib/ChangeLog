@@ -1,3 +1,10 @@
+2009-11-20  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-repl-position-in-history): Add new optional
+	parameter `exclude-string'.
+	(slime-repl-history-replace): Don't replace history item if it's exactly
+	matching the current input, search for the next match instead.
+
 2009-11-19  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-asdf.el (slime-query-replace-system): Enable TAB
