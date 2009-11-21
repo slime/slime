@@ -107,11 +107,23 @@ already knows."
       (asdf:module
        (system-contains-file-p component pathname pathname-name)))))
 
-(defslimefun asdf-determine-system (file)
-  (loop with pathname = (pathname file)
-        with pathname-name = (pathname-name pathname)
-        for (nil . system) being the hash-value of asdf::*defined-systems*
-        when (system-contains-file-p system pathname pathname-name)
-        return (asdf:component-name system)))
+(defslimefun asdf-determine-system (file buffer-package-name)
+  ;; First try to grovel through all defined systems to find a system
+  ;; which contains FILE.
+  (when file
+    (loop with pathname      = (pathname file)
+          with pathname-name = (pathname-name pathname)
+          for (nil . system) being the hash-value of asdf::*defined-systems*
+          when (system-contains-file-p system pathname pathname-name)
+            do (return-from asdf-determine-system
+                 (asdf:component-name system))))
+  ;; If we couldn't find a system by that, we now try if there's a
+  ;; system that's named like BUFFER-PACKAGE-NAME.
+  (let ((package (guess-buffer-package buffer-package-name)))
+    (dolist (name (package-names package))
+      (let ((system (asdf:find-system (string-downcase name) nil)))
+        (when system
+          (return-from asdf-determine-system
+            (asdf:component-name system)))))))
 
 (provide :swank-asdf)

@@ -1,3 +1,10 @@
+2009-11-21  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-asdf.lisp (asdf-determine-system): Also try to determine
+	the current system by looking at the buffer-package.
+
+	* slime-asdf (slime-read-system-name): Adapted accordingly.
+
 2009-11-20  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-repl-position-in-history): Add new optional

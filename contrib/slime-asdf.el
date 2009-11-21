@@ -38,7 +38,8 @@ in the directory of the current buffer."
          (system-names (slime-eval `(swank:list-asdf-systems)))
          (default-value (or default-value 
                             (if determine-default-accurately
-                                (slime-determine-asdf-system (buffer-file-name))
+                                (slime-determine-asdf-system (buffer-file-name)
+                                                             (slime-current-package))
                                 (slime-find-asd-file (or default-directory
                                                          (buffer-file-name))
                                                      system-names))))
@@ -61,9 +62,9 @@ in the directory of the current buffer."
           when (find candidate system-names :test #'string-equal)
             do (return candidate))))
 
-(defun slime-determine-asdf-system (filename)
+(defun slime-determine-asdf-system (filename buffer-package)
   "Try to determine the asdf system that `filename' belongs to."
-  (slime-eval `(swank:asdf-determine-system ,filename)))
+  (slime-eval `(swank:asdf-determine-system ,filename ,buffer-package)))
 
 (defun slime-oos (system operation &rest keyword-args)
   "Operate On System."
