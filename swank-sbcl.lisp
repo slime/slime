@@ -834,19 +834,22 @@ Return NIL if the symbol is unbound."
   
 #+#.(swank-backend::sbcl-with-xref-p)
 (progn
-  (defmacro defxref (name)
+  (defmacro defxref (name &optional fn-name)
     `(defimplementation ,name (what)
        (sanitize-xrefs   
         (mapcar #'source-location-for-xref-data
-                (,(find-symbol (symbol-name name) "SB-INTROSPECT")
+                (,(find-symbol (symbol-name (if fn-name
+                                                fn-name
+                                                name))
+                               "SB-INTROSPECT")
                   what)))))
   (defxref who-calls)
   (defxref who-binds)
   (defxref who-sets)
   (defxref who-references)
   (defxref who-macroexpands)
-  #+#.(swank-backend::with-symbol 'who-specializes 'sb-introspect)
-  (defxref who-specializes))
+  #+#.(swank-backend::with-symbol 'who-specializes-directly 'sb-introspect)
+  (defxref who-specializes who-specializes-directly))
 
 (defun source-location-for-xref-data (xref-data)
   (let ((name (car xref-data))

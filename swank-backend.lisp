@@ -951,11 +951,14 @@ output of CL:DESCRIBE."
      (:newline) (:newline)
      ,(with-output-to-string (desc) (describe object desc))))
 
+
 ;;; Utilities for inspector methods.
 ;;; 
+
 (defun label-value-line (label value &key (newline t))
   "Create a control list which prints \"LABEL: VALUE\" in the inspector.
 If NEWLINE is non-NIL a `(:newline)' is added to the result."
+  
   (list* (princ-to-string label) ": " `(:value ,value)
          (if newline '((:newline)) nil)))
 

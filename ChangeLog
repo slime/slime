@@ -1,3 +1,8 @@
+2009-11-21  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank-sbcl.lisp (who-specializes): Implement.
+	Requires SBCL 1.0.32.
+
 2009-11-19  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el (slime-minibuffer-map): Nee `slime-read-expression-map'
