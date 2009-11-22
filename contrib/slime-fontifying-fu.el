@@ -168,9 +168,10 @@ position, or nil."
     (goto-char beg)
     (inline (slime-beginning-of-tlf))
     (assert (not (plusp (nth 0 (slime-current-parser-state)))))
-    (setq beg (let ((pt (point))) 
-                (or (slime-search-directly-preceding-reader-conditional)
-                    pt)))
+    (setq beg (let ((pt (point)))
+                (cond ((> (- beg pt) 20000) beg)
+                      ((slime-search-directly-preceding-reader-conditional))
+                      (t pt))))
     (goto-char end)
     (while (search-backward-regexp slime-reader-conditionals-regexp beg t)
       (setq end (max end (save-excursion 

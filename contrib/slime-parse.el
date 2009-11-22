@@ -200,24 +200,27 @@ TARGET-POINT should always be placed just before a `?\('.)"
 	((eql (char-syntax (aref string 0)) ?\') string) ; "'(foo)", "#(foo)" &c
 	((not (eql (aref string 0) ?\()) string)         ; "foo"
 	(t                                               ; "(op arg1 arg2 ...)"
-	 (with-temp-buffer
-	   ;; Do NEVER ever try to activate `lisp-mode' here with
-	   ;; `slime-use-autodoc-mode' enabled, as this function is used
-	   ;; to compute the current autodoc itself.
-	   (set-syntax-table lisp-mode-syntax-table)
-	   (erase-buffer)
-	   (insert string)
-	   (goto-char (1+ (point-min)))
-	   (let ((subsexps))
-	     (while (condition-case nil 
-			(slime-point-moves-p (slime-forward-sexp))
-		      (scan-error nil)	; can't move any further
-		      (error t))        ; unknown feature expression etc.
-	       ;; We first move back for (FOO)'BAR where point is at
-	       ;; the quote character.
-	       (backward-sexp)
-	       (push (slime-sexp-at-point) subsexps)
-	       (forward-sexp))
+         (with-current-buffer (get-buffer-create " *slime-make-form-spec-buffer*")
+           ;; Do NEVER ever try to activate `lisp-mode' here with
+           ;; `slime-use-autodoc-mode' enabled, as this function is used
+           ;; to compute the current autodoc itself.
+           (set-syntax-table lisp-mode-syntax-table)
+           (erase-buffer)
+           (insert string)
+           (goto-char (1+ (point-min)))
+           (let ((subsexps)
+                 (end))
+             (while (condition-case nil 
+                        (slime-point-moves-p (slime-forward-sexp))
+                      (scan-error nil)  ; can't move any further
+                      (error t))        ; unknown feature expression etc.
+               ;; We first move back for (FOO)'BAR where point is at
+               ;; the quote character.
+               (setq end (point))               
+               (push (buffer-substring-no-properties 
+                      (save-excursion (backward-sexp) (point)) 
+                      end) 
+                     subsexps))
              (mapcar #'(lambda (s)
                          (assert (not (equal s string)))      
                          (slime-make-form-spec-from-string s))
@@ -331,7 +334,7 @@ characer syntax of `syntax'. If `unescaped' is true, it's ensured
 that the character is not escaped."
   (let ((char        (funcall get-char-fn (point)))
 	(char-before (funcall get-char-fn (1- (point)))))
-    (if (and char (eq (char-syntax char) (coerce syntax 'character)))
+    (if (and char (eq (char-syntax char) (aref syntax 0)))
 	(if unescaped
 	    (or (null char-before)
 		(not (eq (char-syntax char-before) ?\\)))
@@ -344,42 +347,45 @@ that the character is not escaped."
   ;; We assert this, because `slime-incomplete-form-at-point' blows up
   ;; inside a comment.
   (assert (not (slime-inside-string-or-comment-p)))
-  (save-excursion
-    (let ((suffix (list slime-cursor-marker)))
-      (cond ((slime-compare-char-syntax #'char-after "(" t)
-	     ;; We're at the start of some expression, so make sure
-	     ;; that SWANK::%CURSOR-MARKER% will come after that
-	     ;; expression.
-	     (ignore-errors (forward-sexp)))
-	    ((slime-compare-char-syntax #'char-before " " t)
-	     ;; We're after some expression, so we have to make sure
-	     ;; that %CURSOR-MARKER% does not come directly after that
-	     ;; expression.
-	     (push "" suffix))
-	    ((slime-compare-char-syntax #'char-before "(" t)
-	     ;; We're directly after an opening parenthesis, so we
-	     ;; have to make sure that something comes before
-	     ;; %CURSOR-MARKER%..
-	     (push "" suffix))
-	    (t
-	     ;; We're at a symbol, so make sure we get the whole symbol.
-	     (slime-end-of-symbol)))
-      (let ((forms '())
-	    (levels (or max-levels 5)))
-	(condition-case nil
-	    (let ((form (slime-incomplete-form-at-point)))
-	      (setq forms (list (nconc form suffix)))
-	      (up-list -1)
-	      (dotimes (i (1- levels))
-		(push (slime-incomplete-form-at-point) forms)
-		(up-list -1)))
-	  ;; At head of toplevel form.
-	  (scan-error nil))
-	(when forms
-	  ;; Squeeze list of forms into tree structure again
-	  (reduce #'(lambda (form tree)
-		      (nconc form (list tree)))
-		  forms :from-end t))))))
+  (save-restriction
+    ;; Don't parse more than 15000 characters before point, so we
+    ;; don't spend too much time.
+    (narrow-to-region (max (point-min) (- (point) 15000)) (point-max))
+    (save-excursion
+      (let ((suffix (list slime-cursor-marker)))
+        (cond ((slime-compare-char-syntax #'char-after "(" t)
+               ;; We're at the start of some expression, so make sure
+               ;; that SWANK::%CURSOR-MARKER% will come after that
+               ;; expression.
+               (ignore-errors (forward-sexp)))
+              ((slime-compare-char-syntax #'char-before " " t)
+               ;; We're after some expression, so we have to make sure
+               ;; that %CURSOR-MARKER% does not come directly after that
+               ;; expression.
+               (push "" suffix))
+              ((slime-compare-char-syntax #'char-before "(" t)
+               ;; We're directly after an opening parenthesis, so we
+               ;; have to make sure that something comes before
+               ;; %CURSOR-MARKER%..
+               (push "" suffix))
+              (t
+               ;; We're at a symbol, so make sure we get the whole symbol.
+               (slime-end-of-symbol)))
+        (let ((result-form '())
+              (levels (or max-levels 5)))
+          (condition-case nil
+              ;; We unroll the first iteration of the loop because
+              ;; `suffix' must be merged into the first form rather
+              ;; than onto.
+              (let ((form (slime-incomplete-form-at-point)))
+                (setq result-form (nconc form suffix))
+                (up-list -1)
+                (dotimes (i (1- levels))
+                  (let ((next (slime-incomplete-form-at-point)))
+                    (setq result-form (nconc next (list result-form))))
+                  (up-list -1)))
+            (scan-error nil)) ; At head of toplevel form.
+          result-form)))))
 
 
 (defun slime-ensure-list (thing)
@@ -470,3 +476,9 @@ that the character is not escaped."
 
 (provide 'slime-parse)
 
+(let ((byte-compile-warnings '()))
+  (mapc #'byte-compile
+        '(slime-make-form-spec-from-string
+          slime-parse-form-upto-point
+          slime-compare-char-syntax
+          )))
