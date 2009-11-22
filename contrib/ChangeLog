@@ -1,3 +1,15 @@
+2009-11-22  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-repl-history-remove-duplicates): New variable,
+	if set to T previous matching history entries are removed before
+	appending a new item. Default value is NIL.
+	(slime-repl-history-trim-whitespaces): New variable, when T remove
+	whitespaces at the beginning and end of a new history item.
+	Default value is NIL.
+	(slime-repl-add-to-input-history): Implement behaviour of the variables
+	above.
+	(slime-string-trim): New function, works like cl:string-trim.
+
 2009-11-22  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-fontifying-fu.el (slime-compute-region-for-font-lock): Set

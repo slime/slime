@@ -690,7 +690,7 @@ buffer."
 
 (defun slime-repl-return (&optional end-of-input)
   "Evaluate the current input string, or insert a newline.  
-Send the current input ony if a whole expression has been entered,
+Send the current input only if a whole expression has been entered,
 i.e. the parenthesis are matched. 
 
 With prefix argument send the input even if the parenthesis are not
@@ -865,16 +865,41 @@ earlier in the buffer."
   :type 'boolean
   :group 'slime-repl)
 
+(defcustom slime-repl-history-remove-duplicates nil
+  "*When T all duplicates are removed except the last one."
+  :type 'boolean
+  :group 'slime-repl)
+
+(defcustom slime-repl-history-trim-whitespaces nil
+  "*When T strip all whitespaces from the beginning and end."
+  :type 'boolean
+  :group 'slime-repl)
+
 (make-variable-buffer-local
  (defvar slime-repl-input-history '()
    "History list of strings read from the REPL buffer."))
 
+(defun slime-string-trim (character-bag string)
+  (flet ((find-bound (&optional from-end)
+           (position-if-not (lambda (char) (memq char character-bag))
+                            string :from-end from-end)))
+    (let ((start (find-bound))
+          (end (find-bound t)))
+      (if start
+          (subseq string start (1+ end))
+          ""))))
+
 (defun slime-repl-add-to-input-history (string)
   "Add STRING to the input history.
 Empty strings and duplicates are ignored."
-  (unless (or (equal string "")
-              (equal string (car slime-repl-input-history)))
-    (push string slime-repl-input-history)))
+  (when slime-repl-history-trim-whitespaces
+    (setq string (slime-string-trim '(?\n ?\ ?\t) string)))
+  (unless (equal string "")
+    (when slime-repl-history-remove-duplicates
+      (setq slime-repl-input-history
+            (remove string slime-repl-input-history)))
+    (unless (equal string (car slime-repl-input-history))
+      (push string slime-repl-input-history))))
 
 ;; These two vars contain the state of the last history search.  We
 ;; only use them if `last-command' was 'slime-repl-history-replace,
