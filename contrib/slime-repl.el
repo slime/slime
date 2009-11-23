@@ -992,12 +992,14 @@ See `slime-repl-previous-input'."
   (slime-repl-history-replace 'backward (slime-repl-history-pattern)))
 
 (defun slime-repl-previous-matching-input (regexp)
-  (interactive "sPrevious element matching (regexp): ")
+  (interactive (list (slime-read-from-minibuffer
+		      "Previous element matching (regexp): ")))
   (slime-repl-terminate-history-search)
   (slime-repl-history-replace 'backward regexp))
 
 (defun slime-repl-next-matching-input (regexp)
-  (interactive "sNext element matching (regexp): ")
+  (interactive (list (slime-read-from-minibuffer
+		      "Next element matching (regexp): ")))
   (slime-repl-terminate-history-search)
   (slime-repl-history-replace 'forward regexp))
 
