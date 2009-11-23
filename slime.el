@@ -1916,11 +1916,12 @@ This is automatically synchronized from Lisp.")
   ;; first command.
   (let ((slime-current-thread t))
     (slime-eval-async '(swank:connection-info)
-                    (slime-curry #'slime-set-connection-info proc))))
+                      (slime-curry #'slime-set-connection-info proc))))
 
 (defun slime-set-connection-info (connection info)
   "Initialize CONNECTION with INFO received from Lisp."
-  (let ((slime-dispatching-connection connection))
+  (let ((slime-dispatching-connection connection)
+        (slime-current-thread t))
     (destructuring-bind (&key pid style lisp-implementation machine
                               features package version modules
                               &allow-other-keys) info
