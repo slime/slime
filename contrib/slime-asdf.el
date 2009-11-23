@@ -1,8 +1,10 @@
 ;;; slime-asdf.el -- ASDF support
 ;;
-;; Authors: Daniel Barlow  <dan@telent.net>
-;;          Marco Baringer <mb@bese.it>
-;;          Edi Weitz <edi@agharta.de>
+;; Authors: Daniel Barlow       <dan@telent.net>
+;;          Marco Baringer      <mb@bese.it>
+;;          Edi Weitz           <edi@agharta.de>
+;;          Stas Boukarev       <stassats@gmail.com>
+;;          Tobias C Rittweiler <tcr@freebits.de>
 ;;          and others 
 ;; License: GNU GPL (same license as Emacs)
 ;;
@@ -130,7 +132,7 @@ buffer's working directory"
                   ((buffers-forward  (mapcar #'find-file-noselect files))
                    (buffers-backward (reverse buffers-forward)))
                 #'(lambda (current-buffer wrap)
-                    ;; Contrary to the the docstring of
+                    ;; Contrarily to the the docstring of
                     ;; `multi-isearch-next-buffer-function', the first
                     ;; arg is not necessarily a buffer. Report sent
                     ;; upstream. (2009-11-17)

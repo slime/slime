@@ -18,19 +18,21 @@
 Record compiler notes signalled as `compiler-condition's."
    (collect-notes
     (lambda ()
-      (apply #'operate-on-system system-name operation keywords)
-      t)))
+      (apply #'operate-on-system system-name operation keywords))))
 
 (defun operate-on-system (system-name operation-name &rest keyword-args)
   "Perform OPERATION-NAME on SYSTEM-NAME using ASDF.
 The KEYWORD-ARGS are passed on to the operation.
 Example:
 \(operate-on-system \"SWANK\" \"COMPILE-OP\" :force t)"
-  (with-compilation-hooks ()
-    (let ((operation (find-symbol operation-name :asdf)))
-      (when (null operation)
-        (error "Couldn't find ASDF operation ~S" operation-name))
-      (apply #'asdf:operate operation system-name keyword-args))))
+  (handler-case 
+      (with-compilation-hooks ()
+	(let ((operation (find-symbol operation-name :asdf)))
+	  (when (null operation)
+	    (error "Couldn't find ASDF operation ~S" operation-name))
+	  (apply #'asdf:operate operation system-name keyword-args)
+	  t))
+    (asdf:compile-error () nil)))
 
 (defun asdf-central-registry ()
   asdf:*central-registry*)
