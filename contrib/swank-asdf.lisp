@@ -93,19 +93,21 @@ already knows."
    (cl:truename
     (asdf:system-definition-pathname (asdf:find-system name)))))
 
-;;; This looks a little bit ugly, but it needs to be fast because
-;;; there can be many systems with many files
 (defun system-contains-file-p (module pathname pathname-name)
-  (dolist (component (asdf:module-components module))
-    (typecase component
-      (asdf:cl-source-file
-       (when (and (equal pathname-name
-                         (pathname-name
-                          (asdf:component-relative-pathname component)))
-                  (equal pathname (asdf:component-pathname component)))
-         (return t)))
-      (asdf:module
-       (system-contains-file-p component pathname pathname-name)))))
+  (some #'(lambda (component)
+	    (typecase component
+	      (asdf:cl-source-file 
+	       ;; We first compare the relative names because
+	       ;; retrieving the full pathname is somewhat costy; this
+	       ;; function is called a lot, and its performance
+	       ;; translates directly into response time to the user.
+	       (and (equal pathname-name
+			   (pathname-name
+			    (asdf:component-relative-pathname component)))
+		    (equal pathname (asdf:component-pathname component))))
+	      (asdf:module 
+	       (system-contains-file-p component pathname pathname-name))))
+	(asdf:module-components module)))
 
 (defslimefun asdf-determine-system (file buffer-package-name)
   ;; First try to grovel through all defined systems to find a system

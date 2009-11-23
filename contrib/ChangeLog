@@ -1,3 +1,9 @@
+2009-11-23  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-asdf.lisp (system-contains-file-p): Previous definition
+	didn't properly propagate positive return value of recursive
+	call. Fix that.
+
 2009-11-22  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-repl-history-remove-duplicates): New variable,
