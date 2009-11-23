@@ -1,5 +1,13 @@
 2009-11-23  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-asdf.el (slime-rgrep-system): Conditionalize on whether
+	`rgrep' is available (it isn't on Emacs 21.) Also make sure to
+	call `grep-compute-defaults' before `grep-read-regexp' because the
+	former does some necessary setup. (Seems to be of a problem on
+	Emacs from CVS.)
+
+2009-11-23  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-repl.el (slime-repl-previous-matching-input)
 	(slime-repl-next-matching-input): Read input by means of
 	`slime-read-from-minibuffer' so TAB will complete symbols for us.

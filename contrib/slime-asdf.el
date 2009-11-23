@@ -114,15 +114,19 @@ buffer's working directory"
      (when directory
        (dired directory)))))
 
-(defun slime-rgrep-system (sys-name regexp)
-  "Run `rgrep' on the base directory of an ASDF system."
-  (interactive (list (slime-read-system-name nil nil t)
-                     (grep-read-regexp)))
-  (rgrep regexp "*.lisp"
-         (slime-eval `(swank:asdf-system-directory ,sys-name))))
+(if (fboundp 'rgrep)
+    (defun slime-rgrep-system (sys-name regexp)
+      "Run `rgrep' on the base directory of an ASDF system."
+      (interactive (progn (grep-compute-defaults)
+                          (list (slime-read-system-name nil nil t)
+                                (grep-read-regexp))))
+      (rgrep regexp "*.lisp"
+             (slime-eval `(swank:asdf-system-directory ,sys-name))))
+    (defun slime-rgrep-system ()
+      (interactive)
+      (error "This command is only supported on GNU Emacs >21.x.")))
 
 (if (boundp 'multi-isearch-next-buffer-function)
-
     (defun slime-isearch-system (sys-name)
       "Run `isearch-forward' on the files of an ASDF system."
       (interactive (list (slime-read-system-name nil nil t)))
@@ -144,7 +148,6 @@ buffer's working directory"
                           (car buffers)
                           (second (memq current-buffer buffers))))))))
         (isearch-forward)))
-
     (defun slime-isearch-system ()
       (interactive)
       (error "This command is only supported on GNU Emacs >23.1.x.")))
