@@ -1,3 +1,23 @@
+2009-11-24  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Fix a few edge cases in new arglist code.
+
+	* slime-parse.el (slime-parse-form-upto-point): Regard
+	beginning-of-line as whitespace, and DTRT.
+
+	* swank-arglists.lisp (empty-arg-p): Input may not only be an
+	arglist-dummy.
+	(print-decoded-arglist-as-template): Do not print superfluuous
+	newline before &body.
+	(arglist-for-echo-area): Catch errors.
+	(find-subform-with-arglist): Deal properly with NIL as argument.
+	(find-immediately-containing-arglist): Do not erroneously complete
+	form with an unsuited arglist of the parent form.
+	(last-arg): New helper.
+	(arglist-path-to-nested-arglist): Use it.
+
+	Reported by Ariel Badichi.
+
 2009-11-23  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-asdf.el (slime-rgrep-system): Conditionalize on whether

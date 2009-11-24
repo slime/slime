@@ -159,7 +159,8 @@ Otherwise NIL is returned."
   string-representation)
 
 (defun empty-arg-p (dummy)
-  (zerop (length (arglist-dummy.string-representation dummy))))
+  (and (arglist-dummy-p dummy)
+       (zerop (length (arglist-dummy.string-representation dummy)))))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -362,12 +363,10 @@ Otherwise NIL is returned."
             (pprint-newline :linear))
           (&any (arg)
             (space) (print-arg-or-pattern arg))
-          (&rest (args body-p)
+          (&rest (args)
             (when (or (not (arglist.keyword-args decoded-arglist))
                       (arglist.allow-other-keys-p decoded-arglist))
-              (if body-p
-                  (pprint-newline :mandatory)
-                  (space))
+              (space)
               (format t "~A..." args))))))))
 
 (defvar *arglist-pprint-bindings*
@@ -1053,7 +1052,7 @@ If the arglist is not available, return :NOT-AVAILABLE."))
   
 (defslimefun variable-desc-for-echo-area (variable-name)
   "Return a short description of VARIABLE-NAME, or NIL."
-    (with-buffer-syntax ()
+  (with-buffer-syntax ()
     (let ((sym (parse-symbol variable-name)))
       (if (and sym (boundp sym))
           (let ((*print-pretty* t) (*print-level* 4)
@@ -1088,26 +1087,34 @@ If the arglist is not available, return :NOT-AVAILABLE."))
   "Return a string representing the arglist for the deepest subform in
 RAW-FORM that does have an arglist. The highlighted parameter is
 wrapped in ===> X <===."
-  (with-buffer-syntax ()
-    (multiple-value-bind (form arglist)
-        (find-subform-with-arglist (parse-raw-form raw-form))
-      (with-available-arglist (arglist) arglist
-        (destructuring-bind (operator . args) form
-          (decoded-arglist-to-string
-           arglist
-           :print-right-margin print-right-margin
-           :print-lines print-lines
-           :operator operator
-           :highlight (arglist-path-to-parameter arglist args)))))))
+  (handler-case
+      (with-buffer-syntax ()
+        (multiple-value-bind (form arglist)
+            (find-subform-with-arglist (parse-raw-form raw-form))
+          (with-available-arglist (arglist) arglist
+            (destructuring-bind (operator . args) form
+              (decoded-arglist-to-string
+               arglist
+               :print-right-margin print-right-margin
+               :print-lines print-lines
+               :operator operator
+               :highlight (arglist-path-to-parameter arglist args))))))
+    (serious-condition (c)
+      (let ((*print-right-margin* print-right-margin)
+            (*print-lines* print-lines))
+        (format nil "Arglist Error: \"~A\"" c)))))
 
 (defslimefun complete-form (raw-form)
-    "Read FORM-STRING in the current buffer package, then complete it
+  "Read FORM-STRING in the current buffer package, then complete it
   by adding a template for the missing arguments."
-    (with-buffer-syntax ()
+  ;; We do not catch errors here because COMPLETE-FORM is an
+  ;; interactive command, not automatically run in the background like
+  ;; ARGLIST-FOR-ECHO-AREA.
+  (with-buffer-syntax ()
     (multiple-value-bind (arglist provided-args)
         (find-immediately-containing-arglist (parse-raw-form raw-form))
       (with-available-arglist (arglist) arglist
-        (decoded-arglist-to-template-string 
+        (decoded-arglist-to-template-string
          (delete-given-args arglist 
                             (remove-if #'empty-arg-p provided-args
                                        :from-end t :count 1))
@@ -1142,8 +1149,8 @@ to the context provided by RAW-FORM."
 (defparameter +cursor-marker+ '%cursor-marker%)
 
 (defun find-subform-with-arglist (form)
-  "Returns two values: the appropriate subform of FORM which is
-closest to the +CURSOR-MARKER+ and whose operator is valid and has an
+  "Returns two values: the appropriate subform of FORM which is close
+to the +CURSOR-MARKER+ and whose operator is valid and has an
 arglist. Second value is the arglist. The +CURSOR-MARKER+ is removed
 from the subform returned.
 
@@ -1192,28 +1199,49 @@ FORM into account."
                (t
                 (multiple-value-or (grovel-form last-subform local-ops)
                                    (yield form local-ops))))))))
-    (grovel-form form '())))
+    (if (null form)
+        (values nil :not-available)
+        (grovel-form form '()))))
 
 (defun extract-local-op-arglists (form)
   ;; FIXME: Take recursive scope of LABELS into account.
-  (if (null (cddr form))
-      nil
-      (loop for (name arglist . nil) in (second form)
-            when arglist
-              collect (cons name arglist))))
+  (cond ((null (cddr form)) nil)        ; `(flet ((foo (x) |'
+        ((atom (second form)) nil)      ; `(flet ,foo (|'
+        (t
+         (let* ((defs (second form))
+                (defs (remove-if-not #'(lambda (x)
+                                        ;; Well-formed FLET/LABELS def?
+                                        (and (consp x) (second x)))
+                                    defs)))
+           (loop for (name arglist . nil) in defs
+                 collect (cons name arglist))))))
 
 (defun find-immediately-containing-arglist (form)
-  "Returns the arglist closest to +CURSOR-MARKER+ in form. This may be
-an implicit, nested arglist; e.g. on (WITH-OPEN-FILE (X))."
+  "Returns the arglist of the form immediately containing
++CURSOR-MARKER+ in form. Notice, however, as +CURSOR-MARKER+ may be in
+a nested arglist \(e.g. `(WITH-OPEN-FILE (|'\), the appropriate parent
+form may in fact be considered."
   (multiple-value-bind (form arglist) (find-subform-with-arglist form)
     (if (eql arglist :not-available)
         (values :not-available nil)
-        (destructuring-bind (operator . args) form
-          (declare (ignore operator))
-          (let* ((path (arglist-path-to-nested-arglist arglist args))
-                 (argl (apply #'arglist-ref arglist path))
-                 (args (apply #'provided-arguments-ref args arglist path)))
-            (values argl args))))))
+        (let ((provided-args (cdr form)))
+          (multiple-value-bind (last-arg last-provd-arg)
+              (last-arg arglist provided-args)
+            (cond
+              ;; Are we stuck in a nested arglist?
+              ((and (arglist-p last-arg) (listp last-provd-arg))
+               (let* ((path (arglist-path-to-nested-arglist arglist provided-args))
+                      (argl (apply #'arglist-ref arglist path))
+                      (args (apply #'provided-arguments-ref
+                                   provided-args arglist path)))
+                 (values argl args)))
+              ;; We aren't in a nested arglist, so we couldn't
+              ;; actually find any arglist for the form that the
+              ;; cursor is immediately contained in.
+              ((consp last-provd-arg)
+               (values :not-available nil))
+              (t
+               (values arglist provided-args))))))))
 
 (defun arglist-path-to-parameter (arglist provided-args)
   "Returns a path to the arglist parameter that the last argument in
@@ -1223,17 +1251,21 @@ PROVIDED-ARGS would take up on application."
          (provided-arg (apply #'provided-arguments-ref provided-args arglist path)))
     (nconc path (list (compute-arglist-index argl provided-arg)))))
 
-
 (defun arglist-path-to-nested-arglist (arglist provided-args)
   "Returns a path to the (nested) arglist that still contains the last
 argument in PROVIDED-ARGS."
+  (multiple-value-bind (last-arg last-provd-arg idx)
+      (last-arg arglist provided-args)
+    (if (and (arglist-p last-arg) (listp last-provd-arg))
+        (cons idx (arglist-path-to-nested-arglist last-arg last-provd-arg))
+        nil)))
+
+(defun last-arg (arglist provided-args)
   (let ((idx (compute-arglist-index arglist provided-args)))
     (when idx
-      (let ((arg (arglist-ref arglist idx))
-            (provided-arg (provided-arguments-ref provided-args arglist idx)))
-        (if (and (arglist-p arg) (listp provided-arg))
-            (cons idx (arglist-path-to-nested-arglist arg provided-arg))
-            nil)))))
+      (values (arglist-ref arglist idx)
+              (provided-arguments-ref provided-args arglist idx)
+              idx))))
 
 (defun compute-arglist-index (arglist provided-args)
   "Returns the index of ARGLIST pertaining to the last argument in

@@ -358,7 +358,7 @@ that the character is not escaped."
                ;; that SWANK::%CURSOR-MARKER% will come after that
                ;; expression.
                (ignore-errors (forward-sexp)))
-              ((slime-compare-char-syntax #'char-before " " t)
+              ((or (bolp) (slime-compare-char-syntax #'char-before " " t))
                ;; We're after some expression, so we have to make sure
                ;; that %CURSOR-MARKER% does not come directly after that
                ;; expression.
