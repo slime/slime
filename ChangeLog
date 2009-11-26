@@ -1,3 +1,10 @@
+2009-11-26  Mark Evenson  <evenson@panix.com>>
+
+	* swank-abcl.lisp (arglist):  Fixes for functions with non-nil
+	arglist and for generic functions with empty argument lists.
+
+	Contributed by Matthias.
+
 2009-11-23  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-set-connection-info): Set slime-current-thread to t

@@ -229,13 +229,16 @@
 
 (defimplementation arglist (fun)
   (cond ((symbolp fun)
-         (multiple-value-bind (arglist present) 
-             (or (sys::arglist fun)
-                 (and (fboundp fun)
-                      (typep (symbol-function fun) 'standard-generic-function)
-                      (let ((it (mop::generic-function-lambda-list (symbol-function fun))))
-                        (values it it))))
-           (if present arglist :not-available)))
+          (multiple-value-bind (arglist present) 
+              (sys::arglist fun)
+            (when (and (not present)
+                       (fboundp fun)
+                       (typep (symbol-function fun) 'standard-generic-function))
+              (setq arglist
+                    (mop::generic-function-lambda-list (symbol-function fun))
+                    present
+                    t))
+            (if present arglist :not-available)))
         (t :not-available)))
 
 (defimplementation function-name (function)
