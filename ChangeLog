@@ -3,7 +3,7 @@
 	* swank-abcl.lisp (arglist):  Fixes for functions with non-nil
 	arglist and for generic functions with empty argument lists.
 
-	Contributed by Matthias.
+	Diagnosed and cured by Matthias Hölzl.
 
 2009-11-23  Stas Boukarev  <stassats@gmail.com>
 
