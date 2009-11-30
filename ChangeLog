@@ -1,3 +1,16 @@
+2009-11-30  Helmut Eller  <heller@common-lisp.net>
+
+	Add a slime-editing-map as suggested by Attila Lendvai.  The main
+	purpose it's to create a keymap that's shared by the REPL and
+	other modes so that adding custom bindings get's a bit easier.
+
+	* slime.el (slime-editing-map, slime-mode-indirect-map): New variables.
+	(slime-init-keymaps): Clear out any existing bindings before
+	building the new keymaps.
+	(slime-init-keymap): New helper.
+	(slime-bind-keys): Renamed&extended from
+	slime-define-both-key-bindings.
+
 2009-11-26  Mark Evenson  <evenson@panix.com>>
 
 	* swank-abcl.lisp (arglist):  Fixes for functions with non-nil

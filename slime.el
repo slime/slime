@@ -375,6 +375,11 @@ PROPERTIES specifies any default face properties."
 
 ;;;;; slime-mode
 
+(defvar slime-mode-indirect-map (make-sparse-keymap)
+  "Empty keymap which has `slime-mode-map' as it's parent.
+This is a hack so that we can reinitilize the real slime-mode-map
+more easily. See `slime-init-keymaps'.")
+
 (define-minor-mode slime-mode
   "\\<slime-mode-map>\
 SLIME: The Superior Lisp Interaction Mode for Emacs (minor-mode).
@@ -408,8 +413,7 @@ Full set of commands:
 \\{slime-mode-map}"
   nil
   nil
-  ;; Fake binding to coax `define-minor-mode' to create the keymap
-  '((" " 'undefined))
+  slime-mode-indirect-map
   (slime-setup-command-hooks)
   (slime-recompute-modelines))
 
@@ -473,7 +477,7 @@ information."
 
 ;;;;; Key bindings
 
-(defvar slime-parent-map (make-sparse-keymap)
+(defvar slime-parent-map nil
   "Parent keymap for shared between all Slime related modes.")
 
 (defvar slime-parent-bindings
@@ -488,7 +492,7 @@ information."
     ;; Include PREFIX keys...
     ("\C-c"	 slime-prefix-map)))
 
-(defvar slime-prefix-map (make-sparse-keymap)
+(defvar slime-prefix-map nil
   "Keymap for commands prefixed with `slime-prefix-key'.")
 
 (defvar slime-prefix-bindings
@@ -511,8 +515,10 @@ information."
     ("\C-w"  slime-who-map)
     ))
 
-;;; These keys are useful for buffers where the user can insert and
-;;; edit s-exprs, e.g. for source buffers and the REPL.
+(defvar slime-editing-map nil
+  "These keys are useful for buffers where the user can insert and
+edit s-exprs, e.g. for source buffers and the REPL.")
+
 (defvar slime-editing-keys
   `(;; Arglist display & completion
     ("\M-\t"      slime-complete-symbol)
@@ -532,23 +538,24 @@ information."
     ;;("\M-*" pop-tag-mark) ; almost to clever
     ))
 
+(defvar slime-mode-map nil
+  "Keymap for slime-mode.")
+
 (defvar slime-keys
-  (append slime-editing-keys
-          '( ;; Compiler notes
-            ("\M-p"       slime-previous-note)
-            ("\M-n"       slime-next-note)
-            ("\C-c\M-c"   slime-remove-notes)
-            ("\C-c\C-k"   slime-compile-and-load-file)
-            ("\C-c\M-k"   slime-compile-file)
-            ("\C-c\C-c"   slime-compile-defun)
-            )))
+  '( ;; Compiler notes
+    ("\M-p"       slime-previous-note)
+    ("\M-n"       slime-next-note)
+    ("\C-c\M-c"   slime-remove-notes)
+    ("\C-c\C-k"   slime-compile-and-load-file)
+    ("\C-c\M-k"   slime-compile-file)
+    ("\C-c\C-c"   slime-compile-defun)))
 
 (defun slime-nop ()
   "The null command. Used to shadow currently-unused keybindings."
   (interactive)
   (call-interactively 'undefined))
 
-(defvar slime-doc-map (make-sparse-keymap)
+(defvar slime-doc-map nil
   "Keymap for documentation commands. Bound to a prefix key.")
 
 (defvar slime-doc-bindings
@@ -561,7 +568,7 @@ information."
     (?~ common-lisp-hyperspec-format)
     (?# common-lisp-hyperspec-lookup-reader-macro)))
   
-(defvar slime-who-map (make-sparse-keymap)
+(defvar slime-who-map nil
   "Keymap for who-xref commands. Bound to a prefix key.")
 
 (defvar slime-who-bindings
@@ -576,31 +583,30 @@ information."
 (defun slime-init-keymaps ()
   "(Re)initialize the keymaps for `slime-mode'."
   (interactive)
-  ;; Documentation
-  (define-prefix-command 'slime-doc-map)
-  (slime-define-both-key-bindings slime-doc-map slime-doc-bindings)
-  ;; Who-xref
-  (define-prefix-command 'slime-who-map)
-  (slime-define-both-key-bindings slime-who-map slime-who-bindings)
-  ;; Prefix map
-  (define-prefix-command 'slime-prefix-map)
-  (loop for (key binding) in slime-prefix-bindings
-        do (define-key slime-prefix-map key binding))
-  ;; Parent map
-  (setq slime-parent-map (make-sparse-keymap))
-  (loop for (key binding) in slime-parent-bindings
-        do (define-key slime-parent-map key binding))
-  ;; Slime mode map
-  (set-keymap-parent slime-mode-map slime-parent-map)
-  (loop for (key command) in slime-keys
-        do (define-key slime-mode-map key command)))
+  (slime-init-keymap 'slime-doc-map t t slime-doc-bindings)
+  (slime-init-keymap 'slime-who-map t t slime-who-bindings)
+  (slime-init-keymap 'slime-prefix-map t nil slime-prefix-bindings)
+  (slime-init-keymap 'slime-parent-map nil nil slime-parent-bindings)
+  (slime-init-keymap 'slime-editing-map nil nil slime-editing-keys)
+  (set-keymap-parent slime-editing-map slime-parent-map)
+  (slime-init-keymap 'slime-mode-map nil nil slime-keys)
+  (set-keymap-parent slime-mode-map slime-editing-map)
+  (set-keymap-parent slime-mode-indirect-map slime-mode-map))
 
-(defun slime-define-both-key-bindings (keymap bindings)
-  "Add BINDINGS to KEYMAP, both unmodified and with control."
-  (loop for (char command) in bindings do
-        (define-key keymap `[,char] command)
-        (unless (equal char ?h)     ; But don't bind C-h
-          (define-key keymap `[(control ,char)] command))))
+(defun slime-init-keymap (keymap-name prefixp bothp bindings)
+  (set keymap-name (make-sparse-keymap))
+  (when prefixp (define-prefix-command keymap-name))
+  (slime-bind-keys (eval keymap-name) bothp bindings))
+
+(defun slime-bind-keys (keymap bothp bindings)
+  "Add BINDINGS to KEYMAP.
+If BOTHP is true also add bindings with control modifier."
+  (loop for (key command) in bindings do
+        (cond (bothp
+               (define-key keymap `[,key] command)
+               (unless (equal key ?h)     ; But don't bind C-h
+                 (define-key keymap `[(control ,key)] command)))
+              (t (define-key keymap key command)))))
 
 (slime-init-keymaps)
 
