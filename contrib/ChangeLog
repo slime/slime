@@ -1,3 +1,8 @@
+2009-11-30  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-presentations.el (slime-presentation-init-keymaps):
+	Replace slime-define-both-key-bindings with slime-bind-keys.
+
 2009-11-24  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	Fix a few edge cases in new arglist code.

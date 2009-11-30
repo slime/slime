@@ -694,8 +694,7 @@ output; otherwise the new input is appended."
 
 (defun slime-presentation-init-keymaps ()
   (setq slime-presentation-command-map (make-sparse-keymap))
-  (slime-define-both-key-bindings slime-presentation-command-map 
-				  slime-presentation-bindings)
+  (slime-bind-keys slime-presentation-command-map t slime-presentation-bindings)
   (define-key slime-presentation-command-map "\M-o" 'slime-clear-presentations)
   ;; C-c C-v is the prefix for the presentation-command map.
   (define-key slime-prefix-map "\C-v" slime-presentation-command-map))
