@@ -1,5 +1,9 @@
 2009-11-30  Helmut Eller  <heller@common-lisp.net>
 
+	* slime-repl.el (slime-repl-mode-map): Don't copy
+	slime-parent-map.  Instead ...
+	(slime-repl-mode): ... enable slime-editing-mode.
+
 	* slime-presentations.el (slime-presentation-init-keymaps):
 	Replace slime-define-both-key-bindings with slime-bind-keys.
 	(slime-presentation-init-keymaps): Use slime-init-keymap.

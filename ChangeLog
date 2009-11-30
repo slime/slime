@@ -11,6 +11,9 @@
 	(slime-bind-keys): Renamed&extended from
 	slime-define-both-key-bindings.
 
+	* slime.el (slime-editing-mode): New minor mode for use
+	in the REPL.
+
 2009-11-26  Mark Evenson  <evenson@panix.com>>
 
 	* swank-abcl.lisp (arglist):  Fixes for functions with non-nil

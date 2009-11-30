@@ -610,6 +610,13 @@ If BOTHP is true also add bindings with control modifier."
 
 (slime-init-keymaps)
 
+(define-minor-mode slime-editing-mode
+  "Minor mode which makes slime-editing-map available.
+\\{slime-editing-map}"
+  nil
+  nil
+  slime-editing-map)
+
 
 ;;;; Setup initial `slime-mode' hooks
 

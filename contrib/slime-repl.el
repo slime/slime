@@ -411,14 +411,10 @@ joined together."))
 
 ;;;;; REPL mode setup
 
-(defvar slime-repl-mode-map)
-
-(let ((map (copy-keymap slime-parent-map)))
-  (set-keymap-parent map lisp-mode-map)
-  (setq slime-repl-mode-map (make-sparse-keymap))
-  (set-keymap-parent slime-repl-mode-map map)
-  (loop for (key command) in slime-editing-keys
-        do (define-key slime-repl-mode-map key command)))
+(defvar slime-repl-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map lisp-mode-map)
+    map))
 
 (slime-define-keys slime-prefix-map
   ("\C-z" 'slime-switch-to-output-buffer)
@@ -493,6 +489,7 @@ joined together."))
        'slime-repl-mode-beginning-of-defun)
   (set (make-local-variable 'end-of-defun-function) 
        'slime-repl-mode-end-of-defun)
+  (slime-editing-mode 1)
   (slime-run-mode-hooks 'slime-repl-mode-hook))
 
 (defun slime-repl-buffer (&optional create connection)
