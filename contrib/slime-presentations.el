@@ -680,7 +680,7 @@ output; otherwise the new input is appended."
 
 ;;; Presentation-related key bindings, non-context menu
 
-(defvar slime-presentation-command-map (make-sparse-keymap)
+(defvar slime-presentation-command-map nil
   "Keymap for presentation-related commands. Bound to a prefix key.")
 
 (defvar slime-presentation-bindings
@@ -693,8 +693,8 @@ output; otherwise the new input is appended."
     (?\  slime-mark-presentation)))
 
 (defun slime-presentation-init-keymaps ()
-  (setq slime-presentation-command-map (make-sparse-keymap))
-  (slime-bind-keys slime-presentation-command-map t slime-presentation-bindings)
+  (slime-init-keymap 'slime-presentation-command-map nil t 
+		     slime-presentation-bindings)
   (define-key slime-presentation-command-map "\M-o" 'slime-clear-presentations)
   ;; C-c C-v is the prefix for the presentation-command map.
   (define-key slime-prefix-map "\C-v" slime-presentation-command-map))

@@ -2,6 +2,7 @@
 
 	* slime-presentations.el (slime-presentation-init-keymaps):
 	Replace slime-define-both-key-bindings with slime-bind-keys.
+	(slime-presentation-init-keymaps): Use slime-init-keymap.
 
 2009-11-24  Tobias C. Rittweiler  <tcr@freebits.de>
 
