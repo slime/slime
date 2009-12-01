@@ -77,13 +77,16 @@ already knows."
           (asdf:module-components module)))
 
 (defslimefun asdf-system-files (name)
-  (let* ((files (mapcar #'namestring
-                        (asdf-module-files (asdf:find-system name))))
+  (let* ((system (asdf:find-system name))
+         (files (mapcar #'namestring
+                        (cons
+                         (asdf:system-definition-pathname system)
+                         (asdf-module-files system))))
          (main-file (find name files
-                          :test #'string-equal
-                          :key #'pathname-name)))
+                          :test #'equalp :key #'pathname-name :start 1)))
     (if main-file
-        (cons main-file (remove main-file files :test #'equalp))
+        (cons main-file (remove main-file files
+                                :test #'equal :count 1))
         files)))
 
 (defslimefun asdf-system-loaded-p (name)
