@@ -70,7 +70,7 @@ already knows."
 (defun asdf-module-files (module)
   (mapcan (lambda (component)
             (typecase component
-              (asdf:cl-source-file
+              (asdf:source-file
                (list (asdf:component-pathname component)))
               (asdf:module
                (asdf-module-files component))))

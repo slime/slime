@@ -1,6 +1,7 @@
 2009-12-01  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-asdf.lisp (asdf-system-files): Include the .asd file too.
+	(asdf-module-files): Include non-cl files too.
 
 2009-11-30  Helmut Eller  <heller@common-lisp.net>
 
