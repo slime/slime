@@ -1,3 +1,9 @@
+2009-12-02  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-sbcl.lisp (frame-locals): `frame-debug-vars' can return NIL,
+	so check before using it as a vector.
+	Patch by Nathan Bird.
+
 2009-11-30  Helmut Eller  <heller@common-lisp.net>
 
 	Add a slime-editing-map as suggested by Attila Lendvai.  The main

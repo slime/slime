@@ -1142,10 +1142,11 @@ stack."
   (let* ((frame (nth-frame index))
 	 (loc (sb-di:frame-code-location frame))
 	 (vars (frame-debug-vars frame)))
-    (loop for v across vars collect
-          (list :name (sb-di:debug-var-symbol v)
-                :id (sb-di:debug-var-id v)
-                :value (debug-var-value v frame loc)))))
+    (when vars
+      (loop for v across vars collect
+            (list :name (sb-di:debug-var-symbol v)
+                  :id (sb-di:debug-var-id v)
+                  :value (debug-var-value v frame loc))))))
 
 (defimplementation frame-var-value (frame var)
   (let* ((frame (nth-frame frame))
