@@ -189,6 +189,7 @@ If LOAD is true, load the fasl file."
                      swank-presentations swank-presentation-streams
                      #+(or asdf sbcl) swank-asdf
                      swank-package-fu
+                     swank-hyperdoc
                      swank-sbcl-exts
                      )
   "List of names for contrib modules.")

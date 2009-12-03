@@ -564,7 +564,7 @@ edit s-exprs, e.g. for source buffers and the REPL.")
     (?p slime-apropos-package)
     (?d slime-describe-symbol)
     (?f slime-describe-function)
-    (?h slime-hyperspec-lookup)
+    (?h slime-documentation-lookup)
     (?~ common-lisp-hyperspec-format)
     (?# common-lisp-hyperspec-lookup-reader-macro)))
   
@@ -4528,6 +4528,14 @@ If PACKAGE is NIL, then search in all packages."
 
 ;;;; Documentation
 
+(defvar slime-documentation-lookup-function 
+  'slime-hyperspec-lookup)
+
+(defun slime-documentation-lookup ()
+  "Generalized documentation lookup. Defaults to hyperspec lookup."
+  (interactive)
+  (call-interactively slime-documentation-lookup-function))
+
 (defun slime-hyperspec-lookup (symbol-name)
   "A wrapper for `hyperspec-lookup'"
   (interactive (list (let* ((symbol-at-point (slime-symbol-at-point))
@@ -6895,6 +6903,7 @@ is setup, unless the user already set one explicitly."
        [ "Reset Counters"          slime-profile-reset ,C ])
       ("Documentation"
        [ "Describe Symbol..."      slime-describe-symbol ,C ]
+       [ "Lookup Documentation..." slime-documentation-lookup t ]
        [ "Apropos..."              slime-apropos ,C ]
        [ "Apropos all..."          slime-apropos-all ,C ]
        [ "Apropos Package..."      slime-apropos-package ,C ]
@@ -6961,7 +6970,7 @@ is setup, unless the user already set one explicitly."
                 (slime-next-note "Next compiler note")
                 (slime-previous-note "Previous compiler note")
                 (slime-remove-notes "Remove notes")
-                slime-hyperspec-lookup))
+                slime-documentation-lookup))
     (:title "Completion"
      :map slime-mode-map
      :bindings (slime-indent-and-complete-symbol

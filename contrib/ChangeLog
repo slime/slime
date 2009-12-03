@@ -1,5 +1,11 @@
 2009-12-03  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	http://common-lisp.net/project/hyperdoc/
+
+	* slime-hyperdoc.el, swank-hyperdoc.lisp: New contrib.
+
+2009-12-03  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank-arglists.lisp (arglist-available-p): New helper.
 	(arglist-dispatch [eql 'declaim]): New.
 	(arglist-dispatch [eql 'declare]): First try to lookup arglist of
