@@ -161,7 +161,9 @@ buffer's working directory"
           (common (query-replace-read-args 
                    (format "Query replace throughout `%s'" system) t t)))
      (list system (nth 0 common) (nth 1 common) (nth 2 common))))
-  (tags-query-replace from to delimited 
+  ;; `tags-query-replace' actually uses `query-replace-regexp'
+  ;; internally.
+  (tags-query-replace (regexp-quote from) to delimited
 		      '(slime-eval `(swank:asdf-system-files ,name))))
 
 

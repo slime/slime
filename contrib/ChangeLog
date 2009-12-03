@@ -1,3 +1,11 @@
+2009-12-03  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-asdf.el (slime-query-replace-regexp): Quote `from'
+	argument because `tags-query-replace' actually uses
+	`query-replace-regexp' internally.
+
+	Reported by David O'Toole.
+
 2009-12-01  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-asdf.lisp (asdf-system-files): Include the .asd file too.
