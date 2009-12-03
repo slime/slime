@@ -68,7 +68,7 @@ Otherwise NIL is returned."
   (or (fboundp symbol)
       (macro-function symbol)
       (special-operator-p symbol)
-      (eq symbol 'declare)))
+      (member symbol '(declare declaim))))
 
 (defun valid-operator-name-p (string)
   "Is STRING the name of a function, macro, or special-operator?"
@@ -95,11 +95,14 @@ Otherwise NIL is returned."
               (values-list values)
               (multiple-value-or ,@rest))))))
 
+(defun arglist-available-p (arglist)
+  (not (eql arglist :not-available)))
+
 (defmacro with-available-arglist ((var &rest more-vars) form &body body)
   `(multiple-value-bind (,var ,@more-vars) ,form
      (if (eql ,var :not-available)
          :not-available
-         (progn #+ignore (assert (arglist-p ,var)) ,@body))))
+         (progn ,@body))))
 
 
 ;;;; Arglist Definition
@@ -1008,7 +1011,28 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 
 
 (defmethod arglist-dispatch ((operator (eql 'declare)) arguments)
-  (flet ((arglist-for-type-declaration (identifier typespec rest-var-name)
+  (let* ((declaration      (cons operator (last arguments)))
+         (typedecl-arglist (arglist-for-type-declaration declaration)))
+    (if (arglist-available-p typedecl-arglist)
+        typedecl-arglist
+        (match declaration
+          (('declare ((#'consp typespec) . decl-args)) 
+           (with-available-arglist (typespec-arglist) 
+               (decoded-arglist-for-type-specifier typespec)
+             (make-arglist
+              :required-args (list (make-arglist
+                                    :required-args (list typespec-arglist)
+                                    :rest '#:vars)))))
+          (('declare (decl-identifier . decl-args))
+           (decoded-arglist-for-declaration decl-identifier decl-args))
+          (_ (make-arglist :rest '#:declaration-specifiers))))))
+
+(defmethod arglist-dispatch ((operator (eql 'declaim)) arguments)
+  (arglist-dispatch 'declare arguments))
+
+
+(defun arglist-for-type-declaration (declaration)
+  (flet ((%arglist-for-type-declaration (identifier typespec rest-var-name)
            (with-available-arglist (typespec-arglist) 
                (decoded-arglist-for-type-specifier typespec)
              (make-arglist 
@@ -1016,11 +1040,11 @@ If the arglist is not available, return :NOT-AVAILABLE."))
                                     :provided-args (list identifier)
                                     :required-args (list typespec-arglist)
                                     :rest rest-var-name))))))
-    (match (cons operator (last arguments))
+    (match declaration
       (('declare ('type (#'consp typespec) . decl-args)) 
-       (arglist-for-type-declaration 'type typespec '#:variables))
+       (%arglist-for-type-declaration 'type typespec '#:variables))
       (('declare ('ftype (#'consp typespec) . decl-args)) 
-       (arglist-for-type-declaration 'ftype typespec '#:function-names))
+       (%arglist-for-type-declaration 'ftype typespec '#:function-names))
       (('declare ((#'consp typespec) . decl-args)) 
        (with-available-arglist (typespec-arglist) 
            (decoded-arglist-for-type-specifier typespec)
@@ -1028,9 +1052,7 @@ If the arglist is not available, return :NOT-AVAILABLE."))
           :required-args (list (make-arglist
                                 :required-args (list typespec-arglist)
                                 :rest '#:vars)))))
-      (('declare (decl-identifier . decl-args))
-       (decoded-arglist-for-declaration decl-identifier decl-args))
-      (_ (make-arglist :rest '#:declaration-specifiers)))))
+      (_ :not-available))))
 
 (defun decoded-arglist-for-declaration (decl-identifier decl-args)
   (declare (ignore decl-args))
@@ -1040,12 +1062,14 @@ If the arglist is not available, return :NOT-AVAILABLE."))
     (make-arglist :required-args (list arglist))))
 
 (defun decoded-arglist-for-type-specifier (type-specifier)
-  (when (consp type-specifier)
-    (setq type-specifier (car type-specifier)))
-    (with-available-arglist (arglist)
-      (decode-arglist (type-specifier-arglist type-specifier))
-    (setf (arglist.provided-args arglist) (list type-specifier))
-    arglist))
+  (etypecase type-specifier
+    (arglist-dummy :not-available)
+    (cons (decoded-arglist-for-type-specifier (car type-specifier)))
+    (symbol
+     (with-available-arglist (arglist)
+         (decode-arglist (type-specifier-arglist type-specifier))
+       (setf (arglist.provided-args arglist) (list type-specifier))
+       arglist))))
 
 
 ;;; Slimefuns
@@ -1083,11 +1107,19 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 ;;; %CURSOR-MARKER%)). Only the forms up to point should be
 ;;; considered.
 
+(defvar *swank-debug-arglists* nil)
+
 (defslimefun arglist-for-echo-area (raw-form &key print-right-margin print-lines)
   "Return a string representing the arglist for the deepest subform in
 RAW-FORM that does have an arglist. The highlighted parameter is
 wrapped in ===> X <===."
-  (handler-case
+  (handler-bind ((serious-condition
+                  #'(lambda (c)
+                      (unless *swank-debug-arglists*
+                        (let ((*print-right-margin* print-right-margin)
+                              (*print-lines* print-lines))
+                          (return-from arglist-for-echo-area
+                            (format nil "Arglist Error: \"~A\"" c)))))))
       (with-buffer-syntax ()
         (multiple-value-bind (form arglist)
             (find-subform-with-arglist (parse-raw-form raw-form))
@@ -1098,11 +1130,7 @@ wrapped in ===> X <===."
                :print-right-margin print-right-margin
                :print-lines print-lines
                :operator operator
-               :highlight (arglist-path-to-parameter arglist args))))))
-    (serious-condition (c)
-      (let ((*print-right-margin* print-right-margin)
-            (*print-lines* print-lines))
-        (format nil "Arglist Error: \"~A\"" c)))))
+               :highlight (arglist-path-to-parameter arglist args))))))))
 
 (defslimefun complete-form (raw-form)
   "Read FORM-STRING in the current buffer package, then complete it
@@ -1191,7 +1219,7 @@ FORM into account."
                                    (yield form local-ops)))
                ;; Some typespecs clash with function names, so we make
                ;; sure to bail out early.
-               ((eq operator 'cl:declare)
+               ((member operator '(cl:declare cl:declaim))
                 (yield form local-ops))
                ;; Mostly uninteresting, hence skip.
                ((memq operator '(cl:quote cl:function))

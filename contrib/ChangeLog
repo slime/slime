@@ -1,5 +1,16 @@
 2009-12-03  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-arglists.lisp (arglist-available-p): New helper.
+	(arglist-dispatch [eql 'declaim]): New.
+	(arglist-dispatch [eql 'declare]): First try to lookup arglist of
+	a typespec if it's a type-declaration, if not default to looking
+	up arglist of declaration specifier.
+	(arglist-for-type-declaration): Extracted out.
+	(decoded-arglist-for-type-specifier): Make sure not to call
+	TYPE-SPECIFIER-ARGLIST with an ARGLIST-DUMMY.
+
+2009-12-03  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-asdf.el (slime-query-replace-regexp): Quote `from'
 	argument because `tags-query-replace' actually uses
 	`query-replace-regexp' internally.
