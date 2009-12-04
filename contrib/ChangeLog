@@ -1,3 +1,10 @@
+2009-12-04  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-arglists.lisp (find-subform-with-arglist): Return
+	 (values nil :not-available), not just NIL, when operator is
+	`quote' or `function'.
+	Fixes bug reported by Mark Harig.
+
 2009-12-03  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	http://common-lisp.net/project/hyperdoc/

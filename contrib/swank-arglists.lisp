@@ -1223,7 +1223,7 @@ FORM into account."
                 (yield form local-ops))
                ;; Mostly uninteresting, hence skip.
                ((memq operator '(cl:quote cl:function))
-                nil)
+                (values nil :not-available))
                (t
                 (multiple-value-or (grovel-form last-subform local-ops)
                                    (yield form local-ops))))))))
