@@ -1,3 +1,8 @@
+2009-12-07  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-parse-toplevel-form): Use
+	`slime-region-for-defun-at-point' instead of `beginning-of-defun'.
+
 2009-12-03  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el (slime-documentation-lookup-function): New hook,

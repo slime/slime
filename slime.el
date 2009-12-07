@@ -4406,7 +4406,7 @@ Point is placed before the first expression in the list."
 (defun slime-parse-toplevel-form ()
   (ignore-errors                        ; (foo)
     (save-excursion
-      (beginning-of-defun)
+      (goto-char (car (slime-region-for-defun-at-point)))
       (down-list 1)
       (forward-sexp 1)
       (slime-parse-context (read (current-buffer))))))
