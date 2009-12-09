@@ -2028,8 +2028,8 @@ and translate it into something that tramp can understand and access
 contrib to setup the proper translations by simply doing:
 
 @example
-(push (slime-create-filename-translator :machine-instance "remote.example.com"
-                                        :remote-host "remote"
+(push (slime-create-filename-translator :machine-instance "remote"
+                                        :remote-host "remote.example.com"
                                         :username "user")
       slime-filename-translations)
 @end example
