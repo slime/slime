@@ -6,9 +6,8 @@
 	to not annoy the user, will now drop into the debugger.
 
 	Additionally, the backend won't do any backtrace magic so you'll
-	see the full backtrace with all its glory details.
-
-	SBCL only so far.
+	see the full backtrace with all its glory details. (SBCL only so
+	far.)
 
 	* slime.el (slime-toggle-debug-on-swank-error): New.
 
