@@ -642,9 +642,17 @@ compiler state."
 
 ;;;; Definitions
 
-(defvar *debug-definition-finding* nil
-  "When true don't handle errors while looking for definitions.
-This is useful when debugging the definition-finding code.")
+(defmacro converting-errors-to-location (&body body)
+  "Catches error and converts them to an error location."
+  (let ((gblock (gensym "CONVERTING-ERRORS+")))
+    `(block ,gblock
+       (handler-bind ((error
+                       #'(lambda (e)
+                            (if *debug-swank-backend*
+                                nil     ;decline
+                                (return-from ,gblock
+                                  (make-error-location e))))))
+         ,@body))))
 
 (defparameter *definition-types*
   '(:variable defvar
@@ -676,14 +684,21 @@ This is useful when debugging the definition-finding code.")
       :def-ir1-translator
       (getf *definition-types* type)))
 
+(defun make-dspec (type name source-location)
+  (list* (definition-specifier type name)
+         name
+         (sb-introspect::definition-source-description source-location)))
 
 (defimplementation find-definitions (name)
   (loop for type in *definition-types* by #'cddr
         for locations = (sb-introspect:find-definition-sources-by-name
                          name type)
         append (loop for source-location in locations collect
-                     (make-source-location-specification type name
-                                                         source-location))))
+                       (list (make-dspec type name source-location)
+                             (converting-errors-to-location
+                               (make-definition-source-location source-location
+                                                                type
+                                                                name))))))
 
 (defimplementation find-source-location (obj)
   (flet ((general-type-of (obj)
@@ -706,26 +721,11 @@ This is useful when debugging the definition-finding code.")
               (with-output-to-string (s)
                 (print-unreadable-object (obj s :type t :identity t))))
              (t (princ-to-string obj)))))
-    (handler-case
-        (make-definition-source-location
-         (sb-introspect:find-definition-source obj) (general-type-of obj) (to-string obj))
-      (error (e)
-        (list :error (format nil "Error: ~A" e))))))
+    (converting-errors-to-location
+      (make-definition-source-location (sb-introspect:find-definition-source obj)
+                                       (general-type-of obj)
+                                       (to-string obj)))))
 
-
-(defun make-source-location-specification (type name source-location)
-  (list (make-dspec type name source-location)
-        (if *debug-definition-finding*
-            (make-definition-source-location source-location type name)
-            (handler-case
-                (make-definition-source-location source-location type name)
-              (error (e)
-                (list :error (format nil "Error: ~A" e)))))))
-
-(defun make-dspec (type name source-location)
-  (list* (definition-specifier type name)
-         name
-         (sb-introspect::definition-source-description source-location)))
 
 (defun make-definition-source-location (definition-source type name)
   (with-struct (sb-introspect::definition-source-
@@ -778,13 +778,6 @@ This is useful when debugging the definition-finding code.")
   (declare (type function function))
   (let ((location (sb-introspect:find-definition-source function)))
     (make-definition-source-location location :function name)))
-
-(defun safe-function-source-location (fun name)
-  (if *debug-definition-finding*
-      (function-source-location fun name)
-      (handler-case (function-source-location fun name)
-        (error (e)
-          (list :error (format nil "Error: ~A" e))))))
 
 (defimplementation describe-symbol-for-emacs (symbol)
   "Return a plist describing SYMBOL.
@@ -854,12 +847,9 @@ Return NIL if the symbol is unbound."
 (defun source-location-for-xref-data (xref-data)
   (let ((name (car xref-data))
         (source-location (cdr xref-data)))
-    (list name
-          (handler-case (make-definition-source-location source-location
-                                                         'function
-                                                         name)
-            (error (e)
-              (list :error (format nil "Error: ~A" e)))))))
+    (list name (make-definition-source-location source-location
+                                                'function
+                                                name))))
 
 (defimplementation list-callers (symbol)
   (let ((fn (fdefinition symbol)))
@@ -900,7 +890,8 @@ Return NIL if the symbol is unbound."
   "Describe where the function FN was defined.
 Return a list of the form (NAME LOCATION)."
   (let ((name (sb-kernel:%fun-name fn)))
-    (list name (safe-function-source-location fn name))))
+    (list name (converting-errors-to-location
+                 (function-source-location fn name)))))
 
 ;;; macroexpansion
 
@@ -959,7 +950,9 @@ Return a list of the form (NAME LOCATION)."
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
-  (let* ((*sldb-stack-top* (or sb-debug:*stack-top-hint* (sb-di:top-frame)))
+  (let* ((*sldb-stack-top* (if *debug-swank-backend*
+                               (sb-di:top-frame)
+                               (or sb-debug:*stack-top-hint* (sb-di:top-frame))))
          (sb-debug:*stack-top-hint* nil))
     (handler-bind ((sb-di:debug-condition
 		    (lambda (condition)
@@ -1128,15 +1121,10 @@ stack."
 
 ;;; source-path-file-position and friends are in swank-source-path-parser
 
-(defun safe-source-location-for-emacs (code-location)
-  (if *debug-definition-finding*
-      (code-location-source-location code-location)
-      (handler-case (code-location-source-location code-location)
-        (error (c) (list :error (format nil "~A" c))))))
-
 (defimplementation frame-source-location (index)
-  (safe-source-location-for-emacs
-   (sb-di:frame-code-location (nth-frame index))))
+  (converting-errors-to-location
+    (code-location-source-location
+     (sb-di:frame-code-location (nth-frame index)))))
 
 (defun frame-debug-vars (frame)
   "Return a vector of debug-variables in frame."

@@ -1,5 +1,27 @@
 2009-12-10  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank-backend.lisp (*debug-swank-backend*): New variable. If
+	true, backends should not catch internal errors (e.g. during
+	definition finding), and should not perform backtrace magic.
+	(make-error-location): New helper.
+	(find-definitions [interface]): Default to error location.
+
+	* swank-sbcl.lisp (converting-errors-to-location): New helper
+	macro. Regards new *DEBUG-SWANK-BACKEND*.
+	(find-definitions [implementation]): Use it.
+	(find-source-location [implementation]): Ditto.
+	(functiond-spec): Ditto.
+	(frame-source-location [implementation]): Ditto.
+	(*debug-definition-finding*): Removed.
+	(make-source-location-specification): Removed.
+	(safe-function-source-location): Removed.
+	(safe-source-location-for-emacs): Removed. Not needed anymore.
+
+	(call-with-debugging-environment): Do not perform stack hinting
+	depending on *DEBUG-SWANK-BACKEND*.
+
+2009-12-10  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank-sbcl.lisp (set-break-hook): New.
 	(call-with-break-hook): New, too. Both extracted from elsewhere.
 	(install-debugger-globally, call-with-debugger-hook): Use them.

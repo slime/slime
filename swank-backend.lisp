@@ -12,7 +12,8 @@
 
 (defpackage :swank-backend
   (:use :common-lisp)
-  (:export #:sldb-condition
+  (:export #:*debug-swank-backend*
+           #:sldb-condition
            #:compiler-condition
            #:original-condition
            #:message
@@ -32,6 +33,7 @@
            #:unbound-slot-filler
            #:declaration-arglist
            #:type-specifier-arglist
+           #:with-struct
            ;; interrupt macro for the backend
            #:*pending-slime-interrupts*
            #:check-slime-interrupts
@@ -40,8 +42,6 @@
            #:emacs-inspect
            #:label-value-line
            #:label-value-line*
-           
-           #:with-struct
            ))
 
 (defpackage :swank-mop
@@ -101,6 +101,11 @@
 
 
 ;;;; Metacode
+
+(defparameter *debug-swank-backend* nil
+  "If this is true, backends should not catch errors but enter the
+debugger where appropriate. Also, they should not perform backtrace
+magic but really show every frame including SWANK related ones.")
 
 (defparameter *interface-functions* '()
   "The names of all interface functions.")
@@ -790,6 +795,15 @@ returns.")
 (defstruct (:buffer (:type list) :named (:constructor)) name)
 (defstruct (:position (:type list) :named (:constructor)) pos)
 
+(defun make-error-location (datum &rest args)
+  (cond ((typep datum 'condition)
+         `(:error ,(format nil "Error: ~A" datum)))
+        ((symbolp datum)
+         `(:error ,(format nil "Error: ~A" (apply #'make-condition datum args))))
+        (t
+         (assert (stringp datum))
+         `(:error ,(apply #'format nil datum args)))))
+
 (definterface find-definitions (name)
    "Return a list ((DSPEC LOCATION) ...) for NAME's definitions.
 
@@ -811,7 +825,9 @@ respective DEFSTRUCT definition, and so on."
   ;; This returns one source location and not a list of locations. It's
   ;; supposed to return the location of the DEFGENERIC definition on
   ;; #'SOME-GENERIC-FUNCTION.
-  )
+  (declare (ignore object))
+  (make-error-location "FIND-DEFINITIONS is not yet implemented on ~
+                        this implementation."))
 
 
 (definterface buffer-first-change (filename)
