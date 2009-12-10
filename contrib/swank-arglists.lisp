@@ -1107,15 +1107,13 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 ;;; %CURSOR-MARKER%)). Only the forms up to point should be
 ;;; considered.
 
-(defvar *swank-debug-arglists* nil)
-
 (defslimefun arglist-for-echo-area (raw-form &key print-right-margin print-lines)
   "Return a string representing the arglist for the deepest subform in
 RAW-FORM that does have an arglist. The highlighted parameter is
 wrapped in ===> X <===."
   (handler-bind ((serious-condition
                   #'(lambda (c)
-                      (unless *swank-debug-arglists*
+                      (unless (debug-on-swank-error)
                         (let ((*print-right-margin* print-right-margin)
                               (*print-lines* print-lines))
                           (return-from arglist-for-echo-area
