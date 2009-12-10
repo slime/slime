@@ -1,5 +1,27 @@
 2009-12-11  Tobias C. Rittweiler <tcr@freebits.de>
 
+	Add `M-x slime-toggle-debug-on-swank-error'.
+
+	In "Debug on SWANK error" mode, errors which are normally caught
+	to not annoy the user, will now drop into the debugger.
+
+	Additionally, the backend won't do any backtrace magic so you'll
+	see the full backtrace with all its glory details.
+
+	SBCL only so far.
+
+	* slime.el (slime-toggle-debug-on-swank-error): New.
+
+	* swank.lisp (toggle-debug-on-swank-error): New slimefun.
+	(debug-on-swank-error): New function. SETFable.
+	(invoke-default-debugger): Use CALL-WITH-DEBUGGER-HOOK so we're
+	trapped into the native debugger on SBCL (previously we weren't
+	due to SB-EXT:*INVOKE-DEBUGGER-HOOK*.)
+
+	* swank.lisp: Rename SWANK-ERROR to SWANK-PROTOCOL-ERROR.
+
+2009-12-11  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank-sbcl.lisp (call-with-debugger-hook): Oops, removed the
 	binding for *DEBUGGER-HOOK*. Fix that.
 	(make-invoke-debugger-hook): Do nothing if hook is NIL.

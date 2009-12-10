@@ -1458,6 +1458,12 @@ The default condition handler for timer functions (see
         (assert (integerp port))
         port))))
 
+(defun slime-toggle-debug-on-swank-error ()
+  (interactive)
+  (if (slime-eval `(swank:toggle-debug-on-swank-error))
+      (message "Debug on SWANK error enabled.")
+      (message "Debug on SWANK error disabled.")))
+
 ;;; Words of encouragement
 
 (defun slime-user-first-name ()
