@@ -911,20 +911,29 @@ Return a list of the form (NAME LOCATION)."
 
 ;;; Debugging
 
-(defvar *sldb-stack-top*)
+;;; Notice that SB-EXT:*INVOKE-DEBUGGER-HOOK* is slightly stronger
+;;; than just a hook into BREAK. In particular, it'll make
+;;; (LET ((*DEBUGGER-HOOK* NIL)) ..error..) drop into SLDB rather
+;;; than the native debugger. That should probably be considered a
+;;; feature.
 
 (defun make-invoke-debugger-hook (hook)
-  #'(lambda (condition old-hook)
-      ;; Notice that *INVOKE-DEBUGGER-HOOK* is tried before
-      ;; *DEBUGGER-HOOK*, so we have to make sure that the latter gets
-      ;; run when it was established locally by a user (i.e. changed meanwhile.)
+  #'(sb-int:named-lambda swank-invoke-debugger-hook
+        (condition old-hook)
       (if *debugger-hook*
-          (funcall *debugger-hook* condition old-hook)
+          nil           ; decline, *DEBUGGER-HOOK* will be tried next.
           (funcall hook condition old-hook))))
+
+(defun set-break-hook (hook)
+  (setq sb-ext:*invoke-debugger-hook* (make-invoke-debugger-hook hook)))
+
+(defun call-with-break-hook (hook continuation)
+  (let ((sb-ext:*invoke-debugger-hook* (make-invoke-debugger-hook hook)))
+    (funcall continuation)))
 
 (defimplementation install-debugger-globally (function)
   (setq *debugger-hook* function)
-  (setq sb-ext:*invoke-debugger-hook* (make-invoke-debugger-hook function)))
+  (set-break-hook function))
 
 (defimplementation condition-extras (condition)
   (cond #+#.(swank-backend::sbcl-with-new-stepper-p)
@@ -945,6 +954,8 @@ Return a list of the form (NAME LOCATION)."
      (cond ((eq (symbol-package ref) (symbol-package :test))
             ref)
            (t (symbol-name ref))))))
+
+(defvar *sldb-stack-top*)
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
@@ -972,9 +983,7 @@ Return a list of the form (NAME LOCATION)."
     (invoke-restart 'sb-ext:step-out)))
 
 (defimplementation call-with-debugger-hook (hook fun)
-  (let ((*debugger-hook* hook)
-        (sb-ext:*invoke-debugger-hook* (and hook (make-invoke-debugger-hook hook)))
-        #+#.(swank-backend::sbcl-with-new-stepper-p)
+  (let (#+#.(swank-backend::sbcl-with-new-stepper-p)
         (sb-ext:*stepper-hook*
          (lambda (condition)
            (typecase condition
@@ -983,7 +992,7 @@ Return a list of the form (NAME LOCATION)."
                 (sb-impl::invoke-debugger condition)))))))
     (handler-bind (#+#.(swank-backend::sbcl-with-new-stepper-p)
                    (sb-ext:step-condition #'sb-impl::invoke-stepper))
-      (funcall fun))))
+      (call-with-break-hook hook fun))))
 
 (defun nth-frame (index)
   (do ((frame *sldb-stack-top* (sb-di:frame-down frame))

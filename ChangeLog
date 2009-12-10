@@ -1,3 +1,14 @@
+2009-12-10  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank-sbcl.lisp (set-break-hook): New.
+	(call-with-break-hook): New, too. Both extracted from elsewhere.
+	(install-debugger-globally, call-with-debugger-hook): Use them.
+	(make-invoke-debugger-hook): Adapted not to call *debugger-hook*
+	on its own; it should rather decline because *debugger-hook* is
+	tried after *invoke-debugger-hook* anyway. Previously, a
+	custom *debugger-hook* (which declines itself) would have been
+	executed twice.
+
 2009-12-07  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-parse-toplevel-form): Use
