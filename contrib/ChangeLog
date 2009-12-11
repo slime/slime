@@ -1,5 +1,14 @@
 2009-12-11  Stas Boukarev  <stassats@gmail.com>
 
+	* slime-presentations.el (slime-reify-old-output): Quote
+	the CL expession behind presentations, so _(1 2 3)_ (representing a
+	presentation) is not tried to be evaluated.
+	(slime-copy-presentation-to-repl): Use `looking-back' for looking back.
+	Apply De Morgan's law to conditions.
+	Patch by Tobias C. Rittweiler.
+
+2009-12-11  Stas Boukarev  <stassats@gmail.com>
+
 	* swank-asdf.lisp (find-operation): New function for
 	finding asdf operations independent of readtable
 	case sensitivity (read Allegro Modern Mode).

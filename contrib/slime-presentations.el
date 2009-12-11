@@ -415,12 +415,11 @@ Also return the start position, end position, and buffer of the presentation."
     (unless (eql major-mode 'slime-repl-mode)
       (slime-switch-to-output-buffer))
     (flet ((do-insertion ()
-			 (when (not (string-match "\\s-"
-						  (buffer-substring (1- (point)) (point))))
-			   (insert " "))
-			 (insert presentation-text)
-			 (when (and (not (eolp)) (not (looking-at "\\s-")))
-			   (insert " "))))
+	     (unless (looking-back "\\s-")
+	       (insert " "))
+	     (insert presentation-text)
+	     (unless (or (eolp) (looking-at "\\s-"))
+	       (insert " "))))
       (if (>= (point) slime-repl-prompt-start-mark)
 	  (do-insertion)
 	(save-excursion
@@ -656,7 +655,7 @@ the presented object."
               (concat (substring str-no-props 0 pos)
                       ;; Eval in the reader so that we play nice with quote.
                       ;; -luke (19/May/2005)
-                      "#." (slime-presentation-expression presentation)
+                      "'#." (slime-presentation-expression presentation)
                       (slime-reify-old-output (substring str-props end-pos)
                                               (substring str-no-props end-pos))))))))
 
