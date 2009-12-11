@@ -13,25 +13,25 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :asdf))
 
+(defun find-operation (operation)
+  (or (find-symbol (symbol-name operation) :asdf)
+      (error "Couldn't find ASDF operation ~S" operation)))
+
 (defslimefun operate-on-system-for-emacs (system-name operation &rest keywords)
   "Compile and load SYSTEM using ASDF.
 Record compiler notes signalled as `compiler-condition's."
-   (collect-notes
-    (lambda ()
-      (apply #'operate-on-system system-name operation keywords))))
+  (collect-notes
+   (lambda ()
+     (apply #'operate-on-system system-name operation keywords))))
 
 (defun operate-on-system (system-name operation-name &rest keyword-args)
   "Perform OPERATION-NAME on SYSTEM-NAME using ASDF.
 The KEYWORD-ARGS are passed on to the operation.
 Example:
-\(operate-on-system \"SWANK\" \"COMPILE-OP\" :force t)"
-  (handler-case 
+\(operate-on-system \"swank\" 'compile-op :force t)"
+  (handler-case
       (with-compilation-hooks ()
-	(let ((operation (find-symbol operation-name :asdf)))
-	  (when (null operation)
-	    (error "Couldn't find ASDF operation ~S" operation-name))
-	  (apply #'asdf:operate operation system-name keyword-args)
-	  t))
+	(apply #'asdf:operate (find-operation operation-name) system-name keyword-args))
     (asdf:compile-error () nil)))
 
 (defun asdf-central-registry ()

@@ -1,3 +1,14 @@
+2009-12-11  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-asdf.lisp (find-operation): New function for
+	finding asdf operations independent of readtable
+	case sensitivity (read Allegro Modern Mode).
+	(operate-on-system): Accept symbols instead of strings for
+	operation-name, and use the above function.
+
+	* slime-asdf.el: Replace strings with operation names
+	for `slime-oos' with symbols.
+
 2009-12-11  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-arglists.lisp (*swank-debug-arglists*): Removed.

@@ -76,7 +76,7 @@ in the directory of the current buffer."
            operation (if keyword-args (format " %S" keyword-args) "")
            system)
   (slime-repl-shortcut-eval-async
-   `(swank:operate-on-system-for-emacs ,system ,operation ,@keyword-args)
+   `(swank:operate-on-system-for-emacs ,system ',operation ,@keyword-args)
    #'slime-compilation-finished))
 
 
@@ -88,7 +88,7 @@ in the directory of the current buffer."
 Default system name is taken from first file matching *.asd in current
 buffer's working directory"
   (interactive (list (slime-read-system-name)))
-  (slime-oos system "LOAD-OP"))
+  (slime-oos system 'load-op))
 
 (defun slime-open-system (name &optional load)
   "Open all files in an ASDF system."
@@ -172,38 +172,38 @@ buffer's working directory"
 (defslime-repl-shortcut slime-repl-load/force-system ("force-load-system")
   (:handler (lambda ()
               (interactive)
-              (slime-oos (slime-read-system-name) "LOAD-OP" :force t)))
+              (slime-oos (slime-read-system-name) 'load-op :force t)))
   (:one-liner "Recompile and load an ASDF system."))
 
 (defslime-repl-shortcut slime-repl-load-system ("load-system")
   (:handler (lambda ()
               (interactive)
-              (slime-oos (slime-read-system-name) "LOAD-OP")))
+              (slime-oos (slime-read-system-name) 'load-op)))
   (:one-liner "Compile (as needed) and load an ASDF system."))
 
 (defslime-repl-shortcut slime-repl-test/force-system ("force-test-system")
   (:handler (lambda ()
               (interactive)
-              (slime-oos (slime-read-system-name) "TEST-OP" :force t)))
+              (slime-oos (slime-read-system-name) 'test-op :force t)))
   (:one-liner "Compile (as needed) and force test an ASDF system."))
 
 (defslime-repl-shortcut slime-repl-test-system ("test-system")
   (:handler (lambda ()
               (interactive)
-              (slime-oos (slime-read-system-name) "TEST-OP")))
+              (slime-oos (slime-read-system-name) 'test-op)))
   (:one-liner "Compile (as needed) and test an ASDF system."))
 
 (defslime-repl-shortcut slime-repl-compile-system ("compile-system")
   (:handler (lambda ()
               (interactive)
-              (slime-oos (slime-read-system-name) "COMPILE-OP")))
+              (slime-oos (slime-read-system-name) 'compile-op)))
   (:one-liner "Compile (but not load) an ASDF system."))
 
 (defslime-repl-shortcut slime-repl-compile/force-system 
   ("force-compile-system")  
   (:handler (lambda ()
               (interactive)
-              (slime-oos (slime-read-system-name) "COMPILE-OP" :force t)))
+              (slime-oos (slime-read-system-name) 'compile-op :force t)))
   (:one-liner "Recompile (but not load) an ASDF system."))
 
 (defslime-repl-shortcut slime-repl-open-system ("open-system")
