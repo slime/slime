@@ -1,3 +1,9 @@
+2009-12-11  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-allegro.lisp: Use new function `make-error-location'.
+	(find-fspec-location): Handle errors.
+	Patch by Tobias C. Rittweiler.
+
 2009-12-11  Tobias C. Rittweiler <tcr@freebits.de>
 
 	Add `M-x slime-toggle-debug-on-swank-error'.

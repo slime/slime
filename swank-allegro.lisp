@@ -271,7 +271,7 @@
               (list :file (namestring (truename file)))
               (list :position (1+ pos)))))
           (t
-           (list :error "No error location available.")))))
+           (make-error-location "No error location available.")))))
 
 (defun location-for-reader-error (condition)
   (let ((pos  (car (last (slot-value condition 'excl::format-arguments))))
@@ -283,7 +283,7 @@
                                      ,(- pos *temp-file-header-end-position* 1)))
             (make-location `(:file ,(namestring (truename file)))
                            `(:position ,pos)))
-        (list :error "No error location available."))))
+        (make-error-location "No error location available."))))
 
 (defun handle-undefined-functions-warning (condition)
   (let ((fargs (slot-value condition 'excl::format-arguments)))
@@ -411,14 +411,16 @@
      (list :offset (parse-integer (subseq filename (1+ pos))) 0))))
 
 (defun find-fspec-location (fspec type file top-level)
-  (etypecase file
-    (pathname
-     (find-definition-in-file fspec type file top-level))
-    ((member :top-level)
-     (list :error (format nil "Defined at toplevel: ~A"
-                          (fspec->string fspec))))
-    (string
-     (find-definition-in-buffer file))))
+  (handler-case
+      (etypecase file
+        (pathname
+           (find-definition-in-file fspec type file top-level))
+        ((member :top-level)
+           (make-error-location "Defined at toplevel: ~A" (fspec->string fspec)))
+        (string
+           (find-definition-in-buffer file)))
+    (error (e)
+      (make-error-location "Error: ~A" e))))
 
 (defun fspec->string (fspec)
   (etypecase fspec
@@ -431,37 +433,35 @@
 
 (defun fspec-definition-locations (fspec)
   (cond
-   ((and (listp fspec)
-         (eql (car fspec) :top-level-form))
-    (destructuring-bind (top-level-form file &optional position) fspec 
-      (declare (ignore top-level-form))
-      (list
-       (list (list nil fspec)
+    ((and (listp fspec)
+          (eql (car fspec) :top-level-form))
+     (destructuring-bind (top-level-form file &optional position) fspec 
+       (declare (ignore top-level-form))
+       (list fspec
              (make-location (list :buffer file) ; FIXME: should use :file
                             (list :position position)
-                            (list :align t))))))
-   ((and (listp fspec) (eq (car fspec) :internal))
-    (destructuring-bind (_internal next _n) fspec
-      (declare (ignore _internal _n))
-      (fspec-definition-locations next)))
-   (t
-    (let ((defs (excl::find-source-file fspec)))
-      (when (and (null defs)
-                 (listp fspec)
-                 (string= (car fspec) '#:method))
-        ;; If methods are defined in a defgeneric form, the source location is
-        ;; recorded for the gf but not for the methods. Therefore fall back to
-        ;; the gf as the likely place of definition.
-        (setq defs (excl::find-source-file (second fspec))))
-      (if (null defs)
-          (list
-           (list (list nil fspec)
-                 (list :error
-                       (format nil "Unknown source location for ~A" 
-                               (fspec->string fspec)))))
-        (loop for (fspec type file top-level) in defs 
-              collect (list (list type fspec)
-                            (find-fspec-location fspec type file top-level))))))))
+                            (list :align t)))))
+    ((and (listp fspec) (eq (car fspec) :internal))
+     (destructuring-bind (_internal next _n) fspec
+       (declare (ignore _internal _n))
+       (fspec-definition-locations next)))
+    (t
+     (let ((defs (excl::find-source-file fspec)))
+       (when (and (null defs)
+                  (listp fspec)
+                  (string= (car fspec) '#:method))
+         ;; If methods are defined in a defgeneric form, the source location is
+         ;; recorded for the gf but not for the methods. Therefore fall back to
+         ;; the gf as the likely place of definition.
+         (setq defs (excl::find-source-file (second fspec))))
+       (if (null defs)
+           (list
+            (list fspec
+                  (make-error-location "Unknown source location for ~A" 
+                                       (fspec->string fspec))))
+           (loop for (fspec type file top-level) in defs 
+                 collect (list (list type fspec)
+                               (find-fspec-location fspec type file top-level))))))))
 
 (defimplementation find-definitions (symbol)
   (fspec-definition-locations symbol))
