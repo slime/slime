@@ -1,3 +1,14 @@
+2009-12-12  Matthias Koeppe  <mkoeppe@math.ucdavis.edu>
+
+	* slime-presentations.el (slime-reify-old-output): Revert change
+	of 2009-12-11, which introduced spurious quotes in non-evaluated
+	contexts like here:
+
+	  '(1 2 #<STANDARD-CLASS STANDARD-OBJECT> 3 4)
+
+	Presentations do not change standard quoting rules; users just
+	need to remember this.
+
 2009-12-11  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-fuzzy.el (slime-fuzzy-choices-buffer): Don't
