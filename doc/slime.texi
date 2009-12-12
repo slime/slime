@@ -2661,8 +2661,23 @@ Using standard Emacs
 commands, the presentation can be copied to a new input in the REPL:
 
 @example
-CL-USER> (eql '@emph{#<STANDARD-CLASS STANDARD-CLASS>} '@emph{#<STANDARD-CLASS STANDARD-CLASS>})
+CL-USER> (eql '@emph{#<STANDARD-CLASS STANDARD-CLASS>} 
+              '@emph{#<STANDARD-CLASS STANDARD-CLASS>})
 @emph{T}
+@end example
+
+Note that standard evaluation and quoting rules still apply.  So if a
+presentation is a list, it needs to be quoted in an evaluated context to
+avoid treating it as a function call:
+
+@example
+CL-USER> (list (find-class 'standard-class) 2 3 4)
+@emph{(#<STANDARD-CLASS STANDARD-CLASS> 2 3 4)}
+CL-USER> @emph{(#<STANDARD-CLASS STANDARD-CLASS> 2 3 4)}
+; Funcall of #<STANDARD-CLASS STANDARD-CLASS> which is a non-function.
+; Evaluation aborted.
+CL-USER> '@emph{(#<STANDARD-CLASS STANDARD-CLASS> 2 3 4)}
+(#<STANDARD-CLASS STANDARD-CLASS> 2 3 4)
 @end example
 
 When you copy an incomplete presentation or edit the text within a
