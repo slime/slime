@@ -655,7 +655,7 @@ the presented object."
               (concat (substring str-no-props 0 pos)
                       ;; Eval in the reader so that we play nice with quote.
                       ;; -luke (19/May/2005)
-                      "'#." (slime-presentation-expression presentation)
+                      "#." (slime-presentation-expression presentation)
                       (slime-reify-old-output (substring str-props end-pos)
                                               (substring str-no-props end-pos))))))))
 
