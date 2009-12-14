@@ -1183,64 +1183,97 @@ from the subform returned.
 This function takes local function and macro definitions appearing in
 FORM into account."
   (labels 
-      ((yield (form local-ops)
+      ((yield-success (form local-ops)
          (let ((form (remove-from-tree +cursor-marker+ form)))
            (values form
-                   (let ((entry (assoc (car form) local-ops)))
+                   (let ((entry (assoc (car form) local-ops :test #'op=)))
                      (if entry
                          (decode-arglist (cdr entry))
                          (arglist-from-form form))))))
+       (yield-failure ()
+         (values nil :not-available))
        (operator-p (operator local-ops)
-         (and (symbolp operator)
-              (or (valid-operator-symbol-p operator)
-                  (assoc operator local-ops :test #'eq))))
+         (or (and (symbolp operator) (valid-operator-symbol-p operator))
+             (assoc operator local-ops :test #'op=)))
+       (op= (op1 op2)
+         (cond ((and (symbolp op1) (symbolp op2))
+                (eq op1 op2))
+               ((and (arglist-dummy-p op1) (arglist-dummy-p op2))
+                (string= (arglist-dummy.string-representation op1)
+                         (arglist-dummy.string-representation op2)))))
        (grovel-form (form local-ops)
+         "Descend FORM top-down, always taking the rightest branch,
+          until +CURSOR-MARKER+."
          (assert (listp form))
          (destructuring-bind (operator . args) form
-           (declare (ignore args))
            ;; N.b. the user's cursor is at the rightmost, deepest
            ;; subform right before +CURSOR-MARKER+.
-           (let ((last-subform (car (last form))))
+           (let ((last-subform (car (last form)))
+                 (new-ops))
              (cond
                ((eq last-subform +cursor-marker+)
                 (if (operator-p operator local-ops)
-                    (yield form local-ops)
-                    (values nil :not-available)))
+                    (yield-success form local-ops)
+                    (yield-failure)))
                ((not (operator-p operator local-ops))
                 (grovel-form last-subform local-ops))
                ;; Make sure to pick up the arglists of local
                ;; function/macro definitions.
-               ((memq operator '(cl:flet cl:labels cl:macrolet))
+               ((setq new-ops (extract-local-op-arglists operator args))
                 (multiple-value-or (grovel-form last-subform 
-                                                (nconc (extract-local-op-arglists form)
-                                                       local-ops))
-                                   (yield form local-ops)))
+                                                (nconc new-ops local-ops))
+                                   (yield-success form local-ops)))
                ;; Some typespecs clash with function names, so we make
                ;; sure to bail out early.
                ((member operator '(cl:declare cl:declaim))
-                (yield form local-ops))
+                (yield-success form local-ops))
                ;; Mostly uninteresting, hence skip.
                ((memq operator '(cl:quote cl:function))
-                (values nil :not-available))
+                (yield-failure))
                (t
                 (multiple-value-or (grovel-form last-subform local-ops)
-                                   (yield form local-ops))))))))
+                                   (yield-success form local-ops))))))))
     (if (null form)
-        (values nil :not-available)
+        (yield-failure)
         (grovel-form form '()))))
 
-(defun extract-local-op-arglists (form)
-  ;; FIXME: Take recursive scope of LABELS into account.
-  (cond ((null (cddr form)) nil)        ; `(flet ((foo (x) |'
-        ((atom (second form)) nil)      ; `(flet ,foo (|'
-        (t
-         (let* ((defs (second form))
-                (defs (remove-if-not #'(lambda (x)
-                                        ;; Well-formed FLET/LABELS def?
-                                        (and (consp x) (second x)))
-                                    defs)))
-           (loop for (name arglist . nil) in defs
-                 collect (cons name arglist))))))
+(flet ((collect-op/argl-alist (defs)
+         (setq defs (remove-if-not #'(lambda (x)
+                                       ;; Well-formed FLET/LABELS def?
+                                       (and (consp x) (second x)))
+                                   defs))
+         (loop for (name arglist . nil) in defs
+               collect (cons name arglist))))
+  (defgeneric extract-local-op-arglists (operator args)
+    (:documentation
+     "If the form `(OPERATOR ,@ARGS) is a local operator binding form,
+     return a list of pairs (OP . ARGLIST) for each locally bound op.")
+    (:method (operator args)
+      (declare (ignore operator args))
+      nil)
+    ;; FLET
+    (:method ((operator (eql 'cl:flet)) args)
+      (let ((defs (first args))
+            (body (rest args)))
+        (cond ((null body) nil)         ; `(flet ((foo (x) |'
+              ((atom defs) nil)         ; `(flet ,foo (|'
+              (t (collect-op/argl-alist defs)))))
+    ;; LABELS
+    (:method ((operator (eql 'cl:labels)) args)
+      ;; Notice that we only have information to "look backward" and
+      ;; show arglists of previously occuring local functions.
+      (let ((defs (first args))
+            (body (rest args)))
+        (cond ((atom defs) nil)
+              ((not (null body))
+               (extract-local-op-arglists 'cl:flet args))
+              (t
+               (let ((def.body (cddr (car (last defs)))))
+                 (when def.body
+                   (collect-op/argl-alist defs)))))))
+    ;; MACROLET
+    (:method ((operator (eql 'cl:macrolet)) args)
+      (extract-local-op-arglists 'cl:labels args))))
 
 (defun find-immediately-containing-arglist (form)
   "Returns the arglist of the form immediately containing

@@ -1,3 +1,25 @@
+2009-12-14  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Take recursiveness of LABELS into account for displaying local
+	arglists. I.e. make the following work:
+
+         (labels ((iseven (x)
+                    ...)
+                  (isodd (y)
+                    (if (zerop y)
+                       nil
+                      (iseven <>))))) ; Point is here
+	   ...)
+
+	As we only have information to look backward, we cannot show
+	arglist for ISODD within ISEVEN, though.
+
+	* swank-arglists.lisp (extract-local-op-arglists): Handle LABELS
+	specially.
+	(find-subform-with-arglists): Adapted accordingly. Plus: Small
+	refactoring, and fix comparasion of local ops to properly deal
+	with arglist dummies.
+
 2009-12-14  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-asdf.el (slime-delete-system-fasls): New command with a
