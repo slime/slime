@@ -166,6 +166,13 @@ buffer's working directory"
   (tags-query-replace (regexp-quote from) to delimited
 		      '(slime-eval `(swank:asdf-system-files ,name))))
 
+(defun slime-delete-system-fasls (name)
+  "Delete FASLs produced by compiling a system."
+  (interactive (list (slime-read-system-name)))
+  (slime-repl-shortcut-eval-async
+   `(swank:delete-system-fasls ,name)
+   'message))
+
 
 ;;; REPL shortcuts
 
@@ -207,16 +214,16 @@ buffer's working directory"
   (:one-liner "Recompile (but not load) an ASDF system."))
 
 (defslime-repl-shortcut slime-repl-open-system ("open-system")
-  (:handler (lambda ()
-              (interactive)
-              (call-interactively 'slime-open-system)))
+  (:handler 'slime-open-system)
   (:one-liner "Open all files in an ASDF system."))
 
 (defslime-repl-shortcut slime-repl-browse-system ("browse-system")
-  (:handler (lambda ()
-              (interactive)
-              (call-interactively 'slime-browse-system)))
+  (:handler 'slime-browse-system)
   (:one-liner "Browse files in an ASDF system using Dired."))
+
+(defslime-repl-shortcut slime-repl-delete-system-fasls ("delete-system-fasls")
+  (:handler 'slime-delete-system-fasls)
+  (:one-liner "Delete FASLs of an ASDF system."))
 
 
 ;;; Initialization

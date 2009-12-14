@@ -1,3 +1,7 @@
+2009-12-14  Stas Boukarev  <stassats@gmail.com>
+
+	* doc/slime.texi (ASDF): Document new commands.
+
 2009-12-12  Matthias Koeppe  <mkoeppe@math.ucdavis.edu>
 
 	* doc/slime.texi (Presentations): Add an example that illustrates

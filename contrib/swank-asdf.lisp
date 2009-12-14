@@ -76,6 +76,16 @@ already knows."
                (asdf-module-files component))))
           (asdf:module-components module)))
 
+(defun asdf-module-output-files (module)
+  (mapcan (lambda (component)
+            (typecase component
+              (asdf:source-file
+               (asdf:output-files (make-instance 'asdf:compile-op)
+                                  component))
+              (asdf:module
+               (asdf-module-output-files component))))
+          (asdf:module-components module)))
+
 (defslimefun asdf-system-files (name)
   (let* ((system (asdf:find-system name))
          (files (mapcar #'namestring
@@ -132,5 +142,12 @@ already knows."
         (when system
           (return-from asdf-determine-system
             (asdf:component-name system)))))))
+
+(defslimefun delete-system-fasls (name)
+  (let ((removed-count
+         (loop for file in (asdf-module-output-files (asdf:find-system name))
+               when (probe-file file) count it
+               and do (delete-file file))))
+    (format nil "~d file~:p ~:*~[were~;was~:;were~] removed" removed-count)))
 
 (provide :swank-asdf)

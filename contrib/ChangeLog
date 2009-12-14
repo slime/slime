@@ -1,3 +1,11 @@
+2009-12-14  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-asdf.el (slime-delete-system-fasls): New command with a
+	shortcut `delete-system-fasls'.
+
+	* swank-asdf.lisp (delete-system-fasls): New function.
+	(asdf-module-output-files): New function for finding fasls.
+
 2009-12-12  Matthias Koeppe  <mkoeppe@math.ucdavis.edu>
 
 	* slime-presentations.el (slime-reify-old-output): Revert change

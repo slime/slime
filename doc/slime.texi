@@ -2541,8 +2541,15 @@ from the first file matching *.asd in the current directory.
 Open all files in a system, optionally load it if LOAD is non-nil.
 @cmditem{slime-browse-system NAME}
 Browse files in a system using Dired.
+@cmditem{slime-delete-system-fasls NAME}
+Delete FASLs produced by compiling a system.
+@cmditem{slime-rgrep-system NAME REGEXP}
+Run @code{rgrep} on the base directory of an ASDF system.
+@cmditem{slime-isearch-system NAME}
+Run @code{isearch-forward} on the files of an ASDF system.
+@cmditem{slime-query-replace-system NAME FROM TO &OPTIONAL DELIMITED}
+Run @code{query-replace} on an ASDF system.
 @end table
-
 The package also installs some new REPL shortcuts (@pxref{Shortcuts}):
 
 @table @kbd
@@ -2558,6 +2565,8 @@ Recompile and load an ASDF system.
 Open all files in a system.
 @item browse-system
 Browse files in a system using Dired.
+@item delete-system-fasls
+Delete FASLs produced by compiling a system.
 @end table
 
 @node Banner
