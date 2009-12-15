@@ -21,6 +21,22 @@
   (loop for (nil . system) being the hash-values in asdf::*defined-systems*
         do (funcall fn system)))
 
+;;; This is probably a crude hack, see ASDF's LP #481187.
+(defun who-depends-on (system)
+  (flet ((system-dependencies (op system)
+           (mapcar #'(lambda (dep)
+                       (asdf::coerce-name (if (consp dep) (second dep) dep)))
+                   (cdr (assoc op (asdf:component-depends-on op system))))))
+    (let ((system-name (asdf::coerce-name system))
+          (result))
+      (map-defined-systems
+       #'(lambda (system)
+           (when (member system-name
+                         (system-dependencies 'asdf:load-op system)
+                         :test #'string=)
+             (push (asdf:component-name system) result))))
+      result)))
+
 (defslimefun operate-on-system-for-emacs (system-name operation &rest keywords)
   "Compile and load SYSTEM using ASDF.
 Record compiler notes signalled as `compiler-condition's."

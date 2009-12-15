@@ -1,5 +1,9 @@
 2009-12-15  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-asdf.lisp (who-depends-on): Add.
+
+2009-12-15  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank-asdf.lisp (map-defined-systems): Factored out.
 	(list-all-systems-known-to-asdf): Use it.
 	(asdf-determine-system): Use it, too.
