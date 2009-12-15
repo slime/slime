@@ -17,6 +17,10 @@
   (or (find-symbol (symbol-name operation) :asdf)
       (error "Couldn't find ASDF operation ~S" operation)))
 
+(defun map-defined-systems (fn)
+  (loop for (nil . system) being the hash-values in asdf::*defined-systems*
+        do (funcall fn system)))
+
 (defslimefun operate-on-system-for-emacs (system-name operation &rest keywords)
   "Compile and load SYSTEM using ASDF.
 Record compiler notes signalled as `compiler-condition's."
@@ -57,10 +61,10 @@ Example:
 
 (defslimefun list-all-systems-known-to-asdf ()
   "Returns a list of all systems ASDF knows already."
-  ;; ugh, yeah, it's unexported - but do we really expect this to
-  ;; change anytime soon?
-  (loop for name being the hash-keys of asdf::*defined-systems*
-        collect name))
+  (let ((result))
+    (map-defined-systems
+     #'(lambda (system) (push (asdf:component-name system) result)))
+    result))
 
 (defslimefun list-asdf-systems ()
   "Returns the systems in ASDF's central registry and those which ASDF
@@ -130,17 +134,18 @@ already knows."
   ;; First try to grovel through all defined systems to find a system
   ;; which contains FILE.
   (when file
-    (loop with pathname      = (pathname file)
-          with pathname-name = (pathname-name pathname)
-          for (nil . system) being the hash-value of asdf::*defined-systems*
-          when (system-contains-file-p system pathname pathname-name)
-            do (return-from asdf-determine-system
-                 (asdf:component-name system))))
+    (let* ((pathname      (pathname file))
+           (pathname-name (pathname-name pathname)))
+      (map-defined-systems
+       #'(lambda (system)
+           (when (system-contains-file-p system pathname pathname-name)
+             (return-from asdf-determine-system
+               (asdf:component-name system)))))))
   ;; If we couldn't find a system by that, we now try if there's a
   ;; system that's named like BUFFER-PACKAGE-NAME.
   (let ((package (guess-buffer-package buffer-package-name)))
     (dolist (name (package-names package))
-      (let ((system (asdf:find-system (string-downcase name) nil)))
+      (let ((system (asdf:find-system (asdf::coerce-name name) nil)))
         (when system
           (return-from asdf-determine-system
             (asdf:component-name system)))))))
@@ -161,14 +166,7 @@ already knows."
     (call-next-method)))
 
 (defslimefun reload-system (name)
-  (let* ((system (asdf:find-system name))
-         (*recompile-system* system))
-    (collect-notes
-     (lambda ()
-       (handler-case
-           (with-compilation-hooks ()
-             (asdf:oos 'asdf:load-op system)
-             t)
-         (asdf:compile-error () nil))))))
+  (let ((*recompile-system* (asdf:find-system name)))
+    (operate-on-system-for-emacs name 'asdf:load-op)))
 
 (provide :swank-asdf)

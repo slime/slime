@@ -1,3 +1,10 @@
+2009-12-15  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-asdf.lisp (map-defined-systems): Factored out.
+	(list-all-systems-known-to-asdf): Use it.
+	(asdf-determine-system): Use it, too.
+	(reload-system): Reuse `operate-on-system-for-emacs'.
+
 2009-12-15  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-asdf.el (slime-reload-system): New command for reloading
