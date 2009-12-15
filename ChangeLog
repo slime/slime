@@ -1,3 +1,17 @@
+2009-12-15  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank.lisp (collect-notes): Establish new abort restart ("Abort
+	Compilation"); if an error is signaled in EVAL-WHEN, or during
+	macroexpansion -- assuming the backend DTRT --, invoking this
+	restart will result in the normal compilation failure behaviour,
+	including correct reporting of the offending toplevel form.
+
+	* swank-sbcl.lisp (handle-notification-condition): Use
+	`real-condition' here.
+	(handle-file-compiler-termination): As a result, not needed anymore.
+	(call-with-compilation-hooks): Also signal information about
+	normal errors.
+
 2009-12-14  Stas Boukarev  <stassats@gmail.com>
 
 	* doc/slime.texi (ASDF): Document new commands.

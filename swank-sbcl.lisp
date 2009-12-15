@@ -422,7 +422,8 @@ information."
     (when (typep condition 'warning)
       (signal condition))
     (setq *previous-compiler-condition* condition)
-    (signal-compiler-condition condition (sb-c::find-error-context nil))))
+    (signal-compiler-condition (real-condition condition)
+                               (sb-c::find-error-context nil))))
 
 (defun signal-compiler-condition (condition context)
   (signal (make-condition
@@ -431,14 +432,14 @@ information."
            :severity (etypecase condition
                        (sb-c:compiler-error  :error)
                        (sb-ext:compiler-note :note)
+                       (error                :error)
+                       (reader-error         :read-error)
                        #+#.(swank-backend::with-symbol redefinition-warning sb-kernel)
                        (sb-kernel:redefinition-warning
                                              :redefinition)
                        (style-warning        :style-warning)
-                       (warning              :warning)
-                       (reader-error         :read-error)
-                       (error                :error))
-           :references (condition-references (real-condition condition))
+                       (warning              :warning))
+           :references (condition-references condition)
            :message (brief-compiler-message-for-emacs condition)
            :source-context (compiler-error-context context)
            :location (compiler-note-location condition context))))
@@ -543,16 +544,13 @@ compiler state."
       ;; N.B. Even though these handlers are called HANDLE-FOO they
       ;; actually decline, i.e. the signalling of the original
       ;; condition continues upward.
-      ((sb-c:fatal-compiler-error #'handle-file-compiler-termination)
-       (sb-c:compiler-error  #'handle-notification-condition)
-       (sb-ext:compiler-note #'handle-notification-condition)
-       (warning              #'handle-notification-condition))
+      ((sb-c:fatal-compiler-error #'handle-notification-condition)
+       (sb-c:compiler-error       #'handle-notification-condition)
+       (sb-ext:compiler-note      #'handle-notification-condition)
+       (error                     #'handle-notification-condition)
+       (warning                   #'handle-notification-condition))
     (funcall function)))
 
-(defun handle-file-compiler-termination (condition)
-  "Handle a condition that caused the file compiler to terminate."
-  (handle-notification-condition
-   (sb-int:encapsulated-condition condition)))
 
 (defvar *trap-load-time-warnings* nil)
 

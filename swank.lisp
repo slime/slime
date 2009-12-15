@@ -2802,7 +2802,12 @@ The time is measured in seconds."
     (multiple-value-bind (successp seconds)
         (handler-bind ((compiler-condition
                         (lambda (c) (push (make-compiler-note c) notes))))
-          (measure-time-interval function))
+          (measure-time-interval
+           #'(lambda ()
+               ;; To report location of error-signaling toplevel forms
+               ;; for errors in EVAL-WHEN or during macroexpansion.
+               (with-simple-restart (abort "Abort compilation.")
+                 (funcall function)))))
       (make-compilation-result (reverse notes) (and successp t) seconds))))
 
 (defslimefun compile-file-for-emacs (filename load-p &optional options)
