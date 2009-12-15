@@ -173,6 +173,16 @@ buffer's working directory"
    `(swank:delete-system-fasls ,name)
    'message))
 
+(defun slime-reload-system (system)
+  "Reload an ASDF system without reloading its dependencies."
+  (interactive (list (slime-read-system-name)))
+  (slime-save-some-lisp-buffers)
+  (slime-display-output-buffer)
+  (message "Performing ASDF LOAD-OP on system %S" system)
+  (slime-repl-shortcut-eval-async
+   `(swank:reload-system ,system)
+   #'slime-compilation-finished))
+
 
 ;;; REPL shortcuts
 
@@ -224,6 +234,10 @@ buffer's working directory"
 (defslime-repl-shortcut slime-repl-delete-system-fasls ("delete-system-fasls")
   (:handler 'slime-delete-system-fasls)
   (:one-liner "Delete FASLs of an ASDF system."))
+
+(defslime-repl-shortcut slime-repl-reload-system ("reload-system")
+  (:handler 'slime-reload-system)
+  (:one-liner "Recompile and load an ASDF system."))
 
 
 ;;; Initialization

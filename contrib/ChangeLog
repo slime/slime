@@ -1,3 +1,11 @@
+2009-12-15  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-asdf.el (slime-reload-system): New command for reloading
+	a system without recompiling recursively its dependencies.
+	REPL shortcut for it is `reload-system'.
+
+	* swank-asdf.lisp (reload-system): New function.
+
 2009-12-14  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	Take recursiveness of LABELS into account for displaying local

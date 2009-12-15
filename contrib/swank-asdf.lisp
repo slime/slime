@@ -31,7 +31,9 @@ Example:
 \(operate-on-system \"swank\" 'compile-op :force t)"
   (handler-case
       (with-compilation-hooks ()
-	(apply #'asdf:operate (find-operation operation-name) system-name keyword-args))
+	(apply #'asdf:operate (find-operation operation-name)
+               system-name keyword-args)
+        t)
     (asdf:compile-error () nil)))
 
 (defun asdf-central-registry ()
@@ -149,5 +151,24 @@ already knows."
                when (probe-file file) count it
                and do (delete-file file))))
     (format nil "~d file~:p ~:*~[were~;was~:;were~] removed" removed-count)))
+
+(defvar *recompile-system* nil)
+
+(defmethod asdf:operation-done-p asdf:around ((operation asdf:compile-op)
+                                              component)
+  (unless (eql *recompile-system*
+               (asdf:component-system component))
+    (call-next-method)))
+
+(defslimefun reload-system (name)
+  (let* ((system (asdf:find-system name))
+         (*recompile-system* system))
+    (collect-notes
+     (lambda ()
+       (handler-case
+           (with-compilation-hooks ()
+             (asdf:oos 'asdf:load-op system)
+             t)
+         (asdf:compile-error () nil))))))
 
 (provide :swank-asdf)

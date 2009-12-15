@@ -2537,6 +2537,8 @@ you will get errors about missing symbols.
 @cmditem{slime-load-system NAME}
 Compile and load an ASDF system.  The default system name is taken
 from the first file matching *.asd in the current directory.
+@cmditem{slime-reload-system NAME}
+Recompile and load an ASDF system without recompiling its dependencies.
 @cmditem{slime-open-system NAME &optional LOAD}
 Open all files in a system, optionally load it if LOAD is non-nil.
 @cmditem{slime-browse-system NAME}
@@ -2555,6 +2557,8 @@ The package also installs some new REPL shortcuts (@pxref{Shortcuts}):
 @table @kbd
 @item load-system
 Compile (as needed) and load an ASDF system.
+@item reload-system
+Recompile and load an ASDF system.
 @item compile-system
 Compile (but not load) an ASDF system.
 @item force-compile-system
