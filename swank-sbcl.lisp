@@ -727,11 +727,9 @@ compiler state."
   (with-struct (sb-introspect::definition-source-
                    pathname form-path character-offset plist)
       definition-source
-    (when (getf plist :emacs-buffer)
-      (return-from categorize-definition-source :buffer))
-    (when (and pathname (or form-path character-offset))
-      (return-from categorize-definition-source :file))
-    :invalid))
+    (cond ((getf plist :emacs-buffer) :buffer)
+          ((and pathname (or form-path character-offset)) :file)
+          (t :invalid))))
 
 (defun definition-source-for-emacs (definition-source type name)
   (with-struct (sb-introspect::definition-source-
