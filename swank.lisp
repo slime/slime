@@ -2765,10 +2765,10 @@ TAGS has is a list of strings."
             (setq *sldb-stepping-p* t)
             (,backend-function-name))
            ((find-restart 'continue)
-         (activate-stepping frame)
-         (setq *sldb-stepping-p* t)
-         (continue))
-        (t
+            (activate-stepping frame)
+            (setq *sldb-stepping-p* t)
+            (continue))
+           (t
             (error "Not currently single-stepping, and no continue restart available.")))))
 
 (define-stepper-function sldb-step sldb-step-into)
@@ -2838,14 +2838,17 @@ Record compiler notes signalled as `compiler-condition's."
 (defvar *fasl-pathname-function* nil
   "In non-nil, use this function to compute the name for fasl-files.")
 
+(defun compile-file-output (file directory)
+  (make-pathname :directory directory
+                 :defaults (compile-file-pathname file)))
+
 (defun fasl-pathname (input-file options)
   (cond (*fasl-pathname-function*
          (funcall *fasl-pathname-function* input-file options))
         ((getf options :fasl-directory)
-         (let* ((str (getf options :fasl-directory))
-                (dir (filename-to-pathname str)))
-           (assert (char= (aref str (1- (length str))) #\/))
-           (compile-file-pathname input-file :output-file dir)))
+         (let ((dir (getf options :fasl-directory)))
+           (assert (char= (aref dir (1- (length dir))) #\/))
+           (compile-file-output input-file dir)))
         (t
          (compile-file-pathname input-file))))
 

@@ -1,3 +1,11 @@
+2009-12-16  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (compile-file-output): Use
+	(make-pathname :directory dir :defaults (compile-file-pathname file))
+	instead of (compile-file-pathname file :output-file dir),
+	because the latter works differently on different implementations.
+	(fasl-pathname): Use the above function.
+
 2009-12-15  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank.lisp (*sldb-quit-restart*): Export. For users to customize
