@@ -1,3 +1,13 @@
+2009-12-16  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank-sbcl.org (categorize-definition-source): New.
+	(definition-source-for-emacs): Use it. Slightly
+	refactored. Renamed from `make-definition-source-location'.
+	(find-definitions, find-source-location)
+	(source-location-for-xref-data, function-dspec): Updated
+	accordingly.
+	(source-file-position): Scratch last argument, not needed anymore.
+
 2009-12-16  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (compile-file-output): Use
@@ -6,7 +16,7 @@
 	because the latter works differently on different implementations.
 	(fasl-pathname): Use the above function.
 
-2009-12-15  Tobias C. Rittweiler <tcr@freebits.de>
+2009-12-16  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank.lisp (*sldb-quit-restart*): Export. For users to customize
 	what `q' does in SLDB.

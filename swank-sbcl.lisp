@@ -689,14 +689,11 @@ compiler state."
 
 (defimplementation find-definitions (name)
   (loop for type in *definition-types* by #'cddr
-        for locations = (sb-introspect:find-definition-sources-by-name
-                         name type)
-        append (loop for source-location in locations collect
-                       (list (make-dspec type name source-location)
-                             (converting-errors-to-location
-                               (make-definition-source-location source-location
-                                                                type
-                                                                name))))))
+        for defsrcs = (sb-introspect:find-definition-sources-by-name name type)
+        append (loop for defsrc in defsrcs collect
+                     (list (make-dspec type name defsrc)
+                           (converting-errors-to-location
+                             (definition-source-for-emacs defsrc type name))))))
 
 (defimplementation find-source-location (obj)
   (flet ((general-type-of (obj)
@@ -708,7 +705,7 @@ compiler state."
              (class              :class)
              (method-combination :method-combination)
              (package            :package)
-             (condition          :condition)             
+             (condition          :condition)
              (structure-object   :structure-object)
              (standard-object    :standard-object)
              (t                  :thing)))
@@ -720,62 +717,75 @@ compiler state."
                 (print-unreadable-object (obj s :type t :identity t))))
              (t (princ-to-string obj)))))
     (converting-errors-to-location
-      (make-definition-source-location (sb-introspect:find-definition-source obj)
-                                       (general-type-of obj)
-                                       (to-string obj)))))
+      (let ((defsrc (sb-introspect:find-definition-source obj)))
+        (definition-source-for-emacs defsrc
+                                     (general-type-of obj)
+                                     (to-string obj))))))
 
 
-(defun make-definition-source-location (definition-source type name)
+(defun categorize-definition-source (definition-source)
+  (with-struct (sb-introspect::definition-source-
+                   pathname form-path character-offset plist)
+      definition-source
+    (when (getf plist :emacs-buffer)
+      (return-from categorize-definition-source :buffer))
+    (when (and pathname (or form-path character-offset))
+      (return-from categorize-definition-source :file))
+    :invalid))
+
+(defun definition-source-for-emacs (definition-source type name)
   (with-struct (sb-introspect::definition-source-
                    pathname form-path character-offset plist
                    file-write-date)
       definition-source
-    (destructuring-bind (&key emacs-buffer emacs-position emacs-directory
-                              emacs-string &allow-other-keys)
-        plist
-      (cond
-        (emacs-buffer
+    (ecase (categorize-definition-source definition-source)
+      (:buffer
+       (destructuring-bind (&key emacs-buffer emacs-position emacs-directory
+                                 emacs-string &allow-other-keys)
+           plist
          (let ((*readtable* (guess-readtable-for-filename emacs-directory)))
            (multiple-value-bind (start end)
                (if form-path
                    (with-debootstrapping
                      (source-path-string-position form-path emacs-string))
                    (values character-offset most-positive-fixnum))
-             (make-location `(:buffer ,emacs-buffer)
-                            `(:offset ,emacs-position ,start)
-                            `(:snippet
-                              ,(subseq emacs-string
-                                       start
-                                       (min end (+ start *source-snippet-size*))))))))
-        ((not pathname)
-         `(:error ,(format nil "Source definition of ~A ~A not found"
-                           (string-downcase type) name)))
-        (t
-         (let* ((namestring (namestring (translate-logical-pathname pathname)))
-                (pos (source-file-position namestring file-write-date form-path
-                                           character-offset))
-                (snippet (source-hint-snippet namestring file-write-date pos)))
-           (make-location `(:file ,namestring)
-                          ;; /file positions/ in Common Lisp start
-                          ;; from 0, in Emacs they start from 1.
-                          `(:position ,(1+ pos))
-                          `(:snippet ,snippet))))))))
+             (make-location
+              `(:buffer ,emacs-buffer)
+              `(:offset ,emacs-position ,start)
+              `(:snippet
+                ,(subseq emacs-string
+                         start
+                         (min end (+ start *source-snippet-size*)))))))))
+      (:file
+       (let* ((namestring (namestring (translate-logical-pathname pathname)))
+              (pos (if form-path
+                       (source-file-position namestring file-write-date form-path)
+                       character-offset))
+              (snippet (source-hint-snippet namestring file-write-date pos)))
+         (make-location `(:file ,namestring)
+                        ;; /file positions/ in Common Lisp start from
+                        ;; 0, buffer positions in Emacs start from 1.
+                        `(:position ,(1+ pos))
+                        `(:snippet ,snippet))))
+      (:invalid
+       (error "DEFINITION-SOURCE of ~A ~A did not contain ~
+               meaningful information."
+              (string-downcase type) name)))))
 
-(defun source-file-position (filename write-date form-path character-offset)
+(defun source-file-position (filename write-date form-path)
   (let ((source (get-source-code filename write-date))
         (*readtable* (guess-readtable-for-filename filename)))
     (with-debootstrapping
-      (if form-path
-          (source-path-string-position form-path source)
-          (or character-offset 0)))))
+      (source-path-string-position form-path source))))
 
 (defun source-hint-snippet (filename write-date position)
   (read-snippet-from-string (get-source-code filename write-date) position))
 
 (defun function-source-location (function &optional name)
   (declare (type function function))
-  (let ((location (sb-introspect:find-definition-source function)))
-    (make-definition-source-location location :function name)))
+  (definition-source-for-emacs (sb-introspect:find-definition-source function)
+                               :function
+                               (or name (function-name function))))
 
 (defimplementation describe-symbol-for-emacs (symbol)
   "Return a plist describing SYMBOL.
@@ -843,11 +853,9 @@ Return NIL if the symbol is unbound."
   (defxref who-specializes who-specializes-directly))
 
 (defun source-location-for-xref-data (xref-data)
-  (let ((name (car xref-data))
-        (source-location (cdr xref-data)))
-    (list name (make-definition-source-location source-location
-                                                'function
-                                                name))))
+  (destructuring-bind (name . defsrc) xref-data
+    (list name (converting-errors-to-location
+                 (definition-source-for-emacs defsrc 'function name)))))
 
 (defimplementation list-callers (symbol)
   (let ((fn (fdefinition symbol)))
@@ -887,7 +895,7 @@ Return NIL if the symbol is unbound."
 (defun function-dspec (fn)
   "Describe where the function FN was defined.
 Return a list of the form (NAME LOCATION)."
-  (let ((name (sb-kernel:%fun-name fn)))
+  (let ((name (function-name fn)))
     (list name (converting-errors-to-location
                  (function-source-location fn name)))))
 
