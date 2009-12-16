@@ -1,5 +1,17 @@
 2009-12-15  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank.lisp (*sldb-quit-restart*): Export. For users to customize
+	what `q' does in SLDB.
+	(handle-requests): Test differently for recursive invocations
+	as *sldb-quit-restart* may now be globally bound due to user
+	customization.
+	(coerce-restart): Coerces a restart-designator to a restart.
+	(throw-to-toplevel): Use it.
+
+	* slime.texi (swank:*sldb-quit-restart*): Document it.
+
+2009-12-15  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank.lisp (collect-notes): Establish new abort restart ("Abort
 	Compilation"); if an error is signaled in EVAL-WHEN, or during
 	macroexpansion -- assuming the backend DTRT --, invoking this

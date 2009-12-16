@@ -38,6 +38,7 @@
            #:*readtable-alist*
            #:*globally-redirect-io*
            #:*global-debugger*
+           #:*sldb-quit-restart*
            #:*backtrace-printer-bindings*
            #:*default-worker-thread-bindings*
            #:*macroexpand-printer-bindings*
@@ -521,6 +522,12 @@ The package is deleted before returning."
 (defun current-thread-id ()
   (thread-id (current-thread)))
 
+(defmacro define-special (name doc)
+  "Define a special variable NAME with doc string DOC.
+This is like defvar, but NAME will not be initialized."
+  `(progn
+    (defvar ,name)
+    (setf (documentation ',name 'variable) ,doc)))
 
 
 ;;;;; Logging
@@ -978,16 +985,19 @@ This is an optimized way for Lisp to deliver output to Emacs."
       (when socket
         (close-socket socket)))))
 
-;; The restart that will be invoked when the user calls sldb-quit.
-;; This restart will be named "abort" because many people press "a"
-;; instead of "q" in the debugger.
-(defvar *sldb-quit-restart*)
+;; By default, this restart will be named "abort" because many people
+;; press "a" instead of "q" in the debugger.
+(define-special *sldb-quit-restart*
+    "The restart that will be invoked when the user calls sldb-quit.")
 
 ;; Establish a top-level restart and execute BODY.
 ;; Execute K if the restart is invoked.
 (defmacro with-top-level-restart ((connection k) &body body)
   `(with-connection (,connection)
-     (restart-case 
+     (restart-case
+         ;; We explicitly rebind (and do not look at user's
+         ;; customization), so sldb-quit will always be our restart
+         ;; for rex requests.
          (let ((*sldb-quit-restart* (find-restart 'abort)))
            . ,body)
        (abort (&optional v)
@@ -999,9 +1009,10 @@ This is an optimized way for Lisp to deliver output to Emacs."
 (defun handle-requests (connection &optional timeout)
   "Read and process :emacs-rex requests.
 The processing is done in the extent of the toplevel restart."
-  (cond ((boundp '*sldb-quit-restart*)
+  (cond ((eq *emacs-connection* connection)
+         (assert (boundp '*sldb-quit-restart*))
          (process-requests timeout))
-        (t 
+        (t
          (tagbody
             start
             (with-top-level-restart (connection (go start))
@@ -1910,13 +1921,6 @@ VERSION: the protocol version"
 
 ;;;; Reading and printing
 
-(defmacro define-special (name doc)
-  "Define a special variable NAME with doc string DOC.
-This is like defvar, but NAME will not be initialized."
-  `(progn
-    (defvar ,name)
-    (setf (documentation ',name 'variable) ,doc)))
-
 (define-special *buffer-package*     
     "Package corresponding to slime-buffer-package.  
 
@@ -2692,12 +2696,16 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
 (defslimefun sldb-continue ()
   (continue))
 
+(defun coerce-restart (restart-designator)
+  (when (or (typep restart-designator 'restart)
+            (typep restart-designator '(and symbol (not null))))
+    (find-restart restart-designator)))
+
 (defslimefun throw-to-toplevel ()
   "Invoke the ABORT-REQUEST restart abort an RPC from Emacs.
 If we are not evaluating an RPC then ABORT instead."
   (let ((restart (and (boundp '*sldb-quit-restart*)
-                      (typep *sldb-quit-restart* 'restart)
-                      (find-restart *sldb-quit-restart*))))
+                      (coerce-restart *sldb-quit-restart*))))
     (cond (restart (invoke-restart restart))
           (t "No toplevel restart active"))))
 

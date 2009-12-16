@@ -1396,9 +1396,11 @@ Recompile frame. @kbd{C-u C-c C-c} for recompiling with maximum debug settings.
 @kbditem{a, sldb-abort}
 Invoke the @code{ABORT} restart.
 
+@anchor{sldb-quit}
 @kbditem{q, sldb-quit}
-``Quit'' -- @code{THROW} to a tag that the top-level @SLIME{}
-request-loop catches.
+``Quit'' -- For @SLIME{} evaluation requests, invoke a restart which
+restores to a known program state. For errors in other threads, see
+@ref{SWANK:*SLDB-QUIT-RESTART*}.
 
 @kbditem{c, sldb-continue}
 Invoke the @code{CONTINUE} restart.
@@ -1832,11 +1834,26 @@ globally set to @code{SWANK:SWANK-DEBUGGER-HOOK} and thus for @SLIME{}
 to handle all debugging in the Lisp image. This is for debugging
 multithreaded and callback-driven applications.
 
-@vindex SWANK:*SLDB-PRINTER-BINDINGS*
+@anchor{SWANK:*SLDB-QUIT-RESTART*}
+@vindex SWANK:*SLDB-QUIT-RESTART*
+@item SWANK:*SLDB-QUIT-RESTART*
+This variable names the restart that is invoked when pressing @kbd{q}
+(@pxref{sldb-quit}) in @SLDB{}. For @SLIME{} evaluation requests this
+is @emph{unconditionally} bound to a restart that returns to a safe
+point. This variable is supposed to customize what @kbd{q} does if an
+application's thread lands into the debuggger (see
+@code{SWANK:*GLOBAL-DEBUGGER*}).
+@example
+(setf swank:*sldb-quit-restart* 'sb-thread:terminate-thread)
+@end example
+
+@vindex SWANK:*BACKTRACE-PRINTER-BINDINGS*
 @vindex SWANK:*MACROEXPAND-PRINTER-BINDINGS*
+@vindex SWANK:*SLDB-PRINTER-BINDINGS*
 @vindex SWANK:*SWANK-PPRINT-BINDINGS*
-@item SWANK:*SLDB-PRINTER-BINDINGS*
+@item SWANK:*BACKTRACE-PRINTER-BINDINGS*
 @itemx SWANK:*MACROEXPAND-PRINTER-BINDINGS*
+@itemx SWANK:*SLDB-PRINTER-BINDINGS*
 @itemx SWANK:*SWANK-PPRINT-BINDINGS*
 These variables can be used to customize the printer in various
 situations.  The values of the variables are association lists of
