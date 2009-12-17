@@ -1010,7 +1010,8 @@ This is an optimized way for Lisp to deliver output to Emacs."
   "Read and process :emacs-rex requests.
 The processing is done in the extent of the toplevel restart."
   (cond ((eq *emacs-connection* connection)
-         (assert (boundp '*sldb-quit-restart*))
+         ;; *sldb-quit-restart* isn't bound here on *communication-style* NIL
+         ;; (assert (boundp '*sldb-quit-restart*))
          (process-requests timeout))
         (t
          (tagbody

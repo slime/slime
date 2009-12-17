@@ -1,3 +1,10 @@
+2009-12-17  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (handle-requests): Comment out
+	(assert (boundp '*sldb-quit-restart*)) because it's not bound
+	on NIL communication style. It's not a real fix, but at least it
+	lets null communication-style work.
+
 2009-12-16  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank-sbcl.org (categorize-definition-source): New.
