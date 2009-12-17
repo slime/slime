@@ -22,16 +22,14 @@
 ;;  Synopsis:
 ;;
 ;;  (select-match expression
-;;      (pattern  action+)*
-;;  )
+;;      (pattern  action+)*)
 ;;
 ;;      --- or ---
 ;;
 ;;  (select-match expression
 ;;      pattern => expression
 ;;      pattern => expression
-;;      ...
-;;  )
+;;      ...)
 ;;
 ;;  pattern ->  constant		;egs  1, #\x, #c(1.0 1.1)
 ;;          |   symbol                  ;matches anything
@@ -63,8 +61,7 @@
 ;;  .   Symbols match anything. The symbol is bound to the matched item
 ;;      for the execution of the actions.
 ;;      For example, (SELECT-MATCH '(1 2 3)
-;;                      (1 . X) => X
-;;                   )
+;;                      (1 . X) => X)
 ;;      returns (2 3) because X is bound to the cdr of the candidate.
 ;;
 ;;  .   The two pattern match (p1 = p2) can be used to name parts
@@ -97,106 +94,71 @@
   `(select-match ,expression ,@patterns))
 
 (defmacro select-match (expression &rest patterns)
-    (let* ( (do-let (not (atom expression)))
-            (key    (if do-let (gensym) expression))
-            (cbody  (expand-select-patterns key patterns))
-            (cform  `(cond . ,cbody))
-          )
-
-        (if do-let
-            `(let ((,key ,expression)) ,cform)
-            cform))
-)
-
+  (let* ((do-let (not (atom expression)))
+         (key    (if do-let (gensym) expression))
+         (cbody  (expand-select-patterns key patterns))
+         (cform  `(cond . ,cbody)))
+    (if do-let
+        `(let ((,key ,expression)) ,cform)
+        cform)))
 
 (defun expand-select-patterns (key patterns)
-    (if (eq (second patterns) '=>)
-        (expand-select-patterns-style-2 key patterns)
-        (expand-select-patterns-style-1 key patterns)))
-
+  (if (eq (second patterns) '=>)
+      (expand-select-patterns-style-2 key patterns)
+      (expand-select-patterns-style-1 key patterns)))
 
 (defun expand-select-patterns-style-1 (key patterns)
-
   (if (null patterns)
-  
-    `((t (error "Case select pattern match failure on ~S" ,key)))
-
-    (let ((pattern  (caar patterns))
-          (actions  (cdar patterns))
-          (rest     (cdr patterns)) )
-
-        (let  ( (test       (compile-select-test key pattern))
-                (bindings   (compile-select-bindings key pattern actions)))
-
-            `(  ,(if bindings  `(,test (let ,bindings . ,actions))
-                               `(,test . ,actions))
-              . ,(if (eq test t)
-                    nil
-                    (expand-select-patterns-style-1 key rest)))
-        )
-    )
-))
-
-
+      `((t (error "Case select pattern match failure on ~S" ,key)))
+      (let* ((pattern  (caar patterns))
+             (actions  (cdar patterns))
+             (rest     (cdr patterns))
+             (test     (compile-select-test key pattern))
+             (bindings (compile-select-bindings key pattern actions)))
+        `(,(if bindings `(,test (let ,bindings . ,actions))
+               `(,test . ,actions))
+           . ,(unless (eq test t)
+                (expand-select-patterns-style-1 key rest))))))
 
 (defun expand-select-patterns-style-2 (key patterns)
-
-  (if (null patterns)
-  
-    `((t (error "Case select pattern match failure on ~S" ,key)))
-
-    (let ((pattern  (first patterns))
-          (arrow    (if (or (< (length patterns) 3)
-                            (not (eq (second patterns) '=>)))
-                        (error "Illegal patterns: ~S" patterns)))
-          (actions  (list (third patterns)))
-          (rest     (cdddr patterns)) )
-
-        (let  ( (test       (compile-select-test key pattern))
-                (bindings   (compile-select-bindings key pattern actions)))
-
-            `(  ,(if bindings  `(,test (let ,bindings . ,actions))
-                               `(,test . ,actions))
-              . ,(if (eq test t)
-                    nil
-                    (expand-select-patterns-style-2 key rest)))
-        )
-    )
-))
-
-
+  (cond ((null patterns)
+         `((t (error "Case select pattern match failure on ~S" ,key))))
+        (t (when (or (< (length patterns) 3)
+                     (not (eq (second patterns) '=>)))
+             (error "Illegal patterns: ~S" patterns))
+           (let* ((pattern  (first patterns))
+                  (actions  (list (third patterns)))
+                  (rest     (cdddr patterns))
+                  (test     (compile-select-test key pattern))
+                  (bindings (compile-select-bindings key pattern actions)))
+             `(,(if bindings `(,test (let ,bindings . ,actions))
+                    `(,test . ,actions))
+                . ,(unless (eq test t)
+                     (expand-select-patterns-style-2 key rest)))))))
 
 (defun compile-select-test (key pattern)
-    (let  ((tests (remove-if
-                        #'(lambda (item) (eq item t))
-                        (compile-select-tests key pattern))))
-        (cond
-            ;; note AND does this anyway, but this allows us to tell if
-            ;; the pattern will always match.
-            ((null tests)           t)
-            ((= (length tests) 1)   (car tests))
-            (t                      `(and . ,tests)))))
-
+  (let ((tests (remove t (compile-select-tests key pattern))))
+    (cond
+      ;; note AND does this anyway, but this allows us to tell if
+      ;; the pattern will always match.
+      ((null tests)         t)
+      ((= (length tests) 1) (car tests))
+      (t                    `(and . ,tests)))))
 
 (defun compile-select-tests (key pattern)
-
-  (cond   ((constantp pattern)   `((,(cond ((numberp pattern) 'eql)
-                                           ((symbolp pattern) 'eq)
-                                           (t                'equal))
-                                     ,key ,pattern)))
-
+  (cond ((constantp pattern)   `((,(cond ((numberp pattern) 'eql)
+                                         ((symbolp pattern) 'eq)
+                                         (t                'equal))
+                                   ,key ,pattern)))
         ((symbolp pattern)      '(t))
-
         ((select-double-match? pattern)
          (append
           (compile-select-tests key (first pattern))
           (compile-select-tests key (third pattern))))
-
         ((select-predicate? pattern)
          (append
           `((,(second (first pattern)) ,key))
           (compile-select-tests key (second pattern))))
-
         ((consp pattern)
          (append
           `((consp ,key))
@@ -204,88 +166,73 @@
                                                pattern))
           (compile-select-tests (!cs-cdr key) (cdr
                                                pattern))))
-
-        (t         (error "Illegal select pattern: ~S" pattern))
-        )
-  )
+        (t (error "Illegal select pattern: ~S" pattern))))
 
 
 (defun compile-select-bindings (key pattern action)
-
-  (cond   ((constantp pattern)    '())
+  (cond ((constantp pattern) '())
         ((symbolp pattern)
-         (if (select!-in-tree pattern action) `((,pattern ,key))
+         (if (select!-in-tree pattern action)
+             `((,pattern ,key))
              '()))
-
         ((select-double-match? pattern)
          (append
           (compile-select-bindings key (first pattern) action)
-          (compile-select-bindings key (third pattern)
-                                   action)))
-
+          (compile-select-bindings key (third pattern) action)))
         ((select-predicate? pattern)
-         (compile-select-bindings key (second pattern)
-                                  action))
-
+         (compile-select-bindings key (second pattern) action))
         ((consp pattern)
          (append
           (compile-select-bindings (!cs-car key) (car pattern)
                                    action)
           (compile-select-bindings (!cs-cdr key) (cdr pattern)
-                                   action)))
-        )
-  )
-
+                                   action)))))
 
 (defun select!-in-tree (atom tree)
-    (or (eq atom tree)
-        (if (consp tree)
-            (or (select!-in-tree atom (car tree))
-                (select!-in-tree atom (cdr tree))))))
+  (or (eq atom tree)
+      (if (consp tree)
+          (or (select!-in-tree atom (car tree))
+              (select!-in-tree atom (cdr tree))))))
 
 (defun select-double-match? (pattern)
-    ;;  (<pattern> = <pattern>)
-    (and (consp pattern) (consp (cdr pattern)) (consp (cddr pattern))
-         (null (cdddr pattern))
-         (eq (second pattern) '=)))
-
+  ;;  (<pattern> = <pattern>)
+  (and (consp pattern) (consp (cdr pattern)) (consp (cddr pattern))
+       (null (cdddr pattern))
+       (eq (second pattern) '=)))
 
 (defun select-predicate? (pattern)
-    ;; ((function <f>) <pattern>)
-    (and    (consp pattern)
-            (consp (cdr pattern))
-            (null (cddr pattern))
-            (consp (first pattern))
-            (consp (cdr (first pattern)))
-            (null (cddr (first pattern)))
-            (eq (caar pattern) 'function)))
-
-
-
+  ;; ((function <f>) <pattern>)
+  (and (consp pattern)
+       (consp (cdr pattern))
+       (null (cddr pattern))
+       (consp (first pattern))
+       (consp (cdr (first pattern)))
+       (null (cddr (first pattern)))
+       (eq (caar pattern) 'function)))
 
 (defun !cs-car (exp)
-    (!cs-car/cdr 'car exp '(
-            (car . caar)    (cdr . cadr)    (caar . caaar)  (cadr . caadr)
-            (cdar . cadar)  (cddr . caddr)
-            (caaar . caaaar)    (caadr . caaadr)    (cadar . caadar)
-            (caddr . caaddr)    (cdaar . cadaar)    (cdadr . cadadr)
-            (cddar . caddar)    (cdddr . cadddr))))
+  (!cs-car/cdr 'car exp
+               '((car . caar)     (cdr . cadr)    (caar . caaar) (cadr . caadr)
+                 (cdar . cadar)   (cddr . caddr)
+                 (caaar . caaaar) (caadr . caaadr) (cadar . caadar)
+                 (caddr . caaddr) (cdaar . cadaar) (cdadr . cadadr)
+                 (cddar . caddar) (cdddr . cadddr))))
 
 (defun !cs-cdr (exp)
-    (!cs-car/cdr 'cdr exp '(
-            (car . cdar)    (cdr . cddr)    (caar . cdaar)  (cadr . cdadr)
-            (cdar . cddar)  (cddr . cdddr)
-            (caaar . cdaaar)    (caadr . cdaadr)    (cadar . cdadar)
-            (caddr . cdaddr)    (cdaar . cddaar)    (cdadr . cddadr)
-            (cddar . cdddar)    (cdddr . cddddr))))
+  (!cs-car/cdr 'cdr exp
+               '((car . cdar)    (cdr . cddr)    (caar . cdaar)  (cadr . cdadr)
+                 (cdar . cddar)  (cddr . cdddr)
+                 (caaar . cdaaar)    (caadr . cdaadr)    (cadar . cdadar)
+                 (caddr . cdaddr)    (cdaar . cddaar)    (cdadr . cddadr)
+                 (cddar . cdddar)    (cdddr . cddddr))))
 
 (defun !cs-car/cdr (op exp table)
-    (if (and (consp exp) (= (length exp) 2))
-        (let ((replacement  (assoc (car exp) table)))
-            (if replacement
-                `(,(cdr replacement) ,(second exp))
-                `(,op ,exp)))
-        `(,op ,exp)))
+  (if (and (consp exp) (= (length exp) 2))
+      (let ((replacement  (assoc (car exp) table)))
+        (if replacement
+            `(,(cdr replacement) ,(second exp))
+            `(,op ,exp)))
+      `(,op ,exp)))
 
 ;; (setf c1 '(select-match x (a 1) (b 2 3 4)))
 ;; (setf c2 '(select-match (car y)
