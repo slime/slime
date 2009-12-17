@@ -2604,6 +2604,7 @@ between compiler notes and to display their full details."
   (interactive)
   (slime-compile-file t))
 
+;;; FIXME: This should become a DEFCUSTOM
 (defvar slime-compile-file-options '()
   "Plist of additional options that C-c C-k should pass to Lisp.
 Currently only :fasl-directory is supported.")
@@ -3871,17 +3872,18 @@ function name is prompted."
            (slime-show-xrefs file-alist 'definition name
                              (slime-current-package))))))
 
+(defvar slime-edit-uses-xrefs 
+  '(:calls :macroexpands :binds :references :sets :specializes))
+
 ;;; FIXME. TODO: Would be nice to group the symbols (in each
 ;;;              type-group) by their home-package.
 (defun slime-edit-uses (symbol)
   "Lookup all the uses of SYMBOL."
   (interactive (list (slime-read-symbol-name "Edit Uses of: ")))
-  (slime-xrefs '(:calls :macroexpands
-                 :binds :references :sets
-                 :specializes) 
+  (slime-xrefs slime-edit-uses-xrefs
                symbol
                #'(lambda (xrefs type symbol package snapshot)
-                   (cond 
+                   (cond
                      ((null xrefs)
                       (message "No xref information found for %s." symbol))
                      ((and (slime-length= xrefs 1)          ; one group
@@ -3891,7 +3893,7 @@ function name is prompted."
                         (slime-pop-to-location loc)))
                      (t
                       (slime-push-definition-stack)
-                      (slime-show-xref-buffer xrefs type symbol 
+                      (slime-show-xref-buffer xrefs type symbol
                                               package snapshot))))))
 
 (defun slime-analyze-xrefs (xrefs)
@@ -5022,7 +5024,7 @@ When displaying XREF information, this goes to the previous reference."
                              :complained)))))))
 
 (defun slime-aggregate-compilation-results (results)
-  `(:complilation-result
+  `(:compilation-result
     ,(reduce #'append (mapcar #'slime-compilation-result.notes results))
     ,(every #'slime-compilation-result.successp results)
     ,(reduce #'+ (mapcar #'slime-compilation-result.duration results))))

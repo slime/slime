@@ -22,7 +22,7 @@
         do (funcall fn system)))
 
 ;;; This is probably a crude hack, see ASDF's LP #481187.
-(defun who-depends-on (system)
+(defslimefun who-depends-on (system)
   (flet ((system-dependencies (op system)
            (mapcar #'(lambda (dep)
                        (asdf::coerce-name (if (consp dep) (second dep) dep)))
@@ -36,6 +36,17 @@
                          :test #'string=)
              (push (asdf:component-name system) result))))
       result)))
+
+(defmethod xref-doit ((type (eql :depends-on)) thing)
+  (loop for dependency in (who-depends-on thing)
+        for asd-file = (asdf:system-definition-pathname dependency)
+        collect (list dependency
+                      (swank-backend::make-location
+                       `(:file ,(namestring asd-file))
+                       `(:position 1)
+                       `(:snippet ,(format nil "(defsystem :~A" dependency)
+                         :align t)))))
+
 
 (defslimefun operate-on-system-for-emacs (system-name operation &rest keywords)
   "Compile and load SYSTEM using ASDF.

@@ -1,3 +1,14 @@
+2009-12-17  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-asdf.lisp (who-depends-on): Make defslimefun.
+	(xref-doit [:depends-on]): New method to make :depends-on valid
+	xref request.
+
+	* slime-asdf.el (slime-who-depends-on-rpc): New.
+	(slime-who-depends-on): New interactive function.
+	(slime-asdf-init): Make `slime-edit-uses' perform a :depends-on
+	request, and bind `C-c C-w d' to `slime-who-depends-on'.
+
 2009-12-15  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-asdf.lisp (who-depends-on): Add.

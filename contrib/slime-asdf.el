@@ -68,6 +68,9 @@ in the directory of the current buffer."
   "Try to determine the asdf system that `filename' belongs to."
   (slime-eval `(swank:asdf-determine-system ,filename ,buffer-package)))
 
+(defun slime-who-depends-on-rpc (system)
+  (slime-eval `(swank:who-depends-on ,system)))
+
 (defun slime-oos (system operation &rest keyword-args)
   "Operate On System."
   (slime-save-some-lisp-buffers)
@@ -183,6 +186,10 @@ buffer's working directory"
    `(swank:reload-system ,system)
    #'slime-compilation-finished))
 
+(defun slime-who-depends-on (system-name)
+  (interactive (list (slime-read-system-name)))
+  (slime-xref :depends-on system-name))
+
 
 ;;; REPL shortcuts
 
@@ -246,7 +253,9 @@ buffer's working directory"
   (slime-eval-async '(swank:swank-require :swank-asdf)))
 
 (defun slime-asdf-init ()
-  (add-hook 'slime-connected-hook 'slime-asdf-on-connect))
+  (add-hook 'slime-connected-hook 'slime-asdf-on-connect)
+  (add-to-list 'slime-edit-uses-xrefs :depends-on t)
+  (define-key slime-who-map [?d] 'slime-who-depends-on))
 
 (defun slime-asdf-unload ()
   (remove-hook 'slime-connected-hook 'slime-asdf-on-connect))

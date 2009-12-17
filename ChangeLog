@@ -1,7 +1,16 @@
 2009-12-17  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* slime.el (slime-edit-uses-xrefs): New variable. For contribs to
+	extend.
+	(slime-edit-uses): Use it.
+
+	* swank.lisp (xref-doit): Now a generic functions. For contribs to
+	extend.
+
+2009-12-17  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank.lisp (with-top-level-restart): Bind local special.
-	(top-level-restart-p): Check for it; this tells us if where's in
+	(top-level-restart-p): Check for it; this tells us if we're in
 	the dynamic extent of with-top-level-restart.
 	(handle-requests): Use it.
 
