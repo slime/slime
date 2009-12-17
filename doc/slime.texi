@@ -1841,7 +1841,7 @@ This variable names the restart that is invoked when pressing @kbd{q}
 (@pxref{sldb-quit}) in @SLDB{}. For @SLIME{} evaluation requests this
 is @emph{unconditionally} bound to a restart that returns to a safe
 point. This variable is supposed to customize what @kbd{q} does if an
-application's thread lands into the debuggger (see
+application's thread lands into the debugger (see
 @code{SWANK:*GLOBAL-DEBUGGER*}).
 @example
 (setf swank:*sldb-quit-restart* 'sb-thread:terminate-thread)

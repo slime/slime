@@ -1,3 +1,10 @@
+2009-12-17  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank.lisp (with-top-level-restart): Bind local special.
+	(top-level-restart-p): Check for it; this tells us if where's in
+	the dynamic extent of with-top-level-restart.
+	(handle-requests): Use it.
+
 2009-12-17  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-match.lisp: Fix formatting and style warnings.
@@ -11,7 +18,7 @@
 
 2009-12-16  Tobias C. Rittweiler <tcr@freebits.de>
 
-	* swank-sbcl.org (categorize-definition-source): New.
+	* swank-sbcl.lisp (categorize-definition-source): New.
 	(definition-source-for-emacs): Use it. Slightly
 	refactored. Renamed from `make-definition-source-location'.
 	(find-definitions, find-source-location)

@@ -998,24 +998,37 @@ This is an optimized way for Lisp to deliver output to Emacs."
          ;; We explicitly rebind (and do not look at user's
          ;; customization), so sldb-quit will always be our restart
          ;; for rex requests.
-         (let ((*sldb-quit-restart* (find-restart 'abort)))
-           . ,body)
+         (let ((*sldb-quit-restart* (find-restart 'abort))
+               (*toplevel-restart-available* t))
+           (declare (special *toplevel-restart-available*))
+           ,@body)
        (abort (&optional v)
          :report "Return to SLIME's top level."
          (declare (ignore v))
          (force-user-output)
          ,k))))
 
+(defun top-level-restart-p ()
+  ;; FIXME: this could probably be done better; previously this used
+  ;; *SLDB-QUIT-RESTART* but we cannot use that anymore because it's
+  ;; exported now, and might hence be bound globally.
+  ;;
+  ;; The caveat is that for slime rex requests, we do not want to use
+  ;; the global value of *sldb-quit-restart* because that might be
+  ;; bound to terminate-thread, and hence `q' in the debugger would
+  ;; kill the repl thread.
+  (boundp '*toplevel-restart-available*))
+
 (defun handle-requests (connection &optional timeout)
   "Read and process :emacs-rex requests.
 The processing is done in the extent of the toplevel restart."
-  (cond ((eq *emacs-connection* connection)
-         ;; *sldb-quit-restart* isn't bound here on *communication-style* NIL
-         ;; (assert (boundp '*sldb-quit-restart*))
+  (cond ((top-level-restart-p)
+         (assert (boundp '*sldb-quit-restart*))
+         (assert *emacs-connection*)
          (process-requests timeout))
         (t
          (tagbody
-            start
+          start
             (with-top-level-restart (connection (go start))
               (process-requests timeout))))))
 
