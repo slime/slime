@@ -1,3 +1,18 @@
+2009-12-18  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Add 'M-x slime-query-replace-system-and-dependencies' which is
+	like `slime-query-replace-system' but also runs query-replace on
+	all files of systems _depending on_ the user-queried system.
+
+	* slime-asdf.el (slime-read-query-replace-args): Factored out from
+	`slime-query-replace-system'.
+	(slime-query-replace-system): Use it.
+	(slime-query-replace-system-and-dependencies): Add.
+
+	* swank-asdf.lisp (who-depends-on):
+	`asdf:system-definition-pathname' may return NIL, guard against
+	that.
+
 2009-12-17  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-asdf.lisp (who-depends-on): Make defslimefun.

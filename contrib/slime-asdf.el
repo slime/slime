@@ -155,19 +155,43 @@ buffer's working directory"
       (interactive)
       (error "This command is only supported on GNU Emacs >23.1.x.")))
 
+(defun slime-read-query-replace-args (format-string &rest format-args)
+  (let* ((minibuffer-setup-hook (slime-minibuffer-setup-hook))
+         (minibuffer-local-map slime-minibuffer-map)
+         (common (query-replace-read-args (apply #'format format-string
+                                                 format-args)
+                                          t t)))
+    (list (nth 0 common) (nth 1 common) (nth 2 common))))
+
 (defun slime-query-replace-system (name from to &optional delimited)
   "Run `query-replace' on an ASDF system."
-  (interactive 
-   (let* ((minibuffer-setup-hook (slime-minibuffer-setup-hook))
-	  (minibuffer-local-map slime-minibuffer-map)
-	  (system (slime-read-system-name nil nil t))
-          (common (query-replace-read-args 
-                   (format "Query replace throughout `%s'" system) t t)))
-     (list system (nth 0 common) (nth 1 common) (nth 2 common))))
-  ;; `tags-query-replace' actually uses `query-replace-regexp'
-  ;; internally.
-  (tags-query-replace (regexp-quote from) to delimited
-		      '(slime-eval `(swank:asdf-system-files ,name))))
+  (interactive (let ((system (slime-read-system-name nil nil t)))
+                 (cons system (slime-read-query-replace-args
+                               "Query replace throughout `%s'" system))))
+  (condition-case c
+      ;; `tags-query-replace' actually uses `query-replace-regexp'
+      ;; internally.
+      (tags-query-replace (regexp-quote from) to delimited
+                          '(slime-eval `(swank:asdf-system-files ,name)))
+    (error
+     ;; Kludge: `tags-query-replace' does not actually return but
+     ;; signals an unnamed error with the below error
+     ;; message. (<=23.1.2, at least.)
+     (unless (string-equal (error-message-string c) "All files processed")
+       (signal (car c) (cdr c)))        ; resignal
+     t)))
+
+(defun slime-query-replace-system-and-dependencies
+    (name from to &optional delimited)
+  "Run `query-replace' on an ASDF system."
+  (interactive (let ((system (slime-read-system-name nil nil t)))
+                 (cons system (slime-read-query-replace-args
+                               "Query replace throughout `%s'+dependencies"
+                               system))))
+  (slime-query-replace-system name from to delimited)
+  (dolist (dep (slime-who-depends-on-rpc name))
+    (when (y-or-n-p (format "Descend into system `%s'? " dep))
+      (slime-query-replace-system dep from to delimited))))
 
 (defun slime-delete-system-fasls (name)
   "Delete FASLs produced by compiling a system."
