@@ -181,9 +181,10 @@ buffer's working directory"
        (signal (car c) (cdr c)))        ; resignal
      t)))
 
-(defun slime-query-replace-system-and-dependencies
+(defun slime-query-replace-system-and-dependents
     (name from to &optional delimited)
-  "Run `query-replace' on an ASDF system."
+  "Run `query-replace' on an ASDF system and all the systems
+depending on it."
   (interactive (let ((system (slime-read-system-name nil nil t)))
                  (cons system (slime-read-query-replace-args
                                "Query replace throughout `%s'+dependencies"

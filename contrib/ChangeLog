@@ -1,3 +1,9 @@
+2009-12-19  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-asdf.el (slime-query-replace-system-and-dependents):
+	Renamed from `slime-query-replace-system-and-dependencies' because
+	that's what it actually does.
+
 2009-12-18  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	Add 'M-x slime-query-replace-system-and-dependencies' which is
