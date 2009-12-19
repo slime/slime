@@ -305,13 +305,13 @@
      (declare (ignore position))
      (if file (is-swank-source-p file)))))
 
-#+#.(swank-backend::with-symbol '+ECL-VERSION-NUMBER+ 'EXT)
+#+#.(swank-backend:with-symbol '+ECL-VERSION-NUMBER+ 'EXT)
 (defmacro find-ihs-top (x)
   (if (< ext:+ecl-version-number+ 90601)
       `(si::ihs-top ,x)
       '(si::ihs-top)))
 
-#-#.(swank-backend::with-symbol '+ECL-VERSION-NUMBER+ 'EXT)
+#-#.(swank-backend:with-symbol '+ECL-VERSION-NUMBER+ 'EXT)
 (defmacro find-ihs-top (x) 
   `(si::ihs-top ,x))
 
@@ -379,11 +379,11 @@
   (let ((functions '())
         (blocks '())
         (variables '()))
-    #+#.(swank-backend::with-symbol '+ECL-VERSION-NUMBER+ 'EXT)
+    #+#.(swank-backend:with-symbol '+ECL-VERSION-NUMBER+ 'EXT)
     #.(if (< ext:+ecl-version-number+ 90601)
         '(setf frame (second frame))
         '(setf frame (si::decode-ihs-env (second frame))))
-    #-#.(swank-backend::with-symbol '+ECL-VERSION-NUMBER+ 'EXT)
+    #-#.(swank-backend:with-symbol '+ECL-VERSION-NUMBER+ 'EXT)
     '(setf frame (second frame))
     (dolist (record frame)
       (let* ((record0 (car record))
@@ -493,11 +493,11 @@
               `(:snippet
                 ,(with-open-file (s file)
 
-                                 #+#.(swank-backend::with-symbol '+ECL-VERSION-NUMBER+ 'EXT)
+                                 #+#.(swank-backend:with-symbol '+ECL-VERSION-NUMBER+ 'EXT)
                                  (if (< ext:+ecl-version-number+ 90601)
                                      (skip-toplevel-forms pos s)
                                      (file-position s pos))
-                                 #-#.(swank-backend::with-symbol '+ECL-VERSION-NUMBER+ 'EXT)
+                                 #-#.(swank-backend:with-symbol '+ECL-VERSION-NUMBER+ 'EXT)
                                  (skip-toplevel-forms pos s)
                                  (skip-comments-and-whitespace s)
                                  (read-snippet s))))))))

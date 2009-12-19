@@ -1,3 +1,8 @@
+2009-12-19  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-backend.lisp (defpackage): export with-symbol and
+	replace its fully qualified usage everywhere.
+
 2009-12-17  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el (slime-edit-uses-xrefs): New variable. For contribs to

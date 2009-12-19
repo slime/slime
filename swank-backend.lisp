@@ -42,7 +42,7 @@
            #:emacs-inspect
            #:label-value-line
            #:label-value-line*
-           ))
+           #:with-symbol))
 
 (defpackage :swank-mop
   (:use)

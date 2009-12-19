@@ -187,6 +187,7 @@ already knows."
 
 (defvar *recompile-system* nil)
 
+#+#.(swank-backend:with-symbol 'around 'asdf)
 (defmethod asdf:operation-done-p asdf:around ((operation asdf:compile-op)
                                               component)
   (unless (eql *recompile-system*

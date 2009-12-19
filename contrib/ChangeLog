@@ -1,3 +1,11 @@
+2009-12-19  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-asdf.lisp (asdf:operation-done-p): ASDF included with some
+	implementations doesn't have AROUND method combination, so guard
+	against its usage. This will prevent swank:reload-system from working,
+	but it will let load swank-asdf.
+	Reported by Mark Evenson.
+
 2009-12-19  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-asdf.el (slime-query-replace-system-and-dependents):

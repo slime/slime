@@ -17,15 +17,14 @@
 ;;; The introduction of SYS::*INVOKE-DEBUGGER-HOOK* obliterates the
 ;;; need for redefining BREAK. The following should thus be removed at
 ;;; some point in the future.
-#-#.(swank-backend::with-symbol '*invoke-debugger-hook* 'sys)
+#-#.(swank-backend:with-symbol '*invoke-debugger-hook* 'sys)
 (defun sys::break (&optional (format-control "BREAK called") 
                    &rest format-arguments)
   (let ((sys::*saved-backtrace* 
-         #+#.(swank-backend::with-symbol 'backtrace 'sys) 
+         #+#.(swank-backend:with-symbol 'backtrace 'sys) 
          (sys:backtrace)
-         #-#.(swank-backend::with-symbol 'backtrace 'sys)
-         (ext:backtrace-as-list)
-         ))
+         #-#.(swank-backend:with-symbol 'backtrace 'sys)
+         (ext:backtrace-as-list)))
     (with-simple-restart (continue "Return from BREAK.")
       (invoke-debugger
        (sys::%make-condition 'simple-condition
@@ -300,13 +299,13 @@
 
 (defimplementation call-with-debugger-hook (hook fun)
   (let ((*debugger-hook* hook)
-        #+#.(swank-backend::with-symbol '*invoke-debugger-hook* 'sys)
+        #+#.(swank-backend:with-symbol '*invoke-debugger-hook* 'sys)
         (sys::*invoke-debugger-hook* (make-invoke-debugger-hook hook)))
     (funcall fun)))
 
 (defimplementation install-debugger-globally (function)
   (setq *debugger-hook* function)
-  #+#.(swank-backend::with-symbol '*invoke-debugger-hook* 'sys)
+  #+#.(swank-backend:with-symbol '*invoke-debugger-hook* 'sys)
   (setq sys::*invoke-debugger-hook* (make-invoke-debugger-hook function)))
 
 (defvar *sldb-topframe*)
@@ -314,11 +313,11 @@
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let* ((magic-token (intern "SWANK-DEBUGGER-HOOK" 'swank))
          (*sldb-topframe* 
-          #+#.(swank-backend::with-symbol 'backtrace 'sys)
+          #+#.(swank-backend:with-symbol 'backtrace 'sys)
           (second (member magic-token (sys:backtrace)
                           :key #'(lambda (frame) 
                                    (first (sys:frame-to-list frame)))))
-          #-#.(swank-backend::with-symbol 'backtrace 'sys)
+          #-#.(swank-backend:with-symbol 'backtrace 'sys)
           (second (member magic-token (ext:backtrace-as-list)
                           :key #'(lambda (frame) 
                                    (first frame))))
@@ -328,9 +327,9 @@
 (defun backtrace (start end)
   "A backtrace without initial SWANK frames."
   (let ((backtrace 
-         #+#.(swank-backend::with-symbol 'backtrace 'sys)
+         #+#.(swank-backend:with-symbol 'backtrace 'sys)
          (sys:backtrace)
-         #-#.(swank-backend::with-symbol 'backtrace 'sys)
+         #-#.(swank-backend:with-symbol 'backtrace 'sys)
          (ext:backtrace-as-list)
          ))
     (subseq (or (member *sldb-topframe* backtrace) backtrace)
@@ -345,9 +344,9 @@
 
 (defimplementation print-frame (frame stream)
   (write-string
-   #+#.(swank-backend::with-symbol 'backtrace 'sys)
+   #+#.(swank-backend:with-symbol 'backtrace 'sys)
    (sys:frame-to-string frame)
-   #-#.(swank-backend::with-symbol 'backtrace 'sys)
+   #-#.(swank-backend:with-symbol 'backtrace 'sys)
    (string-trim '(#\space #\newline) (prin1-to-string frame))
    stream))
 

@@ -372,11 +372,11 @@
 
 ;;; Utilities
 
-#+#.(swank-backend::with-symbol 'function-lambda-list 'sb-introspect)
+#+#.(swank-backend:with-symbol 'function-lambda-list 'sb-introspect)
 (defimplementation arglist (fname)
   (sb-introspect:function-lambda-list fname))
 
-#-#.(swank-backend::with-symbol 'function-lambda-list 'sb-introspect)
+#-#.(swank-backend:with-symbol 'function-lambda-list 'sb-introspect)
 (defimplementation arglist (fname)
   (sb-introspect:function-arglist fname))
 
@@ -396,7 +396,7 @@
                                   flags :key #'ensure-list))
           (call-next-method)))))
 
-#+#.(swank-backend::with-symbol 'deftype-lambda-list 'sb-introspect)
+#+#.(swank-backend:with-symbol 'deftype-lambda-list 'sb-introspect)
 (defmethod type-specifier-arglist :around (typespec-operator)
   (multiple-value-bind (arglist foundp)
       (sb-introspect:deftype-lambda-list typespec-operator)
@@ -434,7 +434,7 @@ information."
                        (sb-ext:compiler-note :note)
                        (error                :error)
                        (reader-error         :read-error)
-                       #+#.(swank-backend::with-symbol redefinition-warning sb-kernel)
+                       #+#.(swank-backend:with-symbol redefinition-warning sb-kernel)
                        (sb-kernel:redefinition-warning
                                              :redefinition)
                        (style-warning        :style-warning)
@@ -594,13 +594,13 @@ compiler state."
 
 (defun get-compiler-policy (default-policy)
   (declare (ignorable default-policy))
-  #+#.(swank-backend::with-symbol 'restrict-compiler-policy 'sb-ext)
+  #+#.(swank-backend:with-symbol 'restrict-compiler-policy 'sb-ext)
   (remove-duplicates (append default-policy (sb-ext:restrict-compiler-policy))
                      :key #'car))
 
 (defun set-compiler-policy (policy)
   (declare (ignorable policy))
-  #+#.(swank-backend::with-symbol 'restrict-compiler-policy 'sb-ext)
+  #+#.(swank-backend:with-symbol 'restrict-compiler-policy 'sb-ext)
    (loop for (qual . value) in policy
          do (sb-ext:restrict-compiler-policy qual value)))
 
@@ -847,7 +847,7 @@ Return NIL if the symbol is unbound."
   (defxref who-sets)
   (defxref who-references)
   (defxref who-macroexpands)
-  #+#.(swank-backend::with-symbol 'who-specializes-directly 'sb-introspect)
+  #+#.(swank-backend:with-symbol 'who-specializes-directly 'sb-introspect)
   (defxref who-specializes who-specializes-directly))
 
 (defun source-location-for-xref-data (xref-data)
@@ -1027,11 +1027,11 @@ stack."
          (plist (sb-c::debug-source-plist dsource)))
     (if (getf plist :emacs-buffer)
         (emacs-buffer-source-location code-location plist)
-        #+#.(swank-backend::with-symbol 'debug-source-from 'sb-di)
+        #+#.(swank-backend:with-symbol 'debug-source-from 'sb-di)
         (ecase (sb-di:debug-source-from dsource)
           (:file (file-source-location code-location))
           (:lisp (lisp-source-location code-location)))
-        #-#.(swank-backend::with-symbol 'debug-source-from 'sb-di)
+        #-#.(swank-backend:with-symbol 'debug-source-from 'sb-di)
         (if (sb-di:debug-source-namestring dsource)
             (file-source-location code-location)
             (lisp-source-location code-location)))))
@@ -1087,10 +1087,10 @@ stack."
                          `(:snippet ,snippet)))))))
 
 (defun code-location-debug-source-name (code-location)
-  (namestring (truename (#+#.(swank-backend::with-symbol
+  (namestring (truename (#+#.(swank-backend:with-symbol
                               'debug-source-name 'sb-di)
                              sb-c::debug-source-name
-                             #-#.(swank-backend::with-symbol
+                             #-#.(swank-backend:with-symbol
                                   'debug-source-name 'sb-di)
                              sb-c::debug-source-namestring
                          (sb-di::code-location-debug-source code-location)))))
