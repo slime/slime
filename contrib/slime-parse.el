@@ -11,7 +11,7 @@
   (slime-make-form-spec-from-string
    (concat (slime-incomplete-sexp-at-point) ")")))
 
-(defun slime-parse-sexp-at-point (&optional n skip-blanks-p)
+(defun slime-parse-sexp-at-point (&optional n)
   "Returns the sexps at point as a list of strings, otherwise nil.
 \(If there are not as many sexps as N, a list with < N sexps is
 returned.\) 
@@ -19,8 +19,6 @@ If SKIP-BLANKS-P is true, leading whitespaces &c are skipped.
 "
   (interactive "p") (or n (setq n 1))
   (save-excursion
-    (when skip-blanks-p ; e.g. `( foo bat)' where point is after ?\(.
-      (slime-forward-blanks))
     (let ((result nil))
       (dotimes (i n)
         ;; Is there an additional sexp in front of us?
@@ -29,7 +27,7 @@ If SKIP-BLANKS-P is true, leading whitespaces &c are skipped.
             (return)))
         (push (slime-sexp-at-point) result)
         ;; Skip current sexp
-        (ignore-errors (forward-sexp) (slime-forward-blanks)))
+        (ignore-errors (forward-sexp) (skip-chars-forward "[:space:]")))
       (nreverse result))))
 
 (defun slime-has-symbol-syntax-p (string)
@@ -63,7 +61,7 @@ parsing, and are then returned back as multiple values."
                          entry)))
         (ignore-errors
           (forward-char (1+ (length current-op)))
-          (slime-forward-blanks))
+          (skip-chars-forward "[:space:]"))
         (when parser
           (multiple-value-setq (forms indices points)
             ;; We pass the fully qualified name (`current-op'), so it's the

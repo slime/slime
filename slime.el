@@ -4356,18 +4356,6 @@ For other contexts we return the symbol at point."
           (t 
            name))))
 
-(defun slime-at-list-p (&optional skip-blanks)
-  (save-excursion
-    (when skip-blanks 
-      (slime-forward-blanks))
-    (ignore-errors 
-      (= (point) (progn (down-list 1) (backward-up-list 1) (point))))))
-
-(defun slime-at-expression-p (pattern &optional skip-blanks)
-  (when (slime-at-list-p skip-blanks)
-    (save-excursion
-      (down-list 1)
-      (slime-in-expression-p pattern))))
 
 (defun slime-in-expression-p (pattern)
   "A helper function to determine the current context.
@@ -8315,29 +8303,7 @@ and skips comments."
     (slime-forward-cruft)
     (forward-sexp)))
 
-(defun slime-forward-cruft ()
-  "Move forward over whitespace, comments, reader conditionals."
-  (while (slime-point-moves-p (slime-forward-blanks)
-                              (slime-forward-any-comment)
-                              (slime-forward-reader-conditional))))
-
-(defun slime-forward-blanks ()
-  "Move forward over all whitespace and newlines at point."
-  (ignore-errors
-    (while (slime-point-moves-p
-             (skip-syntax-forward " ")
-             ;; newlines aren't in lisp-mode's whitespace syntax class
-             (when (eolp) (forward-char))))))
-
-(defun slime-forward-any-comment ()
-  "Skip the whole comment at point, or the comment where point is
-within. This includes nested comments (#| ... |#)."
-  (forward-comment (buffer-size)) ; We may be exactly in front of a semicolon.
-  (when-let (comment-start (nth 8 (slime-current-parser-state)))
-    (goto-char comment-start)
-    (forward-comment (buffer-size))))
-
-(defvar slime-reader-conditionals-regexp
+(defconst slime-reader-conditionals-regexp
   ;; #!+, #!- are SBCL specific reader-conditional syntax.
   ;; We need this for the source files of SBCL itself.
   (regexp-opt '("#+" "#-" "#!+" "#!-")))
@@ -8347,10 +8313,20 @@ within. This includes nested comments (#| ... |#)."
   (when (looking-at slime-reader-conditionals-regexp)
     (goto-char (match-end 0))
     (let* ((plus-conditional-p (eq (char-before) ?+))
-           (result (slime-eval-feature-expression (read (current-buffer)))))
+           (result (slime-eval-feature-expression 
+                    (condition-case e
+                        (read (current-buffer))
+                      (invalid-read-syntax 
+                       (signal 'slime-unknown-feature-expression (cdr e)))))))
       (unless (if plus-conditional-p result (not result))
         ;; skip this sexp
         (slime-forward-sexp)))))
+
+(defun slime-forward-cruft ()
+  "Move forward over whitespace, comments, reader conditionals."
+  (while (slime-point-moves-p (skip-chars-forward "[:space:]")
+                              (forward-comment (buffer-size))
+                              (inline (slime-forward-reader-conditional)))))
 
 (defun slime-keywordify (symbol)
   "Make a keyword out of the symbol SYMBOL."
@@ -8364,7 +8340,8 @@ within. This includes nested comments (#| ... |#)."
 
 (put 'slime-unknown-feature-expression
      'error-conditions '(slime-unknown-feature-expression 
-                         slime-incorrect-feature-expression))
+                         slime-incorrect-feature-expression
+                         error))
 
 ;; FIXME: let it crash
 ;; FIXME: the length=1 constraint is bogus
@@ -8943,7 +8920,7 @@ If they are not, position point at the first syntax error found."
           slime-eval-feature-expression
           slime-forward-sexp
           slime-forward-cruft
-          slime-forward-any-comment
+          slime-forward-reader-conditional
           )))
 
 (provide 'slime)

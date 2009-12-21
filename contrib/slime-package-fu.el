@@ -78,6 +78,15 @@ places the cursor at the start of the DEFPACKAGE form."
 		 (slime-find-package-definition-regexp package))))
 	(error "Couldn't find source definition of package: %s" package))))
 
+(defun slime-at-expression-p (pattern)
+  (when (ignore-errors
+          ;; at a list?
+          (= (point) (progn (down-list 1)
+                            (backward-up-list 1)
+                            (point))))
+    (save-excursion
+      (down-list 1)
+      (slime-in-expression-p pattern))))
 
 (defun slime-goto-next-export-clause ()
   ;; Assumes we're inside the beginning of a DEFPACKAGE form.
@@ -85,7 +94,7 @@ places the cursor at the start of the DEFPACKAGE form."
     (save-excursion
       (block nil
 	(while (ignore-errors (slime-forward-sexp) t)
-	  (slime-forward-blanks)
+	  (skip-chars-forward "[:space:]")
 	  (when (slime-at-expression-p '(:export *))
 	    (setq point (point))
 	    (return)))))

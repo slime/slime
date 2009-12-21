@@ -1,3 +1,13 @@
+2009-12-21  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-package-fu.el (slime-at-expression-p): Moved from
+	slime.el.
+	(slime-goto-next-export-clause): Replace `slime-forward-blanks'.
+
+	* slime-parse.el (slime-parse-sexp-at-point)
+	(slime-parse-extended-operator-name): Replace
+	`slime-forward-blanks'.
+
 2009-12-19  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-asdf.lisp (asdf:operation-done-p): ASDF included with some

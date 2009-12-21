@@ -1,3 +1,14 @@
+2009-12-21  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el (slime-at-list-p): Deleted.
+	(slime-at-expression-p): Moved to slime-package-fu.
+	(slime-forward-blanks): Deleted. Use `(skip-chars-forward
+	"[:space:]")' instead.
+	(slime-forward-any-comment): Deleted.
+	(slime-reader-conditionals-regexp): Make a constant so it's
+	inlined.
+	(slime-unknown-feature-expression): Make it an error.
+
 2009-12-19  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-backend.lisp (defpackage): export with-symbol and
