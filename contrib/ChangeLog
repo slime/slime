@@ -1,5 +1,11 @@
 2009-12-21  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-parse.el (slime-parse-form-upto-point): Rewritten to make
+	it more performant.
+	(slime-parse-form-until): New helper.
+
+2009-12-21  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-package-fu.el (slime-at-expression-p): Moved from
 	slime.el.
 	(slime-goto-next-export-clause): Replace `slime-forward-blanks'.

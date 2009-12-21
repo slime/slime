@@ -326,6 +326,58 @@ Examples:
      (nreverse arg-indices)
      (nreverse points))))
 
+(defun slime-parse-form-until (limit form-suffix)
+  "Parses form from point to `limit'."
+  ;; For performance reasons, this function does not use recursion.
+  (let ((todo (list (point))) ; stack of positions
+        (sexps)               ; stack of expressions
+        (cursexp)
+        (curpos)
+        (depth 1))            ; This function must be called from the
+                              ; start of the sexp to be parsed.
+    (while (and (setq curpos (pop todo))
+                (progn
+                  (goto-char curpos)
+                  ;; (Here we also move over suppressed
+                  ;; reader-conditionalized code! Important so CL-side
+                  ;; of autodoc won't see that garbage.)
+                  (ignore-errors (slime-forward-cruft))
+                  (< (point) limit)))
+      (setq cursexp (pop sexps))
+      (cond
+        ;; End of an sexp?
+        ((or (looking-at "\\s)") (eolp))
+         (decf depth)
+         (push (nreverse cursexp) (car sexps)))
+        ;; Start of a new sexp?
+        ((looking-at "\\s'?\\s(")
+         (let ((subpt (match-end 0)))
+           (ignore-errors
+             (forward-sexp)
+             ;; (In case of error, we're at an incomplete sexp, and
+             ;; nothing's left todo after it.)
+             (push (point) todo))
+           (push cursexp sexps)
+           (push subpt todo)            ; to descend into new sexp
+           (push nil sexps)
+           (incf depth)))
+        ;; In mid of an sexp..
+        (t
+         (let ((pt1 (point))
+               (pt2 (condition-case e
+                        (progn (forward-sexp) (point))
+                      (scan-error
+                       (fourth e)))))   ; end of sexp
+           (push (buffer-substring-no-properties pt1 pt2) cursexp)
+           (push pt2 todo)
+           (push cursexp sexps)))))
+    (when sexps
+      (setf (car sexps) (nreconc form-suffix (car sexps)))
+      (while (> depth 1)
+        (push (nreverse (pop sexps)) (car sexps))
+        (decf depth))
+      (nreverse (car sexps)))))
+
 (defun slime-compare-char-syntax (get-char-fn syntax &optional unescaped)
   "Returns t if the character that `get-char-fn' yields has
 characer syntax of `syntax'. If `unescaped' is true, it's ensured
@@ -342,13 +394,11 @@ that the character is not escaped."
 (defconst slime-cursor-marker 'swank::%cursor-marker%)
 
 (defun slime-parse-form-upto-point (&optional max-levels)
-  ;; We assert this, because `slime-incomplete-form-at-point' blows up
-  ;; inside a comment.
-  (assert (not (slime-inside-string-or-comment-p)))
   (save-restriction
-    ;; Don't parse more than 15000 characters before point, so we
-    ;; don't spend too much time.
-    (narrow-to-region (max (point-min) (- (point) 15000)) (point-max))
+    ;; Don't parse more than 500 lines before point, so we don't spend
+    ;; too much time. NB. Make sure to go to beginning of line, and
+    ;; not possibly anywhere inside comments or strings.
+    (narrow-to-region (line-beginning-position -500) (point-max))
     (save-excursion
       (let ((suffix (list slime-cursor-marker)))
         (cond ((slime-compare-char-syntax #'char-after "(" t)
@@ -364,27 +414,15 @@ that the character is not escaped."
               ((slime-compare-char-syntax #'char-before "(" t)
                ;; We're directly after an opening parenthesis, so we
                ;; have to make sure that something comes before
-               ;; %CURSOR-MARKER%..
+               ;; %CURSOR-MARKER%.
                (push "" suffix))
               (t
                ;; We're at a symbol, so make sure we get the whole symbol.
                (slime-end-of-symbol)))
-        (let ((result-form '())
-              (levels (or max-levels 5)))
-          (condition-case nil
-              ;; We unroll the first iteration of the loop because
-              ;; `suffix' must be merged into the first form rather
-              ;; than onto.
-              (let ((form (slime-incomplete-form-at-point)))
-                (setq result-form (nconc form suffix))
-                (up-list -1)
-                (dotimes (i (1- levels))
-                  (let ((next (slime-incomplete-form-at-point)))
-                    (setq result-form (nconc next (list result-form))))
-                  (up-list -1)))
-            (scan-error nil)) ; At head of toplevel form.
-          result-form)))))
-
+        (let ((pt (point)))
+          (ignore-errors (up-list (if max-levels (- max-levels) -5)))
+          (ignore-errors (down-list))
+          (slime-parse-form-until pt suffix))))))
 
 (defun slime-ensure-list (thing)
   (if (listp thing) thing (list thing)))
@@ -460,7 +498,11 @@ that the character is not escaped."
       ("(defun foo (x y*HERE*"        ("defun" "foo" ("x" "y" swank::%cursor-marker%)))
       ("(apply 'foo*HERE*"            ("apply" "'foo" swank::%cursor-marker%))
       ("(apply #'foo*HERE*"           ("apply" "#'foo" swank::%cursor-marker%))
-      ("(declare ((vector bit *HERE*" ("declare" (("vector" "bit" "" swank::%cursor-marker%)))))
+      ("(declare ((vector bit *HERE*" ("declare" (("vector" "bit" "" swank::%cursor-marker%))))
+      ("(with-open-file (*HERE*"      ("with-open-file" ("" swank::%cursor-marker%)))
+      ("(((*HERE*"                    ((("" swank::%cursor-marker%))))
+      ("(defun #| foo #| *HERE*"      ("defun" "" swank::%cursor-marker%))
+      ("(defun #-(and) (bar) f*HERE*" ("defun" "f" swank::%cursor-marker%)))
   (slime-check-top-level)
   (with-temp-buffer
     (lisp-mode)
