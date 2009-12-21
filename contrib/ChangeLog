@@ -1,5 +1,13 @@
 2009-12-21  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-arglists.lisp (completions-for-keyword): Return nil
+	instead of :not-available because the function is supposed to
+	return a list of available completions.
+
+	Adapted from patch by Ariel Badichi.
+
+2009-12-21  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	Today's cleanup day.
 
 	* slime-parse.el (slime-incomplete-form-at-point)
