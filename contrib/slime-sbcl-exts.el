@@ -5,7 +5,6 @@
 ;; License: GNU GPL (same license as Emacs)
 ;;
 
-(require 'slime-autodoc)
 (require 'slime-references)
 
 (defun slime-sbcl-bug-at-point ()
@@ -31,12 +30,7 @@ symbol at point, or if QUERY is non-nil."
   (browse-url (format "http://bugs.launchpad.net/sbcl/+bug/%s" 
                       (substring bug 1))))
 
-(defun slime-enable-autodoc-for-sb-assem:inst ()
-  (push '("INST" . (slime-make-extended-operator-parser/look-ahead 1))
-        slime-extended-operator-name-parser-alist))
-
-(defun slime-sbcl-exts-init ()
-  (slime-enable-autodoc-for-sb-assem:inst))
+(defun slime-sbcl-exts-init ())
 
 (slime-require :swank-sbcl-exts)
 

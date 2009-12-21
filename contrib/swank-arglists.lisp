@@ -298,7 +298,7 @@ Otherwise NIL is returned."
                    (print-arglist-recursively arg :index keyword))
                  (with-highlighting (:index keyword)
                    (cond ((and init (keywordp keyword))
-                          (format t "~:@<~A ~S~@:>" arg init))
+                          (format t "~:@<~A ~S~@:>" keyword init))
                          (init
                           (format t "~:@<(~S ..) ~S~@:>" keyword init))
                          ((not (keywordp keyword))
@@ -1084,7 +1084,8 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 		(*print-readably* nil))
 	    (call/truncated-output-to-string
 	     75 (lambda (s)
-		  (format s "~A => ~S" sym (symbol-value sym)))))))))
+		  (format s "~A => ~S" sym (symbol-value sym)))))
+          :not-available))))
 
 ;;; We work on a RAW-FORM, or BUFFER-FORM, which represent the form at
 ;;; user's point in Emacs. A RAW-FORM looks like

@@ -36,57 +36,48 @@
   :type 'number
   :group 'slime-ui)
 
+(defcustom slime-autodoc-accuracy-depth 10
+  "Number of paren levels that autodoc takes into account for
+  context-sensitive arglist display (local functions. etc)")
+
 
 
 (defun slime-arglist (name)
   "Show the argument list for NAME."
   (interactive (list (slime-read-symbol-name "Arglist of: " t)))
-  (let ((arglist (slime-eval `(swank:arglist-for-echo-area 
-                               '(,name ,slime-cursor-marker)))))
+  (let ((arglist (slime-retrieve-arglist name)))
     (if (eq arglist :not-available)
-        (and errorp (error "Arglist not available"))
+        (error "Arglist not available")
         (message "%s" (slime-fontify-string arglist)))))
 
 (defun slime-retrieve-arglist (name)
-  (let* ((name (etypecase name
+  (let ((name (etypecase name
                  (string name)
-                 (symbol (symbol-name name))))
-         (arglist 
-          (slime-eval `(swank:arglist-for-echo-area 
-                        '(,name ,slime-cursor-marker)))))
-    (if (eq arglist :not-available)
-        nil
-        arglist)))
+                 (symbol (symbol-name name)))))
+    (slime-eval `(swank:arglist-for-echo-area '(,name ,slime-cursor-marker)))))
 
 
 ;;;; Autodocs (automatic context-sensitive help)
 
-(defun slime-autodoc-thing-at-point ()
-  "Not used; for debugging purposes."
-  (multiple-value-bind (operators arg-indices points)
-	    (slime-enclosing-form-specs)
-    (slime-make-autodoc-rpc-form operators arg-indices points)))
-
-;; TODO: get rid of args
-(defun slime-make-autodoc-rpc-form (operators arg-indices points)
+(defun slime-make-autodoc-rpc-form ()
   "Return a cache key and a swank form."
-  (unless (slime-inside-string-or-comment-p)
-    (let ((global (slime-autodoc-global-at-point)))
-      (if global
-          (values (slime-qualify-cl-symbol-name global)
-                  `(swank:variable-desc-for-echo-area ,global))
-          (let ((buffer-form (slime-parse-form-upto-point 10)))
-            (values buffer-form
-                    (multiple-value-bind (width height)
-                        (slime-autodoc-message-dimensions)
-                      `(swank:arglist-for-echo-area ',buffer-form
-                        :print-right-margin ,width
-                        :print-lines ,height))))))))
+  (let ((global (slime-autodoc-global-at-point)))
+    (if global
+        (values (slime-qualify-cl-symbol-name global)
+                `(swank:variable-desc-for-echo-area ,global))
+        (let* ((levels slime-autodoc-accuracy-depth)
+               (buffer-form (slime-parse-form-upto-point levels)))
+          (values buffer-form
+                  (multiple-value-bind (width height)
+                      (slime-autodoc-message-dimensions)
+                    `(swank:arglist-for-echo-area ',buffer-form
+                                                  :print-right-margin ,width
+                                                  :print-lines ,height)))))))
 
 (defun slime-autodoc-global-at-point ()
   "Return the global variable name at point, if any."
   (when-let (name (slime-symbol-at-point))
-    (if (slime-global-variable-name-p name) name)))
+    (and (slime-global-variable-name-p name) name)))
 
 (defcustom slime-global-variable-name-regexp "^\\(.*:\\)?\\([*+]\\).+\\2$"
   "Regexp used to check if a symbol name is a global variable.
@@ -189,49 +180,33 @@ Return DOCUMENTATION."
 
 ;;;; slime-autodoc-mode
 
-(defvar slime-autodoc-hook '()
-  "If autodoc is enabled, this hook is run periodically in the
-background everytime a new autodoc is computed. The hook is
-applied to the result of `slime-enclosing-form-specs'.")
-
-(defun slime-autodoc-worthwhile-p (ops)
-  ;; Prevent an RPC call for when the user solely typed in an opening
-  ;; parenthesis.
-  (and (not (null ops))
-       (or (not (null (first ops)))
-	   (slime-length> ops 1))))
-
-(defun slime-compute-autodoc-internal ()
-  "Returns the cached arglist information as string, or nil.
-If it's not in the cache, the cache will be updated asynchronously."
-  (multiple-value-bind (ops arg-indices points)
-      (slime-enclosing-form-specs)
-    (when (slime-autodoc-worthwhile-p ops)
-      (run-hook-with-args 'slime-autodoc-hook ops arg-indices points)
-      (multiple-value-bind (cache-key retrieve-form)
-	  (slime-make-autodoc-rpc-form ops arg-indices points)
-	(let ((cached (slime-get-cached-autodoc cache-key)))
-	  (if cached
-	      cached
-            ;; If nothing is in the cache, we first decline, and fetch
-            ;; the arglist information asynchronously.
-            (prog1 nil
-              (slime-eval-async retrieve-form
-                (lexical-let ((cache-key cache-key)) 
-                  (lambda (doc)
-                    (let ((doc (if (or (null doc)
-				       (eq doc :not-available))
-				   ""
-				   (slime-format-autodoc doc))))
-                      ;; Now that we've got our information, get it to
-                      ;; the user ASAP.
-                      (eldoc-message doc)
-                      (slime-store-into-autodoc-cache cache-key doc))))))))))))
 
 (defun slime-compute-autodoc ()
+  "Returns the cached arglist information as string, or nil.
+If it's not in the cache, the cache will be updated asynchronously."
   (save-excursion
+    ;; Save match data just in case. This is automatically run in
+    ;; background, so it'd be rather disastrous if it touched match
+    ;; data.
     (save-match-data
-      (slime-compute-autodoc-internal))))
+      (unless (slime-inside-string-or-comment-p)
+        (multiple-value-bind (cache-key retrieve-form) (slime-make-autodoc-rpc-form)
+          (let ((cached (slime-get-cached-autodoc cache-key)))
+            (if cached
+                cached
+                ;; If nothing is in the cache, we first decline, and fetch
+                ;; the arglist information asynchronously.
+                (prog1 nil
+                  (slime-eval-async retrieve-form
+                    (lexical-let ((cache-key cache-key)) 
+                      (lambda (doc)
+                        (let ((doc (if (eq doc :not-available)
+                                       ""
+                                       (slime-format-autodoc doc))))
+                          ;; Now that we've got our information, get it to
+                          ;; the user ASAP.
+                          (eldoc-message doc)
+                          (slime-store-into-autodoc-cache cache-key doc)))))))))))))
 
 (make-variable-buffer-local (defvar slime-autodoc-mode nil))
 
@@ -290,7 +265,7 @@ If it's not in the cache, the cache will be updated asynchronously."
   (slime-test-expect (format "Autodoc in `%s' (at %d) is as expected" 
                              (buffer-string) (point)) 
                      arglist
-                     (slime-eval (second (slime-autodoc-thing-at-point)))
+                     (slime-eval (second (slime-make-autodoc-rpc-form)))
                      'equal))
 
 (def-slime-test autodoc.1

@@ -74,9 +74,11 @@
 (require 'slime-references)
 (slime-references-init)
 
+;;; Disabled -- after the removal of `slime-enclosing-form-specs',
+;;; this contrib has to be adapted.
 ;; Makes M-. work on local definitions, too.
-(require 'slime-mdot-fu)
-(slime-mdot-fu-init)
+;; (require 'slime-mdot-fu)
+;; (slime-mdot-fu-init)
 
 ;; Add/Remove a symbol at point from the relevant DEFPACKAGE form
 ;; via C-c x.

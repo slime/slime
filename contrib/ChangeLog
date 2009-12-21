@@ -1,5 +1,54 @@
 2009-12-21  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	Today's cleanup day.
+
+	* slime-parse.el (slime-incomplete-form-at-point)
+	(slime-parse-sexp-at-point)
+	(slime-has-symbol-syntax-p)
+	(slime-incomplete-sexp-at-point)
+	(slime-parse-extended-operator-name)
+	(slime-extended-operator-name-parser-alist)
+	(slime-make-extended-operator-parser/look-ahead)
+	(slime-parse-extended-operator/proclaim)
+	(slime-parse-extended-operator/declare)
+	(slime-parse-extended-operator/check-type)
+	(slime-parse-extended-operator/the)
+	(slime-nesting-until-point)
+	(slime-make-form-spec-from-string)
+	(slime-enclosing-form-specs)
+	(slime-ensure-list)
+	(slime-beginning-of-string)
+	(slime-check-enclosing-form-specs)
+	(enclosing-form-specs.1 [test]): Deleted. The new arglist code made
+	all this superfluous.
+
+	* slime-autodoc.el (slime-autodoc-accuracy-depth): New defcustom.
+	(slime-retrieve-arglist): Return :not-available if appropriate.
+	(slime-arglist): Use `slime-retrieve-arglist'. Delete reference to
+	undefined variable.
+	(slime-autodoc-thing-at-point): Deleted, not needed anymore.
+	(slime-autodoc-hook): Deleted.
+	(slime-autodoc-worthwhile-p): Deleted.
+	(slime-make-autodoc-rpc-form): Simplified.
+	(slime-compute-autodoc-internal): Merged with `slime-compute-autodoc'.
+	(slime-compute-autodoc): Removed usage of old
+	infrastructure. Simplified.
+
+	* swank-arglists.lisp (print-decoded-arglist): Print ((:foo bar)
+	quux) &key parameters correctly.
+	(variable-desc-for-echo-area): Return :not-available, not nil.
+
+	* slime-c-p-c.el (slime-complete-symbol*-fancy-bit): Adapted for
+	new return value of `slime-retrieve-arglist'.
+
+	* slime-fancy.el: Disable `slime-mdot-fu' contrib because that has
+	to be adapted to new infrastructure.
+
+	* slime-sbcl-exts.el (slime-enable-autodoc-for-sb-assem:inst):
+	Deleted. Used old infrastructure.
+
+2009-12-21  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-parse.el (slime-parse-form-upto-point): Rewritten to make
 	it more performant.
 	(slime-parse-form-until): New helper.

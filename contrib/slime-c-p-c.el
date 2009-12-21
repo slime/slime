@@ -85,7 +85,7 @@ If false, move point to the end of the inserted text."
   "Do fancy tricks after completing a symbol.
 \(Insert a space or close-paren based on arglist information.)"
   (let ((arglist (slime-retrieve-arglist (slime-symbol-at-point))))
-    (when arglist
+    (unless (eq arglist :not-available)
       (let ((args
              ;; Don't intern these symbols
              (let ((obarray (make-vector 10 0)))
