@@ -1,3 +1,10 @@
+2009-12-22  Helmut Eller  <heller@common-lisp.net>
+
+	Commands to save&restore image files without disconnecting.
+
+	* slime-snapshot.el: New file.
+	* swank-snapshot.lisp: New file.
+
 2009-12-21  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-arglists.lisp (completions-for-keyword): Return nil

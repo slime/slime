@@ -107,7 +107,7 @@
 
 ;;;;; Sockets
 
-(defun socket-fd (socket)
+(defimplementation socket-fd (socket)
   "Return the filedescriptor for the socket represented by SOCKET."
   (etypecase socket
     (fixnum socket)
@@ -137,6 +137,27 @@
                       #+unicode :external-format 
                       #+unicode external-format))
 
+(defimplementation make-fd-stream (fd external-format)
+  (make-socket-io-stream fd :full external-format))
+
+(defimplementation dup (fd)
+  (multiple-value-bind (clone error) (unix:unix-dup fd)
+    (unless clone (error "dup failed: ~a" (unix:get-unix-error-msg error)))
+    clone))
+
+(defimplementation command-line-args ()
+  ext:*command-line-strings*)
+
+(defimplementation exec-image (image-file args)
+  (multiple-value-bind (ok error)
+      (unix:unix-execve (car (command-line-args))
+			(list* (car (command-line-args)) 
+                               "-core" image-file
+                               "-noinit"
+                               args))
+    (error "~a" (unix:get-unix-error-msg error))
+    ok))
+
 ;;;;; Signal-driven I/O
 
 (defimplementation install-sigint-handler (function)
@@ -148,6 +169,10 @@
   "List of (key . function) pairs.
 All functions are called on SIGIO, and the key is used for removing
 specific functions.")
+
+(defun reset-sigio-handlers () (setq *sigio-handlers* '()))
+;; All file handlers are invalid afer reload.
+(pushnew 'reset-sigio-handlers ext:*after-save-initializations*)
 
 (defun set-sigio-handler ()
   (sys:enable-interrupt :sigio (lambda (signal code scp)
@@ -2366,10 +2391,10 @@ The `symbol-value' of each element is a type tag.")
   (multiple-value-bind (pid error) (unix:unix-fork)
     (when (not pid) (error "fork: ~A" (unix:get-unix-error-msg error)))
     (cond ((= pid 0)
-           (let ((args `(,filename 
-                         ,@(if restart-function
-                               `((:init-function ,restart-function))))))
-             (apply #'ext:save-lisp args)))
+           (apply #'ext:save-lisp
+                  filename 
+                  (if restart-function
+                      `(:init-function ,restart-function))))
           (t 
            (let ((status (waitpid pid)))
              (destructuring-bind (&key exited? status &allow-other-keys) status

@@ -335,6 +335,28 @@ Return old signal handler."
   "Return a short name for the Lisp implementation."
   (lisp-implementation-type))
 
+(definterface socket-fd (socket-stream)
+  "Return the file descriptor for SOCKET-STREAM.")
+
+(definterface make-fd-stream (fd external-format)
+  "Create a character stream for the file descriptor FD.")
+
+(definterface dup (fd)
+  "Duplicate a file descriptor.
+If the syscall fails, signal a condition.
+See dup(2).")
+
+(definterface exec-image (image-file args)
+  "Replace the current process with a new process image.
+The new image is created by loading the previously dumped
+core file IMAGE-FILE.
+ARGS is a list of strings passed as arguments to
+the new image.
+This is thin wrapper around exec(3).")
+
+(definterface command-line-args ()
+  "Return a list of strings as passed by the OS.")
+
 
 ;; pathnames are sooo useless
 

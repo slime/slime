@@ -1,3 +1,16 @@
+2009-12-22  Helmut Eller  <heller@common-lisp.net>
+
+	Some new backend functions used for loading image files.
+
+	* swank-backend.lisp (socket-fd, make-fd-stream, dup, exec-image)
+	(command-line-args): New functions.
+	* swank-cmucl.lisp: Impemented.
+	* swank-cmucl.lisp (reset-sigio-handlers): New function.
+	(save-image): Fix quoting bug.
+
+	* swank.lisp (clear-event-history): New functoin.
+	(interactive-eval, eval-region): Don't use FRESH-LINE.
+
 2009-12-21  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el (slime-at-list-p): Deleted.

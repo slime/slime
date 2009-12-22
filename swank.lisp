@@ -585,6 +585,10 @@ Useful for low level debugging."
         (idx *event-history-index*))
     (concatenate 'list (subseq arr idx) (subseq arr 0 idx))))
 
+(defun clear-event-history ()
+  (fill *event-history* nil)
+  (setq *event-history-index* 0))
+
 (defun dump-event-history (stream)
   (dolist (e (event-history-to-list))
     (dump-event e stream)))
@@ -766,8 +770,8 @@ Valid values are :none, :line, and :full.")
                                     (coding-system *coding-system*))
   "Start the server and write the listen port number to PORT-FILE.
 This is the entry point for Emacs."
-  (setup-server 0 (lambda (port) 
-                    (announce-server-port port-file port))
+  (setup-server 0
+                (lambda (port) (announce-server-port port-file port))
                 style dont-close 
                 (find-external-format-or-lose coding-system)))
 
@@ -1367,17 +1371,16 @@ The processing is done in the extent of the toplevel restart."
 (defun simple-repl ()
   (loop
    (with-simple-restart (abort "Abort")
-     (format t "~&~a> " (package-string-for-prompt *package*))
+     (format t "~a> " (package-string-for-prompt *package*))
      (force-output)
      (let ((form (read)))
-       (fresh-line)
        (let ((- form)
              (values (multiple-value-list (eval form))))
          (setq *** **  ** *  * (car values)
                /// //  // /  / values
                +++ ++  ++ +  + form)
-         (cond ((null values) (format t "~&; No values"))
-               (t (mapc (lambda (v) (format t "~&~s" v)) values))))))))
+         (cond ((null values) (format t "; No values~&"))
+               (t (mapc (lambda (v) (format t "~s~&" v)) values))))))))
 
 (defun make-repl-input-stream (connection stdin)
   (make-input-stream
@@ -2195,7 +2198,6 @@ Errors are trapped and invoke our debugger."
   (with-buffer-syntax ()
     (with-retry-restart (:msg "Retry SLIME interactive evaluation request.")
       (let ((values (multiple-value-list (eval (from-string string)))))
-        (fresh-line)
         (finish-output)
         (format-values-for-echo-area values)))))
 
@@ -2217,7 +2219,6 @@ last form."
       (loop
        (let ((form (read stream nil stream)))
          (when (eq form stream)
-           (fresh-line)
            (finish-output)
            (return (values values -)))
          (setq - form)
