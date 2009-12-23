@@ -279,6 +279,8 @@ If it's not in the cache, the cache will be updated asynchronously."
       ("(swank::symbol-status foo *HERE*" 
        "(symbol-status symbol &optional ===> (package (symbol-package symbol)) <===)")
 
+      ("(defmethod swank::arglist-dispatch (*HERE*"
+       "(defmethod arglist-dispatch (===> operator <=== arguments) &body body)")
       ("(apply 'swank::eval-for-emacs*HERE*"
        "(apply 'eval-for-emacs &optional form buffer-package id &rest args)")
 

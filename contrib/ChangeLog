@@ -1,3 +1,13 @@
+2009-12-23  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-autodoc.el (autodoc.1 [test]): Add a test case involving
+	DEFMETHOD.
+
+	* slime-c-p-c.el (complete-form [test]): New test. Fails for the
+	moment.
+
+	Reported by Matthias Koeppe.
+
 2009-12-22  Helmut Eller  <heller@common-lisp.net>
 
 	Commands to save&restore image files without disconnecting.
