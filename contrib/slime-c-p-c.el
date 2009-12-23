@@ -199,6 +199,7 @@ This is a superset of the functionality of `slime-insert-arglist'."
       ("swank::compile-file" (("swank::compile-file" 
                                "swank::compile-file-for-emacs"
                                "swank::compile-file-if-needed"
+                               "swank::compile-file-output"
                                "swank::compile-file-pathname")
                               "swank::compile-file"))
       ("cl:m-v-l" (("cl:multiple-value-list" "cl:multiple-values-limit") "cl:multiple-value"))

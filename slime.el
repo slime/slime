@@ -2216,7 +2216,9 @@ or nil if nothing suitable can be found.")
   ;; slime-autodoc.)  If this ever happens again, returning the
   ;; following will make debugging much easier:
   :slime-eval-async)
-  
+
+(put 'slime-eval-async 'lisp-indent-function 1)
+
 ;;; These functions can be handy too:
 
 (defun slime-connected-p ()
@@ -7634,6 +7636,7 @@ confronted with nasty #.-fu."
       ("swank::compile-file" (("swank::compile-file" 
                                "swank::compile-file-for-emacs"
                                "swank::compile-file-if-needed"
+                               "swank::compile-file-output"
                                "swank::compile-file-pathname")
                               "swank::compile-file"))
       ("cl:m-v-l" (nil "")))

@@ -1,3 +1,7 @@
+2009-12-23  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el (complete-symbol [test]): Fix test case.
+
 2009-12-22  Helmut Eller  <heller@common-lisp.net>
 
 	Some new backend functions used for loading image files.
