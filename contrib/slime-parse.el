@@ -115,14 +115,12 @@ that the character is not escaped."
    (slime-parse-form-upto-point 10)))
 
 (def-slime-test form-up-to-point.1
-    (buffer-sexpr result-form)
+    (buffer-sexpr result-form &optional skip-trailing-test-p)
     ""
     '(("(char= #\\(*HERE*"            ("char=" "#\\(" swank::%cursor-marker%))
       ("(char= #\\( *HERE*"           ("char=" "#\\(" "" swank::%cursor-marker%))
       ("(char= #\\) *HERE*"           ("char=" "#\\)" "" swank::%cursor-marker%))
-                                      ;; The #\) here is an accident of 
-                                      ;; the implementation.
-      ("(char= #\\*HERE*"             ("char=" "#\\)" swank::%cursor-marker%))
+      ("(char= #\\*HERE*"             ("char=" "#\\" swank::%cursor-marker%) t)
       ("(defun*HERE*"                 ("defun" swank::%cursor-marker%))
       ("(defun foo*HERE*"             ("defun" "foo" swank::%cursor-marker%))
       ("(defun foo (x y)*HERE*"       ("defun" "foo" ("x" "y") swank::%cursor-marker%))
@@ -141,8 +139,9 @@ that the character is not escaped."
     (search-backward "*HERE*")
     (delete-region (match-beginning 0) (match-end 0))
     (slime-check-buffer-form result-form)
-    (insert ")") (backward-char)
-    (slime-check-buffer-form result-form)      
+    (unless skip-trailing-test-p
+      (insert ")") (backward-char)
+      (slime-check-buffer-form result-form))
     ))
 
 (provide 'slime-parse)

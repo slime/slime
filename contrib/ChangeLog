@@ -1,5 +1,9 @@
 2009-12-23  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-parse.el (form-up-to-point.1 [test]): Fix test case.
+
+2009-12-23  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-c-p-c.el (complete-symbol* [test]): Fix test case.
 
 2009-12-23  Tobias C. Rittweiler  <tcr@freebits.de>
