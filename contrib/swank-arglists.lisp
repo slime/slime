@@ -354,6 +354,7 @@ Otherwise NIL is returned."
              (pprint-newline :fill)))
       (pprint-logical-block (nil nil :prefix prefix :suffix suffix)
         (do-decoded-arglist decoded-arglist
+          (&provided ())  ; do nothing; provided args are in the buffer already.
           (&required (arg)
             (space) (print-arg-or-pattern arg))
           (&optional (arg)
@@ -935,6 +936,9 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 		    (return-from do-decoded-arglist)
 		    (pop ,list))))
     (do-decoded-arglist decoded-arglist
+      (&provided ()
+       (assert (eq (pop-or-return args)
+                   (pop (arglist.provided-args decoded-arglist)))))
       (&required ()
        (pop-or-return args)
        (pop (arglist.required-args decoded-arglist)))

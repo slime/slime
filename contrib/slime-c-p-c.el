@@ -208,13 +208,21 @@ This is a superset of the functionality of `slime-insert-arglist'."
     (slime-test-expect "Completion set" expected-completions completions)))
 
 (def-slime-test complete-form
-    (buffer-sexpr wished-completion)
+    (buffer-sexpr wished-completion &optional skip-trailing-test-p)
     ""
-    '(("(defmethod swank::arglist-dispatch *HERE*"
-       "(defmethod swank::arglist-dispatch (operator arguments) body...)"))
+    '(("(defmethod arglist-dispatch *HERE*"
+       "(defmethod arglist-dispatch (operator arguments) body...)")
+      ("(with-struct *HERE*"
+       "(with-struct (conc-name names...) obj body...)")
+      ("(with-struct *HERE*"
+       "(with-struct (conc-name names...) obj body...)")
+      ("(with-struct (*HERE*"
+       "(with-struct (conc-name names...)" t)
+      ("(with-struct (foo. bar baz *HERE*"
+       "(with-struct (foo. bar baz names...)" t))
   (slime-check-top-level)
   (with-temp-buffer
-    (setq slime-buffer-package "COMMON-LISP-USER")
+    (setq slime-buffer-package "SWANK")
     (lisp-mode)
     (insert buffer-sexpr)
     (search-backward "*HERE*")
@@ -223,13 +231,14 @@ This is a superset of the functionality of `slime-insert-arglist'."
     (slime-check-completed-form buffer-sexpr wished-completion)
 
     ;; Now the same but with trailing `)' for paredit users...
-    (erase-buffer)
-    (insert buffer-sexpr)
-    (search-backward "*HERE*")
-    (delete-region (match-beginning 0) (match-end 0))
-    (insert ")") (backward-char)
-    (slime-complete-form)
-    (slime-check-completed-form (concat buffer-sexpr ")") wished-completion)
+    (unless skip-trailing-test-p
+      (erase-buffer)
+      (insert buffer-sexpr)
+      (search-backward "*HERE*")
+      (delete-region (match-beginning 0) (match-end 0))
+      (insert ")") (backward-char)
+      (slime-complete-form)
+      (slime-check-completed-form (concat buffer-sexpr ")") wished-completion))
     ))
 
 (defun slime-check-completed-form (buffer-sexpr wished-completion)
