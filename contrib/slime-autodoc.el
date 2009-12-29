@@ -168,17 +168,19 @@ If it's not in the cache, the cache will be updated asynchronously."
           (let ((cached (slime-get-cached-autodoc cache-key)))
             (if cached
                 cached
-                ;; If nothing is in the cache, we first decline, and fetch
-                ;; the arglist information asynchronously.
-                (slime-eval-async retrieve-form
-                  (lexical-let ((cache-key cache-key))
-                    (lambda (doc)
-                      (unless (eq doc :not-available) 
-                        (setq doc (slime-format-autodoc doc))
-                        ;; Now that we've got our information,
-                        ;; get it to the user ASAP.
-                        (eldoc-message doc)
-                        (slime-store-into-autodoc-cache cache-key doc))))))))))))
+                ;; If nothing is in the cache, we first decline (by
+                ;; returning nil), and fetch the arglist information
+                ;; asynchronously.
+                (prog1 nil
+                  (slime-eval-async retrieve-form
+                    (lexical-let ((cache-key cache-key))
+                      (lambda (doc)
+                        (unless (eq doc :not-available) 
+                          (setq doc (slime-format-autodoc doc))
+                          ;; Now that we've got our information,
+                          ;; get it to the user ASAP.
+                          (eldoc-message doc)
+                          (slime-store-into-autodoc-cache cache-key doc)))))))))))))
 
 (make-variable-buffer-local (defvar slime-autodoc-mode nil))
 

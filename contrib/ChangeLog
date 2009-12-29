@@ -1,5 +1,10 @@
 2009-12-29  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-autodoc.el (slime-compute-autodoc): Revert last change.
+	We must return nil to decline.
+
+2009-12-29  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	More cleanup.
 
 	The RP swank:arglist-for-echo-area is now called swank:autodoc.
