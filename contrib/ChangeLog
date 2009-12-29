@@ -1,5 +1,24 @@
 2009-12-29  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	Some cleanup of arglist code.
+
+	* swank-arglists.lisp (remove-from-tree-if): Deleted.
+	(remove-from-tree): Deleted.
+	(maybecall): Deleted.
+	(arglist-path-to-parameter): Deleted.
+	(arglist-path-to-nested-arglist): Deleted.
+	(last-arg): Deleted.
+	(compute-arglist-index): Deleted.
+
+	(form-path-to-arglist-path): New.
+	(arglist-index): New.
+	(extract-cursor-marker): New.
+	(find-subform-with-arglist): Adapted.
+	(find-immediately-containing-arglist): Adapted.
+	(arglist-for-echo-area): Adapted.
+
+2009-12-29  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-parse.el (slime-parse-form-until): Properly deal with #'
 	prefix.
 	(form-up-to-point.1 [test]): Extend.
