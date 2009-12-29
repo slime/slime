@@ -1060,21 +1060,7 @@ If the arglist is not available, return :NOT-AVAILABLE."))
        (setf (arglist.provided-args arglist) (list type-specifier))
        arglist))))
 
-
 ;;; Slimefuns
-  
-(defslimefun variable-desc-for-echo-area (variable-name)
-  "Return a short description of VARIABLE-NAME, or NIL."
-  (with-buffer-syntax ()
-    (let ((sym (parse-symbol variable-name)))
-      (if (and sym (boundp sym))
-          (let ((*print-pretty* t) (*print-level* 4)
-                (*print-length* 10) (*print-lines* 1)
-		(*print-readably* nil))
-	    (call/truncated-output-to-string
-	     75 (lambda (s)
-		  (format s "~A => ~S" sym (symbol-value sym)))))
-          :not-available))))
 
 ;;; We work on a RAW-FORM, or BUFFER-FORM, which represent the form at
 ;;; user's point in Emacs. A RAW-FORM looks like
@@ -1097,7 +1083,7 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 ;;; %CURSOR-MARKER%)). Only the forms up to point should be
 ;;; considered.
 
-(defslimefun arglist-for-echo-area (raw-form &key print-right-margin print-lines)
+(defslimefun autodoc (raw-form &key print-right-margin print-lines)
   "Return a string representing the arglist for the deepest subform in
 RAW-FORM that does have an arglist. The highlighted parameter is
 wrapped in ===> X <===."
@@ -1106,19 +1092,35 @@ wrapped in ===> X <===."
                       (unless (debug-on-swank-error)
                         (let ((*print-right-margin* print-right-margin)
                               (*print-lines* print-lines))
-                          (return-from arglist-for-echo-area
+                          (return-from autodoc
                             (format nil "Arglist Error: \"~A\"" c)))))))
       (with-buffer-syntax ()
         (multiple-value-bind (form arglist obj-at-cursor form-path)
             (find-subform-with-arglist (parse-raw-form raw-form))
-          (declare (ignore obj-at-cursor))
-          (with-available-arglist (arglist) arglist
-            (decoded-arglist-to-string
-             arglist
-             :print-right-margin print-right-margin
-             :print-lines print-lines
-             :operator (car form)
-             :highlight (form-path-to-arglist-path form-path form arglist)))))))
+          (cond ((and obj-at-cursor
+                      (symbolp obj-at-cursor)
+                      (boundp obj-at-cursor))
+                 (print-variable-to-string obj-at-cursor))
+                (t
+                 (with-available-arglist (arglist) arglist
+                   (decoded-arglist-to-string
+                    arglist
+                    :print-right-margin print-right-margin
+                    :print-lines print-lines
+                    :operator (car form)
+                    :highlight (form-path-to-arglist-path form-path
+                                                          form
+                                                          arglist)))))))))
+
+(defun print-variable-to-string (symbol)
+  "Return a short description of VARIABLE-NAME, or NIL."
+  (let ((*print-pretty* t) (*print-level* 4)
+        (*print-length* 10) (*print-lines* 1)
+        (*print-readably* nil))
+    (call/truncated-output-to-string
+     75 (lambda (s)
+          (format s "~A => ~S" symbol (symbol-value symbol))))))
+
 
 (defslimefun complete-form (raw-form)
   "Read FORM-STRING in the current buffer package, then complete it

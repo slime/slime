@@ -21,7 +21,6 @@
 	  "slime-autodoc doesn't work with XEmacs"))
 
 (require 'slime-parse)
-(require 'slime-enclosing-context)
 
 (defcustom slime-use-autodoc-mode t
   "When non-nil always enable slime-autodoc-mode in slime-mode.")
@@ -54,25 +53,21 @@
   (let ((name (etypecase name
                  (string name)
                  (symbol (symbol-name name)))))
-    (slime-eval `(swank:arglist-for-echo-area '(,name ,slime-cursor-marker)))))
+    (slime-eval `(swank:autodoc '(,name ,slime-cursor-marker)))))
 
 
 ;;;; Autodocs (automatic context-sensitive help)
 
 (defun slime-make-autodoc-rpc-form ()
   "Return a cache key and a swank form."
-  (let ((global (slime-autodoc-global-at-point)))
-    (if global
-        (values (slime-qualify-cl-symbol-name global)
-                `(swank:variable-desc-for-echo-area ,global))
-        (let* ((levels slime-autodoc-accuracy-depth)
-               (buffer-form (slime-parse-form-upto-point levels)))
-          (values buffer-form
-                  (multiple-value-bind (width height)
-                      (slime-autodoc-message-dimensions)
-                    `(swank:arglist-for-echo-area ',buffer-form
-                                                  :print-right-margin ,width
-                                                  :print-lines ,height)))))))
+  (let* ((levels slime-autodoc-accuracy-depth)
+         (buffer-form (slime-parse-form-upto-point levels)))
+    (values buffer-form
+            (multiple-value-bind (width height)
+                (slime-autodoc-message-dimensions)
+              `(swank:autodoc ',buffer-form
+                              :print-right-margin ,width
+                              :print-lines ,height)))))
 
 (defun slime-autodoc-global-at-point ()
   "Return the global variable name at point, if any."
@@ -112,41 +107,19 @@ messages."
 
 ;;;; Autodoc cache
 
-(defvar slime-autodoc-cache-type 'last
-  "*Cache policy for automatically fetched documentation.
-Possible values are:
- nil  - none.
- last - cache only the most recently-looked-at symbol's documentation.
-        The values are stored in the variable `slime-autodoc-cache'.
+(defvar slime-autodoc-last-buffer-form nil)
+(defvar slime-autodoc-last-autodoc nil)
 
-More caching means fewer calls to the Lisp process, but at the risk of
-using outdated information.")
+(defun slime-get-cached-autodoc (buffer-form)
+  "Return the cached autodoc documentation for `buffer-form', or nil."
+  (when (equal buffer-form slime-autodoc-last-buffer-form)
+    slime-autodoc-last-autodoc))
 
-(defvar slime-autodoc-cache nil
-  "Cache variable for when `slime-autodoc-cache-type' is 'last'.
-The value is (SYMBOL-NAME . DOCUMENTATION).")
-
-(defun slime-get-cached-autodoc (symbol-name)
-  "Return the cached autodoc documentation for SYMBOL-NAME, or nil."
-  (ecase slime-autodoc-cache-type
-    ((nil) nil)
-    ((last)
-     (when (equal (car slime-autodoc-cache) symbol-name)
-       (cdr slime-autodoc-cache)))
-    ((all)
-     (when-let (symbol (intern-soft symbol-name))
-       (get symbol 'slime-autodoc-cache)))))
-
-(defun slime-store-into-autodoc-cache (symbol-name documentation)
+(defun slime-store-into-autodoc-cache (buffer-form autodoc)
   "Update the autodoc cache for SYMBOL with DOCUMENTATION.
 Return DOCUMENTATION."
-  (ecase slime-autodoc-cache-type
-    ((nil) nil)
-    ((last)
-     (setq slime-autodoc-cache (cons symbol-name documentation)))
-    ((all)
-     (put (intern symbol-name) 'slime-autodoc-cache documentation)))
-  documentation)
+  (setq slime-autodoc-last-buffer-form buffer-form)
+  (setq slime-autodoc-last-autodoc autodoc))
 
 
 ;;;; Formatting autodoc
@@ -190,23 +163,22 @@ If it's not in the cache, the cache will be updated asynchronously."
     ;; data.
     (save-match-data
       (unless (slime-inside-string-or-comment-p)
-        (multiple-value-bind (cache-key retrieve-form) (slime-make-autodoc-rpc-form)
+        (multiple-value-bind (cache-key retrieve-form) 
+            (slime-make-autodoc-rpc-form)
           (let ((cached (slime-get-cached-autodoc cache-key)))
             (if cached
                 cached
                 ;; If nothing is in the cache, we first decline, and fetch
                 ;; the arglist information asynchronously.
-                (prog1 nil
-                  (slime-eval-async retrieve-form
-                    (lexical-let ((cache-key cache-key)) 
-                      (lambda (doc)
-                        (let ((doc (if (eq doc :not-available)
-                                       ""
-                                       (slime-format-autodoc doc))))
-                          ;; Now that we've got our information, get it to
-                          ;; the user ASAP.
-                          (eldoc-message doc)
-                          (slime-store-into-autodoc-cache cache-key doc)))))))))))))
+                (slime-eval-async retrieve-form
+                  (lexical-let ((cache-key cache-key))
+                    (lambda (doc)
+                      (unless (eq doc :not-available) 
+                        (setq doc (slime-format-autodoc doc))
+                        ;; Now that we've got our information,
+                        ;; get it to the user ASAP.
+                        (eldoc-message doc)
+                        (slime-store-into-autodoc-cache cache-key doc))))))))))))
 
 (make-variable-buffer-local (defvar slime-autodoc-mode nil))
 
@@ -269,12 +241,20 @@ If it's not in the cache, the cache will be updated asynchronously."
                      'equal))
 
 (def-slime-test autodoc.1
-    (buffer-sexpr wished-arglist)
+    (buffer-sexpr wished-arglist &optional skip-trailing-test-p)
     ""
     '(("(swank::emacs-connected*HERE*"    "(emacs-connected)")
       ("(swank::create-socket*HERE*"      "(create-socket host port)")
       ("(swank::create-socket *HERE*"     "(create-socket ===> host <=== port)")
       ("(swank::create-socket foo *HERE*" "(create-socket host ===> port <===)")
+
+      ("#'(lambda () (swank::create-socket*HERE*" "(create-socket host port)")
+      ("`(lambda () ,(swank::create-socket*HERE*" "(create-socket host port)")
+
+      ("(remove-if #'(lambda () (swank::create-socket*HERE*"
+       "(create-socket host port)")
+      ("`(remove-if #'(lambda () ,@(swank::create-socket*HERE*"
+       "(create-socket host port)")
 
       ("(swank::symbol-status foo *HERE*" 
        "(symbol-status symbol &optional ===> (package (symbol-package symbol)) <===)")
@@ -291,7 +271,16 @@ If it's not in the cache, the cache will be updated asynchronously."
        "(apply 'eval-for-emacs &optional form ===> buffer-package <=== id &rest args)")
 
       ("(apply #'swank::eval-for-emacs foo *HERE*"
-       "(apply #'eval-for-emacs &optional form ===> buffer-package <=== id &rest args)"))
+       "(apply #'eval-for-emacs &optional form ===> buffer-package <=== id &rest args)")
+
+      ("(swank::with-retry-restart (:msg *HERE*"
+       "(with-retry-restart (&key ===> (msg \"Retry.\") <===) &body body)")
+      ("(swank::start-server \"/tmp/foo\" :coding-system *HERE*"
+       "(start-server port-file &key (style swank:*communication-style*) (dont-close swank:*dont-close*) ===> (coding-system swank::*coding-system*) <===)")
+
+      ("(swank::with-struct *HERE*(foo. x y) *struct* body1)"
+       "(with-struct (conc-name &rest names) obj &body body)"
+       t))
   (slime-check-top-level)
   (with-temp-buffer
     (setq slime-buffer-package "COMMON-LISP-USER")
@@ -300,8 +289,9 @@ If it's not in the cache, the cache will be updated asynchronously."
     (search-backward "*HERE*")
     (delete-region (match-beginning 0) (match-end 0))
     (slime-check-autodoc-at-point wished-arglist)
-    (insert ")") (backward-char)
-    (slime-check-autodoc-at-point wished-arglist)
+    (unless skip-trailing-test-p
+      (insert ")") (backward-char)
+      (slime-check-autodoc-at-point wished-arglist))
     ))
 
 (provide 'slime-autodoc)

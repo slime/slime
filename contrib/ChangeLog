@@ -1,5 +1,29 @@
 2009-12-29  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	More cleanup.
+
+	The RP swank:arglist-for-echo-area is now called swank:autodoc.
+
+	* swank-arglists.lisp (autodoc): Renamed from
+	arglist-for-echo-area.
+	(variable-desc-for-echo-area): Deleted. Above function subsumes
+	this functionality now.
+	(print-variable-to-string): Extracted from
+	variable-desc-for-echo-area.
+
+	* slime-autodoc.el (slime-retrieve-arglist): Change RPC.
+	(slime-make-autodoc-rpc-form): Ditto.
+	(slime-autodoc-cache-type): Deleted.
+	(slime-autodoc-cache): Deleted.
+	(slime-autodoc-last-buffer-form): Replacement.
+	(slime-autodoc-last-autodoc): Replacement.
+	(slime-get-cached-autodoc): Adapted accordingly.
+	(slime-store-into-autodoc-cache): Adapted accordingly.
+	(slime-compute-autodoc): Simplified slightly.
+	(autodoc.1 [test]): Extended.
+
+2009-12-29  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	Some cleanup of arglist code.
 
 	* swank-arglists.lisp (remove-from-tree-if): Deleted.
