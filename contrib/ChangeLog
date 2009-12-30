@@ -1,3 +1,9 @@
+2009-12-30  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-arglists.lisp (extract-cursor-marker): Fix typo.
+	(autodoc): Do not try to display variable content for T and NIL.
+	(interesting-variable-p): New helper.
+
 2009-12-29  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-autodoc.el (slime-compute-autodoc): Revert last change.

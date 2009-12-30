@@ -68,6 +68,11 @@ Otherwise NIL is returned."
        (fboundp form)
        t))
 
+(defun interesting-variable-p (symbol)
+  (and symbol
+       (symbolp symbol)
+       (boundp symbol)
+       (not (memq symbol '(cl:t cl:nil)))))
 
 (defmacro multiple-value-or (&rest forms)
   (if (null forms)
@@ -1097,9 +1102,7 @@ wrapped in ===> X <===."
       (with-buffer-syntax ()
         (multiple-value-bind (form arglist obj-at-cursor form-path)
             (find-subform-with-arglist (parse-raw-form raw-form))
-          (cond ((and obj-at-cursor
-                      (symbolp obj-at-cursor)
-                      (boundp obj-at-cursor))
+          (cond ((interesting-variable-p obj-at-cursor)
                  (print-variable-to-string obj-at-cursor))
                 (t
                  (with-available-arglist (arglist) arglist
@@ -1254,7 +1257,7 @@ object."
                            (t
                             (multiple-value-bind (new-car new-last new-path)
                                 (grovel car last (cons 0 path))
-                              (when path
+                              (when new-path
                                 (return-from grovel
                                   (values (nreconc
                                            (cons new-car result-form) cdr)
@@ -1264,7 +1267,8 @@ object."
                             (setq last car)
                             (incf (first path))))
                      finally
-                       (return (values (nreverse result-form) nil))))))
+                       (return-from grovel
+                         (values (nreverse result-form) nil nil))))))
     (grovel form nil (list 0))))
 
 (defgeneric extract-local-op-arglists (operator args)
