@@ -222,8 +222,8 @@ This is a superset of the functionality of `slime-insert-arglist'."
        "(with-struct (foo. bar baz names...)" t))
   (slime-check-top-level)
   (with-temp-buffer
-    (setq slime-buffer-package "SWANK")
     (lisp-mode)
+    (setq slime-buffer-package "SWANK")
     (insert buffer-sexpr)
     (search-backward "*HERE*")
     (delete-region (match-beginning 0) (match-end 0))

@@ -1,5 +1,11 @@
 2009-12-30  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-c-p-c.el (complete-form [test]): Set
+	`slime-buffer-package' after changing to lisp-mode because
+	changing major-mode kills buffer-local variables.
+
+2009-12-30  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank-arglists.lisp (extract-cursor-marker): Fix typo.
 	(autodoc): Do not try to display variable content for T and NIL.
 	(interesting-variable-p): New helper.
