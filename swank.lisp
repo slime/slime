@@ -359,11 +359,7 @@ to T unless you want to debug swank internals.")
      (handler-case 
          (handler-bind ((swank-protocol-error 
                          (lambda (condition)
-                           (format t "~&+++ SWANK-PROTOCOL-ERROR: ~S ~S~%"
-                                   *debug-on-swank-protocol-error*
-                                   condition)
                            (when *debug-on-swank-protocol-error*
-                             (format t "~&+++ INVOKE-DEFAULT-DEBUGGER +++ ~S~%" condition)
                              (invoke-default-debugger condition)))))
            (progn ,@body))
        (swank-protocol-error (condition)
