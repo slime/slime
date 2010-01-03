@@ -1,5 +1,13 @@
 2010-01-03  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-arglists.lisp (arglist-index): Return NIL if more
+	arguments were provided than are allowed.
+	(form-path-to-arglist-path): Adapted accordingly.
+
+	* slime-autodoc.el (autodoc.1 [test]): Add relevant test cases.
+
+2010-01-03  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-indentation-fu.el, swank-indentation-fu.lisp: Delete
 	contrib. Never worked quite right, and the necessary
 	infrastructure has since been gone.

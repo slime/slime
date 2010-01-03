@@ -1348,15 +1348,21 @@ indices."
                  nil
                  (let* ((idx      (car path))
                         (idx*     (arglist-index idx args arglist))
-                        (arglist* (arglist-ref arglist idx*))
-                        (args*    (provided-arguments-ref args arglist idx*)))
+                        (arglist* (and idx* (arglist-ref arglist idx*)))
+                        (args*    (and idx* (provided-arguments-ref args
+                                                                    arglist
+                                                                    idx*))))
                    ;; The FORM-PATH may be more detailed than ARGLIST;
                    ;; consider (defun foo (x y) ...), a form path may
                    ;; point into the function's lambda-list, but the
                    ;; arglist of DEFUN won't contain as much information.
-                   (if (arglist-p arglist*)
-                       (cons idx* (convert (cdr path) args* arglist*))
-                       (list idx*))))))
+                   ;; So we only recurse if possible.
+                   (cond ((null idx*)
+                          nil)
+                         ((arglist-p arglist*)
+                          (cons idx* (convert (cdr path) args* arglist*)))
+                         (t
+                          (list idx*)))))))
     (convert
      ;; FORM contains irrelevant operator. Adjust FORM-PATH.
      (cond ((null form-path) nil)
@@ -1372,19 +1378,22 @@ indices."
 to the argument (NTH `provided-argument-index' `provided-arguments')."
   (let ((positional-args# (positional-args-number arglist))
         (arg-index provided-argument-index))
-    (cond
-      ((< arg-index positional-args#)        ; required + optional
-       arg-index)
-      ((not (arglist.key-p arglist))         ; rest + body
-       (assert (arglist.rest arglist))
-       positional-args#) 
-      (t                                     ; key
-       ;; Find last provided &key parameter
-       (let* ((argument      (nth arg-index provided-arguments))
-              (provided-keys (subseq provided-arguments positional-args#)))
-         (loop for (key value) on provided-keys by #'cddr
-               when (eq value argument) 
-                 return key))))))
+    (with-struct (arglist. key-p rest) arglist
+      (cond
+        ((< arg-index positional-args#) ; required + optional
+         arg-index)
+        ((and (not key-p) (not rest))   ; more provided than allowed
+         nil)
+        ((not key-p)                    ; rest + body
+         (assert (arglist.rest arglist))
+         positional-args#) 
+        (t                              ; key
+         ;; Find last provided &key parameter
+         (let* ((argument      (nth arg-index provided-arguments))
+                (provided-keys (subseq provided-arguments positional-args#)))
+           (loop for (key value) on provided-keys by #'cddr
+                 when (eq value argument) 
+                 return key)))))))
 
 (defun arglist-ref (arglist &rest indices)
   "Returns the parameter in ARGLIST along the INDICIES path. Numbers

@@ -246,9 +246,11 @@ If it's not in the cache, the cache will be updated asynchronously."
     (buffer-sexpr wished-arglist &optional skip-trailing-test-p)
     ""
     '(("(swank::emacs-connected*HERE*"    "(emacs-connected)")
+      ("(swank::emacs-connected *HERE*"    "(emacs-connected)")
       ("(swank::create-socket*HERE*"      "(create-socket host port)")
       ("(swank::create-socket *HERE*"     "(create-socket ===> host <=== port)")
       ("(swank::create-socket foo *HERE*" "(create-socket host ===> port <===)")
+      ("(swank::create-socket foo bar *HERE*" "(create-socket host port)")
 
       ("#'(lambda () (swank::create-socket*HERE*" "(create-socket host port)")
       ("`(lambda () ,(swank::create-socket*HERE*" "(create-socket host port)")
