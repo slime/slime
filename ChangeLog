@@ -1,3 +1,16 @@
+2010-01-03  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el (compile-defun [test]): Also test proper notification
+	after reader-error. Additionally: bind font-lock-verbose to nil to
+	prevent annoying font-lock messages during the test.
+
+	* swank-sbcl.lisp (signal-compiler-condition): Make sure
+	READER-ERROR comes before ERROR in typecase.
+	(swank-compile-file): Remove handling FATAL-COMPILER-HANDLER
+	because a) this handling prevents sbcl from printing the
+	diagnostics to the repl, and b) sbcl itself should handle this and
+	translate it into proper return value for compile-file.
+
 2009-12-23  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el (complete-symbol [test]): Fix test case.

@@ -7704,20 +7704,24 @@ Confirm that SUBFORM is correctly located."
        (cl-user::bar))
       ("(defun foo ()
           #+#.'(:and) (/ 1 0))"
-       (/ 1 0)))
+       (/ 1 0)) 
+      ("(defun foo () pkg-does-not-exist:symbol)" 
+       pkg-does-not-exist:symbol)
+      ("(defun foo () swank:symbol-does-not-exist)"
+       swank:symbol-does-not-exist))
   (slime-check-top-level)    
-  (with-temp-buffer 
+  (with-temp-buffer
     (lisp-mode)
     (insert program)
-    (setq slime-buffer-package ":swank")
-    (slime-compile-string (buffer-string) 1)
-    (setq slime-buffer-package ":cl-user")
-    (slime-sync-to-top-level 5)
-    (goto-char (point-max))
-    (slime-previous-note)
-    (slime-check error-location-correct
-      (equal (read (current-buffer))
-             subform)))
+    (let ((font-lock-verbose nil))
+      (setq slime-buffer-package ":swank")
+      (slime-compile-string (buffer-string) 1)
+      (setq slime-buffer-package ":cl-user")
+      (slime-sync-to-top-level 5)
+      (goto-char (point-max))
+      (slime-previous-note)
+      (slime-check error-location-correct
+        (equal (read (current-buffer)) subform))))
   (slime-check-top-level))
 
 (def-slime-test (compile-file (:fails-for "allegro" "lispworks" "clisp"))

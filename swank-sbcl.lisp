@@ -430,10 +430,10 @@ information."
            'compiler-condition
            :original-condition condition
            :severity (etypecase condition
-                       (sb-c:compiler-error  :error)
                        (sb-ext:compiler-note :note)
-                       (error                :error)
+                       (sb-c:compiler-error  :error)
                        (reader-error         :read-error)
+                       (error                :error)
                        #+#.(swank-backend:with-symbol redefinition-warning sb-kernel)
                        (sb-kernel:redefinition-warning
                                              :redefinition)
@@ -556,20 +556,17 @@ compiler state."
 
 (defimplementation swank-compile-file (input-file output-file 
                                        load-p external-format)
-  (handler-case
-      (multiple-value-bind (output-file warnings-p failure-p)
-          (with-compilation-hooks ()
-            (compile-file input-file :output-file output-file
-                          :external-format external-format))
-        (values output-file warnings-p
-                (or failure-p
-                    (when load-p
-                      ;; Cache the latest source file for definition-finding.
-                      (source-cache-get input-file 
-                                        (file-write-date input-file))
-                      (not (load output-file))))))
-    ;; N.B. This comes through despite of WITH-COMPILATION-HOOKS.
-    (sb-c:fatal-compiler-error () (values nil nil t))))
+  (multiple-value-bind (output-file warnings-p failure-p)
+      (with-compilation-hooks ()
+        (compile-file input-file :output-file output-file
+                      :external-format external-format))
+    (values output-file warnings-p
+            (or failure-p
+                (when load-p
+                  ;; Cache the latest source file for definition-finding.
+                  (source-cache-get input-file 
+                                    (file-write-date input-file))
+                  (not (load output-file)))))))
 
 ;;;; compile-string
 
