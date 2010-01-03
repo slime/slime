@@ -1,3 +1,8 @@
+2010-01-03  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (sldb-insert-frame-call-to-repl): New function
+	for inserting a call to a frame into the REPL. Bound to C-y in SLDB.
+
 2010-01-03  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-arglists.lisp (arglist-index): Return NIL if more

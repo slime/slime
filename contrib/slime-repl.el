@@ -457,6 +457,9 @@ joined together."))
 (slime-define-keys slime-inspector-mode-map
   ((kbd "M-RET") 'slime-inspector-copy-down-to-repl))
 
+(slime-define-keys sldb-mode-map
+  ("\C-y" 'sldb-insert-frame-call-to-repl))
+
 (def-slime-selector-method ?r
   "SLIME Read-Eval-Print-Loop."
   (slime-output-buffer))
@@ -1465,6 +1468,18 @@ expansion will be added to the REPL's history.)"
    (slime-repl-send-string (format "%s" `(swank:inspector-nth-part ,number)))
    (slime-repl))
 
+(defun sldb-insert-frame-call-to-repl ()
+  "Insert a call to a frame at point."
+  (interactive)
+  (let ((call (slime-eval `(swank-backend::frame-call
+                            ,(sldb-frame-number-at-point)))))
+    (slime-switch-to-output-buffer)
+    (if (>= (point) slime-repl-prompt-start-mark)
+        (insert call)
+	(save-excursion
+	  (goto-char (point-max))
+	  (insert call))))
+  (slime-repl))
 
 (defun slime-set-default-directory (directory)
   "Make DIRECTORY become Lisp's current directory."

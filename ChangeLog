@@ -1,3 +1,10 @@
+2010-01-03  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-backend.lisp (frame-call): New function.
+	Returns a string representing a call to the entry point of a frame.
+	* swank-ccl.lisp (frame-call): Implementation of the above.
+	* swank-sbcl.lisp (frame-call): Ditto.
+
 2010-01-03  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank.lisp (with-swank-protocol-error-handler): Remove debugging

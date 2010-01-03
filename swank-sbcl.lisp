@@ -1011,6 +1011,19 @@ stack."
   #+#.(swank-backend::sbcl-with-restart-frame)
   (not (null (sb-debug:frame-has-debug-tag-p frame))))
 
+(defimplementation frame-call (frame-number)
+  (multiple-value-bind (name args)
+      (sb-debug::frame-call (nth-frame frame-number))
+    (with-output-to-string (stream)
+      (pprint-logical-block (stream nil :prefix "(" :suffix ")")
+        (let ((*print-length* nil)
+              (*print-level* nil))
+          (prin1 (sb-debug::ensure-printable-object name) stream))
+        (let ((args (sb-debug::ensure-printable-object args)))
+          (if (listp args)
+              (format stream "~{ ~_~S~}" args)
+              (format stream " ~S" args)))))))
+
 ;;;; Code-location -> source-location translation
 
 ;;; If debug-block info is avaibale, we determine the file position of

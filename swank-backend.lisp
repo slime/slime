@@ -747,6 +747,9 @@ frame which invoked the debugger.
 The return value is the result of evaulating FORM in the
 appropriate context.")
 
+(definterface frame-call (frame-number)
+  "Return a string representing a call to the entry point of a frame.")
+
 (definterface return-from-frame (frame-number form)
   "Unwind the stack to the frame FRAME-NUMBER and return the value(s)
 produced by evaluating FORM in the frame context to its caller.

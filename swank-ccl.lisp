@@ -434,10 +434,15 @@
                      (format stream " ~s" arg)))))
       (format stream ")"))))
 
+(defimplementation frame-call (frame-number)
+  (with-frame (p context) frame-number
+    (with-output-to-string (stream)
+      (print-frame (list :frame p context) stream))))
+
 (defun call/frame (frame-number if-found)
   (map-backtrace  
    (lambda (p context)
-     (return-from call/frame 
+     (return-from call/frame
        (funcall if-found p context)))
    frame-number))
 
