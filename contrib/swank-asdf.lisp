@@ -134,8 +134,9 @@ already knows."
         files)))
 
 (defslimefun asdf-system-loaded-p (name)
-  (gethash 'asdf:load-op
-           (asdf::component-operation-times (asdf:find-system name))))
+  (and (gethash 'asdf:load-op
+                (asdf::component-operation-times (asdf:find-system name)))
+       t))
 
 (defslimefun asdf-system-directory (name)
   (cl:directory-namestring
