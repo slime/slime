@@ -1,5 +1,10 @@
 2010-01-03  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* slime.el (slime-next-read-or-lose): Call `debug' with the error
+	condition, so we can see what actually caused the losage.
+
+2010-01-03  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* slime.el (compile-defun [test]): Also test proper notification
 	after reader-error. Additionally: bind font-lock-verbose to nil to
 	prevent annoying font-lock messages during the test.

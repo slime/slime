@@ -1660,7 +1660,7 @@ EVAL'd by Lisp."
   (condition-case error
       (slime-net-read)
     (error
-     (debug)
+     (debug 'error error)
      (slime-net-close process t)
      (error "net-read error: %S" error))))
 
