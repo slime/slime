@@ -1,5 +1,10 @@
 2010-01-03  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-autodoc.el (slime-autodoc-mode): Only display
+	"enabled"/"disabled" message if called interactively.
+
+2010-01-03  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-autodoc.el (slime-autodoc): Renamed from
 	`slime-compute-autodoc'; now also interactive.
 	(slime-autodoc-mode): Implement toggling properly. Make modeline

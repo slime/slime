@@ -194,8 +194,9 @@ If it's not in the cache, the cache will be updated asynchronously."
   (setq eldoc-idle-delay slime-autodoc-delay)
   (setq eldoc-minor-mode-string " Autodoc")
   (setq slime-autodoc-mode (eldoc-mode arg))
-  (message (format "Slime autodoc mode %s"
-                   (if slime-autodoc-mode "enabled" "disabled"))))
+  (when (interactive-p)
+    (message (format "Slime autodoc mode %s."
+                     (if slime-autodoc-mode "enabled" "disabled")))))
 
 (defadvice eldoc-display-message-no-interference-p 
     (after slime-autodoc-message-ok-p)
