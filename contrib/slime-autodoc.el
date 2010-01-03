@@ -154,9 +154,10 @@ Return DOCUMENTATION."
 ;;;; slime-autodoc-mode
 
 
-(defun slime-compute-autodoc ()
+(defun slime-autodoc ()
   "Returns the cached arglist information as string, or nil.
 If it's not in the cache, the cache will be updated asynchronously."
+  (interactive)
   (save-excursion
     ;; Save match data just in case. This is automatically run in
     ;; background, so it'd be rather disastrous if it touched match
@@ -185,19 +186,16 @@ If it's not in the cache, the cache will be updated asynchronously."
 (make-variable-buffer-local (defvar slime-autodoc-mode nil))
 
 (defun slime-autodoc-mode (&optional arg)
-  (interactive "P")
+  (interactive (list (or current-prefix-arg 'toggle)))
   (make-local-variable 'eldoc-documentation-function)
   (make-local-variable 'eldoc-idle-delay)
-  (setq eldoc-documentation-function 'slime-compute-autodoc)
+  (make-local-variable 'eldoc-minor-mode-string)
+  (setq eldoc-documentation-function 'slime-autodoc)
   (setq eldoc-idle-delay slime-autodoc-delay)
-  (eldoc-mode arg)
-  (cond (eldoc-mode
-	 (setq slime-echo-arglist-function 
-	       (lambda () (eldoc-message (slime-compute-autodoc))))
-	 (setq slime-autodoc-mode t))
-	(t
-	 (setq slime-echo-arglist-function 'slime-show-arglist)
-	 (setq slime-autodoc-mode nil))))
+  (setq eldoc-minor-mode-string " Autodoc")
+  (setq slime-autodoc-mode (eldoc-mode arg))
+  (message (format "Slime autodoc mode %s"
+                   (if slime-autodoc-mode "enabled" "disabled"))))
 
 (defadvice eldoc-display-message-no-interference-p 
     (after slime-autodoc-message-ok-p)
@@ -220,8 +218,13 @@ If it's not in the cache, the cache will be updated asynchronously."
     (add-hook h 'slime-autodoc-maybe-enable)))
 
 (defun slime-autodoc-maybe-enable ()
-  (when slime-use-autodoc-mode 
-    (slime-autodoc-mode 1)))
+  (when slime-use-autodoc-mode
+    (slime-autodoc-mode 1)
+    (setq slime-echo-arglist-function
+          (lambda () 
+            (if slime-autodoc-mode
+                (eldoc-message (slime-autodoc))
+                (slime-show-arglist))))))
 
 ;;; FIXME: This doesn't disable eldoc-mode in existing buffers.
 (defun slime-autodoc-unload ()
@@ -230,8 +233,6 @@ If it's not in the cache, the cache will be updated asynchronously."
     (remove-hook h 'slime-autodoc-maybe-enable)))
 
 (slime-require :swank-arglists)
-
-
 
 ;;;; Test cases
 

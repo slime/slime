@@ -1,3 +1,11 @@
+2010-01-03  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-autodoc.el (slime-autodoc): Renamed from
+	`slime-compute-autodoc'; now also interactive.
+	(slime-autodoc-mode): Implement toggling properly. Make modeline
+	string "Autodoc" rather than "Eldoc".
+	(slime-autodoc-maybe-enable): Adapted accordingly.
+
 2010-01-03  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (sldb-insert-frame-call-to-repl): New function
