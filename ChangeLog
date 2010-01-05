@@ -1,5 +1,9 @@
 2010-01-05  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank-sbcl.lisp (compiler-note-location): Add missing return-from.
+
+2010-01-05  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* slime.el (compile-defun [test]): Add two cases.
 
 2010-01-05  Cecil Westerhof  <Cecil@decebal.nl>

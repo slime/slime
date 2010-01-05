@@ -457,7 +457,8 @@ information."
 
 (defun compiler-note-location (condition context)
   (flet ((bailout ()
-           (list :error "No error location available")))
+           (return-from compiler-note-location
+             (make-error-location "No error location available"))))
     (cond (context
            (locate-compiler-note
             (sb-c::compiler-error-context-file-name context)
@@ -483,7 +484,10 @@ information."
           (t (bailout)))))
 
 (defun compiling-from-buffer-p (filename)
-  (and (not (eq filename :lisp)) *buffer-name*))
+  (and *buffer-name*
+       ;; The following is to trigger COMPILING-FROM-GENERATED-CODE-P
+       ;; in LOCATE-COMPILER-NOTE.
+       (not (eq filename :lisp))))
 
 (defun compiling-from-file-p (filename)
   (and (pathnamep filename) (null *buffer-name*)))
