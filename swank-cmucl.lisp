@@ -791,11 +791,12 @@ condition object."
 (defun location-in-file (filename code-location debug-source)
   "Resolve the source location for CODE-LOCATION in FILENAME."
   (let* ((code-date (di:debug-source-created debug-source))
+         (root-number (di:debug-source-root-number debug-source))
          (source-code (get-source-code filename code-date)))
     (with-input-from-string (s source-code)
       (make-location (list :file (unix-truename filename))
                      (list :position (1+ (code-location-stream-position
-                                          code-location s)))
+                                          code-location s root-number)))
                      `(:snippet ,(read-snippet s))))))
 
 (defun location-in-stream (code-location debug-source)
@@ -848,14 +849,15 @@ This is true for functions that were compiled directly from buffers."
 
 ;;;;; Groveling source-code for positions
 
-(defun code-location-stream-position (code-location stream)
+(defun code-location-stream-position (code-location stream root)
   "Return the byte offset of CODE-LOCATION in STREAM.  Extract the
 toplevel-form-number and form-number from CODE-LOCATION and use that
 to find the position of the corresponding form.
 
 Finish with STREAM positioned at the start of the code location."
   (let* ((location (debug::maybe-block-start-location code-location))
-	 (tlf-offset (di:code-location-top-level-form-offset location))
+	 (tlf-offset (- (di:code-location-top-level-form-offset location)
+                        root))
 	 (form-number (di:code-location-form-number location)))
     (let ((pos (form-number-stream-position tlf-offset form-number stream)))
       (file-position stream pos)
@@ -877,7 +879,7 @@ FORM-NUMBER is an index into a source-path table for the TLF."
   "Return the byte offset of CODE-LOCATION in STRING.
 See CODE-LOCATION-STREAM-POSITION."
   (with-input-from-string (s string)
-    (code-location-stream-position code-location s)))
+    (code-location-stream-position code-location s 0)))
 
 
 ;;;; Finding definitions

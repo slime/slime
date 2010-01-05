@@ -1,5 +1,14 @@
 2010-01-05  Helmut Eller  <heller@common-lisp.net>
 
+	Fix M-. bug related to CMUCL's multi-file compilation units.
+
+	* swank-cmucl.lisp (code-location-stream-position): Require the
+	"root-number" as argument and subtract it from the TLF number.
+	(location-in-file): Pass the root number along.
+	(code-location-string-offset): Use 0 as root number.
+
+2010-01-05  Helmut Eller  <heller@common-lisp.net>
+
 	Slightly better error message when CMUCL fails to find defstructs.
 
 	* swank-cmucl.lisp (struct-constructor, setf-definitions): Don't
