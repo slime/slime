@@ -1,5 +1,15 @@
 2010-01-05  Helmut Eller  <heller@common-lisp.net>
 
+	Add "quit" and "other window prefix" buffer selectors.
+
+	* slime.el (slime-selector-other-window): New variable.
+	(slime-selector): Bind it as need.
+	(def-slime-selector-method): Use the other window if so indicated.
+	([selector] 4): New key binding.
+	([selector] q): New key binding. just abort.
+
+2010-01-05  Helmut Eller  <heller@common-lisp.net>
+
 	Stop the beeping on restart.
 
 	* slime.el (slime-quit-lisp-internal): Don't kill already dead

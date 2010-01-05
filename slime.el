@@ -6689,7 +6689,10 @@ If ARG is negative, move forwards."
 Each element is a list (KEY DESCRIPTION FUNCTION).
 DESCRIPTION is a one-line description of what the key selects.")
 
-(defun slime-selector ()
+(defvar slime-selector-other-window nil
+  "If non-nil use switch-to-buffer-other-window.")
+
+(defun slime-selector (&optional other-window)
   "Select a new buffer by type, indicated by a single character.
 The user is prompted for a single character indicating the method by
 which to choose a new buffer. The `?' character describes the
@@ -6699,18 +6702,19 @@ See `def-slime-selector-method' for defining new methods."
   (interactive)
   (message "Select [%s]: " 
            (apply #'string (mapcar #'car slime-selector-methods)))
-  (let* ((ch (save-window-excursion
+  (let* ((slime-selector-other-window other-window)
+         (ch (save-window-excursion
                (select-window (minibuffer-window))
                (read-char)))
          (method (find ch slime-selector-methods :key #'car)))
-    (cond ((null method)
+    (cond (method 
+           (funcall (third method)))
+          (t
            (message "No method for character: ?\\%c" ch)
            (ding)
            (sleep-for 1)
            (discard-input)
-           (slime-selector))
-          (t
-           (funcall (third method))))))
+           (slime-selector)))))
 
 (defmacro def-slime-selector-method (key description &rest body)
   "Define a new `slime-select' buffer selection method.
@@ -6730,6 +6734,8 @@ switch-to-buffer."
                             (ding))
                            ((get-buffer-window buffer)
                             (select-window (get-buffer-window buffer)))
+                           (slime-selector-other-window
+                            (switch-to-buffer-other-window buffer))
                            (t
                             (switch-to-buffer buffer)))))))
     `(setq slime-selector-methods
@@ -6743,12 +6749,17 @@ switch-to-buffer."
     (insert "Select Methods:\n\n")
     (loop for (key line function) in slime-selector-methods
           do (insert (format "%c:\t%s\n" key line)))
+    (goto-char (point-min))
     (help-mode)
-    (display-buffer (current-buffer) t)
-    (shrink-window-if-larger-than-buffer 
-     (get-buffer-window (current-buffer))))
+    (display-buffer (current-buffer) t))
   (slime-selector)
   (current-buffer))
+
+(pushnew (list ?4 "Select in other window" (lambda () (slime-selector t)))
+         slime-selector-methods :key #'car)
+
+(def-slime-selector-method ?q "Abort."
+  (top-level))
 
 (def-slime-selector-method ?i
   "*inferior-lisp* buffer."
