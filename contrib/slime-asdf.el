@@ -215,6 +215,20 @@ depending on it."
   (interactive (list (slime-read-system-name)))
   (slime-xref :depends-on system-name))
 
+(defun slime-save-system (system)
+  "Save files belonging to an ASDF system."
+  (interactive (list (slime-read-system-name)))
+  (slime-eval-async
+      `(swank:asdf-system-files ,system)
+    (lambda (files)
+      (dolist (file files)
+        (let ((buffer (find file (buffer-list)
+                            :test 'equal :key 'buffer-file-name)))
+          (when buffer
+            (with-current-buffer buffer
+              (save-buffer buffer)))))
+      (message "Done."))))
+
 
 ;;; REPL shortcuts
 

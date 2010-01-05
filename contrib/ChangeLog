@@ -1,3 +1,8 @@
+2010-01-05  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-asdf.el (slime-save-system): New function for saving
+	system's files.
+
 2010-01-05  Helmut Eller  <heller@common-lisp.net>
 
 	Fix "other window" selector in inferior-slime-mode.
