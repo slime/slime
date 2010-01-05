@@ -222,8 +222,7 @@ depending on it."
       `(swank:asdf-system-files ,system)
     (lambda (files)
       (dolist (file files)
-        (let ((buffer (find file (buffer-list)
-                            :test 'equal :key 'buffer-file-name)))
+        (let ((buffer (get-file-buffer file)))
           (when buffer
             (with-current-buffer buffer
               (save-buffer buffer)))))
