@@ -2371,7 +2371,7 @@ also tracks the current directory of the Lisp process.
 To install it, add something like this to user @file{.emacs}:
 
 @example
-(slime-setup '(inferior-slime-mode))
+(slime-setup '(inferior-slime))
 @end example
 
 @table @kbd

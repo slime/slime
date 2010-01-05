@@ -1,3 +1,7 @@
+2010-01-05  Cecil Westerhof  <Cecil@decebal.nl>
+
+	* slime.texi (inferior-slime-mode): Fix thinko.
+
 2010-01-05  Terje Norderhaug  <terje@in-progress.com>
 
 	Provide default implementation for all-threads.
