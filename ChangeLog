@@ -1,5 +1,12 @@
 2010-01-05  Helmut Eller  <heller@common-lisp.net>
 
+	Slightly better error message when CMUCL fails to find defstructs.
+
+	* swank-cmucl.lisp (struct-constructor, setf-definitions): Don't
+	use COERCE which gives confusing error message.
+
+2010-01-05  Helmut Eller  <heller@common-lisp.net>
+
 	Add "quit" and "other window prefix" buffer selectors.
 
 	* slime.el (slime-selector-other-window): New variable.

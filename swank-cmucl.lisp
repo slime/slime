@@ -1017,14 +1017,12 @@ NAME can any valid function name (e.g, (setf car))."
 (defun struct-constructor (dd)
   "Return a constructor function from a defstruct definition.
 Signal an error if no constructor can be found."
-  (let ((constructor (or (kernel:dd-default-constructor dd)
-                         (car (kernel::dd-constructors dd)))))
-    (when (or (null constructor)
-              (and (consp constructor) (null (car constructor))))
-      (error "Cannot find structure's constructor: ~S"
-             (kernel::dd-name dd)))
-    (coerce (if (consp constructor) (first constructor) constructor)
-            'function)))
+  (let* ((constructor (or (kernel:dd-default-constructor dd)
+                          (car (kernel::dd-constructors dd))))
+         (sym (if (consp constructor) (car constructor) constructor)))
+    (unless sym
+      (error "Cannot find structure's constructor: ~S" (kernel::dd-name dd)))
+    (coerce sym 'function)))
 
 ;;;;;; Generic functions and methods
 
@@ -1197,15 +1195,15 @@ Signal an error if no constructor can be found."
            (null `(:error ,(format nil "Cannot resolve: ~S" source)))))))))
 
 (defun setf-definitions (name)
-  (let ((function (or (ext:info :setf :inverse name)
-                      (ext:info :setf :expander name)
-                      (and (symbolp name)
-                           (fboundp `(setf ,name))
-                           (fdefinition `(setf ,name))))))
-    (if function
-        (list (list `(setf ,name) 
-                    (function-location (coerce function 'function)))))))
-
+  (let ((f (or (ext:info :setf :inverse name)
+               (ext:info :setf :expander name)
+               (and (symbolp name)
+                    (fboundp `(setf ,name))
+                    (fdefinition `(setf ,name))))))
+    (if f
+        `(((setf ,name) ,(function-location (cond ((functionp  f) f)
+                                                  ((macro-function f))
+                                                  ((fdefinition f)))))))))
 
 (defun variable-location (symbol)
   (multiple-value-bind (location foundp)
