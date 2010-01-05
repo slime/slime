@@ -5228,7 +5228,8 @@ argument is given, with CL:MACROEXPAND."
       (set-process-sentinel connection sentinel)
       (when (and kill process)
         (sleep-for 0.2)
-        (kill-process process)))))
+        (unless (memq (process-status process) '(exit signal))
+          (kill-process process))))))
 
 (defun slime-quit-sentinel (process message)
   (assert (process-status process) 'closed)

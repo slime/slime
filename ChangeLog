@@ -1,3 +1,10 @@
+2010-01-05  Helmut Eller  <heller@common-lisp.net>
+
+	Stop the beeping on restart.
+
+	* slime.el (slime-quit-lisp-internal): Don't kill already dead
+	processes.
+
 2010-01-03  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-backend.lisp (frame-call): New function.
