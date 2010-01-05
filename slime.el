@@ -7720,7 +7720,9 @@ Confirm that SUBFORM is correctly located."
       ("(defun foo () pkg-does-not-exist:symbol)" 
        pkg-does-not-exist:symbol)
       ("(defun foo () swank:symbol-does-not-exist)"
-       swank:symbol-does-not-exist))
+       swank:symbol-does-not-exist)
+      ("(defun foo (x) ,x)" \,x)
+      ("(defun foo () #@foo)" @foo))
   (slime-check-top-level)    
   (with-temp-buffer
     (lisp-mode)
