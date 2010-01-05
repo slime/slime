@@ -122,6 +122,6 @@ A prefix argument disables this behaviour."
   (add-hook 'slime-transcript-stop-hook 'inferior-slime-stop-transcript)
   (def-slime-selector-method ?r
     "SLIME Read-Eval-Print-Loop."
-    (inferior-slime-switch-to-repl-buffer)))
+    (process-buffer (slime-inferior-process))))
 
 (provide 'inferior-slime)
