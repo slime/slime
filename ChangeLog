@@ -1,3 +1,9 @@
+2010-01-05  Terje Norderhaug  <terje@in-progress.com>
+
+	Provide default implementation for all-threads.
+
+	* swank-backend.lisp (all-threads): Just return ().
+
 2010-01-05  Helmut Eller  <heller@common-lisp.net>
 
 	Fix M-. bug related to CMUCL's multi-file compilation units.

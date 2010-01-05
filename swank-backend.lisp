@@ -1076,7 +1076,8 @@ but that thread may hold it more than once."
   0)
 
 (definterface all-threads ()
-  "Return a fresh list of all threads.")
+  "Return a fresh list of all threads."
+  '())
 
 (definterface thread-alive-p (thread)
   "Test if THREAD is termintated."
