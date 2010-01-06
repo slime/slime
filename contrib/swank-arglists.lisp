@@ -1016,7 +1016,7 @@ If the arglist is not available, return :NOT-AVAILABLE."))
              (make-arglist
               :required-args (list (make-arglist
                                     :required-args (list typespec-arglist)
-                                    :rest '#:vars)))))
+                                    :rest '#:variables)))))
           (('declare (decl-identifier . decl-args))
            (decoded-arglist-for-declaration decl-identifier decl-args))
           (_ (make-arglist :rest '#:declaration-specifiers))))))
@@ -1045,7 +1045,7 @@ If the arglist is not available, return :NOT-AVAILABLE."))
          (make-arglist
           :required-args (list (make-arglist
                                 :required-args (list typespec-arglist)
-                                :rest '#:vars)))))
+                                :rest '#:variables)))))
       (_ :not-available))))
 
 (defun decoded-arglist-for-declaration (decl-identifier decl-args)

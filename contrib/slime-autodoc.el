@@ -247,46 +247,61 @@ If it's not in the cache, the cache will be updated asynchronously."
 (def-slime-test autodoc.1
     (buffer-sexpr wished-arglist &optional skip-trailing-test-p)
     ""
-    '(("(swank::emacs-connected*HERE*"    "(emacs-connected)")
-      ("(swank::emacs-connected *HERE*"    "(emacs-connected)")
+    '(
+      ;; Test basics
+      ("(swank::emacs-connected*HERE*"    "(emacs-connected)")
+      ("(swank::emacs-connected *HERE*"   "(emacs-connected)")
       ("(swank::create-socket*HERE*"      "(create-socket host port)")
       ("(swank::create-socket *HERE*"     "(create-socket ===> host <=== port)")
       ("(swank::create-socket foo *HERE*" "(create-socket host ===> port <===)")
+
+      ;; Test if cursor is on non-existing required parameter
       ("(swank::create-socket foo bar *HERE*" "(create-socket host port)")
 
+      ;; Test cursor in front of opening parenthesis
+      ("(swank::with-struct *HERE*(foo. x y) *struct* body1)"
+       "(with-struct (conc-name &rest names) obj &body body)"
+       t)
+
+      ;; Test variable content display
+      ("(progn swank::default-server-port*HERE*" "DEFAULT-SERVER-PORT => 4005")
+
+      ;; Test with syntactic sugar
       ("#'(lambda () (swank::create-socket*HERE*" "(create-socket host port)")
       ("`(lambda () ,(swank::create-socket*HERE*" "(create-socket host port)")
+      ("(remove-if #'(lambda () (swank::create-socket*HERE*"    "(create-socket host port)")
+      ("`(remove-if #'(lambda () ,@(swank::create-socket*HERE*" "(create-socket host port)")
 
-      ("(remove-if #'(lambda () (swank::create-socket*HERE*"
-       "(create-socket host port)")
-      ("`(remove-if #'(lambda () ,@(swank::create-socket*HERE*"
-       "(create-socket host port)")
-
+      ;; Test &optional
       ("(swank::symbol-status foo *HERE*" 
        "(symbol-status symbol &optional ===> (package (symbol-package symbol)) <===)")
 
+      ;; Test context-sensitive autodoc
       ("(defmethod swank::arglist-dispatch (*HERE*"
        "(defmethod arglist-dispatch (===> operator <=== arguments) &body body)")
       ("(apply 'swank::eval-for-emacs*HERE*"
        "(apply 'eval-for-emacs &optional form buffer-package id &rest args)")
-
       ("(apply #'swank::eval-for-emacs*HERE*"
        "(apply #'eval-for-emacs &optional form buffer-package id &rest args)")
-
       ("(apply 'swank::eval-for-emacs foo *HERE*"
        "(apply 'eval-for-emacs &optional form ===> buffer-package <=== id &rest args)")
-
       ("(apply #'swank::eval-for-emacs foo *HERE*"
        "(apply #'eval-for-emacs &optional form ===> buffer-package <=== id &rest args)")
-
+      
+      ;; Test &KEY and nested arglists
       ("(swank::with-retry-restart (:msg *HERE*"
        "(with-retry-restart (&key ===> (msg \"Retry.\") <===) &body body)")
       ("(swank::start-server \"/tmp/foo\" :coding-system *HERE*"
        "(start-server port-file &key (style swank:*communication-style*) (dont-close swank:*dont-close*) ===> (coding-system swank::*coding-system*) <===)")
-
-      ("(swank::with-struct *HERE*(foo. x y) *struct* body1)"
-       "(with-struct (conc-name &rest names) obj &body body)"
-       t))
+      
+      ;; Test declarations and type specifiers
+      ("(declare (string *HERE*" 
+       "(declare (string &rest ===> variables <===))")
+      ("(declare ((string *HERE*"
+       "(declare ((string &optional ===> size <===) &rest variables))")
+      ("(declare (type (string *HERE*"
+       "(declare (type (string &optional ===> size <===) &rest variables))")
+      )
   (slime-check-top-level)
   (with-temp-buffer
     (setq slime-buffer-package "COMMON-LISP-USER")
