@@ -1254,18 +1254,18 @@ object."
                               (values (nreconc result-form cdr)
                                       last
                                       (nreverse path))))
-                           (t
+                           ((consp car)
                             (multiple-value-bind (new-car new-last new-path)
                                 (grovel car last (cons 0 path))
-                              (when new-path
+                              (when new-path ; CAR contained cursor-marker?
                                 (return-from grovel
                                   (values (nreconc
                                            (cons new-car result-form) cdr)
                                           new-last
-                                          new-path))))
-                            (push car result-form)
-                            (setq last car)
-                            (incf (first path))))
+                                          new-path))))))
+                     (push car result-form)
+                     (setq last car)
+                     (incf (first path))
                      finally
                        (return-from grovel
                          (values (nreverse result-form) nil nil))))))

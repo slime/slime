@@ -1,5 +1,12 @@
 2010-01-06  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-arglists.lisp (extract-cursor-marker): Make sure to
+	recurse only if the form, to be recursed into, is a cons.
+
+	Reported by Johannes Grødem.
+
+2010-01-06  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank-arglists.lisp (arglist-dispatch ['declare]): Normalize
 	`vars' to `variables'.
 	(arglist-for-type-declaration): Ditto.
