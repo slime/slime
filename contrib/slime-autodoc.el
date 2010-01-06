@@ -256,6 +256,9 @@ If it's not in the cache, the cache will be updated asynchronously."
       ("(swank::create-socket *HERE*"     "(create-socket ===> host <=== port)")
       ("(swank::create-socket foo *HERE*" "(create-socket host ===> port <===)")
 
+      ;; Test that autodoc differentiates between exported and unexported symbols.
+      ("(swank:create-socket*HERE*" :not-available)
+
       ;; Test if cursor is on non-existing required parameter
       ("(swank::create-socket foo bar *HERE*" "(create-socket host port)")
 
@@ -267,6 +270,10 @@ If it's not in the cache, the cache will be updated asynchronously."
       ;; Test variable content display
       ("(progn swank::default-server-port*HERE*" "DEFAULT-SERVER-PORT => 4005")
 
+      ;; Test that "variable content display" is not triggered for trivial constants.
+      ("(swank::create-socket t*HERE*"     "(create-socket ===> host <=== port)")
+      ("(swank::create-socket :foo*HERE*"  "(create-socket ===> host <=== port)")
+
       ;; Test with syntactic sugar
       ("#'(lambda () (swank::create-socket*HERE*" "(create-socket host port)")
       ("`(lambda () ,(swank::create-socket*HERE*" "(create-socket host port)")
@@ -277,9 +284,11 @@ If it's not in the cache, the cache will be updated asynchronously."
       ("(swank::symbol-status foo *HERE*" 
        "(symbol-status symbol &optional ===> (package (symbol-package symbol)) <===)")
 
-      ;; Test context-sensitive autodoc
+      ;; Test context-sensitive autodoc (DEFMETHOD)
       ("(defmethod swank::arglist-dispatch (*HERE*"
        "(defmethod arglist-dispatch (===> operator <=== arguments) &body body)")
+
+      ;; Test context-sensitive autodoc (APPLY)
       ("(apply 'swank::eval-for-emacs*HERE*"
        "(apply 'eval-for-emacs &optional form buffer-package id &rest args)")
       ("(apply #'swank::eval-for-emacs*HERE*"
@@ -288,6 +297,12 @@ If it's not in the cache, the cache will be updated asynchronously."
        "(apply 'eval-for-emacs &optional form ===> buffer-package <=== id &rest args)")
       ("(apply #'swank::eval-for-emacs foo *HERE*"
        "(apply #'eval-for-emacs &optional form ===> buffer-package <=== id &rest args)")
+
+      ;; Test context-sensitive autodoc (ERROR, CERROR)
+      ("(error 'simple-condition*HERE*"
+       "(error 'simple-condition &rest arguments &key format-arguments format-control)")
+      ("(cerror \"Foo\" 'simple-condition*HERE*"
+       "(cerror \"Foo\" 'simple-condition &rest arguments &key format-arguments format-control)")
       
       ;; Test &KEY and nested arglists
       ("(swank::with-retry-restart (:msg *HERE*"

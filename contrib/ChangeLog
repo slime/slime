@@ -1,5 +1,16 @@
 2010-01-06  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-arglists.lisp (interesting-variable-p): Exclude keywords
+	from being candidates for "display variable content" autodoc
+	feature.
+	(print-decoded-arglist): Slightly better arglist printing if
+	`slime-autodoc-use-multiline-p' is true.
+	(parse-raw-form): Make it able to parse strings.
+
+	* slime-autodoc.el (autodoc.1 [test]): Add more cases.
+
+2010-01-06  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-autodoc.el (slime-check-autodoc-at-point): Bind
 	`slime-autodoc-use-multiline-p' to nil for normalized test
 	results.

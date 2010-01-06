@@ -72,7 +72,8 @@ Otherwise NIL is returned."
   (and symbol
        (symbolp symbol)
        (boundp symbol)
-       (not (memq symbol '(cl:t cl:nil)))))
+       (not (memq symbol '(cl:t cl:nil)))
+       (not (keywordp symbol))))
 
 (defmacro multiple-value-or (&rest forms)
   (if (null forms)
@@ -154,7 +155,6 @@ Otherwise NIL is returned."
 (defun empty-arg-p (dummy)
   (and (arglist-dummy-p dummy)
        (zerop (length (arglist-dummy.string-representation dummy)))))
-
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter +lambda-list-keywords+
@@ -251,7 +251,8 @@ Otherwise NIL is returned."
     (let ((index 0))
       (pprint-logical-block (nil nil :prefix "(" :suffix ")")
         (when operator
-          (princ-arg operator))
+          (princ-arg operator)
+          (pprint-indent :current 1))   ; 1 due to possibly added space
         (do-decoded-arglist (remove-given-args arglist provided-args)
           (&provided (arg)
              (space)
@@ -279,7 +280,8 @@ Otherwise NIL is returned."
              (incf index))
           (&key :initially
              (when (arglist.key-p arglist)
-               (space) (princ '&key)))
+               (space)
+               (princ '&key)))
           (&key (keyword arg init)
              (space)
              (if (arglist-p arg)
@@ -316,6 +318,7 @@ Otherwise NIL is returned."
                    (princ-arg args))))
           ;; FIXME: add &UNKNOWN-JUNK?
           )))))
+
 
 (defun princ-arg (arg)
   (princ (if (arglist-dummy-p arg)
@@ -1473,20 +1476,29 @@ ARGLIST-DUMMY is returned instead, which works as a placeholder
 datum for subsequent logics to rely on."
   (let* ((string  (string-left-trim '(#\Space #\Tab #\Newline) string))
          (length  (length string))
-	 (prefix  (cond ((zerop length) nil)
-                        ((eql (aref string 0) #\') :quote)
-                        ((search "#'" string :end2 (min length 2)) :sharpquote)
-                        (t nil))))
+	 (type    (cond ((zerop length) nil)
+                        ((eql (aref string 0) #\')
+                         :quoted-symbol)
+                        ((search "#'" string :end2 (min length 2))
+                         :sharpquoted-symbol)
+                        ((and (eql (aref string 0) #\")
+                              (eql (aref string (1- length)) #\"))
+                         :string)
+                        (t
+                         :symbol))))
     (multiple-value-bind (symbol found?)
-	(parse-symbol (case prefix
-                        (:quote      (subseq string 1))
-                        (:sharpquote (subseq string 2))
-                        (t string)))
+	(case type
+          (:symbol             (parse-symbol string))
+          (:quoted-symbol      (parse-symbol (subseq string 1)))
+          (:sharpquoted-symbol (parse-symbol (subseq string 2)))
+          (:string             (values string t))
+          (t                   (values string nil)))
       (if found?
-          (case prefix
-            (:quote      `(quote ,symbol))
-            (:sharpquote `(function ,symbol))
-            (t symbol))
+          (ecase type
+            (:symbol             symbol)
+            (:quoted-symbol      `(quote ,symbol))
+            (:sharpquoted-symbol `(function ,symbol))
+            (:string             string))
 	  (make-arglist-dummy string)))))
   
 (defun test-print-arglist ()
