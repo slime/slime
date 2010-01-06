@@ -238,11 +238,12 @@ If it's not in the cache, the cache will be updated asynchronously."
 ;;;; Test cases
 
 (defun slime-check-autodoc-at-point (arglist)
-  (slime-test-expect (format "Autodoc in `%s' (at %d) is as expected" 
-                             (buffer-string) (point)) 
-                     arglist
-                     (slime-eval (second (slime-make-autodoc-rpc-form)))
-                     'equal))
+  (let ((slime-autodoc-use-multiline-p nil))
+    (slime-test-expect (format "Autodoc in `%s' (at %d) is as expected" 
+                               (buffer-string) (point)) 
+                       arglist
+                       (slime-eval (second (slime-make-autodoc-rpc-form)))
+                       'equal)))
 
 (def-slime-test autodoc.1
     (buffer-sexpr wished-arglist &optional skip-trailing-test-p)
