@@ -390,6 +390,8 @@
 
 (in-package :swank-backend)
 
+(defvar *abcl-signaled-conditions*)
+
 (defun handle-compiler-warning (condition)
   (let ((loc (when (and jvm::*compile-file-pathname* 
                         system::*source-position*)
@@ -415,8 +417,6 @@
                                 (make-location
                                  (list :file (namestring *compile-filename*))
                                  (list :position 1)))))))))
-
-(defvar *abcl-signaled-conditions*)
 
 (defimplementation swank-compile-file (input-file output-file
                                        load-p external-format)
@@ -516,35 +516,35 @@ part of *sysdep-pathnames* in swank.loader.lisp.
 ;;;; Inspecting
 
 (defmethod emacs-inspect ((slot mop::slot-definition))
-          `("Name: " (:value ,(mop::%slot-definition-name slot))
-            (:newline)
-            "Documentation:" (:newline)
-            ,@(when (slot-definition-documentation slot)
-                `((:value ,(slot-definition-documentation slot)) (:newline)))
-            "Initialization:" (:newline)
-            "  Args: " (:value ,(mop::%slot-definition-initargs slot)) (:newline)
-            "  Form: "  ,(if (mop::%slot-definition-initfunction slot)
-                             `(:value ,(mop::%slot-definition-initform slot))
-                             "#<unspecified>") (:newline)
-            "  Function: " (:value ,(mop::%slot-definition-initfunction slot))
-            (:newline)))
+  `("Name: " (:value ,(mop::%slot-definition-name slot))
+             (:newline)
+             "Documentation:" (:newline)
+             ,@(when (slot-definition-documentation slot)
+                     `((:value ,(slot-definition-documentation slot)) (:newline)))
+             "Initialization:" (:newline)
+             "  Args: " (:value ,(mop::%slot-definition-initargs slot)) (:newline)
+             "  Form: "  ,(if (mop::%slot-definition-initfunction slot)
+                              `(:value ,(mop::%slot-definition-initform slot))
+                              "#<unspecified>") (:newline)
+                              "  Function: " (:value ,(mop::%slot-definition-initfunction slot))
+                              (:newline)))
 
 (defmethod emacs-inspect ((f function))
-          `(,@(when (function-name f)
-                    `("Name: " 
-                      ,(princ-to-string (function-name f)) (:newline)))
-            ,@(multiple-value-bind (args present) 
-                                   (sys::arglist f)
-                                   (when present `("Argument list: " ,(princ-to-string args) (:newline))))
-            (:newline)
-            #+nil,@(when (documentation f t)
-                         `("Documentation:" (:newline) ,(documentation f t) (:newline)))
-            ,@(when (function-lambda-expression f)
-                    `("Lambda expression:" 
-                      (:newline) ,(princ-to-string (function-lambda-expression f)) (:newline)))))
+  `(,@(when (function-name f)
+            `("Name: " 
+              ,(princ-to-string (function-name f)) (:newline)))
+      ,@(multiple-value-bind (args present) 
+                             (sys::arglist f)
+                             (when present `("Argument list: " ,(princ-to-string args) (:newline))))
+      (:newline)
+      #+nil,@(when (documentation f t)
+                   `("Documentation:" (:newline) ,(documentation f t) (:newline)))
+      ,@(when (function-lambda-expression f)
+              `("Lambda expression:" 
+                (:newline) ,(princ-to-string (function-lambda-expression f)) (:newline)))))
 
 #|
-
+;;; XXX -- the default SLIME implementation looks ok.  Remove?  --ME 20100111
 (defmethod emacs-inspect ((o t))
   (let* ((class (class-of o))
          (slots (mop::class-slots class)))
@@ -555,6 +555,12 @@ part of *sysdep-pathnames* in swank.loader.lisp.
                     slots)))
 |#
 
+(defmethod emacs-inspect ((o java:java-object))
+  (append 
+   (label-value-line "toString()" (java:jcall "toString" o)) 
+   (loop :for (label . value) :in (sys:inspected-parts o)
+      :appending (label-value-line label value))))
+  
 ;;;; Multithreading
 
 #+#.(cl:if (cl:find-package :threads) '(:and) '(:or))

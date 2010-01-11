@@ -1,3 +1,10 @@
+2010-01-11  Mark Evenson  <evenson@dada.local>
+
+	* swank-abcl.lisp (emacs-inspect): Implementation for Java
+	objects.
+
+	Fix compiler warning about *ABCL-SIGNALED-CONDITIONS*.
+
 2010-01-06  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank-backend (declaration-arglist): Normalize declaration
