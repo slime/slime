@@ -1,3 +1,10 @@
+2010-01-13  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank.lisp (*swank-state-stack*): Delete. Not needed anymore.
+	(defslimefun state-stack): Delete.
+	(decode-message): Adapted.
+	(debug-in-emacs): Adapted.
+
 2010-01-11  Mark Evenson  <evenson@dada.local>
 
 	* swank-abcl.lisp (emacs-inspect): Implementation for Java

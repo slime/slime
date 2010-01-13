@@ -312,10 +312,6 @@ Backend code should treat the connection structure as opaque.")
 (defvar *emacs-connection* nil
   "The connection to Emacs currently in use.")
 
-(defvar *swank-state-stack* '()
-  "A list of symbols describing the current state.  Used for debugging
-and to detect situations where interrupts can be ignored.")
-
 (defun default-connection ()
   "Return the 'default' Emacs connection.
 This connection can be used to talk with Emacs when no specific
@@ -324,10 +320,6 @@ connection is in use, i.e. *EMACS-CONNECTION* is NIL.
 The default connection is defined (quite arbitrarily) as the most
 recently established one."
   (first *connections*))
-
-(defslimefun state-stack ()
-  "Return the value of *SWANK-STATE-STACK*."
-  *swank-state-stack*)
 
 (defslimefun ping (tag)
   tag)
@@ -1738,12 +1730,11 @@ NIL if streams are not globally redirected.")
 (defun decode-message (stream)
   "Read an S-expression from STREAM using the SLIME protocol."
   ;;(log-event "decode-message~%")
-  (let ((*swank-state-stack* (cons :read-next-form *swank-state-stack*)))
-    (handler-bind ((error (lambda (c) (error (make-swank-protocol-error c)))))
-      (let ((packet (read-packet stream)))
-        (handler-case (values (read-form packet) nil)
-          (reader-error (c) 
-            `(:reader-error ,packet ,c)))))))
+  (handler-bind ((error (lambda (c) (error (make-swank-protocol-error c)))))
+    (let ((packet (read-packet stream)))
+      (handler-case (values (read-form packet) nil)
+        (reader-error (c) 
+          `(:reader-error ,packet ,c))))))
 
 ;; use peek-char to detect EOF, read-sequence may return 0 instead of
 ;; signaling a condition.
@@ -2554,8 +2545,7 @@ after Emacs causes a restart to be invoked."
                             (symbol-value '*buffer-package*))
                        *package*))
         (*sldb-level* (1+ *sldb-level*))
-        (*sldb-stepping-p* nil)
-        (*swank-state-stack* (cons :swank-debugger-hook *swank-state-stack*)))
+        (*sldb-stepping-p* nil))
     (force-user-output)
     (call-with-debugging-environment
      (lambda ()
