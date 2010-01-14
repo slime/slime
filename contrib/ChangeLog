@@ -1,10 +1,21 @@
 2010-01-14  Stas Boukarev  <stassats@gmail.com>
 
+	* slime-repl.el: Revert the previous change because it
+	didn't work in some cases.
+	(slime-repl-map-mode): New minor mode which sole purpose is to
+	enable `slime-repl-mode-map'.
+	(slime-repl-mode): Enable `slime-repl-map-mode' after enabling
+	`slime-editing-map'.
+	This will finally allow `slime-repl-mode-map' to take precedence of
+	`slime-editing-map'.
+
+2010-01-14  Stas Boukarev  <stassats@gmail.com>
+
 	* slime-repl.el (slime-repl-mode-map): Use both
 	`slime-editing-map' and `lisp-mode-map' as parent keymaps.
 	(slime-repl-mode): Don't use `slime-editing-mode' because
 	its keymap is already used above.
-	That way `slime-repl-mode-map' takes precedence of.
+	That way `slime-repl-mode-map' takes precedence of
 	`slime-editing-map'.
 
 2010-01-08  Stas Boukarev  <stassats@gmail.com>

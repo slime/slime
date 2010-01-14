@@ -413,8 +413,7 @@ joined together."))
 
 (defvar slime-repl-mode-map
   (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map
-                       (append slime-editing-map lisp-mode-map))
+    (set-keymap-parent map lisp-mode-map)
     map))
 
 (slime-define-keys slime-prefix-map
@@ -465,6 +464,13 @@ joined together."))
   "SLIME Read-Eval-Print-Loop."
   (slime-output-buffer))
 
+(define-minor-mode slime-repl-map-mode
+  "Minor mode which makes slime-repl-mode-map available.
+\\{slime-repl-mode-map}"
+  nil
+  nil
+  slime-repl-mode-map)
+
 (defun slime-repl-mode () 
   "Major mode for interacting with a superior Lisp.
 \\{slime-repl-mode-map}"
@@ -472,6 +478,8 @@ joined together."))
   (kill-all-local-variables)
   (setq major-mode 'slime-repl-mode)
   (use-local-map slime-repl-mode-map)
+  (slime-editing-mode 1)
+  (slime-repl-map-mode 1)
   (lisp-mode-variables t)
   (set (make-local-variable 'lisp-indent-function)
        'common-lisp-indent-function)
