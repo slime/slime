@@ -1,3 +1,9 @@
+2010-01-14  Stas Boukarev  <stassats@gmail.com>
+
+	* doc/slime.texi (Setting up the lisp image):
+	(swank-loader:init) is also needed for loading swank.
+	Reported by Evgeny Bahvalov.
+
 2010-01-13  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank.lisp (*swank-state-stack*): Delete. Not needed anymore.

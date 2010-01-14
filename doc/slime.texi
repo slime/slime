@@ -1929,13 +1929,13 @@ is that simple.
 @node Setting up the lisp image
 @subsection Setting up the lisp image
 
-
 When you want to load swank without going through the normal, Emacs
 based, process just load the @file{swank-loader.lisp} file. Just
 execute
 
 @example
 (load "/path/to/swank-loader.lisp")
+(swank-loader:init)
 @end example
 
 inside a running lisp image@footnote{@SLIME{} also provides an
