@@ -1,3 +1,12 @@
+2010-01-14  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-repl-mode-map): Use both
+	`slime-editing-map' and `lisp-mode-map' as parent keymaps.
+	(slime-repl-mode): Don't use `slime-editing-mode' because
+	its keymap is already used above.
+	That way `slime-repl-mode-map' takes precedence of.
+	`slime-editing-map'.
+
 2010-01-08  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-asdf.lisp: Doing list-all-systems-in-central-registry

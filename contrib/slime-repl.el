@@ -413,7 +413,8 @@ joined together."))
 
 (defvar slime-repl-mode-map
   (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map lisp-mode-map)
+    (set-keymap-parent map
+                       (append slime-editing-map lisp-mode-map))
     map))
 
 (slime-define-keys slime-prefix-map
@@ -492,7 +493,6 @@ joined together."))
        'slime-repl-mode-beginning-of-defun)
   (set (make-local-variable 'end-of-defun-function) 
        'slime-repl-mode-end-of-defun)
-  (slime-editing-mode 1)
   (slime-run-mode-hooks 'slime-repl-mode-hook))
 
 (defun slime-repl-buffer (&optional create connection)
