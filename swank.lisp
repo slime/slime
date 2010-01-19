@@ -13,7 +13,7 @@
 ;;; available to us here via the `SWANK-BACKEND' package.
 
 (defpackage :swank
-  (:use :cl :swank-backend :swank-match)
+  (:use :cl :swank-backend :swank-match :swank-rpc)
   (:export #:startup-multiprocessing
            #:start-server 
            #:create-server

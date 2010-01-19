@@ -8,7 +8,39 @@
 ;;; are disclaimed.
 ;;;
 
-(in-package :swank)
+(defpackage :swank-rpc
+  (:export 
+    ; export everything for compatibility, need to be trimmed down!
+    #:decode-message
+    #:read-packet
+    #:read-chunk
+    #:*swank-io-package*
+    #:read-form
+    #:encode-message
+    #:prin1-to-string-for-emacs
+    #:destructure-case
+    #:swank-protocol-error
+    #:swank-protocol-error.condition
+    #:swank-protocol-error.backtrace
+    #:make-swank-protocol-error
+    #:*log-events*
+    #:*log-output*
+    #:init-log-output
+    #:real-input-stream
+    #:real-output-stream
+    #:*event-history*
+    #:*event-history-index*
+    #:*enable-event-history*
+    #:log-event
+    #:event-history-to-list
+    #:clear-event-history
+    #:dump-event-history
+    #:dump-event
+    #:escape-non-ascii
+    #:ascii-string-p
+    #:ascii-char-p))
+
+(in-package :swank-rpc)
 
 ;;;;; Input
 
@@ -135,8 +167,9 @@ corresponding values in the CDR of VALUE."
              (princ (swank-protocol-error.condition condition) stream))))
 
 (defun make-swank-protocol-error (condition)
-  (make-condition 'swank-protocol-error :condition condition 
-                  :backtrace (safe-backtrace)))
+  (make-condition 'swank-protocol-error :condition condition
+                  ; should be eliminated from here and covered in swank module:
+                  :backtrace (funcall (intern "SAFE-BACKTRACE" "SWANK"))))
 
 ;;;;; Logging
 

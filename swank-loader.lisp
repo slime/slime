@@ -182,7 +182,7 @@ If LOAD is true, load the fasl file."
                            :defaults src-dir))
           names))
 
-(defvar *swank-files* `(swank-backend ,@*sysdep-files* swank-match swank swank-rpc))
+(defvar *swank-files* `(swank-backend ,@*sysdep-files* swank-match swank-rpc swank))
 
 (defvar *contribs* '(swank-c-p-c swank-arglists swank-fuzzy
                      swank-fancy-inspector
