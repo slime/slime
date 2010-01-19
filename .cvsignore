@@ -4,3 +4,4 @@
 *.lx64fsl
 *.elc
 _darcs
+.DS_Store
