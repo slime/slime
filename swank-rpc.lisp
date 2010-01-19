@@ -9,6 +9,7 @@
 ;;;
 
 (defpackage :swank-rpc
+  (:use :cl)
   (:export 
     ; export everything for compatibility, need to be trimmed down!
     #:decode-message
