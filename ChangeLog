@@ -3,6 +3,10 @@
 	* swank-rpc.lisp (:swank-rpc): (:use :cl), SBCL
 	doesn't use it by default.
 
+2010-01-19  Terje Norderhaug  <terje@in-progress.com>
+
+	* Refactorized parts of slime.lisp into a new swank-rpc module. 
+	
 2010-01-14  Stas Boukarev  <stassats@gmail.com>
 
 	* doc/slime.texi (Setting up the lisp image):
