@@ -6202,9 +6202,26 @@ was called originally."
 
 (defun slime-thread-kill ()
   (interactive)
-  (let ((id (get-text-property (point) 'thread-id)))
-    (slime-eval `(swank:kill-nth-thread ,id)))
+  (slime-eval `(cl:mapc 'swank:kill-nth-thread
+                        ',(slime-get-properties 'thread-id)))
   (call-interactively 'slime-list-threads))
+
+(defun slime-get-region-properties (prop start end)
+  (loop for position = (if (get-text-property start prop)
+                           start
+                           (next-single-property-change start prop))
+        then (next-single-property-change position prop)
+        while (<= position end)
+        collect (get-text-property position prop)))
+
+(defun slime-get-properties (prop)
+  (if (use-region-p)
+      (slime-get-region-properties prop
+                                   (region-beginning)
+                                   (region-end))
+      (let ((value (get-text-property (point) prop)))
+        (when value
+          (list value)))))
 
 (defun slime-thread-attach ()
   (interactive)
