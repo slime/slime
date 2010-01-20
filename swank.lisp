@@ -330,18 +330,21 @@ signalled during decoding/encoding the wire protocol.  Do not set this
 to T unless you want to debug swank internals.")
 
 (defmacro with-swank-protocol-error-handler ((connection) &body body)
-  (let ((var (gensym)))
-  `(let ((,var ,connection))
+  (let ((var (gensym))
+        (backtrace (gensym)))
+  `(let ((,var ,connection)
+         (,backtrace))
      (handler-case 
          (handler-bind ((swank-protocol-error 
                          (lambda (condition)
+                           (setf ,backtrace (safe-backtrace))
                            (when *debug-on-swank-protocol-error*
                              (invoke-default-debugger condition)))))
            (progn ,@body))
        (swank-protocol-error (condition)
          (close-connection ,var
                            (swank-protocol-error.condition condition)
-                           (swank-protocol-error.backtrace condition)))))))
+                           ,backtrace))))))
 
 (defmacro with-panic-handler ((connection) &body body)
   (let ((var (gensym)))
