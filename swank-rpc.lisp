@@ -22,7 +22,6 @@
     #:destructure-case
     #:swank-protocol-error
     #:swank-protocol-error.condition
-    #:swank-protocol-error.backtrace
     #:make-swank-protocol-error
     #:*log-events*
     #:*log-output*
@@ -160,17 +159,13 @@ corresponding values in the CDR of VALUE."
 
 ;;;;; Error handling
 
-;; A condition to include backtrace information
 (define-condition swank-protocol-error (error) 
-  ((condition :initarg :condition :reader swank-protocol-error.condition)
-   (backtrace :initarg :backtrace :reader swank-protocol-error.backtrace))
+  ((condition :initarg :condition :reader swank-protocol-error.condition))
   (:report (lambda (condition stream)
              (princ (swank-protocol-error.condition condition) stream))))
 
 (defun make-swank-protocol-error (condition)
-  (make-condition 'swank-protocol-error :condition condition
-                  ; should be eliminated from here and covered in swank module:
-                  :backtrace (funcall (intern "SAFE-BACKTRACE" "SWANK"))))
+  (make-condition 'swank-protocol-error :condition condition))
 
 ;;;;; Logging
 
