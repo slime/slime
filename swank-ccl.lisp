@@ -434,6 +434,9 @@
                      (format stream " ~s" arg)))))
       (format stream ")"))))
 
+(defmacro with-frame ((p context) frame-number &body body)
+  `(call/frame ,frame-number (lambda (,p ,context) . ,body)))
+
 (defimplementation frame-call (frame-number)
   (with-frame (p context) frame-number
     (with-output-to-string (stream)
@@ -446,8 +449,6 @@
        (funcall if-found p context)))
    frame-number))
 
-(defmacro with-frame ((p context) frame-number &body body)
-  `(call/frame ,frame-number (lambda (,p ,context) . ,body)))
 
 (defimplementation frame-var-value (frame var)
   (with-frame (p context) frame

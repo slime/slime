@@ -1,3 +1,7 @@
+2010-01-21  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-ccl.lisp (with-frame): Put this macro before it's used.
+
 2010-01-20  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-thread-kill): If the region is active, then
