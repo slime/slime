@@ -233,11 +233,18 @@
 (defun compiler-note-p (object)
   (member (type-of object) '(excl::compiler-note compiler::compiler-note)))
 
+(defun redefinition-p (condition)
+  (and (typep condition 'style-warning)
+       (every #'char-equal "redefin" (princ-to-string condition))))
+
 (defun compiler-undefined-functions-called-warning-p (object)
   (typep object 'excl:compiler-undefined-functions-called-warning))
 
 (deftype compiler-note ()
   `(satisfies compiler-note-p))
+
+(deftype redefinition ()
+  `(satisfies redefinition-p))
 
 (defun signal-compiler-condition (&rest args)
   (signal (apply #'make-condition 'compiler-condition args)))
@@ -251,9 +258,12 @@
          (signal-compiler-condition
           :original-condition condition
           :severity (etypecase condition
-                      (warning :warning)
+                      (redefinition  :redefinition)
+                      (style-warning :style-warning)
+                      (warning       :warning)
                       (compiler-note :note)
-                      (reader-error :read-error))
+                      (reader-error  :read-error)
+                      (error         :error))
           :message (format nil "~A" condition)
           :location (if (typep condition 'reader-error) 
                         (location-for-reader-error condition)

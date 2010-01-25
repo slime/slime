@@ -1,3 +1,9 @@
+2010-01-25  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank-allegro.lisp (redefinition-p, redefinition): New.
+	(handle-compiler-warning): Add :severity for redefinitions,
+	style-warnings, errors.
+
 2010-01-21  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-ccl.lisp (with-frame): Put this macro before it's used.
