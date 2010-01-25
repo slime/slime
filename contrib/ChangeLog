@@ -1,3 +1,11 @@
+2010-01-25  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-package-fu.el (slime-goto-next-export-clause): Use
+	" \n\t" for `skip-chars-forward' instead of [:alpha:],
+	because it doesn't work for some reason.
+	(slime-search-exports-in-defpackage): take #:symbol and :symbol
+	into account too.
+
 2010-01-14  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el: Revert the previous change because it

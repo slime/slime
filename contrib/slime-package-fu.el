@@ -94,7 +94,7 @@ places the cursor at the start of the DEFPACKAGE form."
     (save-excursion
       (block nil
 	(while (ignore-errors (slime-forward-sexp) t)
-	  (skip-chars-forward "[:space:]")
+          (skip-chars-forward " \n\t")
 	  (when (slime-at-expression-p '(:export *))
 	    (setq point (point))
 	    (return)))))
@@ -105,14 +105,17 @@ places the cursor at the start of the DEFPACKAGE form."
 (defun slime-search-exports-in-defpackage (symbol-name)
   "Look if `symbol-name' is mentioned in one of the :EXPORT clauses."
   ;; Assumes we're inside the beginning of a DEFPACKAGE form.
-  (save-excursion
-    (block nil
-      (while (ignore-errors (slime-goto-next-export-clause) t)
-	(let ((clause-end (save-excursion (forward-sexp) (point))))
-	  (when (and (search-forward symbol-name clause-end t)
-		     (equal (slime-symbol-at-point) symbol-name))
-	    (return (point))))))))
-
+  (flet ((target-symbol-p (symbol)
+           (string-match-p (format "^\\(\\(#:\\)\\|:\\)?%s$"
+                                   (regexp-quote symbol-name))
+                           symbol)))
+    (save-excursion
+      (block nil
+        (while (ignore-errors (slime-goto-next-export-clause) t)
+          (let ((clause-end (save-excursion (forward-sexp) (point))))
+            (when (and (search-forward symbol-name clause-end t)
+                       (target-symbol-p (slime-symbol-at-point)))
+              (return (point)))))))))
 
 (defun slime-frob-defpackage-form (current-package do-what symbol)
   "Adds/removes `symbol' from the DEFPACKAGE form of `current-package'
