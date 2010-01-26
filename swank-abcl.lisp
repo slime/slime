@@ -95,6 +95,8 @@
    standard-slot-definition ;;dummy
    cl:method
    cl:standard-class
+   #+#.(swank-backend:with-symbol 'compute-applicable-methods-using-classes 'mop)
+   mop::compute-applicable-methods-using-classes
    ;; standard-class readers
    mop::class-default-initargs
    mop::class-direct-default-initargs
