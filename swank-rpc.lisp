@@ -99,7 +99,7 @@
     (import '(nil t quote) package)
     package))
 
-(defparameter *validate-input* NIL
+(defparameter *validate-input* nil
   "Set to true to require input that strictly conforms to the protocol")
 
 (defun read-form (string)
