@@ -1,3 +1,9 @@
+2010-01-28  Mark Evenson  <evenson@dada.local>
+
+	* swank-abcl.lisp (emacs-inspect): Make inspection of Java objects
+	toString() results dependent on explicit user request to avoid
+	potentially computationally expensive opreations.
+
 2010-01-27  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-rpc.lisp: NIL -> nil (for unusual readtable settings).
@@ -5,7 +11,7 @@
 
 2010-01-26  Mark Evenson  <evenson@dada.local>
 
-	* swank-abcl.lisp (import-to-swank-mop):  Import
+	* swank-abcl.lisp: Import
 	MOP::COMPUTE-APPLICABLE-METHODS-USING-CLASSES if it exists in the
 	ABCL implementation.
 

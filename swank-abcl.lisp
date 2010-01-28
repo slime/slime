@@ -557,11 +557,26 @@ part of *sysdep-pathnames* in swank.loader.lisp.
                     slots)))
 |#
 
+
+;;; Although by convention toString() is supposed to be a
+;;; non-computationally expensive operation this isn't always the
+;;; case, so make its computation a user interaction.
+(defparameter *to-string-hashtable* (make-hash-table))
 (defmethod emacs-inspect ((o java:java-object))
-  (append 
-   (label-value-line "toString()" (java:jcall "toString" o)) 
-   (loop :for (label . value) :in (sys:inspected-parts o)
-      :appending (label-value-line label value))))
+    (let ((to-string (lambda ()
+                      (handler-case
+                          (setf (gethash o *to-string-hashtable*)
+                                         (java:jcall "toString" o))
+                        (t (e)
+                          (setf (gethash o *to-string-hashtable*)
+                                         (format nil "Could not invoke toString(): ~A"
+                                                 e)))))))
+      (append
+       (if (gethash o *to-string-hashtable*)
+           (label-value-line "toString()" (gethash o *to-string-hashtable*))
+           `((:action "[compute toString()]" ,to-string) (:newline)))
+       (loop :for (label . value) :in (sys:inspected-parts o)
+          :appending (label-value-line label value)))))
   
 ;;;; Multithreading
 
