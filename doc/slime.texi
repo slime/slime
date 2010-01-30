@@ -1589,7 +1589,9 @@ the ``connection list'' buffer:
 @table @kbd
 @kbditem{C-c C-x c, slime-list-connections}
 Pop up a buffer listing the established connections.
-
+It's also avaiable from (@pxref{slime-selector}) by the key @kbd{c}
+@kbditem{, slime-cycle-connections}
+Change current slime connection cycling through all connection.
 @kbditem{C-c C-x t, slime-list-threads}
 Pop up a buffer listing the current threads.
 

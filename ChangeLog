@@ -1,5 +1,10 @@
 2010-01-30  Stas Boukarev  <stassats@gmail.com>
 
+	* slime.el (slime-cycle-connections): Change docstring, it
+	doesn't make connection buffer-local.
+	* doc/slime.texi (Multiple connections): document
+	slime-cycle-connections.
+
 	* swank.lisp (pathname-as-directory): Treat "/foo/bar" and "/foo/bar/"
 	the same.
 	(compile-file-output): Use the above function.
@@ -8,7 +13,7 @@
 
 	* swank-abcl.lisp (emacs-inspect): Make inspection of Java objects
 	toString() results dependent on explicit user request to avoid
-	potentially computationally expensive opreations.
+	potentially computationally expensive operations.
 
 2010-01-27  Stas Boukarev  <stassats@gmail.com>
 

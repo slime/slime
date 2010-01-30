@@ -1822,7 +1822,7 @@ This doesn't mean it will connect right after Slime is loaded."
   (setq slime-default-connection process))
 
 (defun slime-cycle-connections ()
-  "Change current slime connection, and make it buffer local."
+  "Change current slime connection cycling through all connection."
   (interactive)
   (let* ((tail (or (cdr (member (slime-current-connection)
                                 slime-net-processes))
