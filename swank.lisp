@@ -2670,8 +2670,13 @@ Record compiler notes signalled as `compiler-condition's."
 (defvar *fasl-pathname-function* nil
   "In non-nil, use this function to compute the name for fasl-files.")
 
+(defun pathname-as-directory (pathname)
+  (append (pathname-directory pathname)
+          (when (pathname-name pathname)
+            (list (file-namestring pathname)))))
+
 (defun compile-file-output (file directory)
-  (make-pathname :directory directory
+  (make-pathname :directory (pathname-as-directory directory)
                  :defaults (compile-file-pathname file)))
 
 (defun fasl-pathname (input-file options)

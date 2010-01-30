@@ -1,3 +1,9 @@
+2010-01-30  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (pathname-as-directory): Treat "/foo/bar" and "/foo/bar/"
+	the same.
+	(compile-file-output): Use the above function.
+
 2010-01-28  Mark Evenson  <evenson@dada.local>
 
 	* swank-abcl.lisp (emacs-inspect): Make inspection of Java objects
