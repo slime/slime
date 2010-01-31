@@ -1,3 +1,10 @@
+2010-01-31  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* hyperspec.el: When using C-c C-d ~ TAB, previously there were
+	entries for "C" and "C: Character", which unpleasingly crowded the
+	completion buffer, so I made it show one entry ("C - Character")
+	only. RIP, erik.
+
 2010-01-30  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-cycle-connections): Change docstring, it
