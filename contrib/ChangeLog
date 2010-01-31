@@ -1,3 +1,11 @@
+2010-01-31  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-repl-mode): Don't do
+	 (use-local-map slime-repl-mode-map) because it will be used
+	through slime-repl-map-mode minor mode.
+	This fixes double entries in the menu bar.
+	Reported by RaceCondition from #lisp.
+
 2010-01-25  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-package-fu.el (slime-goto-next-export-clause): Use
