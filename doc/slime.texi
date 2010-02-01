@@ -1516,8 +1516,10 @@ The most recently visited @code{lisp-mode} source buffer.
 The @code{*slime-scratch*} buffer (@pxref{slime-scratch}).
 @item c
 SLIME connections buffer (@pxref{Multiple connections}).
+@item n
+Cycle to the next Lisp connection (@pxref{Multiple connections}).
 @item t
-SLIME threads buffer.
+SLIME threads buffer (@pxref{Multiple connections}).
 @end table
 
 @code{slime-selector} doesn't have a key binding by default but we
@@ -1588,13 +1590,18 @@ the ``connection list'' buffer:
 
 @table @kbd
 @kbditem{C-c C-x c, slime-list-connections}
-Pop up a buffer listing the established connections.
-It's also avaiable from (@pxref{slime-selector}) by the key @kbd{c}
-@kbditem{, slime-cycle-connections}
-Change current slime connection cycling through all connection.
-@kbditem{C-c C-x t, slime-list-threads}
-Pop up a buffer listing the current threads.
+Pop up a buffer listing the established connections.  It is also
+available by the typing @kbd{c} from the SLIME selector
+(@ref{slime-selector}).
 
+@kbditem{C-c C-x n, slime-cycle-connections}
+Change current Lisp connection by cycling through all connections.  It
+is also available by the typing @kbd{n} from the SLIME selector
+(@ref{slime-selector}).
+
+@kbditem{C-c C-x t, slime-list-threads}
+Pop up a buffer listing the current threads.  It is also available by
+the typing @kbd{t} from the SLIME selector (@ref{slime-selector}).
 @end table
 
 The buffer displayed by @code{slime-list-connections} gives a one-line

@@ -506,6 +506,7 @@ information."
     ("\C-t"  slime-toggle-trace-fdefinition)
     ("I"     slime-inspect)
     ("\C-xt" slime-list-threads)
+    ("\C-xn" slime-cycle-connections)
     ("\C-xc" slime-list-connections)
     ("<"     slime-list-callers)
     (">"     slime-list-callees)
@@ -1822,7 +1823,7 @@ This doesn't mean it will connect right after Slime is loaded."
   (setq slime-default-connection process))
 
 (defun slime-cycle-connections ()
-  "Change current slime connection cycling through all connection."
+  "Change current slime connection, cycling through all connections."
   (interactive)
   (let* ((tail (or (cdr (member (slime-current-connection)
                                 slime-net-processes))
@@ -6806,6 +6807,13 @@ switch-to-buffer."
   "SLIME connections buffer."
   (slime-list-connections)
   slime-connections-buffer-name)
+
+(def-slime-selector-method ?n
+  "Cycle to the next Lisp connection."
+  (slime-cycle-connections)
+  (concat "*slime-repl "
+          (slime-connection-name (slime-current-connection))
+          "*"))
 
 (def-slime-selector-method ?t
   "SLIME threads buffer."
