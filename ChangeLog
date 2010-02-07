@@ -1,3 +1,9 @@
+2010-02-07  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank.lisp (xref-doit): Declare eql-specializing parameter
+	ignorable, as some implementations complain about them not being
+	used.
+
 2010-02-01  Mark Harig <idirectscm@aim.com>
 
 	* slime.el: Added missing pieces to make `slime-cycle-connections'
