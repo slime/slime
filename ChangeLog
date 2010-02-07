@@ -1,5 +1,10 @@
 2010-02-07  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank-ecl.lisp: Update threading code. ECL doesn't still work
+	with :spawn, though. Work in progress.
+
+2010-02-07  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank.lisp (xref-doit): Declare eql-specializing parameter
 	ignorable, as some implementations complain about them not being
 	used.

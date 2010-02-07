@@ -532,13 +532,34 @@
   (declare (ignore callers methods))
   (eval `(profile:profile ,(package-name (find-package package)))))
 
+;;;; Communication-Styles
 
-;;;; Threads
+;;; :SPAWN
 
 #+threads
 (progn
-  (defvar *thread-id-counter* 0)
+  
+  ;;; THREAD-PLIST  
+  (defvar *thread-plists* (make-hash-table))
+  (defvar *thread-plists-lock*
+    (mp:make-lock :name "thread plists lock"))
 
+  (defun thread-plist (thread)
+    (mp:with-lock (*thread-plists-lock*)
+      ;; FIXME: Do we have to synchronize reads here?
+      (gethash thread *thread-plists*)))
+
+  (defun remove-thread-plist (thread)
+    (mp:with-lock (*thread-plists-lock*)
+      (remhash thread *thread-plists*)))
+
+  (defun put-thread-property (thread property value)
+    (mp:with-lock (*thread-plists-lock*)
+      (setf (getf (gethash thread *thread-plists*) property) value))
+    value)
+
+  ;;; THREAD-ID
+  (defvar *thread-id-counter* 0)
   (defvar *thread-id-counter-lock*
     (mp:make-lock :name "thread id counter lock"))
 
@@ -546,49 +567,34 @@
     (mp:with-lock (*thread-id-counter-lock*)
       (incf *thread-id-counter*)))
 
-  (defparameter *thread-id-map* (make-hash-table))
-  (defparameter *id-thread-map* (make-hash-table))
-
-  (defvar *thread-id-map-lock*
-    (mp:make-lock :name "thread id map lock"))
-
-  ; ecl doesn't have weak pointers
   (defimplementation spawn (fn &key name)
-    (let ((thread (mp:make-process :name name))
-	  (id (next-thread-id)))
+    (let ((thread (mp:make-process :name name)))
+      (put-thread-property thread 'thread-id (next-thread-id))
       (mp:process-preset
-	thread
-	#'(lambda ()
-	    (unwind-protect
-	      (mp:with-lock (*thread-id-map-lock*)
-	        (setf (gethash id *thread-id-map*) thread)
-                (setf (gethash thread *id-thread-map*) id))
-	      (funcall fn)
-	      (mp:with-lock (*thread-id-map-lock*)
-                (remhash thread *id-thread-map*)
-                (remhash id *thread-id-map*)))))
+       thread
+       #'(lambda ()
+           ;; ecl doesn't have weak pointers
+           (unwind-protect (funcall fn)
+             (remove-thread-plist thread))))
       (mp:process-enable thread)))
 
   (defimplementation thread-id (thread)
-    (block thread-id
-      (mp:with-lock (*thread-id-map-lock*)
-        (or (gethash thread *id-thread-map*)
-            (let ((id (next-thread-id)))
-              (setf (gethash id *thread-id-map*) thread)
-              (setf (gethash thread *id-thread-map*) id)
-              id)))))
+    (or (getf (thread-plist thread) 'thread-id)
+        (put-thread-property thread 'thread-id  (next-thread-id))))
 
   (defimplementation find-thread (id)
-    (mp:with-lock (*thread-id-map-lock*)
-      (gethash id *thread-id-map*)))
+    (find id (mp:all-processes)
+          :key #'(lambda (thread)
+                   (getf (thread-plist thread) 'thread-id))))
 
   (defimplementation thread-name (thread)
     (mp:process-name thread))
 
   (defimplementation thread-status (thread)
-    (if (mp:process-active-p thread)
-        "RUNNING"
-        "STOPPED"))
+    (let ((whostate (process-whostate thread)))
+      (cond (whostate (princ-to-string whostate))
+            ((mp:process-active-p thread) "RUNNING")
+            (t "STOPPED"))))
 
   (defimplementation make-lock (&key name)
     (mp:make-lock :name name))
@@ -612,43 +618,38 @@
   (defimplementation thread-alive-p (thread)
     (mp:process-active-p thread))
 
-  (defvar *mailbox-lock* (mp:make-lock :name "mailbox lock"))
-
   (defstruct (mailbox (:conc-name mailbox.))
-    (mutex (mp:make-lock :name "process mailbox"))
+    (lock (mp:make-lock :name "mailbox lock"))
+    (cvar (mp:make-condition-variable))
     (queue '() :type list))
 
   (defun mailbox (thread)
     "Return THREAD's mailbox."
-    (mp:with-lock (*mailbox-lock*)
-      (or (find thread *mailboxes* :key #'mailbox.thread)
-          (let ((mb (make-mailbox :thread thread)))
-            (push mb *mailboxes*)
-            mb))))
+    (or (getf (thread-plist thread) 'mailbox)
+        (put-thread-property thread 'mailbox (make-mailbox))))
 
   (defimplementation send (thread message)
-    (let* ((mbox (mailbox thread))
-           (mutex (mailbox.mutex mbox)))
-      (mp:interrupt-process
-	thread
-	(lambda ()
-	  (mp:with-lock (mutex)
-            (setf (mailbox.queue mbox)
-              (nconc (mailbox.queue mbox) (list message))))))))
+    (let ((mbox (mailbox thread)))
+      (mp:with-lock ((mailbox.lock mbox))
+        (setf (mailbox.queue mbox)
+              (nconc (mailbox.queue mbox) (list message)))
+        (mp:condition-variable-broadcast (mailbox.cvar mbox)))))
 
-  (defimplementation receive ()
-    (block got-mail
-      (let* ((mbox (mailbox mp:*current-process*))
-             (mutex (mailbox.mutex mbox)))
-        (loop
-	  (mp:with-lock (mutex)
-            (if (mailbox.queue mbox)
-	      (return-from got-mail (pop (mailbox.queue mbox)))))
-          ;interrupt-process will halt this if it takes longer than 1sec
-          (sleep 1)))))
-
-  (defmethod stream-finish-output ((stream stream))
-    (finish-output stream))
-
-  )
+  (defimplementation receive-if (test &optional timeout)
+    (let ((mbox (mailbox mp:*current-process*)))
+      (assert (or (not timeout) (eq timeout t)))
+      (loop
+        (check-slime-interrupts)
+        (mp:with-lock ((mailbox.lock mbox))
+          (let* ((q (mailbox.queue mbox))
+                 (tail (member-if test q)))
+            (when tail 
+              (setf (mailbox.queue mbox) 
+                    (nconc (ldiff q tail) (cdr tail)))
+              (return (car tail))))
+          (when (eq timeout t) (return (values nil t)))
+          (mp:condition-variable-timedwait (mailbox.cvar mbox)
+                                           (mailbox.lock mbox)
+                                           0.2)))))
+) ; #+thread (progn ...
 
