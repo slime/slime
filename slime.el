@@ -1420,7 +1420,10 @@ See `slime-start'."
                (slime-set-inferior-process c process))))
           ((and retries (zerop retries))
            (slime-cancel-connect-retry-timer)
-           (message "Failed to connect to Swank."))
+           (message "Gave up connecting to Swank after ~D attempts." attempt))
+          ((eq (process-status process) 'exit)
+           (slime-cancel-connect-retry-timer)
+           (message "Failed to connect to Swank: inferior process exited."))
           (t
            (when (and (file-exists-p file) 
                       (zerop (nth 7 (file-attributes file))))
