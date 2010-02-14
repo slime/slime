@@ -1,3 +1,8 @@
+2010-02-14  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el (slime-attempt-connection): Fix typo. Thanks to Mark
+	Harig for spotting it.
+
 2010-02-13  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el (slime-attempt-connection): Do not keep on trying to
