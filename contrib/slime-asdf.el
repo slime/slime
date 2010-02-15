@@ -287,11 +287,8 @@ depending on it."
 
 ;;; Initialization
 
-(defun slime-asdf-on-connect ()
-  (slime-eval-async '(swank:swank-require :swank-asdf)))
-
 (defun slime-asdf-init ()
-  (add-hook 'slime-connected-hook 'slime-asdf-on-connect)
+  (slime-require :swank-asdf)
   (add-to-list 'slime-edit-uses-xrefs :depends-on t)
   (define-key slime-who-map [?d] 'slime-who-depends-on))
 

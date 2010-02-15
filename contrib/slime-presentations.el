@@ -761,12 +761,11 @@ output; otherwise the new input is appended."
      (with-current-buffer (slime-output-buffer)
        (let ((marker (slime-output-target-marker target)))
          (goto-char marker)
-         (let ((result-start (point)))
-	   (slime-propertize-region `(face slime-repl-result-face
-					   rear-nonsticky (face))
-	     (insert string))
-           ;; Move the input-start marker after the REPL result.
-           (set-marker marker (point))))))
+         (slime-propertize-region `(face slime-repl-result-face
+                                         rear-nonsticky (face))
+           (insert string))
+         ;; Move the input-start marker after the REPL result.
+         (set-marker marker (point)))))
     (t
      (let* ((marker (slime-output-target-marker target))
             (buffer (and marker (marker-buffer marker))))
@@ -843,6 +842,7 @@ even on Common Lisp implementations without weak hash tables."
 ;;; Initialization
 
 (defun slime-presentations-init ()
+  (slime-require :swank-presentations)
   (add-hook 'slime-repl-mode-hook
 	    (lambda ()
 	      ;; Respect the syntax text properties of presentation.
@@ -855,17 +855,11 @@ even on Common Lisp implementations without weak hash tables."
   (add-hook 'slime-repl-current-input-hooks 'slime-presentation-current-input)
   (add-hook 'slime-open-stream-hooks 'slime-presentation-on-stream-open)
   (add-hook 'slime-repl-clear-buffer-hook 'slime-clear-presentations)
-  (add-hook 'slime-connected-hook 'slime-install-presentations)
   (add-hook 'slime-edit-definition-hooks 'slime-edit-presentation)
   (setq slime-inspector-insert-ispec-function 'slime-presentation-inspector-insert-ispec)
   (setq sldb-insert-frame-variable-value-function 
 	'slime-presentation-sldb-insert-frame-variable-value)
   (slime-presentation-init-keymaps)
   (slime-presentation-add-easy-menu))
-
-(defun slime-install-presentations ()
-  (slime-eval-async '(swank:swank-require :swank-presentations)))
-
-(slime-presentations-init)
 
 (provide 'slime-presentations)

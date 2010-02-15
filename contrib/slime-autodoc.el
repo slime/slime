@@ -215,6 +215,7 @@ If it's not in the cache, the cache will be updated asynchronously."
 ;;;; Initialization
 
 (defun slime-autodoc-init ()
+  (slime-require :swank-arglists)
   (dolist (h '(slime-mode-hook slime-repl-mode-hook sldb-mode-hook))
     (add-hook h 'slime-autodoc-maybe-enable)))
 
@@ -232,8 +233,6 @@ If it's not in the cache, the cache will be updated asynchronously."
   (setq slime-echo-arglist-function 'slime-show-arglist)
   (dolist (h '(slime-mode-hook slime-repl-mode-hook sldb-mode-hook))
     (remove-hook h 'slime-autodoc-maybe-enable)))
-
-(slime-require :swank-arglists)
 
 ;;;; Test cases
 

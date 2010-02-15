@@ -17,7 +17,6 @@
 ;;
 
 (require 'slime)
-(slime-require :swank-clipboard)
 
 (define-derived-mode slime-clipboard-mode fundamental-mode
   "Slime-Clipboard"
@@ -165,5 +164,8 @@
   (slime-clipboard-add-internal 
    `(:sldb ,(sldb-frame-number-at-point) 
 	   ,(sldb-var-number-at-point))))
+
+(defun slime-clipboard-init ()
+  (slime-require :swank-clipboard))
 
 (provide 'slime-clipboard)

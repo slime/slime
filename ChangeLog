@@ -1,3 +1,10 @@
+2010-02-15  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el (slime-load-contribs): Do not call SWANK-REQUIRE
+	asynchronously, if host Lisp uses :SPAWN that may result in the
+	attempt to load in code concurrently -- the host Lisp may not
+	support that.
+
 2010-02-14  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el (slime-attempt-connection): Fix typo. Thanks to Mark

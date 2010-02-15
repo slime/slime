@@ -593,12 +593,11 @@ configuration was changed, we nullify our saved configuration."
 ;;; Initialization 
 
 (defun slime-fuzzy-init ()
-  (slime-fuzzy-bind-keys))
+  (slime-fuzzy-bind-keys)
+  (slime-require :swank-fuzzy))
 
 (defun slime-fuzzy-bind-keys ()
   (define-key slime-mode-map "\C-c\M-i" 'slime-fuzzy-complete-symbol)
   (define-key slime-repl-mode-map "\C-c\M-i" 'slime-fuzzy-complete-symbol))
-
-(slime-require :swank-fuzzy)
 
 (provide 'slime-fuzzy)

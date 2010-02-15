@@ -170,6 +170,7 @@ This is a superset of the functionality of `slime-insert-arglist'."
 (defvar slime-c-p-c-init-undo-stack nil)
 
 (defun slime-c-p-c-init ()
+  (slime-require :swank-c-p-c)
   ;; save current state for unload
   (push 
    `(progn

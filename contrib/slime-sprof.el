@@ -10,8 +10,6 @@
 ;;
 ;;   (slime-setup '(... slime-sprof))
 
-(slime-require :swank-sprof)
-
 (defvar slime-sprof-exclude-swank nil
   "*Display swank functions in the report.")
 
@@ -217,6 +215,7 @@
 ;;; Menu
 
 (defun slime-sprof-init ()
+  (slime-require :swank-sprof)
   (let ((C '(and (slime-connected-p)
              (equal (slime-lisp-implementation-type) "SBCL"))))
     (setf (cdr (last (assoc "Profiling" slime-easy-menu)))

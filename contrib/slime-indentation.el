@@ -1,10 +1,7 @@
 ;;;; slime-indentation.el - cl-indent.el as a slime-contrib module
 
-(defun slime-indentation-install ()
-  (slime-eval-async '(swank:swank-require :swank-indentation)))
-
 (defun slime-indentation-init ()
-  (add-hook 'slime-connected-hook 'slime-indentation-install))
+  (slime-require :swank-indentation))
 
 ;; redefine this for cl-indent:method
 (defun slime-handle-indentation-update (alist)

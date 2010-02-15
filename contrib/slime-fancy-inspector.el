@@ -4,6 +4,7 @@
 ;; License: GNU GPL (same license as Emacs)
 ;;
 
-(slime-require :swank-fancy-inspector)
+(defun slime-fancy-inspector-init ()
+  (slime-require :swank-fancy-inspector))
 
 (provide 'slime-fancy-inspector)

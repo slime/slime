@@ -1,7 +1,5 @@
 ;; slime-snapshot.el --- Save&restore memory images without disconnecting
 
-(slime-require :swank-snapshot)
-
 (defun slime-snapshot (filename)
   "Save a memory image to the file FILENAME."
   (interactive (list (read-file-name "Image file: ")))
@@ -16,3 +14,6 @@
 				,(expand-file-name filename))
 			       nil t nil)
 		  (slime-connection)))
+
+(defun slime-snapshot-init ()
+  (slime-require :swank-snapshot))

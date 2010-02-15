@@ -30,8 +30,7 @@ symbol at point, or if QUERY is non-nil."
   (browse-url (format "http://bugs.launchpad.net/sbcl/+bug/%s" 
                       (substring bug 1))))
 
-(defun slime-sbcl-exts-init ())
-
-(slime-require :swank-sbcl-exts)
+(defun slime-sbcl-exts-init ()
+  (slime-require :swank-sbcl-exts))
 
 (provide 'slime-sbcl-exts)

@@ -1,3 +1,15 @@
+2010-02-15  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-asdf.el, slime-autodoc.el, slime-c-p-c.el,
+	slime-clipboard.el, slime-fancy-inspector.el, slime-fuzzy,el,
+	slime-indentation.el, slime-motd.el,
+	slime-presentation-streams.el, slime-presentations.el,
+	slime-sbcl-exts, slime-snapshot.el, slime-sprof.el:
+
+	Make sure that contrib code does not try to load in swank code
+	asynchronously but use `slime-require' instead; also make sure to
+	move the `slime-require' into the contribs' init function.
+
 2010-01-31  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-repl-mode): Don't do

@@ -6876,9 +6876,11 @@ is setup, unless the user already set one explicitly."
                                      (mapcar #'downcase (slime-lisp-modules))))
                            slime-required-modules)))
     (when needed
-      (slime-eval-async `(swank:swank-require ',needed)
-                        (lambda (new-modules)
-                          (setf (slime-lisp-modules) new-modules))))))
+      ;; No asynchronous request because with :SPAWN that could result
+      ;; in the attempt to load modules concurrently which may not be
+      ;; supported by the host Lisp.
+      (setf (slime-lisp-modules) 
+            (slime-eval `(swank:swank-require ',needed))))))
 
 
 ;;;;; Pull-down menu
