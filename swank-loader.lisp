@@ -43,7 +43,8 @@
   #+clisp '(xref metering swank-clisp swank-gray)
   #+armedbear '(swank-abcl)
   #+cormanlisp '(swank-corman swank-gray)
-  #+ecl '(swank-source-path-parser swank-source-file-cache swank-ecl swank-gray))
+  #+ecl '(swank-source-path-parser swank-source-file-cache
+          swank-ecl swank-gray))
 
 (defparameter *implementation-features*
   '(:allegro :lispworks :sbcl :clozure :cmu :clisp :ccl :corman :cormanlisp
@@ -156,9 +157,9 @@ If LOAD is true, load the fasl file."
           (serious-condition (c)
             (handle-loadtime-error c dest)))))))
 
-#+(or cormanlisp ecl)
+#+(or cormanlisp)
 (defun compile-files (files fasl-dir load)
-  "Corman Lisp and ECL have trouble with compiled files."
+  "Corman Lisp has trouble with compiled files."
   (declare (ignore fasl-dir))
   (when load
     (dolist (file files)
@@ -182,16 +183,18 @@ If LOAD is true, load the fasl file."
                            :defaults src-dir))
           names))
 
-(defvar *swank-files* `(swank-backend ,@*sysdep-files* swank-match swank-rpc swank))
+(defvar *swank-files*
+  `(swank-backend ,@*sysdep-files* swank-match swank-rpc swank))
 
-(defvar *contribs* '(swank-c-p-c swank-arglists swank-fuzzy
-                     swank-fancy-inspector
-                     swank-presentations swank-presentation-streams
-                     #+(or asdf sbcl) swank-asdf
-                     swank-package-fu
-                     swank-hyperdoc
-                     swank-sbcl-exts
-                     )
+(defvar *contribs*
+  '(swank-c-p-c swank-arglists swank-fuzzy
+    swank-fancy-inspector
+    swank-presentations swank-presentation-streams
+    #+(or asdf sbcl ecl) swank-asdf
+    swank-package-fu
+    swank-hyperdoc
+    swank-sbcl-exts
+    )
   "List of names for contrib modules.")
 
 (defvar *fasl-directory* (default-fasl-dir)

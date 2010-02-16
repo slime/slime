@@ -1,5 +1,9 @@
 2010-02-16  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank-loader.lisp: Compile files on ECL, too.
+
+2010-02-16  Tobias C. Rittweiler <tcr@freebits.de>
+
 	Pimp my swank.
 
 	* swank-ecl.lisp: We depend on ECL 10.2.1 which is not released
