@@ -10,25 +10,33 @@
 
 (in-package :swank-backend)
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (let ((version (find-symbol "+ECL-VERSION-NUMBER+" :EXT)))
+    (when (or (not version) (< (symbol-value version) 100201))
+      (error "~&IMPORTANT:~%  ~
+              The version of ECL you're using (~A) is too old.~%  ~
+              Please upgrade to at least 10.2.1.~%  ~
+              Sorry for the inconvenience.~%~%"
+             (lisp-implementation-version)))))
+
 (declaim (optimize (debug 3)))
 
-(defvar *tmp*)
+;;; Swank-mop
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (if (find-package :gray)
-      (import-from :gray *gray-stream-symbols* :swank-backend)
-      (import-from :ext *gray-stream-symbols* :swank-backend))
+  (import-from :gray *gray-stream-symbols* :swank-backend)
 
-  (swank-backend::import-swank-mop-symbols :clos
+  (import-swank-mop-symbols :clos
     '(:eql-specializer
       :eql-specializer-object
       :generic-function-declarations
       :specializer-direct-methods
       :compute-applicable-methods-using-classes)))
 
-(defun swank-mop:compute-applicable-methods-using-classes (gf classes)
-  (declare (ignore gf classes))
-  (values nil nil))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (when (probe-file "sys:serve-event.fas")
+    (require :serve-event)
+    (pushnew :serve-event *features*)))
 
 
 ;;;; TCP Server
@@ -53,20 +61,18 @@
   (nth-value 1 (sb-bsd-sockets:socket-name socket)))
 
 (defimplementation close-socket (socket)
+  (when (eq (preferred-communication-style) :fd-handler)
+    (remove-fd-handlers socket))
   (sb-bsd-sockets:socket-close socket))
 
 (defimplementation accept-connection (socket
                                       &key external-format
                                       buffering timeout)
   (declare (ignore buffering timeout external-format))
-  (make-socket-io-stream (accept socket)))
-
-(defun make-socket-io-stream (socket)
-  (sb-bsd-sockets:socket-make-stream socket
+  (sb-bsd-sockets:socket-make-stream (accept socket)
                                      :output t
                                      :input t
                                      :element-type 'base-char))
-
 (defun accept (socket)
   "Like socket-accept, but retry on EAGAIN."
   (loop (handler-case
@@ -74,7 +80,10 @@
           (sb-bsd-sockets:interrupted-error ()))))
 
 (defimplementation preferred-communication-style ()
-  (values nil))
+  ;; ECL on Windows does not provide condition-variables
+  (or #+ (and threads (not win32) (not win64)) :spawn
+      #+serve-event :fd-handler
+      nil))
 
 (defvar *external-format-to-coding-system*
   '((:iso-8859-1
@@ -89,30 +98,28 @@
 
 ;;;; Unix signals
 
+(defvar *original-sigint-handler* #'si:terminal-interrupt)
+
 (defimplementation install-sigint-handler (handler)
+  (declare (function handler))
   (let ((old-handler (symbol-function 'si:terminal-interrupt)))
     (setf (symbol-function 'si:terminal-interrupt)
-          (if (consp handler)
-              (car handler)
+          (if (eq handler *original-sigint-handler*)
+              handler
               (lambda (&rest args)
                 (declare (ignore args))
                 (funcall handler)
                 (continue))))
-    (list old-handler)))
+    old-handler))
 
 
 (defimplementation getpid ()
   (si:getpid))
 
-#+nil
 (defimplementation set-default-directory (directory)
-  (ext::chdir (namestring directory))
-  ;; Setting *default-pathname-defaults* to an absolute directory
-  ;; makes the behavior of MERGE-PATHNAMES a bit more intuitive.
-  (setf *default-pathname-defaults* (ext::getcwd))
+  (ext:chdir (namestring directory))  ; adapts *DEFAULT-PATHNAME-DEFAULTS*.
   (default-directory))
 
-#+nil
 (defimplementation default-directory ()
   (namestring (ext:getcwd)))
 
@@ -120,55 +127,101 @@
   (ext:quit))
 
 
+;;;; Serve Event Handlers
+
+;;; FIXME: verify this is correct implementation
+
+#+serve-event
+(progn
+  
+(defun socket-fd (socket)
+  (etypecase socket
+    (fixnum socket)
+    (sb-bsd-sockets:socket (sb-bsd-sockets:socket-file-descriptor socket))
+    (file-stream (si:file-stream-fd socket))))
+
+(defvar *descriptor-handlers* (make-hash-table :test 'eql))
+
+(defimplementation add-fd-handler (socket fun)
+  (let* ((fd (socket-fd socket))
+         (handler (gethash fd *descriptor-handlers*)))
+    (when handler
+      (serve-event:remove-fd-handler handler))
+    (setf (gethash fd *descriptor-handlers*)
+          (serve-event:add-fd-handler fd :input #'(lambda (x)
+                                                    (declare (ignore x))
+                                                    (funcall fun))))
+    (serve-event:serve-event)))
+
+(defimplementation remove-fd-handlers (socket)
+  (let ((handler (gethash (socket-fd socket) *descriptor-handlers*)))
+    (when handler
+      (serve-event:remove-fd-handler handler))))
+
+(defimplementation wait-for-input (streams &optional timeout)
+  (assert (member timeout '(nil t)))
+  (loop
+     (let ((ready (remove-if-not #'listen streams)))
+       (when ready (return ready)))
+     ;; (when timeout (return nil))
+     (when (check-slime-interrupts) (return :interrupt))
+     (serve-event:serve-event)))
+
+) ; #+serve-event (progn ...
+
+
 ;;;; Compilation
 
 (defvar *buffer-name* nil)
 (defvar *buffer-start-position*)
-(defvar *buffer-string*)
-(defvar *compile-filename*)
 
 (defun signal-compiler-condition (&rest args)
   (signal (apply #'make-condition 'compiler-condition args)))
 
-(defun handle-compiler-warning (condition)
-  (signal-compiler-condition
-   :original-condition condition
-   :message (format nil "~A" condition)
-   :severity :warning
-   :location
-   (if *buffer-name*
-       (make-location (list :buffer *buffer-name*)
-                      (list :offset *buffer-start-position* 0))
-       ;; ;; compiler::*current-form*
-       ;; (if compiler::*current-function*
-       ;;     (make-location (list :file *compile-filename*)
-       ;;                    (list :function-name   
-       ;;                          (symbol-name
-       ;;                           (slot-value compiler::*current-function*
-       ;;                                       'compiler::name))))
-       (list :error "No location found.")
-           ;; )
-       )))
+(defun handle-compiler-message (condition)
+  ;; ECL emits lots of noise in compiler-notes, like "Invoking
+  ;; external command".
+  (unless (typep condition 'c::compiler-note)
+    (signal-compiler-condition
+     :original-condition condition
+     :message (format nil "~A" condition)
+     :severity (etypecase condition
+                 (c:compiler-fatal-error :error)
+                 (c:compiler-error :error)
+                 (error            :error)
+                 (style-warning    :style-warning)
+                 (warning          :warning))
+     :location (condition-location condition))))
+
+(defun condition-location (condition)
+  (let ((file     (c:compiler-message-file condition))
+        (position (c:compiler-message-file-position condition)))
+    (if (and position (not (minusp position)))
+        (if *buffer-name*
+            (make-location `(:buffer ,*buffer-name*)
+                           `(:offset ,*buffer-start-position* ,position)
+                           `(:align t))
+            (make-location `(:file ,(namestring file))
+                           `(:position ,(1+ position))
+                           `(:align t)))
+        (make-error-location "No location found."))))
 
 (defimplementation call-with-compilation-hooks (function)
-  (handler-bind ((warning #'handle-compiler-warning))
+  (handler-bind ((c:compiler-message #'handle-compiler-message))
     (funcall function)))
 
 (defimplementation swank-compile-file (input-file output-file
                                        load-p external-format)
   (declare (ignore external-format))
   (with-compilation-hooks ()
-    (let ((*buffer-name* nil)
-          (*compile-filename* input-file))
-      (compile-file input-file :output-file output-file :load t))))
+    (compile-file input-file :output-file output-file :load load-p)))
 
 (defimplementation swank-compile-string (string &key buffer position filename
                                          policy)
   (declare (ignore filename policy))
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)
-          (*buffer-start-position* position)
-          (*buffer-string* string))
+          (*buffer-start-position* position))
       (with-input-from-string (s string)
         (not (nth-value 2 (compile-from-stream s :load t)))))))
 
@@ -236,9 +289,8 @@
     (generic-function (clos:generic-function-name f))
     (function (si:compiled-function-name f))))
 
-(defimplementation macroexpand-all (form)
-  ;;; FIXME! This is not the same as a recursive macroexpansion!
-  (macroexpand form))
+;; FIXME
+;; (defimplementation macroexpand-all (form))
 
 (defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))
@@ -276,6 +328,24 @@
      si::set-current-ihs
      si::tpl-commands)))
 
+(defun make-invoke-debugger-hook (hook)
+  (when hook
+    #'(lambda (condition old-hook)
+        ;; Regard *debugger-hook* if set by user.
+        (if *debugger-hook*
+            nil         ; decline, *DEBUGGER-HOOK* will be tried next.
+            (funcall hook condition old-hook)))))
+
+(defimplementation install-debugger-globally (function)
+  (setq *debugger-hook* function)
+  (setq ext:*invoke-debugger-hook* (make-invoke-debugger-hook function)))
+
+(defimplementation call-with-debugger-hook (hook fun)
+  (let ((*debugger-hook* hook)
+        (ext:*invoke-debugger-hook* (make-invoke-debugger-hook hook))
+        (*ihs-base* (ihs-top)))
+    (funcall fun)))
+
 (defvar *backtrace* '())
 
 (defun in-swank-package-p (x)
@@ -305,20 +375,10 @@
      (declare (ignore position))
      (if file (is-swank-source-p file)))))
 
-#+#.(swank-backend:with-symbol '+ECL-VERSION-NUMBER+ 'EXT)
-(defmacro find-ihs-top (x)
-  (if (< ext:+ecl-version-number+ 90601)
-      `(si::ihs-top ,x)
-      '(si::ihs-top)))
-
-#-#.(swank-backend:with-symbol '+ECL-VERSION-NUMBER+ 'EXT)
-(defmacro find-ihs-top (x) 
-  `(si::ihs-top ,x))
-
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
   (let* ((*tpl-commands* si::tpl-commands)
-         (*ihs-top* (find-ihs-top 'call-with-debugging-environment))
+         (*ihs-top* (ihs-top))
          (*ihs-current* *ihs-top*)
          (*frs-base* (or (sch-frs-base *frs-top* *ihs-base*) (1+ (frs-top))))
          (*frs-top* (frs-top))
@@ -337,16 +397,10 @@
                    (unless (si::fixnump name)
                      (push name (third x)))))))
     (setf *backtrace* (remove-if #'is-ignorable-fun-p (nreverse *backtrace*)))
-    (setf *tmp* *backtrace*)
     (set-break-env)
     (set-current-ihs)
     (let ((*ihs-base* *ihs-top*))
       (funcall debugger-loop-fn))))
-
-(defimplementation call-with-debugger-hook (hook fun)
-  (let ((*debugger-hook* hook)
-        (*ihs-base* (find-ihs-top 'call-with-debugger-hook)))
-    (funcall fun)))
 
 (defimplementation compute-backtrace (start end)
   (when (numberp end)
@@ -379,12 +433,7 @@
   (let ((functions '())
         (blocks '())
         (variables '()))
-    #+#.(swank-backend:with-symbol '+ECL-VERSION-NUMBER+ 'EXT)
-    #.(if (< ext:+ecl-version-number+ 90601)
-        '(setf frame (second frame))
-        '(setf frame (si::decode-ihs-env (second frame))))
-    #-#.(swank-backend:with-symbol '+ECL-VERSION-NUMBER+ 'EXT)
-    '(setf frame (second frame))
+    (setf frame (si::decode-ihs-env (second frame)))
     (dolist (record frame)
       (let* ((record0 (car record))
 	     (record1 (cdr record)))
@@ -460,11 +509,11 @@
                        ("Input stream" (two-way-stream-input-stream o))))
        (ignore-errors (label-value-line*
                        ("Output stream" (two-way-stream-output-stream o)))))))
-    (t
+    ((si:instancep o)
      (let* ((cl (si:instance-class o))
             (slots (clos:class-slots cl)))
        (list* (format nil "~S is an instance of class ~A~%"
-                       o (clos::class-name cl))
+                      o (clos::class-name cl))
                (loop for x in slots append
                     (let* ((name (clos:slot-definition-name x))
                            (value (clos::slot-value o name)))
@@ -481,7 +530,6 @@
         `(((defun ,name) ,tmp)))))
 
 (defimplementation find-source-location (obj)
-  (setf *tmp* obj)
   (or
    (typecase obj
      (function
@@ -492,18 +540,15 @@
               `(:position ,pos)
               `(:snippet
                 ,(with-open-file (s file)
-
-                                 #+#.(swank-backend:with-symbol '+ECL-VERSION-NUMBER+ 'EXT)
-                                 (if (< ext:+ecl-version-number+ 90601)
-                                     (skip-toplevel-forms pos s)
-                                     (file-position s pos))
-                                 #-#.(swank-backend:with-symbol '+ECL-VERSION-NUMBER+ 'EXT)
-                                 (skip-toplevel-forms pos s)
-                                 (skip-comments-and-whitespace s)
-                                 (read-snippet s))))))))
+                   (file-position s pos)
+                   (skip-comments-and-whitespace s)
+                   (read-snippet s))))))))
    `(:error ,(format nil "Source definition of ~S not found" obj))))
 
 ;;;; Profiling
+
+#+profile
+(progn
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require 'profile))
@@ -531,70 +576,54 @@
 (defimplementation profile-package (package callers methods)
   (declare (ignore callers methods))
   (eval `(profile:profile ,(package-name (find-package package)))))
+)                                       ; progn
 
-;;;; Communication-Styles
-
-;;; :SPAWN
+;;;; Threads
 
 #+threads
 (progn
-  
-  ;;; THREAD-PLIST  
-  (defvar *thread-plists* (make-hash-table))
-  (defvar *thread-plists-lock*
-    (mp:make-lock :name "thread plists lock"))
-
-  (defun thread-plist (thread)
-    (mp:with-lock (*thread-plists-lock*)
-      ;; FIXME: Do we have to synchronize reads here?
-      (gethash thread *thread-plists*)))
-
-  (defun remove-thread-plist (thread)
-    (mp:with-lock (*thread-plists-lock*)
-      (remhash thread *thread-plists*)))
-
-  (defun put-thread-property (thread property value)
-    (mp:with-lock (*thread-plists-lock*)
-      (setf (getf (gethash thread *thread-plists*) property) value))
-    value)
-
-  ;;; THREAD-ID
   (defvar *thread-id-counter* 0)
-  (defvar *thread-id-counter-lock*
-    (mp:make-lock :name "thread id counter lock"))
 
-  (defun next-thread-id ()
-    (mp:with-lock (*thread-id-counter-lock*)
-      (incf *thread-id-counter*)))
+  (defparameter *thread-id-map* (make-hash-table))
+
+  (defvar *thread-id-map-lock*
+    (mp:make-lock :name "thread id map lock"))
 
   (defimplementation spawn (fn &key name)
-    (let ((thread (mp:make-process :name name)))
-      (put-thread-property thread 'thread-id (next-thread-id))
-      (mp:process-preset
-       thread
-       #'(lambda ()
-           ;; ecl doesn't have weak pointers
-           (unwind-protect (funcall fn)
-             (remove-thread-plist thread))))
-      (mp:process-enable thread)))
+    (mp:process-run-function name fn))
 
-  (defimplementation thread-id (thread)
-    (or (getf (thread-plist thread) 'thread-id)
-        (put-thread-property thread 'thread-id  (next-thread-id))))
+  (defimplementation thread-id (target-thread)
+    (block thread-id
+      (mp:with-lock (*thread-id-map-lock*)
+        ;; Does TARGET-THREAD have an id already?
+        (maphash (lambda (id thread-pointer)
+                   (let ((thread (si:weak-pointer-value thread-pointer)))
+                     (cond ((not thread)
+                            (remhash id *thread-id-map*))
+                           ((eq thread target-thread)
+                            (return-from thread-id id)))))
+                 *thread-id-map*)
+        ;; TARGET-THREAD not found in *THREAD-ID-MAP*
+        (let ((id (incf *thread-id-counter*))
+              (thread-pointer (si:make-weak-pointer target-thread)))
+          (setf (gethash id *thread-id-map*) thread-pointer)
+          id))))
 
   (defimplementation find-thread (id)
-    (find id (mp:all-processes)
-          :key #'(lambda (thread)
-                   (getf (thread-plist thread) 'thread-id))))
+    (mp:with-lock (*thread-id-map-lock*)
+      (let* ((thread-pointer (gethash id *thread-id-map*))
+             (thread (and thread-pointer (si:weak-pointer-value thread-pointer))))
+        (unless thread
+          (remhash id *thread-id-map*))
+        thread)))
 
   (defimplementation thread-name (thread)
     (mp:process-name thread))
 
   (defimplementation thread-status (thread)
-    (let ((whostate (process-whostate thread)))
-      (cond (whostate (princ-to-string whostate))
-            ((mp:process-active-p thread) "RUNNING")
-            (t "STOPPED"))))
+    (if (mp:process-active-p thread)
+        "RUNNING"
+        "STOPPED"))
 
   (defimplementation make-lock (&key name)
     (mp:make-lock :name name))
@@ -618,38 +647,47 @@
   (defimplementation thread-alive-p (thread)
     (mp:process-active-p thread))
 
+  (defvar *mailbox-lock* (mp:make-lock :name "mailbox lock"))
+  (defvar *mailboxes* (list))
+  (declaim (type list *mailboxes*))
+
   (defstruct (mailbox (:conc-name mailbox.))
-    (lock (mp:make-lock :name "mailbox lock"))
-    (cvar (mp:make-condition-variable))
+    thread
+    (mutex (mp:make-lock))
+    (cvar  (mp:make-condition-variable))
     (queue '() :type list))
 
   (defun mailbox (thread)
     "Return THREAD's mailbox."
-    (or (getf (thread-plist thread) 'mailbox)
-        (put-thread-property thread 'mailbox (make-mailbox))))
+    (mp:with-lock (*mailbox-lock*)
+      (or (find thread *mailboxes* :key #'mailbox.thread)
+          (let ((mb (make-mailbox :thread thread)))
+            (push mb *mailboxes*)
+            mb))))
 
   (defimplementation send (thread message)
-    (let ((mbox (mailbox thread)))
-      (mp:with-lock ((mailbox.lock mbox))
+    (let* ((mbox (mailbox thread))
+           (mutex (mailbox.mutex mbox)))
+      (mp:with-lock (mutex)
         (setf (mailbox.queue mbox)
               (nconc (mailbox.queue mbox) (list message)))
         (mp:condition-variable-broadcast (mailbox.cvar mbox)))))
 
   (defimplementation receive-if (test &optional timeout)
-    (let ((mbox (mailbox mp:*current-process*)))
+    (let* ((mbox (mailbox (current-thread)))
+           (mutex (mailbox.mutex mbox)))
       (assert (or (not timeout) (eq timeout t)))
       (loop
-        (check-slime-interrupts)
-        (mp:with-lock ((mailbox.lock mbox))
-          (let* ((q (mailbox.queue mbox))
-                 (tail (member-if test q)))
-            (when tail 
-              (setf (mailbox.queue mbox) 
-                    (nconc (ldiff q tail) (cdr tail)))
-              (return (car tail))))
-          (when (eq timeout t) (return (values nil t)))
-          (mp:condition-variable-timedwait (mailbox.cvar mbox)
-                                           (mailbox.lock mbox)
-                                           0.2)))))
-) ; #+thread (progn ...
+         (check-slime-interrupts)
+         (mp:with-lock (mutex)
+           (let* ((q (mailbox.queue mbox))
+                  (tail (member-if test q)))
+             (when tail
+               (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
+               (return (car tail))))
+           (when (eq timeout t) (return (values nil t)))
+           (mp:condition-variable-timedwait (mailbox.cvar mbox)
+                                            mutex
+                                            0.2)))))
 
+  ) ; #+threads (progn ...

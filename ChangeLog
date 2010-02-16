@@ -1,3 +1,12 @@
+2010-02-16  Tobias C. Rittweiler <tcr@freebits.de>
+
+	Pimp my swank.
+
+	* swank-ecl.lisp: We depend on ECL 10.2.1 which is not released
+	yet -- you need git/cvs HEAD. Added :spawn, and :fd-handler as
+	communication-style (Thanks to Ram Krishnan), improve compilation
+	hooks so highligting of warnings works, + various cleanup.
+
 2010-02-15  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el (slime-load-contribs): Do not call SWANK-REQUIRE
