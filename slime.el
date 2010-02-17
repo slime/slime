@@ -4629,14 +4629,20 @@ The most important commands:
   (setq delayed-mode-hooks nil)
   (slime-mode -1))
 
-(slime-define-keys slime-xref-mode-map 
-  ((kbd "RET") 'slime-show-xref)
-  (" " 'slime-goto-xref)
-  ("n" 'forward-line)
-  ("p" 'previous-line)
+(slime-define-keys slime-xref-mode-map
+  ((kbd "RET") 'slime-goto-xref)
+  ((kbd "SPC") 'slime-goto-xref)
+  ("v" 'slime-show-xref)
+  ("n" (lambda () (interactive) (next-line)))
+  ("p" (lambda () (interactive) (previous-line)))
   ("\C-c\C-c" 'slime-recompile-xref)
   ("\C-c\C-k" 'slime-recompile-all-xrefs)
-  ("\M-," 'slime-xref-retract))
+  ("\M-," 'slime-xref-retract)
+  ([remap next-line] 'slime-xref-next-line)
+  ([remap previous-line] 'slime-xref-prev-line)
+  ;; for XEmacs:
+  ([down] 'slime-xref-next-line)
+  ([up] 'slime-xref-prev-line))
 
 (defun slime-next-line/not-add-newlines ()
   (interactive)
@@ -4668,20 +4674,24 @@ source-location."
         (slime-insert-propertized '(face bold) group "\n")
         (loop for (label location) in refs do
               (slime-insert-propertized 
-               (list 'slime-location location 'face 'font-lock-keyword-face
-                     'point-entered 'slime-xref-entered)
+               (list 'slime-location location 'face 'font-lock-keyword-face)
                "  " (slime-one-line-ify label) "\n")))
   ;; Remove the final newline to prevent accidental window-scrolling
   (backward-delete-char 1))
 
-(defun slime-xref-entered (old new)
-  (let ((old (get-text-property old 'slime-location))
-        (loc (get-text-property new 'slime-location)))
-    (unless (eq old loc)
-      (ecase (car loc)
-        (:location (slime-show-source-location loc))
-        (:error (message "%s" (cadr loc)))
-        ((nil))))))
+(defun slime-xref-next-line ()
+  (interactive)
+  (slime-xref-show-location (slime-search-property 'slime-location)))
+
+(defun slime-xref-prev-line ()
+  (interactive)
+  (slime-xref-show-location (slime-search-property 'slime-location t)))
+
+(defun slime-xref-show-location (loc)
+  (ecase (car loc)
+    (:location (slime-show-source-location loc t))
+    (:error (message "%s" (cadr loc)))
+    ((nil))))
 
 (defun slime-show-xref-buffer (xrefs type symbol package)
   (slime-with-xref-buffer (type symbol package)
@@ -4877,10 +4887,8 @@ If PROP-VALUE-FN is non-nil use it to extract PROP's value."
              (not (or (setq prop-value (funcall prop-value-fn)) 
                       (eobp) 
                       (bobp)))))
-    (if prop-value
-        prop-value
-     (goto-char start)
-     nil)))
+    (cond (prop-value)
+          (t (goto-char start) nil))))
 
 (defun slime-next-location ()
   "Go to the next location, depending on context.
