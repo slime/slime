@@ -992,6 +992,10 @@ output of CL:DESCRIBE."
      (:newline) (:newline)
      ,(with-output-to-string (desc) (describe object desc))))
 
+(definterface eval-context (object)
+  "Return a list of bindings corresponding to OBJECT's slots."
+  (declare (ignore object))
+  '())
 
 ;;; Utilities for inspector methods.
 ;;; 

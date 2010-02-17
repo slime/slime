@@ -2141,6 +2141,19 @@ The `symbol-value' of each element is a type tag.")
     (alien::alien-record-type (inspect-alien-record alien))
     (alien::alien-pointer-type (inspect-alien-pointer alien))
     (t (cmucl-inspect alien))))
+
+(defimplementation eval-context (obj)
+  (cond ((typep (class-of obj) 'structure-class)
+         (let* ((dd (kernel:layout-info (kernel:layout-of obj)))
+                (slots (kernel:dd-slots dd)))
+           (list* (cons '*package* 
+                        (symbol-package (if slots 
+                                            (kernel:dsd-name (car slots))
+                                            (kernel:dd-name dd))))
+                  (loop for slot in slots collect 
+                        (cons (kernel:dsd-name slot)
+                              (funcall (kernel:dsd-accessor slot) obj))))))))
+                 
 
 ;;;; Profiling
 (defimplementation profile (fname)

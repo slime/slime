@@ -3260,8 +3260,6 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
         (format nil "#~D=~A" pos string)
         string)))
 
-
-
 (defun content-range (list start end)
   (typecase list
     (list (let ((len (length list)))
@@ -3313,6 +3311,18 @@ Return nil if there's no previous object."
   "Toggle verbosity of inspected object."
   (setf (istate.verbose *istate*) (not (istate.verbose *istate*)))
   (istate>elisp *istate*))
+
+(defslimefun inspector-eval (string)
+  (let* ((obj (istate.object *istate*))
+         (context (eval-context obj))
+         (form (with-buffer-syntax ((cdr (assoc '*package* context)))
+                 (read-from-string string)))
+         (ignorable (remove-if #'boundp (mapcar #'car context))))
+    (to-string (eval `(let ((* ',obj) (- ',form)
+                            . ,(loop for (var . val) in context collect
+                                     `(,var ',val)))
+                        (declare (ignorable . ,ignorable))
+                        ,form)))))
 
 (defslimefun quit-inspector ()
   (reset-inspector)

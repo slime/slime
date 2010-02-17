@@ -6529,6 +6529,11 @@ If ARG is negative, move forwards."
                          (error "No part at point"))))
   (slime-eval-describe `(swank:pprint-inspector-part ,part)))
 
+(defun slime-inspector-eval (string)
+  "Eval an expression in the context of the inspected object."
+  (interactive (list (slime-read-from-minibuffer "Inspector eval: ")))
+  (slime-eval-with-transcript `(swank:inspector-eval ,string)))
+
 (defun slime-inspector-show-source (part)
   (interactive (list (or (get-text-property (point) 'slime-part-number)
                          (error "No part at point"))))
@@ -6621,6 +6626,7 @@ If ARG is negative, move forwards."
   (" " 'slime-inspector-next)
   ("d" 'slime-inspector-describe)
   ("p" 'slime-inspector-pprint)
+  ("e" 'slime-inspector-eval)
   ("q" 'slime-inspector-quit)
   ("g" 'slime-inspector-reinspect)
   ("v" 'slime-inspector-toggle-verbose)
