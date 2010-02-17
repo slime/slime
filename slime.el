@@ -836,78 +836,6 @@ This idiom is preferred over `lexical-let'."
   `(lambda (&rest more) (apply ',fun (append more ',args))))
 
 
-;; FIXME: Get rid or snapshots.
-;;;;; Snapshots of current Emacs state
-
-;;; Window configurations do not save (and hence not restore)
-;;; any narrowing that could be applied to a buffer.
-;;;
-;;; For this purpose, we introduce a superset of a window
-;;; configuration that does include the necessary information to
-;;; properly restore narrowing.
-;;;
-;;; We call this superset an Emacs Snapshot.
-
-(defstruct (slime-narrowing-configuration
-             (:conc-name slime-narrowing-configuration.))
-  narrowedp beg end)
-
-(defstruct (slime-emacs-snapshot (:conc-name slime-emacs-snapshot.))
-  ;; We explicitly store the value of point even though it's implicitly
-  ;; stored in the window-configuration because Emacs provides no
-  ;; way to access the things stored in a window configuration.
-  window-configuration narrowing-configuration point-marker)
-
-(defun slime-current-narrowing-configuration (&optional buffer)
-  (with-current-buffer (or buffer (current-buffer))
-    (make-slime-narrowing-configuration :narrowedp (slime-buffer-narrowed-p)
-                                        :beg (point-min-marker)
-                                        :end (point-max-marker))))
-
-(defun slime-set-narrowing-configuration (narrowing-cfg)
-  (when (slime-narrowing-configuration.narrowedp narrowing-cfg)
-    (narrow-to-region (slime-narrowing-configuration.beg narrowing-cfg)
-                      (slime-narrowing-configuration.end narrowing-cfg))))
-
-(defun slime-current-emacs-snapshot (&optional frame)
-  "Returns a snapshot of the current state of FRAME, or the
-currently active frame if FRAME is not given respectively."
-  (with-current-buffer
-      (if frame
-          (window-buffer (frame-selected-window (selected-frame)))
-          (current-buffer))
-    (make-slime-emacs-snapshot
-     :window-configuration    (current-window-configuration frame)
-     :narrowing-configuration (slime-current-narrowing-configuration)
-     :point-marker            (point-marker))))
-
-(defun slime-set-emacs-snapshot (snapshot)
-  "Restores the state of Emacs according to the information saved
-in SNAPSHOT."
-  (let ((window-cfg    (slime-emacs-snapshot.window-configuration snapshot))
-        (narrowing-cfg (slime-emacs-snapshot.narrowing-configuration snapshot))
-        (marker        (slime-emacs-snapshot.point-marker snapshot)))
-    (set-window-configuration window-cfg) ; restores previously current buffer.
-    (slime-set-narrowing-configuration narrowing-cfg)
-    (goto-char (marker-position marker))))
-
-(defun slime-current-emacs-snapshot-fingerprint (&optional frame)
-  "Return a fingerprint of the current emacs snapshot.
-Fingerprints are `equalp' if and only if they represent window
-configurations that are very similar (same windows and buffers.)
-
-Unlike real window-configuration objects, fingerprints are not
-sensitive to the point moving and they can't be restored."
-  (mapcar (lambda (window) (list window (window-buffer window)))
-          (slime-frame-windows frame)))
-
-(defun slime-frame-windows (&optional frame)
-  "Return the list of windows in FRAME."
-  (loop with last-window = (previous-window (frame-first-window frame))
-        for window = (frame-first-window frame) then (next-window window)
-        collect window
-        until (eq window last-window)))
-
 ;;;;; Temporary popup buffers
 
 (defvar slime-popup-restore-data nil
@@ -928,8 +856,7 @@ See `view-return-to-alist' for a similar idea.")
 (defvar slime-buffer-connection)
 
 ;; Interface
-(defmacro* slime-with-popup-buffer ((name &optional package connection select
-                                          emacs-snapshot)
+(defmacro* slime-with-popup-buffer ((name &optional package connection select)
                                     &body body)
   "Similar to `with-output-to-temp-buffer'.
 Bind standard-output and initialize some buffer-local variables.
@@ -940,14 +867,9 @@ PACKAGE is the value `slime-buffer-package'.
 CONNECTION is the value for `slime-buffer-connection'.
 If nil, no explicit connection is associated with
 the buffer.  If t, the current connection is taken.
-
-If EMACS-SNAPSHOT is non-NIL, it's used to restore the previous
-state of Emacs after closing the temporary buffer. Otherwise, the
-current state will be saved and later restored."
+"
   `(let* ((vars% (list ,(if (eq package t) '(slime-current-package) package)
-                       ,(if (eq connection t) '(slime-connection) connection)
-                       ;; Defer the decision for NILness until runtime.
-                       (or ,emacs-snapshot (slime-current-emacs-snapshot))))
+                       ,(if (eq connection t) '(slime-connection) connection)))
           (standard-output (slime-make-popup-buffer ,name vars%)))
      (with-current-buffer standard-output
        (prog1 (progn ,@body)
@@ -3888,19 +3810,18 @@ function name is prompted."
   (interactive (list (slime-read-symbol-name "Edit Uses of: ")))
   (slime-xrefs slime-edit-uses-xrefs
                symbol
-               #'(lambda (xrefs type symbol package snapshot)
-                   (cond
-                     ((null xrefs)
-                      (message "No xref information found for %s." symbol))
-                     ((and (slime-length= xrefs 1)          ; one group
-                           (slime-length= (cdar  xrefs) 1)) ; one ref in group
-                      (destructuring-bind (_ (_ loc)) (first xrefs)
-                        (slime-push-definition-stack)
-                        (slime-pop-to-location loc)))
-                     (t
-                      (slime-push-definition-stack)
-                      (slime-show-xref-buffer xrefs type symbol
-                                              package snapshot))))))
+               (lambda (xrefs type symbol package)
+                 (cond
+                  ((null xrefs)
+                   (message "No xref information found for %s." symbol))
+                  ((and (slime-length= xrefs 1)          ; one group
+                        (slime-length= (cdar  xrefs) 1)) ; one ref in group
+                   (destructuring-bind (_ (_ loc)) (first xrefs)
+                     (slime-push-definition-stack)
+                     (slime-pop-to-location loc)))
+                  (t
+                   (slime-push-definition-stack)
+                   (slime-show-xref-buffer xrefs type symbol package))))))
 
 (defun slime-analyze-xrefs (xrefs)
   "Find common filenames in XREFS.
@@ -4692,8 +4613,6 @@ With prefix argument include internal symbols."
 ;;;; XREF: cross-referencing
 
 (defvar slime-xref-mode-map)
-(defvar slime-xref-saved-emacs-snapshot nil
-  "Buffer local variable in xref windows.")
 
 (define-derived-mode slime-xref-mode lisp-mode "Xref"
   "slime-xref-mode: Major mode for cross-referencing.
@@ -4734,13 +4653,12 @@ The most important commands:
 ;; to move through the xref buffer implicitly from the source
 ;; buffer by using C-M-. and C-M-,.
 ;; FIXME: the claim about ergonomics is very weak
-(defmacro* slime-with-xref-buffer ((xref-type symbol &optional package 
-                                              emacs-snapshot)
+(defmacro* slime-with-xref-buffer ((xref-type symbol &optional package)
                                    &body body)
   "Execute BODY in a xref buffer, then show that buffer."
   `(let ((xref-buffer-name% (format "*slime xref[%s: %s]*" 
                                     ,xref-type ,symbol)))
-     (slime-with-popup-buffer (xref-buffer-name% ,package t nil ,emacs-snapshot)
+     (slime-with-popup-buffer (xref-buffer-name% ,package t nil)
        (slime-xref-mode)
        (slime-set-truncate-lines)
        (erase-buffer)
@@ -4762,8 +4680,8 @@ source-location."
   ;; Remove the final newline to prevent accidental window-scrolling
   (backward-delete-char 1))
 
-(defun slime-show-xref-buffer (xrefs type symbol package emacs-snapshot)
-  (slime-with-xref-buffer (type symbol package emacs-snapshot)
+(defun slime-show-xref-buffer (xrefs type symbol package)
+  (slime-with-xref-buffer (type symbol package)
     (slime-insert-xrefs xrefs)
     (goto-char (point-min))
     (setq slime-next-location-function 'slime-goto-next-xref)
@@ -4780,11 +4698,11 @@ source-location."
   "The most recent XREF results buffer.
 This is used by `slime-goto-next-xref'")
 
-(defun slime-show-xrefs (xrefs type symbol package &optional emacs-snapshot)
+(defun slime-show-xrefs (xrefs type symbol package)
   "Show the results of an XREF query."
   (if (null xrefs)
       (message "No references found for %s." symbol)
-      (slime-show-xref-buffer xrefs type symbol package emacs-snapshot)))
+      (slime-show-xref-buffer xrefs type symbol package)))
 
 
 ;;;;; XREF commands
@@ -4838,15 +4756,14 @@ This is used by `slime-goto-next-xref'")
   "Make an XREF request to Lisp."
   (slime-eval-async
    `(swank:xref ',type ',symbol)
-   (slime-rcurry (lambda (result type symbol package snapshot cont)
+   (slime-rcurry (lambda (result type symbol package cont)
                    (slime-check-xref-implemented type result)
                    (let ((file-alist (cadr (slime-analyze-xrefs result))))
                      (funcall (or cont 'slime-show-xrefs)
-                              file-alist type symbol package snapshot)))
+                              file-alist type symbol package)))
                  type 
                  symbol 
                  (slime-current-package)
-                 (slime-current-emacs-snapshot)
                  continuation)))
 
 (defun slime-check-xref-implemented (type xrefs)
@@ -4862,16 +4779,15 @@ This is used by `slime-goto-next-xref'")
   "Make multiple XREF requests at once."
   (slime-eval-async
    `(swank:xrefs ',types ',symbol)
-   (slime-rcurry (lambda (result types symbol package snapshot cont)
+   (slime-rcurry (lambda (result types symbol package cont)
                    (funcall (or cont 'slime-show-xrefs)
                             (slime-map-alist #'slime-xref-type 
                                              #'identity 
                                              result)
-                            types symbol package snapshot))
+                            types symbol package))
                  types 
                  symbol 
                  (slime-current-package)
-                 (slime-current-emacs-snapshot)
                  continuation)))
 
 
