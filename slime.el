@@ -7546,10 +7546,7 @@ BODY returns true if the check succeeds."
   '(("foo")
     ("#:foo")
     ("#'foo")
-    ("#'(lambda (x) x)")
-    ("#\\space")
-    ("#\\(")
-    ("#\\)"))
+    ("#'(lambda (x) x)"))
   (with-temp-buffer
     (lisp-mode)
     (insert string)
@@ -7559,7 +7556,6 @@ BODY returns true if the check succeeds."
                        string
                        (slime-sexp-at-point)
                        #'equal)))
-
 
 (def-slime-test narrowing ()
     "Check that narrowing is properly sustained."
