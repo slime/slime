@@ -7746,13 +7746,8 @@ Confirm that SUBFORM is correctly located."
        (cl-user::bar))
       ("(defun foo ()
           #+#.'(:and) (/ 1 0))"
-       (/ 1 0)) 
-      ("(defun foo () pkg-does-not-exist:symbol)" 
-       pkg-does-not-exist:symbol)
-      ("(defun foo () swank:symbol-does-not-exist)"
-       swank:symbol-does-not-exist)
-      ("(defun foo (x) ,x)" \,x)
-      ("(defun foo () #@foo)" @foo))
+       (/ 1 0))
+      )
   (slime-check-top-level)    
   (with-temp-buffer
     (lisp-mode)
