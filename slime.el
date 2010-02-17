@@ -4631,10 +4631,8 @@ The most important commands:
 
 (slime-define-keys slime-xref-mode-map 
   ((kbd "RET") 'slime-show-xref)
-  ([return] 'slime-show-xref)
-  ("\C-m" 'slime-show-xref)
   (" " 'slime-goto-xref)
-  ("n" 'slime-next-line/not-add-newlines)
+  ("n" 'forward-line)
   ("p" 'previous-line)
   ("\C-c\C-c" 'slime-recompile-xref)
   ("\C-c\C-k" 'slime-recompile-all-xrefs)
@@ -4648,17 +4646,12 @@ The most important commands:
 
 ;;;;; XREF results buffer and window management
 
-
-;; Do not select the xref buffer; it's most often more ergonomic
-;; to move through the xref buffer implicitly from the source
-;; buffer by using C-M-. and C-M-,.
-;; FIXME: the claim about ergonomics is very weak
 (defmacro* slime-with-xref-buffer ((xref-type symbol &optional package)
                                    &body body)
   "Execute BODY in a xref buffer, then show that buffer."
   `(let ((xref-buffer-name% (format "*slime xref[%s: %s]*" 
                                     ,xref-type ,symbol)))
-     (slime-with-popup-buffer (xref-buffer-name% ,package t nil)
+     (slime-with-popup-buffer (xref-buffer-name% ,package t t)
        (slime-xref-mode)
        (slime-set-truncate-lines)
        (erase-buffer)
@@ -4674,19 +4667,29 @@ source-location."
   (loop for (group . refs) in xref-alist do 
         (slime-insert-propertized '(face bold) group "\n")
         (loop for (label location) in refs do
-              (slime-insert-propertized (list 'slime-location location
-                                              'face 'font-lock-keyword-face)
-                                        "  " (slime-one-line-ify label) "\n")))
+              (slime-insert-propertized 
+               (list 'slime-location location 'face 'font-lock-keyword-face
+                     'point-entered 'slime-xref-entered)
+               "  " (slime-one-line-ify label) "\n")))
   ;; Remove the final newline to prevent accidental window-scrolling
   (backward-delete-char 1))
+
+(defun slime-xref-entered (old new)
+  (let ((old (get-text-property old 'slime-location))
+        (loc (get-text-property new 'slime-location)))
+    (unless (eq old loc)
+      (ecase (car loc)
+        (:location (slime-show-source-location loc))
+        (:error (message "%s" (cadr loc)))
+        ((nil))))))
 
 (defun slime-show-xref-buffer (xrefs type symbol package)
   (slime-with-xref-buffer (type symbol package)
     (slime-insert-xrefs xrefs)
-    (goto-char (point-min))
     (setq slime-next-location-function 'slime-goto-next-xref)
     (setq slime-previous-location-function 'slime-goto-previous-xref)
-    (setq slime-xref-last-buffer (current-buffer))))
+    (setq slime-xref-last-buffer (current-buffer))
+    (goto-char (point-min))))
 
 (defvar slime-next-location-function nil
   "Function to call for going to the next location.")
@@ -5627,7 +5630,8 @@ Called on the `point-entered' text-property hook."
         (center (recenter))
         ((nil)
          (unless (pos-visible-in-window-p)
-           (reposition-window)))))))
+           (cond ((= (current-column) 0) (recenter 1))
+                 (t (recenter)))))))))
 
 (defun sldb-recenter-region (start end &optional center)
   "Make the region from START to END visible.
