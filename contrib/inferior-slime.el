@@ -101,19 +101,23 @@ A prefix argument disables this behaviour."
   (display-buffer (process-buffer (slime-inferior-process)) t))
 
 (defun inferior-slime-start-transcript ()
-  (with-current-buffer (process-buffer (slime-inferior-process))
-    (add-hook 'comint-output-filter-functions 
-	      'inferior-slime-show-transcript
-	      nil t)))
+  (let ((proc (slime-inferior-process)))
+    (when proc
+      (with-current-buffer (process-buffer proc)
+	(add-hook 'comint-output-filter-functions 
+		  'inferior-slime-show-transcript
+		  nil t)))))
 
 (defun inferior-slime-stop-transcript ()
-  (with-current-buffer (process-buffer (slime-inferior-process))
-    (run-with-timer 0.2 nil 
-		    (lambda (buffer) 
-		      (with-current-buffer buffer
-			(remove-hook 'comint-output-filter-functions
-				     'inferior-slime-show-transcript t)))
-		    (current-buffer))))
+  (let ((proc (slime-inferior-process)))
+    (when proc
+      (with-current-buffer (process-buffer (slime-inferior-process))
+	(run-with-timer 0.2 nil 
+			(lambda (buffer) 
+			  (with-current-buffer buffer
+			    (remove-hook 'comint-output-filter-functions
+					 'inferior-slime-show-transcript t)))
+			(current-buffer))))))
 
 (defun inferior-slime-init ()
   (add-hook 'slime-inferior-process-start-hook 'inferior-slime-hook-function)
