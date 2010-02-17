@@ -1,3 +1,58 @@
+2010-02-17  Helmut Eller  <heller@common-lisp.net>
+
+	Add a command to eval stuff in the inspector.
+
+	* slime.el (slime-inspector-eval): New command.
+	(slime-inspector-mode-map): Bind it to 'e'.
+	* swank.lisp (inspector-eval): New function.
+	* swank-backend.lisp (eval-context): New function.
+	* swank-cmucl.lisp (eval-context): Implement it.
+
+2010-02-17  Helmut Eller  <heller@common-lisp.net>
+
+	Point-entered hooks in the xref buffer don't work so well.
+	Use forward/backward commands instead.
+
+	* slime.el (slime-xref-next-line, slime-xref-prev-line): New
+	commands.
+	(slime-xref-show-location): New aux function.
+	(slime-xref-mode-map): Remap up/down to next/prev location
+	commands.  Make SPC and RET do the same.
+
+2010-02-17  Helmut Eller  <heller@common-lisp.net>
+
+	Select the xref buffer.
+	I never could get used to the next/prev cycling.
+
+	* slime.el (slime-with-xref-buffer): Select the buffer.
+	(slime-insert-xrefs): Add point-entered hook to automatically
+	display the current location.
+	(slime-xref-entered): New function.
+	(slime-show-buffer-position): Don't use reposition-window which
+	seems very slow and doesn't even do a particularly good job.  The
+	new heuristic is much cruder but faster.
+	(slime-xref-mode-map): Remove apparently redundant bindings for
+	RET.
+
+2010-02-17  Helmut Eller  <heller@common-lisp.net>
+
+	Get rid or snapshots.
+
+	* slime.el (slime-narrowing-configuration, slime-emacs-snapshot)
+	(slime-current-narrowing-configuration)
+	(slime-set-narrowing-configuration, slime-current-emacs-snapshot)
+	(slime-set-emacs-snapshot)
+	(slime-current-emacs-snapshot-fingerprint, slime-frame-windows):
+	Deleted.  Update call-sites accordingly.
+
+2010-02-17  Helmut Eller  <heller@common-lisp.net>
+
+	Test suite hangs for CCL and CMUCL.
+
+	* slime.el ([test] compile-defun): Remove those compile-time read
+	errors for which some implementations invoke the debugger.
+	(sexp-at-point.1): Remove failing tests
+
 2010-02-16  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank-loader.lisp: Compile files on ECL, too.

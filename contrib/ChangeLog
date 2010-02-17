@@ -1,3 +1,10 @@
+2010-02-17  Helmut Eller  <heller@common-lisp.net>
+
+	Fix bugs when *inferior-buffers* doesn't exist.
+
+	* inferior-slime.el (inferior-slime-start-transcript)
+	(inferior-slime-stop-transcript): Make sure the buffer exists.
+
 2010-02-15  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-asdf.el, slime-autodoc.el, slime-c-p-c.el,
