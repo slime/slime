@@ -33,13 +33,6 @@
 	(slime-search-exports-in-defpackage): take #:symbol and :symbol
 	into account too.
 
-2010-02-17  Helmut Eller  <heller@common-lisp.net>
-
-	Fix bugs when *inferior-buffers* doesn't exist.
-
-	* inferior-slime.el (inferior-slime-start-transcript)
-	(inferior-slime-stop-transcript): Make sure the buffer exists.
-
 2010-01-14  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el: Revert the previous change because it
