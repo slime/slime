@@ -5665,7 +5665,7 @@ If CENTER is true, scroll enough to center the region in the window."
                  (t
                   (goto-char start)
                   (unless noninteractive ; for running the test suite
-                    (next-line (- (window-height) 2)))))))))
+                    (forward-line (- (window-height) 2)))))))))
 
 ;; not sure yet, whether this is a good idea.
 (defmacro slime-save-coordinates (origin &rest body)
@@ -8540,9 +8540,6 @@ for (somewhat) better multiframe support."
 
 (defun slime-add-local-hook (hook function &optional append)
   (cond ((featurep 'xemacs) (add-local-hook hook function append))
-        ((< emacs-major-version 21)
-         (make-local-hook hook)
-         (add-hook hook function append t))
         (t (add-hook hook function append t))))
 
 (defun slime-run-mode-hooks (&rest hooks)
