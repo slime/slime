@@ -1,3 +1,8 @@
+2010-02-19  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-fuzzy.el (slime-fuzzy-choices-buffer): Make connection buffer-local, otherwise
+	`swank:fuzzy-completion-selected' will be sent to the default connection.
+
 2010-02-17  Helmut Eller  <heller@common-lisp.net>
 
 	Fix bugs when *inferior-buffers* doesn't exist.

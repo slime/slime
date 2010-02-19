@@ -346,7 +346,8 @@ the completion slot in the current buffer bounded by `start' and
 `end'.  This saves the window configuration before popping the
 buffer so that it can possibly be restored when the user is
 done."
-  (let ((new-completion-buffer (not slime-fuzzy-target-buffer)))
+  (let ((new-completion-buffer (not slime-fuzzy-target-buffer))
+        (connection (slime-connection)))
     (when new-completion-buffer
       (setq slime-fuzzy-saved-window-configuration
             (current-window-configuration)))
@@ -359,6 +360,7 @@ done."
     (setq slime-fuzzy-text slime-fuzzy-original-text)
     (slime-fuzzy-fill-completions-buffer completions interrupted-p)
     (pop-to-buffer (slime-get-fuzzy-buffer))
+    (setq slime-buffer-connection connection)
     (when new-completion-buffer
       ;; Hook to nullify window-config restoration if the user changes
       ;; the window configuration himself.
