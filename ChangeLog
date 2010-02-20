@@ -1,3 +1,13 @@
+2010-02-20  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank-loader.lisp (*architecture-features*): Add :PENTIUM3 and
+	:PENTIUM4; they're used by ECL.
+	(handle-swank-load-error): Renamed from HANDLE-LOADTIME-ERROR. Use
+	*FASL-DIRECTORY* rather than (DEFAULT-FASL-DIR). Parametrize
+	context to differentiate b/w compilation/loading.
+	(compile-files): Adapted accordingly. Also make sure that an error
+	is signaled in case COMPILE-FILE returns NIL as primary result.
+
 2010-02-20  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-ccl.lisp: Remove outdated comment at the beginning

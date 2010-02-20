@@ -56,7 +56,8 @@
 
 (defparameter *architecture-features*
   '(:powerpc :ppc :x86 :x86-64 :amd64 :i686 :i586 :i486 :pc386 :iapx386
-    :sparc64 :sparc :hppa64 :hppa))
+    :sparc64 :sparc :hppa64 :hppa
+    :pentium3 :pentium4))
 
 (defun lisp-version-string ()
   #+(or clozure cmu) (substitute-if #\_ (lambda (x) (find x " /"))
@@ -117,6 +118,9 @@ Return nil if nothing appropriate is available."
                  ,(unique-dir-name)))
    (user-homedir-pathname)))
 
+(defvar *fasl-directory* (default-fasl-dir)
+  "The directory where fasl files should be placed.")
+
 (defun binary-pathname (src-pathname binary-dir)
   "Return the pathname where SRC-PATHNAME's binary should be compiled."
   (let ((cfp (compile-file-pathname src-pathname)))
@@ -124,21 +128,23 @@ Return nil if nothing appropriate is available."
                                     :type (pathname-type cfp))
                      binary-dir)))
 
-(defun handle-loadtime-error (condition binary-pathname)
+(defun handle-swank-load-error (condition context pathname)
+  (fresh-line *error-output*)
   (pprint-logical-block (*error-output* () :per-line-prefix ";; ")
     (format *error-output*
-            "~%Error while loading: ~A~%Condition: ~A~%Aborting.~%"
-            binary-pathname condition))
-  (when (equal (directory-namestring binary-pathname)
-               (directory-namestring (default-fasl-dir)))
-    (ignore-errors (delete-file binary-pathname)))
+            "~%Error while ~A ~A:~%  ~A~%Aborting.~%"
+            context pathname condition))
+  (when (equal (directory-namestring pathname)
+               (directory-namestring *fasl-directory*))
+    (ignore-errors (delete-file pathname)))
   (abort))
 
 (defun compile-files (files fasl-dir load)
   "Compile each file in FILES if the source is newer than its
 corresponding binary, or the file preceding it was recompiled.
 If LOAD is true, load the fasl file."
-  (let ((needs-recompile nil))
+  (let ((needs-recompile nil)
+        (state :unknown))
     (dolist (src files)
       (let ((dest (binary-pathname src fasl-dir)))
         (handler-case
@@ -146,16 +152,24 @@ If LOAD is true, load the fasl file."
               (when (or needs-recompile
                         (not (probe-file dest))
                         (file-newer-p src dest))
-                ;; need a to recompile src-pathname, so we'll
-                ;; need to recompile everything after this too.
-                (setq needs-recompile t)
                 (ensure-directories-exist dest)
-                (compile-file src :output-file dest :print nil :verbose t))
+                ;; need to recompile SRC, so we'll need to recompile
+                ;; everything after this too.
+                (setq needs-recompile t)
+                (setq state :compile)
+                (or (compile-file src :output-file dest :print nil :verbose t)
+                    ;; An implementation may not necessarily signal a
+                    ;; condition itself when COMPILE-FILE fails (e.g. ECL)
+                    (error "COMPILE-FILE returned NIL.")))
               (when load
+                (setq state :load)
                 (load dest :verbose t)))
           ;; Fail as early as possible
           (serious-condition (c)
-            (handle-loadtime-error c dest)))))))
+            (ecase state
+              (:compile (handle-swank-load-error c "compiling" src))
+              (:load    (handle-swank-load-error c "loading" dest))
+              (:unknown (handle-swank-load-error c "???ing" src)))))))))
 
 #+(or cormanlisp)
 (defun compile-files (files fasl-dir load)
@@ -197,9 +211,6 @@ If LOAD is true, load the fasl file."
     )
   "List of names for contrib modules.")
 
-(defvar *fasl-directory* (default-fasl-dir)
-  "The directory where fasl files should be placed.")
-
 (defun append-dir (absolute name)
   (merge-pathnames 
    (make-pathname :directory `(:relative ,name) :defaults absolute)
@@ -211,7 +222,7 @@ If LOAD is true, load the fasl file."
 (defun q (s) (read-from-string s))
 
 (defun load-swank (&key (src-dir *source-directory*)
-                   (fasl-dir *fasl-directory*))
+                        (fasl-dir *fasl-directory*))
   (compile-files (src-files *swank-files* src-dir) fasl-dir t)
   (funcall (q "swank::before-init")
            (slime-version-string)
