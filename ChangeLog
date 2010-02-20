@@ -1,5 +1,8 @@
 2010-02-20  Stas Boukarev  <stassats@gmail.com>
 
+	* swank-ccl.lisp: Remove outdated comment at the beginning
+	since it may be misleading.
+
 	* slime.el: In minor-mode-alist for slime-popup-buffer-mode,
 	run slime-modeline-string only if slime-mode isn't active, because
 	slime-mode runs slime-modeline-string from minor-mode-alist too

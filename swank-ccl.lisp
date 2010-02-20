@@ -13,43 +13,6 @@
 ;;; The LLGPL is also available online at
 ;;; http://opensource.franz.com/preamble.html
 
-;;;
-;;; This is the beginning of a Slime backend for OpenMCL.  It has been
-;;; tested only with OpenMCL version 0.14-030901 on Darwin --- I would
-;;; be interested in hearing the results with other versions.
-;;;
-;;; Additionally, reporting the positions of warnings accurately requires
-;;; a small patch to the OpenMCL file compiler, which may be found at:
-;;;
-;;;   http://www.jamesjb.com/slime/openmcl-warning-position.diff
-;;;
-;;; Things that work:
-;;;
-;;; * Evaluation of forms with C-M-x.
-;;; * Compilation of defuns with C-c C-c.
-;;; * File compilation with C-c C-k.
-;;; * Most of the debugger functionality, except EVAL-IN-FRAME,
-;;;   FRAME-SOURCE-LOCATION, and FRAME-CATCH-TAGS.
-;;; * Macroexpanding with C-c RET.
-;;; * Disassembling the symbol at point with C-c M-d.
-;;; * Describing symbol at point with C-c C-d.
-;;; * Compiler warnings are trapped and sent to Emacs using the buffer
-;;;   position of the offending top level form.
-;;; * Symbol completion and apropos.
-;;;
-;;; Things that sort of work:
-;;;
-;;; * WHO-CALLS is implemented but is only able to return the file a
-;;;   caller is defined in---source location information is not
-;;;   available.
-;;;
-;;; Things that aren't done yet:
-;;;
-;;; * Cross-referencing.
-;;; * Due to unimplementation functionality the test suite does not
-;;;   run correctly (it hangs upon entering the debugger).
-;;;
-
 (in-package :swank-backend)
 
 (eval-when (:compile-toplevel :execute :load-toplevel)
