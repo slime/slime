@@ -19,6 +19,19 @@
               Sorry for the inconvenience.~%~%"
              (lisp-implementation-version)))))
 
+;; Hard dependencies.
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (require 'sockets))
+
+;; Soft dependencies.
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (when (probe-file "sys:profile.fas")
+    (require :profile)
+    (pushnew :profile *features*))
+  (when (probe-file "sys:serve-event.fas")
+    (require :serve-event)
+    (pushnew :serve-event *features*)))
+
 (declaim (optimize (debug 3)))
 
 ;;; Swank-mop
@@ -33,16 +46,8 @@
       :specializer-direct-methods
       :compute-applicable-methods-using-classes)))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (when (probe-file "sys:serve-event.fas")
-    (require :serve-event)
-    (pushnew :serve-event *features*)))
-
 
 ;;;; TCP Server
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (require 'sockets))
 
 (defun resolve-hostname (name)
   (car (sb-bsd-sockets:host-ent-addresses
@@ -68,11 +73,12 @@
 (defimplementation accept-connection (socket
                                       &key external-format
                                       buffering timeout)
-  (declare (ignore buffering timeout external-format))
+  (declare (ignore timeout))
   (sb-bsd-sockets:socket-make-stream (accept socket)
                                      :output t
                                      :input t
-                                     :element-type 'base-char))
+                                     :buffering buffering
+                                     :external-format external-format))
 (defun accept (socket)
   "Like socket-accept, but retry on EAGAIN."
   (loop (handler-case
@@ -81,22 +87,34 @@
 
 (defimplementation preferred-communication-style ()
   ;; ECL on Windows does not provide condition-variables
-  (or #+ (and threads (not win32) (not win64)) :spawn
+  (or #+(and threads (not windows)) :spawn
       #+serve-event :fd-handler
       nil))
 
 (defvar *external-format-to-coding-system*
-  '((:iso-8859-1
+  '((:latin-1
      "latin-1" "latin-1-unix" "iso-latin-1-unix" 
      "iso-8859-1" "iso-8859-1-unix")
     (:utf-8 "utf-8" "utf-8-unix")))
 
+(defun external-format (coding-system)
+  (or (car (rassoc-if (lambda (x) (member coding-system x :test #'equal))
+                      *external-format-to-coding-system*))
+      (find coding-system (ext:all-encodings) :test #'string-equal)))
+
 (defimplementation find-external-format (coding-system)
-  (car (rassoc-if (lambda (x) (member coding-system x :test #'equal))
-                  *external-format-to-coding-system*)))
+  #+unicode (external-format coding-system)
+  ;; Without unicode support, ECL uses the one-byte encoding of the
+  ;; underlying OS, and will barf on anything except :DEFAULT.  We
+  ;; return NIL here for known multibyte encodings, so
+  ;; SWANK:CREATE-SERVER will barf.
+  #-unicode (let ((xf (external-format coding-system)))
+              (if (member xf '(:utf-8))
+                  nil
+                  :default)))
 
 
-;;;; Unix signals
+;;;; Unix Integration
 
 (defvar *original-sigint-handler* #'si:terminal-interrupt)
 
@@ -111,7 +129,6 @@
                 (funcall handler)
                 (continue))))
     old-handler))
-
 
 (defimplementation getpid ()
   (si:getpid))
@@ -137,6 +154,7 @@
 (defun socket-fd (socket)
   (etypecase socket
     (fixnum socket)
+    (two-way-stream (socket-fd (two-way-stream-input-stream socket)))
     (sb-bsd-sockets:socket (sb-bsd-sockets:socket-file-descriptor socket))
     (file-stream (si:file-stream-fd socket))))
 
@@ -184,26 +202,34 @@
   (unless (typep condition 'c::compiler-note)
     (signal-compiler-condition
      :original-condition condition
-     :message (format nil "~A" condition)
+     :message (princ-to-string condition)
      :severity (etypecase condition
                  (c:compiler-fatal-error :error)
-                 (c:compiler-error :error)
-                 (error            :error)
-                 (style-warning    :style-warning)
-                 (warning          :warning))
+                 (c:compiler-error       :error)
+                 (error                  :error)
+                 (style-warning          :style-warning)
+                 (warning                :warning))
      :location (condition-location condition))))
+
+(defun make-file-location (file file-position)
+  ;; File positions in CL start at 0, but Emacs' buffer positions
+  ;; start at 1.
+  (make-location `(:file ,(namestring file))
+                 `(:position ,(1+ file-position))
+                 `(:align t)))
+
+(defun make-buffer-location (buffer-name start-position offset)
+  (make-location `(:buffer ,buffer-name)
+                 `(:offset ,start-position ,offset)
+                 `(:align t)))
 
 (defun condition-location (condition)
   (let ((file     (c:compiler-message-file condition))
         (position (c:compiler-message-file-position condition)))
     (if (and position (not (minusp position)))
         (if *buffer-name*
-            (make-location `(:buffer ,*buffer-name*)
-                           `(:offset ,*buffer-start-position* ,position)
-                           `(:align t))
-            (make-location `(:file ,(namestring file))
-                           `(:position ,(1+ position))
-                           `(:align t)))
+            (make-buffer-location *buffer-name* *buffer-start-position* position)
+            (make-file-location file position))
         (make-error-location "No location found."))))
 
 (defimplementation call-with-compilation-hooks (function)
@@ -212,29 +238,26 @@
 
 (defimplementation swank-compile-file (input-file output-file
                                        load-p external-format)
-  (declare (ignore external-format))
   (with-compilation-hooks ()
-    (compile-file input-file :output-file output-file :load load-p)))
+    (compile-file input-file :output-file output-file
+                  :load load-p
+                  :external-format external-format)))
 
 (defimplementation swank-compile-string (string &key buffer position filename
-                                         policy)
+                                                policy)
   (declare (ignore filename policy))
   (with-compilation-hooks ()
-    (let ((*buffer-name* buffer)
+    (let ((*buffer-name* buffer)        ; for compilation hooks
           (*buffer-start-position* position))
-      (with-input-from-string (s string)
-        (not (nth-value 2 (compile-from-stream s :load t)))))))
-
-(defun compile-from-stream (stream &rest args)
-  (let ((file (si::mkstemp "TMP:ECLXXXXXX")))
-    (with-open-file (s file :direction :output :if-exists :overwrite)
-      (do ((line (read-line stream nil) (read-line stream nil)))
-	  ((not line))
-	(write-line line s)))
-    (unwind-protect
-         (apply #'compile-file file args)
-      (delete-file file))))
-
+      (let ((file (si:mkstemp "TMP:ECL-SWANK-")))
+        (unwind-protect
+             (with-open-file (file-stream file :direction :output
+                                               :if-exists :supersede)
+               (write-string string file-stream)
+               (finish-output file-stream)
+               (not (nth-value 2 (compile-file file :load t))))
+          (delete-file file)
+          (delete-file (compile-file-pathname file)))))))
 
 ;;;; Documentation
 
@@ -242,11 +265,7 @@
   (flet ((compute-arglist-offset (docstring)
            (when docstring
              (let ((pos1 (search "Args: " docstring)))
-               (if pos1
-                   (+ pos1 6)
-                   (let ((pos2 (search "Syntax: " docstring)))
-                     (when pos2
-                       (+ pos2 8))))))))
+               (and pos1 (+ pos1 6))))))
     (let* ((docstring (si::get-documentation name type))
            (pos (compute-arglist-offset docstring)))
       (if pos
@@ -342,38 +361,42 @@
 
 (defimplementation call-with-debugger-hook (hook fun)
   (let ((*debugger-hook* hook)
-        (ext:*invoke-debugger-hook* (make-invoke-debugger-hook hook))
-        (*ihs-base* (ihs-top)))
+        (ext:*invoke-debugger-hook* (make-invoke-debugger-hook hook)))
     (funcall fun)))
 
 (defvar *backtrace* '())
 
-(defun in-swank-package-p (x)
-  (and
-   (symbolp x)
-   (member (symbol-package x)
-           (list #.(find-package :swank)
-                 #.(find-package :swank-backend)
-                 #.(ignore-errors (find-package :swank-mop))
-                 #.(ignore-errors (find-package :swank-loader))))
-   t))
+;;; Commented out; it's not clear this is a good way of doing it. In
+;;; particular because it makes errors stemming from this file harder
+;;; to debug, and given the "young" age of ECL's swank backend, that's
+;;; a bad idea.
 
-(defun is-swank-source-p (name)
-  (setf name (pathname name))
-  (pathname-match-p
-   name
-   (make-pathname :defaults swank-loader::*source-directory*
-                  :name (pathname-name name)
-                  :type (pathname-type name)
-                  :version (pathname-version name))))
+;; (defun in-swank-package-p (x)
+;;   (and
+;;    (symbolp x)
+;;    (member (symbol-package x)
+;;            (list #.(find-package :swank)
+;;                  #.(find-package :swank-backend)
+;;                  #.(ignore-errors (find-package :swank-mop))
+;;                  #.(ignore-errors (find-package :swank-loader))))
+;;    t))
 
-(defun is-ignorable-fun-p (x)
-  (or
-   (in-swank-package-p (frame-name x))
-   (multiple-value-bind (file position)
-       (ignore-errors (si::bc-file (car x)))
-     (declare (ignore position))
-     (if file (is-swank-source-p file)))))
+;; (defun is-swank-source-p (name)
+;;   (setf name (pathname name))
+;;   (pathname-match-p
+;;    name
+;;    (make-pathname :defaults swank-loader::*source-directory*
+;;                   :name (pathname-name name)
+;;                   :type (pathname-type name)
+;;                   :version (pathname-version name))))
+
+;; (defun is-ignorable-fun-p (x)
+;;   (or
+;;    (in-swank-package-p (frame-name x))
+;;    (multiple-value-bind (file position)
+;;        (ignore-errors (si::bc-file (car x)))
+;;      (declare (ignore position))
+;;      (if file (is-swank-source-p file)))))
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
@@ -396,7 +419,7 @@
                         (name (si::frs-tag f)))
                    (unless (si::fixnump name)
                      (push name (third x)))))))
-    (setf *backtrace* (remove-if #'is-ignorable-fun-p (nreverse *backtrace*)))
+    (setf *backtrace* (nreverse *backtrace*))
     (set-break-env)
     (set-current-ihs)
     (let ((*ihs-base* *ihs-top*))
@@ -417,7 +440,8 @@
 (defun function-position (fun)
   (multiple-value-bind (file position)
       (si::bc-file fun)
-    (and file (make-location `(:file ,file) `(:position ,position)))))
+    (when file
+      (make-file-location file position))))
 
 (defun frame-function (frame)
   (let* ((x (first frame))
@@ -529,6 +553,8 @@
       (let ((tmp (find-source-location (symbol-function name))))
         `(((defun ,name) ,tmp)))))
 
+;;; FIXME: BC-FILE may return "/tmp/ECLXXXXXXKMOXtm" which are the
+;;; temporary files comming from C-c C-c.
 (defimplementation find-source-location (obj)
   (or
    (typecase obj
@@ -576,7 +602,7 @@
 (defimplementation profile-package (package callers methods)
   (declare (ignore callers methods))
   (eval `(profile:profile ,(package-name (find-package package)))))
-)                                       ; progn
+) ; #+profile (progn ...
 
 ;;;; Threads
 
@@ -611,8 +637,8 @@
 
   (defimplementation find-thread (id)
     (mp:with-lock (*thread-id-map-lock*)
-      (let* ((thread-pointer (gethash id *thread-id-map*))
-             (thread (and thread-pointer (si:weak-pointer-value thread-pointer))))
+      (let* ((thread-ptr (gethash id *thread-id-map*))
+             (thread (and thread-ptr (si:weak-pointer-value thread-ptr))))
         (unless thread
           (remhash id *thread-id-map*))
         thread)))

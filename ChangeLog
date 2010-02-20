@@ -1,5 +1,27 @@
 2010-02-20  Tobias C. Rittweiler <tcr@freebits.de>
 
+	More work on ECL's swank-backend.
+
+	* swank-ecl.lisp (accept-connection): Handle :buffering, and
+	:external-format.
+	(external-format): New helper.
+	(find-external-format): Make sure to only return :default in case
+	ECL was built with --disable-unicode; it'll barf on anything else.
+	(socket-fd): Add two-way-stream case due to recent changes in ECL.
+	(make-file-location, make-buffer-location): New helpers.
+	(condition-location): Use them.
+	(swank-compile-file): Handle :external-format.
+	(compile-from-stream): Deleted. Slurped into swank-compile-string.
+	(swank-compile-string): Call SI:MKSTEMP correctly. Make sure to
+	also remove fasl file, not just source file.
+	(grovel-docstring-for-arglist): Do not look at "Syntax:" entry in
+	docstring because that was a kludge. Upstream ECL should be
+	modified instead.
+	(in-swank-package-p, is-swank-source-p, is-ignorable-fun-p):
+	Commented out. They make debugging ECL's swank-backend harder.
+
+2010-02-20  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank-loader.lisp (*architecture-features*): Add :PENTIUM3 and
 	:PENTIUM4; they're used by ECL.
 	(handle-swank-load-error): Renamed from HANDLE-LOADTIME-ERROR. Use
