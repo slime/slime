@@ -955,7 +955,8 @@ can restore it later."
              `(slime-popup-buffer-mode
                ,(if (featurep 'xemacs)
                     'slime-modeline-string
-                  '(:eval (slime-modeline-string)))))
+                    '(:eval (unless slime-mode
+                              (slime-modeline-string))))))
 
 (set-keymap-parent slime-popup-buffer-mode-map slime-parent-map)
 
