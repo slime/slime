@@ -168,7 +168,9 @@ Backends implement these functions using DEFIMPLEMENTATION."
   (assert (every #'symbolp args) ()
           "Complex lambda-list not supported: ~S ~S" name args)
   `(progn
-     (setf (get ',name 'implementation) (lambda ,args ,@body))
+     (setf (get ',name 'implementation)
+           ;; For implicit BLOCK. FLET because of interplay w/ decls.
+           (flet ((,name ,args ,@body)) #',name))
      (if (member ',name *interface-functions*)
          (setq *unimplemented-interfaces*
                (remove ',name *unimplemented-interfaces*))
@@ -816,9 +818,15 @@ returns.")
   hints)
 
 (defstruct (:error (:type list) :named (:constructor)) message)
-(defstruct (:file (:type list) :named (:constructor)) name)
-(defstruct (:buffer (:type list) :named (:constructor)) name)
+
+;;; Valid content for BUFFER slot
+(defstruct (:file       (:type list) :named (:constructor)) name)
+(defstruct (:buffer     (:type list) :named (:constructor)) name)
+(defstruct (:etags-file (:type list) :named (:constructor)) filename)
+
+;;; Valid content for POSITION slot
 (defstruct (:position (:type list) :named (:constructor)) pos)
+(defstruct (:tag      (:type list) :named (:constructor)) tag1 tag2)
 
 (defun make-error-location (datum &rest args)
   (cond ((typep datum 'condition)

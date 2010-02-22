@@ -3857,9 +3857,33 @@ FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
     (window    (pop-to-buffer (current-buffer) t))
     (frame     (let ((pop-up-frames t)) (pop-to-buffer (current-buffer) t)))))
 
+(defun slime-postprocess-xref (original-xref)
+  "Process (for normalization purposes) an Xref comming directly
+from SWANK before the rest of Slime sees it. In particular,
+convert ETAGS based xrefs to actual file+position based
+locations."
+  (if (not (slime-xref-has-location-p original-xref))
+      (list original-xref)
+      (let ((loc (slime-xref.location original-xref)))
+        (destructure-case (slime-location.buffer loc)
+          ((:etags-file tags-file)
+           (destructure-case (slime-location.position loc)
+             ((:tag &rest tags)
+              (visit-tags-table tags-file)
+              (mapcar #'(lambda (loc)
+                          (make-slime-xref 
+                           :dspec (slime-xref.dspec original-xref)
+                           :location loc))
+                      (mapcan #'slime-etags-to-locations tags)))))
+          (t 
+           (list original-xref))))))
+
+(defun slime-postprocess-xrefs (xrefs)
+  (mapcan #'slime-postprocess-xref xrefs))
+
 (defun slime-find-definitions (name)
   "Find definitions for NAME."
-  (funcall slime-find-definitions-function name))
+  (slime-postprocess-xrefs (funcall slime-find-definitions-function name)))
 
 (defun slime-find-definitions-rpc (name)
   (slime-eval `(swank:find-definitions-for-emacs ,name)))
@@ -3883,11 +3907,10 @@ FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
           (t
            (error "No known definition for: %s" name)))))
 
-(defun slime-etags-definitions (name)
-  "Search definitions matching NAME in the tags file.
-The result is a (possibly empty) list of definitions."
-  (require 'etags)
-  (let ((defs '()))
+(defun slime-etags-to-locations (name)
+  "Search for definitions matching `name' in the currently active
+tags table. Return a possibly empty list of slime-locations."
+  (let ((locs '()))
     (save-excursion
       (let ((first-time t))
         (while (visit-tags-table-buffer (not first-time))
@@ -3896,13 +3919,20 @@ The result is a (possibly empty) list of definitions."
           (while (search-forward name nil t)
             (beginning-of-line)
             (destructuring-bind (hint line &rest pos) (etags-snarf-tag)
-              (unless (eq hint t)       ; hint==t if we are in a filename line
-                (let ((file (expand-file-name (file-of-tag))))
-                  (let ((loc `(:location (:file ,file)
-                                         (:line ,line)
-                                         (:snippet ,hint))))
-                    (push (list hint loc) defs))))))))
-      (reverse defs))))
+              (unless (eq hint t) ; hint==t if we are in a filename line
+                (push `(:location (:file ,(expand-file-name (file-of-tag)))
+                                  (:line ,line)
+                                  (:snippet ,hint)) 
+                       locs))))))
+      (nreverse locs))))
+
+(defun slime-etags-definitions (name)
+  "Search definitions matching NAME in the tags file.
+The result is a (possibly empty) list of definitions."
+  (mapcar #'(lambda (loc)
+              (make-slime-xref :dspec (second (slime-location.hints loc))
+                               :location loc))
+          (slime-etags-to-locations name)))
 
 ;;;;; first-change-hook
 
@@ -4772,7 +4802,8 @@ This is used by `slime-goto-next-xref'")
    `(swank:xref ',type ',symbol)
    (slime-rcurry (lambda (result type symbol package cont)
                    (slime-check-xref-implemented type result)
-                   (let ((file-alist (cadr (slime-analyze-xrefs result))))
+                   (let* ((xrefs (slime-postprocess-xrefs result))
+                          (file-alist (cadr (slime-analyze-xrefs result))))
                      (funcall (or cont 'slime-show-xrefs)
                               file-alist type symbol package)))
                  type 
