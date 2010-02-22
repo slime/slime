@@ -213,7 +213,9 @@
 
 (defun make-file-location (file file-position)
   ;; File positions in CL start at 0, but Emacs' buffer positions
-  ;; start at 1.
+  ;; start at 1. We specify (:ALIGN T) because the positions comming
+  ;; from ECL point at right after the toplevel form appearing before
+  ;; the actual target toplevel form; (:ALIGN T) will DTRT in that case.
   (make-location `(:file ,(namestring file))
                  `(:position ,(1+ file-position))
                  `(:align t)))
@@ -249,15 +251,22 @@
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)        ; for compilation hooks
           (*buffer-start-position* position))
-      (let ((file (si:mkstemp "TMP:ECL-SWANK-")))
+      (let ((file (si:mkstemp "TMP:ECL-SWANK-"))
+            (fasl-file)
+            (warnings-p)
+            (failure-p))
         (unwind-protect
              (with-open-file (file-stream file :direction :output
                                                :if-exists :supersede)
                (write-string string file-stream)
                (finish-output file-stream)
-               (not (nth-value 2 (compile-file file :load t))))
-          (delete-file file)
-          (delete-file (compile-file-pathname file)))))))
+               (multiple-value-setq (fasl-file warnings-p failure-p)
+                 (compile-file file :load t)))
+          (when (probe-file file)
+            (delete-file file))
+          (when fasl-file
+            (delete-file fasl-file)))
+        (not failure-p)))))
 
 ;;;; Documentation
 
@@ -548,28 +557,96 @@
 
 ;;;; Definitions
 
-(defimplementation find-definitions (name)
-  (if (fboundp name)
-      (let ((tmp (find-source-location (symbol-function name))))
-        `(((defun ,name) ,tmp)))))
+(defconstant +TAGS+ #P"SYS:TAGS")
 
-;;; FIXME: BC-FILE may return "/tmp/ECLXXXXXXKMOXtm" which are the
-;;; temporary files comming from C-c C-c.
-(defimplementation find-source-location (obj)
-  (or
-   (typecase obj
-     (function
-      (multiple-value-bind (file pos) (ignore-errors (si::bc-file obj))
-        (if (and file pos) 
-            (make-location
-              `(:file ,(namestring file))
-              `(:position ,pos)
-              `(:snippet
-                ,(with-open-file (s file)
-                   (file-position s pos)
-                   (skip-comments-and-whitespace s)
-                   (read-snippet s))))))))
-   `(:error ,(format nil "Source definition of ~S not found" obj))))
+;;; FIXME: this depends on a patch not yet merged into ECL upstream.
+;;; When it's in, remove this.
+
+(defun get-source-pathname ()
+  #+#. (swank-backend::with-symbol 'get-source-pathname 'si)
+  (si:get-source-pathname))
+
+(defun assert-TAGS-file (fail)
+  (flet ((fail (x)
+           (funcall fail x)))
+    (let ((ecl-src-dir (get-source-pathname)))
+      (unless ecl-src-dir
+        (fail (make-error-location "Do not know where ECL's source directory ~
+                                    is. You can set the environment variable ~
+                                    `ECLSRCDIR' for that purpose.")))
+      (unless (probe-file ecl-src-dir)
+        (fail (make-error-location "ECL's source directory ~S does not ~
+                                    seem to exist." ecl-src-dir)))
+      (unless (probe-file +TAGS+)
+        (fail (make-error-location "No TAGS file ~A. You can create it by ~
+                                    the command `make TAGS'"
+                                   (truename +TAGS+)))))))
+
+(defun classify-definition-name (name)
+  (let ((types '()))
+    (when (fboundp name)
+      (cond ((special-operator-p name)
+             (push :special-operator types))
+            ((macro-function name)
+             (push :macro types))
+            ((typep (fdefinition name) 'generic-function)
+             (push :generic-function types))
+            ((si:mangle-name name t)
+             (push :c-function types))
+            (t
+             (push :lisp-function types))))
+    types))
+
+(defun find-definitions-for-type (name type)
+  (ecase type
+    (:lisp-function
+     (list `((defun ,name) ,(source-location (symbol-function name)))))
+    (:c-function
+     (assert-TAGS-file #'(lambda (x) (return-from find-definitions-for-type x)))
+     (multiple-value-bind (flag c-name) (si:mangle-name name t)
+       (assert flag)
+       ;; In ECL's code base sometimes the mangled name is used
+       ;; directly, sometimes ECL's DPP magic of @LISP:SYMBOL is used.
+       ;; We cannot predict here, so we just provide two candidates.
+       (let* ((candidate1 c-name)
+              (candidate2 (format nil "~A::~A"
+                                  (package-name (symbol-package name))
+                                  (symbol-name name)))
+              (loc (make-location `(:etags-file ,(namestring (truename +TAGS+)))
+                                  `(:tag ,candidate1 ,candidate2))))
+         (list `((c-function ,name) ,loc)))))
+    (:generic-function
+     (loop for method in (clos:generic-function-methods (fdefinition name))
+           for specs = (clos:method-specializers method)
+           for loc   = (source-location method)
+           when loc
+             collect `((defmethod ,name ,specs) ,loc)))
+    (:macro
+     (values 'defmacro (source-location (macro-function name))))
+    (:special-operator)))
+
+(defimplementation find-definitions (name)
+  (mapcan #'(lambda (type) (find-definitions-for-type name type))
+          (classify-definition-name name)))
+
+(defun source-location (object)
+  (typecase object
+    (function
+     ;; FIXME: EXT:C-F-FILE may return "/tmp/ECL_SWANK_KMOXtm" which
+     ;; are the temporary files stemming from C-c C-c.
+     (multiple-value-bind (file pos) (ext:compiled-function-file object)
+       (when file
+         (assert (probe-file file))
+         (assert (not (minusp pos)))
+         (make-file-location file pos))))
+    (method
+     ;; FIXME: This will always return NIL at the moment; ECL does not
+     ;; store debug information for methods yet.
+     (source-location (clos:method-function object)))))
+
+(defimplementation find-source-location (object)
+  (or (source-location object)
+      (make-error-location "Source definition of ~S not found" object)))
 
 ;;;; Profiling
 

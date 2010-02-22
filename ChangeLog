@@ -1,3 +1,38 @@
+2010-02-22  Tobias C. Rittweiler <tcr@freebits.de>
+
+	Make M-. be able to jump right into the C source for ECL.
+
+	Because it's based on TAGS files, M-. and M-* will DTRT once in a
+	.c file.
+
+	* swank-ecl.lisp (assert-TAGS-file): New helper.
+	(classify-definition-name): Ditto.
+	(find-definitions-for-type): Ditto. Understands Lisp and C
+	functions.
+	(find-definitions): Use them.
+	(source-location): New helper. Extracted from FIND-SOURCE-LOCATION.
+	(find-source-location): Use it.
+	(swank-compile-string): Only try to delete temporary files if they
+	exist.
+
+2010-02-22  Tobias C. Rittweiler <tcr@freebits.de>
+
+	Make it possible for SWANK backends to specify locations based on
+	a TAGS file.
+
+	* slime.el (slime-postprocess-xref, slime-postprocess-xrefs): New
+	functions. They convert TAGS based locations from SWANK into
+	file+position based locations because the rest of Slime expects
+	and works with those.
+	(slime-find-definitions): Call slime-postprocess-xrefs.
+	(slime-xref): Ditto.
+	(slime-etags-to-locations): The function which does the actual
+	conversion. Extracted from `slime-etags-definitions'.
+	(slime-etags-definitions): Use it.
+
+	* swank-backend (defimplementation): Add implicit BLOCK.
+	(:etags-file, :tag): Mentioned for possible values in :LOCATION.
+
 2010-02-20  Tobias C. Rittweiler <tcr@freebits.de>
 
 	More work on ECL's swank-backend.
