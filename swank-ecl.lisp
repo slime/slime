@@ -557,30 +557,29 @@
 
 ;;;; Definitions
 
-(defconstant +TAGS+ #P"SYS:TAGS")
+;;; FIXME: There ought to be a better way.
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun c-function-p (object)
+    (and (functionp object)
+         (let ((fn-name (function-name object)))
+           (and fn-name (si:mangle-name fn-name t) t)))))
 
-;;; FIXME: this depends on a patch not yet merged into ECL upstream.
-;;; When it's in, remove this.
+(deftype c-function ()
+  `(satisfies c-function-p))
 
-(defun get-source-pathname ()
-  #+#. (swank-backend::with-symbol 'get-source-pathname 'si)
-  (si:get-source-pathname))
+(defvar +TAGS+ (namestring (translate-logical-pathname #P"SYS:TAGS")))
 
-(defun assert-TAGS-file (fail)
-  (flet ((fail (x)
-           (funcall fail x)))
-    (let ((ecl-src-dir (get-source-pathname)))
-      (unless ecl-src-dir
-        (fail (make-error-location "Do not know where ECL's source directory ~
-                                    is. You can set the environment variable ~
-                                    `ECLSRCDIR' for that purpose.")))
-      (unless (probe-file ecl-src-dir)
-        (fail (make-error-location "ECL's source directory ~S does not ~
-                                    seem to exist." ecl-src-dir)))
-      (unless (probe-file +TAGS+)
-        (fail (make-error-location "No TAGS file ~A. You can create it by ~
-                                    the command `make TAGS'"
-                                   (truename +TAGS+)))))))
+(defun assert-source-directory ()
+  (unless (probe-file #P"SRC:")
+    (error "ECL's source directory ~A does not exist. ~
+            You can specify a different location via the environment ~
+            variable `ECLSRCDIR'."
+           (namestring (translate-logical-pathname #P"SYS:"))))) 
+
+(defun assert-TAGS-file ()
+  (unless (probe-file +TAGS+)
+    (error "No TAGS file ~A found. It should have been installed with ECL."
+           +TAGS+)))
 
 (defun classify-definition-name (name)
   (let ((types '()))
@@ -600,21 +599,9 @@
 (defun find-definitions-for-type (name type)
   (ecase type
     (:lisp-function
-     (list `((defun ,name) ,(source-location (symbol-function name)))))
+     (list `((defun ,name) ,(source-location (fdefinition name)))))
     (:c-function
-     (assert-TAGS-file #'(lambda (x) (return-from find-definitions-for-type x)))
-     (multiple-value-bind (flag c-name) (si:mangle-name name t)
-       (assert flag)
-       ;; In ECL's code base sometimes the mangled name is used
-       ;; directly, sometimes ECL's DPP magic of @LISP:SYMBOL is used.
-       ;; We cannot predict here, so we just provide two candidates.
-       (let* ((candidate1 c-name)
-              (candidate2 (format nil "~A::~A"
-                                  (package-name (symbol-package name))
-                                  (symbol-name name)))
-              (loc (make-location `(:etags-file ,(namestring (truename +TAGS+)))
-                                  `(:tag ,candidate1 ,candidate2))))
-         (list `((c-function ,name) ,loc)))))
+     (list `((c-function ,name) ,(source-location (fdefinition name)))))
     (:generic-function
      (loop for method in (clos:generic-function-methods (fdefinition name))
            for specs = (clos:method-specializers method)
@@ -622,27 +609,45 @@
            when loc
              collect `((defmethod ,name ,specs) ,loc)))
     (:macro
-     (values 'defmacro (source-location (macro-function name))))
+     (list `((defmacro ,name) ,(source-location (macro-function name)))))
     (:special-operator)))
 
 (defimplementation find-definitions (name)
   (mapcan #'(lambda (type) (find-definitions-for-type name type))
           (classify-definition-name name)))
 
+
 (defun source-location (object)
-  (typecase object
-    (function
-     ;; FIXME: EXT:C-F-FILE may return "/tmp/ECL_SWANK_KMOXtm" which
-     ;; are the temporary files stemming from C-c C-c.
-     (multiple-value-bind (file pos) (ext:compiled-function-file object)
-       (when file
-         (assert (probe-file file))
-         (assert (not (minusp pos)))
-         (make-file-location file pos))))
-    (method
-     ;; FIXME: This will always return NIL at the moment; ECL does not
-     ;; store debug information for methods yet.
-     (source-location (clos:method-function object)))))
+  (converting-errors-to-error-location
+    (typecase object
+      (c-function
+       (assert-source-directory)
+       (assert-TAGS-file)
+       (let ((lisp-name (function-name object)))
+         (assert lisp-name)
+         (multiple-value-bind (flag c-name) (si:mangle-name lisp-name t)
+           (assert flag)
+           ;; In ECL's code base sometimes the mangled name is used
+           ;; directly, sometimes ECL's DPP magic of @LISP:SYMBOL is used.
+           ;; We cannot predict here, so we just provide two candidates.
+           (let* ((candidate1 c-name)
+                  (candidate2 (format nil "~A::~A"
+                                      (package-name (symbol-package lisp-name))
+                                      (symbol-name lisp-name))))
+             (make-location `(:etags-file ,+TAGS+)
+                            `(:tag ,candidate1 ,candidate2))))))
+      (function
+       ;; FIXME: EXT:C-F-FILE may return "/tmp/ECL_SWANK_KMOXtm" which
+       ;; are the temporary files stemming from C-c C-c.
+       (multiple-value-bind (file pos) (ext:compiled-function-file object)
+         (when file
+           (assert (probe-file file))
+           (assert (not (minusp pos)))
+           (make-file-location file pos))))
+      (method
+       ;; FIXME: This will always return NIL at the moment; ECL does not
+       ;; store debug information for methods yet.
+       (source-location (clos:method-function object))))))
 
 (defimplementation find-source-location (object)
   (or (source-location object)
