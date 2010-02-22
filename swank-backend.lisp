@@ -828,6 +828,18 @@ returns.")
 (defstruct (:position (:type list) :named (:constructor)) pos)
 (defstruct (:tag      (:type list) :named (:constructor)) tag1 tag2)
 
+(defmacro converting-errors-to-error-location (&body body)
+  "Catches errors during BODY and converts them to an error location."
+  (let ((gblock (gensym "CONVERTING-ERRORS+")))
+    `(block ,gblock
+       (handler-bind ((error
+                       #'(lambda (e)
+                            (if *debug-swank-backend*
+                                nil     ;decline
+                                (return-from ,gblock
+                                  (make-error-location e))))))
+         ,@body))))
+
 (defun make-error-location (datum &rest args)
   (cond ((typep datum 'condition)
          `(:error ,(format nil "Error: ~A" datum)))

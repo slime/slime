@@ -1,5 +1,13 @@
 2010-02-22  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank-backend.lisp (converting-errors-to-error-location): Moved
+	here from swank-sbcl.lisp so other backends can make use of it, too.
+
+	* swank-sbcl.lisp: The above macro was called slightly
+	differently, so update uses accordingly.
+
+2010-02-22  Tobias C. Rittweiler <tcr@freebits.de>
+
 	Make M-. be able to jump right into the C source for ECL.
 
 	Because it's based on TAGS files, M-. and M-* will DTRT once in a

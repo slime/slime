@@ -641,18 +641,6 @@ compiler state."
 
 ;;;; Definitions
 
-(defmacro converting-errors-to-location (&body body)
-  "Catches error and converts them to an error location."
-  (let ((gblock (gensym "CONVERTING-ERRORS+")))
-    `(block ,gblock
-       (handler-bind ((error
-                       #'(lambda (e)
-                            (if *debug-swank-backend*
-                                nil     ;decline
-                                (return-from ,gblock
-                                  (make-error-location e))))))
-         ,@body))))
-
 (defparameter *definition-types*
   '(:variable defvar
     :constant defconstant
@@ -693,7 +681,7 @@ compiler state."
         for defsrcs = (sb-introspect:find-definition-sources-by-name name type)
         append (loop for defsrc in defsrcs collect
                      (list (make-dspec type name defsrc)
-                           (converting-errors-to-location
+                           (converting-errors-to-error-location
                              (definition-source-for-emacs defsrc type name))))))
 
 (defimplementation find-source-location (obj)
@@ -717,7 +705,7 @@ compiler state."
               (with-output-to-string (s)
                 (print-unreadable-object (obj s :type t :identity t))))
              (t (princ-to-string obj)))))
-    (converting-errors-to-location
+    (converting-errors-to-error-location
       (let ((defsrc (sb-introspect:find-definition-source obj)))
         (definition-source-for-emacs defsrc
                                      (general-type-of obj)
@@ -853,7 +841,7 @@ Return NIL if the symbol is unbound."
 
 (defun source-location-for-xref-data (xref-data)
   (destructuring-bind (name . defsrc) xref-data
-    (list name (converting-errors-to-location
+    (list name (converting-errors-to-error-location
                  (definition-source-for-emacs defsrc 'function name)))))
 
 (defimplementation list-callers (symbol)
@@ -895,7 +883,7 @@ Return NIL if the symbol is unbound."
   "Describe where the function FN was defined.
 Return a list of the form (NAME LOCATION)."
   (let ((name (function-name fn)))
-    (list name (converting-errors-to-location
+    (list name (converting-errors-to-error-location
                  (function-source-location fn name)))))
 
 ;;; macroexpansion
@@ -1142,7 +1130,7 @@ stack."
 ;;; source-path-file-position and friends are in swank-source-path-parser
 
 (defimplementation frame-source-location (index)
-  (converting-errors-to-location
+  (converting-errors-to-error-location
     (code-location-source-location
      (sb-di:frame-code-location (nth-frame index)))))
 
