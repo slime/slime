@@ -1,5 +1,10 @@
 2010-02-23  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* slime.el (slime-postprocess-xref): Show a TAGS entry's hints as
+	part of an Xref's dspec for the case of multiple matches.
+
+2010-02-23  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank-ecl.lisp (preferred-communication-style): Go back to
 	NIL. Some parts (like the compiler and CLOS) of ECL do not seem to
 	be thread-safe yet. Also get rid of non-working implementation of

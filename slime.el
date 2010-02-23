@@ -3870,11 +3870,13 @@ locations."
            (destructure-case (slime-location.position loc)
              ((:tag &rest tags)
               (visit-tags-table tags-file)
-              (mapcar #'(lambda (loc)
-                          (make-slime-xref 
-                           :dspec (slime-xref.dspec original-xref)
-                           :location loc))
-                      (mapcan #'slime-etags-to-locations tags)))))
+              (mapcar #'(lambda (xref)
+                          (let ((old-dspec (slime-xref.dspec original-xref))
+                                (new-dspec (slime-xref.dspec xref)))
+                            (setf (slime-xref.dspec xref) 
+                                  (format "%s: %s" old-dspec new-dspec))
+                            xref))
+                      (mapcan #'slime-etags-definitions tags)))))
           (t 
            (list original-xref))))))
 
