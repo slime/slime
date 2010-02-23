@@ -1,5 +1,13 @@
 2010-02-23  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank-backend.lisp (when-let): New macro. For backends and
+	swank.lisp.
+
+	* swank-ecl.lisp: Use it. Also use new location support of ECL git
+	HEAD.
+
+2010-02-23  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* slime.el (slime-postprocess-xref): Show a TAGS entry's hints as
 	part of an Xref's dspec for the case of multiple matches.
 

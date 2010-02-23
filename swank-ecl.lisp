@@ -177,9 +177,8 @@
       (cond ((check-slime-interrupts) (return :interrupt))
             (timeout (return (poll-streams streams 0)))
             (t
-             (let ((ready (poll-streams streams 0.2)))
-               (when ready
-                 (return ready)))))))  
+             (when-let (ready (poll-streams streams 0.2))
+               (return ready))))))  
 
 ) ; #+serve-event (progn ...
 
@@ -270,7 +269,7 @@
 
 (defimplementation arglist (name)
   (multiple-value-bind (arglist foundp)
-      (si::function-lambda-list name)
+      (ext:function-lambda-list name)
     (if foundp arglist :not-available)))
 
 (defimplementation function-name (f)
@@ -284,9 +283,8 @@
 (defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))
     (dolist (type '(:VARIABLE :FUNCTION :CLASS))
-      (let ((doc (describe-definition symbol type)))
-        (when doc
-          (setf result (list* type doc result)))))
+      (when-let (doc (describe-definition symbol type))
+        (setf result (list* type doc result))))
     result))
 
 (defimplementation describe-definition (name type)
@@ -371,12 +369,10 @@
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
-  (let* ((*tpl-commands* si::tpl-commands)
-         (*ihs-top* (ihs-top))
+  (let* ((*ihs-top* (ihs-top))
          (*ihs-current* *ihs-top*)
          (*frs-base* (or (sch-frs-base *frs-top* *ihs-base*) (1+ (frs-top))))
          (*frs-top* (frs-top))
-         (*read-suppress* nil)
          (*tpl-level* (1+ *tpl-level*))
          (*backtrace* (loop for ihs from 0 below *ihs-top*
                             collect (list (si::ihs-fun ihs)
@@ -514,14 +510,27 @@
              (push :c-function types))
             (t
              (push :lisp-function types))))
+    (when (boundp name)
+      (cond ((constantp name)
+             (push :constant types))
+            (t
+             (push :global-variable types))))
     types))
 
-(defun find-definitions-for-type (name type)
+(defun find-definitions-by-name (name)
+  (when-let (annotations (ext:get-annotation name 'si::location :all))
+    (loop for annotation in annotations
+          collect (destructuring-bind (op file . pos) annotation
+                    `((,op ,name) ,(make-file-location file pos))))))
+
+(defun find-definitions-by-type (name type)
   (ecase type
     (:lisp-function
-     (list `((defun ,name) ,(source-location (fdefinition name)))))
+     (when-let (loc (source-location (fdefinition name)))
+       (list `((defun ,name) ,loc))))
     (:c-function
-     (list `((c-source ,name) ,(source-location (fdefinition name)))))
+     (when-let (loc (source-location (fdefinition name)))
+       (list `((c-source ,name) ,loc))))
     (:generic-function
      (loop for method in (clos:generic-function-methods (fdefinition name))
            for specs = (clos:method-specializers method)
@@ -529,13 +538,14 @@
            when loc
              collect `((defmethod ,name ,specs) ,loc)))
     (:macro
-     (list `((defmacro ,name) ,(source-location (macro-function name)))))
-    (:special-operator)))
+     (when-let (loc (source-location (macro-function name)))
+       (list `((defmacro ,name) ,loc))))
+    ((:special-operator :constant :global-variable))))
 
 (defimplementation find-definitions (name)
-  (mapcan #'(lambda (type) (find-definitions-for-type name type))
-          (classify-definition-name name)))
-
+  (nconc (find-definitions-by-name name)
+         (mapcan #'(lambda (type) (find-definitions-by-type name type))
+                 (classify-definition-name name))))
 
 (defun source-location (object)
   (converting-errors-to-error-location

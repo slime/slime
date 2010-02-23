@@ -34,6 +34,7 @@
            #:declaration-arglist
            #:type-specifier-arglist
            #:with-struct
+           #:when-let
            ;; interrupt macro for the backend
            #:*pending-slime-interrupts*
            #:check-slime-interrupts
@@ -252,6 +253,10 @@ EXCEPT is a list of symbol names which should be ignored."
                      (cons `(,(first name) (,(reader (second name)) ,tmp)))
                      (t (error "Malformed syntax in WITH-STRUCT: ~A" name))))
           ,@body)))))
+
+(defmacro when-let ((var value) &body body)
+  `(let ((,var ,value))
+     (when ,var ,@body)))
 
 (defun with-symbol (name package)
   "Generate a form suitable for testing with #+."
