@@ -49,6 +49,15 @@
 
 ;;;; TCP Server
 
+(defimplementation preferred-communication-style ()
+  ;; While ECL does provide threads, some parts of it are not
+  ;; thread-safe (2010-02-23), including the compiler and CLOS.
+  nil
+  ;; ECL on Windows does not provide condition-variables
+  ;; (or #+(and threads (not windows)) :spawn
+  ;;     nil)
+  )
+
 (defun resolve-hostname (name)
   (car (sb-bsd-sockets:host-ent-addresses
         (sb-bsd-sockets:get-host-by-name name))))
@@ -66,8 +75,6 @@
   (nth-value 1 (sb-bsd-sockets:socket-name socket)))
 
 (defimplementation close-socket (socket)
-  (when (eq (preferred-communication-style) :fd-handler)
-    (remove-fd-handlers socket))
   (sb-bsd-sockets:socket-close socket))
 
 (defimplementation accept-connection (socket
@@ -85,11 +92,12 @@
             (return (sb-bsd-sockets:socket-accept socket))
           (sb-bsd-sockets:interrupted-error ()))))
 
-(defimplementation preferred-communication-style ()
-  ;; ECL on Windows does not provide condition-variables
-  (or #+(and threads (not windows)) :spawn
-      #+serve-event :fd-handler
-      nil))
+(defimplementation socket-fd (socket)
+  (etypecase socket
+    (fixnum socket)
+    (two-way-stream (socket-fd (two-way-stream-input-stream socket)))
+    (sb-bsd-sockets:socket (sb-bsd-sockets:socket-file-descriptor socket))
+    (file-stream (si:file-stream-fd socket))))
 
 (defvar *external-format-to-coding-system*
   '((:latin-1
@@ -144,46 +152,34 @@
   (ext:quit))
 
 
-;;;; Serve Event Handlers
 
-;;; FIXME: verify this is correct implementation
-
+;;; Instead of busy waiting with communication-style NIL, use select()
+;;; on the sockets' streams.
 #+serve-event
 (progn
-  
-(defun socket-fd (socket)
-  (etypecase socket
-    (fixnum socket)
-    (two-way-stream (socket-fd (two-way-stream-input-stream socket)))
-    (sb-bsd-sockets:socket (sb-bsd-sockets:socket-file-descriptor socket))
-    (file-stream (si:file-stream-fd socket))))
+  (defun poll-streams (streams timeout)
+    (let* ((serve-event::*descriptor-handlers*
+            (copy-list serve-event::*descriptor-handlers*))
+           (active-fds '())
+           (fd-stream-alist
+            (loop for s in streams
+                  for fd = (socket-fd s)
+                  collect (cons (socket-fd s) s)
+                  do (serve-event:add-fd-handler fd :input
+                                                 #'(lambda (fd)
+                                                     (push fd active-fds))))))
+      (serve-event:serve-event timeout)
+      (loop for fd in active-fds collect (cdr (assoc fd fd-stream-alist)))))
 
-(defvar *descriptor-handlers* (make-hash-table :test 'eql))
-
-(defimplementation add-fd-handler (socket fun)
-  (let* ((fd (socket-fd socket))
-         (handler (gethash fd *descriptor-handlers*)))
-    (when handler
-      (serve-event:remove-fd-handler handler))
-    (setf (gethash fd *descriptor-handlers*)
-          (serve-event:add-fd-handler fd :input #'(lambda (x)
-                                                    (declare (ignore x))
-                                                    (funcall fun))))
-    (serve-event:serve-event)))
-
-(defimplementation remove-fd-handlers (socket)
-  (let ((handler (gethash (socket-fd socket) *descriptor-handlers*)))
-    (when handler
-      (serve-event:remove-fd-handler handler))))
-
-(defimplementation wait-for-input (streams &optional timeout)
-  (assert (member timeout '(nil t)))
-  (loop
-     (let ((ready (remove-if-not #'listen streams)))
-       (when ready (return ready)))
-     ;; (when timeout (return nil))
-     (when (check-slime-interrupts) (return :interrupt))
-     (serve-event:serve-event)))
+  (defimplementation wait-for-input (streams &optional timeout)
+    (assert (member timeout '(nil t)))
+    (loop
+      (cond ((check-slime-interrupts) (return :interrupt))
+            (timeout (return (poll-streams streams 0)))
+            (t
+             (let ((ready (poll-streams streams 0.2)))
+               (when ready
+                 (return ready)))))))  
 
 ) ; #+serve-event (progn ...
 
@@ -230,7 +226,9 @@
         (position (c:compiler-message-file-position condition)))
     (if (and position (not (minusp position)))
         (if *buffer-name*
-            (make-buffer-location *buffer-name* *buffer-start-position* position)
+            (make-buffer-location *buffer-name*
+                                  *buffer-start-position*
+                                  position)
             (make-file-location file position))
         (make-error-location "No location found."))))
 
@@ -270,47 +268,10 @@
 
 ;;;; Documentation
 
-(defun grovel-docstring-for-arglist (name type)
-  (flet ((compute-arglist-offset (docstring)
-           (when docstring
-             (let ((pos1 (search "Args: " docstring)))
-               (and pos1 (+ pos1 6))))))
-    (let* ((docstring (si::get-documentation name type))
-           (pos (compute-arglist-offset docstring)))
-      (if pos
-          (multiple-value-bind (arglist errorp)
-              (ignore-errors
-                (values (read-from-string docstring t nil :start pos)))
-            (if (or errorp (not (listp arglist)))
-                :not-available
-                ; ECL for some reason includes macro name at the first place
-                (if (or (macro-function name)
-                        (special-operator-p name)) 
-                    (cdr arglist)
-                    arglist)))
-          :not-available ))))
-
 (defimplementation arglist (name)
-  (cond ((and (symbolp name) (special-operator-p name))
-         (grovel-docstring-for-arglist name 'function))
-        ((and (symbolp name) (macro-function name))
-         (grovel-docstring-for-arglist name 'function))
-        ((or (functionp name) (fboundp name))
-         (multiple-value-bind (name fndef)
-             (if (functionp name)
-                 (values (function-name name) name)
-                 (values name (fdefinition name)))
-           (typecase fndef
-             (generic-function
-              (clos::generic-function-lambda-list fndef))
-             (compiled-function
-              (grovel-docstring-for-arglist name 'function))
-             (function
-              (let ((fle (function-lambda-expression fndef)))
-                (case (car fle)
-                  (si:lambda-block (caddr fle))
-                  (t               :not-available)))))))
-        (t :not-available)))
+  (multiple-value-bind (arglist foundp)
+      (si::function-lambda-list name)
+    (if foundp arglist :not-available)))
 
 (defimplementation function-name (f)
   (typecase f
@@ -335,6 +296,7 @@
     (:class (documentation name 'class))
     (t nil)))
 
+
 ;;; Debugging
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -499,62 +461,20 @@
        var-id))
 
 (defimplementation disassemble-frame (frame-number)
-  (let ((fun (frame-fun (elt *backtrace* frame-number))))
+  (let ((fun (frame-function (elt *backtrace* frame-number))))
     (disassemble fun)))
 
 (defimplementation eval-in-frame (form frame-number)
   (let ((env (second (elt *backtrace* frame-number))))
     (si:eval-with-env form env)))
 
+
 ;;;; Inspector
 
-(defmethod emacs-inspect ((o t))
-  ; ecl clos support leaves some to be desired
-  (cond
-    ((streamp o)
-     (list*
-      (format nil "~S is an ordinary stream~%" o)
-      (append
-       (list
-        "Open for "
-        (cond
-          ((ignore-errors (interactive-stream-p o)) "Interactive")
-          ((and (input-stream-p o) (output-stream-p o)) "Input and output")
-          ((input-stream-p o) "Input")
-          ((output-stream-p o) "Output"))
-        `(:newline) `(:newline))
-       (label-value-line*
-        ("Element type" (stream-element-type o))
-        ("External format" (stream-external-format o)))
-       (ignore-errors (label-value-line*
-                       ("Broadcast streams" (broadcast-stream-streams o))))
-       (ignore-errors (label-value-line*
-                       ("Concatenated streams" (concatenated-stream-streams o))))
-       (ignore-errors (label-value-line*
-                       ("Echo input stream" (echo-stream-input-stream o))))
-       (ignore-errors (label-value-line*
-                       ("Echo output stream" (echo-stream-output-stream o))))
-       (ignore-errors (label-value-line*
-                       ("Output String" (get-output-stream-string o))))
-       (ignore-errors (label-value-line*
-                       ("Synonym symbol" (synonym-stream-symbol o))))
-       (ignore-errors (label-value-line*
-                       ("Input stream" (two-way-stream-input-stream o))))
-       (ignore-errors (label-value-line*
-                       ("Output stream" (two-way-stream-output-stream o)))))))
-    ((si:instancep o)
-     (let* ((cl (si:instance-class o))
-            (slots (clos:class-slots cl)))
-       (list* (format nil "~S is an instance of class ~A~%"
-                      o (clos::class-name cl))
-               (loop for x in slots append
-                    (let* ((name (clos:slot-definition-name x))
-                           (value (clos::slot-value o name)))
-                      (list
-                       (format nil "~S: " name)
-                       `(:value ,value)
-                       `(:newline)))))))))
+;;; FIXME: Would be nice if it was possible to inspect objects
+;;; implemented in C.
 
+
 ;;;; Definitions
 
 ;;; FIXME: There ought to be a better way.
@@ -601,7 +521,7 @@
     (:lisp-function
      (list `((defun ,name) ,(source-location (fdefinition name)))))
     (:c-function
-     (list `((c-function ,name) ,(source-location (fdefinition name)))))
+     (list `((c-source ,name) ,(source-location (fdefinition name)))))
     (:generic-function
      (loop for method in (clos:generic-function-methods (fdefinition name))
            for specs = (clos:method-specializers method)
@@ -653,13 +573,11 @@
   (or (source-location object)
       (make-error-location "Source definition of ~S not found" object)))
 
+
 ;;;; Profiling
 
 #+profile
 (progn
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (require 'profile))
 
 (defimplementation profile (fname)
   (when fname (eval `(profile:profile ,fname))))
@@ -686,6 +604,7 @@
   (eval `(profile:profile ,(package-name (find-package package)))))
 ) ; #+profile (progn ...
 
+
 ;;;; Threads
 
 #+threads

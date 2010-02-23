@@ -1,3 +1,19 @@
+2010-02-23  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank-ecl.lisp (preferred-communication-style): Go back to
+	NIL. Some parts (like the compiler and CLOS) of ECL do not seem to
+	be thread-safe yet. Also get rid of non-working implementation of
+	:FD-HANDLER.
+	(poll-streams, wait-for-input): Implement on top of select() for
+	communication-style=NIL.
+	(*descriptor-handlers*, add-fd-handler, remove-fd-handlers): Get
+	rid of.
+	(grovel-docstring-for-arglist): Get rid of it, too.
+	(arglist): ECL now provides an extra accessor to a function's
+	arglist. Use that instead.
+	(emacs-inspect): Get rid of the default method. Don't see its
+	point.
+
 2010-02-22  Tobias C. Rittweiler <tcr@freebits.de>
 
 	Make swank-ecl.lisp work with latest ECL Git HEAD.
