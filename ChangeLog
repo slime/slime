@@ -1,3 +1,10 @@
+2010-02-25  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-loader.lisp (ecl-version-string): In
+	#+(or) (progn #+#.(cl:print cl:nil) 1) PRINT does run on SBCL, which
+	breaks #+#.(cl:if (cl:find-symbol "SYMBOL" :ext) ...) here, guard it with
+	(find-package :ext) until further investigations.
+
 2010-02-25  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank-loader.lisp (lisp-version-string): Add git-commit ids for

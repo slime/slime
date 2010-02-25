@@ -61,11 +61,15 @@
 
 #+ecl
 (defun ecl-version-string ()
-  #+#.(cl:if (cl:find-symbol "LISP-IMPLEMENTATION-VCS-ID" :ext) '(:and) '(:or))
+  #+#.(cl:if (cl:and
+              (cl:find-package :ext)
+              (cl:find-symbol "LISP-IMPLEMENTATION-VCS-ID" :ext)) '(:and) '(:or))
   (format nil "~A-~A"
           (lisp-implementation-version) 
           (subseq (ext:lisp-implementation-vcs-id) 0 8))
-  #-#.(cl:if (cl:find-symbol "LISP-IMPLEMENTATION-VCS-ID" :ext) '(:and) '(:or))
+  #-#.(cl:if (cl:and
+              (cl:find-package :ext)
+              (cl:find-symbol "LISP-IMPLEMENTATION-VCS-ID" :ext)) '(:and) '(:or))
   (lisp-implementation-version))
 
 (defun lisp-version-string ()
