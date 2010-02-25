@@ -59,10 +59,19 @@
     :sparc64 :sparc :hppa64 :hppa
     :pentium3 :pentium4))
 
+#+ecl
+(defun ecl-version-string ()
+  #+#.(cl:if (cl:find-symbol "LISP-IMPLEMENTATION-VCS-ID" :ext) '(:and) '(:or))
+  (format nil "~A-~A"
+          (lisp-implementation-version) 
+          (subseq (ext:lisp-implementation-vcs-id) 0 8))
+  #-#.(cl:if (cl:find-symbol "LISP-IMPLEMENTATION-VCS-ID" :ext) '(:and) '(:or))
+  (lisp-implementation-version))
+
 (defun lisp-version-string ()
   #+(or clozure cmu) (substitute-if #\_ (lambda (x) (find x " /"))
                                     (lisp-implementation-version))
-  #+(or cormanlisp scl sbcl ecl)       (lisp-implementation-version)
+  #+(or cormanlisp scl sbcl) (lisp-implementation-version)
   #+lispworks (lisp-implementation-version)
   #+allegro   (format nil "~A~A~A~A"
                       excl::*common-lisp-version-number*
@@ -73,7 +82,8 @@
                        (:+ics "-ics")))
   #+clisp     (let ((s (lisp-implementation-version)))
                 (subseq s 0 (position #\space s)))
-  #+armedbear (lisp-implementation-version))
+  #+armedbear (lisp-implementation-version)
+  #+ecl (ecl-version-string) )
 
 (defun unique-dir-name ()
   "Return a name that can be used as a directory name that is

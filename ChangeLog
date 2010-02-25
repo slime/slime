@@ -1,3 +1,9 @@
+2010-02-25  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank-loader.lisp (lisp-version-string): Add git-commit ids for
+	ECL because individual commits do not guarantee fasl
+	compatibility.
+
 2010-02-23  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank-backend.lisp (when-let): New macro. For backends and
