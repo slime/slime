@@ -59,18 +59,16 @@
     :sparc64 :sparc :hppa64 :hppa
     :pentium3 :pentium4))
 
+(defun q (s) (read-from-string s))
+
 #+ecl
 (defun ecl-version-string ()
-  #+#.(cl:if (cl:and
-              (cl:find-package :ext)
-              (cl:find-symbol "LISP-IMPLEMENTATION-VCS-ID" :ext)) '(:and) '(:or))
-  (format nil "~A-~A"
-          (lisp-implementation-version) 
-          (subseq (ext:lisp-implementation-vcs-id) 0 8))
-  #-#.(cl:if (cl:and
-              (cl:find-package :ext)
-              (cl:find-symbol "LISP-IMPLEMENTATION-VCS-ID" :ext)) '(:and) '(:or))
-  (lisp-implementation-version))
+  (format nil "~A~@[-~A~]"
+          (lisp-implementation-version)
+          (when (find-symbol "LISP-IMPLEMENTATION-VCS-ID" :ext)
+            (let ((vcs-id (funcall (q "ext:lisp-implementation-vcs-id"))))
+              (when (>= (length vcs-id) 8)
+                (subseq vcs-id 0 8))))))
 
 (defun lisp-version-string ()
   #+(or clozure cmu) (substitute-if #\_ (lambda (x) (find x " /"))
@@ -232,8 +230,6 @@ If LOAD is true, load the fasl file."
 
 (defun contrib-dir (base-dir)
   (append-dir base-dir "contrib"))
-
-(defun q (s) (read-from-string s))
 
 (defun load-swank (&key (src-dir *source-directory*)
                         (fasl-dir *fasl-directory*))
