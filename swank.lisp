@@ -3008,7 +3008,9 @@ that symbols accessible in the current package go first."
               (when vdoc
                 (format string "Variable:~% ~a~2%" vdoc))
               (when fdoc
-                (format string "Function:~% ~a" fdoc))))
+                (format string "Function:~% Arglist: ~a~2% ~a"
+                        (swank-backend:arglist sym)
+                        fdoc))))
           (format nil "No such symbol, ~a." symbol-name)))))
 
 
