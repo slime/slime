@@ -435,18 +435,21 @@ Full set of commands:
 \"Slime\" only appears if we aren't connected.  If connected,
 include package-name, connection-name, and possibly some state
 information."
-  (let* ((conn (slime-current-connection))
-         (local (and conn (eq conn slime-buffer-connection)))
-         (pkg (slime-current-package)))
-    (cond ((not conn) (and slime-mode " Slime"))
-          ((concat " "
-                   (if local "{" "[")
-                   (if pkg (slime-pretty-package-name pkg) "?")
-                   " "
-                   ;; ignore errors for closed connections
-                   (ignore-errors (slime-connection-name conn))
-                   (slime-modeline-state-string conn)
-                   (if local "}" "]"))))))
+  (let ((conn (slime-current-connection)))
+    ;; Bail out early in case there's no connection, so we won't
+    ;; implicitly invoke `slime-connection' which may query the user.
+    (if (not conn)
+        (and slime-mode " Slime")
+        (let ((local (eq conn slime-buffer-connection))
+              (pkg   (slime-current-package)))
+          (concat " "
+                  (if local "{" "[")
+                  (if pkg (slime-pretty-package-name pkg) "?")
+                  " "
+                  ;; ignore errors for closed connections
+                  (ignore-errors (slime-connection-name conn))
+                  (slime-modeline-state-string conn)
+                  (if local "}" "]"))))))
 
 (defun slime-pretty-package-name (name)
   "Return a pretty version of a package name NAME."

@@ -1,3 +1,14 @@
+2010-03-01  Tobias C. Rittweiler <tcr@freebits.de>
+
+	Fix that annoying bug that caused being constantly asked to switch
+	connection in case one had multiple connections running and quit
+	from one.
+
+	* slime.el (slime-modeline-string): Bail out early because
+	`slime-current-package' involves `slime-connection' in case the
+	slime-repl contrib is used, and querying the user in a
+	periodically called function is rather annoying..
+
 2010-02-26  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-loader.lisp (ecl-version-string): Check length of
