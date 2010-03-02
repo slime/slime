@@ -423,18 +423,23 @@ rebind *DEFAULT-PATHNAME-DEFAULTS* which may improve the recording of
 source information.
 
 If POLICY is supplied, and non-NIL, it may be used by certain
-implementations to compile with a debug optimization quality of its
+implementations to compile with optimization qualities of its
 value.
 
 Should return T on successfull compilation, NIL otherwise.
 ")
 
 (definterface swank-compile-file (input-file output-file load-p 
-                                             external-format)
+                                             external-format
+                                             &key policy)
    "Compile INPUT-FILE signalling COMPILE-CONDITIONs.
 If LOAD-P is true, load the file after compilation.
 EXTERNAL-FORMAT is a value returned by find-external-format or
 :default.
+
+If POLICY is supplied, and non-NIL, it may be used by certain
+implementations to compile with optimization qualities of its
+value.
 
 Should return OUTPUT-TRUENAME, WARNINGS-P and FAILURE-p
 like `compile-file'")

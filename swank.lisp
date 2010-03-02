@@ -2650,7 +2650,7 @@ The time is measured in seconds."
                  (funcall function)))))
       (make-compilation-result (reverse notes) (and successp t) seconds))))
 
-(defslimefun compile-file-for-emacs (filename load-p &optional options)
+(defslimefun compile-file-for-emacs (filename load-p &key options policy)
   "Compile FILENAME and, when LOAD-P, load the result.
 Record compiler notes signalled as `compiler-condition's."
   (with-buffer-syntax ()
@@ -2663,7 +2663,8 @@ Record compiler notes signalled as `compiler-condition's."
                                  (fasl-pathname pathname options)
                                  load-p
                                  (or (guess-external-format pathname)
-                                     :default))
+                                     :default)
+                                 :policy policy)
            (declare (ignore output-pathname warnings?))
            (not failure?)))))))
 

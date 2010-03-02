@@ -2498,7 +2498,7 @@ region that will be compiled.")
 ;; FIXME: I doubt that anybody uses this directly and it seems to be
 ;; only an ugly way to pass arguments.
 (defvar slime-compilation-policy nil
-  "When non-nil compile defuns with this debug optimization level.")
+  "When non-nil compile with these optimization settings.")
 
 (defun slime-compute-policy (arg)
   "Return the policy for the prefix argument ARG."
@@ -2526,15 +2526,21 @@ region that will be compiled.")
   "Return all compiler notes, warnings, and errors."
   (slime-compilation-result.notes slime-last-compilation-result))
 
-(defun slime-compile-and-load-file ()
+(defun slime-compile-and-load-file (&optional policy)
   "Compile and load the buffer's file and highlight compiler notes.
+
+With (positive) prefix argument the file is compiled with maximal
+debug settings (`C-u'). With negative prefix argument it is compiled for
+speed (`M--'). If a numeric argument is passed set debug or speed settings
+to it depending on its sign.
 
 Each source location that is the subject of a compiler note is
 underlined and annotated with the relevant information. The commands
 `slime-next-note' and `slime-previous-note' can be used to navigate
 between compiler notes and to display their full details."
-  (interactive)
-  (slime-compile-file t))
+  (interactive "P")
+  (let ((slime-compilation-policy (slime-compute-policy policy)))
+    (slime-compile-file t)))
 
 ;;; FIXME: This should become a DEFCUSTOM
 (defvar slime-compile-file-options '()
@@ -2556,16 +2562,19 @@ See `slime-compile-and-load-file' for further details."
   (let ((file (slime-to-lisp-filename (buffer-file-name))))
     (slime-eval-async
      `(swank:compile-file-for-emacs ,file ,(if load t nil) 
-                                    ',slime-compile-file-options)
+                                    :options ',slime-compile-file-options
+                                    :policy ',slime-compilation-policy)
      #'slime-compilation-finished)
     (message "Compiling %s..." file)))
 
 (defun slime-compile-defun (&optional raw-prefix-arg)
   "Compile the current toplevel form. 
 
-If invoked with a simple prefix-arg (`C-u'), compile the defun
-with maximum debug setting. If invoked with a numeric prefix arg,
-compile with a debug setting of that number."
+With (positive) prefix argument the form is compiled with maximal
+debug settings (`C-u'). With negative prefix argument it is compiled for
+speed (`M--'). If a numeric argument is passed set debug or speed settings
+to it depending on its sign."
+  
   (interactive "P")
   (let ((slime-compilation-policy (slime-compute-policy raw-prefix-arg)))
     (if (use-region-p)

@@ -236,7 +236,9 @@
     (funcall function)))
 
 (defimplementation swank-compile-file (input-file output-file
-                                       load-p external-format)
+                                       load-p external-format
+                                       &key policy)
+  (declare (ignore policy))
   (with-compilation-hooks ()
     (compile-file input-file :output-file output-file
                   :load load-p

@@ -1,3 +1,17 @@
+2010-03-02  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-compile-and-load-file): Accept C-u arguments for
+	compilation policy the same way as slime-compile-defun.
+
+	* swank.lisp (compile-file-for-emacs): Take an additional policy argument.
+	* swank-backend.lisp (swank-compile-file): Ditto.
+
+	* swank-sbcl.lisp (compiler-policy, (setf compiler-policy)):
+	rename from get/set-compiler-policy.
+	(with-compiler-policy): New macro.
+	(swank-compile-file): Use with-compiler-policy.
+	(swank-compile-string): Ditto.
+
 2010-03-01  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (documentation-symbol): Show arglists for functions too.

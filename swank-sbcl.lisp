@@ -558,12 +558,37 @@ compiler state."
 
 (defvar *trap-load-time-warnings* nil)
 
+(defun compiler-policy (qualities)
+  "Return compiler policy qualities present in the QUALITIES alist.
+QUALITIES is an alist with (quality . value)"
+  #+#.(swank-backend:with-symbol 'restrict-compiler-policy 'sb-ext)
+  (loop with policy = (sb-ext:restrict-compiler-policy)
+        for (quality) in qualities
+        collect (cons quality
+                      (or (cdr (assoc quality policy))
+                          0))))
+
+(defun (setf compiler-policy) (policy)
+  (declare (ignorable policy))
+  #+#.(swank-backend:with-symbol 'restrict-compiler-policy 'sb-ext)
+  (loop for (qual . value) in policy
+        do (sb-ext:restrict-compiler-policy qual value)))
+
+(defmacro with-compiler-policy (policy &body body)
+  (let ((current-policy (gensym)))
+    `(let ((,current-policy (compiler-policy ,policy)))
+       (setf (compiler-policy) ,policy)
+       (unwind-protect (progn ,@body)
+         (setf (compiler-policy) ,current-policy)))))
+
 (defimplementation swank-compile-file (input-file output-file 
-                                       load-p external-format)
+                                       load-p external-format
+                                       &key policy)
   (multiple-value-bind (output-file warnings-p failure-p)
-      (with-compilation-hooks ()
-        (compile-file input-file :output-file output-file
-                      :external-format external-format))
+      (with-compiler-policy policy
+        (with-compilation-hooks ()
+          (compile-file input-file :output-file output-file
+                        :external-format external-format)))
     (values output-file warnings-p
             (or failure-p
                 (when load-p
@@ -593,27 +618,12 @@ compiler state."
   "Return a temporary file name to compile strings into."
   (tempnam nil nil))
 
-(defun get-compiler-policy (default-policy)
-  (declare (ignorable default-policy))
-  #+#.(swank-backend:with-symbol 'restrict-compiler-policy 'sb-ext)
-  (remove-duplicates (append default-policy (sb-ext:restrict-compiler-policy))
-                     :key #'car))
-
-(defun set-compiler-policy (policy)
-  (declare (ignorable policy))
-  #+#.(swank-backend:with-symbol 'restrict-compiler-policy 'sb-ext)
-   (loop for (qual . value) in policy
-         do (sb-ext:restrict-compiler-policy qual value)))
-
 (defimplementation swank-compile-string (string &key buffer position filename
                                          policy)
   (let ((*buffer-name* buffer)
         (*buffer-offset* position)
         (*buffer-substring* string)
-        (temp-file-name (temp-file-name))
-        (saved-policy (get-compiler-policy '((debug . 0) (speed . 0)))))
-    (when policy
-      (set-compiler-policy policy))
+        (temp-file-name (temp-file-name)))
     (flet ((load-it (filename)
              (when filename (load filename)))
            (compile-it (cont)
@@ -631,11 +641,11 @@ compiler state."
       (with-open-file (s temp-file-name :direction :output :if-exists :error)
         (write-string string s))
       (unwind-protect
-           (if *trap-load-time-warnings*
-               (compile-it #'load-it)
-               (load-it (compile-it #'identity)))
+           (with-compiler-policy policy
+            (if *trap-load-time-warnings*
+                (compile-it #'load-it)
+                (load-it (compile-it #'identity))))
         (ignore-errors
-          (set-compiler-policy saved-policy)
           (delete-file temp-file-name)
           (delete-file (compile-file-pathname temp-file-name)))))))
 

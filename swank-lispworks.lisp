@@ -464,7 +464,9 @@ Return NIL if the symbol is unbound."
                                        ,location))))))
 
 (defimplementation swank-compile-file (input-file output-file
-                                       load-p external-format)
+                                       load-p external-format
+                                       &key policy)
+  (declare (ignore policy))
   (with-swank-compilation-unit (input-file)
     (compile-file input-file 
                   :output-file output-file

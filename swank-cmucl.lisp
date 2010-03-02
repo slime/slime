@@ -405,8 +405,9 @@ NIL if we aren't compiling from a buffer.")
       (funcall function))))
 
 (defimplementation swank-compile-file (input-file output-file
-                                       load-p external-format)
-  (declare (ignore external-format))
+                                       load-p external-format
+                                       &key policy)
+  (declare (ignore external-format policy))
   (clear-xref-info input-file)
   (with-compilation-hooks ()
     (let ((*buffer-name* nil)
