@@ -1,5 +1,11 @@
 2010-03-02  Stas Boukarev  <stassats@gmail.com>
 
+	* swank-sbcl.lisp (definition-source-for-emacs): Don't error when source
+	location doesn't contain form position, point emacs to the beginning of a source file
+	and if it's a function provide a snippet "(defun <name> ".
+
+2010-03-02  Stas Boukarev  <stassats@gmail.com>
+
 	* slime.el (slime-compile-and-load-file): Accept C-u arguments for
 	compilation policy the same way as slime-compile-defun.
 

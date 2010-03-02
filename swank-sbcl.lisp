@@ -728,6 +728,7 @@ QUALITIES is an alist with (quality . value)"
       definition-source
     (cond ((getf plist :emacs-buffer) :buffer)
           ((and pathname (or form-path character-offset)) :file)
+          (pathname :file-without-position)
           (t :invalid))))
 
 (defun definition-source-for-emacs (definition-source type name)
@@ -764,6 +765,11 @@ QUALITIES is an alist with (quality . value)"
                         ;; 0, buffer positions in Emacs start from 1.
                         `(:position ,(1+ pos))
                         `(:snippet ,snippet))))
+      (:file-without-position
+       (make-location `(:file ,(namestring (translate-logical-pathname pathname)))
+                      '(:position 1)
+                      (when (eql type :function)
+                        `(:snippet ,(format nil "(defun ~a " (symbol-name name))))))
       (:invalid
        (error "DEFINITION-SOURCE of ~A ~A did not contain ~
                meaningful information."
