@@ -866,8 +866,9 @@ Compile the top-level form at point.  The region blinks shortly to
 give some feedback which part was chosen.
 
 With (positive) prefix argument the form is compiled with maximal
-debug settings (@kbd{C-u C-c C-c}).  With negative prefix argument it is compiled for
-speed (@kbd{M-- C-c C-c}).
+debug settings (@kbd{C-u C-c C-c}). With negative prefix argument it is compiled for
+speed (@kbd{M-- C-c C-c}). If a numeric argument is passed set debug or speed settings
+to it depending on its sign.
 
 The code for the region is executed after compilation.  In principle,
 the command writes the region to a file, compiles that file, and loads
@@ -878,6 +879,11 @@ Compile and load the current buffer's source file.  If the compilation
 step fails, the file is not loaded.  It's not always easy to tell
 whether the compilation failed: occasionally you may end up in the
 debugger during the load step.
+
+With (positive) prefix argument the file is compiled with maximal
+debug settings (@kbd{C-u C-c C-k}). With negative prefix argument it is compiled for
+speed (@kbd{M-- C-c C-k}). If a numeric argument is passed set debug or speed settings
+to it depending on its sign.
 
 @kbditem{C-c M-k, slime-compile-file}
 Compile (but don't load) the current buffer's source file.
