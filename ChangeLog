@@ -12,6 +12,8 @@
 	(swank-compile-file): Use with-compiler-policy.
 	(swank-compile-string): Ditto.
 
+	* doc/slime.texi (Compilation): Update.
+
 2010-03-01  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (documentation-symbol): Show arglists for functions too.
