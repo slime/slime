@@ -183,6 +183,9 @@
 
 2010-03-03  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-inspector-history): New command.
+
+2010-03-03  Helmut Eller  <heller@common-lisp.net>
 	Don't try to bind keywords in inspector-eval.
 
 	* swank.lisp (inspector-eval): For now, don't bind symbols which

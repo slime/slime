@@ -3329,6 +3329,23 @@ Return nil if there's no previous object."
                         (declare (ignorable . ,ignorable))
                         ,form)))))
 
+(defslimefun inspector-history ()
+  (with-output-to-string (out)
+    (let ((newest (loop for s = *istate* then next
+                        for next = (istate.next s)
+                        if (not next) return s)))
+      (format out "--- next/prev chain ---")
+      (loop for s = newest then (istate.previous s) while s do
+            (let ((val (istate.object s)))
+              (format out "~%~:[  ~; *~]@~d " 
+                      (eq s *istate*)
+                      (position val *inspector-history*))
+              (print-unreadable-object (val out :type t :identity t)))))
+    (format out "~%~%--- all visited objects ---")
+    (loop for val across *inspector-history* for i from 0 do
+          (format out "~%~2,' d " i)
+          (print-unreadable-object (val out :type t :identity t)))))
+
 (defslimefun quit-inspector ()
   (reset-inspector)
   nil)
