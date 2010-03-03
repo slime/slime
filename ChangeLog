@@ -183,9 +183,18 @@
 
 2010-03-03  Helmut Eller  <heller@common-lisp.net>
 
+	Don't special case special operators with M-. for CMUCL.
+
+	* swank-cmucl.lisp (function-definitions): Special operators will
+	have IR1-translators anyway, so no need to mark them "special".
+	(gf-definitions): Renamed from generic-function-definitions.
+
+2010-03-03  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-inspector-history): New command.
 
 2010-03-03  Helmut Eller  <heller@common-lisp.net>
+
 	Don't try to bind keywords in inspector-eval.
 
 	* swank.lisp (inspector-eval): For now, don't bind symbols which

@@ -912,20 +912,16 @@ See CODE-LOCATION-STREAM-POSITION."
 regular functions, generic functions, methods and macros.
 NAME can any valid function name (e.g, (setf car))."
   (let ((macro?    (and (symbolp name) (macro-function name)))
-        (special?  (and (symbolp name) (special-operator-p name)))
         (function? (and (ext:valid-function-name-p name)
                         (ext:info :function :definition name)
                         (if (symbolp name) (fboundp name) t))))
     (cond (macro? 
            (list `((defmacro ,name)
                    ,(function-location (macro-function name)))))
-          (special?
-           (list `((:special-operator ,name) 
-                   (:error ,(format nil "Special operator: ~S" name)))))
           (function?
            (let ((function (fdefinition name)))
              (if (genericp function)
-                 (generic-function-definitions name function)
+                 (gf-definitions name function)
                  (list (list `(function ,name)
                              (function-location function)))))))))
 
@@ -1029,7 +1025,7 @@ Signal an error if no constructor can be found."
 
 ;;;;;; Generic functions and methods
 
-(defun generic-function-definitions (name function)
+(defun gf-definitions (name function)
   "Return the definitions of a generic function and its methods."
   (cons (list `(defgeneric ,name) (gf-location function))
         (gf-method-definitions function)))
