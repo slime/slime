@@ -1,3 +1,8 @@
+2010-03-03  Stas Boukarev  <stassats@gmail.com>
+
+	* doc/slime.texi (Inspector): document slime-inspector-eval.
+	Patch by Mark Harig.
+
 2010-03-03  Helmut Eller  <heller@common-lisp.net>
 
 	Don't special case special operators with M-. for CMUCL.
