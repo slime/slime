@@ -1,15 +1,49 @@
+2010-03-03  Helmut Eller  <heller@common-lisp.net>
+
+	Don't special case special operators with M-. for CMUCL.
+
+	* swank-cmucl.lisp (function-definitions): Special operators will
+	have IR1-translators anyway, so no need to mark them "special".
+	(gf-definitions): Renamed from generic-function-definitions.
+
+2010-03-03  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-inspector-history): New command.
+
+2010-03-03  Helmut Eller  <heller@common-lisp.net>
+
+	Don't try to bind keywords in inspector-eval.
+
+	* swank.lisp (inspector-eval): For now, don't bind symbols which
+	are constantp.  Maybe something better can be found later.
+
+2010-03-03  Helmut Eller  <heller@common-lisp.net>
+
+	Use @ instead of # to mark object in the inspect history.
+
+	* swank.lisp (print-part-to-string): Use @.
+
+2010-03-03  Helmut Eller  <heller@common-lisp.net>
+
+	Make eval-in-frame display multiple values; not only the first.
+
+	* swank.lisp (values-to-string): New macro.
+	(eval-string-in-frame): Use it.
+
 2010-03-02  Stas Boukarev  <stassats@gmail.com>
 
-	* swank-sbcl.lisp (definition-source-for-emacs): Don't error when source
-	location doesn't contain form position, point emacs to the beginning of a source file
-	and if it's a function provide a snippet "(defun <name> ".
+	* swank-sbcl.lisp (definition-source-for-emacs): Don't error when
+	source location doesn't contain form position, point emacs to the
+	beginning of a source file and if it's a function provide a
+	snippet "(defun <name> ".
 
 2010-03-02  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-compile-and-load-file): Accept C-u arguments for
 	compilation policy the same way as slime-compile-defun.
 
-	* swank.lisp (compile-file-for-emacs): Take an additional policy argument.
+	* swank.lisp (compile-file-for-emacs): Take an additional policy
+	argument.
 	* swank-backend.lisp (swank-compile-file): Ditto.
 
 	* swank-sbcl.lisp (compiler-policy, (setf compiler-policy)):
@@ -180,38 +214,6 @@
 	slime-mode runs slime-modeline-string from minor-mode-alist too
 	resulting in duplicate modeline strings.
 	Reported by Leo Liu.
-
-2010-03-03  Helmut Eller  <heller@common-lisp.net>
-
-	Don't special case special operators with M-. for CMUCL.
-
-	* swank-cmucl.lisp (function-definitions): Special operators will
-	have IR1-translators anyway, so no need to mark them "special".
-	(gf-definitions): Renamed from generic-function-definitions.
-
-2010-03-03  Helmut Eller  <heller@common-lisp.net>
-
-	* slime.el (slime-inspector-history): New command.
-
-2010-03-03  Helmut Eller  <heller@common-lisp.net>
-
-	Don't try to bind keywords in inspector-eval.
-
-	* swank.lisp (inspector-eval): For now, don't bind symbols which
-	are constantp.  Maybe something better can be found later.
-
-2010-03-03  Helmut Eller  <heller@common-lisp.net>
-
-	Use @ instead of # to mark object in the inspect history.
-
-	* swank.lisp (print-part-to-string): Use @.
-
-2010-02-19  Helmut Eller  <heller@common-lisp.net>
-
-	Make eval-in-frame display multiple values; not only the first.
-
-	* swank.lisp (values-to-string): New macro.
-	(eval-string-in-frame): Use it.
 
 2010-02-18  Mark Harig <idirectscm@aim.com>
 
