@@ -3323,7 +3323,8 @@ Return nil if there's no previous object."
                  (read-from-string string)))
          (ignorable (remove-if #'boundp (mapcar #'car context))))
     (to-string (eval `(let ((* ',obj) (- ',form)
-                            . ,(loop for (var . val) in context collect
+                            . ,(loop for (var . val) in context 
+                                     unless (constantp var) collect 
                                      `(,var ',val)))
                         (declare (ignorable . ,ignorable))
                         ,form)))))
