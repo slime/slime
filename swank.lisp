@@ -2012,6 +2012,9 @@ Errors are trapped and invoke our debugger."
                        *echo-area-prefix* i i i i)))
             (t (format nil "~a~{~S~^, ~}" *echo-area-prefix* values))))))
 
+(defmacro values-to-string (values)
+  `(format-values-for-echo-area (multiple-value-list ,values)))
+
 (defslimefun interactive-eval (string)
   (with-buffer-syntax ()
     (with-retry-restart (:msg "Retry SLIME interactive evaluation request.")
@@ -2068,13 +2071,13 @@ last form."
   "A list of variables bindings during pretty printing.
 Used by pprint-eval.")
 
-(defun swank-pprint (list)
-  "Bind some printer variables and pretty print each object in LIST."
+(defun swank-pprint (values)
+  "Bind some printer variables and pretty print each object in VALUES."
   (with-buffer-syntax ()
     (with-bindings *swank-pprint-bindings*
-      (cond ((null list) "; No value")
+      (cond ((null values) "; No value")
             (t (with-output-to-string (*standard-output*)
-                 (dolist (o list)
+                 (dolist (o values)
                    (pprint o)
                    (terpri))))))))
   
@@ -2553,16 +2556,14 @@ has changed, ignore the request."
      ,form))
 
 (defslimefun eval-string-in-frame (string index)
-  (to-string
-   (with-retry-restart (:msg "Retry SLIME evaluation request.")
-     (eval-in-frame (wrap-sldb-vars (from-string string))
-                    index))))
+  (values-to-string
+   (eval-in-frame (wrap-sldb-vars (from-string string))
+                  index)))
 
 (defslimefun pprint-eval-string-in-frame (string index)
   (swank-pprint
-   (with-retry-restart (:msg "Retry SLIME evaluation request.")
-     (multiple-value-list 
-      (eval-in-frame (wrap-sldb-vars (from-string string)) index)))))
+   (multiple-value-list 
+    (eval-in-frame (wrap-sldb-vars (from-string string)) index))))
 
 (defslimefun frame-locals-and-catch-tags (index)
   "Return a list (LOCALS TAGS) for vars and catch tags in the frame INDEX.

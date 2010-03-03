@@ -181,6 +181,13 @@
 	resulting in duplicate modeline strings.
 	Reported by Leo Liu.
 
+2010-02-19  Helmut Eller  <heller@common-lisp.net>
+
+	Make eval-in-frame display multiple values; not only the first.
+
+	* swank.lisp (values-to-string): New macro.
+	(eval-string-in-frame): Use it.
+
 2010-02-18  Mark Harig <idirectscm@aim.com>
 
 	The compiler warns about various stuff. Fix some of it.
