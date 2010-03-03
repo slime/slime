@@ -181,6 +181,12 @@
 	resulting in duplicate modeline strings.
 	Reported by Leo Liu.
 
+2010-03-03  Helmut Eller  <heller@common-lisp.net>
+
+	Use @ instead of # to mark object in the inspect history.
+
+	* swank.lisp (print-part-to-string): Use @.
+
 2010-02-19  Helmut Eller  <heller@common-lisp.net>
 
 	Make eval-in-frame display multiple values; not only the first.

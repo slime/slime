@@ -3261,7 +3261,7 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
   (let* ((string (to-line value))
          (pos (position value *inspector-history*)))
     (if pos
-        (format nil "#~D=~A" pos string)
+        (format nil "@~D=~A" pos string)
         string)))
 
 (defun content-range (list start end)
