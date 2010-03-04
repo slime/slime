@@ -1,3 +1,8 @@
+2010-03-04  Mark Evenson  <evenson@panix.com>
+
+	* swank-abcl.lisp (emacs-inspect): Define default method to use
+	the result of SYS:INSPECTED-PARTS if non-nil. 
+
 2010-03-03  Stas Boukarev  <stassats@gmail.com>
 
 	* doc/slime.texi (Inspector): document slime-inspector-eval.

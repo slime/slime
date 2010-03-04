@@ -517,6 +517,14 @@ part of *sysdep-pathnames* in swank.loader.lisp.
 |#
 
 ;;;; Inspecting
+(defmethod emacs-inspect ((o t))
+  (let ((parts (sys:inspected-parts o)))
+    `("The object is of type " ,(symbol-name (type-of o)) "." (:newline)
+      ,@(if parts
+           (loop :for (label . value) :in parts
+              :appending (label-value-line label value))
+            (list "No inspectable parts, dumping output of CL:DESCRIBE:" '(:newline) 
+                  (with-output-to-string (desc) (describe o desc)))))))
 
 (defmethod emacs-inspect ((slot mop::slot-definition))
   `("Name: " (:value ,(mop::%slot-definition-name slot))
@@ -544,20 +552,8 @@ part of *sysdep-pathnames* in swank.loader.lisp.
                    `("Documentation:" (:newline) ,(documentation f t) (:newline)))
       ,@(when (function-lambda-expression f)
               `("Lambda expression:" 
-                (:newline) ,(princ-to-string (function-lambda-expression f)) (:newline)))))
-
-#|
-;;; XXX -- the default SLIME implementation looks ok.  Remove?  --ME 20100111
-(defmethod emacs-inspect ((o t))
-  (let* ((class (class-of o))
-         (slots (mop::class-slots class)))
-            (mapcar (lambda (slot)
-                      (let ((name (mop::slot-definition-name slot)))
-                        (cons (princ-to-string name)
-                              (slot-value o name))))
-                    slots)))
-|#
-
+                (:newline) ,(princ-to-string
+                             (function-lambda-expression f)) (:newline)))))
 
 ;;; Although by convention toString() is supposed to be a
 ;;; non-computationally expensive operation this isn't always the
