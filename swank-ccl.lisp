@@ -300,16 +300,6 @@
 
 ;;; Debugging
 
-(defun openmcl-set-debug-switches ()
-  (setq ccl:*fasl-save-definitions* nil)
-  (setq ccl:*fasl-save-doc-strings* t)
-  (setq ccl:*fasl-save-local-symbols* t)
-  (setq ccl:*save-arglist-info* t)
-  (setq ccl:*save-definitions* nil)
-  (setq ccl:*save-doc-strings* t)
-  (setq ccl:*save-local-symbols* t)
-  (ccl:start-xref))
-
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let* (;;(*debugger-hook* nil)
          ;; don't let error while printing error take us down
@@ -320,12 +310,12 @@
 ;; thread not selected by the user, so don't use thread-local vars
 ;; such as *emacs-connection*.
 (defun find-repl-thread ()
-  (let* ((conn (funcall (swank-sym default-connection))))
+  (let* ((*break-on-signals* nil)
+         (conn (funcall (swank-sym default-connection))))
     (and conn
-         (let ((*break-on-signals* nil))
-           (ignore-errors ;; this errors if no repl-thread
-             (funcall (swank-sym repl-thread) conn))))))
-  
+         (ignore-errors ;; this errors if no repl-thread
+           (funcall (swank-sym repl-thread) conn)))))
+
 (defimplementation call-with-debugger-hook (hook fun)
   (let ((*debugger-hook* hook)
         (ccl:*break-hook* hook)
@@ -347,34 +337,7 @@
     (ccl:map-call-frames function
                          :origin ccl:*top-error-frame*
                          :start-frame-number start-frame-number
-                         :count (- end-frame-number start-frame-number)
-                         :test (and (not t) ;(not (symbol-value (swank-sym *sldb-show-internal-frames*)))
-                                    'interesting-frame-p))))
-
-;; Exceptions
-(defvar *interesting-internal-frames* ())
-
-(defun interesting-frame-p (p context)
-  ;; A frame is interesting if it has at least one external symbol in its name.
-  (labels ((internal (obj)
-             ;; For a symbol, return true if the symbol is internal, i.e. not
-             ;; declared to be external.  For a cons or list, everything
-             ;; must be internal.  For a method, the name must be internal.
-             ;; Nothing else is internal.
-             (typecase obj
-               (cons (and (internal (car obj)) (internal (cdr obj))))
-               (symbol (and (eq (symbol-package obj) (find-package :ccl))
-                            (eq :internal (nth-value 1 (find-symbol (symbol-name obj) :ccl)))
-                            (not (member obj *interesting-internal-frames*))))
-               (method (internal (ccl:method-name obj)))
-               (t nil))))
-    (let* ((lfun (ccl:frame-function p context))
-           (internal-frame-p (internal (ccl:function-name lfun))))
-      #+debug (format t "~S is ~@[not ~]internal~%"
-                      (ccl:function-name lfun)
-                      (not internal-frame-p))
-      (not internal-frame-p))))
-
+                         :count (- end-frame-number start-frame-number))))
 
 (defimplementation compute-backtrace (start-frame-number end-frame-number)
   (let (result)

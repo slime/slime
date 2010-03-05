@@ -1,5 +1,13 @@
 2010-03-05  Helmut Eller  <heller@common-lisp.net>
 
+	Remove some unused stuff.
+
+	* swank-ccl.lisp (openmcl-set-debug-switches)
+	(*interesting-internal-frames*)
+	(interesting-frame-p): Unused. Deleted.
+
+2010-03-05  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-ccl.lisp: Indentation fixes.
 
 2010-03-05  Tobias C. Rittweiler <tcr@freebits.de>
