@@ -1,5 +1,11 @@
 2010-03-05  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank-ecl.lisp: Make backend depend on ECL version 10.3.1 which
+	just got released. We do not support older versions. Previous
+	version pretty much didn't work in combination with Slime anyway.
+
+2010-03-05  Tobias C. Rittweiler <tcr@freebits.de>
+
 	Ecl: Make M-. work on function interactively compiled via C-c C-c.
 
 	* swank-ecl.lisp (*tmpfile-map*, note-buffer-tmpfile)

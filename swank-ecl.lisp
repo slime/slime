@@ -12,10 +12,10 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (let ((version (find-symbol "+ECL-VERSION-NUMBER+" :EXT)))
-    (when (or (not version) (< (symbol-value version) 100201))
+    (when (or (not version) (< (symbol-value version) 100301))
       (error "~&IMPORTANT:~%  ~
               The version of ECL you're using (~A) is too old.~%  ~
-              Please upgrade to at least 10.2.1.~%  ~
+              Please upgrade to at least 10.3.1.~%  ~
               Sorry for the inconvenience.~%~%"
              (lisp-implementation-version)))))
 
