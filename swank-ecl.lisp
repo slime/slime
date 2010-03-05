@@ -206,20 +206,6 @@
                  (warning                :warning))
      :location (condition-location condition))))
 
-(defun make-file-location (file file-position)
-  ;; File positions in CL start at 0, but Emacs' buffer positions
-  ;; start at 1. We specify (:ALIGN T) because the positions comming
-  ;; from ECL point at right after the toplevel form appearing before
-  ;; the actual target toplevel form; (:ALIGN T) will DTRT in that case.
-  (make-location `(:file ,(namestring file))
-                 `(:position ,(1+ file-position))
-                 `(:align t)))
-
-(defun make-buffer-location (buffer-name start-position offset)
-  (make-location `(:buffer ,buffer-name)
-                 `(:offset ,start-position ,offset)
-                 `(:align t)))
-
 (defun condition-location (condition)
   (let ((file     (c:compiler-message-file condition))
         (position (c:compiler-message-file-position condition)))
@@ -244,25 +230,40 @@
                   :load load-p
                   :external-format external-format)))
 
+(defvar *tmpfile-map* (make-hash-table :test #'equal))
+
+(defun note-buffer-tmpfile (tmp-file buffer-name)
+  ;; EXT:COMPILED-FUNCTION-FILE below will return a namestring.
+  (let ((tmp-namestring (namestring (truename tmp-file))))
+    (setf (gethash tmp-namestring *tmpfile-map*) buffer-name))
+  tmp-file)
+
+(defun tmpfile-to-buffer (tmp-file)
+  (gethash tmp-file *tmpfile-map*))
+
 (defimplementation swank-compile-string (string &key buffer position filename
                                                 policy)
-  (declare (ignore filename policy))
+  (declare (ignore policy))
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)        ; for compilation hooks
           (*buffer-start-position* position))
-      (let ((file (si:mkstemp "TMP:ECL-SWANK-"))
+      (let ((tmp-file (si:mkstemp "TMP:ecl-swank-tmpfile-"))
             (fasl-file)
             (warnings-p)
             (failure-p))
         (unwind-protect
-             (with-open-file (file-stream file :direction :output
-                                               :if-exists :supersede)
-               (write-string string file-stream)
-               (finish-output file-stream)
+             (with-open-file (tmp-stream tmp-file :direction :output
+                                                  :if-exists :supersede)
+               (write-string string tmp-stream)
+               (finish-output tmp-stream)
                (multiple-value-setq (fasl-file warnings-p failure-p)
-                 (compile-file file :load t)))
-          (when (probe-file file)
-            (delete-file file))
+                 (compile-file tmp-file
+                   :load t
+                   :source-truename (or filename
+                                        (note-buffer-tmpfile tmp-file buffer))
+                   :source-offset (1- position))))
+          (when (probe-file tmp-file)
+            (delete-file tmp-file))
           (when fasl-file
             (delete-file fasl-file)))
         (not failure-p)))))
@@ -475,29 +476,35 @@
 
 ;;;; Definitions
 
-;;; FIXME: There ought to be a better way.
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun c-function-p (object)
-    (and (functionp object)
-         (let ((fn-name (function-name object)))
-           (and fn-name (si:mangle-name fn-name t) t)))))
-
-(deftype c-function ()
-  `(satisfies c-function-p))
-
 (defvar +TAGS+ (namestring (translate-logical-pathname #P"SYS:TAGS")))
 
-(defun assert-source-directory ()
-  (unless (probe-file #P"SRC:")
-    (error "ECL's source directory ~A does not exist. ~
-            You can specify a different location via the environment ~
-            variable `ECLSRCDIR'."
-           (namestring (translate-logical-pathname #P"SYS:"))))) 
+(defun make-file-location (file file-position)
+  ;; File positions in CL start at 0, but Emacs' buffer positions
+  ;; start at 1. We specify (:ALIGN T) because the positions comming
+  ;; from ECL point at right after the toplevel form appearing before
+  ;; the actual target toplevel form; (:ALIGN T) will DTRT in that case.
+  (make-location `(:file ,(namestring file))
+                 `(:position ,(1+ file-position))
+                 `(:align t)))
 
-(defun assert-TAGS-file ()
-  (unless (probe-file +TAGS+)
-    (error "No TAGS file ~A found. It should have been installed with ECL."
-           +TAGS+)))
+(defun make-buffer-location (buffer-name start-position &optional (offset 0))
+  (make-location `(:buffer ,buffer-name)
+                 `(:offset ,start-position ,offset)
+                 `(:align t)))
+
+(defun make-TAGS-location (&rest tags)
+  (make-location `(:etags-file ,+TAGS+)
+                 `(:tag ,@tags)))
+
+(defimplementation find-definitions (name)
+  (let ((annotations (ext:get-annotation name 'si::location :all)))
+    (cond (annotations
+           (loop for annotation in annotations
+                 collect (destructuring-bind (dspec file . pos) annotation
+                           `(,dspec ,(make-file-location file pos)))))
+          (t
+           (mapcan #'(lambda (type) (find-definitions-by-type name type))
+                   (classify-definition-name name))))))
 
 (defun classify-definition-name (name)
   (let ((types '()))
@@ -519,12 +526,6 @@
              (push :global-variable types))))
     types))
 
-(defun find-definitions-by-name (name)
-  (when-let (annotations (ext:get-annotation name 'si::location :all))
-    (loop for annotation in annotations
-          collect (destructuring-bind (op file . pos) annotation
-                    `((,op ,name) ,(make-file-location file pos))))))
-
 (defun find-definitions-by-type (name type)
   (ecase type
     (:lisp-function
@@ -542,48 +543,78 @@
     (:macro
      (when-let (loc (source-location (macro-function name)))
        (list `((defmacro ,name) ,loc))))
-    ((:special-operator :constant :global-variable))))
+    (:constant
+     (when-let (loc (source-location name))
+       (list `((defconstant ,name) ,loc))))
+    (:global-variable
+     (when-let (loc (source-location name))
+       (list `((defvar ,name) ,loc))))
+    (:special-operator)))
 
-(defimplementation find-definitions (name)
-  (nconc (find-definitions-by-name name)
-         (mapcan #'(lambda (type) (find-definitions-by-type name type))
-                 (classify-definition-name name))))
+;;; FIXME: There ought to be a better way.
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun c-function-name-p (name)
+    (and (symbolp name) (si:mangle-name name t) t))
+  (defun c-function-p (object)
+    (and (functionp object)
+         (let ((fn-name (function-name object)))
+           (and fn-name (c-function-name-p fn-name))))))
+
+(deftype c-function ()
+  `(satisfies c-function-p))
+
+(defun assert-source-directory ()
+  (unless (probe-file #P"SRC:")
+    (error "ECL's source directory ~A does not exist. ~
+            You can specify a different location via the environment ~
+            variable `ECLSRCDIR'."
+           (namestring (translate-logical-pathname #P"SYS:"))))) 
+
+(defun assert-TAGS-file ()
+  (unless (probe-file +TAGS+)
+    (error "No TAGS file ~A found. It should have been installed with ECL."
+           +TAGS+)))
 
 (defun source-location (object)
   (converting-errors-to-error-location
-    (typecase object
-      (c-function
-       (assert-source-directory)
-       (assert-TAGS-file)
-       (let ((lisp-name (function-name object)))
-         (assert lisp-name)
-         (multiple-value-bind (flag c-name) (si:mangle-name lisp-name t)
-           (assert flag)
-           ;; In ECL's code base sometimes the mangled name is used
-           ;; directly, sometimes ECL's DPP magic of @LISP:SYMBOL is used.
-           ;; We cannot predict here, so we just provide two candidates.
-           (let* ((candidate1 c-name)
-                  (candidate2 (format nil "~A::~A"
-                                      (package-name (symbol-package lisp-name))
-                                      (symbol-name lisp-name))))
-             (make-location `(:etags-file ,+TAGS+)
-                            `(:tag ,candidate1 ,candidate2))))))
-      (function
-       ;; FIXME: EXT:C-F-FILE may return "/tmp/ECL_SWANK_KMOXtm" which
-       ;; are the temporary files stemming from C-c C-c.
-       (multiple-value-bind (file pos) (ext:compiled-function-file object)
-         (when file
-           (assert (probe-file file))
-           (assert (not (minusp pos)))
-           (make-file-location file pos))))
-      (method
-       ;; FIXME: This will always return NIL at the moment; ECL does not
-       ;; store debug information for methods yet.
-       (source-location (clos:method-function object))))))
+   (typecase object
+     (c-function
+      (assert-source-directory)
+      (assert-TAGS-file)
+      (let ((lisp-name (function-name object)))
+        (assert lisp-name)
+        (multiple-value-bind (flag c-name) (si:mangle-name lisp-name t)
+          (assert flag)
+          ;; In ECL's code base sometimes the mangled name is used
+          ;; directly, sometimes ECL's DPP magic of @LISP::SYMBOL is used.
+          ;; We cannot predict here, so we just provide two candidates.
+          (let  ((package (package-name (symbol-package lisp-name)))
+                 (symbol  (symbol-name lisp-name)))
+            (make-TAGS-location c-name
+                                (format nil "~A::~A" package symbol)
+                                (format nil "~(~A::~A~)" package symbol))))))
+     (function
+      (multiple-value-bind (file pos) (ext:compiled-function-file object)
+        (cond ((not file)
+               (return-from source-location nil))
+              ((setq file (tmpfile-to-buffer file))
+               (make-buffer-location file pos))
+              (t
+               (assert (probe-file file))
+               (assert (not (minusp pos)))
+               (make-file-location file pos)))))
+     (method
+      ;; FIXME: This will always return NIL at the moment; ECL does not
+      ;; store debug information for methods yet.
+      (source-location (clos:method-function object)))
+     ((member nil t)
+      (multiple-value-bind (flag c-name) (si:mangle-name object)
+        (assert flag)
+        (make-TAGS-location c-name))))))
 
 (defimplementation find-source-location (object)
   (or (source-location object)
-      (make-error-location "Source definition of ~S not found" object)))
+      (make-error-location "Source definition of ~S not found." object)))
 
 
 ;;;; Profiling

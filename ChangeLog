@@ -1,7 +1,22 @@
+2010-03-05  Tobias C. Rittweiler <tcr@freebits.de>
+
+	Ecl: Make M-. work on function interactively compiled via C-c C-c.
+
+	* swank-ecl.lisp (*tmpfile-map*, note-buffer-tmpfile)
+	(tmpfile-to-buffer): New helpers.
+	(swank-compile-string): Use them. Also use new COMPILE-FILE
+	keywords :SOURCE-TRUENAME and :SOURCE-OFFSET available in ECL
+	HEAD.
+	(find-definitions): Slurp in definition of
+	FIND-DEFINITIONS-BY-NAME.
+	(find-definitions-by-name): Hence not needed anymore.
+	(source-location): Use TMPFILE-TO-BUFFER to get buffer source
+	location of interactively compiled functions.
+
 2010-03-04  Mark Evenson  <evenson@panix.com>
 
 	* swank-abcl.lisp (emacs-inspect): Define default method to use
-	the result of SYS:INSPECTED-PARTS if non-nil. 
+	the result of SYS:INSPECTED-PARTS if non-nil.
 
 2010-03-03  Stas Boukarev  <stassats@gmail.com>
 
