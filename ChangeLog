@@ -1,3 +1,7 @@
+2010-03-05  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-ccl.lisp: Indentation fixes.
+
 2010-03-05  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank-ecl.lisp: Make backend depend on ECL version 10.3.1 which

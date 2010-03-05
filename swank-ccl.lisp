@@ -1,13 +1,13 @@
-;;;; -*- Mode: lisp; indent-tabs-mode: nil -*-
+;;;; -*- indent-tabs-mode: nil -*-
 ;;;
-;;; openmcl-swank.lisp --- SLIME backend for OpenMCL.
+;;; swank-ccl.lisp --- SLIME backend for Clozure CL.
 ;;;
 ;;; Copyright (C) 2003, James Bielman  <jamesjb@jamesjb.com>
 ;;;
 ;;; This program is licensed under the terms of the Lisp Lesser GNU
-;;; Public License, known as the LLGPL, and distributed with OpenMCL
+;;; Public License, known as the LLGPL, and distributed with Clozure CL
 ;;; as the file "LICENSE".  The LLGPL consists of a preamble and the
-;;; LGPL, which is distributed with OpenMCL as the file "LGPL".  Where
+;;; LGPL, which is distributed with Clozure CL as the file "LGPL".  Where
 ;;; these conflict, the preamble takes precedence.
 ;;;
 ;;; The LLGPL is also available online at
@@ -83,7 +83,6 @@
     `(or (find-symbol ,str :swank)
          (error "There is no symbol named ~a in the SWANK package" ,str))))
 
-
 ;;; TCP Server
 
 (defimplementation preferred-communication-style ()
@@ -100,11 +99,11 @@
   (close socket))
 
 (defimplementation accept-connection (socket &key external-format
-                                             buffering timeout)
+                                      buffering timeout)
   (declare (ignore buffering timeout))
-  (ccl:accept-connection socket :wait t
-                         :stream-args (and external-format
-                                           `(:external-format ,external-format))))
+  (let ((stream-args (and external-format
+                          `(:external-format ,external-format))))
+    (ccl:accept-connection socket :wait t :stream-args stream-args)))
 
 (defvar *external-format-to-coding-system*
   '((:iso-8859-1 
@@ -184,8 +183,8 @@
                   :load load-p
                   :external-format external-format)))
 
-;; Use a temp file rather than in-core compilation in order to handle eval-when's
-;; as compile-time.
+;; Use a temp file rather than in-core compilation in order to handle
+;; eval-when's as compile-time.
 (defimplementation swank-compile-string (string &key buffer position filename
                                          policy)
   (declare (ignore policy))
@@ -317,9 +316,10 @@
          (ccl:*signal-printing-errors* nil))
     (funcall debugger-loop-fn)))
 
+;; This is called for an async interrupt and is running in a random
+;; thread not selected by the user, so don't use thread-local vars
+;; such as *emacs-connection*.
 (defun find-repl-thread ()
-  ;; This is called for an async interrupt and is running in a random thread not
-  ;; selected by the user, so don't use thread-local vars such as *emacs-connection*.
   (let* ((conn (funcall (swank-sym default-connection))))
     (and conn
          (let ((*break-on-signals* nil))
@@ -389,23 +389,19 @@
     (let ((lfun (ccl:frame-function p context)))
       (format stream "(~S" (or (ccl:function-name lfun) lfun))
       (let* ((unavailable (cons nil nil))
-            (args (ccl:frame-supplied-arguments p context :unknown-marker unavailable)))
+             (args (ccl:frame-supplied-arguments p context 
+                                                 :unknown-marker unavailable)))
         (declare (dynamic-extent unavailable))
         (if (eq args unavailable)
-          (format stream " #<Unknown Arguments>")
-          (loop for arg in args
-                do (if (eq arg unavailable)
-                     (format stream " #<Unavailable>")
-                     (format stream " ~s" arg)))))
+            (format stream " #<Unknown Arguments>")
+            (dolist (arg args)
+              (if (eq arg unavailable)
+                  (format stream " #<Unavailable>")
+                  (format stream " ~s" arg)))))
       (format stream ")"))))
 
 (defmacro with-frame ((p context) frame-number &body body)
   `(call/frame ,frame-number (lambda (,p ,context) . ,body)))
-
-(defimplementation frame-call (frame-number)
-  (with-frame (p context) frame-number
-    (with-output-to-string (stream)
-      (print-frame (list :frame p context) stream))))
 
 (defun call/frame (frame-number if-found)
   (map-backtrace  
@@ -414,6 +410,10 @@
        (funcall if-found p context)))
    frame-number))
 
+(defimplementation frame-call (frame-number)
+  (with-frame (p context) frame-number
+    (with-output-to-string (stream)
+      (print-frame (list :frame p context) stream))))
 
 (defimplementation frame-var-value (frame var)
   (with-frame (p context) frame
@@ -456,7 +456,6 @@
       (format t "LFUN: ~a~%PC: ~a  FP: #x~x  CONTEXT: ~a~%" lfun pc p context)
       (disassemble lfun))))
 
-
 ;; CCL commit r11373 | gz | 2008-11-16 16:35:28 +0100 (Sun, 16 Nov 2008)
 ;; contains some interesting details:
 ;; 
@@ -494,11 +493,6 @@
 ;; This can be retrieved by (CCL:FIND-SOURCE-NOTE-AT-PC function pc)
 ;; which returns a source-note for the source at offset pc in the
 ;; function.
-;; 
-;; Currently the only thing that makes use of any of this is the
-;; disassembler.  ILISP and current version of Slime still use
-;; backward-compatible functions that deal with filenames only.  The plan
-;; is to make Slime, and our IDE, use this eventually.
 
 (defun function-source-location (function)
   (source-note-to-source-location
@@ -529,7 +523,8 @@
              (cond ((gethash filename *temp-file-map*)
                     (list :buffer (gethash filename *temp-file-map*)))
                    ((probe-file filename)
-                    (list :file (ccl:native-translated-namestring (truename filename))))
+                    (list :file (ccl:native-translated-namestring
+                                 (truename filename))))
                    (t (error "File ~s doesn't exist" filename)))))
     (handler-case
         (cond ((ccl:source-note-p source)
@@ -539,15 +534,17 @@
                  (make-location
                   (when file-name (filename-to-buffer (pathname file-name)))
                   (when start-pos (list :position (1+ start-pos)))
-                  (when full-text (list :snippet (subseq full-text  0 (min 40 (length full-text))))))))
+                  (when full-text 
+                    (list :snippet (subseq full-text 0 
+                                           (min 40 (length full-text))))))))
               ((and source name)
+               ;; This branch is probably never used
                (make-location
                 (filename-to-buffer source)
-                (list :function-name (let ((*package* (find-package :swank-io-package))) ;; should be buffer package.
-                                       (with-standard-io-syntax
-                                           (princ-to-string (if (functionp name)
-                                                              (ccl:function-name name)
-                                                              name)))))))
+                (list :function-name (princ-to-string 
+                                      (if (functionp name)
+                                          (ccl:function-name name)
+                                          name)))))
               (t `(:error ,(funcall if-nil-thunk))))
       (error (c) `(:error ,(princ-to-string c))))))
 
