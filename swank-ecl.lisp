@@ -597,12 +597,12 @@
       (multiple-value-bind (file pos) (ext:compiled-function-file object)
         (cond ((not file)
                (return-from source-location nil))
-              ((setq file (tmpfile-to-buffer file))
-               (make-buffer-location file pos))
+              ((tmpfile-to-buffer file)
+               (make-buffer-location (tmpfile-to-buffer file) pos))
               (t
                (assert (probe-file file))
                (assert (not (minusp pos)))
-               (make-file-location file pos)))))
+               (make-file-location (translate-logical-pathname file) pos)))))
      (method
       ;; FIXME: This will always return NIL at the moment; ECL does not
       ;; store debug information for methods yet.

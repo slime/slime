@@ -1,3 +1,10 @@
+2010-03-07  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-ecl.lisp (source-location): Don't do
+	(setq file (tmpfile-to-buffer file)) in a COND condition,
+	otherwise next cond clause will get null file.
+	Apply translate-logical-pathname to pathnames.
+
 2010-03-05  Helmut Eller  <heller@common-lisp.net>
 
 	Remove some unused stuff.
