@@ -373,8 +373,7 @@ See `methods-by-applicability'.")
                        class))))
 
 (defun stable-sort-by-inheritance (slots class)
-  (stable-sort (copy-seq slots)
-               #'string< 
+  (stable-sort slots #'string< 
                :key #'(lambda (s)
                         (class-name (slot-home-class-using-class s class)))))
 

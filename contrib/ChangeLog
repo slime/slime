@@ -1,5 +1,10 @@
 2010-03-07  Stas Boukarev  <stassats@gmail.com>
 
+	* swank-fancy-inspector.lisp (stable-sort-by-inheritance): Remove copy-seq,
+	unnecessarily put in the previous commit.
+
+2010-03-07  Stas Boukarev  <stassats@gmail.com>
+
 	* swank-fancy-inspector.lisp: Add buttons
 	for selecting default sorting order and default grouping method of
 	slots of a class.
