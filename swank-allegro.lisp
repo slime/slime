@@ -394,22 +394,6 @@
   (etypecase fspec
     (symbol fspec)
     (list (fspec-primary-name (second fspec)))))
-
-;; If Emacs uses DOS-style eol conventions, \n\r are considered as a
-;; single character, but file-position counts them as two.  Here we do
-;; our own conversion.
-(defun count-cr (file pos)
-  (let* ((bufsize 256)
-         (type '(unsigned-byte 8))
-         (buf (make-array bufsize :element-type type))
-         (cr-count 0))
-  (with-open-file (stream file :direction :input :element-type type)
-    (loop for bytes-read = (read-sequence buf stream) do
-          (incf cr-count (count (char-code #\return) buf 
-                                :end (min pos bytes-read)))
-          (decf pos bytes-read)
-          (when (<= pos 0)
-            (return cr-count))))))
               
 (defun find-definition-in-file (fspec type file top-level)
   (let* ((part

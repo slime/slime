@@ -1,5 +1,9 @@
 2010-03-07  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-allegro.lisp (count-cr): Deleted.  No longer used.
+
+2010-03-07  Helmut Eller  <heller@common-lisp.net>
+
 	Handle src-locs of compiler warnings in Allegro 8.2.
 	Didn't somebody already fix that?
 
