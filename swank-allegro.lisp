@@ -251,7 +251,7 @@
 
 (defun handle-compiler-warning (condition)
   (declare (optimize (debug 3) (speed 0) (space 0)))
-   (cond ((and (not *buffer-name*) 
+  (cond ((and (not *buffer-name*) 
               (compiler-undefined-functions-called-warning-p condition))
          (handle-undefined-functions-warning condition))
         (t
@@ -277,9 +277,12 @@
             (list :offset *buffer-start-position* 0)))
           (loc
            (destructuring-bind (file . pos) loc
-             (make-location
-              (list :file (namestring (truename file)))
-              (list :position (1+ pos)))))
+             (let ((start (cond ((consp pos) ; 8.2 and newer
+                                 (car pos))
+                                (t pos))))
+               (make-location
+                (list :file (namestring (truename file)))
+                (list :position (1+ start))))))
           (t
            (make-error-location "No error location available.")))))
 
@@ -295,17 +298,26 @@
                            `(:position ,pos)))
         (make-error-location "No error location available."))))
 
+;; TODO: report it as a bug to Franz that the condition's plist
+;; slot contains (:loc nil).
 (defun handle-undefined-functions-warning (condition)
   (let ((fargs (slot-value condition 'excl::format-arguments)))
-    (loop for (fname . pos-file) in (car fargs) do
-          (loop for (pos file) in pos-file do
-                (signal-compiler-condition
-                 :original-condition condition
-                 :severity :warning
-                 :message (format nil "Undefined function referenced: ~S" 
-                                  fname)
-                 :location (make-location (list :file file)
-                                          (list :position (1+ pos))))))))
+    (loop for (fname . locs) in (car fargs) do
+          (dolist (loc locs)
+            (multiple-value-bind (pos file) (ecase (length loc)
+                                              (2 (values-list loc))
+                                              (3 (destructuring-bind 
+                                                       (start end file) loc
+                                                   (declare (ignore end))
+                                                   (values start file))))
+              (signal-compiler-condition
+               :original-condition condition
+               :severity :warning
+               :message (format nil "Undefined function referenced: ~S" 
+                                fname)
+               :location (make-location (list :file file)
+                                        (list :position (1+ pos)))))))))
+
 (defimplementation call-with-compilation-hooks (function)
   (handler-bind ((warning       #'handle-compiler-warning)
                  (compiler-note #'handle-compiler-warning)
@@ -426,11 +438,11 @@
   (handler-case
       (etypecase file
         (pathname
-           (find-definition-in-file fspec type file top-level))
+         (find-definition-in-file fspec type file top-level))
         ((member :top-level)
-           (make-error-location "Defined at toplevel: ~A" (fspec->string fspec)))
+         (make-error-location "Defined at toplevel: ~A" (fspec->string fspec)))
         (string
-           (find-definition-in-buffer file)))
+         (find-definition-in-buffer file)))
     (error (e)
       (make-error-location "Error: ~A" e))))
 
@@ -471,9 +483,9 @@
             (list fspec
                   (make-error-location "Unknown source location for ~A" 
                                        (fspec->string fspec))))
-           (loop for (fspec type file top-level) in defs 
-                 collect (list (list type fspec)
-                               (find-fspec-location fspec type file top-level))))))))
+           (loop for (fspec type file top-level) in defs collect 
+                 (list (list type fspec)
+                       (find-fspec-location fspec type file top-level))))))))
 
 (defimplementation find-definitions (symbol)
   (fspec-definition-locations symbol))

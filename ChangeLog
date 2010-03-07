@@ -1,3 +1,12 @@
+2010-03-07  Helmut Eller  <heller@common-lisp.net>
+
+	Handle src-locs of compiler warnings in Allegro 8.2.
+	Didn't somebody already fix that?
+
+	* swank-allegro.lisp (location-for-warning)
+	(handle-undefined-functions-warning): In 8.2 src-locs include not
+	only start but also and end positions.
+
 2010-03-07  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-ecl.lisp (source-location): Don't do
