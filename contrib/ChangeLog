@@ -1,3 +1,10 @@
+2010-03-07  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-arglists.lisp (extract-local-op-arglists): Fix for
+	`(labels ((foo (x) ...)|'.
+
+	* slime-autodoc.el (autodoc.1): Add test cases.
+
 2010-02-20  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-fancy.el: Call init function for fancy

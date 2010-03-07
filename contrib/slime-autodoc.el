@@ -316,7 +316,14 @@ If it's not in the cache, the cache will be updated asynchronously."
        "(declare ((string &optional ===> size <===) &rest variables))")
       ("(declare (type (string *HERE*"
        "(declare (type (string &optional ===> size <===) &rest variables))")
-      )
+
+      ;; Test local functions
+      ("(flet ((foo (x y) (+ x y))) (foo *HERE*" "(foo ===> x <=== y)")
+      ("(macrolet ((foo (x y) `(+ ,x ,y))) (foo *HERE*" "(foo ===> x <=== y)")
+      ("(labels ((foo (x y) (+ x y))) (foo *HERE*" "(foo ===> x <=== y)")
+      ("(labels ((foo (x y) (+ x y)) 
+                 (bar (y) (foo *HERE*" 
+       "(foo ===> x <=== y)"))
   (slime-check-top-level)
   (with-temp-buffer
     (setq slime-buffer-package "COMMON-LISP-USER")

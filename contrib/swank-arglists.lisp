@@ -1285,22 +1285,23 @@ object."
   (:method ((operator (eql 'cl:flet)) args)
     (let ((defs (first args))
           (body (rest args)))
-      (cond ((null body) nil)           ; `(flet ((foo (x) |'
-            ((atom defs) nil)           ; `(flet ,foo (|'
+      (cond ((null body) nil)            ; `(flet ((foo (x) |'
+            ((atom defs) nil)            ; `(flet ,foo (|'
             (t (%collect-op/argl-alist defs)))))
   ;; LABELS
   (:method ((operator (eql 'cl:labels)) args)
     ;; Notice that we only have information to "look backward" and
     ;; show arglists of previously occuring local functions.
-    (let ((defs (first args))
-          (body (rest args)))
-      (cond ((atom defs) nil)
-            ((not (null body))
-             (extract-local-op-arglists 'cl:flet args))
-            (t
-             (let ((def.body (cddr (car (last defs)))))
-               (when def.body
-                 (%collect-op/argl-alist defs)))))))
+    (destructuring-bind (defs . body) args
+      (unless (atom defs)                ; `(labels ,foo (|'
+        (let ((current-def (car (last defs))))
+          (cond ((atom current-def) nil) ; `(labels ((foo (x) ...)|'
+                ((not (null body))
+                 (extract-local-op-arglists 'cl:flet args))
+                (t
+                 (let ((def.body (cddr current-def)))
+                   (when def.body
+                     (%collect-op/argl-alist defs)))))))))
   ;; MACROLET
   (:method ((operator (eql 'cl:macrolet)) args)
     (extract-local-op-arglists 'cl:labels args)))
