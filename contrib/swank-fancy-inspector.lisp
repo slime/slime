@@ -215,74 +215,100 @@ See `methods-by-applicability'.")
   (assert (eq (car box) :box))
   (setf (cdr box) value))
 
-(defgeneric all-slots-for-inspector (object)
-  (:method ((object standard-object))
-    (let* ((class           (class-of object))
-           (direct-slots    (swank-mop:class-direct-slots class))
-           (effective-slots (sort (copy-seq (swank-mop:class-slots class))
-                                  #'string< :key #'swank-mop:slot-definition-name))
-           (longest-slot-name-length
-            (loop for slot :in effective-slots
-                  maximize (length (symbol-name
-                                    (swank-mop:slot-definition-name slot)))))
-           (checklist
-            (reinitialize-checklist
-             (ensure-istate-metadata object :checklist
-                                       (make-checklist (length effective-slots)))))
-           (grouping-kind
-            ;; We box the value so we can re-set it.
-            (ensure-istate-metadata object :grouping-kind (box :alphabetically)))
-           (effective-slots
-            ;; We need this rebinding because the this list must be in
-            ;; the same order as they checklist buttons are created.
-            (ecase (ref grouping-kind)
-              (:alphabetically effective-slots)
-              (:inheritance    (stable-sort-by-inheritance effective-slots class)))))
-      `("--------------------"
-        (:newline)
-        "  "
-        (:action ,(case (ref grouping-kind)
-                    (:alphabetically "[group slots by inheritance]")
-                    (:inheritance    "[group slots alphabetically]"))
-                 ,(lambda ()
-                    ;; We have to do this as the order of slots will
-                    ;; be sorted differently.
-                    (fill (checklist.buttons checklist) nil)
-                    (case (ref grouping-kind)
-                      (:alphabetically (setf (ref grouping-kind) :inheritance))
-                      (:inheritance    (setf (ref grouping-kind) :alphabetically))))
-                 :refreshp t)
-        (:newline)
-        ,@ (case (ref grouping-kind)
-             (:alphabetically
-              `((:newline)
-                "All Slots:"
-                (:newline)
-                ,@(make-slot-listing checklist object class
-                                     effective-slots direct-slots
-                                     longest-slot-name-length)))
-             (:inheritance
-              (list-all-slots-by-inheritance checklist object class
-                                             effective-slots direct-slots
-                                             longest-slot-name-length)))
-        (:newline)
-        (:action "[set value]"
-                 ,(lambda ()
-                    (do-checklist (idx checklist)
-                      (query-and-set-slot class object (nth idx effective-slots))))
-                 :refreshp t)
-        "  "
-        (:action "[make unbound]"
-                 ,(lambda ()
-                    (do-checklist (idx checklist)
-                      (swank-mop:slot-makunbound-using-class
-                       class object (nth idx effective-slots))))
-                 :refreshp t)
-        (:newline)
-        ))))
+(defvar *inspector-slots-default-order* :alphabetically
+  "Accepted values: :alphabetically and :unsorted")
 
-(defun list-all-slots-by-inheritance (checklist object class effective-slots direct-slots
-                                      longest-slot-name-length)
+(defvar *inspector-slots-default-grouping* :all
+  "Accepted values: :inheritance and :all")
+
+(defgeneric all-slots-for-inspector (object))
+
+(defmethod all-slots-for-inspector ((object standard-object))
+  (let* ((class           (class-of object))
+         (direct-slots    (swank-mop:class-direct-slots class))
+         (effective-slots (swank-mop:class-slots class))
+         (longest-slot-name-length
+          (loop for slot :in effective-slots
+                maximize (length (symbol-name
+                                  (swank-mop:slot-definition-name slot)))))
+         (checklist
+          (reinitialize-checklist
+           (ensure-istate-metadata object :checklist
+                                   (make-checklist (length effective-slots)))))
+         (grouping-kind
+          ;; We box the value so we can re-set it.
+          (ensure-istate-metadata object :grouping-kind
+                                  (box *inspector-slots-default-grouping*)))
+         (sort-order
+          (ensure-istate-metadata object :sort-order
+                                  (box *inspector-slots-default-order*)))
+         (sorted-slots (sort (copy-seq effective-slots)
+                             (ecase (ref sort-order)
+                               (:alphabetically #'string<)
+                               (:unsorted (constantly nil)))
+                             :key #'swank-mop:slot-definition-name))
+         (effective-slots
+          (ecase (ref grouping-kind)
+            (:all sorted-slots)
+            (:inheritance (stable-sort-by-inheritance sorted-slots class)))))
+    `("--------------------"
+      (:newline)
+      " Group slots by inheritance "
+      (:action ,(ecase (ref grouping-kind)
+                       (:all "[ ]")
+                       (:inheritance "[X]"))
+               ,(lambda ()
+                        ;; We have to do this as the order of slots will
+                        ;; be sorted differently.
+                        (fill (checklist.buttons checklist) nil)
+                        (setf (ref grouping-kind)
+                              (ecase (ref grouping-kind)
+                                (:all :inheritance)
+                                (:inheritance :all))))
+               :refreshp t)
+      (:newline)
+      " Sort slots alphabetically  "
+      (:action ,(ecase (ref sort-order)
+                       (:unsorted "[ ]")
+                       (:alphabetically "[X]"))
+               ,(lambda ()
+                        (fill (checklist.buttons checklist) nil)
+                        (setf (ref sort-order)
+                              (ecase (ref sort-order)
+                                (:unsorted :alphabetically)
+                                (:alphabetically :unsorted))))
+               :refreshp t)
+      (:newline)
+      ,@ (case (ref grouping-kind)
+           (:all
+            `((:newline)
+              "All Slots:"
+              (:newline)
+              ,@(make-slot-listing checklist object class
+                                   effective-slots direct-slots
+                                   longest-slot-name-length)))
+           (:inheritance
+            (list-all-slots-by-inheritance checklist object class
+                                           effective-slots direct-slots
+                                           longest-slot-name-length)))
+      (:newline)
+      (:action "[set value]"
+               ,(lambda ()
+                        (do-checklist (idx checklist)
+                          (query-and-set-slot class object
+                                              (nth idx effective-slots))))
+               :refreshp t)
+      "  "
+      (:action "[make unbound]"
+               ,(lambda ()
+                        (do-checklist (idx checklist)
+                          (swank-mop:slot-makunbound-using-class
+                           class object (nth idx effective-slots))))
+               :refreshp t)
+      (:newline))))
+
+(defun list-all-slots-by-inheritance (checklist object class effective-slots
+                                      direct-slots longest-slot-name-length)
   (flet ((slot-home-class (slot)
            (slot-home-class-using-class slot class)))
     (let ((current-slots '()))
@@ -347,7 +373,8 @@ See `methods-by-applicability'.")
                        class))))
 
 (defun stable-sort-by-inheritance (slots class)
-  (stable-sort slots #'string< 
+  (stable-sort (copy-seq slots)
+               #'string< 
                :key #'(lambda (s)
                         (class-name (slot-home-class-using-class s class)))))
 

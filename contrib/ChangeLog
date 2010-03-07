@@ -1,3 +1,18 @@
+2010-03-07  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-fancy-inspector.lisp: Add buttons
+	for selecting default sorting order and default grouping method of
+	slots of a class.
+
+	(all-slots-for-inspector): Implement the above feature.
+	Move the default method from :method option of the GF to a separate
+	defmethod, this method is quite large and :method eats space for
+	indentation.
+	(*inspector-slots-default-order*):
+	New variable, accepts :unsorted and :alphabetically
+	(*inspector-slots-default-grouping*): New variable,
+	accepts :all and :inheritance.
+
 2010-03-07  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-arglists.lisp (extract-local-op-arglists): Fix for
@@ -10,10 +25,12 @@
 	* slime-fancy.el: Call init function for fancy
 	inspector. Necessary due to 2010-02-15.
 
+
 2010-02-19  Stas Boukarev  <stassats@gmail.com>
 
-	* slime-fuzzy.el (slime-fuzzy-choices-buffer): Make connection buffer-local, otherwise
-	`swank:fuzzy-completion-selected' will be sent to the default connection.
+	* slime-fuzzy.el (slime-fuzzy-choices-buffer): Make connection
+	buffer-local, otherwise `swank:fuzzy-completion-selected' will
+	be sent to the default connection.
 
 2010-02-17  Helmut Eller  <heller@common-lisp.net>
 
