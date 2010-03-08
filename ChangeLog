@@ -1,5 +1,13 @@
 2010-03-08  Helmut Eller  <heller@common-lisp.net>
 
+	Fix some of the brokeness in the last change.
+
+	* swank-allegro.lisp (frame-source-location): Deal with frames for
+	undefined functions better.
+	(ldb-code-to-src-loc): Handle temp-files properly.
+
+2010-03-08  Helmut Eller  <heller@common-lisp.net>
+
 	Try to use source-level debugging features in Allegro 8.2
 
 	* swank-allegro.lisp (disassemble-frame): Use undocumented

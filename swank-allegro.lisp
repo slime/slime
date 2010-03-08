@@ -17,8 +17,6 @@
   (require 'lldb)
   )
 
-;;(declaim (optimize debug)) 
-
 (import-from :excl *gray-stream-symbols* :swank-backend)
 
 ;;; swank-mop
@@ -197,11 +195,14 @@
   (let* ((frame (nth-frame index)))
     (multiple-value-bind (x fun xx xxx pc) (debugger::dyn-fd-analyze frame)
       (declare (ignore x xx xxx))
-      #+(version>= 8 2)
-      (pc-source-location fun pc)
-      #-(version>= 8 2)
-      (function-source-location fun)
-      )))
+      (cond (pc
+             #+(version>= 8 2)
+             (pc-source-location fun pc)
+             #-(version>= 8 2)
+             (function-source-location fun))
+            (t ; frames for unbound functions etc end up here
+             (cadr (car (fspec-definition-locations
+                         (car (debugger:frame-expression frame))))))))))
 
 (defun function-source-location (fun)
   (cadr (car (fspec-definition-locations fun))))
@@ -226,17 +227,26 @@
 (defun ldb-code-to-src-loc (code)
   (let* ((start (excl::ldb-code-start-char code))
          (func (excl::ldb-code-func code))
-         (loc (buffer-or-file-location (excl:source-file func) (or start 0))))
-    (cond (start loc)
+         (src-file (excl:source-file func)))
+    (cond (start 
+           (buffer-or-file-location src-file start))
           (t
            (let* ((debug-info (excl::function-source-debug-info func))
                   (whole (aref debug-info 0))
                   (paths (source-paths-of (excl::ldb-code-source whole)
                                           (excl::ldb-code-source code)))
                   (path (longest-common-prefix paths))
-                  (start (excl::ldb-code-start-char whole)))
-             (make-location (location-buffer loc) 
-                            `(:source-path (0 . ,path) ,start)))))))
+                  (start (excl::ldb-code-start-char whole))
+                  (probe (gethash src-file *temp-file-map*)))
+             (cond ((not probe)
+                    (make-location `(:file ,(namestring (truename src-file)))
+                                   `(:source-path (0 . ,path) ,start)))
+                   (t
+                    (destructuring-bind (buffer bstart file) probe
+                      (declare (ignore file))
+                      (make-location `(:buffer ,buffer)
+                                     `(:source-path (0 . ,path) 
+                                                    ,(+ bstart start)))))))))))
 
 (defun longest-common-prefix (sequences)
   (assert sequences)
