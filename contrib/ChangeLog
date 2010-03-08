@@ -1,7 +1,11 @@
+2010-03-08  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-call-defun): Work also on defvar/defparameter.
+
 2010-03-07  Stas Boukarev  <stassats@gmail.com>
 
-	* swank-fancy-inspector.lisp (stable-sort-by-inheritance): Remove copy-seq,
-	unnecessarily put in the previous commit.
+	* swank-fancy-inspector.lisp (stable-sort-by-inheritance): Remove
+	copy-seq, unnecessarily put in the previous commit.
 
 2010-03-07  Stas Boukarev  <stassats@gmail.com>
 

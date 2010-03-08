@@ -1,3 +1,7 @@
+2010-03-08  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-extract-context): Add defvar and defparameter.
+
 2010-03-08  Helmut Eller  <heller@common-lisp.net>
 
 	Fix some of the brokeness in the last change.

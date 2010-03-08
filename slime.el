@@ -4274,6 +4274,9 @@ the following cases (the . shows the point position):
  (define-setf-expander n.ame (...) ...)  -> (:define-setf-expander name)
  (define-modify-macro n.ame (...) ...)   -> (:define-modify-macro name)
  (define-compiler-macro n.ame (...) ...) -> (:define-compiler-macro name)
+ (defvar n.ame (...) ...)                -> (:defvar name)
+ (defparameter n.ame (...) ...)          -> (:defparameter name)
+ (defconstant n.ame (...) ...)           -> (:defconstant name)
 
 For other contexts we return the symbol at point."
   (let ((name (slime-symbol-at-point)))
@@ -4325,6 +4328,9 @@ For other contexts we return the symbol at point."
            `(:define-setf-expander ,name))
           ((slime-in-expression-p '(defsetf *))
            `(:defsetf ,name))
+          ((slime-in-expression-p '(defvar *))       `(:defvar ,name))
+          ((slime-in-expression-p '(defparameter *)) `(:defparameter ,name))
+          ((slime-in-expression-p '(defconstant *))  `(:defconstant ,name))
           (t 
            name))))
 
