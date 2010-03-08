@@ -1,3 +1,25 @@
+2010-03-08  Helmut Eller  <heller@common-lisp.net>
+
+	Try to use source-level debugging features in Allegro 8.2
+
+	* swank-allegro.lisp (disassemble-frame): Use undocumented
+	debugger::dyn-fd-analyze to figure out the PC and display it.
+	(pc-source-location, ldb-code-to-src-loc, longest-common-prefix)
+	(source-paths-of): New functions.
+	(frame-source-location): Use pc-source-location.  Still far from
+	optimal since Allegro rarely records source regions and anonymous
+	functions don't seem to carry source level debug-info at all.
+	(*temp-file-map*, buffer-or-file-location, find-fspec-location):
+	Use a table to map temp-file names back to Emacs buffers instead
+	of putting an eval-when-compile form in the source.  The
+	eval-when-compile form messed up source positions.
+	(*temp-file-header-end-position*, find-definition-in-buffer):
+	Deleted.
+	(compile-from-temp-file): Bind excl:*load-source-debug-info* and
+	compiler:save-source-level-debug-info-switch so that Allegro
+	doesn't try to load debug-info from deleted files.  Also put
+	the filename in *temp-file-map*.
+
 2010-03-08  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank.lisp (dispatch-interrupt-event): Take a connection because
