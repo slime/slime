@@ -1,3 +1,17 @@
+2010-03-08  Tobias C. Rittweiler <tcr@freebits.de>
+
+	Make swank:connection-info include information about initially
+	passed coding-system, and the resulting external-format of the
+	socket. Debugging aid.
+
+	* swank.lisp (connection.external-format): New function.
+	(start-server, create-server): Pass down coding-system, not
+	external-format.
+	(setup-server): Pass down both, coding-system and external-format.
+	(serve-connection): Ditto.
+	(create-connection): Set coding-system slot of CONNECTION.
+	(connection-info): Include coding-system and external-format.
+
 2010-03-07  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-allegro.lisp (count-cr): Deleted.  No longer used.

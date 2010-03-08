@@ -301,6 +301,9 @@ Backend code should treat the connection structure as opaque.")
   (declare (ignore depth))
   (print-unreadable-object (conn stream :type t :identity t)))
 
+(defun connection.external-format (connection)
+  (stream-external-format (connection.socket-io connection)))
+
 (defvar *connections* '()
   "List of all active connections, with the most recent at the front.")
 
@@ -639,8 +642,7 @@ Valid values are :none, :line, and :full.")
 This is the entry point for Emacs."
   (setup-server 0
                 (lambda (port) (announce-server-port port-file port))
-                style dont-close 
-                (find-external-format-or-lose coding-system)))
+                style dont-close coding-system))
 
 (defun create-server (&key (port default-server-port)
                       (style *communication-style*)
@@ -649,8 +651,8 @@ This is the entry point for Emacs."
   "Start a SWANK server on PORT running in STYLE.
 If DONT-CLOSE is true then the listen socket will accept multiple
 connections, otherwise it will be closed after the first."
-  (setup-server port #'simple-announce-function style dont-close 
-                (find-external-format-or-lose coding-system)))
+  (setup-server port #'simple-announce-function
+                style dont-close coding-system))
 
 (defun find-external-format-or-lose (coding-system)
   (or (find-external-format coding-system)
@@ -658,14 +660,18 @@ connections, otherwise it will be closed after the first."
 
 (defparameter *loopback-interface* "127.0.0.1")
 
-(defun setup-server (port announce-fn style dont-close external-format)
+(defun setup-server (port announce-fn style dont-close coding-system)
   (declare (type function announce-fn))
   (init-log-output)
-  (let* ((socket (create-socket *loopback-interface* port))
+  (let* ((external-format (find-external-format-or-lose coding-system))
+         (socket (create-socket *loopback-interface* port))
          (local-port (local-port socket)))
     (funcall announce-fn local-port)
     (flet ((serve ()
-             (serve-connection socket style dont-close external-format)))
+             ;; We pass down the coding-system so we can put it into a
+             ;; CONNECTION for debugging purposes.
+             (serve-connection socket style dont-close
+                               external-format coding-system)))
       (ecase style
         (:spawn
          (initialize-multiprocessing
@@ -716,7 +722,7 @@ first."
                  :coding-system coding-system))
 
 
-(defun serve-connection (socket style dont-close external-format)
+(defun serve-connection (socket style dont-close external-format coding-system)
   (let ((closed-socket-p nil))
     (unwind-protect
          (let ((client (accept-authenticated-connection
@@ -724,7 +730,7 @@ first."
            (unless dont-close
              (close-socket socket)
              (setf closed-socket-p t))
-           (let ((connection (create-connection client style)))
+           (let ((connection (create-connection client style coding-system)))
              (run-hook *new-connection-hook* connection)
              (push connection *connections*)
              (serve-requests connection)))
@@ -1281,7 +1287,7 @@ The processing is done in the extent of the toplevel restart."
             (unless c (return))
             (write-char c str)))))
 
-(defun create-connection (socket-io style)
+(defun create-connection (socket-io style coding-system)
   (let ((success nil))
     (unwind-protect
          (let ((c (ecase style
@@ -1302,6 +1308,7 @@ The processing is done in the extent of the toplevel restart."
                                       :serve-requests #'simple-serve-requests))
                     )))
            (setf (connection.communication-style c) style)
+           (setf (connection.coding-system c) coding-system)
            (setf success t)
            c)
       (unless success
@@ -1713,19 +1720,25 @@ LISP-IMPLEMENTATION: a list (&key TYPE NAME VERSION)
 FEATURES: a list of keywords
 PACKAGE: a list (&key NAME PROMPT)
 VERSION: the protocol version"
-  (setq *slime-features* *features*)
-  `(:pid ,(getpid) :style ,(connection.communication-style *emacs-connection*)
-    :lisp-implementation (:type ,(lisp-implementation-type)
-                          :name ,(lisp-implementation-type-name)
-                          :version ,(lisp-implementation-version))
-    :machine (:instance ,(machine-instance)
-              :type ,(machine-type)
-              :version ,(machine-version))
-    :features ,(features-for-emacs)
-    :modules ,*modules*
-    :package (:name ,(package-name *package*)
-              :prompt ,(package-string-for-prompt *package*))
-    :version ,*swank-wire-protocol-version*))
+  (let ((c *emacs-connection*))
+    (setq *slime-features* *features*)
+    `(:pid ,(getpid) :style ,(connection.communication-style c)
+      :encoding (:coding-system ,(connection.coding-system c)
+                 ;; external-formats are totally implementation-dependent,
+                 ;; so better play safe.
+                 :external-format ,(prin1-to-string
+                                    (connection.external-format c)))
+      :lisp-implementation (:type ,(lisp-implementation-type)
+                            :name ,(lisp-implementation-type-name)
+                            :version ,(lisp-implementation-version))
+      :machine (:instance ,(machine-instance)
+               :type ,(machine-type)
+               :version ,(machine-version))
+      :features ,(features-for-emacs)
+      :modules ,*modules*
+      :package (:name ,(package-name *package*)
+               :prompt ,(package-string-for-prompt *package*))
+      :version ,*swank-wire-protocol-version*)))
 
 (defslimefun io-speed-test (&optional (n 1000) (m 1))
   (let* ((s *standard-output*)
