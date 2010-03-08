@@ -1213,13 +1213,14 @@ The processing is done in the extent of the toplevel restart."
         (install-sigint-handler 
          (lambda () 
            (invoke-or-queue-interrupt
-            (lambda () 
-              (with-connection (connection)
-                (dispatch-interrupt-event)))))))
+            (lambda () (dispatch-interrupt-event connection))))))
   (handle-requests connection t))
 
-(defun dispatch-interrupt-event ()
-  (dispatch-event `(:emacs-interrupt ,(current-thread-id))))
+(defun dispatch-interrupt-event (connection)
+  ;; This boils down to SIGNAL-INTERRUPT which uses USE-THREADS-P
+  ;; which needs *EMACS-CONNECTION*.
+  (with-connection (connection)
+    (dispatch-event `(:emacs-interrupt ,(current-thread-id)))))
 
 (defun deinstall-fd-handler (connection)
   (log-event "deinstall-fd-handler~%")
@@ -1229,34 +1230,46 @@ The processing is done in the extent of the toplevel restart."
 ;;;;;; Simple sequential IO
 
 (defun simple-serve-requests (connection)
-  (unwind-protect 
+  (unwind-protect
        (with-connection (connection)
          (call-with-user-break-handler
-          (lambda () 
-            (invoke-or-queue-interrupt #'dispatch-interrupt-event))
+          (lambda ()
+            (invoke-or-queue-interrupt
+             #'(lambda () (dispatch-interrupt-event connection))))
           (lambda ()
             (with-simple-restart (close-connection "Close SLIME connection")
               ;;(handle-requests connection)
               (let* ((stdin (real-input-stream *standard-input*))
                      (*standard-input* (make-repl-input-stream connection 
                                                                stdin)))
-                (with-swank-protocol-error-handler (connection)
-                  (simple-repl)))))))
+                (simple-repl))))))
     (close-connection connection nil (safe-backtrace))))
 
 (defun simple-repl ()
-  (loop
-   (with-simple-restart (abort "Abort")
-     (format t "~a> " (package-string-for-prompt *package*))
-     (force-output)
-     (let ((form (read)))
-       (let ((- form)
-             (values (multiple-value-list (eval form))))
-         (setq *** **  ** *  * (car values)
-               /// //  // /  / values
-               +++ ++  ++ +  + form)
-         (cond ((null values) (format t "; No values~&"))
-               (t (mapc (lambda (v) (format t "~s~&" v)) values))))))))
+  (flet ((read-eval-print ()
+           (format t "~a> " (package-string-for-prompt *package*))
+           (force-output)
+           (let ((form (read)))
+             (let ((- form)
+                   (values (multiple-value-list (eval form))))
+               (setq *** **  ** *  * (car values)
+                     /// //  // /  / values
+                     +++ ++  ++ +  + form)
+               (cond ((null values) (format t "; No values~&"))
+                     (t (mapc (lambda (v) (format t "~s~&" v)) values)))))))
+    (loop
+      (restart-case
+          (handler-case (read-eval-print)
+            (end-of-file () (return)))
+        (abort (&optional c)
+          :report "Return to inferior-lisp's top-level."
+          :test (lambda (c)
+                  (declare (ignore c))
+                  ;; Do not show this restart if a more appropriate
+                  ;; top-level restart is available (e.g. for REXs and
+                  ;; hence the slime-repl.)
+                  (not (top-level-restart-p)))
+          (declare (ignore c)))))))
 
 (defun make-repl-input-stream (connection stdin)
   (make-input-stream
@@ -1268,21 +1281,22 @@ The processing is done in the extent of the toplevel restart."
                 (if (open-stream-p stdin) 
                     :stdin-open :stdin-closed))
      (loop
-      (let* ((socket (connection.socket-io connection))
-             (inputs (list socket stdin))
-             (ready (wait-for-input inputs)))
-        (cond ((eq ready :interrupt)
-               (check-slime-interrupts))
-              ((member socket ready)
-               ;; A Slime request from Emacs is pending; make sure to
-               ;; redirect IO to the REPL buffer.
-               (with-io-redirection (connection)
-                 (handle-requests connection t)))
-              ((member stdin ready)
-               ;; User typed something into the  *inferior-lisp* buffer,
-               ;; so do not redirect.
-               (return (read-non-blocking stdin)))
-              (t (assert (null ready)))))))))
+       (with-top-level-restart (connection nil)
+         (let* ((socket (connection.socket-io connection))
+                (inputs (list socket stdin))
+                (ready (wait-for-input inputs)))
+           (cond ((eq ready :interrupt)
+                  (check-slime-interrupts))
+                 ((member socket ready)
+                  ;; A Slime request from Emacs is pending; make sure to
+                  ;; redirect IO to the REPL buffer.
+                  (with-io-redirection (connection)
+                    (handle-requests connection t)))
+                 ((member stdin ready)
+                  ;; User typed something into the  *inferior-lisp* buffer,
+                  ;; so do not redirect.
+                  (return (read-non-blocking stdin)))
+                 (t (assert (null ready))))))))))
 
 (defun read-non-blocking (stream)
   (with-output-to-string (str)

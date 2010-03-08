@@ -1,5 +1,22 @@
 2010-03-08  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank.lisp (dispatch-interrupt-event): Take a connection because
+	it boils down to SIGNAL-INTERRUPT which uses USE-THREADS-P which
+	needs a connection.
+	(install-fd-handler): Adapted accordingly.
+	(simple-serve-event): Adapted accordingly. Additionally, remove
+	superfluous WITH-SWANK-PROTOCOL-HANDLER as that's established by
+	WITH-CONNECTION already.
+	(simple-repl): Show "abort inferior lisp" restart only if not a
+	more appropriate "abort some REX" restart is available. Also make
+	sure to return in case of END-OF-FILE, otherwise there's an
+	infinite loop where we end up in the debugger again and again
+	until the user eventually selects close-connection restart himself.
+	(make-repl-input-stream): Use WITH-TOP-LEVEL-RESTART so
+	`sldb-quit' can be used in SLDB.
+
+2010-03-08  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank.lisp (close-connection): Include initially passed
 	coding-system in debugging output.
 
