@@ -1,5 +1,10 @@
 2010-03-08  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank.lisp (close-connection): Include initially passed
+	coding-system in debugging output.
+
+2010-03-08  Tobias C. Rittweiler <tcr@freebits.de>
+
 	Make swank:connection-info include information about initially
 	passed coding-system, and the resulting external-format of the
 	socket. Debugging aid.

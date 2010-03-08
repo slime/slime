@@ -302,7 +302,8 @@ Backend code should treat the connection structure as opaque.")
   (print-unreadable-object (conn stream :type t :identity t)))
 
 (defun connection.external-format (connection)
-  (stream-external-format (connection.socket-io connection)))
+  (ignore-errors
+    (stream-external-format (connection.socket-io connection))))
 
 (defvar *connections* '()
   "List of all active connections, with the most recent at the front.")
@@ -946,11 +947,13 @@ The processing is done in the extent of the toplevel restart."
                         ;; Connection to Emacs lost. [~%~
                         ;;  condition: ~A~%~
                         ;;  type: ~S~%~
-                        ;;  encoding: ~A style: ~S dedicated: ~S]~%"
+                        ;;  encoding: ~A vs. ~A~%~
+                        ;;  style: ~S dedicated: ~S]~%"
             backtrace
             (escape-non-ascii (safe-condition-message condition) )
             (type-of condition)
-            (ignore-errors (stream-external-format (connection.socket-io c)))
+            (connection.coding-system c)
+            (connection.external-format c)
             (connection.communication-style c)
             *use-dedicated-output-stream*)
     (finish-output *log-output*))
