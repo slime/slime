@@ -242,15 +242,16 @@ See `methods-by-applicability'.")
          (sort-order
           (ensure-istate-metadata object :sort-order
                                   (box *inspector-slots-default-order*)))
+         (sort-predicate (ecase (ref sort-order)
+                           (:alphabetically #'string<)
+                           (:unsorted (constantly nil))))
          (sorted-slots (sort (copy-seq effective-slots)
-                             (ecase (ref sort-order)
-                               (:alphabetically #'string<)
-                               (:unsorted (constantly nil)))
+                             sort-predicate
                              :key #'swank-mop:slot-definition-name))
          (effective-slots
           (ecase (ref grouping-kind)
             (:all sorted-slots)
-            (:inheritance (stable-sort-by-inheritance sorted-slots class)))))
+            (:inheritance (stable-sort-by-inheritance sorted-slots class sort-predicate)))))
     `("--------------------"
       (:newline)
       " Group slots by inheritance "
@@ -372,8 +373,8 @@ See `methods-by-applicability'.")
                                :key #'swank-mop:slot-definition-name :test #'eq)
                        class))))
 
-(defun stable-sort-by-inheritance (slots class)
-  (stable-sort slots #'string< 
+(defun stable-sort-by-inheritance (slots class predicate)
+  (stable-sort slots predicate
                :key #'(lambda (s)
                         (class-name (slot-home-class-using-class s class)))))
 

@@ -1,5 +1,10 @@
 2010-03-08  Stas Boukarev  <stassats@gmail.com>
 
+	* swank-fancy-inspector.lisp (all-slots-for-inspector): Sort class
+	names when grouping by inheritance the same way as slots are sorted.
+
+2010-03-08  Stas Boukarev  <stassats@gmail.com>
+
 	* slime-repl.el (slime-call-defun): Work also on defvar/defparameter.
 
 2010-03-07  Stas Boukarev  <stassats@gmail.com>
