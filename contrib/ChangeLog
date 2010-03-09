@@ -1,5 +1,10 @@
 2010-03-09  Stas Boukarev  <stassats@gmail.com>
 
+	* swank-arglists.lisp (arglist-ref): Don't error if a &key name isn't
+	a :keyword symbol. And also handle non-:keyword keyword parameters.
+
+2010-03-09  Stas Boukarev  <stassats@gmail.com>
+
 	* swank-presentations.lisp (inspect-presentation): Throw an error when
 	trying to access unrecorded object.
 	(lookup-presented-object-or-lose): Rename from `get-repl-result'.

@@ -1396,8 +1396,10 @@ to the argument (NTH `provided-argument-index' `provided-arguments')."
          (let* ((argument      (nth arg-index provided-arguments))
                 (provided-keys (subseq provided-arguments positional-args#)))
            (loop for (key value) on provided-keys by #'cddr
-                 when (eq value argument) 
-                 return key)))))))
+                 when (eq value argument)
+                 return (match key
+                            (('quote symbol) symbol)
+                            (_ key)))))))))
 
 (defun arglist-ref (arglist &rest indices)
   "Returns the parameter in ARGLIST along the INDICIES path. Numbers
@@ -1416,10 +1418,14 @@ represent key parameters."
                      do (decf index args#)
                    finally (return (or rest nil)))))
          (ref-keyword-arg (arglist keyword)
-           (assert (symbolp keyword) (keyword))
-           (do-decoded-arglist arglist
-             (&key (kw arg) (when (eq kw keyword)
-                              (return-from ref-keyword-arg arg))))
+           ;; keyword argument may be any symbol,
+           ;; not only from the KEYWORD package.
+           (let ((keyword (match keyword
+                            (('quote symbol) symbol)
+                            (_ keyword))))
+             (do-decoded-arglist arglist
+               (&key (kw arg) (when (eq kw keyword)
+                                (return-from ref-keyword-arg arg)))))
            nil))
     (dolist (index indices)
       (assert (arglist-p arglist))
