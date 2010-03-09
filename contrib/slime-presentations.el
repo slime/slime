@@ -632,12 +632,12 @@ A negative argument means move backward instead."
 the presented object."
   (let ((id (slime-presentation-id presentation)))
     (etypecase id
-      (number         
+      (number
        ;; Make sure it works even if *read-base* is not 10.
-       (format "(swank:get-repl-result #10r%d)" id))
+       (format "(swank:lookup-presented-object-or-lose %d.)" id))
       (list
        ;; for frame variables and inspector parts
-       (format "(swank:get-repl-result '%s)" id)))))
+       (format "(swank:lookup-presented-object-or-lose '%s)" id)))))
 
 (defun slime-buffer-substring-with-reified-output (start end)
   (let ((str-props (buffer-substring start end))

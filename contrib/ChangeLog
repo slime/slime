@@ -1,5 +1,11 @@
 2010-03-09  Stas Boukarev  <stassats@gmail.com>
 
+	* swank-presentations.lisp (inspect-presentation): Throw an error when
+	trying to access unrecorded object.
+	(lookup-presented-object-or-lose): Rename from `get-repl-result'.
+
+2010-03-09  Stas Boukarev  <stassats@gmail.com>
+
 	* slime-repl.el (slime-call-defun): When on defclass insert
 	 (make-instance 'name).
 
