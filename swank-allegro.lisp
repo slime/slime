@@ -205,7 +205,7 @@
                          (car (debugger:frame-expression frame))))))))))
 
 (defun function-source-location (fun)
-  (cadr (car (fspec-definition-locations fun))))
+  (cadr (car (fspec-definition-locations (xref::object-to-function-name fun)))))
 
 #+(version>= 8 2)
 (defun pc-source-location (fun pc)
@@ -464,16 +464,22 @@
 
 ;;;; Definition Finding
 
-(defun buffer-or-file-location (file offset)
+(defun buffer-or-file (file file-fun buffer-fun)
   (let* ((probe (gethash file *temp-file-map*)))
-    (cond ((not probe)
-           (make-location `(:file ,(namestring (truename file)))
-                          `(:position ,(1+ offset))))
-          (t
+    (cond (probe 
            (destructuring-bind (buffer start file) probe
              (declare (ignore file))
-             (make-location `(:buffer ,buffer)
-                            `(:offset ,start ,offset)))))))
+             (funcall buffer-fun buffer start)))
+          (t (funcall file-fun (namestring (truename file)))))))
+
+(defun buffer-or-file-location (file offset)
+  (buffer-or-file file 
+                  (lambda (filename)
+                    (make-location `(:file ,filename)
+                                   `(:position ,(1+ offset))))
+                  (lambda (buffer start)
+                    (make-location `(:buffer ,buffer)
+                                   `(:offset ,start ,offset)))))
 
 (defun fspec-primary-name (fspec)
   (etypecase fspec
@@ -530,10 +536,8 @@
           (eql (car fspec) :top-level-form))
      (destructuring-bind (top-level-form file &optional position) fspec 
        (declare (ignore top-level-form))
-       (list fspec
-             (make-location (list :buffer file) ; FIXME: should use :file
-                            (list :position position)
-                            (list :align t)))))
+       `((,fspec
+          ,(buffer-or-file-location file position)))))
     ((and (listp fspec) (eq (car fspec) :internal))
      (destructuring-bind (_internal next _n) fspec
        (declare (ignore _internal _n))
