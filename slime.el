@@ -4275,8 +4275,9 @@ the following cases (the . shows the point position):
  (define-modify-macro n.ame (...) ...)   -> (:define-modify-macro name)
  (define-compiler-macro n.ame (...) ...) -> (:define-compiler-macro name)
  (defvar n.ame (...) ...)                -> (:defvar name)
- (defparameter n.ame (...) ...)          -> (:defparameter name)
- (defconstant n.ame (...) ...)           -> (:defconstant name)
+ (defparameter n.ame ...)                -> (:defparameter name)
+ (defconstant n.ame ...)                 -> (:defconstant name)
+ (defclass n.ame ...)                    -> (:defclass name)
 
 For other contexts we return the symbol at point."
   (let ((name (slime-symbol-at-point)))
@@ -4331,6 +4332,7 @@ For other contexts we return the symbol at point."
           ((slime-in-expression-p '(defvar *))       `(:defvar ,name))
           ((slime-in-expression-p '(defparameter *)) `(:defparameter ,name))
           ((slime-in-expression-p '(defconstant *))  `(:defconstant ,name))
+          ((slime-in-expression-p '(defclass *))     `(:defclass ,name))
           (t 
            name))))
 

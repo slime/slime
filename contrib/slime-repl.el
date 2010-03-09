@@ -1444,7 +1444,8 @@ expansion will be added to the REPL's history.)"
 (defun slime-call-defun ()
   "Insert a call to the toplevel form defined around point into the REPL."
   (interactive)
-  (flet ((insert-call (symbol &optional (function-call-p t))
+  (flet ((insert-call (symbol &key (function t)
+                              defclass)
            (let* ((qualified-symbol-name (slime-qualify-cl-symbol-name symbol))
                   (symbol-name (slime-cl-symbol-name qualified-symbol-name))
                   (symbol-package (slime-cl-symbol-package qualified-symbol-name))
@@ -1453,14 +1454,16 @@ expansion will be added to the REPL's history.)"
                             qualified-symbol-name)))
              (slime-switch-to-output-buffer)
              (goto-char slime-repl-input-start-mark)
-             (insert (if function-call-p
+             (insert (if function
                          "("
                          " "))
+             (if defclass
+                 (insert "make-instance '"))
              (insert call)
-             (when function-call-p
+             (when function
                (insert " ")
                (save-excursion (insert ")")))
-             (unless function-call-p
+             (unless function
                (goto-char slime-repl-input-start-mark)))))           
     (let ((toplevel (slime-parse-toplevel-form)))
       (if (symbolp toplevel)
@@ -1472,7 +1475,9 @@ expansion will be added to the REPL's history.)"
              (declare (ignore args))
              (insert-call symbol))
             (((:defparameter :defvar :defconstant) symbol)
-             (insert-call symbol nil))
+             (insert-call symbol :function nil))
+            (((:defclass) symbol)
+             (insert-call symbol :defclass t))
             (t
              (error "Not in a function definition")))))))
 

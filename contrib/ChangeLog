@@ -1,3 +1,8 @@
+2010-03-09  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-call-defun): When on defclass insert
+	 (make-instance 'name).
+
 2010-03-08  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-fancy-inspector.lisp (all-slots-for-inspector): Sort class
