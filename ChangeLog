@@ -8,6 +8,8 @@
 	(fspec-definition-locations): For :top-level-forms return a list
 	of ((fspec loc)) not just (fspec loc).  Also deal with the file
 	vs. buffer issue.
+	(ldb-code-to-src-loc): Don't use *temp-file-map* before it is
+	declared.
 
 2010-03-08  Stas Boukarev  <stassats@gmail.com>
 

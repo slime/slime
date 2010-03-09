@@ -236,18 +236,17 @@
                   (paths (source-paths-of (excl::ldb-code-source whole)
                                           (excl::ldb-code-source code)))
                   (path (longest-common-prefix paths))
-                  (start (excl::ldb-code-start-char whole))
-                  (probe (gethash src-file *temp-file-map*)))
-             (cond ((not probe)
-                    (make-location `(:file ,(namestring (truename src-file)))
-                                   `(:source-path (0 . ,path) ,start)))
-                   (t
-                    (destructuring-bind (buffer bstart file) probe
-                      (declare (ignore file))
-                      (make-location `(:buffer ,buffer)
-                                     `(:source-path (0 . ,path) 
-                                                    ,(+ bstart start)))))))))))
-
+                  (start (excl::ldb-code-start-char whole)))
+             (buffer-or-file 
+              src-file 
+              (lambda (file) 
+                (make-location `(:file ,file) 
+                               `(:source-path (0 . ,path) ,start)))
+              (lambda (buffer bstart)
+                (make-location `(:buffer ,buffer)
+                               `(:source-path (0 . ,path)
+                                              ,(+ bstart start))))))))))
+ 
 (defun longest-common-prefix (sequences)
   (assert sequences)
   (flet ((common-prefix (s1 s2)
