@@ -10,6 +10,8 @@
 	vs. buffer issue.
 	(ldb-code-to-src-loc): Don't use *temp-file-map* before it is
 	declared.
+	(pc-source-location): Be a bit more fuzzy when searching the
+	code-location for a pc.
 
 2010-03-08  Stas Boukarev  <stassats@gmail.com>
 

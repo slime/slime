@@ -213,15 +213,15 @@
     (cond ((not debug-info)
            (function-source-location fun))
           (t 
-           (let* ((return-loc (find pc debug-info :key #'excl::ldb-code-pc))
-                  (prev (and return-loc (excl::ldb-code-prev-rec return-loc)))
-                  (call-loc (if (integerp prev) 
-                                (aref debug-info prev) 
-                                return-loc)))
-             (cond ((not call-loc)
+           (let* ((code-loc (find-if (lambda (c)
+                                       (<= (- pc (sys::natural-width))
+                                           (excl::ldb-code-pc c)
+                                           pc))
+                                     debug-info)))
+             (cond ((not code-loc)
                     (ldb-code-to-src-loc (aref debug-info 0)))
                    (t
-                    (ldb-code-to-src-loc call-loc))))))))
+                    (ldb-code-to-src-loc code-loc))))))))
 
 #+(version>= 8 2)
 (defun ldb-code-to-src-loc (code)
