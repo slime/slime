@@ -124,19 +124,33 @@
 
 ;;;; Unix Integration
 
-(defvar *original-sigint-handler* #'si:terminal-interrupt)
+;;; If ECL is built with thread support, it'll spawn a helper thread
+;;; executing the SIGINT handler. We do not want to BREAK into that
+;;; helper but into the main thread, though. This is coupled with the
+;;; current choice of NIL as communication-style in so far as ECL's
+;;; main-thread is also the Slime's REPL thread.
 
-(defimplementation install-sigint-handler (handler)
-  (declare (function handler))
-  (let ((old-handler (symbol-function 'si:terminal-interrupt)))
+(defimplementation call-with-user-break-handler (real-handler function)
+  (let ((old-handler #'si:terminal-interrupt))
     (setf (symbol-function 'si:terminal-interrupt)
-          (if (eq handler *original-sigint-handler*)
-              handler
-              (lambda (&rest args)
-                (declare (ignore args))
-                (funcall handler)
-                (continue))))
-    old-handler))
+          (make-interrupt-handler real-handler))
+    (unwind-protect (funcall function)
+      (setf (symbol-function 'si:terminal-interrupt) old-handler))))
+
+#+threads
+(defun make-interrupt-handler (real-handler)
+  (let ((main-thread (find 'si:top-level (mp:all-processes)
+                           :key #'mp:process-name)))
+    #'(lambda (&rest args)
+        (declare (ignore args))
+        (mp:interrupt-process main-thread real-handler))))
+
+#-threads
+(defun make-interrupt-handler (real-handler)
+  #'(lambda (&rest args)
+      (declare (ignore args))
+      (funcall real-handler)))
+
 
 (defimplementation getpid ()
   (si:getpid))
