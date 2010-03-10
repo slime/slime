@@ -1,5 +1,10 @@
 2010-03-09  Stas Boukarev  <stassats@gmail.com>
 
+	* swank-ccl.lisp (emacs-inspect function): Print closed over variables
+	in case of closure.
+
+2010-03-09  Stas Boukarev  <stassats@gmail.com>
+
 	* slime.el (slime-parse-context): Add defclass.
 
 2010-03-09  Helmut Eller  <heller@common-lisp.net>
