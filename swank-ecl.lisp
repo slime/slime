@@ -249,8 +249,8 @@
 (defun note-buffer-tmpfile (tmp-file buffer-name)
   ;; EXT:COMPILED-FUNCTION-FILE below will return a namestring.
   (let ((tmp-namestring (namestring (truename tmp-file))))
-    (setf (gethash tmp-namestring *tmpfile-map*) buffer-name))
-  tmp-file)
+    (setf (gethash tmp-namestring *tmpfile-map*) buffer-name)
+    tmp-namestring))
 
 (defun tmpfile-to-buffer (tmp-file)
   (gethash tmp-file *tmpfile-map*))
@@ -497,7 +497,7 @@
   ;; start at 1. We specify (:ALIGN T) because the positions comming
   ;; from ECL point at right after the toplevel form appearing before
   ;; the actual target toplevel form; (:ALIGN T) will DTRT in that case.
-  (make-location `(:file ,(namestring file))
+  (make-location `(:file ,(namestring (translate-logical-pathname file)))
                  `(:position ,(1+ file-position))
                  `(:align t)))
 
@@ -616,7 +616,7 @@
               (t
                (assert (probe-file file))
                (assert (not (minusp pos)))
-               (make-file-location (translate-logical-pathname file) pos)))))
+               (make-file-location file pos)))))
      (method
       ;; FIXME: This will always return NIL at the moment; ECL does not
       ;; store debug information for methods yet.

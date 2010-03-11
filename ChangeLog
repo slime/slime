@@ -1,5 +1,12 @@
 2010-03-10  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank-ecl.lisp (source-location): Move call to
+	TRANSLATE-LOGICAL-PATHNAME from here into MAKE-FILE-LOCATION
+	because locations-via-annotations may now also involve logical
+	pathnames.
+
+2010-03-10  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank-ecl.lisp (*original-sigint-handler*)
 	(install-sigint-handler): Deleted; we directly implement
 	call-with-user-break-handler instead.
