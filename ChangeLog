@@ -1,5 +1,13 @@
 2010-03-10  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank.lisp (signal-interrupt): Removed.
+	(interrupt-worker-thread): Slurp in definition of
+	signal-interrupt. No need for invoke-or-queue-interrupt twice in
+	case we do not use threads. Thus micro-prettification of
+	backtraces.
+
+2010-03-10  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank-ecl.lisp (source-location): Move call to
 	TRANSLATE-LOGICAL-PATHNAME from here into MAKE-FILE-LOCATION
 	because locations-via-annotations may now also involve logical

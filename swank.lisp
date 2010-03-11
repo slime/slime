@@ -1014,9 +1014,12 @@ The processing is done in the extent of the toplevel restart."
                     (spawn (lambda ()) :name "ephemeral"))))
     (log-event "interrupt-worker-thread: ~a ~a~%" id thread)
     (assert thread)
-    (signal-interrupt thread
-                      (lambda ()
-                        (invoke-or-queue-interrupt #'simple-break)))))
+    (cond ((use-threads-p)
+           (interrupt-thread thread
+                             (lambda ()
+                               ;; safely interrupt THREAD
+                               (invoke-or-queue-interrupt #'simple-break))))
+          (t (simple-break)))))
 
 (defun thread-for-evaluation (id)
   "Find or create a thread to evaluate the next request."
@@ -1099,14 +1102,9 @@ The processing is done in the extent of the toplevel restart."
 (defun send-to-emacs (event)
   "Send EVENT to Emacs."
   ;;(log-event "send-to-emacs: ~a" event)
-  (cond ((use-threads-p) 
+  (cond ((use-threads-p)
          (send (connection.control-thread *emacs-connection*) event))
         (t (dispatch-event event))))
-
-(defun signal-interrupt (thread interrupt)
-  (log-event "signal-interrupt [~a]: ~a ~a~%" (use-threads-p) thread interrupt)
-  (cond ((use-threads-p) (interrupt-thread thread interrupt))
-        (t (funcall interrupt))))
 
 (defun wait-for-event (pattern &optional timeout)
   (log-event "wait-for-event: ~s ~s~%" pattern timeout)
@@ -1217,8 +1215,8 @@ The processing is done in the extent of the toplevel restart."
   (handle-requests connection t))
 
 (defun dispatch-interrupt-event (connection)
-  ;; This boils down to SIGNAL-INTERRUPT which uses USE-THREADS-P
-  ;; which needs *EMACS-CONNECTION*.
+  ;; This boils down to INTERRUPT-WORKER-THREAD which uses
+  ;; USE-THREADS-P which needs *EMACS-CONNECTION*.
   (with-connection (connection)
     (dispatch-event `(:emacs-interrupt ,(current-thread-id)))))
 
