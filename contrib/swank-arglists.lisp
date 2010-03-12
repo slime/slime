@@ -1293,7 +1293,7 @@ object."
     ;; Notice that we only have information to "look backward" and
     ;; show arglists of previously occuring local functions.
     (destructuring-bind (defs . body) args
-      (unless (atom defs)                ; `(labels ,foo (|'
+      (unless (or (atom defs) (null body))   ; `(labels ,foo (|'
         (let ((current-def (car (last defs))))
           (cond ((atom current-def) nil) ; `(labels ((foo (x) ...)|'
                 ((not (null body))

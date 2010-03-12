@@ -1,3 +1,8 @@
+2010-03-12  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-arglists.lisp (extract-local-op-arglists (eql 'labels)):
+	Fix (labels ((name |))).
+
 2010-03-09  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-arglists.lisp (arglist-ref): Don't error if a &key name isn't
