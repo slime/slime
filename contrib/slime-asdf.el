@@ -66,7 +66,8 @@ in the directory of the current buffer."
 
 (defun slime-determine-asdf-system (filename buffer-package)
   "Try to determine the asdf system that `filename' belongs to."
-  (slime-eval `(swank:asdf-determine-system ,filename ,buffer-package)))
+  (slime-eval `(swank:asdf-determine-system ,(slime-to-lisp-filename filename)
+                                            ,buffer-package)))
 
 (defun slime-who-depends-on-rpc (system)
   (slime-eval `(swank:who-depends-on ,system)))
@@ -105,7 +106,8 @@ buffer's working directory"
    `(swank:asdf-system-files ,name)
    (lambda (files)
      (when files
-       (let ((files (nreverse files)))
+       (let ((files (mapcar 'slime-from-lisp-filename
+                            (nreverse files))))
          (find-file-other-window (car files))
          (mapc 'find-file (cdr files)))))))
 
@@ -115,7 +117,7 @@ buffer's working directory"
   (slime-eval-async `(swank:asdf-system-directory ,name)
    (lambda (directory)
      (when directory
-       (dired directory)))))
+       (dired (slime-from-lisp-filename directory))))))
 
 (if (fboundp 'rgrep)
     (defun slime-rgrep-system (sys-name regexp)
@@ -124,7 +126,8 @@ buffer's working directory"
                           (list (slime-read-system-name nil nil t)
                                 (grep-read-regexp))))
       (rgrep regexp "*.lisp"
-             (slime-eval `(swank:asdf-system-directory ,sys-name))))
+             (slime-from-lisp-filename
+              (slime-eval `(swank:asdf-system-directory ,sys-name)))))
     (defun slime-rgrep-system ()
       (interactive)
       (error "This command is only supported on GNU Emacs >21.x.")))
@@ -133,7 +136,8 @@ buffer's working directory"
     (defun slime-isearch-system (sys-name)
       "Run `isearch-forward' on the files of an ASDF system."
       (interactive (list (slime-read-system-name nil nil t)))
-      (let* ((files (slime-eval `(swank:asdf-system-files ,sys-name)))
+      (let* ((files (mapcar 'slime-from-lisp-filename
+                            (slime-eval `(swank:asdf-system-files ,sys-name))))
              (multi-isearch-next-buffer-function
               (lexical-let* 
                   ((buffers-forward  (mapcar #'find-file-noselect files))
@@ -172,7 +176,8 @@ buffer's working directory"
       ;; `tags-query-replace' actually uses `query-replace-regexp'
       ;; internally.
       (tags-query-replace (regexp-quote from) to delimited
-                          '(slime-eval `(swank:asdf-system-files ,name)))
+                          '(mapcar 'slime-from-lisp-filename
+                            (slime-eval `(swank:asdf-system-files ,name))))
     (error
      ;; Kludge: `tags-query-replace' does not actually return but
      ;; signals an unnamed error with the below error
@@ -222,7 +227,7 @@ depending on it."
       `(swank:asdf-system-files ,system)
     (lambda (files)
       (dolist (file files)
-        (let ((buffer (get-file-buffer file)))
+        (let ((buffer (get-file-buffer (slime-from-lisp-filename file))))
           (when buffer
             (with-current-buffer buffer
               (save-buffer buffer)))))

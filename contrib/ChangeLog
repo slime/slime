@@ -1,3 +1,8 @@
+2010-03-13  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-asdf.el: use slime-from-lisp-filename so that slime-tramp can work.
+	Reported by Peter Stirling.
+
 2010-03-12  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-arglists.lisp (extract-local-op-arglists (eql 'labels)):
