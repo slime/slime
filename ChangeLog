@@ -1,3 +1,10 @@
+2010-03-16  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank-ecl.lisp (source-location): Also return EXT::FOO as
+	candidate to search through the TAGS file because SI and EXT both
+	name the same package, and in ECL's code base, sometimes the
+	former, sometimes the latter is used.
+
 2010-03-10  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank.lisp (signal-interrupt): Removed.

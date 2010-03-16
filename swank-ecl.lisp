@@ -178,7 +178,7 @@
            (fd-stream-alist
             (loop for s in streams
                   for fd = (socket-fd s)
-                  collect (cons (socket-fd s) s)
+                  collect (cons fd s)
                   do (serve-event:add-fd-handler fd :input
                                                  #'(lambda (fd)
                                                      (push fd active-fds))))))
@@ -589,6 +589,9 @@
     (error "No TAGS file ~A found. It should have been installed with ECL."
            +TAGS+)))
 
+(defun package-names (package)
+  (cons (package-name package) (package-nicknames package)))
+
 (defun source-location (object)
   (converting-errors-to-error-location
    (typecase object
@@ -600,13 +603,15 @@
         (multiple-value-bind (flag c-name) (si:mangle-name lisp-name t)
           (assert flag)
           ;; In ECL's code base sometimes the mangled name is used
-          ;; directly, sometimes ECL's DPP magic of @LISP::SYMBOL is used.
-          ;; We cannot predict here, so we just provide two candidates.
-          (let  ((package (package-name (symbol-package lisp-name)))
-                 (symbol  (symbol-name lisp-name)))
-            (make-TAGS-location c-name
-                                (format nil "~A::~A" package symbol)
-                                (format nil "~(~A::~A~)" package symbol))))))
+          ;; directly, sometimes ECL's DPP magic of @SI::SYMBOL or
+          ;; @EXT::SYMBOL is used. We cannot predict here, so we just
+          ;; provide several candidates.
+          (apply #'make-TAGS-location
+                 c-name
+                 (loop with s = (symbol-name lisp-name)
+                       for p in (package-names (symbol-package lisp-name))
+                       collect (format nil "~A::~A" p s)
+                       collect (format nil "~(~A::~A~)" p s))))))
      (function
       (multiple-value-bind (file pos) (ext:compiled-function-file object)
         (cond ((not file)
