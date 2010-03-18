@@ -1,5 +1,9 @@
 2010-03-18  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank.lisp (call-with-gdb-restart): Forgot to remove trailing T.
+
+2010-03-18  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank.lisp (open-dedicated-output-stream): Forgot to rename
 	accept-authenticated-connection to accept-authenticated-client
 	here.

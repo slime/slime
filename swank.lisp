@@ -488,8 +488,7 @@ to T unless you want to debug swank internals.")
                                 ;; Do not show this restart if
                                 ;; we're connected remotely.
                                 (connection.inferior-lisp
-                                 *emacs-connection*)
-                                t)))
+                                 *emacs-connection*))))
       (funcall thunk))))
 
 (defmacro with-gdb-restart (() &body body)
