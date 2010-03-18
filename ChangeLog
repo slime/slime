@@ -1,3 +1,23 @@
+2010-03-18  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank.lisp (connection): Add socket slot, make slot-io slot not
+	be required to be filled in during object creation. Add
+	inferior-lisp slot so we can know whether a connection belongs to
+	a superior Emacs process. Need for that will come in following
+	commit.
+	(make-connection): Our constructor.
+	(create-connection): Removed; not needed anymore.
+	(finish-connection-setup): Function to fill socket-io slot.
+	(start-server): Results in inferior-lisp slot being T.
+	(create-server): Results in inferior-lisp slot being NIL.
+	(setup-server): Adapted accordingly. Construct connection early so
+	we do not have to pass down all the meta information explicitly.
+	(serve-connection): Adapted accordingly.
+	(accept-authenticated-client): Renamed from
+	accept-authenticated-connection.
+	(dispatch-event): Get rid of unused :%apply and :end-of-stream
+	events.
+
 2010-03-16  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank-ecl.lisp (source-location): Also return EXT::FOO as

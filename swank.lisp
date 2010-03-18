@@ -246,10 +246,12 @@ Backend code should treat the connection structure as opaque.")
 ;;; freed/closed/killed when we disconnect.
 
 (defstruct (connection
+             (:constructor %make-connection)
              (:conc-name connection.)
              (:print-function print-connection))
+  (socket           (missing-arg) :type t :read-only t)
   ;; Raw I/O stream of socket connection.
-  (socket-io        (missing-arg) :type stream :read-only t)
+  (socket-io        nil :type (or stream null))
   ;; Optional dedicated output socket (backending `user-output' slot).
   ;; Has a slot so that it can be closed with the connection.
   (dedicated-output nil :type (or stream null))
@@ -293,9 +295,35 @@ Backend code should treat the connection structure as opaque.")
   (communication-style nil :type (member nil :spawn :sigio :fd-handler))
   ;; The coding system for network streams.
   coding-system
+  ;; True if the connection belongs to a superior Emacs process.
+  inferior-lisp
   ;; The SIGINT handler we should restore when the connection is
   ;; closed.
   saved-sigint-handler)
+
+(defun make-connection (socket style coding-system inferiorp)
+  (multiple-value-bind (serve cleanup)
+      (ecase style
+        (:spawn
+         (values #'spawn-threads-for-connection #'cleanup-connection-threads))
+        (:sigio
+         (values #'install-sigio-handler #'deinstall-sigio-handler))
+        (:fd-handler
+         (values #'install-fd-handler #'deinstall-fd-handler))
+        ((nil)
+         (values #'simple-serve-requests nil)))
+    (%make-connection :socket socket
+                      :communication-style style
+                      :coding-system coding-system
+                      :inferior-lisp inferiorp
+                      :serve-requests serve
+                      :cleanup cleanup)))
+
+(defun finish-connection-setup (connection socket-io)
+  (setf (connection.socket-io connection) socket-io)
+  (run-hook *new-connection-hook* connection)
+  (push connection *connections*)
+  connection)
 
 (defun print-connection (conn stream depth)
   (declare (ignore depth))
@@ -643,7 +671,7 @@ Valid values are :none, :line, and :full.")
 This is the entry point for Emacs."
   (setup-server 0
                 (lambda (port) (announce-server-port port-file port))
-                style dont-close coding-system))
+                style dont-close coding-system t))
 
 (defun create-server (&key (port default-server-port)
                       (style *communication-style*)
@@ -653,7 +681,7 @@ This is the entry point for Emacs."
 If DONT-CLOSE is true then the listen socket will accept multiple
 connections, otherwise it will be closed after the first."
   (setup-server port #'simple-announce-function
-                style dont-close coding-system))
+                style dont-close coding-system nil))
 
 (defun find-external-format-or-lose (coding-system)
   (or (find-external-format coding-system)
@@ -661,18 +689,16 @@ connections, otherwise it will be closed after the first."
 
 (defparameter *loopback-interface* "127.0.0.1")
 
-(defun setup-server (port announce-fn style dont-close coding-system)
+(defun setup-server (port announce-fn style dont-close coding-system inferiorp)
   (declare (type function announce-fn))
   (init-log-output)
   (let* ((external-format (find-external-format-or-lose coding-system))
          (socket (create-socket *loopback-interface* port))
-         (local-port (local-port socket)))
+         (local-port (local-port socket))
+         (connection (make-connection socket style coding-system inferiorp)))
     (funcall announce-fn local-port)
     (flet ((serve ()
-             ;; We pass down the coding-system so we can put it into a
-             ;; CONNECTION for debugging purposes.
-             (serve-connection socket style dont-close
-                               external-format coding-system)))
+             (serve-connection connection external-format dont-close)))
       (ecase style
         (:spawn
          (initialize-multiprocessing
@@ -723,22 +749,20 @@ first."
                  :coding-system coding-system))
 
 
-(defun serve-connection (socket style dont-close external-format coding-system)
-  (let ((closed-socket-p nil))
+(defun serve-connection (connection external-format dont-close)
+  (let ((closed-socket-p nil)
+        (socket (connection.socket connection)))
     (unwind-protect
-         (let ((client (accept-authenticated-connection
-                        socket :external-format external-format)))
+         (let ((client (accept-authenticated-client socket
+                        :external-format external-format)))
            (unless dont-close
              (close-socket socket)
              (setf closed-socket-p t))
-           (let ((connection (create-connection client style coding-system)))
-             (run-hook *new-connection-hook* connection)
-             (push connection *connections*)
-             (serve-requests connection)))
+           (serve-requests (finish-connection-setup connection client)))
       (unless (or dont-close closed-socket-p)
         (close-socket socket)))))
 
-(defun accept-authenticated-connection (&rest args)
+(defun accept-authenticated-client (&rest args)
   (let ((new (apply #'accept-connection args))
         (success nil))
     (unwind-protect
@@ -1068,10 +1092,10 @@ The processing is done in the extent of the toplevel restart."
      (encode-message `(:return ,@args) (current-socket-io)))
     ((:emacs-interrupt thread-id)
      (interrupt-worker-thread thread-id))
-    (((:write-string 
+    (((:write-string
        :debug :debug-condition :debug-activate :debug-return :channel-send
        :presentation-start :presentation-end
-       :new-package :new-features :ed :%apply :indentation-update
+       :new-package :new-features :ed :indentation-update
        :eval :eval-no-wait :background-message :inspect :ping
        :y-or-n-p :read-from-minibuffer :read-string :read-aborted)
       &rest _)
@@ -1082,8 +1106,6 @@ The processing is done in the extent of the toplevel restart."
     ((:emacs-channel-send channel-id msg)
      (let ((ch (find-channel channel-id)))
        (send-event (channel-thread ch) `(:emacs-channel-send ,ch ,msg))))
-    (((:end-of-stream))
-     (close-connection *emacs-connection* nil (safe-backtrace)))
     ((:reader-error packet condition)
      (encode-message `(:reader-error ,packet 
                                      ,(safe-condition-message condition))
@@ -1301,34 +1323,6 @@ The processing is done in the extent of the toplevel restart."
     (loop (let ((c (read-char-no-hang stream)))
             (unless c (return))
             (write-char c str)))))
-
-(defun create-connection (socket-io style coding-system)
-  (let ((success nil))
-    (unwind-protect
-         (let ((c (ecase style
-                    (:spawn
-                     (make-connection :socket-io socket-io
-                                      :serve-requests #'spawn-threads-for-connection
-                                      :cleanup #'cleanup-connection-threads))
-                    (:sigio
-                     (make-connection :socket-io socket-io
-                                      :serve-requests #'install-sigio-handler
-                                      :cleanup #'deinstall-sigio-handler))
-                    (:fd-handler
-                     (make-connection :socket-io socket-io
-                                      :serve-requests #'install-fd-handler
-                                      :cleanup #'deinstall-fd-handler))
-                    ((nil)
-                     (make-connection :socket-io socket-io
-                                      :serve-requests #'simple-serve-requests))
-                    )))
-           (setf (connection.communication-style c) style)
-           (setf (connection.coding-system c) coding-system)
-           (setf success t)
-           c)
-      (unless success
-        (close socket-io :abort t)))))
-
 
 ;;;; IO to Emacs
 ;;;
