@@ -764,6 +764,19 @@ It should be used for \"background\" messages such as argument lists."
                               `(swank:list-all-package-names t)))
 		     nil t initial-value)))
 
+(defun slime-read-connection (prompt &optional initial-value)
+  "Read a connection from the minibuffer. Returns the net
+process, or nil."
+  (assert (memq initial-value slime-net-processes))
+  (flet ((connection-identifier (p)
+           (format "%s (pid %d)" (slime-connection-name p) (slime-pid p))))
+    (let ((candidates (mapcar #'(lambda (p)
+                                  (cons (connection-identifier p) p))
+                              slime-net-processes)))
+      (cdr (assoc (completing-read prompt candidates 
+                                   nil t (connection-identifier initial-value))
+                  candidates)))))
+
 ;; Interface
 (defun slime-read-symbol-name (prompt &optional query)
   "Either read a symbol name or choose the one at point.
@@ -2293,7 +2306,11 @@ Debugged requests are ignored."
                  (remove* id (slime-rex-continuations) :key #'car))
            (error "Invalid rpc: %s" message))))))
 
-(defun slime-attach-gdb (pid commands)
+(defun slime-attach-gdb (pid &optional commands)
+  "Run `gud-gdb'on the connection with PID `pid'."
+  (interactive 
+   (list (slime-pid (slime-read-connection "Attach gdb to: "
+                                           (slime-connection)))))
   (gud-gdb (format "gdb -p %d" pid))
   (with-current-buffer gud-comint-buffer
     (dolist (cmd commands)
