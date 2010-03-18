@@ -2277,6 +2277,9 @@ Debugged requests are ignored."
           ((:debug-condition thread message)
            (assert thread)
            (message "%s" message))
+          ((:gdb-attach pid gdb-cmds)
+           (message "Attaching gdb to pid %d..." pid)
+           (slime-attach-gdb pid gdb-cmds))
           ((:ping thread tag)
            (slime-send `(:emacs-pong ,thread ,tag)))
           ((:reader-error packet condition)
@@ -2289,6 +2292,19 @@ Debugged requests are ignored."
            (setf (slime-rex-continuations)
                  (remove* id (slime-rex-continuations) :key #'car))
            (error "Invalid rpc: %s" message))))))
+
+(defun slime-attach-gdb (pid commands)
+  (gud-gdb (format "gdb -p %d" pid))
+  (with-current-buffer gud-comint-buffer
+    (dolist (cmd commands)
+      ;; First wait until gdb was initialized, then wait until current
+      ;; command was processed.
+      (while (not (looking-back comint-prompt-regexp))
+        (sit-for 0.01))
+      ;; We do not use `gud-call' because we want the initial commands
+      ;; to be displayed by the user so he knows what he's got.
+      (insert cmd)
+      (comint-send-input))))
 
 (defun slime-send (sexp)
   "Send SEXP directly over the wire on the current connection."

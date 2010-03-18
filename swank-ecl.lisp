@@ -481,6 +481,11 @@
   (let ((env (second (elt *backtrace* frame-number))))
     (si:eval-with-env form env)))
 
+(defimplementation gdb-initial-commands ()
+  ;; These signals are used by the GC.
+  #+linux '("handle SIGPWR  noprint nostop"
+            "handle SIGXCPU noprint nostop"))
+
 
 ;;;; Inspector
 

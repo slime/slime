@@ -789,6 +789,11 @@ The allowed elements are of the form:
   (declare (ignore condition))
   '())
 
+(definterface gdb-initial-commands ()
+  "List of gdb commands supposed to be executed first for the
+   ATTACH-GDB restart."
+  nil)
+
 (definterface activate-stepping (frame-number)
   "Prepare the frame FRAME-NUMBER for stepping.")
 

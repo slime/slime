@@ -471,6 +471,30 @@ to T unless you want to debug swank internals.")
   (check-type msg string)
   `(call-with-retry-restart ,msg #'(lambda () ,@body)))
 
+(defun call-with-gdb-restart (pid thunk)
+  (let ((process (format nil "~A-~A (pid ~D)"
+                         (lisp-implementation-type)
+                         (lisp-implementation-version)
+                         pid)))
+    (restart-bind
+        ((attach-gdb
+          #'(lambda ()
+              (send-to-emacs `(:gdb-attach ,pid ,(gdb-initial-commands)))
+              (format nil "GDB attached to ~A" process))
+           :report-function #'(lambda (s)
+                                (format s "Attach GDB to ~A" process))
+           :test-function   #'(lambda (c)
+                                (declare (ignore c))
+                                ;; Do not show this restart if
+                                ;; we're connected remotely.
+                                (connection.inferior-lisp
+                                 *emacs-connection*)
+                                t)))
+      (funcall thunk))))
+
+(defmacro with-gdb-restart (() &body body)
+  `(call-with-gdb-restart (getpid) #'(lambda () ,@body)))
+
 (defmacro with-struct* ((conc-name get obj) &body body)
   (let ((var (gensym)))
     `(let ((,var ,obj))
@@ -896,19 +920,20 @@ This is an optimized way for Lisp to deliver output to Emacs."
 ;; Execute K if the restart is invoked.
 (defmacro with-top-level-restart ((connection k) &body body)
   `(with-connection (,connection)
-     (restart-case
-         ;; We explicitly rebind (and do not look at user's
-         ;; customization), so sldb-quit will always be our restart
-         ;; for rex requests.
-         (let ((*sldb-quit-restart* (find-restart 'abort))
-               (*toplevel-restart-available* t))
-           (declare (special *toplevel-restart-available*))
-           ,@body)
-       (abort (&optional v)
-         :report "Return to SLIME's top level."
-         (declare (ignore v))
-         (force-user-output)
-         ,k))))
+     (with-gdb-restart ()
+       (restart-case
+           ;; We explicitly rebind (and do not look at user's
+           ;; customization), so sldb-quit will always be our restart
+           ;; for rex requests.
+           (let ((*sldb-quit-restart* (find-restart 'abort))
+                 (*toplevel-restart-available* t))
+             (declare (special *toplevel-restart-available*))
+             ,@body)
+         (abort (&optional v)
+           :report "Return to SLIME's top level."
+           (declare (ignore v))
+           (force-user-output)
+           ,k)))))
 
 (defun top-level-restart-p ()
   ;; FIXME: this could probably be done better; previously this used
@@ -1094,6 +1119,7 @@ The processing is done in the extent of the toplevel restart."
      (interrupt-worker-thread thread-id))
     (((:write-string
        :debug :debug-condition :debug-activate :debug-return :channel-send
+       :gdb-attach
        :presentation-start :presentation-end
        :new-package :new-features :ed :indentation-update
        :eval :eval-no-wait :background-message :inspect :ping

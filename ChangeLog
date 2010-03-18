@@ -1,7 +1,25 @@
 2010-03-18  Tobias C. Rittweiler <tcr@freebits.de>
 
-	* swank.lisp (connection): Add socket slot, make slot-io slot not
-	be required to be filled in during object creation. Add
+	Add an ATTACH-GDB restart to SLDB.
+
+	* swank.lisp (call-with-gdb-restart): New. Sends the new :gdb-attach event to Emacs.
+	(with-gdb-restart): Sugar.
+	(with-top-level-restart): Also expand to with-gdb-restart.
+	(dispatch-event): Add :gdb-attach event.
+
+	* swank-backend.lisp (gdb-initial-commands): New interface
+	function so backends can customize how gdb needs to be configured
+	for their implementation.
+
+	* swank-ecl.lisp (gdb-initial-commands): Implement.
+
+	* slime.el (slime-dispatch-event): Add clause for :gdb-attach.
+	(slime-attach-gdb): New.
+
+2010-03-18  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank.lisp (connection): Add socket slot, make socket-io slot
+	not be required to be filled in during object creation. Add
 	inferior-lisp slot so we can know whether a connection belongs to
 	a superior Emacs process. Need for that will come in following
 	commit.
