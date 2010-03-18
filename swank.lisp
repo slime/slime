@@ -897,7 +897,7 @@ This is an optimized way for Lisp to deliver output to Emacs."
     (unwind-protect
          (let ((port (local-port socket)))
            (encode-message `(:open-dedicated-output-stream ,port) socket-io)
-           (let ((dedicated (accept-authenticated-connection 
+           (let ((dedicated (accept-authenticated-client
                              socket 
                              :external-format 
                              (or (ignore-errors
