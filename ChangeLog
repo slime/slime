@@ -1,5 +1,24 @@
 2010-03-18  Tobias C. Rittweiler <tcr@freebits.de>
 
+	Remove attach-gdb restart. Instead add SLDB shortcut `A'.
+
+	* slime.el (slime-dispatch-event): Remove :gdb-attach.
+	(slime-attach-gdb): Changed API. Takes connection not pid now and
+	lightweight &optional arg. If not lightweight, get the default gdb
+	config from the inferior Lisp.
+	(sldb-break-with-system-debugger): New command, bound to `A' in
+	sldb. Called this way to mimick
+	`sldb-break-with-default-debugger', and because it may make sense
+	to go beyond gdb in future, e.g. to invoke the Java Debugger for
+	ABCL.
+
+	* swank.lisp (call-with-gdb-restart, with-gdb-restart): Removed.
+	(with-top-level-restart): Remove use of with-gdb-restart.
+	(make-connection, start-server, create-server, setup-server):
+	Remove inferior-lisp flag again. Not needed anymore.
+
+2010-03-18  Tobias C. Rittweiler <tcr@freebits.de>
+
 	Add M-x slime-attach-gdb as an interactive function.
 
 	The ATTACH-GDB restart is nice because it's convenient and the

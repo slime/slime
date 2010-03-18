@@ -2290,9 +2290,6 @@ Debugged requests are ignored."
           ((:debug-condition thread message)
            (assert thread)
            (message "%s" message))
-          ((:gdb-attach pid gdb-cmds)
-           (message "Attaching gdb to pid %d..." pid)
-           (slime-attach-gdb pid gdb-cmds))
           ((:ping thread tag)
            (slime-send `(:emacs-pong ,thread ,tag)))
           ((:reader-error packet condition)
@@ -2305,23 +2302,6 @@ Debugged requests are ignored."
            (setf (slime-rex-continuations)
                  (remove* id (slime-rex-continuations) :key #'car))
            (error "Invalid rpc: %s" message))))))
-
-(defun slime-attach-gdb (pid &optional commands)
-  "Run `gud-gdb'on the connection with PID `pid'."
-  (interactive 
-   (list (slime-pid (slime-read-connection "Attach gdb to: "
-                                           (slime-connection)))))
-  (gud-gdb (format "gdb -p %d" pid))
-  (with-current-buffer gud-comint-buffer
-    (dolist (cmd commands)
-      ;; First wait until gdb was initialized, then wait until current
-      ;; command was processed.
-      (while (not (looking-back comint-prompt-regexp))
-        (sit-for 0.01))
-      ;; We do not use `gud-call' because we want the initial commands
-      ;; to be displayed by the user so he knows what he's got.
-      (insert cmd)
-      (comint-send-input))))
 
 (defun slime-send (sexp)
   "Send SEXP directly over the wire on the current connection."
@@ -5400,6 +5380,7 @@ Full list of commands:
   ("b"    'sldb-break-on-return)
   ("a"    'sldb-abort)
   ("q"    'sldb-quit)
+  ("A"    'sldb-break-with-system-debugger)
   ("B"    'sldb-break-with-default-debugger)
   ("P"    'sldb-print-condition)
   ("C"    'sldb-inspect-condition)
@@ -6092,6 +6073,37 @@ restart to invoke, otherwise use the restart at point."
              (not (not dont-unwind)))
        nil slime-current-thread)
     ((:abort))))
+
+(defun sldb-break-with-system-debugger (&optional lightweight)
+  "Enter system debugger (gdb)."
+  (interactive "P")
+  (slime-attach-gdb slime-buffer-connection lightweight))
+
+(defun slime-attach-gdb (connection &optional lightweight)
+  "Run `gud-gdb'on the connection with PID `pid'. 
+
+If `lightweight' is given, do not send any request to the
+inferior Lisp (e.g. to obtain default gdb config) but only
+operate from the Emacs side; intended for cases where the Lisp is
+truly screwed up."
+  (interactive
+   (list (slime-read-connection "Attach gdb to: " (slime-connection)) "P"))
+  (let ((pid (slime-pid connection))
+        (commands (unless lightweight
+                    (let ((slime-dispatching-connection connection))
+                      (slime-eval `(swank:gdb-initial-commands))))))
+    (gud-gdb (format "gdb -p %d" pid))
+    (with-current-buffer gud-comint-buffer
+      (dolist (cmd commands)
+        ;; First wait until gdb was initialized, then wait until current
+        ;; command was processed.
+        (while (not (looking-back comint-prompt-regexp))
+          (sit-for 0.01))
+        ;; We do not use `gud-call' because we want the initial commands
+        ;; to be displayed by the user so he knows what he's got.
+        (insert cmd)
+        (comint-send-input)))))
+
 
 (defun sldb-step ()
   "Step to next basic-block boundary."

@@ -51,6 +51,7 @@
            ;; These are re-exported directly from the backend:
            #:buffer-first-change
            #:frame-source-location
+           #:gdb-initial-commands
            #:restart-frame
            #:sldb-step 
            #:sldb-break
@@ -295,13 +296,11 @@ Backend code should treat the connection structure as opaque.")
   (communication-style nil :type (member nil :spawn :sigio :fd-handler))
   ;; The coding system for network streams.
   coding-system
-  ;; True if the connection belongs to a superior Emacs process.
-  inferior-lisp
   ;; The SIGINT handler we should restore when the connection is
   ;; closed.
   saved-sigint-handler)
 
-(defun make-connection (socket style coding-system inferiorp)
+(defun make-connection (socket style coding-system)
   (multiple-value-bind (serve cleanup)
       (ecase style
         (:spawn
@@ -315,7 +314,6 @@ Backend code should treat the connection structure as opaque.")
     (%make-connection :socket socket
                       :communication-style style
                       :coding-system coding-system
-                      :inferior-lisp inferiorp
                       :serve-requests serve
                       :cleanup cleanup)))
 
@@ -470,29 +468,6 @@ to T unless you want to debug swank internals.")
 (defmacro with-retry-restart ((&key (msg "Retry.")) &body body)
   (check-type msg string)
   `(call-with-retry-restart ,msg #'(lambda () ,@body)))
-
-(defun call-with-gdb-restart (pid thunk)
-  (let ((process (format nil "~A-~A (pid ~D)"
-                         (lisp-implementation-type)
-                         (lisp-implementation-version)
-                         pid)))
-    (restart-bind
-        ((attach-gdb
-          #'(lambda ()
-              (send-to-emacs `(:gdb-attach ,pid ,(gdb-initial-commands)))
-              (format nil "GDB attached to ~A" process))
-           :report-function #'(lambda (s)
-                                (format s "Attach GDB to ~A" process))
-           :test-function   #'(lambda (c)
-                                (declare (ignore c))
-                                ;; Do not show this restart if
-                                ;; we're connected remotely.
-                                (connection.inferior-lisp
-                                 *emacs-connection*))))
-      (funcall thunk))))
-
-(defmacro with-gdb-restart (() &body body)
-  `(call-with-gdb-restart (getpid) #'(lambda () ,@body)))
 
 (defmacro with-struct* ((conc-name get obj) &body body)
   (let ((var (gensym)))
@@ -694,7 +669,7 @@ Valid values are :none, :line, and :full.")
 This is the entry point for Emacs."
   (setup-server 0
                 (lambda (port) (announce-server-port port-file port))
-                style dont-close coding-system t))
+                style dont-close coding-system))
 
 (defun create-server (&key (port default-server-port)
                       (style *communication-style*)
@@ -704,7 +679,7 @@ This is the entry point for Emacs."
 If DONT-CLOSE is true then the listen socket will accept multiple
 connections, otherwise it will be closed after the first."
   (setup-server port #'simple-announce-function
-                style dont-close coding-system nil))
+                style dont-close coding-system))
 
 (defun find-external-format-or-lose (coding-system)
   (or (find-external-format coding-system)
@@ -712,13 +687,13 @@ connections, otherwise it will be closed after the first."
 
 (defparameter *loopback-interface* "127.0.0.1")
 
-(defun setup-server (port announce-fn style dont-close coding-system inferiorp)
+(defun setup-server (port announce-fn style dont-close coding-system)
   (declare (type function announce-fn))
   (init-log-output)
   (let* ((external-format (find-external-format-or-lose coding-system))
          (socket (create-socket *loopback-interface* port))
          (local-port (local-port socket))
-         (connection (make-connection socket style coding-system inferiorp)))
+         (connection (make-connection socket style coding-system)))
     (funcall announce-fn local-port)
     (flet ((serve ()
              (serve-connection connection external-format dont-close)))
@@ -919,20 +894,19 @@ This is an optimized way for Lisp to deliver output to Emacs."
 ;; Execute K if the restart is invoked.
 (defmacro with-top-level-restart ((connection k) &body body)
   `(with-connection (,connection)
-     (with-gdb-restart ()
-       (restart-case
-           ;; We explicitly rebind (and do not look at user's
-           ;; customization), so sldb-quit will always be our restart
-           ;; for rex requests.
-           (let ((*sldb-quit-restart* (find-restart 'abort))
-                 (*toplevel-restart-available* t))
-             (declare (special *toplevel-restart-available*))
-             ,@body)
-         (abort (&optional v)
-           :report "Return to SLIME's top level."
-           (declare (ignore v))
-           (force-user-output)
-           ,k)))))
+     (restart-case
+         ;; We explicitly rebind (and do not look at user's
+         ;; customization), so sldb-quit will always be our restart
+         ;; for rex requests.
+         (let ((*sldb-quit-restart* (find-restart 'abort))
+               (*toplevel-restart-available* t))
+           (declare (special *toplevel-restart-available*))
+           ,@body)
+       (abort (&optional v)
+         :report "Return to SLIME's top level."
+         (declare (ignore v))
+         (force-user-output)
+         ,k))))
 
 (defun top-level-restart-p ()
   ;; FIXME: this could probably be done better; previously this used
@@ -1118,7 +1092,6 @@ The processing is done in the extent of the toplevel restart."
      (interrupt-worker-thread thread-id))
     (((:write-string
        :debug :debug-condition :debug-activate :debug-return :channel-send
-       :gdb-attach
        :presentation-start :presentation-end
        :new-package :new-features :ed :indentation-update
        :eval :eval-no-wait :background-message :inspect :ping
