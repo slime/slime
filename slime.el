@@ -1838,6 +1838,9 @@ This is automatically synchronized from Lisp.")
 (slime-def-connection-var slime-lisp-implementation-name nil
   "The short name for the Lisp implementation.")
 
+(slime-def-connection-var slime-lisp-implementation-program nil
+  "The argv[0] of the process running the Lisp implementation.")
+
 (slime-def-connection-var slime-connection-name nil
   "The short name for connection.")
 
@@ -1892,10 +1895,11 @@ This is automatically synchronized from Lisp.")
             (slime-communication-style) style
             (slime-lisp-features) features
             (slime-lisp-modules) modules)
-      (destructuring-bind (&key type name version) lisp-implementation
+      (destructuring-bind (&key type name version program) lisp-implementation
         (setf (slime-lisp-implementation-type) type
               (slime-lisp-implementation-version) version
               (slime-lisp-implementation-name) name
+              (slime-lisp-implementation-program) program
               (slime-connection-name) (slime-generate-connection-name name)))
       (destructuring-bind (&key instance type version) machine
         (setf (slime-machine-instance) instance)))
@@ -6088,11 +6092,12 @@ operate from the Emacs side; intended for cases where the Lisp is
 truly screwed up."
   (interactive
    (list (slime-read-connection "Attach gdb to: " (slime-connection)) "P"))
-  (let ((pid (slime-pid connection))
+  (let ((pid  (slime-pid connection))
+        (file (slime-lisp-implementation-program connection))
         (commands (unless lightweight
                     (let ((slime-dispatching-connection connection))
                       (slime-eval `(swank:gdb-initial-commands))))))
-    (gud-gdb (format "gdb -p %d" pid))
+    (gud-gdb (format "gdb -p %d %s" pid (or file "")))
     (with-current-buffer gud-comint-buffer
       (dolist (cmd commands)
         ;; First wait until gdb was initialized, then wait until current

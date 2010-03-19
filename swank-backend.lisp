@@ -342,6 +342,12 @@ Return old signal handler."
   "Return a short name for the Lisp implementation."
   (lisp-implementation-type))
 
+(definterface lisp-implementation-program ()
+  "Return the argv[0] of the running Lisp process, or NIL."
+  (let ((file (car (command-line-args))))
+    (when (and file (probe-file file))
+      (namestring (truename file)))))
+
 (definterface socket-fd (socket-stream)
   "Return the file descriptor for SOCKET-STREAM.")
 
@@ -362,7 +368,8 @@ the new image.
 This is thin wrapper around exec(3).")
 
 (definterface command-line-args ()
-  "Return a list of strings as passed by the OS.")
+  "Return a list of strings as passed by the OS."
+  nil)
 
 
 ;; pathnames are sooo useless

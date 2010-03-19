@@ -486,6 +486,9 @@
   #+linux '("handle SIGPWR  noprint nostop"
             "handle SIGXCPU noprint nostop"))
 
+(defimplementation command-line-args ()
+  (loop for n from 0 below (si:argc) collect (si:argv n)))
+
 
 ;;;; Inspector
 

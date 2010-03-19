@@ -1,3 +1,18 @@
+2010-03-19  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el (slime-lisp-implementation-program): New connection
+	variable.
+	(slime-set-connection-info): Adapted to set it.
+	(slime-attach-gdb): Use it to invoke gdb so gdb is able to find
+	debugging symbols on non-Linux platforms.
+
+	* swank.lisp (connection-info): Include lisp-implementation-program.
+
+	* swank-backend.lisp (lisp-implementation-program): New interface.
+	Default implementation based on command-line-args.
+
+	* swank-ecl.lisp (command-line-args): Implement.
+
 2010-03-18  Tobias C. Rittweiler <tcr@freebits.de>
 
 	Remove attach-gdb restart. Instead add SLDB shortcut `A'.
@@ -45,7 +60,8 @@
 
 	Add an ATTACH-GDB restart to SLDB.
 
-	* swank.lisp (call-with-gdb-restart): New. Sends the new :gdb-attach event to Emacs.
+	* swank.lisp (call-with-gdb-restart): New. Sends the new
+	:gdb-attach event to Emacs.
 	(with-gdb-restart): Sugar.
 	(with-top-level-restart): Also expand to with-gdb-restart.
 	(dispatch-event): Add :gdb-attach event.
