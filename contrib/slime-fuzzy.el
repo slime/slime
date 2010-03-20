@@ -600,6 +600,7 @@ configuration was changed, we nullify our saved configuration."
 
 (defun slime-fuzzy-bind-keys ()
   (define-key slime-mode-map "\C-c\M-i" 'slime-fuzzy-complete-symbol)
-  (define-key slime-repl-mode-map "\C-c\M-i" 'slime-fuzzy-complete-symbol))
+  (when (featurep 'slime-repl)
+   (define-key slime-repl-mode-map "\C-c\M-i" 'slime-fuzzy-complete-symbol)))
 
 (provide 'slime-fuzzy)

@@ -13,6 +13,9 @@
 ;;   (add-hook 'slime-load-hook (lambda () (require 'slime-presentations)))
 ;;
 
+(unless (featurep 'slime-repl)
+  (error "slime-presentations requires slime-repl contrib"))
+
 (defface slime-repl-output-mouseover-face
   (if (featurep 'xemacs)
       '((t (:bold t)))

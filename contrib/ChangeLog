@@ -1,3 +1,10 @@
+2010-03-20  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-c-p-c.el, slime-fuzzy.el: Don't define keys on slime-repl-mode-map
+	if slime-repl isn't loaded.
+	* slime-presentations.el: Refuse to load if slime-repl isn't loaded.
+	Reported by Robert Goldman.
+
 2010-03-13  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-asdf.el: use slime-from-lisp-filename so that slime-tramp can work.

@@ -176,14 +176,16 @@ This is a superset of the functionality of `slime-insert-arglist'."
    `(progn
       (setq slime-complete-symbol-function ',slime-complete-symbol-function)
       (remove-hook 'slime-connected-hook 'slime-c-p-c-on-connect)
-      (define-key slime-mode-map "\C-c\C-s"
-	',(lookup-key slime-mode-map "\C-c\C-s"))
-      (define-key slime-repl-mode-map "\C-c\C-s"
-	',(lookup-key slime-repl-mode-map "\C-c\C-s")))
+      ,@(when (featurep 'slime-repl)
+              `((define-key slime-mode-map "\C-c\C-s"
+                  ',(lookup-key slime-mode-map "\C-c\C-s"))
+                (define-key slime-repl-mode-map "\C-c\C-s"
+                  ',(lookup-key slime-repl-mode-map "\C-c\C-s")))))
    slime-c-p-c-init-undo-stack)
   (setq slime-complete-symbol-function 'slime-complete-symbol*)
   (define-key slime-mode-map "\C-c\C-s" 'slime-complete-form)
-  (define-key slime-repl-mode-map "\C-c\C-s" 'slime-complete-form))
+  (when (featurep 'slime-repl)
+    (define-key slime-repl-mode-map "\C-c\C-s" 'slime-complete-form)))
 
 (defun slime-c-p-c-unload ()
   (while slime-c-p-c-init-undo-stack
