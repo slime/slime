@@ -1,5 +1,12 @@
 2010-03-21  Stas Boukarev  <stassats@gmail.com>
 
+	* start-swank.lisp: Document options to swank-loader:init.
+
+	* doc/slime.texi (Miscellaneous): mention
+	`sldb-break-with-system-debugger'.
+
+2010-03-21  Stas Boukarev  <stassats@gmail.com>
+
 	* start-swank.lisp: New file for starting swank by simply loading
 	sbcl --load start-swank.lisp
 

@@ -7,11 +7,14 @@
 ;;;  see Emacs variable `slime-net-valid-coding-systems' for possible values.
 
 ;;; For additional swank-side configurations see
-;;; 6.2 section section of the Slime user manual.
+;;; 6.2 section of the Slime user manual.
 
 (load (merge-pathnames "swank-loader.lisp" *load-truename*))
 
-(swank-loader:init)
+(swank-loader:init
+ :delete nil         ; delete any existing SWANK packages
+ :reload nil         ; reload SWANK, even if the SWANK package already exists
+ :load-contribs nil) ; load all contribs
 
 (swank:create-server :port 4005
                      :coding-system "iso-latin-1-unix"

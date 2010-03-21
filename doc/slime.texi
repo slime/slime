@@ -1489,6 +1489,8 @@ Inspect the condition currently being debugged.
 
 @kbditem{:, slime-interactive-eval}
 Evaluate an expression entered in the minibuffer.
+@kbditem{A, sldb-break-with-system-debugger}
+Attach debugger (e.g. gdb) to the current lisp process.
 
 @end table
 
