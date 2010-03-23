@@ -167,7 +167,7 @@ If it's not in the cache, the cache will be updated asynchronously."
       (unless (slime-inside-string-or-comment-p)
         (multiple-value-bind (cache-key retrieve-form) 
             (slime-make-autodoc-rpc-form)
-          (let ((it))
+          (let ((cached))
             (cond 
               ((not cache-key) nil)
               ((setq cached (slime-get-cached-autodoc cache-key)) cached)
