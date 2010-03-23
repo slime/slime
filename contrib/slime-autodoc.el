@@ -62,12 +62,13 @@
   "Return a cache key and a swank form."
   (let* ((levels slime-autodoc-accuracy-depth)
          (buffer-form (slime-parse-form-upto-point levels)))
-    (values buffer-form
-            (multiple-value-bind (width height)
-                (slime-autodoc-message-dimensions)
-              `(swank:autodoc ',buffer-form
-                              :print-right-margin ,width
-                              :print-lines ,height)))))
+    (when buffer-form
+      (values buffer-form
+              (multiple-value-bind (width height)
+                  (slime-autodoc-message-dimensions)
+                `(swank:autodoc ',buffer-form
+                                :print-right-margin ,width
+                                :print-lines ,height))))))
 
 (defun slime-autodoc-global-at-point ()
   "Return the global variable name at point, if any."
@@ -166,22 +167,24 @@ If it's not in the cache, the cache will be updated asynchronously."
       (unless (slime-inside-string-or-comment-p)
         (multiple-value-bind (cache-key retrieve-form) 
             (slime-make-autodoc-rpc-form)
-          (let ((cached (slime-get-cached-autodoc cache-key)))
-            (if cached
-                cached
-                ;; If nothing is in the cache, we first decline (by
-                ;; returning nil), and fetch the arglist information
-                ;; asynchronously.
-                (prog1 nil
-                  (slime-eval-async retrieve-form
-                    (lexical-let ((cache-key cache-key))
-                      (lambda (doc)
-                        (unless (eq doc :not-available) 
-                          (setq doc (slime-format-autodoc doc))
-                          ;; Now that we've got our information,
-                          ;; get it to the user ASAP.
-                          (eldoc-message doc)
-                          (slime-store-into-autodoc-cache cache-key doc)))))))))))))
+          (let ((it))
+            (cond 
+              ((not cache-key) nil)
+              ((setq cached (slime-get-cached-autodoc cache-key)) cached)
+              (t
+               ;; If nothing is in the cache, we first decline (by
+               ;; returning nil), and fetch the arglist information
+               ;; asynchronously.
+               (slime-eval-async retrieve-form
+                 (lexical-let ((cache-key cache-key))
+                   (lambda (doc)
+                     (unless (eq doc :not-available) 
+                       (setq doc (slime-format-autodoc doc))
+                       ;; Now that we've got our information,
+                       ;; get it to the user ASAP.
+                       (eldoc-message doc)
+                       (slime-store-into-autodoc-cache cache-key doc)))))
+               nil))))))))
 
 (make-variable-buffer-local (defvar slime-autodoc-mode nil))
 

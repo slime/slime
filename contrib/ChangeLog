@@ -1,3 +1,12 @@
+2010-03-23  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Do not do an unnecessary autodoc RPC request in case we're not
+	actually inside a form.
+
+	* slime-autodoc.el (slime-make-autodoc-rpc-form): Return nil if
+	not inside a form.
+	(slime-autodoc): Adapted accordingly to propagate nil to eldoc.
+
 2010-03-20  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-c-p-c.el, slime-fuzzy.el: Don't define keys on slime-repl-mode-map
