@@ -3197,33 +3197,29 @@ if you encounter such a warning, it's a strong indication that
 you should check twice before modifying.")
 
 (defun slime-maybe-warn-for-different-source-root (target-filename buffer-filename)
-  (when slime-warn-when-possibly-tricked-by-M-.
-    (let ((guessed-target (slime-file-name-merge-source-root target-filename
-                                                             buffer-filename)))
-      (when (and guessed-target
-                 (not (equal guessed-target target-filename))
-                 (file-exists-p guessed-target))
-        (slime-message "Attention: This is `%s'."
-                       (concat (slime-highlight-differences-in-dirname
-                                 (file-name-directory target-filename)
-                                 (file-name-directory guessed-target))
-                               (file-name-nondirectory target-filename)))))))
+  (let ((guessed-target (slime-file-name-merge-source-root target-filename
+                                                           buffer-filename)))
+    (when (and guessed-target
+               (not (equal guessed-target target-filename))
+               (file-exists-p guessed-target))
+      (slime-message "Attention: This is `%s'."
+                     (concat (slime-highlight-differences-in-dirname
+                              (file-name-directory target-filename)
+                              (file-name-directory guessed-target))
+                             (file-name-nondirectory target-filename))))))
 
 (defun slime-check-location-filename-sanity (filename)
-  (flet ((file-truename-safe (filename) (and filename (file-truename filename))))
-    (let ((target-filename (file-truename-safe filename))
-          (buffer-filename (file-truename-safe (buffer-file-name))))
-      (when buffer-filename
-        (slime-maybe-warn-for-different-source-root target-filename buffer-filename)))))
+  (when slime-warn-when-possibly-tricked-by-M-.
+    (flet ((file-truename-safe (filename) (and filename (file-truename filename))))
+      (let ((target-filename (file-truename-safe filename))
+            (buffer-filename (file-truename-safe (buffer-file-name))))
+        (when buffer-filename
+          (slime-maybe-warn-for-different-source-root
+           target-filename buffer-filename))))))
 
 (defun slime-check-location-buffer-name-sanity (buffer-name)
-  (flet ((file-truename-safe (filename) (and filename (file-truename filename))))
-    (let ((old-buffer-filename (file-truename-safe (buffer-file-name)))
-          (target-buffer-filename (file-truename-safe
-                                   (buffer-file-name (get-buffer buffer-name)))))
-      (when (and target-buffer-filename old-buffer-filename)
-        (slime-maybe-warn-for-different-source-root target-buffer-filename
-                                                    old-buffer-filename)))))
+  (slime-check-location-filename-sanity
+   (buffer-file-name (get-buffer buffer-name))))
 
 
 

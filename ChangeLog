@@ -1,3 +1,10 @@
+2010-03-27  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-check-location-buffer-name-sanity): Less duplication,
+	reuse slime-check-location-filename-sanity.
+	(slime-check-location-filename-sanity): Do any work only when
+	slime-warn-when-possibly-tricked-by-M-. is non-nil.
+
 2010-03-21  Stas Boukarev  <stassats@gmail.com>
 
 	* start-swank.lisp: Document options to swank-loader:init.
