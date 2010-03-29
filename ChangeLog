@@ -1,3 +1,15 @@
+2010-03-29  Helmut Eller  <heller@common-lisp.net>
+
+	Minor cleanups
+
+	* swank.lisp (connection): Make socket-io read-only again.
+	(*connections*): Move declaration before first use.
+	(finish-connection-setup): Merged into make-connection.
+	(accept-connections): Renamed from serve-connection and
+	reorganized so that the socket-io slot can be read-only.
+	(accept-authenticated-connection): Renamed to authenticate-client.
+	Update callers accordingly.
+
 2010-03-29  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank.lisp (connection-info): Use princ-to-string rather than

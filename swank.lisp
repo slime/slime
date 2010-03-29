@@ -250,9 +250,11 @@ Backend code should treat the connection structure as opaque.")
              (:constructor %make-connection)
              (:conc-name connection.)
              (:print-function print-connection))
+  ;; The listening socket. (usually closed)
   (socket           (missing-arg) :type t :read-only t)
-  ;; Raw I/O stream of socket connection.
-  (socket-io        nil :type (or stream null))
+  ;; Character I/O stream of socket connection.  Read-only to avoid
+  ;; race conditions during initialization.
+  (socket-io        (missing-arg) :type stream :read-only t)
   ;; Optional dedicated output socket (backending `user-output' slot).
   ;; Has a slot so that it can be closed with the connection.
   (dedicated-output nil :type (or stream null))
@@ -300,36 +302,9 @@ Backend code should treat the connection structure as opaque.")
   ;; closed.
   saved-sigint-handler)
 
-(defun make-connection (socket style coding-system)
-  (multiple-value-bind (serve cleanup)
-      (ecase style
-        (:spawn
-         (values #'spawn-threads-for-connection #'cleanup-connection-threads))
-        (:sigio
-         (values #'install-sigio-handler #'deinstall-sigio-handler))
-        (:fd-handler
-         (values #'install-fd-handler #'deinstall-fd-handler))
-        ((nil)
-         (values #'simple-serve-requests nil)))
-    (%make-connection :socket socket
-                      :communication-style style
-                      :coding-system coding-system
-                      :serve-requests serve
-                      :cleanup cleanup)))
-
-(defun finish-connection-setup (connection socket-io)
-  (setf (connection.socket-io connection) socket-io)
-  (run-hook *new-connection-hook* connection)
-  (push connection *connections*)
-  connection)
-
 (defun print-connection (conn stream depth)
   (declare (ignore depth))
   (print-unreadable-object (conn stream :type t :identity t)))
-
-(defun connection.external-format (connection)
-  (ignore-errors
-    (stream-external-format (connection.socket-io connection))))
 
 (defvar *connections* '()
   "List of all active connections, with the most recent at the front.")
@@ -345,6 +320,31 @@ connection is in use, i.e. *EMACS-CONNECTION* is NIL.
 The default connection is defined (quite arbitrarily) as the most
 recently established one."
   (first *connections*))
+
+(defun make-connection (socket stream style coding-system)
+  (multiple-value-bind (serve cleanup)
+      (ecase style
+        (:spawn
+         (values #'spawn-threads-for-connection #'cleanup-connection-threads))
+        (:sigio
+         (values #'install-sigio-handler #'deinstall-sigio-handler))
+        (:fd-handler
+         (values #'install-fd-handler #'deinstall-fd-handler))
+        ((nil)
+         (values #'simple-serve-requests nil)))
+    (let ((conn (%make-connection :socket socket
+                                  :socket-io stream
+                                  :communication-style style
+                                  :coding-system coding-system
+                                  :serve-requests serve
+                                  :cleanup cleanup)))
+      (run-hook *new-connection-hook* conn)
+      (push conn *connections*)
+      conn)))
+
+(defun connection.external-format (connection)
+  (ignore-errors
+    (stream-external-format (connection.socket-io connection))))
 
 (defslimefun ping (tag)
   tag)
@@ -690,13 +690,11 @@ connections, otherwise it will be closed after the first."
 (defun setup-server (port announce-fn style dont-close coding-system)
   (declare (type function announce-fn))
   (init-log-output)
-  (let* ((external-format (find-external-format-or-lose coding-system))
-         (socket (create-socket *loopback-interface* port))
-         (local-port (local-port socket))
-         (connection (make-connection socket style coding-system)))
+  (let* ((socket (create-socket *loopback-interface* port))
+         (local-port (local-port socket)))
     (funcall announce-fn local-port)
     (flet ((serve ()
-             (serve-connection connection external-format dont-close)))
+             (accept-connections socket style coding-system dont-close)))
       (ecase style
         (:spawn
          (initialize-multiprocessing
@@ -746,35 +744,23 @@ first."
   (create-server :port port :style style :dont-close dont-close
                  :coding-system coding-system))
 
+(defun accept-connections (socket style coding-system dont-close)
+  (let* ((ef (find-external-format-or-lose coding-system))
+         (client (unwind-protect 
+                      (accept-connection socket :external-format ef)
+                   (unless dont-close
+                     (close-socket socket)))))
+    (authenticate-client client)
+    (serve-requests (make-connection socket client style coding-system))))
 
-(defun serve-connection (connection external-format dont-close)
-  (let ((closed-socket-p nil)
-        (socket (connection.socket connection)))
-    (unwind-protect
-         (let ((client (accept-authenticated-client socket
-                        :external-format external-format)))
-           (unless dont-close
-             (close-socket socket)
-             (setf closed-socket-p t))
-           (serve-requests (finish-connection-setup connection client)))
-      (unless (or dont-close closed-socket-p)
-        (close-socket socket)))))
-
-(defun accept-authenticated-client (&rest args)
-  (let ((new (apply #'accept-connection args))
-        (success nil))
-    (unwind-protect
-         (let ((secret (slime-secret)))
-           (when secret
-             (set-stream-timeout new 20)
-             (let ((first-val (decode-message new)))
-               (unless (and (stringp first-val) (string= first-val secret))
-                 (error "Incoming connection doesn't know the password."))))
-           (set-stream-timeout new nil)
-           (setf success t))
-      (unless success
-        (close new :abort t)))
-    new))
+(defun authenticate-client (stream)
+  (let ((secret (slime-secret)))
+    (when secret
+      (set-stream-timeout stream 20)
+      (let ((first-val (decode-message stream)))
+        (unless (and (stringp first-val) (string= first-val secret))
+          (error "Incoming connection doesn't know the password.")))
+      (set-stream-timeout stream nil))))
 
 (defun slime-secret ()
   "Finds the magic secret from the user's home directory.  Returns nil
@@ -871,7 +857,7 @@ This is an optimized way for Lisp to deliver output to Emacs."
     (unwind-protect
          (let ((port (local-port socket)))
            (encode-message `(:open-dedicated-output-stream ,port) socket-io)
-           (let ((dedicated (accept-authenticated-client
+           (let ((dedicated (accept-connection
                              socket 
                              :external-format 
                              (or (ignore-errors
@@ -879,6 +865,7 @@ This is an optimized way for Lisp to deliver output to Emacs."
                                  :default)
                              :buffering *dedicated-output-stream-buffering*
                              :timeout 30)))
+             (authenticate-client dedicated)
              (close-socket socket)
              (setf socket nil)
              dedicated))
