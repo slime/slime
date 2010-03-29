@@ -1,5 +1,9 @@
 2010-03-29  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el: Add gud as compile-time dependency.
+
+2010-03-29  Helmut Eller  <heller@common-lisp.net>
+
 	Compile swank-sbcl-exts only for SBCL.
 
 	* swank-loader.lisp (*contribs*): Add #+sbcl.

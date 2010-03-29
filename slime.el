@@ -75,7 +75,8 @@
   (require 'apropos)
   (require 'outline)
   (require 'etags)
-  (require 'compile))
+  (require 'compile)
+  (require 'gud))
 
 (eval-and-compile 
   (defvar slime-path
