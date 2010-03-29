@@ -1,3 +1,8 @@
+2010-03-29  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank.lisp (connection-info): Use princ-to-string rather than
+	prin1-to-string as the latter may barf if *print-readably* is nil.
+
 2010-03-27  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-check-location-buffer-name-sanity): Less duplication,

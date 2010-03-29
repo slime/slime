@@ -1733,7 +1733,7 @@ VERSION: the protocol version"
       :encoding (:coding-system ,(connection.coding-system c)
                  ;; external-formats are totally implementation-dependent,
                  ;; so better play safe.
-                 :external-format ,(prin1-to-string
+                 :external-format ,(princ-to-string
                                     (connection.external-format c)))
       :lisp-implementation (:type ,(lisp-implementation-type)
                             :name ,(lisp-implementation-type-name)
