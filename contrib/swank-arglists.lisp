@@ -373,27 +373,38 @@ Otherwise NIL is returned."
     (*print-readably* . nil)
     (*print-level*    . 10)
     (*print-length*   . 20)
-    (*print-escape*   . nil))) ; no package qualifiers.
+    (*print-escape*   . nil)))
+
+(defvar *arglist-show-packages* t)
+
+(defmacro with-arglist-io-syntax (&body body)
+  (let ((package (gensym)))
+    `(let ((,package *package*))
+       (with-standard-io-syntax
+         (let ((*package* (if *arglist-show-packages*
+                              *package*
+                              ,package)))
+           (with-bindings *arglist-pprint-bindings*
+             ,@body))))))
 
 (defun decoded-arglist-to-string (decoded-arglist
                                   &key operator highlight
                                   print-right-margin print-lines)
   (with-output-to-string (*standard-output*)
-    (with-standard-io-syntax
-      (with-bindings *arglist-pprint-bindings*
-	(let ((*print-right-margin* print-right-margin)
-	      (*print-lines* print-lines))
-	  (print-decoded-arglist decoded-arglist 
-                                 :operator operator 
-                                 :highlight highlight))))))
+    (with-arglist-io-syntax
+      (let ((*print-right-margin* print-right-margin)
+            (*print-lines* print-lines))
+        (print-decoded-arglist decoded-arglist 
+                               :operator operator 
+                               :highlight highlight)))))
 
-(defun decoded-arglist-to-template-string (decoded-arglist &key (prefix "(") (suffix ")"))
+(defun decoded-arglist-to-template-string (decoded-arglist
+                                           &key (prefix "(") (suffix ")"))
   (with-output-to-string (*standard-output*)
-    (with-standard-io-syntax
-      (with-bindings *arglist-pprint-bindings*
-        (print-decoded-arglist-as-template decoded-arglist
-                                           :prefix prefix
-                                           :suffix suffix)))))
+    (with-arglist-io-syntax
+      (print-decoded-arglist-as-template decoded-arglist
+                                         :prefix prefix
+                                         :suffix suffix))))
 
 ;;;; Arglist Decoding / Encoding
 

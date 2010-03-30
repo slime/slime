@@ -1,3 +1,11 @@
+2010-03-30  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-arglists.lisp (*arglist-show-packages*): New
+	customization variable, when non-nil show qualified symbols.
+	(with-arglist-io-syntax): new macro for respecting the above variable.
+	(decoded-arglist-to-string, decoded-arglist-to-template-string): Use
+	the macro above.
+
 2010-03-23  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	Do not do an unnecessary autodoc RPC request in case we're not
