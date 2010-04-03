@@ -307,7 +307,7 @@ Otherwise NIL is returned."
                (princ '&any)))
           (&any (arg)
              (space)
-             (prin1-arg arg))
+             (print-arg arg))
           (&rest (args bodyp)
              (space)
              (princ (if bodyp '&body '&rest))

@@ -1,5 +1,9 @@
 2010-04-03  Stas Boukarev  <stassats@gmail.com>
 
+	* swank-arglists.lisp (print-decoded-arglist): prin1-arg -> print-arg.
+
+2010-04-03  Stas Boukarev  <stassats@gmail.com>
+
 	* swank-arglists.lisp (print-decoded-arglist): Print keywords using
 	princ again.
 
