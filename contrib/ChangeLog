@@ -1,5 +1,10 @@
 2010-04-03  Stas Boukarev  <stassats@gmail.com>
 
+	* swank-arglists.lisp (print-decoded-arglist): Print keywords using
+	princ again.
+
+2010-04-03  Stas Boukarev  <stassats@gmail.com>
+
 	* swank-arglists.lisp (arglist-dispatch): Handle method qualifiers.
 	(print-arg): Renamed from princ-arg.
 	(prin1-arg): Removed.

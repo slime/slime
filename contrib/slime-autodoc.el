@@ -304,9 +304,9 @@ If it's not in the cache, the cache will be updated asynchronously."
 
       ;; Test context-sensitive autodoc (ERROR, CERROR)
       ("(error 'simple-condition*HERE*"
-       "(error 'simple-condition &rest arguments &key :format-arguments :format-control)")
+       "(error 'simple-condition &rest arguments &key format-arguments format-control)")
       ("(cerror \"Foo\" 'simple-condition*HERE*"
-       "(cerror \"Foo\" 'simple-condition &rest arguments &key :format-arguments :format-control)")
+       "(cerror \"Foo\" 'simple-condition &rest arguments &key format-arguments format-control)")
       
       ;; Test &KEY and nested arglists
       ("(swank::with-retry-restart (:msg *HERE*"

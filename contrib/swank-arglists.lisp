@@ -296,7 +296,7 @@ Otherwise NIL is returned."
                          ((not (keywordp keyword))
                           (format t "~:@<(~S ..)~@:>" keyword))
                          (t
-                          (print-arg keyword))))))
+                          (princ keyword))))))
           (&key :finally
              (when (arglist.allow-other-keys-p arglist)
                (space)
