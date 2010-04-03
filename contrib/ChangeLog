@@ -1,3 +1,10 @@
+2010-04-03  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-arglists.lisp (arglist-dispatch): Handle method qualifiers.
+	(print-arg): Renamed from princ-arg.
+	(prin1-arg): Removed.
+	* slime-autodoc.el (autodoc.1): Add test-case for method qualifiers
+
 2010-03-30  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-arglists.lisp (*arglist-show-packages*): New

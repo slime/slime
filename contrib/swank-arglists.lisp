@@ -251,19 +251,19 @@ Otherwise NIL is returned."
     (let ((index 0))
       (pprint-logical-block (nil nil :prefix "(" :suffix ")")
         (when operator
-          (princ-arg operator)
+          (print-arg operator)
           (pprint-indent :current 1))   ; 1 due to possibly added space
         (do-decoded-arglist (remove-given-args arglist provided-args)
           (&provided (arg)
              (space)
-             (princ-arg arg)
+             (print-arg arg)
              (incf index))
           (&required (arg)
              (space)
              (if (arglist-p arg)
                  (print-arglist-recursively arg :index index)
                  (with-highlighting (:index index)
-                   (princ-arg arg)))
+                   (print-arg arg)))
              (incf index))
           (&optional :initially
              (when (arglist.optional-args arglist)
@@ -275,7 +275,7 @@ Otherwise NIL is returned."
                  (print-arglist-recursively arg :index index)
                  (with-highlighting (:index index)
                    (if (null init-value)
-                       (princ-arg arg)
+                       (print-arg arg)
                        (format t "~:@<~A ~S~@:>" arg init-value))))
              (incf index))
           (&key :initially
@@ -296,7 +296,7 @@ Otherwise NIL is returned."
                          ((not (keywordp keyword))
                           (format t "~:@<(~S ..)~@:>" keyword))
                          (t
-                          (princ-arg keyword))))))
+                          (print-arg keyword))))))
           (&key :finally
              (when (arglist.allow-other-keys-p arglist)
                (space)
@@ -315,20 +315,17 @@ Otherwise NIL is returned."
              (if (arglist-p args)
                  (print-arglist-recursively args :index index)
                  (with-highlighting (:index index)
-                   (princ-arg args))))
+                   (print-arg args))))
           ;; FIXME: add &UNKNOWN-JUNK?
           )))))
 
-
-(defun princ-arg (arg)
-  (princ (if (arglist-dummy-p arg)
-             (arglist-dummy.string-representation arg)
-             arg)))
-
-(defun prin1-arg (arg)
-  (if (arglist-dummy-p arg)
-      (princ (arglist-dummy.string-representation arg))
-      (prin1 arg)))
+(defun print-arg (arg)
+  (let ((arg (if (arglist-dummy-p arg)
+                 (arglist-dummy.string-representation arg)
+                 arg)))
+    (if (keywordp arg)
+        (prin1 arg)
+        (princ arg))))
 
 (defun print-decoded-arglist-as-template (decoded-arglist &key
                                           (prefix "(") (suffix ")"))
@@ -986,14 +983,17 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 
 (defmethod arglist-dispatch ((operator (eql 'defmethod)) arguments)
   (match (cons operator arguments)
-    (('defmethod (#'valid-function-name-p gf-name) . _)
+    (('defmethod (#'valid-function-name-p gf-name) . rest)
      (let ((gf (fdefinition gf-name)))
        (when (typep gf 'generic-function)
          (with-available-arglist (arglist) (decode-arglist (arglist gf))
-           (return-from arglist-dispatch
-             (make-arglist :provided-args (list gf-name)
-                           :required-args (list arglist)
-                           :rest "body" :body-p t))))))
+           (let ((qualifiers (loop for x in rest
+                                   until (or (listp x) (empty-arg-p x))
+                                   collect x)))
+             (return-from arglist-dispatch
+               (make-arglist :provided-args (cons gf-name qualifiers)
+                             :required-args (list arglist)
+                             :rest "body" :body-p t)))))))
     (_)) ; Fall through
   (call-next-method))
 

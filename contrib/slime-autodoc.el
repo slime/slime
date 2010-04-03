@@ -289,6 +289,8 @@ If it's not in the cache, the cache will be updated asynchronously."
       ;; Test context-sensitive autodoc (DEFMETHOD)
       ("(defmethod swank::arglist-dispatch (*HERE*"
        "(defmethod arglist-dispatch (===> operator <=== arguments) &body body)")
+      ("(defmethod swank::arglist-dispatch :before (*HERE*"
+       "(defmethod arglist-dispatch :before (===> operator <=== arguments) &body body)")
 
       ;; Test context-sensitive autodoc (APPLY)
       ("(apply 'swank::eval-for-emacs*HERE*"
@@ -302,9 +304,9 @@ If it's not in the cache, the cache will be updated asynchronously."
 
       ;; Test context-sensitive autodoc (ERROR, CERROR)
       ("(error 'simple-condition*HERE*"
-       "(error 'simple-condition &rest arguments &key format-arguments format-control)")
+       "(error 'simple-condition &rest arguments &key :format-arguments :format-control)")
       ("(cerror \"Foo\" 'simple-condition*HERE*"
-       "(cerror \"Foo\" 'simple-condition &rest arguments &key format-arguments format-control)")
+       "(cerror \"Foo\" 'simple-condition &rest arguments &key :format-arguments :format-control)")
       
       ;; Test &KEY and nested arglists
       ("(swank::with-retry-restart (:msg *HERE*"
