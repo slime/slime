@@ -1,3 +1,10 @@
+2010-04-03  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-update-threads-buffer): New formatting, with labels
+	and additional information provided by the backend.
+	* swank-allegro.lisp (thread-attributes): Move process-priority from
+	thread-status.
+
 2010-03-29  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el: Add gud as compile-time dependency.

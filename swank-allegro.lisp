@@ -758,8 +758,11 @@
   (mp:process-name thread))
 
 (defimplementation thread-status (thread)
-  (format nil "~A ~D" (mp:process-whostate thread)
-          (mp:process-priority thread)))
+  (princ-to-string (mp:process-whostate thread)))
+
+(defimplementation thread-attributes (thread)
+  (list :priority (mp:process-priority thread)
+        :times-resumed (mp:process-times-resumed thread)))
 
 (defimplementation make-lock (&key name)
   (mp:make-process-lock :name name))

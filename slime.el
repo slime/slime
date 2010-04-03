@@ -6186,9 +6186,20 @@ was called originally."
   (interactive)
   (let ((name slime-threads-buffer-name))
     (slime-with-popup-buffer (name nil t)
-      (slime-update-threads-buffer)
       (slime-thread-control-mode)
+      (slime-update-threads-buffer)
       (setq slime-popup-buffer-quit-function 'slime-quit-threads-buffer))))
+
+(defun slime-longest-lines (list-of-lines)
+  (let ((lengths (make-list (length (car list-of-lines)) 0)))
+    (flet ((process-line (line)
+             (loop for element in line
+                   for length on lengths
+                   do (setf (car length)
+                            (max (length (prin1-to-string element t))
+                                 (car length))))))
+      (mapc 'process-line list-of-lines)
+      lengths)))
 
 (defun slime-quit-threads-buffer (&optional _)
   (slime-eval-async `(swank:quit-thread-browser))
@@ -6196,24 +6207,49 @@ was called originally."
 
 (defun slime-update-threads-buffer ()
   (interactive)
-  (let ((threads (cdr (slime-eval '(swank:list-threads)))))
+  (let ((threads (slime-eval '(swank:list-threads))))
     (with-current-buffer slime-threads-buffer-name
       (let ((inhibit-read-only t))
         (erase-buffer)
-        (loop for idx from 0 
-              for (id name status) in threads
-              do (slime-thread-insert idx name status id))
+        (slime-insert-threads threads)
         (goto-char (point-min))))))
 
-(defun slime-thread-insert (idx name status id)
-  (slime-propertize-region `(thread-id ,idx)
-    (insert (format "%3s: " id))
-    (slime-insert-propertized '(face bold) name)
-    (insert-char ?\  (- 30 (current-column)))
-    (let ((start (point)))
-      (insert " " status)
-      (unless (bolp) (insert "\n"))
-      (indent-rigidly start (point) 2))))
+(defvar *slime-threads-table-properties*
+  '(nil (face bold)))
+
+(defun slime-format-threads-labels (threads)
+  (let ((labels (mapcar (lambda (x)
+                          (capitalize (substring (symbol-name x) 1)))
+                        (car threads))))
+    (cons labels (cdr threads))))
+
+(defun slime-insert-thread (thread longest-lines)
+  (unless (bolp) (insert "\n"))
+  (loop for i from 0
+        for align in longest-lines
+        for element in thread
+        for string = (prin1-to-string element t)
+        for property = (nth i *slime-threads-table-properties*)
+        do
+        (if property
+            (slime-insert-propertized property string)
+            (insert string))
+        (insert-char ?\  (- align (length string) -3))))
+
+(defun slime-insert-threads (threads)
+  (let* ((threads (slime-format-threads-labels threads))
+         (longest-lines (slime-longest-lines threads)))
+    (setq header-line-format
+          (concat (propertize " " 'display '((space :align-to 0)))
+                  (let (*slime-threads-table-properties*)
+                    (with-temp-buffer
+                      (slime-insert-thread (car threads) longest-lines)
+                      (buffer-string)))))
+    (loop for thread-id from 0
+          for thread in (cdr threads)
+          do
+          (slime-propertize-region `(thread-id ,thread-id)
+            (slime-insert-thread thread longest-lines)))))
 
 
 ;;;;; Major mode
