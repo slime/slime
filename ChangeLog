@@ -1,5 +1,10 @@
 2010-04-04  Stas Boukarev  <stassats@gmail.com>
 
+	* slime.el (slime-insert-threads): Use header-line-format only when
+	it's present (XEmacs doesn't support it).
+
+2010-04-04  Stas Boukarev  <stassats@gmail.com>
+
 	* slime.el (slime-with-popup-buffer): Make &optional parameters
 	&key parameters, add modes parameter.
 	slime-with-popup-buffer sets up some buffer local variables,

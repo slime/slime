@@ -6249,13 +6249,16 @@ was called originally."
 
 (defun slime-insert-threads (threads)
   (let* ((threads (slime-format-threads-labels threads))
-         (longest-lines (slime-longest-lines threads)))
-    (setq header-line-format
-          (concat (propertize " " 'display '((space :align-to 0)))
-                  (let (*slime-threads-table-properties*)
-                    (with-temp-buffer
-                      (slime-insert-thread (car threads) longest-lines)
-                      (buffer-string)))))
+         (longest-lines (slime-longest-lines threads))
+         (labels (let (*slime-threads-table-properties*)
+                   (with-temp-buffer
+                     (slime-insert-thread (car threads) longest-lines)
+                     (buffer-string)))))
+    (if (boundp 'header-line-format)
+        (setq header-line-format
+              (concat (propertize " " 'display '((space :align-to 0)))
+                      labels))
+        (insert labels))
     (loop for thread-id from 0
           for thread in (cdr threads)
           do
