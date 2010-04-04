@@ -1,3 +1,13 @@
+2010-04-04  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-with-popup-buffer): Make &optional parameters
+	&key parameters, add modes parameter.
+	slime-with-popup-buffer sets up some buffer local variables,
+	but enabling major modes kills all buffer locals, so modes should
+	be enabled before setting them.
+	Adopt changes to slime-with-popup-buffer where needed.
+	This fixes several bugs with popup buffers on non-default connections.
+
 2010-04-03  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-update-threads-buffer): New formatting, with labels
