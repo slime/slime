@@ -1,5 +1,10 @@
 2010-04-05  Stas Boukarev  <stassats@gmail.com>
 
+	* slime.el (slime-doc-bindings): Move slime-apropos to C-c C-d A,
+	C-c C-d a will be bound to slime-autodoc-full.
+
+2010-04-05  Stas Boukarev  <stassats@gmail.com>
+
 	* slime.el: Some further adaptations to the new slime-with-popup-buffer.
 
 2010-04-04  Stas Boukarev  <stassats@gmail.com>

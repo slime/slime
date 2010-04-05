@@ -564,7 +564,7 @@ edit s-exprs, e.g. for source buffers and the REPL.")
   "Keymap for documentation commands. Bound to a prefix key.")
 
 (defvar slime-doc-bindings
-  '((?a slime-apropos)
+  '((?A slime-apropos)
     (?z slime-apropos-all)
     (?p slime-apropos-package)
     (?d slime-describe-symbol)

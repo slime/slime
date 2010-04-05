@@ -64,11 +64,9 @@
          (buffer-form (slime-parse-form-upto-point levels)))
     (when buffer-form
       (values buffer-form
-              (multiple-value-bind (width height)
-                  (slime-autodoc-message-dimensions)
-                `(swank:autodoc ',buffer-form
-                                :print-right-margin ,width
-                                :print-lines ,height))))))
+              `(swank:autodoc ',buffer-form
+                              :print-right-margin
+                              ,(window-width (minibuffer-window)))))))
 
 (defun slime-autodoc-global-at-point ()
   "Return the global variable name at point, if any."
@@ -87,23 +85,6 @@ Default value assumes +this+ or *that* naming conventions."
 Globals are recognised purely by *this-naming-convention*."
   (and (< (length name) 80) ; avoid overflows in regexp matcher
        (string-match slime-global-variable-name-regexp name)))
-
-(defvar slime-autodoc-dimensions-function nil)
-
-(defun slime-autodoc-message-dimensions ()
-  "Return the available width and height for pretty printing autodoc
-messages."
-  (cond
-   (slime-autodoc-dimensions-function
-    (funcall slime-autodoc-dimensions-function))
-   (slime-autodoc-use-multiline-p 
-    ;; Use the full width of the minibuffer;
-    ;; minibuffer will grow vertically if necessary
-    (values (window-width (minibuffer-window))
-            nil))
-   (t
-    ;; Try to fit everything in one line; we cut off when displaying
-    (values 1000 1))))
 
 
 ;;;; Autodoc cache
@@ -125,11 +106,11 @@ Return DOCUMENTATION."
 
 ;;;; Formatting autodoc
 
-(defun slime-format-autodoc (doc)
-  (setq doc (slime-fontify-string doc))
-  (unless slime-autodoc-use-multiline-p
-    (setq doc (slime-oneliner doc)))
-  doc)
+(defun slime-format-autodoc (doc multilinep)
+  (let ((doc (slime-fontify-string doc)))
+    (if multilinep
+        doc
+        (slime-oneliner (replace-regexp-in-string "[ \n\t]+" " "  doc)))))
 
 (defun slime-fontify-string (string)
   "Fontify STRING as `font-lock-mode' does in Lisp mode."
@@ -154,8 +135,8 @@ Return DOCUMENTATION."
 
 ;;;; slime-autodoc-mode
 
-
-(defun slime-autodoc ()
+(defun* slime-autodoc (&optional (multilinep slime-autodoc-use-multiline-p)
+                                 cache-multiline)
   "Returns the cached arglist information as string, or nil.
 If it's not in the cache, the cache will be updated asynchronously."
   (interactive)
@@ -165,26 +146,48 @@ If it's not in the cache, the cache will be updated asynchronously."
     ;; data.
     (save-match-data
       (unless (slime-inside-string-or-comment-p)
-        (multiple-value-bind (cache-key retrieve-form) 
+        (multiple-value-bind (cache-key retrieve-form)
             (slime-make-autodoc-rpc-form)
-          (let ((cached))
-            (cond 
+          (let* (cached
+                 (multiline-cached (slime-autodoc-cache-multine (car cache-key)
+                                                                cache-multiline))
+                 (multilinep (or multilinep multiline-cached)))
+            (cond
               ((not cache-key) nil)
-              ((setq cached (slime-get-cached-autodoc cache-key)) cached)
+              ((setq cached (slime-get-cached-autodoc cache-key))
+               (slime-format-autodoc cached multilinep))
               (t
                ;; If nothing is in the cache, we first decline (by
                ;; returning nil), and fetch the arglist information
                ;; asynchronously.
                (slime-eval-async retrieve-form
-                 (lexical-let ((cache-key cache-key))
+                 (lexical-let ((cache-key cache-key)
+                               (multilinep multilinep))
                    (lambda (doc)
-                     (unless (eq doc :not-available) 
-                       (setq doc (slime-format-autodoc doc))
+                     (unless (eq doc :not-available)
+                       (slime-store-into-autodoc-cache cache-key doc)
                        ;; Now that we've got our information,
                        ;; get it to the user ASAP.
-                       (eldoc-message doc)
-                       (slime-store-into-autodoc-cache cache-key doc)))))
+                       (eldoc-message
+                        (slime-format-autodoc doc multilinep))))))
                nil))))))))
+
+(defvar slime-autodoc-cache-car nil)
+
+(defun slime-autodoc-cache-multine (cache-key cache-new-p)
+  (cond (cache-new-p
+         (setq slime-autodoc-cache-car
+               cache-key))
+        ((not (equal cache-key
+                     slime-autodoc-cache-car))
+         (setq slime-autodoc-cache-car nil)))
+  (equal cache-key
+         slime-autodoc-cache-car))
+
+(defun slime-autodoc-full ()
+  "Like slime-autodoc, but with slime-autodoc-use-multiline-p enabled"
+  (interactive)
+  (eldoc-message (slime-autodoc t t)))
 
 (make-variable-buffer-local (defvar slime-autodoc-mode nil))
 
@@ -211,7 +214,8 @@ If it's not in the cache, the cache will be updated asynchronously."
                (not (active-minibuffer-window))
                ;; Display arglist only when inferior Lisp will be able
                ;; to cope with the request.
-               (slime-background-activities-enabled-p))))
+               (slime-background-activities-enabled-p)))
+    (slime-bind-keys slime-doc-map t '((?a slime-autodoc-full))))
   ad-return-value)
 
 

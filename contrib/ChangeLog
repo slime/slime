@@ -1,5 +1,18 @@
 2010-04-05  Stas Boukarev  <stassats@gmail.com>
 
+	* slime-autodoc.el (slime-autodoc-full): New command,
+	displays multiline arglists. Bound to C-c C-d a.
+	(slime-make-autodoc-rpc-form): Don't send
+	:print-lines to autodoc, always use the actual width for
+	:print-right-margin, remove newlines on formatting when needed.
+	(slime-autodoc): Add optional parameter multilinep defaulted to
+	slime-autodoc-use-multiline-p, pass it to slime-format-autodoc.
+
+	* swank-arglists.lisp (autodoc, decoded-arglist-to-string): remove
+	print-lines parameter, it's not used anymore.
+
+2010-04-05  Stas Boukarev  <stassats@gmail.com>
+
 	* slime-sprof.el (slime-sprof-browser): Use slime-with-popup-buffer for
 	buffer creation.
 

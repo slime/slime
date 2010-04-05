@@ -386,11 +386,10 @@ Otherwise NIL is returned."
 
 (defun decoded-arglist-to-string (decoded-arglist
                                   &key operator highlight
-                                  print-right-margin print-lines)
+                                  print-right-margin)
   (with-output-to-string (*standard-output*)
     (with-arglist-io-syntax
-      (let ((*print-right-margin* print-right-margin)
-            (*print-lines* print-lines))
+      (let ((*print-right-margin* print-right-margin))
         (print-decoded-arglist decoded-arglist 
                                :operator operator 
                                :highlight highlight)))))
@@ -1102,32 +1101,30 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 ;;; %CURSOR-MARKER%)). Only the forms up to point should be
 ;;; considered.
 
-(defslimefun autodoc (raw-form &key print-right-margin print-lines)
+(defslimefun autodoc (raw-form &key print-right-margin)
   "Return a string representing the arglist for the deepest subform in
 RAW-FORM that does have an arglist. The highlighted parameter is
 wrapped in ===> X <===."
   (handler-bind ((serious-condition
                   #'(lambda (c)
                       (unless (debug-on-swank-error)
-                        (let ((*print-right-margin* print-right-margin)
-                              (*print-lines* print-lines))
+                        (let ((*print-right-margin* print-right-margin))
                           (return-from autodoc
                             (format nil "Arglist Error: \"~A\"" c)))))))
-      (with-buffer-syntax ()
-        (multiple-value-bind (form arglist obj-at-cursor form-path)
-            (find-subform-with-arglist (parse-raw-form raw-form))
-          (cond ((interesting-variable-p obj-at-cursor)
-                 (print-variable-to-string obj-at-cursor))
-                (t
-                 (with-available-arglist (arglist) arglist
-                   (decoded-arglist-to-string
-                    arglist
-                    :print-right-margin print-right-margin
-                    :print-lines print-lines
-                    :operator (car form)
-                    :highlight (form-path-to-arglist-path form-path
-                                                          form
-                                                          arglist)))))))))
+    (with-buffer-syntax ()
+      (multiple-value-bind (form arglist obj-at-cursor form-path)
+          (find-subform-with-arglist (parse-raw-form raw-form))
+        (cond ((interesting-variable-p obj-at-cursor)
+               (print-variable-to-string obj-at-cursor))
+              (t
+               (with-available-arglist (arglist) arglist
+                 (decoded-arglist-to-string
+                  arglist
+                  :print-right-margin print-right-margin
+                  :operator (car form)
+                  :highlight (form-path-to-arglist-path form-path
+                                                        form
+                                                        arglist)))))))))
 
 (defun print-variable-to-string (symbol)
   "Return a short description of VARIABLE-NAME, or NIL."
