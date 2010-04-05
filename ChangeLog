@@ -1,3 +1,7 @@
+2010-04-05  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el: Some further adaptations to the new slime-with-popup-buffer.
+
 2010-04-04  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-insert-threads): Use header-line-format only when

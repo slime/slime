@@ -1,3 +1,8 @@
+2010-04-05  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-sprof.el (slime-sprof-browser): Use slime-with-popup-buffer for
+	buffer creation.
+
 2010-04-03  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-arglists.lisp (print-decoded-arglist): prin1-arg -> print-arg.

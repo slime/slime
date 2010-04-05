@@ -22,9 +22,8 @@
   "Show the compiler notes NOTES in tree view."
   (interactive (list (slime-compiler-notes)))
   (with-temp-message "Preparing compiler note tree..."
-    (slime-with-popup-buffer ("*SLIME Compiler-Notes*")
-      (erase-buffer)
-      (slime-compiler-notes-mode)
+    (slime-with-popup-buffer ("*SLIME Compiler-Notes*"
+                              :modes '(slime-compiler-notes-mode))
       (when (null notes)
         (insert "[no notes]"))
       (let ((collapsed-p))

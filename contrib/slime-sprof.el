@@ -25,7 +25,6 @@
 
 (slime-define-keys slime-sprof-browser-mode-map
   ("h" 'describe-mode)
-  ("q" 'bury-buffer)
   ("d" 'slime-sprof-browser-disassemble-function)
   ("g" 'slime-sprof-browser-go-to)
   ("v" 'slime-sprof-browser-view-source)
@@ -65,17 +64,10 @@
 
 (defun slime-sprof-browser ()
   (interactive)
-  (switch-to-buffer (slime-sprof-browser-buffer))
-  (slime-sprof-update))
-
-(defun slime-sprof-browser-buffer ()
-  (if (get-buffer "*slime-sprof-browser*")
-      (get-buffer "*slime-sprof-browser*")
-      (let ((connection (slime-connection)))
-        (with-current-buffer (get-buffer-create "*slime-sprof-browser*")
-          (slime-sprof-browser-mode)
-          (setq slime-buffer-connection connection)
-          (current-buffer)))))
+  (slime-with-popup-buffer ("*slime-sprof-browser*"
+                            :connection t
+                            :modes '(slime-sprof-browser-mode))
+    (slime-sprof-update)))
 
 (defun slime-sprof-toggle-swank-exclusion ()
   (interactive)
