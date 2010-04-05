@@ -145,7 +145,9 @@ If it's not in the cache, the cache will be updated asynchronously."
     ;; background, so it'd be rather disastrous if it touched match
     ;; data.
     (save-match-data
-      (unless (slime-inside-string-or-comment-p)
+      (unless (if (fboundp 'slime-repl-inside-string-or-comment-p)
+                  (slime-repl-inside-string-or-comment-p)
+                  (slime-inside-string-or-comment-p))
         (multiple-value-bind (cache-key retrieve-form)
             (slime-make-autodoc-rpc-form)
           (let* (cached

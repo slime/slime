@@ -1,5 +1,15 @@
 2010-04-05  Stas Boukarev  <stassats@gmail.com>
 
+	* slime-repl.el (slime-repl-inside-string-or-comment-p): New
+	function, when in the REPL prompt, narrow the search to the
+	prompt, otherwise stray " from the previous prompts
+	or outputs may confuse slime-inside-string-or-comment-p.
+
+	* slime-autodoc.el (slime-autodoc): Use
+	slime-repl-inside-string-or-comment-p when fbound.
+
+2010-04-05  Stas Boukarev  <stassats@gmail.com>
+
 	* slime-autodoc.el (slime-autodoc-manually): Rename from
 	slime-autodoc-full.
 	Like slime-autodoc, but when called twice,

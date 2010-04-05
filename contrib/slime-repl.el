@@ -1540,6 +1540,14 @@ expansion will be added to the REPL's history.)"
   (let ((slime-dispatching-connection (slime-connection-at-point)))
     (switch-to-buffer (slime-output-buffer))))
 
+(defun slime-repl-inside-string-or-comment-p ()
+  (save-restriction
+    (when (and (boundp 'slime-repl-input-start-mark)
+               slime-repl-input-start-mark
+               (>= (point) slime-repl-input-start-mark))
+      (narrow-to-region slime-repl-input-start-mark (point)))
+    (slime-inside-string-or-comment-p)))
+
 (defvar slime-repl-easy-menu
   (let ((C '(slime-connected-p)))
     `("REPL"
