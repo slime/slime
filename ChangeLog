@@ -1,7 +1,9 @@
 2010-04-05  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-doc-bindings): Move slime-apropos to C-c C-d A,
-	C-c C-d a will be bound to slime-autodoc-full.
+	C-c C-d a will be bound to slime-autodoc-manually.
+
+	* doc/slime.texi: Document the above change.
 
 2010-04-05  Stas Boukarev  <stassats@gmail.com>
 

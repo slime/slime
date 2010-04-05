@@ -997,7 +997,7 @@ Describe the symbol at point.
 @kbditem{C-c C-d f, slime-describe-function}
 Describe the function at point.
 
-@kbditem{C-c C-d a, slime-apropos}
+@kbditem{C-c C-d A, slime-apropos}
 Perform an apropos search on Lisp symbol names for a regular expression
 match and display their documentation strings. By default the external
 symbols of all packages are searched. With a prefix argument you can choose a
@@ -2554,11 +2554,20 @@ Show the argument list of the function NAME.
 @cmditem{slime-autodoc-mode}
 Toggles autodoc-mode on or off according to the argument, and
 toggles the mode when invoked without argument.
+@kbditem{C-c C-d a, slime-autodoc-manually}
+Like slime-autodoc, but when called twice,
+or after slime-autodoc was already automatically called, 
+display multiline arglist.
 @end table
 
+@vindex slime-use-autodoc-mode
 If the variable @code{slime-use-autodoc-mode} is set (default), Emacs
 starts a timer, otherwise the information is only displayed after
 pressing SPC.
+
+@vindex slime-autodoc-use-multiline-p
+If @code{slime-autodoc-use-multiline-p} is set to non-nil,
+allow long autodoc messages to resize echo area display.
 
 @node ASDF
 @section ASDF
