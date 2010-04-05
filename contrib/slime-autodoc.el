@@ -149,9 +149,9 @@ If it's not in the cache, the cache will be updated asynchronously."
         (multiple-value-bind (cache-key retrieve-form)
             (slime-make-autodoc-rpc-form)
           (let* (cached
-                 (multiline-cached (slime-autodoc-cache-multine (car cache-key)
-                                                                cache-multiline))
-                 (multilinep (or multilinep multiline-cached)))
+                 (multilinep (or (slime-autodoc-multiline-cached (car cache-key))
+                                 multilinep)))
+            (slime-autodoc-cache-multiline (car cache-key) cache-multiline)
             (cond
               ((not cache-key) nil)
               ((setq cached (slime-get-cached-autodoc cache-key))
@@ -174,20 +174,26 @@ If it's not in the cache, the cache will be updated asynchronously."
 
 (defvar slime-autodoc-cache-car nil)
 
-(defun slime-autodoc-cache-multine (cache-key cache-new-p)
+(defun slime-autodoc-multiline-cached (cache-key)
+  (equal cache-key
+         slime-autodoc-cache-car))
+
+(defun slime-autodoc-cache-multiline (cache-key cache-new-p)
   (cond (cache-new-p
          (setq slime-autodoc-cache-car
                cache-key))
         ((not (equal cache-key
                      slime-autodoc-cache-car))
-         (setq slime-autodoc-cache-car nil)))
-  (equal cache-key
-         slime-autodoc-cache-car))
+         (setq slime-autodoc-cache-car nil))))
 
-(defun slime-autodoc-full ()
-  "Like slime-autodoc, but with slime-autodoc-use-multiline-p enabled"
+(defun slime-autodoc-manually ()
+  "Like slime-autodoc, but when called twice,
+or after slime-autodoc was already automatically called, 
+display multiline arglist"
   (interactive)
-  (eldoc-message (slime-autodoc t t)))
+  (eldoc-message (slime-autodoc (or slime-autodoc-use-multiline-p
+                                    slime-autodoc-mode)
+                                t)))
 
 (make-variable-buffer-local (defvar slime-autodoc-mode nil))
 
@@ -215,7 +221,7 @@ If it's not in the cache, the cache will be updated asynchronously."
                ;; Display arglist only when inferior Lisp will be able
                ;; to cope with the request.
                (slime-background-activities-enabled-p)))
-    (slime-bind-keys slime-doc-map t '((?a slime-autodoc-full))))
+    (slime-bind-keys slime-doc-map t '((?a slime-autodoc-manually))))
   ad-return-value)
 
 

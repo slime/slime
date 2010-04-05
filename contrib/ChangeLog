@@ -1,5 +1,13 @@
 2010-04-05  Stas Boukarev  <stassats@gmail.com>
 
+	* slime-autodoc.el (slime-autodoc-manually): Rename from
+	slime-autodoc-full.
+	Like slime-autodoc, but when called twice,
+	or after slime-autodoc was already automatically called,
+	display multiline arglist.
+
+2010-04-05  Stas Boukarev  <stassats@gmail.com>
+
 	* slime-autodoc.el (slime-autodoc-full): New command,
 	displays multiline arglists. Bound to C-c C-d a.
 	(slime-make-autodoc-rpc-form): Don't send
