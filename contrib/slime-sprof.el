@@ -44,7 +44,7 @@
 ;; Reporting
 
 (defun slime-sprof-format (graph)
-  (with-current-buffer (slime-sprof-browser-buffer)
+  (with-current-buffer "*slime-sprof-browser*"
     (let ((inhibit-read-only t))
       (erase-buffer)
       (insert (format "%4s %-54s %6s %6s %6s\n"

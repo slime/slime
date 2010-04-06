@@ -1,3 +1,8 @@
+2010-04-06  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-sprof.el (slime-sprof-format): Remove references to the
+	removed code.
+
 2010-04-05  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-repl-inside-string-or-comment-p): New
