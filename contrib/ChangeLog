@@ -1,5 +1,11 @@
 2010-04-06  Stas Boukarev  <stassats@gmail.com>
 
+	* slime-c-p-c.el (slime-complete-symbol*-fancy-bit): There is no
+	slime-space-information-p variable anymore.
+	Patch by Steven H. Margolis.
+
+2010-04-06  Stas Boukarev  <stassats@gmail.com>
+
 	* slime-sprof.el (slime-sprof-format): Remove references to the
 	removed code.
 
