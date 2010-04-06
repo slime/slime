@@ -2775,7 +2775,8 @@ Each newlines and following indentation is replaced by a single space."
   (with-current-buffer (get-buffer-create "*SLIME Compilation*")
     (let ((inhibit-read-only t))
       (erase-buffer))
-    (slime-insert-compilation-log notes)))
+    (slime-insert-compilation-log notes)
+    (compilation-mode)))
 
 (defun slime-maybe-show-compilation-log (notes)
   "Display the log on failed compilations or if NOTES is non-nil."

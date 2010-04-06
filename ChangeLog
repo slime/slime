@@ -1,3 +1,9 @@
+2010-04-06  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-create-compilation-log): Enable
+	compilation-mode, which was enabled previously by
+	slime-insert-compilation-log.
+
 2010-04-05  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-doc-bindings): Move slime-apropos to C-c C-d A,
