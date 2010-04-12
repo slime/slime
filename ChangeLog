@@ -4,6 +4,18 @@
 	compilation-mode, which was enabled previously by
 	slime-insert-compilation-log.
 
+2010-04-12  Helmut Eller  <heller@common-lisp.net>
+
+	Fix compile-file for various backends.
+
+	* slime.el (slime-compile-file): Only pass non-nil keyword args to
+	Lisp.
+	(slime-simplify-plist): New helper.
+	(slime-compile-and-load-file): Pass policy parameter directly
+	without using global variables.
+
+	* swank.lisp (compile-file-for-emacs): Change singature sightly.
+
 2010-04-05  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-doc-bindings): Move slime-apropos to C-c C-d A,

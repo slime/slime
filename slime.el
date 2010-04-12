@@ -2561,15 +2561,14 @@ underlined and annotated with the relevant information. The commands
 `slime-next-note' and `slime-previous-note' can be used to navigate
 between compiler notes and to display their full details."
   (interactive "P")
-  (let ((slime-compilation-policy (slime-compute-policy policy)))
-    (slime-compile-file t)))
+  (slime-compile-file t (slime-compute-policy policy)))
 
 ;;; FIXME: This should become a DEFCUSTOM
 (defvar slime-compile-file-options '()
   "Plist of additional options that C-c C-k should pass to Lisp.
 Currently only :fasl-directory is supported.")
 
-(defun slime-compile-file (&optional load)
+(defun slime-compile-file (&optional load policy)
   "Compile current buffer's file and highlight resulting compiler notes.
 
 See `slime-compile-and-load-file' for further details."
@@ -2581,13 +2580,18 @@ See `slime-compile-and-load-file' for further details."
              (y-or-n-p (format "Save file %s? " (buffer-file-name))))
     (save-buffer))
   (run-hook-with-args 'slime-before-compile-functions (point-min) (point-max))
-  (let ((file (slime-to-lisp-filename (buffer-file-name))))
+  (let ((file (slime-to-lisp-filename (buffer-file-name)))
+        (options (slime-simplify-plist `(,@slime-compile-file-options
+                                         :policy ,policy))))
     (slime-eval-async
-     `(swank:compile-file-for-emacs ,file ,(if load t nil) 
-                                    :options ',slime-compile-file-options
-                                    :policy ',slime-compilation-policy)
-     #'slime-compilation-finished)
+        `(swank:compile-file-for-emacs ,file ,(if load t nil) . ,options)
+      #'slime-compilation-finished)
     (message "Compiling %s..." file)))
+
+(defun slime-simplify-plist (plist)
+  (loop for (key val) on plist by #'cddr 
+        append (cond ((null val) '())
+                     (t (list key val)))))
 
 (defun slime-compile-defun (&optional raw-prefix-arg)
   "Compile the current toplevel form. 
