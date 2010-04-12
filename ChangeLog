@@ -1,5 +1,9 @@
 2010-04-12  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-doc-bindings): Restore key for slime-apropos.
+
+2010-04-12  Helmut Eller  <heller@common-lisp.net>
+
 	Fix compile-file for various backends.
 
 	* slime.el (slime-compile-file): Only pass non-nil keyword args to
@@ -15,10 +19,6 @@
 	* slime.el (slime-create-compilation-log): Enable
 	compilation-mode, which was enabled previously by
 	slime-insert-compilation-log.
-
-2010-04-12  Helmut Eller  <heller@common-lisp.net>
-
-	* slime.el (slime-doc-bindings): Restore key for slime-apropos.
 
 2010-04-05  Stas Boukarev  <stassats@gmail.com>
 
