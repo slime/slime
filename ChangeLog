@@ -1,9 +1,3 @@
-2010-04-06  Stas Boukarev  <stassats@gmail.com>
-
-	* slime.el (slime-create-compilation-log): Enable
-	compilation-mode, which was enabled previously by
-	slime-insert-compilation-log.
-
 2010-04-12  Helmut Eller  <heller@common-lisp.net>
 
 	Fix compile-file for various backends.
@@ -15,6 +9,12 @@
 	without using global variables.
 
 	* swank.lisp (compile-file-for-emacs): Change singature sightly.
+
+2010-04-06  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-create-compilation-log): Enable
+	compilation-mode, which was enabled previously by
+	slime-insert-compilation-log.
 
 2010-04-05  Stas Boukarev  <stassats@gmail.com>
 
