@@ -16,6 +16,10 @@
 	compilation-mode, which was enabled previously by
 	slime-insert-compilation-log.
 
+2010-04-12  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-doc-bindings): Restore key for slime-apropos.
+
 2010-04-05  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-doc-bindings): Move slime-apropos to C-c C-d A,

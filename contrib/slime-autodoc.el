@@ -223,7 +223,7 @@ display multiline arglist"
                ;; Display arglist only when inferior Lisp will be able
                ;; to cope with the request.
                (slime-background-activities-enabled-p)))
-    (slime-bind-keys slime-doc-map t '((?a slime-autodoc-manually))))
+    (slime-bind-keys slime-doc-map t '((?A slime-autodoc-manually))))
   ad-return-value)
 
 
