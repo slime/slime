@@ -1,5 +1,10 @@
 2010-04-14  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (compile-file-for-emacs): Actually commit the change
+	described in 2010-04-12.
+
+2010-04-14  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el ([test] interrupt-encode-message): New test.
 
 2010-04-14  Helmut Eller  <heller@common-lisp.net>

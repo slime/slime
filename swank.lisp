@@ -2813,7 +2813,8 @@ The time is measured in seconds."
                  (funcall function)))))
       (make-compilation-result (reverse notes) (and successp t) seconds))))
 
-(defslimefun compile-file-for-emacs (filename load-p &key options policy)
+(defslimefun compile-file-for-emacs (filename load-p &rest options &key policy
+                                              &allow-other-keys)
   "Compile FILENAME and, when LOAD-P, load the result.
 Record compiler notes signalled as `compiler-condition's."
   (with-buffer-syntax ()
