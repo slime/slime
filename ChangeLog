@@ -1,5 +1,9 @@
 2010-04-14  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el ([test] interrupt-encode-message): New test.
+
+2010-04-14  Helmut Eller  <heller@common-lisp.net>
+
 	Handle errors during interrupt processing with SLDB.
 	Bugfix for http://article.gmane.org/gmane.lisp.slime.devel/9641
 

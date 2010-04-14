@@ -8012,6 +8012,23 @@ Confirm that SUBFORM is correctly located."
     (sldb-quit))
   (slime-sync-to-top-level 5))
 
+(def-slime-test (interrupt-encode-message (:style :sigio))
+    ()
+    "Test interrupt processing during swank::encode-message"
+    '(())
+  (slime-eval-async '(cl:loop :for i :from 0 
+                              :do (swank::background-message "foo ~d" i)))
+  (sleep-for 1)
+  (slime-eval-async '(cl:/ 1 0))
+  (slime-wait-condition "Debugger visible" 
+                        (lambda () 
+                          (and (slime-sldb-level= 1)
+                               (get-buffer-window (sldb-get-default-buffer))))
+                        30)
+  (with-current-buffer (sldb-get-default-buffer)
+    (sldb-quit))
+  (slime-sync-to-top-level 5))
+
 (def-slime-test inspector
     (exp)
     "Test basic inspector workingness."
