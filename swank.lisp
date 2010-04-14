@@ -525,11 +525,11 @@ corresponding values in the CDR of VALUE."
 
 (defmacro with-interrupts-enabled% (flag body)
   `(progn
-     (check-slime-interrupts)
+     ,@(if flag '((check-slime-interrupts)))
      (multiple-value-prog1
          (let ((*slime-interrupts-enabled* ,flag))
            ,@body)
-       (check-slime-interrupts))))
+       ,@(if flag '((check-slime-interrupts))))))
 
 (defmacro with-slime-interrupts (&body body)
   `(with-interrupts-enabled% t ,body))
@@ -551,9 +551,11 @@ corresponding values in the CDR of VALUE."
                       (list function)))
          (cond ((cdr *pending-slime-interrupts*)
                 (log-event "too many queued interrupts~%")
-                (check-slime-interrupts))
+                (with-simple-restart (continue "Continue from interrupt")
+                  (handler-bind ((serious-condition #'invoke-slime-debugger))
+                    (check-slime-interrupts))))
                (t
-                (log-event "queue-interrupt: ~a" function)
+                (log-event "queue-interrupt: ~a~%" function)
                 (when *interrupt-queued-handler*
                   (funcall *interrupt-queued-handler*)))))))
 
@@ -1261,6 +1263,11 @@ The processing is done in the extent of the toplevel restart."
         (t (dispatch-event event))))
 
 (defun wait-for-event (pattern &optional timeout)
+  "Scan the event queue for PATTERN and return the event.
+If TIMEOUT is 'nil wait until a matching event is enqued.
+If TIMEOUT is 't only scan the queue without waiting.
+The second return value is t if the timeout expired before a matching
+event was found."
   (log-event "wait-for-event: ~s ~s~%" pattern timeout)
   (without-slime-interrupts
     (cond ((use-threads-p) 
