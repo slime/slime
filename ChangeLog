@@ -1,3 +1,15 @@
+2010-04-14  Helmut Eller  <heller@common-lisp.net>
+
+	Move error handling and logging from swank-rpc.lisp to swank.lisp
+
+	* swank.lisp (log-event, destructure-case, decode-message)
+	(encode-message, decode-message, swank-protocol-error): Moved back
+	to swank.lisp from swank-rpc.lisp.  It never belonged there
+	anyway.
+
+	* swank-rpc.lisp (read-message, write-message): New functions.
+	(swank-reader-error): New condition.
+
 2010-04-12  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-doc-bindings): Restore key for slime-apropos.
