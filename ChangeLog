@@ -1,3 +1,9 @@
+2010-04-15  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el (sldb-mode): Include some more commands in its help.
+	(sldb-goto-last-frame): Do not center to the middle but to the
+	bottom of the window.
+
 2010-04-14  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (compile-file-for-emacs): Actually commit the change

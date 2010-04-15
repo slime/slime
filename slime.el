@@ -5341,19 +5341,25 @@ Commands to invoke restarts:
    \\[sldb-abort]   - abort
    \\[sldb-continue]   - continue
    \\[sldb-invoke-restart-0]-\\[sldb-invoke-restart-9] - restart shortcuts
+   \\[sldb-invoke-restart-by-name]   - invoke restart by name
 
 Commands to navigate frames:
    \\[sldb-down]   - down
    \\[sldb-up]   - up
    \\[sldb-details-down] - down, with details
    \\[sldb-details-up] - up, with details
+   \\[sldb-cycle] - cycle between restarts & backtrace
+   \\[sldb-beginning-of-backtrace]   - beginning of backtrace
+   \\[sldb-end-of-backtrace]   - end of backtrace
 
 Miscellaneous commands:
    \\[sldb-restart-frame]   - restart frame
    \\[sldb-return-from-frame]   - return from frame
    \\[sldb-step]   - step
-   \\[sldb-break-with-default-debugger]   - switch to default debugger
+   \\[sldb-break-with-default-debugger]   - switch to native debugger
+   \\[sldb-break-with-system-debugger]   - switch to system debugger (gdb)
    \\[slime-interactive-eval]   - eval
+   \\[sldb-inspect-condition]   - inspect signalled condition
 
 Full list of commands:
 
@@ -5700,7 +5706,10 @@ Called on the `point-entered' text-property hook."
 (defun sldb-goto-last-frame ()
   (goto-char (point-max))
   (while (not (get-text-property (point) 'frame))
-    (goto-char (previous-single-property-change (point) 'frame))))
+    (goto-char (previous-single-property-change (point) 'frame))
+    ;; Recenter to bottom of the window; -2 to account for the
+    ;; empty last line displayed in sldb buffers.
+    (recenter -2)))
 
 (defun sldb-beginning-of-backtrace ()
   "Goto the first frame."
