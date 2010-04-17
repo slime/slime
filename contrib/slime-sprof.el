@@ -66,7 +66,8 @@
   (interactive)
   (slime-with-popup-buffer ("*slime-sprof-browser*"
                             :connection t
-                            :modes '(slime-sprof-browser-mode))
+                            :select t
+                            :mode 'slime-sprof-browser-mode)
     (slime-sprof-update)))
 
 (defun slime-sprof-toggle-swank-exclusion ()

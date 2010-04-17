@@ -873,7 +873,7 @@ See `view-return-to-alist' for a similar idea.")
 (defvar slime-buffer-connection)
 
 ;; Interface
-(defmacro* slime-with-popup-buffer ((name &key package connection select modes)
+(defmacro* slime-with-popup-buffer ((name &key package connection select mode)
                                     &body body)
   "Similar to `with-output-to-temp-buffer'.
 Bind standard-output and initialize some buffer-local variables.
@@ -882,13 +882,13 @@ Restore window configuration when closed.
 NAME is the name of the buffer to be created.
 PACKAGE is the value `slime-buffer-package'.
 CONNECTION is the value for `slime-buffer-connection'.
-MODES is the list of mode commands.
+MODE is the name of a major mode which will be enabled.
 If nil, no explicit connection is associated with
 the buffer.  If t, the current connection is taken.
 "
   `(let* ((vars% (list ,(if (eq package t) '(slime-current-package) package)
                        ,(if (eq connection t) '(slime-connection) connection)))
-          (standard-output (slime-make-popup-buffer ,name vars% ,modes)))
+          (standard-output (slime-make-popup-buffer ,name vars% ,mode)))
      (with-current-buffer standard-output
        (prog1 (progn ,@body)
          (assert (eq (current-buffer) standard-output))
@@ -898,22 +898,20 @@ the buffer.  If t, the current connection is taken.
 
 (put 'slime-with-popup-buffer 'lisp-indent-function 1)
 
-(defun slime-make-popup-buffer (name buffer-vars modes)
+(defun slime-make-popup-buffer (name buffer-vars mode)
   "Return a temporary buffer called NAME.
 The buffer also uses the minor-mode `slime-popup-buffer-mode'."
   (with-current-buffer (get-buffer-create name)
     (kill-all-local-variables)
+    (when mode
+      (funcall mode))
     (setq buffer-read-only nil)
     (erase-buffer)
     (set-syntax-table lisp-mode-syntax-table)
-    (slime-init-popup-buffer buffer-vars modes)
+    (slime-init-popup-buffer buffer-vars)
     (current-buffer)))
 
-(defun slime-init-popup-buffer (buffer-vars modes)
-  (dolist (mode modes)
-    (if (memq mode minor-mode-list)
-        (funcall mode 1)
-        (funcall mode)))
+(defun slime-init-popup-buffer (buffer-vars)
   (slime-popup-buffer-mode 1)
   (multiple-value-setq (slime-buffer-package slime-buffer-connection)
     buffer-vars))
@@ -2799,7 +2797,7 @@ Each newlines and following indentation is replaced by a single space."
   "Create and display the compilation log buffer."
   (interactive (list (slime-compiler-notes)))
   (slime-with-popup-buffer ("*SLIME Compilation*"
-                            :modes '(compilation-mode))
+                            :mode 'compilation-mode)
     (slime-insert-compilation-log notes)))
 
 (defun slime-insert-compilation-log (notes)
@@ -4197,9 +4195,10 @@ in Lisp when committed with \\[slime-edit-value-commit]."
          (buffer (slime-with-popup-buffer (name :package package
                                                 :connection t
                                                 :select t
-                                                :modes '(lisp-mode slime-mode
-                                                         slime-edit-value-mode))
+                                                :mode 'lisp-mode)
                    (slime-popup-buffer-mode -1) ; don't want binding of 'q'
+                   (slime-mode 1)
+                   (slime-edit-value-mode 1)
                    (setq slime-edit-form-string form-string)
                    (insert current-value)
                    (current-buffer))))
@@ -4625,7 +4624,7 @@ With prefix argument include internal symbols."
       (message "No apropos matches for %S" string)
       (slime-with-popup-buffer ("*SLIME Apropos*"
                                 :package package :connection t
-                                :modes '(apropos-mode))
+                                :mode 'apropos-mode)
         (if (boundp 'header-line-format)
             (setq header-line-format summary)
             (insert summary "\n\n"))
@@ -4742,7 +4741,7 @@ The most important commands:
                                :package ,package
                                :connection t
                                :select t
-                               :modes '(slime-xref-mode))
+                               :mode 'slime-xref-mode)
        (slime-set-truncate-lines)
        ,@body)))
 
@@ -5137,9 +5136,9 @@ This variable specifies both what was expanded and how.")
 (defun slime-create-macroexpansion-buffer ()
   (let ((name "*SLIME Macroexpansion*"))
     (slime-with-popup-buffer (name :package t :connection t
-                                   :modes '(lisp-mode
-                                            slime-mode
-                                            slime-macroexpansion-minor-mode))
+                                   :mode 'lisp-mode)
+      (slime-mode 1)
+      (slime-macroexpansion-minor-mode 1)
       (setq font-lock-keywords-case-fold-search t)
       (current-buffer))))
 
@@ -6205,14 +6204,27 @@ was called originally."
 ;;;; Thread control panel
 
 (defvar slime-threads-buffer-name "*SLIME Threads*")
+(defvar slime-threads-buffer-timer nil)
+
+(defcustom slime-threads-update-interval nil
+  "Interval at which the list of threads will be updated.")
 
 (defun slime-list-threads ()
   "Display a list of threads."
   (interactive)
   (let ((name slime-threads-buffer-name))
     (slime-with-popup-buffer (name :connection t
-                                   :modes '(slime-thread-control-mode))
+                                   :mode 'slime-thread-control-mode)
       (slime-update-threads-buffer)
+      (goto-char (point-min))
+      (when slime-threads-update-interval
+        (when slime-threads-buffer-timer
+          (cancel-timer slime-threads-buffer-timer))
+        (setq slime-threads-buffer-timer
+              (run-with-timer
+               slime-threads-update-interval
+               slime-threads-update-interval
+               'slime-update-threads-buffer)))
       (setq slime-popup-buffer-quit-function 'slime-quit-threads-buffer))))
 
 (defun slime-longest-lines (list-of-lines)
@@ -6227,17 +6239,20 @@ was called originally."
       lengths)))
 
 (defun slime-quit-threads-buffer (&optional _)
-  (slime-eval-async `(swank:quit-thread-browser))
-  (slime-popup-buffer-quit t))
+  (when slime-threads-buffer-timer
+    (cancel-timer slime-threads-buffer-timer)
+    (setq slime-threads-buffer-timer nil))
+  (slime-popup-buffer-quit t)
+  (slime-eval-async `(swank:quit-thread-browser)))
 
 (defun slime-update-threads-buffer ()
   (interactive)
-  (let ((threads (slime-eval '(swank:list-threads))))
-    (with-current-buffer slime-threads-buffer-name
-      (let ((inhibit-read-only t))
+  (with-current-buffer slime-threads-buffer-name
+    (let ((threads (slime-eval '(swank:list-threads)))
+          (inhibit-read-only t))
+      (save-excursion
         (erase-buffer)
-        (slime-insert-threads threads)
-        (goto-char (point-min))))))
+        (slime-insert-threads threads)))))
 
 (defvar *slime-threads-table-properties*
   '(nil (face bold)))
@@ -6301,7 +6316,7 @@ was called originally."
   (interactive)
   (slime-eval `(cl:mapc 'swank:kill-nth-thread
                         ',(slime-get-properties 'thread-id)))
-  (call-interactively 'slime-list-threads))
+  (call-interactively 'slime-update-threads-buffer))
 
 (defun slime-get-region-properties (prop start end)
   (loop for position = (if (get-text-property start prop)
@@ -6383,7 +6398,7 @@ was called originally."
   "Display a list of all connections."
   (interactive)
   (slime-with-popup-buffer (slime-connections-buffer-name
-                            :modes '(slime-connection-list-mode))
+                            :mode 'slime-connection-list-mode)
     (slime-draw-connection-list)))
 
 (defun slime-update-connection-list ()

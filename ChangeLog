@@ -1,3 +1,16 @@
+2010-04-17  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-threads-update-interval): New customization
+	variable, if set to a number the threads buffer will
+	updated with this interval.
+	(slime-with-popup-buffer): Rename modes option to mode,
+	for a major mode. Enabling minor modes from within the body
+	doesn't cause troubles. End that way it is compatible with XEmacs
+	since it doesn't need to use minor-mode-list to distinguish
+	between minor and major modes.
+
+	* swank.lisp (list-threads): Delete the current thread from the listing.
+
 2010-04-15  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el (sldb-mode): Include some more commands in its help.
