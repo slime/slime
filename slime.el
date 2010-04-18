@@ -2580,7 +2580,7 @@ See `slime-compile-and-load-file' for further details."
   (run-hook-with-args 'slime-before-compile-functions (point-min) (point-max))
   (let ((file (slime-to-lisp-filename (buffer-file-name)))
         (options (slime-simplify-plist `(,@slime-compile-file-options
-                                         :policy ,policy))))
+                                         :policy ',policy))))
     (slime-eval-async
         `(swank:compile-file-for-emacs ,file ,(if load t nil) . ,options)
       #'slime-compilation-finished)
@@ -6207,7 +6207,11 @@ was called originally."
 (defvar slime-threads-buffer-timer nil)
 
 (defcustom slime-threads-update-interval nil
-  "Interval at which the list of threads will be updated.")
+  "Interval at which the list of threads will be updated."
+  :type '(choice
+          (number :value 0.5)
+          (const nil))
+  :group 'slime-ui)
 
 (defun slime-list-threads ()
   "Display a list of threads."

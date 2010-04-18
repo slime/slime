@@ -1,3 +1,9 @@
+2010-04-18  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-threads-update-interval): Add :group and :type
+	parameters to this customization.
+	Thanks to Mark Harig.
+
 2010-04-17  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-threads-update-interval): New customization
