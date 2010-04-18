@@ -348,15 +348,22 @@ Also return the start position, end position, and buffer of the presentation."
         (unless presentation
           (error "No presentation at click"))
         (values presentation start end (current-buffer))))))
-          
+
+(defun slime-check-presentation (from to buffer presentation)
+  (unless (slime-eval `(cl:nth-value 1 (swank:lookup-presented-object
+                                        ',(slime-presentation-id presentation))))
+    (with-current-buffer buffer
+      (slime-remove-presentation-properties from to presentation))))
+
 (defun slime-copy-or-inspect-presentation-at-mouse (event)
   (interactive "e") ; no "@" -- we don't want to select the clicked-at window
   (multiple-value-bind (presentation start end buffer)
       (slime-presentation-around-click event)
+    (slime-check-presentation start end buffer presentation)
     (if (with-current-buffer buffer
           (eq major-mode 'slime-repl-mode))
         (slime-copy-presentation-at-mouse-to-repl event)
-      (slime-inspect-presentation-at-mouse event))))
+        (slime-inspect-presentation-at-mouse event))))
 
 (defun slime-inspect-presentation (presentation start end buffer)
   (let ((reset-p 
@@ -382,7 +389,7 @@ Also return the start position, end position, and buffer of the presentation."
   (let* ((id (slime-presentation-id presentation))
 	 (presentation-string (format "Presentation %s" id))
 	 (location (slime-eval `(swank:find-definition-for-thing
-				 (swank::lookup-presented-object
+				 (swank:lookup-presented-object
 				  ',(slime-presentation-id presentation))))))
     (slime-edit-definition-cont
      (and location (list (make-slime-xref :dspec `(,presentation-string)
@@ -670,6 +677,7 @@ If replace it non-nil the current input is replaced with the old
 output; otherwise the new input is appended."
   (multiple-value-bind (presentation beg end) 
       (slime-presentation-around-or-before-point (point))
+    (slime-check-presentation beg end (current-buffer) presentation)
     (let ((old-output (buffer-substring beg end))) ;;keep properties
       ;; Append the old input or replace the current input
       (cond (replace (goto-char slime-repl-input-start-mark))
@@ -789,12 +797,11 @@ buffer. Presentations of old results are expanded into code."
 					       (point-max)))
 
 (defun slime-presentation-on-return-pressed ()
-  (cond ((and (car (slime-presentation-around-or-before-point (point)))
-	      (< (point) slime-repl-input-start-mark))
-	 (slime-repl-grab-old-output end-of-input)
-	 (slime-repl-recenter-if-needed)
-	 t)
-	(t nil)))
+  (when (and (car (slime-presentation-around-or-before-point (point)))
+             (< (point) slime-repl-input-start-mark))
+    (slime-repl-grab-old-output end-of-input)
+    (slime-repl-recenter-if-needed)
+    t))
 
 (defun slime-presentation-on-stream-open (stream)
   (require 'bridge)

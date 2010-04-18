@@ -1,3 +1,11 @@
+2010-04-18  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-presentations.el
+	(slime-repl-grab-old-output,slime-copy-or-inspect-presentation-at-mouse):
+	If the presentation at point is no longer available, remove
+	presentation properties from the object.
+	* swank-presentations.lisp (lookup-presented-object): defun->defslimefun.
+
 2010-04-06  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-c-p-c.el (slime-complete-symbol*-fancy-bit): There is no

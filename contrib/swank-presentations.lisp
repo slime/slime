@@ -46,11 +46,11 @@ If OBJECT was saved previously return the old id."
           (setf (gethash object *object-to-presentation-id*) id)
           id))))
 
-(defun lookup-presented-object (id)
+(defslimefun lookup-presented-object (id)
   "Retrieve the object corresponding to ID.
 The secondary value indicates the absence of an entry."
   (etypecase id
-    (integer 
+    (integer
      ;; 
      (multiple-value-bind (object foundp)
          (gethash id *presentation-id-to-object*)
