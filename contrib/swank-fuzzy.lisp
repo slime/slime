@@ -37,7 +37,7 @@ where a CHUNK is a description of a matched substring:
     (OFFSET SUBSTRING)
 
 and FLAGS is short string describing properties of the symbol (see
-CLASSIFY-SYMBOL and STRING-CLASSIFICATION->STRING).
+SYMBOL-CLASSIFICATION-STRING).
 
 E.g., completing \"mvb\" in a package that uses COMMON-LISP would
 return something like:
@@ -148,7 +148,7 @@ special-operator, or a package."
 				(let ((offset (first chunk)) (string (second chunk)))
 				  (list (+ added-length offset) string))) 
 			    symbol-chunks))
-	    (symbol-classification->string (classify-symbol symbol))))))
+	    (symbol-classification-string symbol)))))
 
 (defun fuzzy-completion-set (string default-package-name &key limit time-limit-in-msec)
   "Returns two values: an array of completion objects, sorted by

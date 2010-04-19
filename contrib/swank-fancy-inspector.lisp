@@ -527,29 +527,25 @@ See `methods-by-applicability'.")
   "Returns an object renderable by Emacs' inspector side that
 alphabetically lists all the symbols in SYMBOLS together with a
 concise string representation of what each symbol
-represents (cf. CLASSIFY-SYMBOL & Fuzzy Completion.)"
+represents (see SYMBOL-CLASSIFICATION-STRING)"
   (let ((max-length (loop for s in symbols maximizing (length (symbol-name s))))
         (distance 10)) ; empty distance between name and classification
     (flet ((string-representations (symbol)
              (let* ((name (symbol-name symbol))
                     (length (length name))
-                    (padding (- max-length length))                    
-                    (classification (classify-symbol symbol)))
+                    (padding (- max-length length)))
                (values
                 (concatenate 'string
                              name
                              (make-string (+ padding distance) :initial-element #\Space))
-                (symbol-classification->string classification)))))
+                (symbol-classification-string symbol)))))
       `(""                           ; 8 is (length "Symbols:")
         "Symbols:" ,(make-string (+ -8 max-length distance) :initial-element #\Space) "Flags:"
         (:newline)
         ,(concatenate 'string        ; underlining dashes
                       (make-string (+ max-length distance -1) :initial-element #\-)
                       " "
-                      (let* ((dummy (classify-symbol :foo))
-                             (dummy (symbol-classification->string dummy))
-                             (classification-length (length dummy)))
-                        (make-string classification-length :initial-element #\-)))
+                      (symbol-classification-string '#:foo))
         (:newline)          
         ,@(loop for symbol in symbols appending
                (multiple-value-bind (symbol-string classification-string)

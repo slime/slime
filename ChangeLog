@@ -1,3 +1,13 @@
+2010-04-19  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (symbol-classification-string): New function to
+	replace (symbol-classification->string (classify-symbol
+	symbol)). It's faster and conses much less, while it is called
+	many times by fuzzy completion and fancy inspector.
+	(symbol-classification->string): Removed.
+	(list-threads): Exclude the current thread only if its name is
+	"worker".
+
 2010-04-18  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-threads-update-interval): Add :group and :type

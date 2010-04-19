@@ -749,17 +749,29 @@ keywords: :BOUNDP, :FBOUNDP, :CONSTANT, :GENERIC-FUNCTION,
 
       result)))
 
-(defun symbol-classification->string (flags)
-  (format nil "~A~A~A~A~A~A~A~A"
-          (if (or (member :boundp flags)
-                  (member :constant flags)) "b" "-")
-          (if (member :fboundp flags) "f" "-")
-          (if (member :generic-function flags) "g" "-")
-          (if (member :class flags) "c" "-")
-          (if (member :typespec flags) "t" "-")
-          (if (member :macro flags) "m" "-")
-          (if (member :special-operator flags) "s" "-")
-          (if (member :package flags) "p" "-")))
+(defun symbol-classification-string (symbol)
+  "Return a string in the form -f-c---- where each letter stands for
+boundp fboundp generic-function class macro special-operator package"
+  (let ((letters "bfgctmsp")
+        (result (copy-seq "--------")))
+    (flet ((type-specifier-p (s)
+             (or (documentation s 'type)
+                 (not (eq (type-specifier-arglist s) :not-available))))
+           (flip (letter)
+             (setf (char result (position letter letters))
+                   letter)))
+      (when (boundp symbol) (flip #\b))
+      (when (fboundp symbol)
+        (flip #\f)
+        (when (typep (ignore-errors (fdefinition symbol))
+                     'generic-function)
+          (flip #\g)))
+      (when (type-specifier-p symbol) (flip #\t))
+      (when (find-class symbol nil)   (flip #\c) )
+      (when (macro-function symbol)   (flip #\m))
+      (when (special-operator-p symbol) (flip #\s))
+      (when (find-package symbol)       (flip #\p))
+      result)))
 
 
 ;;;; TCP Server
@@ -3708,7 +3720,8 @@ a time.")
 LABELS is a list of attribute names and the remaining lists are the
 corresponding attribute values per thread."
   (setq *thread-list* (all-threads))
-  (when (use-threads-p)
+  (when (and (use-threads-p)
+             (equalp (thread-name (current-thread)) "worker"))
     (setf *thread-list* (delete (current-thread) *thread-list*)))
   (let* ((plist (thread-attributes (car *thread-list*)))
          (labels (loop for (key) on plist by #'cddr 
