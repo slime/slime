@@ -1,5 +1,10 @@
 2010-04-20  Stas Boukarev  <stassats@gmail.com>
 
+	* slime.el (slime-update-threads-buffer): Save point position
+	on updates.
+
+2010-04-20  Stas Boukarev  <stassats@gmail.com>
+
 	* README: advertise additional contribs, especially slime-fancy.
 
 2010-04-19  Stas Boukarev  <stassats@gmail.com>

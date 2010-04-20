@@ -6247,16 +6247,30 @@ was called originally."
     (cancel-timer slime-threads-buffer-timer)
     (setq slime-threads-buffer-timer nil))
   (slime-popup-buffer-quit t)
+  (setq slime-thread-index-to-id nil)
   (slime-eval-async `(swank:quit-thread-browser)))
 
+(defvar slime-thread-index-to-id nil)
+
+;;; FIXME: the region selection is jumping
 (defun slime-update-threads-buffer ()
   (interactive)
   (with-current-buffer slime-threads-buffer-name
-    (let ((threads (slime-eval '(swank:list-threads)))
-          (inhibit-read-only t))
-      (save-excursion
-        (erase-buffer)
-        (slime-insert-threads threads)))))
+    (let* ((inhibit-read-only t)
+           (threads (slime-eval '(swank:list-threads)))
+           (index (get-text-property (point) 'thread-id))
+           (old-thread-id (and (numberp index)
+                               (elt slime-thread-index-to-id index)))
+           (old-line (line-number-at-pos))
+           (old-column (current-column)))
+      (setq slime-thread-index-to-id (mapcar 'car (cdr threads)))
+      (erase-buffer)
+      (slime-insert-threads threads)
+      (let ((new-position (position old-thread-id threads :key 'car)))
+        (goto-char (point-min))
+        (forward-line (1- (or new-position old-line)))
+        (move-to-column old-column)
+        (set-window-point (get-buffer-window (current-buffer)) (point))))))
 
 (defvar *slime-threads-table-properties*
   '(nil (face bold)))
@@ -6292,10 +6306,10 @@ was called originally."
               (concat (propertize " " 'display '((space :align-to 0)))
                       labels))
         (insert labels))
-    (loop for thread-id from 0
+    (loop for index from 0
           for thread in (cdr threads)
           do
-          (slime-propertize-region `(thread-id ,thread-id)
+          (slime-propertize-region `(thread-id ,index)
             (slime-insert-thread thread longest-lines)))))
 
 
@@ -6308,7 +6322,8 @@ was called originally."
 \\{slime-thread-control-mode-map}
 \\{slime-popup-buffer-mode-map}"
   (when slime-truncate-lines
-    (set (make-local-variable 'truncate-lines) t)))
+    (set (make-local-variable 'truncate-lines) t))
+  (setq buffer-undo-list t))
 
 (slime-define-keys slime-thread-control-mode-map
   ("a" 'slime-thread-attach)
