@@ -1,3 +1,10 @@
+2010-04-20  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank-sbcl.lisp (condition-timed-wait): New helper. Use
+	WITH-DEADLINE rather than WITH-TIMEOUT because the latter conses a
+	new timer, and this function is called _a lot_.
+	(receive-if): Use it.
+
 2010-04-20  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-update-threads-buffer): Save point position
