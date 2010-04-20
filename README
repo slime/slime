@@ -20,6 +20,10 @@ Quick setup instructions
   Make sure your `inferior-lisp-program' is set to a compatible
   version of Lisp.
 
+  slime-setup command is used also to load additional contribs, most often used
+  meta-contrib is slime-fancy, it include a better REPL, and many more nice features,
+  to load it change (slime-setup) form above to (slime-setup '(slime-fancy))
+  
   Use `M-x' slime to fire up and connect to an inferior Lisp.
   SLIME will now automatically be available in your Lisp source
   buffers.

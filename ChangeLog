@@ -1,3 +1,7 @@
+2010-04-20  Stas Boukarev  <stassats@gmail.com>
+
+	* README: advertise additional contribs, especially slime-fancy.
+
 2010-04-19  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (symbol-classification-string): New function to
