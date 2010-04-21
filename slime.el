@@ -6506,9 +6506,9 @@ was called originally."
   (or (get-buffer "*Slime Inspector*")
       (with-current-buffer (get-buffer-create "*Slime Inspector*")
 	(setq slime-inspector-mark-stack '())
-        (buffer-disable-undo)
-        (slime-mode t)
 	(slime-inspector-mode)
+        (slime-mode t)
+        (buffer-disable-undo)
         (make-local-variable 'slime-saved-window-config)
         (setq slime-saved-window-config (current-window-configuration))
 	(current-buffer))))
@@ -6544,8 +6544,9 @@ KILL-BUFFER hooks for the inspector buffer."
           (pop-to-buffer (current-buffer))
           (when point
             (check-type point cons)
-            (ignore-errors 
-              (goto-line (car point))
+            (ignore-errors
+              (goto-char (point-min))
+              (forward-line (1- (car point)))
               (move-to-column (cdr point)))))))))
 
 (defvar slime-inspector-limit 500)

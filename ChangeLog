@@ -1,3 +1,11 @@
+2010-04-21  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-open-inspector): Use forward-line instead of
+	goto-line, since it doesn't result in  "Mark set" message.
+	(slime-inspector-buffer): Enable slime-mode after enabling
+	slime-inspector-mode, otherwise the former will be disabled by the
+	latter.
+
 2010-04-20  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank-sbcl.lisp (condition-timed-wait): New helper. Use
