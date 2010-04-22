@@ -260,7 +260,8 @@ EXCEPT is a list of symbol names which should be ignored."
 
 (defun with-symbol (name package)
   "Generate a form suitable for testing with #+."
-  (if (find-symbol (string name) (string package))
+  (if (and (find-package package)
+           (find-symbol (string name) package))
       '(:and)
       '(:or)))
 

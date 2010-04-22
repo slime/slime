@@ -1269,11 +1269,13 @@ stack."
          (label-value-line* (:value (sb-kernel:value-cell-ref o))))
 	(t
 	 (multiple-value-bind (text label parts) (sb-impl::inspected-parts o)
-           (list* (format nil "~a~%" text)
+           (list* (string-right-trim '(#\Newline) text)
+                  '(:newline)
                   (if label
                       (loop for (l . v) in parts
                             append (label-value-line l v))
-                      (loop for value in parts  for i from 0
+                      (loop for value in parts
+                            for i from 0
                             append (label-value-line i value))))))))
 
 (defmethod emacs-inspect ((o function))
@@ -1343,7 +1345,7 @@ stack."
 ;;;; Multiprocessing
 
 #+(and sb-thread
-       #.(cl:if (cl:find-symbol "THREAD-NAME" "SB-THREAD") '(and) '(or)))
+       #.(swank-backend:with-symbol "THREAD-NAME" "SB-THREAD"))
 (progn
   (defvar *thread-id-counter* 0)
 
