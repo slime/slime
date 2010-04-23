@@ -6250,14 +6250,18 @@ was called originally."
   (setq slime-thread-index-to-id nil)
   (slime-eval-async `(swank:quit-thread-browser)))
 
-(defvar slime-thread-index-to-id nil)
-
-;;; FIXME: the region selection is jumping
 (defun slime-update-threads-buffer ()
   (interactive)
   (with-current-buffer slime-threads-buffer-name
+    (slime-eval-async '(swank:list-threads)
+      'slime-display-threads)))
+
+(defvar slime-thread-index-to-id nil)
+
+;;; FIXME: the region selection is jumping
+(defun slime-display-threads (threads)
+  (with-current-buffer slime-threads-buffer-name
     (let* ((inhibit-read-only t)
-           (threads (slime-eval '(swank:list-threads)))
            (index (get-text-property (point) 'thread-id))
            (old-thread-id (and (numberp index)
                                (elt slime-thread-index-to-id index)))

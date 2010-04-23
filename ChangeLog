@@ -1,5 +1,9 @@
 2010-04-23  Stas Boukarev  <stassats@gmail.com>
 
+	* slime.el (slime-update-threads-buffer): Use slime-eval-async
+
+2010-04-23  Stas Boukarev  <stassats@gmail.com>
+
 	* slime.el (slime-inspector-buffer): Use slime-with-popup-buffer,
 	that solves the problem with keybindings shadowed by slime-mode.
 	Reported by Nathan Bird.
