@@ -1,3 +1,11 @@
+2010-04-23  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-inspector-buffer): Use slime-with-popup-buffer,
+	that solves the problem with keybindings shadowed by slime-mode.
+	Reported by Nathan Bird.
+
+	* README: Better wording.
+
 2010-04-22  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-backend.lisp (with-symbol): Test for package before doing
