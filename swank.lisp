@@ -2182,8 +2182,9 @@ Errors are trapped and invoke our debugger."
       (cond ((null values) "; No value")
             ((and (integerp (car values)) (null (cdr values)))
              (let ((i (car values)))
-               (format nil "~A~D (#x~X, #o~O, #b~B)" 
-                       *echo-area-prefix* i i i i)))
+               (format nil "~A~D (~a bit~:p, #x~X, #o~O, #b~B)" 
+                       *echo-area-prefix*
+                       i (integer-length i) i i i)))
             (t (format nil "~a~{~S~^, ~}" *echo-area-prefix* values))))))
 
 (defmacro values-to-string (values)

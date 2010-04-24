@@ -1,6 +1,11 @@
+2010-04-24  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (format-values-for-echo-area): Also print the length of an
+	integer in bits.
+
 2010-04-23  Stas Boukarev  <stassats@gmail.com>
 
-	* slime.el (slime-update-threads-buffer): Use slime-eval-async
+	* slime.el (slime-update-threads-buffer): Use slime-eval-async.
 
 2010-04-23  Stas Boukarev  <stassats@gmail.com>
 
