@@ -1,3 +1,7 @@
+2010-04-27  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-info): New function, opens the manual.
+
 2010-04-24  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (format-values-for-echo-area): Also print the length of an

@@ -4689,6 +4689,15 @@ With prefix argument include internal symbols."
          (item (get-text-property pos 'item)))
     (slime-eval-describe `(swank:describe-definition-for-emacs ,item ,type))))
 
+(defun slime-info ()
+  "Open Slime manual"
+  (interactive)
+  (let ((file (expand-file-name "doc/slime.info" slime-path)))
+    (if (file-exists-p file)
+        (info file)
+        (message "No slime.info, run `make slime.info' in %s"
+                 (expand-file-name "doc/" slime-path)))))
+
 
 ;;;; XREF: cross-referencing
 
