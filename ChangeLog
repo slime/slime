@@ -1,3 +1,8 @@
+2010-04-29  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-compile-file): Run check-parens after checking
+	that the buffer is associated with a file.
+
 2010-04-27  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-info): New function, opens the manual.

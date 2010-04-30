@@ -2571,9 +2571,9 @@ Currently only :fasl-directory is supported.")
 
 See `slime-compile-and-load-file' for further details."
   (interactive)
-  (check-parens)
   (unless buffer-file-name
     (error "Buffer %s is not associated with a file." (buffer-name)))
+  (check-parens)
   (when (and (buffer-modified-p)
              (y-or-n-p (format "Save file %s? " (buffer-file-name))))
     (save-buffer))
