@@ -2475,7 +2475,6 @@ Also rearrange windows."
                                      buffer)))
     (slime-net-close process)
     (slime-inferior-connect new-proc args)
-    (pop-to-buffer buffer)
     (switch-to-buffer buffer)
     (goto-char (point-max))))
 
@@ -6267,6 +6266,13 @@ was called originally."
 
 (defvar slime-thread-index-to-id nil)
 
+(defun slime-move-point (position)
+  "Move point in the current buffer and in the window the buffer is displayed."
+  (let ((window (get-buffer-window (current-buffer) t)))
+    (goto-char position)
+    (when window
+      (set-window-point window position))))
+
 ;;; FIXME: the region selection is jumping
 (defun slime-display-threads (threads)
   (with-current-buffer slime-threads-buffer-name
@@ -6283,7 +6289,7 @@ was called originally."
         (goto-char (point-min))
         (forward-line (1- (or new-position old-line)))
         (move-to-column old-column)
-        (set-window-point (get-buffer-window (current-buffer)) (point))))))
+        (slime-move-point (point))))))
 
 (defvar *slime-threads-table-properties*
   '(nil (face bold)))

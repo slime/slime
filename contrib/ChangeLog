@@ -1,3 +1,9 @@
+2010-05-01  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-repl-update-banner): Use slime-move-point
+	instead of goto-char alone, ensuring that the point is moved even
+	if the window isn't currently selected.
+
 2010-04-18  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-presentations.el

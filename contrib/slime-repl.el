@@ -134,7 +134,7 @@
 
 (defun slime-repl-update-banner ()
   (funcall slime-repl-banner-function)
-  (goto-char (point-max))
+  (slime-move-point (point-max))
   (slime-mark-output-start)
   (slime-mark-input-start)
   (slime-repl-insert-prompt))

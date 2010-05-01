@@ -1,3 +1,12 @@
+2010-05-01  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-restart-sentinel): Don't pop to the inferior
+	buffer, since this command is usually run either from
+	*inferior-lisp* buffer or from REPL, it makes sense to reuse
+	current window instead of messing up window configuration.
+	(slime-move-point): New function, moves point in a buffer and
+	its window.
+
 2010-04-29  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-compile-file): Run check-parens after checking
