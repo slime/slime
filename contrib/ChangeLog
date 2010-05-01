@@ -1,5 +1,12 @@
 2010-05-01  Stas Boukarev  <stassats@gmail.com>
 
+	* slime-fuzzy.el(slime-fuzzy-dehighlight-current-completion):
+	instead of creating new overlays, move one overlay around.
+	(slime-mimic-key-bindings): Renamed from mimic-key-bindings.
+	Patch by Leo Liu.
+
+2010-05-01  Stas Boukarev  <stassats@gmail.com>
+
 	* slime-repl.el (slime-repl-update-banner): Use slime-move-point
 	instead of goto-char alone, ensuring that the point is moved even
 	if the window isn't currently selected.
