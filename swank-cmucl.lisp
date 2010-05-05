@@ -1894,10 +1894,13 @@ Try to create a informative message."
       (delete-file name))))
 
 (defun gdb-command (format-string &rest args)
-  (let ((str (gdb-exec (format nil "attach ~d~%~a~%detach" 
+  (let ((str (gdb-exec (format nil 
+                               "interpreter-exec mi2 \"attach ~d\"~%~
+                                interpreter-exec console ~s~%detach"
                                (getpid)
-                               (apply #'format nil format-string args)))))
-    (subseq str (1+ (position #\newline str)))))
+                               (apply #'format nil format-string args))))
+        (prompt (format nil "~%^done~%(gdb) ~%")))
+    (subseq str (+ (search prompt str) (length prompt)))))
 
 (defun gdb-exec (cmd)
   (with-temporary-file (file filename)
@@ -1946,7 +1949,8 @@ Try to create a informative message."
                                         (format nil "~a/lisp/"
                                                 (unix-truename "target:")))))
                                 (list :line (parse-integer line))))))
-            (t `(:error ,string))))))
+            (t 
+             `(:error ,string))))))
 
 (defun read-word (&optional (stream *standard-input*))
   (peek-char t stream)

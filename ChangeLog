@@ -1,3 +1,7 @@
+2010-05-05  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-cmucl.lisp (gdb-command): Use gdb's MI.
+
 2010-05-05  Mark Evenson <evenson@panix.com>
 
 	Fix for Cygwin Emacs filename problem.
