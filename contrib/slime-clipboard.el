@@ -64,7 +64,7 @@
 		    #'slime-clipboard-display-entries))
 
 (defun slime-clipboard-display-entries (entries)
-  (slime-with-popup-buffer ("*Slime Clipboard*"
+  (slime-with-popup-buffer ((slime-buffer-name :clipboard)
                             :mode 'slime-clipboard-mode)
     (slime-clipboard-insert-entries entries)))
 

@@ -114,7 +114,7 @@ Return DOCUMENTATION."
 
 (defun slime-fontify-string (string)
   "Fontify STRING as `font-lock-mode' does in Lisp mode."
-  (with-current-buffer (get-buffer-create " *slime-fontify*")
+  (with-current-buffer (get-buffer-create (slime-buffer-name :fontify 'hidden))
     (erase-buffer)
     (unless (eq major-mode 'lisp-mode)
       ;; Just calling (lisp-mode) will turn slime-mode on in that buffer,

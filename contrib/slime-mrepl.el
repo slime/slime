@@ -115,7 +115,7 @@ If NEWLINE is true then add a newline at the end of the input."
      (slime-rcurry 
       (lambda (result channel)
 	(destructuring-bind (remote thread-id package prompt) result
-	  (pop-to-buffer (generate-new-buffer "*slime-listener*"))
+	  (pop-to-buffer (generate-new-buffer (slime-buffer-name :listener)))
 	  (slime-mrepl-mode)
 	  (setq slime-current-thread thread-id)
 	  (setq slime-buffer-connection (slime-connection))

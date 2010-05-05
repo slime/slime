@@ -24,7 +24,7 @@
   "The typeout frame properties (passed to `make-frame').")
 
 (defun slime-typeout-buffer ()
-  (with-current-buffer (get-buffer-create "*SLIME Typeout*")
+  (with-current-buffer (get-buffer-create (slime-buffer-name :typeout))
     (setq buffer-read-only t)
     (current-buffer)))
 

@@ -1,4 +1,4 @@
-;;; swank-presentations.el --- imitat LispM' presentations
+;;; swank-presentations.el --- imitate LispM' presentations
 ;;;
 ;;; Authors: Alan Ruttenberg  <alanr-l@mumble.net>
 ;;;          Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
@@ -485,7 +485,7 @@ Also return the start position, end position, and buffer of the presentation."
 (defun slime-describe-presentation (presentation)
   (slime-eval-describe 
      `(swank::describe-to-string
-       (swank::lookup-presented-object ',(slime-presentation-id presentation)))))
+       (swank:lookup-presented-object ',(slime-presentation-id presentation)))))
 
 (defun slime-describe-presentation-at-mouse (event)
   (interactive "@e")
@@ -502,7 +502,7 @@ Also return the start position, end position, and buffer of the presentation."
   (slime-eval-describe 
      `(swank::swank-pprint
        (cl:list
-        (swank::lookup-presented-object ',(slime-presentation-id presentation))))))
+        (swank:lookup-presented-object ',(slime-presentation-id presentation))))))
 
 (defun slime-pretty-print-presentation-at-mouse (event)
   (interactive "@e")

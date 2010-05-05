@@ -721,6 +721,12 @@ corresponding values in the CDR of VALUE."
 (defvar slime-message-function 'message)
 
 ;; Interface
+(defun slime-buffer-name (type &optional hidden)
+  (assert (keywordp type))
+  (concat (if hidden " " "")
+          (format "*slime-%s*" (substring (symbol-name type) 1))))
+
+;; Interface
 (defun slime-message (format &rest args)
   "Like `message' but with special support for multi-line messages.
 Single-line messages use the echo area."
@@ -2301,7 +2307,7 @@ Debugged requests are ignored."
           ((:ping thread tag)
            (slime-send `(:emacs-pong ,thread ,tag)))
           ((:reader-error packet condition)
-           (slime-with-popup-buffer ("*Slime Error*")
+           (slime-with-popup-buffer (slime-buffer-name :error)
              (princ (format "Invalid protocol message:\n%s\n\n%S"
                             condition packet))
              (goto-char (point-min)))
@@ -2412,7 +2418,7 @@ Debugged requests are ignored."
 (defvar slime-outline-mode-in-events-buffer nil
   "*Non-nil means use outline-mode in *slime-events*.")
 
-(defvar slime-event-buffer-name "*slime-events*"
+(defvar slime-event-buffer-name (slime-buffer-name :events)
   "The name of the slime event buffer.")
 
 (defun slime-log-event (event)
@@ -2774,7 +2780,7 @@ Each newlines and following indentation is replaced by a single space."
 
 (defun slime-create-compilation-log (notes)
   "Create a buffer for `next-error' to use."
-  (with-current-buffer (get-buffer-create "*SLIME Compilation*")
+  (with-current-buffer (get-buffer-create (slime-buffer-name :compilation))
     (let ((inhibit-read-only t))
       (erase-buffer))
     (slime-insert-compilation-log notes)
@@ -2786,7 +2792,7 @@ Each newlines and following indentation is replaced by a single space."
   (with-struct (slime-compilation-result. notes duration successp)
       slime-last-compilation-result
     (unless successp
-      (with-current-buffer "*SLIME Compilation*"
+      (with-current-buffer (slime-buffer-name :compilation)
         (let ((inhibit-read-only t))
           (goto-char (point-max))
           (insert "Compilation " (if successp "succeeded." "failed."))
@@ -2796,7 +2802,7 @@ Each newlines and following indentation is replaced by a single space."
 (defun slime-show-compilation-log (notes)
   "Create and display the compilation log buffer."
   (interactive (list (slime-compiler-notes)))
-  (slime-with-popup-buffer ("*SLIME Compilation*"
+  (slime-with-popup-buffer ((slime-buffer-name :compilation)
                             :mode 'compilation-mode)
     (slime-insert-compilation-log notes)))
 
@@ -2864,7 +2870,7 @@ This is quite an expensive operation so use carefully."
 
 (defun slime-goto-note-in-compilation-log (note)
   "Find `note' in the compilation log and display it."
-  (with-current-buffer (get-buffer "*SLIME Compilation*")
+  (with-current-buffer (get-buffer (slime-buffer-name :compilation))
     (let ((origin (point))
           (foundp nil))
       (goto-char (point-min))
@@ -3243,7 +3249,7 @@ you should check twice before modifying.")
      (slime-check-location-buffer-name-sanity buffer-name)
      (set-buffer buffer-name))
     ((:source-form string)
-     (set-buffer (get-buffer-create "*SLIME Source Form*"))
+     (set-buffer (get-buffer-create (slime-buffer-name :source)))
      (erase-buffer)
      (lisp-mode)
      (insert string)
@@ -3477,7 +3483,7 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
 (defun slime-show-note (overlay)
   "Present the details of a compiler note to the user."
   (slime-temporarily-highlight-note overlay)
-  (if (get-buffer-window "*SLIME Compilation*" t)
+  (if (get-buffer-window (slime-buffer-name :compilation) t)
       (slime-goto-note-in-compilation-log (overlay-get overlay 'slime-note))
       (let ((message (get-char-property (point) 'help-echo)))
         (slime-message "%s" (if (zerop (length message)) "\"\"" message)))))
@@ -4105,7 +4111,7 @@ inserted in the current buffer."
   ;; So we can have one description buffer open per connection. Useful
   ;; for comparing the output of DISASSEMBLE across implementations.
   ;; FIXME: could easily be achieved with M-x rename-buffer
-  (let ((bufname (format "*SLIME Description <%s>*" (slime-connection-name))))
+  (let ((bufname (slime-buffer-name :description)))
     (slime-with-popup-buffer (bufname :package package
                                       :connection t
                                       :select slime-description-autofocus)
@@ -4622,7 +4628,7 @@ With prefix argument include internal symbols."
 (defun slime-show-apropos (plists string package summary)
   (if (null plists)
       (message "No apropos matches for %S" string)
-      (slime-with-popup-buffer ("*SLIME Apropos*"
+      (slime-with-popup-buffer ((slime-buffer-name :apropos)
                                 :package package :connection t
                                 :mode 'apropos-mode)
         (if (boundp 'header-line-format)
@@ -4744,8 +4750,7 @@ The most important commands:
 (defmacro* slime-with-xref-buffer ((xref-type symbol &optional package)
                                    &body body)
   "Execute BODY in a xref buffer, then show that buffer."
-  `(let ((xref-buffer-name% (format "*slime xref[%s: %s]*" 
-                                    ,xref-type ,symbol)))
+  `(let ((xref-buffer-name% (slime-buffer-name :xref)))
      (slime-with-popup-buffer (xref-buffer-name%
                                :package ,package
                                :connection t
@@ -5143,7 +5148,7 @@ This variable specifies both what was expanded and how.")
     (font-lock-fontify-buffer)))
 
 (defun slime-create-macroexpansion-buffer ()
-  (let ((name "*SLIME Macroexpansion*"))
+  (let ((name (slime-buffer-name :macroexpansion)))
     (slime-with-popup-buffer (name :package t :connection t
                                    :mode 'lisp-mode)
       (slime-mode 1)
@@ -6219,7 +6224,7 @@ was called originally."
 
 ;;;; Thread control panel
 
-(defvar slime-threads-buffer-name "*SLIME Threads*")
+(defvar slime-threads-buffer-name (slime-buffer-name :threads))
 (defvar slime-threads-buffer-timer nil)
 
 (defcustom slime-threads-update-interval nil
@@ -6438,7 +6443,7 @@ was called originally."
   (slime-select-connection (slime-connection-at-point))
   (slime-update-connection-list))
 
-(defvar slime-connections-buffer-name "*SLIME Connections*")
+(defvar slime-connections-buffer-name (slime-buffer-name :connections))
 
 (defun slime-list-connections ()
   "Display a list of all connections."
@@ -6534,8 +6539,9 @@ was called originally."
   (setq buffer-read-only t))
 
 (defun slime-inspector-buffer ()
-  (or (get-buffer "*Slime Inspector*")
-      (slime-with-popup-buffer ("*Slime Inspector*" :mode 'slime-inspector-mode)
+  (or (get-buffer (slime-buffer-name :inspector))
+      (slime-with-popup-buffer ((slime-buffer-name :inspector)
+                                :mode 'slime-inspector-mode)
         (setq slime-inspector-mark-stack '())
         (buffer-disable-undo)
         (make-local-variable 'slime-saved-window-config)
@@ -7210,7 +7216,7 @@ is setup, unless the user already set one explicitly."
 
 (defun slime-cheat-sheet ()
   (interactive)
-  (switch-to-buffer-other-frame (get-buffer-create "*SLIME Cheat Sheet*"))
+  (switch-to-buffer-other-frame (get-buffer-create (slime-buffer-name :cheat-sheet)))
   (setq buffer-read-only nil)
   (delete-region (point-min) (point-max))
   (goto-char (point-min))
@@ -8127,7 +8133,7 @@ Confirm that SUBFORM is correctly located."
     (string-match name (buffer-name buffer))))
 
 (defun slime-inspector-visible-p ()
-  (slime-buffer-visible-p "\\*Slime Inspector\\*" ))
+  (slime-buffer-visible-p (slime-buffer-name :inspector)))
 
 (defun slime-execute-as-command (name)
   "Execute `name' as if it was done by the user through the
@@ -8157,9 +8163,9 @@ the buffer's undo-list."
     (slime-execute-as-command 'slime-macroexpand-1)
     (slime-wait-condition "Macroexpansion buffer visible" 
                           (lambda () 
-                            (slime-buffer-visible-p "*SLIME Macroexpansion*"))
+                            (slime-buffer-visible-p (slime-buffer-name :macroexpansion)))
                           5)
-    (with-current-buffer (get-buffer "*SLIME Macroexpansion*")
+    (with-current-buffer (get-buffer (slime-buffer-name :macroexpansion))
       (slime-test-expect "Initial macroexpansion is correct"
                          expansion1 
                          (downcase (buffer-string)))

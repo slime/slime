@@ -32,11 +32,11 @@
 
 (defun slime-scratch-buffer ()
   "Return the scratch buffer, create it if necessary."
-  (or (get-buffer "*slime-scratch*")
+  (or (get-buffer (slime-buffer-name :scratch))
       (with-current-buffer (if slime-scratch-file
                                (find-file slime-scratch-file)
-                             (get-buffer-create "*slime-scratch*"))
-        (rename-buffer "*slime-scratch*")
+                             (get-buffer-create (slime-buffer-name :scratch)))
+        (rename-buffer (slime-buffer-name :scratch))
 	(lisp-mode)
 	(use-local-map slime-scratch-mode-map)
 	(slime-mode t)
