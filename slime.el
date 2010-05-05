@@ -5532,9 +5532,16 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
   (when-let (sldb (sldb-find-buffer thread))
     (with-current-buffer sldb
       (cond (stepping
-             (setq sldb-level nil))
+             (setq sldb-level nil)
+             (run-with-timer 0.4 nil 'sldb-close-step-buffer sldb))
             (t
              (slime-popup-buffer-quit t))))))
+
+(defun sldb-close-step-buffer (buffer)
+  (when (buffer-live-p buffer)
+    (with-current-buffer buffer
+      (when (not sldb-level)
+        (slime-popup-buffer-quit t)))))
 
 
 ;;;;;; SLDB buffer insertion

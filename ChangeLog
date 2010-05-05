@@ -1,3 +1,8 @@
+2010-05-05  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (sldb-exit): When stepping, close buffer after a delay.
+	(sldb-close-step-buffer): New function.
+
 2010-05-01  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-restart-sentinel): Don't pop to the inferior
