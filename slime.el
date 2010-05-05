@@ -1315,10 +1315,11 @@ See `slime-start'."
     ;; Return a single form to avoid problems with buffered input.
     (format "%S\n\n"
             `(progn
-               (load ,(expand-file-name loader) :verbose t)
+               (load ,(slime-to-lisp-filename (expand-file-name loader)) 
+                     :verbose t)
                (funcall (read-from-string "swank-loader:init"))
                (funcall (read-from-string "swank:start-server")
-                        ,port-filename
+                        ,(slime-to-lisp-filename port-filename)
                         :coding-system ,encoding)))))
 
 (defun slime-swank-port-file ()

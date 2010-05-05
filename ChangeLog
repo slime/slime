@@ -1,3 +1,9 @@
+2010-05-05  Mark Evenson <evenson@panix.com>
+
+	Fix for Cygwin Emacs filename problem.
+
+	* slime.el (slime-init-command): Use slime-to-lisp-filename.
+
 2010-05-05  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (sldb-exit): When stepping, close buffer after a delay.
