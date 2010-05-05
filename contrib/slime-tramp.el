@@ -100,7 +100,9 @@ The functions created here expect your tramp-default-method or
              lisp-filename)))))
 
 (defun slime-tramp-to-lisp-filename (filename)
-  (funcall (first (slime-find-filename-translators (slime-machine-instance)))
+  (funcall (if (slime-connected-p)
+               (first (slime-find-filename-translators (slime-machine-instance)))
+               'identity)
            (expand-file-name filename)))
 
 (defun slime-tramp-from-lisp-filename (filename)

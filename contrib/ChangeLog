@@ -1,3 +1,9 @@
+2010-05-05  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-tramp.el (slime-tramp-to-lisp-filename): Check if slime is
+	connected, because slime-to-lisp-filename is now used for
+	establishing connection.
+
 2010-05-05  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-editing-commands.el: Fix typo.
