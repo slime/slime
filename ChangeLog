@@ -1,5 +1,9 @@
 2010-05-05  Stas Boukarev  <stassats@gmail.com>
 
+	* slime.el (slime-dispatch-event): Fix typo in the previous commit.
+
+2010-05-05  Stas Boukarev  <stassats@gmail.com>
+
 	* Make buffer names more consistent.
 	Patch by Leo Liu.
 

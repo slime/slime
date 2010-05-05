@@ -2307,7 +2307,7 @@ Debugged requests are ignored."
           ((:ping thread tag)
            (slime-send `(:emacs-pong ,thread ,tag)))
           ((:reader-error packet condition)
-           (slime-with-popup-buffer (slime-buffer-name :error)
+           (slime-with-popup-buffer ((slime-buffer-name :error))
              (princ (format "Invalid protocol message:\n%s\n\n%S"
                             condition packet))
              (goto-char (point-min)))
