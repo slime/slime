@@ -1,4 +1,4 @@
-;;; slime-editing-commands.el -- editing commands whithout server interaction
+;;; slime-editing-commands.el -- editing commands without server interaction
 ;;
 ;; Authors: Thomas F. Burdick  <tfb@OCF.Berkeley.EDU>
 ;;          Luke Gorrie  <luke@synap.se>

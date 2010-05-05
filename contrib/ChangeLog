@@ -1,3 +1,7 @@
+2010-05-05  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-editing-commands.el: Fix typo.
+
 2010-05-01  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-fuzzy.el(slime-fuzzy-dehighlight-current-completion):
