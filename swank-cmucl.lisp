@@ -2486,10 +2486,3 @@ int main (int argc, char** argv) {
       (call-program args :output t)
       (delete-file infile)
       outfile)))
-
-;; (save-image "/tmp/x.core")
-
-;; Local Variables:
-;; pbook-heading-regexp:    "^;;;\\(;+\\)"
-;; pbook-commentary-regexp: "^;;;\\($\\|[^;]\\)"
-;; End:

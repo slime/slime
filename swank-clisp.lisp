@@ -848,8 +848,3 @@ Execute BODY with NAME's function slot set to FUNCTION."
                 ,@(if restart-function 
                       `((:init-function ,restart-function))))))
     (apply #'ext:saveinitmem args)))
-
-;;; Local Variables:
-;;; eval: (put 'compile-file-frobbing-notes 'lisp-indent-function 1)
-;;; eval: (put 'dynamic-flet 'common-lisp-indent-function 1)
-;;; End:

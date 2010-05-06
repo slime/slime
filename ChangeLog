@@ -1,3 +1,11 @@
+2010-05-06  Helmut Eller  <heller@common-lisp.net>
+
+	Remove some non-standard file variables.
+
+	* swank-cmucl.lisp, swank-scl.lisp: Remove pbook vars.
+	* swank-clisp.lisp: Remove indentation settings. Slime does it
+	automatically.
+
 2010-05-05  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-dispatch-event): Fix typo in the previous commit.
