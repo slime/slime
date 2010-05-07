@@ -1,3 +1,13 @@
+2010-05-07  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-presentations.el (slime-presentation-write): Reuse
+	functions from slime-repl. This fixes spurious point jumps.
+
+	* slime-repl.el (slime-repl-show-maximum-output):
+	Don't search for a window of the buffer if the current window
+	already displays it.
+	(slime-with-output-end-mark): Removed, unused.
+
 2010-05-05  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-tramp.el (slime-tramp-to-lisp-filename): Check if slime is

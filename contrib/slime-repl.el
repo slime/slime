@@ -160,27 +160,6 @@
       (display-buffer (current-buffer) t))
     (slime-repl-show-maximum-output)))
 
-(defmacro slime-with-output-end-mark (&rest body)
-  "Execute BODY at `slime-output-end'.  
-
-If point is initially at `slime-output-end' and the buffer is visible
-update window-point afterwards.  If point is initially not at
-`slime-output-end, execute body inside a `save-excursion' block."
-  `(let ((body.. (lambda () ,@body))
-         (updatep.. (and (eobp) (pos-visible-in-window-p))))
-     (cond ((= (point) slime-output-end)
-            (let ((start.. (point)))
-              (funcall body..)
-              (set-marker slime-output-end (point))
-              (when (= start.. slime-repl-input-start-mark) 
-                (set-marker slime-repl-input-start-mark (point)))))
-           (t 
-            (save-excursion 
-              (goto-char slime-output-end)
-              (funcall body..))))
-     (when updatep..
-       (slime-repl-show-maximum-output))))
-
 (defun slime-output-filter (process string)
   (with-current-buffer (process-buffer process)
     (when (and (plusp (length string))
@@ -243,7 +222,7 @@ hashtable `slime-output-target-to-marker'; output is inserted at this marker."
   (case target
     ((nil) (slime-repl-emit string))
     (:repl-result (slime-repl-emit-result string))
-    (t (slime-emit-string string target))))
+    (t (slime-emit-to-target string target))))
 
 (defvar slime-repl-popup-on-output nil
   "Display the output buffer when some output is written.
@@ -308,7 +287,7 @@ The markers indicate where output should be inserted.")
     (t
      (gethash target slime-output-target-to-marker))))
 
-(defun slime-emit-string (string target)
+(defun slime-emit-to-target (string target)
   "Insert STRING at target TARGET.
 See `slime-output-target-to-marker'."
   (let* ((marker (slime-output-target-marker target))
@@ -580,7 +559,9 @@ Return the position of the prompt beginning."
 (defun slime-repl-show-maximum-output ()
   "Put the end of the buffer at the bottom of the window."
   (when (eobp)
-    (let ((win (get-buffer-window (current-buffer))))
+    (let ((win (if (eq (window-buffer) (current-buffer))
+                   (selected-window)
+                   (get-buffer-window (current-buffer) t))))
       (when win
         (with-selected-window win
           (set-window-point win (point-max)) 

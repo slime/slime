@@ -752,42 +752,23 @@ output; otherwise the new input is appended."
      t)
     (t nil)))
 
+(defun slime-presentation-write-result (string)
+  (with-current-buffer (slime-output-buffer)
+    (let ((marker (slime-output-target-marker :repl-result)))
+      (goto-char marker)
+      (slime-propertize-region `(face slime-repl-result-face
+                                      rear-nonsticky (face))
+        (insert string))
+      ;; Move the input-start marker after the REPL result.
+      (set-marker marker (point)))))
+
 (defun slime-presentation-write (string &optional target)
   (case target
     ((nil)                              ; Regular process output
-     (with-current-buffer (slime-output-buffer)
-       (slime-with-output-end-mark
-	(slime-propertize-region '(face slime-repl-output-face
-					rear-nonsticky (face))
-	  (insert string))
-        (set-marker slime-output-end (point))
-        (when (and (= (point) slime-repl-prompt-start-mark)
-                   (not (bolp)))
-          (insert "\n")
-          (set-marker slime-output-end (1- (point))))
-        (if (< slime-repl-input-start-mark (point))
-            (set-marker slime-repl-input-start-mark
-                        (point))))))
+     (slime-repl-emit string))
     (:repl-result                       
-     (with-current-buffer (slime-output-buffer)
-       (let ((marker (slime-output-target-marker target)))
-         (goto-char marker)
-         (slime-propertize-region `(face slime-repl-result-face
-                                         rear-nonsticky (face))
-           (insert string))
-         ;; Move the input-start marker after the REPL result.
-         (set-marker marker (point)))))
-    (t
-     (let* ((marker (slime-output-target-marker target))
-            (buffer (and marker (marker-buffer marker))))
-       (when buffer
-         (with-current-buffer buffer
-           (save-excursion 
-             ;; Insert STRING at MARKER, then move MARKER behind
-             ;; the insertion.
-             (goto-char marker)
-             (insert-before-markers string)
-             (set-marker marker (point)))))))))
+     (slime-presentation-write-result string))
+    (t (slime-emit-to-target string target))))
 
 (defun slime-presentation-current-input (&optional until-point-p)
   "Return the current input as string.
