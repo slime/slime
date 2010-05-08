@@ -760,7 +760,8 @@ output; otherwise the new input is appended."
                                       rear-nonsticky (face))
         (insert string))
       ;; Move the input-start marker after the REPL result.
-      (set-marker marker (point)))))
+      (set-marker marker (point)))
+    (slime-repl-show-maximum-output)))
 
 (defun slime-presentation-write (string &optional target)
   (case target

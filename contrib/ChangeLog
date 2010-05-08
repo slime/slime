@@ -1,3 +1,9 @@
+2010-05-08  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-presentations.el (slime-presentation-write-result): Do
+	slime-repl-show-maximum-output at the end. This really solves
+	jumping.
+
 2010-05-07  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-presentations.el (slime-presentation-write): Reuse
