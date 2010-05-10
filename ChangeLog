@@ -1,3 +1,8 @@
+2010-05-10  Mark Evenson  <evenson@dada.local>
+
+	* swank-loader.lisp (*architecture-features*): Add Java platforms
+	as features for ABCL.
+
 2010-05-06  Helmut Eller  <heller@common-lisp.net>
 
 	Remove some non-standard file variables.
