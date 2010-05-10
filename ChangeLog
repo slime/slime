@@ -1,4 +1,4 @@
-2010-05-10  Mark Evenson  <evenson@dada.local>
+2010-05-10  Mark Evenson  <evenson@panix.com>
 
 	* swank-loader.lisp (*architecture-features*): Add Java platforms
 	as features for ABCL.
