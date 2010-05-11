@@ -1,3 +1,8 @@
+2010-05-11  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-inspect-definition): New function,
+	inspects definition at point.
+
 2010-05-10  Mark Evenson  <evenson@panix.com>
 
 	* swank-loader.lisp (*architecture-features*): Add Java platforms

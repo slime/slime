@@ -6529,6 +6529,31 @@ was called originally."
 				     (slime-sexp-at-point))))
   (slime-eval-async `(swank:init-inspector ,string) 'slime-open-inspector))
 
+(defun slime-inspect-definition ()
+  "Inspect definition at point"
+  (interactive)
+  (let* ((toplevel (slime-parse-toplevel-form))
+         (form
+          (if (symbolp toplevel)
+              (error "Not in a definition")
+              (destructure-case toplevel
+                (((:defun :defgeneric) symbol)
+                 (format "#'%s" symbol))
+                (((:defmacro :define-modify-macro) symbol)
+                 (format "(macro-function '%s)" symbol))
+                ((:define-compiler-macro symbol)
+                 (format "(compiler-macro-function '%s)" symbol))
+                ((:defmethod symbol &rest args)
+                 (declare (ignore args))
+                 (format "#'%s" symbol))
+                (((:defparameter :defvar :defconstant) symbol)
+                 (format "'%s" symbol))
+                ((:defclass symbol)
+                 (format "(find-class '%s)" symbol))
+                (t
+                 (error "Not in a definition"))))))
+    (slime-eval-async `(swank:init-inspector ,form) 'slime-open-inspector)))
+
 (define-derived-mode slime-inspector-mode fundamental-mode
   "Slime-Inspector"
   "
