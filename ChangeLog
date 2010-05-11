@@ -2,6 +2,7 @@
 
 	* slime.el (slime-inspect-definition): New function,
 	inspects definition at point.
+	(slime-parse-context): Add :defstruct and :defpackage.
 
 2010-05-10  Mark Evenson  <evenson@panix.com>
 
