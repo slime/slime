@@ -1,3 +1,11 @@
+2010-05-13  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank.lisp (*after-init-hook*, simple-break)
+	(coerce-to-condition, use-threads-p, current-thread-id): Moved
+	around in swank.lisp.
+	(with-temp-package): Deleted; not used anywhere.
+	(ensure-list): Use in SWANK-REQUIRE.
+
 2010-05-11  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-inspect-definition): New function,

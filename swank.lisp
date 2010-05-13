@@ -415,6 +415,8 @@ to T unless you want to debug swank internals.")
   (unless *log-output*
     (setq *log-output* (real-output-stream *error-output*))))
 
+(add-hook *after-init-hook* 'init-log-output)
+
 (defun real-input-stream (stream)
   (typecase stream
     (synonym-stream 
@@ -559,15 +561,6 @@ corresponding values in the CDR of VALUE."
                 (when *interrupt-queued-handler*
                   (funcall *interrupt-queued-handler*)))))))
 
-(defslimefun simple-break (&optional (datum "Interrupt from Emacs") &rest args)
-  (with-simple-restart (continue "Continue from break.")
-    (invoke-slime-debugger (coerce-to-condition datum args))))
-
-(defun coerce-to-condition (datum args)
-  (etypecase datum
-    (string (make-condition 'simple-error :format-control datum 
-                            :format-arguments args))
-    (symbol (apply #'make-condition datum args))))
 
 (defmacro with-io-redirection ((connection) &body body)
   "Execute BODY I/O redirection to CONNECTION. "
@@ -607,13 +600,6 @@ corresponding values in the CDR of VALUE."
                       `(,getter ,',var))))
          ,@body))))
 
-(defmacro with-temp-package (var &body body)
-  "Execute BODY with VAR bound to a temporary package.
-The package is deleted before returning."
-  `(let ((,var (make-package (gensym "TEMP-PACKAGE-"))))
-     (unwind-protect (progn ,@body)
-       (delete-package ,var))))
-
 (defmacro do-symbols* ((var &optional (package '*package*) result-form) &body body)
   "Just like do-symbols, but makes sure a symbol is visited only once."
   (let ((seen-ht (gensym "SEEN-HT")))
@@ -623,12 +609,6 @@ The package is deleted before returning."
           (setf (gethash ,var ,seen-ht) t)
           (tagbody ,@body))))))
 
-(defun use-threads-p ()
-  (eq (connection.communication-style *emacs-connection*) :spawn))
-
-(defun current-thread-id ()
-  (thread-id (current-thread)))
-
 (defmacro define-special (name doc)
   "Define a special variable NAME with doc string DOC.
 This is like defvar, but NAME will not be initialized."
@@ -637,9 +617,17 @@ This is like defvar, but NAME will not be initialized."
     (setf (documentation ',name 'variable) ,doc)))
 
 
-;;;;; Logging
+;;;;; Misc
 
-(add-hook *after-init-hook* 'init-log-output)
+(defun use-threads-p ()
+  (eq (connection.communication-style *emacs-connection*) :spawn))
+
+(defun current-thread-id ()
+  (thread-id (current-thread)))
+
+(declaim (inline ensure-list))
+(defun ensure-list (thing)
+  (if (listp thing) thing (list thing)))
 
 
 ;;;;; Symbols
@@ -2706,6 +2694,16 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
 (defslimefun sldb-continue ()
   (continue))
 
+(defun coerce-to-condition (datum args)
+  (etypecase datum
+    (string (make-condition 'simple-error :format-control datum 
+                            :format-arguments args))
+    (symbol (apply #'make-condition datum args))))
+
+(defslimefun simple-break (&optional (datum "Interrupt from Emacs") &rest args)
+  (with-simple-restart (continue "Continue from break.")
+    (invoke-slime-debugger (coerce-to-condition datum args))))
+
 (defun coerce-restart (restart-designator)
   (when (or (typep restart-designator 'restart)
             (typep restart-designator '(and symbol (not null))))
@@ -2924,7 +2922,7 @@ Record compiler notes signalled as `compiler-condition's."
 
 (defslimefun swank-require (modules &optional filename)
   "Load the module MODULE."
-  (dolist (module (if (listp modules) modules (list modules)))
+  (dolist (module (ensure-list modules))
     (unless (member (string module) *modules* :test #'string=)
       (require module (if filename
                           (filename-to-pathname filename)

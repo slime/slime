@@ -30,10 +30,6 @@
                (and (zerop i) (null list)))))
     (sequence (= (length seq) n))))
 
-(declaim (inline ensure-list))
-(defun ensure-list (thing)
-  (if (listp thing) thing (list thing)))
-
 (declaim (inline memq))
 (defun memq (item list)
   (member item list :test #'eq))
