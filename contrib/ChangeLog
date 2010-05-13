@@ -1,3 +1,8 @@
+2010-05-13  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-asdf.el (slime-asdf-collect-notes): New variable.
+	Collect and display notes produced by the compiler. Defaulted to T.
+
 2010-05-08  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-presentations.el (slime-presentation-write-result): Do

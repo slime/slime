@@ -72,6 +72,20 @@ in the directory of the current buffer."
 (defun slime-who-depends-on-rpc (system)
   (slime-eval `(swank:who-depends-on ,system)))
 
+(defcustom slime-asdf-collect-notes t
+  "Collect and display notes produced by the compiler.
+
+See also `slime-highlight-compiler-notes' and `slime-compilation-finished-hook'.")
+
+(defun slime-asdf-operation-finished-function (system)
+  (if slime-asdf-collect-notes
+      #'slime-compilation-finished
+      (lexical-let ((system system))
+        (lambda (result)
+          (let (slime-highlight-compiler-notes
+                slime-compilation-finished-hook)
+            (slime-compilation-finished result))))))
+
 (defun slime-oos (system operation &rest keyword-args)
   "Operate On System."
   (slime-save-some-lisp-buffers)
@@ -81,7 +95,7 @@ in the directory of the current buffer."
            system)
   (slime-repl-shortcut-eval-async
    `(swank:operate-on-system-for-emacs ,system ',operation ,@keyword-args)
-   #'slime-compilation-finished))
+   (slime-asdf-operation-finished-function system)))
 
 
 ;;; Interactive functions
@@ -214,7 +228,7 @@ depending on it."
   (message "Performing ASDF LOAD-OP on system %S" system)
   (slime-repl-shortcut-eval-async
    `(swank:reload-system ,system)
-   #'slime-compilation-finished))
+   (slime-asdf-operation-finished-function system)))
 
 (defun slime-who-depends-on (system-name)
   (interactive (list (slime-read-system-name)))
