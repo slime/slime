@@ -1,14 +1,35 @@
-;;; slime-typeout-frame.el --- display some message in a dedicated frame
-;;
-;; Author: Luke Gorrie  <luke@synap.se>
-;; License: GNU GPL (same license as Emacs)
-;;
-;;; Installation:
-;;
-;; Add something like this to your .emacs: 
-;;
-;;   (add-to-list 'load-path "<directory-of-this-file>")
-;;   (slime-setup '(slime-typeout-frame))
+(defvar slime-typeout-frame-unbind-stack ())
+
+(define-slime-contrib slime-typeout-frame
+  "Display messages in a dedicated frame."
+  (:authors "Luke Gorrie  <luke@synap.se>")
+  (:license "GPL")
+  (:on-load
+   (unless (slime-typeout-tty-only-p)
+     (add-hook 'slime-connected-hook 'slime-ensure-typeout-frame)
+     (loop for (var value) in 
+           '((slime-message-function slime-typeout-message)
+             (slime-background-message-function slime-typeout-message)
+             (slime-autodoc-message-function slime-typeout-autodoc-message)
+             (slime-autodoc-dimensions-function
+              slime-typeout-autodoc-dimensions))
+           do (slime-typeout-frame-init-var var value))))
+  (:on-unload
+   (remove-hook 'slime-connected-hook 'slime-ensure-typeout-frame)
+   (loop for (var value) in slime-typeout-frame-unbind-stack 
+         do (cond ((eq var 'slime-unbound) (makunbound var))
+                  (t (set var value))))
+   (setq slime-typeout-frame-unbind-stack nil)))
+
+(defun slime-typeout-frame-init-var (var value)
+  (push (list var (if (boundp var) (symbol-value var) 'slime-unbound))
+	slime-typeout-frame-unbind-stack)
+  (set var value))
+
+(defun slime-typeout-tty-only-p ()
+  (cond ((featurep 'xemacs)
+	 (null (remove 'tty (mapcar #'device-type (console-device-list)))))
+	(t (not (window-system)))))
 
 
 ;;;; Typeout frame
@@ -74,37 +95,4 @@
 	(t
 	 (list 75 nil))))
 
-
-;;; Initialization
 
-(defvar slime-typeout-frame-unbind-stack ())
-
-(defun slime-typeout-frame-init ()
-  (unless (slime-typeout-tty-only-p)
-    (add-hook 'slime-connected-hook 'slime-ensure-typeout-frame)
-    (loop for (var value) in 
-	  '((slime-message-function slime-typeout-message)
-	    (slime-background-message-function slime-typeout-message)
-	    (slime-autodoc-message-function slime-typeout-autodoc-message)
-	    (slime-autodoc-dimensions-function
-	     slime-typeout-autodoc-dimensions))
-	  do (slime-typeout-frame-init-var var value))))
-
-(defun slime-typeout-frame-init-var (var value)
-  (push (list var (if (boundp var) (symbol-value var) 'slime-unbound))
-	slime-typeout-frame-unbind-stack)
-  (set var value))
-
-(defun slime-typeout-tty-only-p ()
-  (cond ((featurep 'xemacs)
-	 (null (remove 'tty (mapcar #'device-type (console-device-list)))))
-	(t (not (window-system)))))
-
-(defun slime-typeout-frame-unload ()
-  (remove-hook 'slime-connected-hook 'slime-ensure-typeout-frame)
-  (loop for (var value) in slime-typeout-frame-unbind-stack 
-	do (cond ((eq var 'slime-unbound) (makunbound var))
-		 (t (set var value))))
-  (setq slime-typeout-frame-unbind-stack nil))
-  
-(provide 'slime-typeout-frame)

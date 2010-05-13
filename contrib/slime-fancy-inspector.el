@@ -1,10 +1,6 @@
-;;; slime-fancy-inspector.el --- Fancy inspector for CLOS objects
-;;
-;; Author: Marco Baringer <mb@bese.it> and others
-;; License: GNU GPL (same license as Emacs)
-;;
 
-(defun slime-fancy-inspector-init ()
-  (slime-require :swank-fancy-inspector))
-
-(provide 'slime-fancy-inspector)
+(define-slime-contrib slime-fancy-inspector
+  "Fancy inspector for CLOS objects."
+  (:authors "Marco Baringer <mb@bese.it> and others")
+  (:license "GPL")
+  (:swank-dependencies swank-fancy-inspector))

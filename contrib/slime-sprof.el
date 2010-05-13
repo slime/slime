@@ -1,14 +1,18 @@
-;;; slime-sprof.el --- Integration with SBCL's sb-sprof
-;;;
-;;; Authors: Juho Snellman
-;;;
-;;; License: MIT
-;;;
-;;; Installation
-;;
-;; Add this to your .emacs: 
-;;
-;;   (slime-setup '(... slime-sprof))
+
+(define-slime-contrib slime-sprof
+  "Integration with SBCL's sb-sprof."
+  (:authors "Juho Snellman"
+            "Stas Boukarev")
+  (:license "MIT")
+  (:swank-dependencies swank-sprof)
+  (:on-load
+   (let ((C '(and (slime-connected-p)
+              (equal (slime-lisp-implementation-type) "SBCL"))))
+     (setf (cdr (last (assoc "Profiling" slime-easy-menu)))
+           `("--"
+             [ "Start sb-sprof"  slime-sprof-start ,C ]
+             [ "Stop sb-sprof"   slime-sprof-stop ,C ]
+             [ "Report sb-sprof" slime-sprof-browser ,C ])))))
 
 (defvar slime-sprof-exclude-swank nil
   "*Display swank functions in the report.")
@@ -204,17 +208,3 @@
             (ding))
            (t
             (slime-show-source-location source-location))))))))
-
-;;; Menu
-
-(defun slime-sprof-init ()
-  (slime-require :swank-sprof)
-  (let ((C '(and (slime-connected-p)
-             (equal (slime-lisp-implementation-type) "SBCL"))))
-    (setf (cdr (last (assoc "Profiling" slime-easy-menu)))
-          `("--"
-            [ "Start sb-sprof"  slime-sprof-start ,C ]
-            [ "Stop sb-sprof"   slime-sprof-stop ,C ]
-            [ "Report sb-sprof" slime-sprof-browser ,C ]))))
-
-(provide 'slime-sprof)

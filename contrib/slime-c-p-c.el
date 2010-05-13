@@ -1,27 +1,32 @@
-;;; slime-c-p-c.el --- ILISP style Compound Prefix Completion
-;;
-;; Authors: Luke Gorrie  <luke@synap.se>
-;;          Edi Weitz  <edi@agharta.de>
-;;          Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de> 
-;;          Tobias C. Rittweiler <tcr@freebits.de>
-;;          and others
-;;
-;; License: GNU GPL (same license as Emacs)
-;;
-;;; Installation
-;;
-;; Add this to your .emacs: 
-;;
-;;   (add-to-list 'load-path "<directory-of-this-file>")
-;;   (slime-setup '(slime-c-p-c ... possibly other packages ...))
-;;
+(defvar slime-c-p-c-init-undo-stack nil)
 
-
-
-(require 'slime)
-(require 'slime-parse)
-(require 'slime-editing-commands)
-(require 'slime-autodoc)
+(define-slime-contrib slime-c-p-c
+  "ILISP style Compound Prefix Completion."
+  (:authors "Luke Gorrie  <luke@synap.se>"
+            "Edi Weitz  <edi@agharta.de>"
+            "Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>"
+            "Tobias C. Rittweiler <tcr@freebits.de>")
+  (:license "GPL")
+  (:slime-dependencies slime-parse slime-editing-commands slime-autodoc)
+  (:swank-dependencies swank-c-p-c)
+  (:on-load
+   (push 
+    `(progn
+       (setq slime-complete-symbol-function ',slime-complete-symbol-function)
+       (remove-hook 'slime-connected-hook 'slime-c-p-c-on-connect)
+       ,@(when (featurep 'slime-repl)
+               `((define-key slime-mode-map "\C-c\C-s"
+                   ',(lookup-key slime-mode-map "\C-c\C-s"))
+                 (define-key slime-repl-mode-map "\C-c\C-s"
+                   ',(lookup-key slime-repl-mode-map "\C-c\C-s")))))
+    slime-c-p-c-init-undo-stack)
+   (setq slime-complete-symbol-function 'slime-complete-symbol*)
+   (define-key slime-mode-map "\C-c\C-s" 'slime-complete-form)
+   (when (featurep 'slime-repl)
+     (define-key slime-repl-mode-map "\C-c\C-s" 'slime-complete-form)))
+  (:on-unload
+   (while slime-c-p-c-init-undo-stack
+     (eval (pop slime-c-p-c-init-undo-stack)))))
 
 (defcustom slime-c-p-c-unambiguous-prefix-p t
   "If true, set point after the unambigous prefix.
@@ -163,32 +168,8 @@ This is a superset of the functionality of `slime-insert-arglist'."
             (save-excursion
               (backward-up-list 1)
               (indent-sexp)))))))
-
-;;; Initialization
-
-(defvar slime-c-p-c-init-undo-stack nil)
-
-(defun slime-c-p-c-init ()
-  (slime-require :swank-c-p-c)
-  ;; save current state for unload
-  (push 
-   `(progn
-      (setq slime-complete-symbol-function ',slime-complete-symbol-function)
-      (remove-hook 'slime-connected-hook 'slime-c-p-c-on-connect)
-      ,@(when (featurep 'slime-repl)
-              `((define-key slime-mode-map "\C-c\C-s"
-                  ',(lookup-key slime-mode-map "\C-c\C-s"))
-                (define-key slime-repl-mode-map "\C-c\C-s"
-                  ',(lookup-key slime-repl-mode-map "\C-c\C-s")))))
-   slime-c-p-c-init-undo-stack)
-  (setq slime-complete-symbol-function 'slime-complete-symbol*)
-  (define-key slime-mode-map "\C-c\C-s" 'slime-complete-form)
-  (when (featurep 'slime-repl)
-    (define-key slime-repl-mode-map "\C-c\C-s" 'slime-complete-form)))
-
-(defun slime-c-p-c-unload ()
-  (while slime-c-p-c-init-undo-stack
-    (eval (pop slime-c-p-c-init-undo-stack))))
+
+;;; Tests
 
 (def-slime-test complete-symbol*
     (prefix expected-completions)
@@ -249,5 +230,3 @@ This is a superset of the functionality of `slime-insert-arglist'."
                      wished-completion
                      (buffer-string)
                      'equal))
-
-(provide 'slime-c-p-c)

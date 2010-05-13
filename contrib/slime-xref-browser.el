@@ -1,15 +1,8 @@
-;;; slime-xref-browser.el --- xref browsing with tree-widget
-;;
-;; Author: Rui Patrocínio <rui.patrocinio@netvisao.pt>
-;; Licencse: GNU GPL (same license as Emacs)
-;; 
-;;; Installation:
-;;
-;; Add this to your .emacs: 
-;;
-;;   (add-to-list 'load-path "<directory-of-this-file>")
-;;   (slime-setup '(slime-xref-browser ... possibly other packages ...))
-;;
+
+(define-slime-contrib slime-xref-browser
+  "Xref browsing with tree-widget"
+  (:authors "Rui Patrocínio <rui.patrocinio@netvisao.pt>")
+  (:license "GPL"))
 
 
 ;;;; classes browser
@@ -101,4 +94,3 @@ DSPEC can be used to expand the node."
      (widget-create 'tree-widget :tag name :xref-type type :xref-dspec name 
                     :expander 'slime-expand-xrefs :has-echildren t))))
 
-(provide 'slime-xref-browser)

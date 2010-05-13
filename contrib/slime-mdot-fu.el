@@ -1,11 +1,14 @@
-;;; slime-mdot-fu.el --- Making M-. work on local functions.
-;;
-;; Author:  Tobias C. Rittweiler <tcr@freebits.de>
-;;
-;; License: GNU GPL (same license as Emacs)
-;;
 
-(require 'slime-enclosing-context)
+(define-slime-contrib slime-mdot-fu
+  "Making M-. work on local functions."
+  (:authors "Tobias C. Rittweiler <tcr@freebits.de>")
+  (:license "GPL")
+  (:slime-dependencies slime-enclosing-context)
+  (:on-load
+   (add-hook 'slime-edit-definition-hooks 'slime-edit-local-definition))
+  (:on-unload
+   (remove-hook 'slime-edit-definition-hooks 'slime-edit-local-definition)))
+
 
 (defun slime-edit-local-definition (name &optional where)
   "Like `slime-edit-definition', but tries to find the definition
@@ -23,15 +26,7 @@ in a local function binding near point."
        name
        where))))
 
-(defun slime-mdot-fu-init ()
-  (add-hook 'slime-edit-definition-hooks 
-	    'slime-edit-local-definition))
-
-(defun slime-mdot-fu-unload ()
-  (remove-hook 'slime-edit-definition-hooks 
-	       'slime-edit-local-definition))
-
-
+;;; Tests
 
 (def-slime-test find-local-definitions.1
     (buffer-sexpr definition target-regexp)
@@ -72,7 +67,5 @@ in a local function binding near point."
       (slime-check "Check that we are at the local definition."
 	(looking-at (regexp-quote target-regexp))))))
 
-
-(provide 'slime-mdot-fu)
 
 

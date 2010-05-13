@@ -1,20 +1,30 @@
-;;; swank-presentations.el --- imitate LispM' presentations
-;;;
-;;; Authors: Alan Ruttenberg  <alanr-l@mumble.net>
-;;;          Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
-;;;
-;;; License: GNU GPL (same license as Emacs)
-;;;
-;;; Installation
-;;
-;; Add this to your .emacs: 
-;;
-;;   (add-to-list 'load-path "<directory-of-this-file>")
-;;   (add-hook 'slime-load-hook (lambda () (require 'slime-presentations)))
-;;
 
-(unless (featurep 'slime-repl)
-  (error "slime-presentations requires slime-repl contrib"))
+(define-slime-contrib slime-presentations
+  "Imitate LispM presentations."
+  (:authors "Alan Ruttenberg  <alanr-l@mumble.net>"
+            "Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>")
+  (:license "GPL")
+  (:slime-dependencies slime-repl)
+  (:swank-dependencies swank-presentations)
+  (:on-load
+   (add-hook 'slime-repl-mode-hook
+             (lambda ()
+               ;; Respect the syntax text properties of presentation.
+               (set (make-local-variable 'parse-sexp-lookup-properties) t)
+               (slime-add-local-hook 'after-change-functions 
+                                     'slime-after-change-function)))
+   (add-hook 'slime-event-hooks 'slime-dispatch-presentation-event)
+   (setq slime-write-string-function 'slime-presentation-write)
+   (add-hook 'slime-repl-return-hooks 'slime-presentation-on-return-pressed)
+   (add-hook 'slime-repl-current-input-hooks 'slime-presentation-current-input)
+   (add-hook 'slime-open-stream-hooks 'slime-presentation-on-stream-open)
+   (add-hook 'slime-repl-clear-buffer-hook 'slime-clear-presentations)
+   (add-hook 'slime-edit-definition-hooks 'slime-edit-presentation)
+   (setq slime-inspector-insert-ispec-function 'slime-presentation-inspector-insert-ispec)
+   (setq sldb-insert-frame-variable-value-function 
+         'slime-presentation-sldb-insert-frame-variable-value)
+   (slime-presentation-init-keymaps)
+   (slime-presentation-add-easy-menu)))
 
 (defface slime-repl-output-mouseover-face
   (if (featurep 'xemacs)
@@ -831,27 +841,3 @@ even on Common Lisp implementations without weak hash tables."
    (in-sldb-face local-value value)
    `(:frame-var ,slime-current-thread ,(car frame) ,index) t))
 
-;;; Initialization
-
-(defun slime-presentations-init ()
-  (slime-require :swank-presentations)
-  (add-hook 'slime-repl-mode-hook
-	    (lambda ()
-	      ;; Respect the syntax text properties of presentation.
-	      (set (make-local-variable 'parse-sexp-lookup-properties) t)
-	      (slime-add-local-hook 'after-change-functions 
-                                    'slime-after-change-function)))
-  (add-hook 'slime-event-hooks 'slime-dispatch-presentation-event)
-  (setq slime-write-string-function 'slime-presentation-write)
-  (add-hook 'slime-repl-return-hooks 'slime-presentation-on-return-pressed)
-  (add-hook 'slime-repl-current-input-hooks 'slime-presentation-current-input)
-  (add-hook 'slime-open-stream-hooks 'slime-presentation-on-stream-open)
-  (add-hook 'slime-repl-clear-buffer-hook 'slime-clear-presentations)
-  (add-hook 'slime-edit-definition-hooks 'slime-edit-presentation)
-  (setq slime-inspector-insert-ispec-function 'slime-presentation-inspector-insert-ispec)
-  (setq sldb-insert-frame-variable-value-function 
-	'slime-presentation-sldb-insert-frame-variable-value)
-  (slime-presentation-init-keymaps)
-  (slime-presentation-add-easy-menu))
-
-(provide 'slime-presentations)

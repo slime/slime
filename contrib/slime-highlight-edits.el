@@ -1,15 +1,13 @@
-;;; slime-higlight-edits --- highlight edited, i.e. not yet compiled, code 
-;;
-;; Author: William Bland <doctorbill.news@gmail.com> and others
-;; License: GNU GPL (same license as Emacs)
-;;
-;;; Installation: 
-;; 
-;; Add something like this your .emacs: 
-;;
-;;   (add-to-list 'load-path "<contrib-dir>")
-;;   (autoload 'slime-highlight-edits-mode "slime-highlight-edits")
-;;   (add-hook 'slime-mode-hook (lambda () (slime-highlight-edits-mode 1)))
+
+(define-slime-contrib slime-highlight-edits
+  "Highlight edited, i.e. not yet compiled, code."
+  (:author "William Bland <doctorbill.news@gmail.com>")
+  (:license "GPL")
+  (:on-load   (add-hook 'slime-mode-hook 'slime-activate-highlight-edits))
+  (:on-unload (remove-hook 'slime-mode-hook 'slime-activate-highlight-edits)))
+
+(defun slime-activate-highlight-edits ()
+ (slime-highlight-edits-mode 1))
 
 (defface slime-highlight-edits-face
     `((((class color) (background light))
@@ -78,12 +76,3 @@
     (skip-chars-forward " \n\t\r" end)
     (<= end (point))))
 
-(defun slime-highlight-edits-mode-on () (slime-highlight-edits-mode 1))
-
-(defun slime-highlight-edits-init ()
-  (add-hook 'slime-mode-hook 'slime-highlight-edits-mode-on))
-
-(defun slime-highlight-edits-unload ()
-  (remove-hook 'slime-mode-hook 'slime-highlight-edits-mode-on))
-
-(provide 'slime-highlight-edits)

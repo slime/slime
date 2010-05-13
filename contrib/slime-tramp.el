@@ -1,17 +1,12 @@
-;;; slime-tramp.el ---  Filename translations for tramp
-;;
-;; Authors: Marco Baringer <mb@bese.it>
-;; License: GNU GPL (same license as Emacs)
-;;
-;;; Installation:
-;;
-;; Add something like this to your .emacs: 
-;;
-;;   (add-to-list 'load-path ".../slime/contrib")
-;;   (add-hook 'slime-load-hook (lambda () (require 'slime-tramp)))
-;;
 
-(require 'tramp)
+(define-slime-contrib slime-tramp
+  "Filename translations for tramp"
+  (:authors "Marco Baringer <mb@bese.it>")
+  (:license "GPL")
+  (:slime-dependencies tramp)
+  (:on-load 
+   (setq slime-to-lisp-filename-function #'slime-tramp-to-lisp-filename)
+   (setq slime-from-lisp-filename-function #'slime-tramp-from-lisp-filename)))
 
 (defcustom slime-filename-translations nil
   "Assoc list of hostnames and filename translation functions.  
@@ -108,8 +103,3 @@ The functions created here expect your tramp-default-method or
 (defun slime-tramp-from-lisp-filename (filename)
   (funcall (second (slime-find-filename-translators (slime-machine-instance)))
            filename))
-
-(setq slime-to-lisp-filename-function #'slime-tramp-to-lisp-filename)
-(setq slime-from-lisp-filename-function #'slime-tramp-from-lisp-filename)
-
-(provide 'slime-tramp)

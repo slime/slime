@@ -1,20 +1,16 @@
-;;; slime-editing-commands.el -- editing commands without server interaction
-;;
-;; Authors: Thomas F. Burdick  <tfb@OCF.Berkeley.EDU>
-;;          Luke Gorrie  <luke@synap.se>
-;;          Bill Clementson <billclem@gmail.com>
-;;          Tobias C. Rittweiler <tcr@freebits.de>
-;;          and others
-;; 
-;; License: GNU GPL (same license as Emacs)
-;;
-;;; Installation
-;;
-;; Add something like this to your .emacs: 
-;;
-;;   (add-to-list 'load-path "<directory-of-this-file>")
-;;   (add-hook 'slime-load-hook (lambda () (require 'slime-editing-commands)))
-;;
+
+(define-slime-contrib slime-editing-commands
+  "Editing commands without server interaction."
+  (:authors "Thomas F. Burdick  <tfb@OCF.Berkeley.EDU>"
+            "Luke Gorrie  <luke@synap.se>"
+            "Bill Clementson <billclem@gmail.com>"
+            "Tobias C. Rittweiler <tcr@freebits.de>")
+  (:license "GPL")
+  (:on-load
+   (define-key slime-mode-map "\M-\C-a"  'slime-beginning-of-defun)
+   (define-key slime-mode-map "\M-\C-e"  'slime-end-of-defun)
+   (define-key slime-mode-map "\C-c\M-q" 'slime-reindent-defun)
+   (define-key slime-mode-map "\C-c\C-]" 'slime-close-all-parens-in-sexp)))
 
 (defun slime-beginning-of-defun ()
   (interactive)
@@ -179,11 +175,5 @@ be treated as a paragraph.  This is useful for filling docstrings."
           (slime-end-of-defun)
           (setf end (point)))
         (indent-region start end nil)))))
-
-(defun slime-editing-commands-init ()
-  (define-key slime-mode-map "\M-\C-a"  'slime-beginning-of-defun)
-  (define-key slime-mode-map "\M-\C-e"  'slime-end-of-defun)
-  (define-key slime-mode-map "\C-c\M-q" 'slime-reindent-defun)
-  (define-key slime-mode-map "\C-c\C-]" 'slime-close-all-parens-in-sexp))
 
 (provide 'slime-editing-commands)

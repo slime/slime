@@ -1,15 +1,15 @@
-;; slime-compiler-notes-tree.el --- Display compiler messages in tree layout.
-;;
-;; Author: Helmut Eller
-;; License: GNU GPL (same license as Emacs)
-;;
-;;; Commentary:
-;;
-;; M-x slime-list-compiler-notes display the compiler notes in a tree
-;; grouped by severity.
-;;
-;; `slime-maybe-list-compiler-notes' can be used as
-;; `slime-compilation-finished-hook'.
+
+(define-slime-contrib slime-compiler-notes-tree
+  "Display compiler messages in tree layout.
+
+M-x slime-list-compiler-notes display the compiler notes in a tree
+grouped by severity.
+
+  `slime-maybe-list-compiler-notes' can be used as
+  `slime-compilation-finished-hook'.
+"
+  (:authors "Helmut Eller <heller@common-lisp.net>")
+  (:license "GPL"))
 
 (defun slime-maybe-list-compiler-notes (notes)
   "Show the compiler notes if appropriate."
@@ -179,4 +179,3 @@ This is used for labels spanning multiple lines."
     (delete-char 1)
     (goto-char start-mark)))
 
-(provide 'slime-compiler-notes-tree)

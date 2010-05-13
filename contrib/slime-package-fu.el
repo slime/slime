@@ -1,9 +1,20 @@
-;;; slime-package-fu.el --- Exporting/Unexporting symbols at point.
-;;
-;; Author:  Tobias C. Rittweiler <tcr@freebits.de>
-;;
-;; License: GNU GPL (same license as Emacs)
-;;
+
+(defvar slime-package-fu-init-undo-stack nil)
+
+(define-slime-contrib slime-package-fu
+  "Exporting/Unexporting symbols at point."
+  (:authors "Tobias C. Rittweiler <tcr@freebits.de>")
+  (:license "GPL")
+  (:swank-dependencies swank-package-fu)
+  (:on-load 
+   (push `(progn (define-key slime-mode-map "\C-cx"
+                   ',(lookup-key slime-mode-map "\C-cx")))
+         slime-package-fu-init-undo-stack)
+   (define-key slime-mode-map "\C-cx"  'slime-export-symbol-at-point))
+  (:on-unload
+   (while slime-c-p-c-init-undo-stack
+     (eval (pop slime-c-p-c-init-undo-stack)))))
+
 
 (defvar slime-package-file-candidates
   (mapcar #'file-name-nondirectory
@@ -196,19 +207,3 @@ symbol in the Lisp image if possible."
 	       (message "Symbol `%s' now exported from `%s'" symbol package)
 	       (message "Symbol `%s' already exported from `%s'" symbol package))
 	   (slime-export-symbol symbol package)))))
-
-
-(defvar slime-package-fu-init-undo-stack nil)
-
-(defun slime-package-fu-init ()
-  (slime-require :swank-package-fu)
-  (push `(progn (define-key slime-mode-map "\C-cx"
-		  ',(lookup-key slime-mode-map "\C-cx")))
-	slime-package-fu-init-undo-stack)
-  (define-key slime-mode-map "\C-cx"  'slime-export-symbol-at-point))
-
-(defun slime-package-fu-unload ()
-  (while slime-c-p-c-init-undo-stack
-    (eval (pop slime-c-p-c-init-undo-stack))))
-
-(provide 'slime-package-fu)

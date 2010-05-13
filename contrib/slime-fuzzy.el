@@ -1,22 +1,15 @@
-;;; slime-fuzzy.el --- fuzzy symbol completion
-;;
-;; Authors: Brian Downing <bdowning@lavos.net>
-;;          Tobias C. Rittweiler <tcr@freebits.de>
-;;          Attila Lendvai <attila.lendvai@gmail.com>
-;;          and others
-;;
-;; License: GNU GPL (same license as Emacs)
-;;
-;;; Installation
-;;
-;; Add this to your .emacs: 
-;;
-;;   (add-to-list 'load-path "<directory-of-this-file>")
-;;   (add-hook 'slime-load-hook (lambda () (require 'slime-fuzzy)))
-;;
 
-
-;;; Code
+(define-slime-contrib slime-fuzzy
+  "Fuzzy symbol completion."
+  (:authors "Brian Downing <bdowning@lavos.net>"
+            "Tobias C. Rittweiler <tcr@freebits.de>"
+            "Attila Lendvai <attila.lendvai@gmail.com>")
+  (:license "GPL")
+  (:swank-dependencies swank-fuzzy)
+  (:on-load
+   (define-key slime-mode-map "\C-c\M-i" 'slime-fuzzy-complete-symbol)
+   (when (featurep 'slime-repl)
+     (define-key slime-repl-mode-map "\C-c\M-i" 'slime-fuzzy-complete-symbol))))
 
 (defcustom slime-fuzzy-completion-in-place t
   "When non-NIL the fuzzy symbol completion is done in place as
@@ -41,6 +34,7 @@ comint-dynamic-complete-as-filename to complete file names"
   :group 'slime-mode
   :type 'boolean)
 
+
 (defvar slime-fuzzy-target-buffer nil
   "The buffer that is the target of the completion activities.")
 (defvar slime-fuzzy-saved-window-configuration nil
@@ -587,15 +581,3 @@ nullified."
 configuration was changed, we nullify our saved configuration."
   (setq slime-fuzzy-saved-window-configuration nil))
 
-;;; Initialization 
-
-(defun slime-fuzzy-init ()
-  (slime-fuzzy-bind-keys)
-  (slime-require :swank-fuzzy))
-
-(defun slime-fuzzy-bind-keys ()
-  (define-key slime-mode-map "\C-c\M-i" 'slime-fuzzy-complete-symbol)
-  (when (featurep 'slime-repl)
-   (define-key slime-repl-mode-map "\C-c\M-i" 'slime-fuzzy-complete-symbol)))
-
-(provide 'slime-fuzzy)

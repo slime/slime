@@ -1,26 +1,31 @@
-;;; slime-autodoc.el --- show fancy arglist in echo area
-;;
-;; Authors: Luke Gorrie  <luke@bluetail.com>
-;;          Lawrence Mitchell  <wence@gmx.li>
-;;          Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
-;;          Tobias C. Rittweiler <tcr@freebits.de>
-;;          and others
-;; 
-;; License: GNU GPL (same license as Emacs)
-;;
-;;; Installation:
-;;
-;; Add this to your .emacs: 
-;;
-;;   (add-to-list 'load-path "<directory-of-this-file>")
-;;   (add-hook 'slime-load-hook (lambda () (require 'slime-autodoc)))
-;;
 
-(eval-and-compile
-  (assert (not (featurep 'xemacs)) ()
-	  "slime-autodoc doesn't work with XEmacs"))
+(define-slime-contrib slime-autodoc
+  "Show fancy arglist in echo area."
+  (:gnu-emacs-only t)
+  (:license "GPL")
+  (:authors "Luke Gorrie  <luke@bluetail.com>"
+            "Lawrence Mitchell  <wence@gmx.li>"
+            "Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>"
+            "Tobias C. Rittweiler  <tcr@freebits.de>")
+  (:slime-dependencies slime-parse)
+  (:swank-dependencies swank-arglists)
+  (:on-load 
+   (dolist (h '(slime-mode-hook slime-repl-mode-hook sldb-mode-hook))
+     (add-hook h 'slime-autodoc-maybe-enable)))
+  (:on-unload
+   ;; FIXME: This doesn't disable eldoc-mode in existing buffers.
+   (setq slime-echo-arglist-function 'slime-show-arglist)
+   (dolist (h '(slime-mode-hook slime-repl-mode-hook sldb-mode-hook))
+     (remove-hook h 'slime-autodoc-maybe-enable))))
 
-(require 'slime-parse)
+(defun slime-autodoc-maybe-enable ()
+  (when slime-use-autodoc-mode
+    (slime-autodoc-mode 1)
+    (setq slime-echo-arglist-function
+          (lambda () 
+            (if slime-autodoc-mode
+                (eldoc-message (slime-autodoc))
+                (slime-show-arglist))))))
 
 (defcustom slime-use-autodoc-mode t
   "When non-nil always enable slime-autodoc-mode in slime-mode.")
@@ -229,25 +234,7 @@ display multiline arglist"
 
 ;;;; Initialization
 
-(defun slime-autodoc-init ()
-  (slime-require :swank-arglists)
-  (dolist (h '(slime-mode-hook slime-repl-mode-hook sldb-mode-hook))
-    (add-hook h 'slime-autodoc-maybe-enable)))
 
-(defun slime-autodoc-maybe-enable ()
-  (when slime-use-autodoc-mode
-    (slime-autodoc-mode 1)
-    (setq slime-echo-arglist-function
-          (lambda () 
-            (if slime-autodoc-mode
-                (eldoc-message (slime-autodoc))
-                (slime-show-arglist))))))
-
-;;; FIXME: This doesn't disable eldoc-mode in existing buffers.
-(defun slime-autodoc-unload ()
-  (setq slime-echo-arglist-function 'slime-show-arglist)
-  (dolist (h '(slime-mode-hook slime-repl-mode-hook sldb-mode-hook))
-    (remove-hook h 'slime-autodoc-maybe-enable)))
 
 ;;;; Test cases
 

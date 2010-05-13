@@ -1,3 +1,15 @@
+2010-05-13  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime-autodoc.el, slime-c-p-c.el, slime-compiler-notes-tree.el,
+	slime-enclosing-context.el, slime-fancy.el, slime-fuzzy.el,
+	slime-hyperdoc.el, slime-mdot-fu.el, slime-mrepl.el,
+	slime-parse.el, slime-presentations.el, slime-repl.el,
+	slime-snapshot.el, slime-tramp.el, slime-xref-browser.el:
+
+	Use newly added `define-slime-contrib' macro to specify
+	slime and swank dependencies, and to specify what should happen on
+	contrib load/unload.
+
 2010-05-13  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-asdf.el (slime-asdf-collect-notes): New variable.

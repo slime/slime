@@ -1,15 +1,11 @@
-;;; slime-scratch.el --- imitate Emacs' *scratch* buffer
-;;
-;; Author: Helmut Eller  <heller@common-lisp.net>
-;; License: GNU GPL (same license as Emacs)
-;;
-;;; Installation:
-;;
-;; Add something like this to your .emacs: 
-;;
-;;   (add-to-list 'load-path ".../slime/contrib")
-;;   (add-hook 'slime-load-hook (lambda () (require 'slime-scratch)))
-;;
+
+(define-slime-contrib slime-scratch
+  "Imitate Emacs' *scratch* buffer"
+  (:authors "Helmut Eller  <heller@common-lisp.net>")
+  (:license "GPL")
+  (:on-load
+   (def-slime-selector-method ?s "*slime-scratch* buffer."
+     (slime-scratch-buffer))))
 
 
 ;;; Code
@@ -44,10 +40,3 @@
 
 (slime-define-keys slime-scratch-mode-map
   ("\C-j" 'slime-eval-print-last-expression))
-
-(defun slime-scratch-init ()
-  (def-slime-selector-method ?s
-    "*slime-scratch* buffer."
-    (slime-scratch-buffer)))
-
-(provide 'slime-scratch)

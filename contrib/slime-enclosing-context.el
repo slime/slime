@@ -1,14 +1,10 @@
-;;; slime-enclosing-context.el --- Utilities on top of slime-parse.
-;;
-;; Author:  Tobias C. Rittweiler <tcr@freebits.de>
-;;
-;; License: GNU GPL (same license as Emacs)
-;;
 
-;;; TODO: with the removal of `slime-enclosing-form-specs' this
-;;; contrib won't work anymore.
-
-(require 'slime-parse)
+(define-slime-contrib slime-enclosing-context
+  "Utilities on top of slime-parse."
+  (:authors "Tobias C. Rittweiler <tcr@freebits.de>")
+  (:license "GPL")
+  (:slime-dependencies slime-parse)
+  (:on-load (error "This contrib does not work at the moment.")))
 
 (defvar slime-variable-binding-ops-alist
   '((let &bindings &body)))
@@ -105,6 +101,7 @@ points where their bindings are established as second value."
   (let ((slime-function-binding-ops-alist '((macrolet &bindings &body))))
     (slime-find-bound-functions ops indices points)))
 
+;;; Tests
 
 (def-slime-test enclosing-context.1
     (buffer-sexpr wished-bound-names wished-bound-functions)
@@ -146,7 +143,3 @@ points where their bindings are established as second value."
 		always (and (member name fn-names)
 			    (member arglist fn-arglists)))))
       )))
-
-
-
-(provide 'slime-enclosing-context)

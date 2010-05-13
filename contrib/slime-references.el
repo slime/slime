@@ -1,12 +1,20 @@
-;;; slime-references.el --- Clickable references to documentation (SBCL only)
-;;
-;; Authors: Christophe Rhodes  <csr21@cantab.net>
-;;          Luke Gorrie  <luke@bluetail.com>
-;;          Tobias C. Rittweiler <tcr@freebits.de>
-;;
-;; License: GNU GPL (same license as Emacs)
-;;
-;;;
+
+(define-slime-contrib slime-references
+  "Clickable references to documentation (SBCL only)."
+  (:authors "Christophe Rhodes  <csr21@cantab.net>"
+            "Luke Gorrie  <luke@bluetail.com>"
+            "Tobias C. Rittweiler <tcr@freebits.de>")
+  (:license "GPL")
+  (:on-load
+   (ad-enable-advice 'slime-note.message 'after 'slime-note.message+references)
+   (ad-activate 'slime-note.message)
+   (setq slime-tree-printer 'slime-tree-print-with-references)
+   (add-hook 'sldb-extras-hooks 'sldb-maybe-insert-references))
+  (:on-unload
+   (ad-disable-advice 'slime-note.message 'after 'slime-note.message+references)
+   (ad-deactivate 'slime-note.message)
+   (setq slime-tree-printer 'slime-tree-default-printer)
+   (remove-hook 'sldb-extras-hooks 'sldb-maybe-insert-references)))
 
 (defcustom slime-sbcl-manual-root "http://www.sbcl.org/manual/"
   "*The base URL of the SBCL manual, for documentation lookup."
@@ -132,19 +140,3 @@ See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
     ((:references references) (slime-insert-references references) t)
     (t nil)))
 
-
-;;; Initialization
-
-(defun slime-references-init ()
-  (ad-enable-advice 'slime-note.message 'after 'slime-note.message+references)
-  (ad-activate 'slime-note.message)
-  (setq slime-tree-printer 'slime-tree-print-with-references)
-  (add-hook 'sldb-extras-hooks 'sldb-maybe-insert-references))
-
-(defun slime-references-unload ()
-  (ad-disable-advice 'slime-note.message 'after 'slime-note.message+references)
-  (ad-deactivate 'slime-note.message)
-  (setq slime-tree-printer 'slime-tree-default-printer)
-  (remove-hook 'sldb-extras-hooks 'sldb-maybe-insert-references))
-  
-(provide 'slime-references)

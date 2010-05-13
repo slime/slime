@@ -1,26 +1,20 @@
-;;; slime-asdf.el -- ASDF support
-;;
-;; Authors: Daniel Barlow       <dan@telent.net>
-;;          Marco Baringer      <mb@bese.it>
-;;          Edi Weitz           <edi@agharta.de>
-;;          Stas Boukarev       <stassats@gmail.com>
-;;          Tobias C Rittweiler <tcr@freebits.de>
-;;          and others 
-;; License: GNU GPL (same license as Emacs)
-;;
-;;; Installation:
-;;
-;; Add something like this to your .emacs: 
-;;
-;;   (add-to-list 'load-path "<directory-of-this-file>")
-;;   (slime-setup '(slime-asdf ... possibly other packages ...))
-;;
 
-;; NOTE: `system-name' is a predefined variable in Emacs.  Try to
-;; avoid it as local variable name.
+(define-slime-contrib slime-asdf
+  "ASDF support."
+  (:authors "Daniel Barlow       <dan@telent.net>"
+            "Marco Baringer      <mb@bese.it>"
+            "Edi Weitz           <edi@agharta.de>"
+            "Stas Boukarev       <stassats@gmail.com>"
+            "Tobias C Rittweiler <tcr@freebits.de>")
+  (:license "GPL")
+  (:slime-dependencies slime-repl)
+  (:swank-dependencies swank-asdf)
+  (:on-load
+   (add-to-list 'slime-edit-uses-xrefs :depends-on t)
+   (define-key slime-who-map [?d] 'slime-who-depends-on)))
 
-(require 'slime-repl)
-(slime-require :swank-asdf)
+;;; NOTE: `system-name' is a predefined variable in Emacs.  Try to
+;;; avoid it as local variable name.
 
 ;;; Utilities
 
@@ -303,15 +297,4 @@ depending on it."
   (:handler 'slime-reload-system)
   (:one-liner "Recompile and load an ASDF system."))
 
-
-;;; Initialization
 
-(defun slime-asdf-init ()
-  (slime-require :swank-asdf)
-  (add-to-list 'slime-edit-uses-xrefs :depends-on t)
-  (define-key slime-who-map [?d] 'slime-who-depends-on))
-
-(defun slime-asdf-unload ()
-  (remove-hook 'slime-connected-hook 'slime-asdf-on-connect))
-
-(provide 'slime-asdf)

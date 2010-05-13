@@ -7074,7 +7074,6 @@ is setup, unless the user already set one explicitly."
 (defvar slime-required-modules '())
 
 (defun slime-require (module)
-  (assert (keywordp module))
   (pushnew module slime-required-modules)
   (when (slime-connected-p)
     (slime-load-contribs)))
@@ -7090,6 +7089,38 @@ is setup, unless the user already set one explicitly."
       ;; supported by the host Lisp.
       (setf (slime-lisp-modules) 
             (slime-eval `(swank:swank-require ',needed))))))
+
+(defmacro define-slime-contrib (name docstring &rest clauses)
+  (let ((slime-deps   '())
+        (swank-deps   '())
+        (load-forms   '())
+        (unload-forms '())
+        (gnu-only-p nil))
+    (dolist (clause clauses)
+      (destructure-case clause
+        ((:slime-dependencies . deps) (setq slime-deps deps))
+        ((:swank-dependencies . deps) (setq swank-deps deps))
+        ((:on-load   . forms)         (setq load-forms forms))
+        ((:on-unload . forms)         (setq unload-forms forms))
+        ((:gnu-emacs-only flag)       (setq gnu-only-p flag))
+        ((:authors . authors))
+        ((:license license))))
+    `(progn
+       ,(when gnu-only-p
+         `(eval-and-compile
+            (assert (not (featurep 'xemacs)) ()
+                    ,(concat (symbol-name name)
+                             " does not work with XEmacs."))))
+       ,@(mapcar #'(lambda (d) `(require ',d)) slime-deps)
+       (defun ,(intern (concat (symbol-name name) "-init")) ()
+         ,@(mapcar #'(lambda (d) `(slime-require ',d)) swank-deps)
+         ,@load-forms)
+       (defun ,(intern (concat (symbol-name name) "-unload")) ()
+         ,@unload-forms)
+       (provide ',name))))
+
+(put 'define-slime-contrib 'lisp-indent-function 1)
+(put 'slime-indulge-pretty-colors 'define-slime-contrib t)
 
 
 ;;;;; Pull-down menu

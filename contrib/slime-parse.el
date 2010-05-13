@@ -1,11 +1,9 @@
-;;; slime-parse.el --- parsing of Common Lisp source code
-;;
-;; Authors: Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
-;;          Tobias C. Rittweiler <tcr@freebits.de>
-;;          and others
-;; 
-;; License: GNU GPL (same license as Emacs)
-;;
+
+(define-slime-contrib slime-parse
+  "Utility contrib containg functions to parse forms in a buffer."
+  (:authors "Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>"
+            "Tobias C. Rittweiler <tcr@freebits.de>")
+  (:license "GPL"))
 
 (defun slime-parse-form-until (limit form-suffix)
   "Parses form from point to `limit'."
@@ -105,6 +103,12 @@ that the character is not escaped."
           (ignore-errors (down-list))
           (slime-parse-form-until pt suffix))))))
 
+(let ((byte-compile-warnings '()))
+  (mapc #'byte-compile
+        '(slime-parse-form-upto-point
+          slime-parse-form-until
+          slime-compare-char-syntax
+          )))
 
 ;;;; Test cases
 
@@ -146,12 +150,3 @@ that the character is not escaped."
       (insert ")") (backward-char)
       (slime-check-buffer-form result-form))
     ))
-
-(provide 'slime-parse)
-
-(let ((byte-compile-warnings '()))
-  (mapc #'byte-compile
-        '(slime-parse-form-upto-point
-          slime-parse-form-until
-          slime-compare-char-syntax
-          )))

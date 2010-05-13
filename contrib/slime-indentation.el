@@ -1,7 +1,9 @@
-;;;; slime-indentation.el - cl-indent.el as a slime-contrib module
 
-(defun slime-indentation-init ()
-  (slime-require :swank-indentation))
+(define-slime-contrib slime-indentation
+  "cl-indent.el as a slime-contrib module"
+  (:swank-dependencies swank-indentation)
+  (:on-load (run-hooks 'cl-indent:load-hook)))
+
 
 ;; redefine this for cl-indent:method
 (defun slime-handle-indentation-update (alist)
@@ -1107,15 +1109,6 @@ stored."
           (with-package-iterator (4 &body))
           (with-simple-restart (4 &body))
           (with-slots (6 4 &body))))
-
-;; OK, we're almost finished.
-;;
-;; Allow load-time configuration, e.g., redefinition of some global
-;; method above.
-
-(run-hooks 'cl-indent:load-hook)
-
-(provide 'slime-indentation)
 
 
 ;;; ======================================================================

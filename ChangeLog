@@ -1,5 +1,9 @@
 2010-05-13  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* slime.el (define-slime-contrib): New macro.
+
+2010-05-13  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank.lisp (*after-init-hook*, simple-break)
 	(coerce-to-condition, use-threads-p, current-thread-id): Moved
 	around in swank.lisp.

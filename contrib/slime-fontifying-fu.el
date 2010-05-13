@@ -1,17 +1,28 @@
-;;; slime-fontifying-fu.el --- Additional fontification tweaks.
-;;
-;; Author:  Tobias C. Rittweiler <tcr@freebits.de>
-;;
-;; License: GNU GPL (same license as Emacs)
-;;
 
+(define-slime-contrib slime-fontifying-fu
+  "Additional fontification tweaks:
+Fontify WITH-FOO, DO-FOO, DEFINE-FOO like standard macros.
+Fontify CHECK-FOO like CHECK-TYPE."
+  (:authors "Tobias C. Rittweiler <tcr@freebits.de>")
+  (:license "GPL")
+  (:on-load
+   (font-lock-add-keywords
+    'lisp-mode slime-additional-font-lock-keywords)
+   (when slime-highlight-suppressed-forms
+     (slime-activate-font-lock-magic)))
+  (:on-unload
+   ;; FIXME: remove `slime-search-suppressed-forms', and remove the
+   ;; extend-region hook.
+   (font-lock-remove-keywords 
+    'lisp-mode slime-additional-font-lock-keywords)))
 
 ;;; Fontify WITH-FOO, DO-FOO, and DEFINE-FOO like standard macros.
 ;;; Fontify CHECK-FOO like CHECK-TYPE.
 (defvar slime-additional-font-lock-keywords
- '(("(\\(\\(\\s_\\|\\w\\)*:\\(define-\\|do-\\|with-\\)\\(\\s_\\|\\w\\)*\\)" 1 font-lock-keyword-face) 
+ '(("(\\(\\(\\s_\\|\\w\\)*:\\(define-\\|do-\\|with-\\|without-\\)\\(\\s_\\|\\w\\)*\\)" 1 font-lock-keyword-face) 
    ("(\\(\\(define-\\|do-\\|with-\\)\\(\\s_\\|\\w\\)*\\)" 1 font-lock-keyword-face)
-   ("(\\(check-\\(\\s_\\|\\w\\)*\\)" 1 font-lock-warning-face)))
+   ("(\\(check-\\(\\s_\\|\\w\\)*\\)" 1 font-lock-warning-face)
+   ("(\\(assert-\\(\\s_\\|\\w\\)*\\)" 1 font-lock-warning-face)))
 
 
 ;;;; Specially fontify forms suppressed by a reader conditional.
@@ -180,7 +191,6 @@ position, or nil."
     (values (or (/= beg orig-beg) (/= end orig-end)) beg end)))
 
 
-
 (defun slime-activate-font-lock-magic ()
   (if (featurep 'xemacs)
       (let ((pattern `((slime-search-suppressed-forms
@@ -196,24 +206,17 @@ position, or nil."
       (add-hook 'lisp-mode-hook 
                 #'(lambda () 
                     (add-hook 'font-lock-extend-region-functions
-                              'slime-extend-region-for-font-lock t t)))
-      ))
+                              'slime-extend-region-for-font-lock t t)))))
 
-
-(defun slime-fontifying-fu-init ()
-  (font-lock-add-keywords
-   'lisp-mode slime-additional-font-lock-keywords)
-  (when slime-highlight-suppressed-forms
-    (slime-activate-font-lock-magic)))
-
-(defun slime-fontifying-fu-unload ()
-  (font-lock-remove-keywords 
-   'lisp-mode slime-additional-font-lock-keywords)
-  ;;; FIXME: remove `slime-search-suppressed-forms', and remove the
-  ;;; extend-region hook.
-  )
-
-
+(let ((byte-compile-warnings '())) 
+  (mapc #'byte-compile
+        '(slime-extend-region-for-font-lock
+          slime-compute-region-for-font-lock
+          slime-search-directly-preceding-reader-conditional
+          slime-search-suppressed-forms
+          slime-beginning-of-tlf)))
+
+;;; Tests
 (def-slime-test font-lock-magic (buffer-content)
     "Some testing for the font-lock-magic. *YES* should be
     highlighted as a suppressed form, *NO* should not."
@@ -346,12 +349,3 @@ position, or nil."
                  (slime-autodoc-mode -1))))
       (setq lisp-mode-hook hook))))
 
-(provide 'slime-fontifying-fu)
-
-(let ((byte-compile-warnings '())) 
-  (mapc #'byte-compile
-        '(slime-extend-region-for-font-lock
-          slime-compute-region-for-font-lock
-          slime-search-directly-preceding-reader-conditional
-          slime-search-suppressed-forms
-          slime-beginning-of-tlf)))

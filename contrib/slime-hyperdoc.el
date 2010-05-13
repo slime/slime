@@ -1,8 +1,19 @@
+(defvar slime-old-documentation-lookup-function 
+  slime-documentation-lookup-function)
+
+(define-slime-contrib slime-hyperdoc
+  "Extensible C-c C-d h."
+  (:author "Tobias C Rittweiler <tcr@freebits.de>")
+  (:license "GPL")
+  (:slime-dependencies url-http browse-url)
+  (:swank-dependencies swank-hyperdoc)
+  (:on-load
+   (setq slime-documentation-lookup-function 'slime-hyperdoc-lookup))
+  (:on-unload
+   (setq slime-documentation-lookup-function 
+         slime-old-documentation-lookup-function)))
 
 ;;; TODO: `url-http-file-exists-p' is slow, make it optional behaviour.
-
-(require 'url-http)
-(require 'browse-url)
 
 (defun slime-hyperdoc-lookup-rpc (symbol-name)
   (slime-eval-async `(swank:hyperdoc ,symbol-name)
@@ -29,16 +40,3 @@
   (if (memq :hyperdoc (slime-lisp-features))
       (slime-hyperdoc-lookup-rpc symbol-name)
       (slime-hyperspec-lookup symbol-name)))
-
-(defvar slime-old-documentation-lookup-function 
-  slime-documentation-lookup-function)
-
-(defun slime-hyperdoc-init ()
-  (slime-require :swank-hyperdoc)
-  (setq slime-documentation-lookup-function 'slime-hyperdoc-lookup))
-
-(defun slime-hyperdoc-unload ()
-  (setq slime-documentation-lookup-function 
-        slime-old-documentation-lookup-function))
-
-(provide 'slime-hyperdoc)
