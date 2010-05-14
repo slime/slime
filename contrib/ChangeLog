@@ -1,5 +1,15 @@
 2010-05-13  Tobias C. Rittweiler <tcr@freebits.de>
 
+	Perform PATHNAME on file-streams safely.
+
+	* swank-fancy-inspector.lisp (make-visit-file-thunk): Deleted.
+	(make-pathname-ispec): New helper.
+	(make-file-stream-ispec): New helper.
+	(emacs-inspect file-stream): Use them.
+	(emacs-inspect stream-error): Ditto.
+
+2010-05-13  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* slime-autodoc.el, slime-c-p-c.el, slime-compiler-notes-tree.el,
 	slime-enclosing-context.el, slime-fancy.el, slime-fuzzy.el,
 	slime-hyperdoc.el, slime-mdot-fu.el, slime-mrepl.el,

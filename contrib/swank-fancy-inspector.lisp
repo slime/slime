@@ -819,42 +819,36 @@ SPECIAL-OPERATOR groups."
                 (label-value-line "Digits" (float-digits f))
                 (label-value-line "Precision" (float-precision f)))))))
 
-(defun make-visit-file-thunk (stream)
-  (let ((pathname (pathname stream))
-        (position (file-position stream)))
-    (lambda ()
-      (ed-in-emacs `(,pathname :charpos ,position)))))
+(defun make-pathname-ispec (pathname position)
+  `("Pathname: "
+    (:value ,pathname)
+    (:newline) "  "
+    ,@(when position
+        `((:action "[visit file and show current position]"
+                   ,(lambda () (ed-in-emacs `(,pathname :charpos ,position)))
+                   :refreshp nil)
+          (:newline)))))
+
+(defun make-file-stream-ispec (stream)
+  ;; SBCL's socket stream are file-stream but are not associated to
+  ;; any pathname.
+  (let ((pathname (ignore-errors (pathname stream))))
+    (when pathname
+      (make-pathname-ispec pathname (and (open-stream-p stream)
+                                         (file-position stream))))))
 
 (defmethod emacs-inspect ((stream file-stream))
   (multiple-value-bind (content)
       (call-next-method)
-            (append
-             `("Pathname: "
-               (:value ,(pathname stream))
-               (:newline) "  "
-               ,@(when (open-stream-p stream)
-                   `((:action "[visit file and show current position]"
-                              ,(make-visit-file-thunk stream)
-                              :refreshp nil)
-                     (:newline))))
-             content)))
+    (append (make-file-stream-ispec stream) content)))
 
 (defmethod emacs-inspect ((condition stream-error))
   (multiple-value-bind (content)
       (call-next-method)
     (let ((stream (stream-error-stream condition)))
-      (if (typep stream 'file-stream)
-                  (append
-                   `("Pathname: "
-                     (:value ,(pathname stream))
-                     (:newline) "  "
-                     ,@(when (open-stream-p stream)
-                         `((:action "[visit file and show current position]"
-                                    ,(make-visit-file-thunk stream)
-                                    :refreshp nil)
-                           (:newline))))
-                   content)
-          content))))
+      (append (when (typep stream 'file-stream)
+                (make-file-stream-ispec stream))
+              content))))
 
 (defun common-seperated-spec (list &optional (callback (lambda (v) 
 							 `(:value ,v))))
