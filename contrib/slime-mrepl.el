@@ -6,7 +6,7 @@
 
 (define-slime-contrib slime-mrepl
   "Multiple REPLs."
-  (:author "Helmut Eller <heller@common-lisp.net>")
+  (:authors "Helmut Eller <heller@common-lisp.net>")
   (:license "GPL")
   (:slime-dependencies slime-repl))
 

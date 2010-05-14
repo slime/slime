@@ -1,3 +1,8 @@
+2010-05-14  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime-highlight-edits.el, slime-hyperdoc.el, slime-mrepl.el,
+          slime-snapshot.el: Fix typo.
+
 2010-05-13  Tobias C. Rittweiler <tcr@freebits.de>
 
 	Perform PATHNAME on file-streams safely.

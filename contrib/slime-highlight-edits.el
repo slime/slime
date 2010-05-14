@@ -1,7 +1,7 @@
 
 (define-slime-contrib slime-highlight-edits
   "Highlight edited, i.e. not yet compiled, code."
-  (:author "William Bland <doctorbill.news@gmail.com>")
+  (:authors "William Bland <doctorbill.news@gmail.com>")
   (:license "GPL")
   (:on-load   (add-hook 'slime-mode-hook 'slime-activate-highlight-edits))
   (:on-unload (remove-hook 'slime-mode-hook 'slime-activate-highlight-edits)))

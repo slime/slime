@@ -3,7 +3,7 @@
 
 (define-slime-contrib slime-hyperdoc
   "Extensible C-c C-d h."
-  (:author "Tobias C Rittweiler <tcr@freebits.de>")
+  (:authors "Tobias C Rittweiler <tcr@freebits.de>")
   (:license "GPL")
   (:slime-dependencies url-http browse-url)
   (:swank-dependencies swank-hyperdoc)
