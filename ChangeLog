@@ -1,3 +1,8 @@
+2010-05-16  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-close-popup-window): Don't kill
+	slime-popup-restore-data local variable in another buffer.
+
 2010-05-13  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el (define-slime-contrib): New macro.

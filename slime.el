@@ -944,6 +944,7 @@ can restore it later."
   (when slime-popup-restore-data
     (destructuring-bind (popup-window selected-window old-buffer)
         slime-popup-restore-data
+      (kill-local-variable 'slime-popup-restore-data)
       (bury-buffer)
       (when (eq popup-window (selected-window))
         (cond ((and (not old-buffer) (not (one-window-p)))
@@ -951,8 +952,7 @@ can restore it later."
               ((and old-buffer (buffer-live-p old-buffer))
                (set-window-buffer popup-window old-buffer))))
       (when (window-live-p selected-window)
-        (select-window selected-window)))
-    (kill-local-variable 'slime-popup-restore-data)))
+        (select-window selected-window)))))
 
 (defmacro slime-save-local-variables (vars &rest body)
   (let ((vals (make-symbol "vals")))
