@@ -1,3 +1,7 @@
+2010-05-16  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-arglists.lisp (decode-arglist): Handle (x . y) macro arglists.
+
 2010-05-14  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime-highlight-edits.el, slime-hyperdoc.el, slime-mrepl.el,

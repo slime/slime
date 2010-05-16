@@ -519,8 +519,9 @@ Return an OPTIONAL-ARG structure."
     for arg = (if (consp arglist)
                   (pop arglist)
                   (progn
-                    (setf mode '&rest)
-                    arglist))
+                    (prog1 arglist
+                      (setf mode '&rest
+                            arglist nil))))
     do (cond
          ((eql mode '&unknown-junk)
           ;; don't leave this mode -- we don't know how the arglist
@@ -567,7 +568,7 @@ Return an OPTIONAL-ARG structure."
                (push arg (arglist.known-junk result)))
             (&any
                (push arg (arglist.any-args result))))))
-    until (atom arglist)
+        until (null arglist)
     finally (nreversef (arglist.required-args result))
     finally (nreversef (arglist.optional-args result))
     finally (nreversef (arglist.keyword-args result))
