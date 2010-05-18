@@ -2993,11 +2993,11 @@ the filename of the module (or nil if the file doesn't exist).")
 (defslimefun swank-format-string-expand (string)
   (apply-macro-expander #'format-string-expand string))
 
-(defslimefun disassemble-symbol (name)
+(defslimefun disassemble-form (form)
   (with-buffer-syntax ()
     (with-output-to-string (*standard-output*)
       (let ((*print-readably* nil))
-        (disassemble (fdefinition (from-string name)))))))
+        (disassemble (eval (read-from-string form)))))))
 
 
 ;;;; Simple completion

@@ -1,3 +1,15 @@
+2010-05-18  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (sldb-insert-condition): Don't create a mouse tooltip
+	for long error message, tooltip shows the same text and doesn't
+	add any value.
+	(slime-definition-at-point): factor out of `slime-inspect-definition'.
+	(slime-disassemble-definition): New, similar to `slime-inspect-definition'.
+
+	* swank.lisp (disassemble-form): rename from disassemble-symbol,
+	do the same as before but evaluate the argument.
+
+
 2010-05-16  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-close-popup-window): Don't kill

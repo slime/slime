@@ -4440,7 +4440,7 @@ Point is placed before the first expression in the list."
 (defun slime-disassemble-symbol (symbol-name)
   "Display the disassembly for SYMBOL-NAME."
   (interactive (list (slime-read-symbol-name "Disassemble: ")))
-  (slime-eval-describe `(swank:disassemble-symbol ,symbol-name)))
+  (slime-eval-describe `(swank:disassemble-form ,(concat "'" symbol-name))))
 
 (defun slime-undefine-function (symbol-name)
   "Unbind the function slot of SYMBOL-NAME."
@@ -5563,9 +5563,6 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
 CONDITION should be a list (MESSAGE TYPE EXTRAS).
 EXTRAS is currently used for the stepper."
   (destructuring-bind (message type extras) condition
-    (when (> (length message) 70)
-      (add-text-properties 0 (length message) (list 'help-echo message)
-                           message))
     (slime-insert-propertized '(sldb-default-action sldb-inspect-condition)
                               (in-sldb-face topline message)
                               "\n"
@@ -6535,33 +6532,45 @@ was called originally."
 				     (slime-sexp-at-point))))
   (slime-eval-async `(swank:init-inspector ,string) 'slime-open-inspector))
 
+(defun slime-definition-at-point (&optional only-functional)
+  "Return object corresponding to the definition at point."
+  (let ((toplevel (slime-parse-toplevel-form)))
+    (if (or (symbolp toplevel)
+            (and only-functional
+                 (not (member (car toplevel)
+                              '(:defun :defgeneric :defmethod
+                                :defmacro :define-compiler-macro)))))
+        (error "Not in a definition")
+        (destructure-case toplevel
+          (((:defun :defgeneric) symbol)
+           (format "#'%s" symbol))
+          (((:defmacro :define-modify-macro) symbol)
+           (format "(macro-function '%s)" symbol))
+          ((:define-compiler-macro symbol)
+           (format "(compiler-macro-function '%s)" symbol))
+          ((:defmethod symbol &rest args)
+           (declare (ignore args))
+           (format "#'%s" symbol))
+          (((:defparameter :defvar :defconstant) symbol)
+           (format "'%s" symbol))
+          (((:defclass :defstruct) symbol)
+           (format "(find-class '%s)" symbol))
+          ((:defpackage symbol)
+           (format "(or (find-package '%s) (error \"Package %s not found\"))"
+                   symbol symbol))
+          (t
+           (error "Not in a definition"))))))
+
 (defun slime-inspect-definition ()
   "Inspect definition at point"
   (interactive)
-  (let* ((toplevel (slime-parse-toplevel-form))
-         (form
-          (if (symbolp toplevel)
-              (error "Not in a definition")
-              (destructure-case toplevel
-                (((:defun :defgeneric) symbol)
-                 (format "#'%s" symbol))
-                (((:defmacro :define-modify-macro) symbol)
-                 (format "(macro-function '%s)" symbol))
-                ((:define-compiler-macro symbol)
-                 (format "(compiler-macro-function '%s)" symbol))
-                ((:defmethod symbol &rest args)
-                 (declare (ignore args))
-                 (format "#'%s" symbol))
-                (((:defparameter :defvar :defconstant) symbol)
-                 (format "'%s" symbol))
-                (((:defclass :defstruct) symbol)
-                 (format "(find-class '%s)" symbol))
-                ((:defpackage symbol)
-                 (format "(or (find-package '%s) (error \"Package %s not found\"))"
-                         symbol symbol))
-                (t
-                 (error "Not in a definition"))))))
-    (slime-eval-async `(swank:init-inspector ,form) 'slime-open-inspector)))
+  (slime-inspect (slime-definition-at-point)))
+
+(defun slime-disassemble-definition ()
+  "Disassemble definition at point"
+  (interactive)
+  (slime-eval-describe `(swank:disassemble-form
+                         ,(slime-definition-at-point t))))
 
 (define-derived-mode slime-inspector-mode fundamental-mode
   "Slime-Inspector"
