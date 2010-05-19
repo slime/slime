@@ -1,3 +1,8 @@
+2010-05-19  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-list-repl-short-cuts): Don't scroll to the
+	bottom, don't error if a shortcut has no documentation.
+
 2010-05-16  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-arglists.lisp (decode-arglist): Handle (x . y) macro arglists.

@@ -1253,24 +1253,25 @@ expansion will be added to the REPL's history.)"
     (slime-repl-add-to-input-history (prin1-to-string sexp)))
   (slime-eval-async sexp cont package))
 
-
 (defun slime-list-repl-short-cuts ()
   (interactive)
-  (slime-with-popup-buffer ("*slime-repl-help*")
+  (slime-with-popup-buffer ((slime-buffer-name :repl-help))
     (let ((table (sort* (copy-list slime-repl-shortcut-table) #'string<
                         :key (lambda (x) 
                                (car (slime-repl-shortcut.names x))))))
-      (dolist (shortcut table)
-        (let ((names (slime-repl-shortcut.names shortcut)))
-          (insert (pop names)) ;; first print the "full" name
-          (when names
-            ;; we also have aliases
-            (insert " (aka ")
-            (while (cdr names)
-              (insert (pop names) ", "))
-            (insert (car names) ")"))
-        (insert "\n     " (slime-repl-shortcut.one-liner shortcut)
-                "\n"))))))
+      (save-excursion
+        (dolist (shortcut table)
+          (let ((names (slime-repl-shortcut.names shortcut)))
+            (insert (pop names)) ;; first print the "full" name
+            (when names
+              ;; we also have aliases
+              (insert " (aka ")
+              (while (cdr names)
+                (insert (pop names) ", "))
+              (insert (car names) ")"))
+            (when (slime-repl-shortcut.one-liner shortcut)
+              (insert "\n     " (slime-repl-shortcut.one-liner shortcut)))
+            (insert "\n")))))))
 
 (defun slime-save-some-lisp-buffers ()
   (if slime-repl-only-save-lisp-buffers
