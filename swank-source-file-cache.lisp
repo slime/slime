@@ -81,9 +81,9 @@ Return NIL if the right version cannot be found."
 		     :external-format (or (guess-external-format filename)
 					  (find-external-format "latin-1")
 					  :default))
-    (let ((string (make-string (file-length s))))
-      (read-sequence string s)
-      string)))
+    (let* ((string (make-string (file-length s)))
+           (length (read-sequence string s)))
+      (subseq string 0 length))))
 
 ;;;; Snippets
 
