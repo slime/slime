@@ -1,5 +1,10 @@
 2010-05-26  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-defun-if-undefined): Renamed from
+	slime-DEFUN-if-undefined. No need to yell.
+
+2010-05-26  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-compile-file): Only send non-nil keyword args.
 	(slime-hack-quotes): New function.
 
