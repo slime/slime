@@ -8145,7 +8145,7 @@ Confirm that SUBFORM is correctly located."
       (unless noninteractive
         (let ((message (current-message)))
           (slime-check "Minibuffer contains: \"3\""
-            (equal "=> 3 (#x3, #o3, #b11)" message)))))))
+            (equal "=> 3 (2 bits, #x3, #o3, #b11)" message)))))))
 
 (def-slime-test interrupt-bubbling-idiot 
     ()

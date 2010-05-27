@@ -1,5 +1,9 @@
 2010-05-27  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el ([test] interactive-eval): Fix test.
+
+2010-05-27  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-ccl.lisp (socket-fd): Implement backend function.
 
 2010-05-27  Helmut Eller  <heller@common-lisp.net>
