@@ -354,42 +354,42 @@ recently established one."
     (call-with-debugging-environment 
      (lambda () (backtrace 0 nil)))))
 
-(define-condition swank-protocol-error (error) 
-  ((condition :initarg :condition :reader swank-protocol-error.condition))
-  (:report (lambda (condition stream)
-             (princ (swank-protocol-error.condition condition) stream))))
+(define-condition swank-error (error) 
+  ((backtrace :initarg :backtrace :reader swank-error.backtrace)
+   (condition :initarg :condition :reader swank-error.condition))
+  (:report (lambda (c s) (princ (swank-error.condition c) s)))
+  (:documentation "Condition which carries a backtrace."))
 
-(defun make-swank-protocol-error (condition)
-  (make-condition 'swank-protocol-error :condition condition))
+(defun make-swank-error (condition &optional (backtrace (safe-backtrace)))
+  (make-condition 'swank-error :condition condition :backtrace backtrace))
 
 (defvar *debug-on-swank-protocol-error* nil
   "When non-nil invoke the system debugger on errors that were
 signalled during decoding/encoding the wire protocol.  Do not set this
 to T unless you want to debug swank internals.")
 
-(defmacro with-swank-protocol-error-handler ((connection) &body body)
-  (let ((var (gensym))
-        (backtrace (gensym)))
-  `(let ((,var ,connection)
-         (,backtrace))
+(defmacro with-swank-error-handler ((connection) &body body)
+  "Close the connection on internal `swank-error's."
+  (let ((conn (gensym)))
+  `(let ((,conn ,connection))
      (handler-case 
-         (handler-bind ((swank-protocol-error 
+         (handler-bind ((swank-error 
                          (lambda (condition)
-                           (setf ,backtrace (safe-backtrace))
                            (when *debug-on-swank-protocol-error*
                              (invoke-default-debugger condition)))))
-           (progn ,@body))
-       (swank-protocol-error (condition)
-         (close-connection ,var
-                           (swank-protocol-error.condition condition)
-                           ,backtrace))))))
+           (progn . ,body))
+       (swank-error (condition)
+         (close-connection ,conn
+                           (swank-error.condition condition)
+                           (swank-error.backtrace condition)))))))
 
 (defmacro with-panic-handler ((connection) &body body)
-  (let ((var (gensym)))
-  `(let ((,var ,connection))
+  "Close the connection on unhandled `serious-condition's."
+  (let ((conn (gensym)))
+  `(let ((,conn ,connection))
      (handler-bind ((serious-condition
                      (lambda (condition)
-                       (close-connection ,var condition (safe-backtrace)))))
+                       (close-connection ,conn condition (safe-backtrace)))))
        . ,body))))
 
 (add-hook *new-connection-hook* 'notify-backend-of-connection)
@@ -577,7 +577,7 @@ corresponding values in the CDR of VALUE."
       (let ((*emacs-connection* connection)
             (*pending-slime-interrupts* '()))
         (without-slime-interrupts
-          (with-swank-protocol-error-handler (*emacs-connection*)
+          (with-swank-error-handler (*emacs-connection*)
             (with-io-redirection (*emacs-connection*)
               (call-with-debugger-hook #'swank-debugger-hook function)))))))
 
@@ -1006,7 +1006,7 @@ This is an optimized way for Lisp to deliver output to Emacs."
   "Read an S-expression from STREAM using the SLIME protocol."
   (log-event "decode-message~%")
   (without-slime-interrupts
-    (handler-bind ((error (lambda (c) (error (make-swank-protocol-error c)))))
+    (handler-bind ((error (lambda (c) (error (make-swank-error c)))))
       (handler-case (read-message stream *swank-io-package*)
         (swank-reader-error (c) 
           `(:reader-error ,(swank-reader-error.packet c)
@@ -1016,11 +1016,12 @@ This is an optimized way for Lisp to deliver output to Emacs."
   "Write an S-expression to STREAM using the SLIME protocol."
   (log-event "encode-message~%")
   (without-slime-interrupts
-    (handler-bind ((error (lambda (c) (error (make-swank-protocol-error c)))))
+    (handler-bind ((error (lambda (c) (error (make-swank-error c)))))
       (write-message message *swank-io-package* stream))))
 
 
 ;;;;; Event Processing
+
 ;; By default, this restart will be named "abort" because many people
 ;; press "a" instead of "q" in the debugger.
 (define-special *sldb-quit-restart*
@@ -1124,14 +1125,11 @@ The processing is done in the extent of the toplevel restart."
 (defun read-loop (connection)
   (let ((input-stream (connection.socket-io connection))
         (control-thread (connection.control-thread connection)))
-    (with-swank-protocol-error-handler (connection)
+    (with-swank-error-handler (connection)
       (loop (send control-thread (decode-message input-stream))))))
 
 (defun dispatch-loop (connection)
   (let ((*emacs-connection* connection))
-    ;; FIXME: Why do we use WITH-PANIC-HANDLER here, and why is it not
-    ;; appropriate here to use WITH-SWANK-PROTOCOL-ERROR-HANDLER?
-    ;; I think this should be documented.
     (with-panic-handler (connection)
       (loop (dispatch-event (receive))))))
 
@@ -2492,6 +2490,7 @@ after Emacs causes a restart to be invoked."
              (debug-in-emacs condition))))))
 
 (define-condition invoke-default-debugger () ())
+
 (defun swank-debugger-hook (condition hook)
   "Debugger function for binding *DEBUGGER-HOOK*."
   (declare (ignore hook))

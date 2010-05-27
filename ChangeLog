@@ -1,5 +1,9 @@
 2010-05-26  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (swank-error): Unrename from swank-protocol-error.
+
+2010-05-26  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-cmucl.lisp (parse-gdb-line-info): Try working dir first.
 
 2010-05-26  Helmut Eller  <heller@common-lisp.net>
