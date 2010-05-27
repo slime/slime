@@ -2402,7 +2402,6 @@ Debugged requests are ignored."
 (put 'slime-define-channel-method 'lisp-indent-function 3)
 (put 'slime-indulge-pretty-colors 'slime-define-channel-method t)
 
-
 (defun slime-send-to-remote-channel (channel-id msg)
   (slime-dispatch-event `(:emacs-channel-send ,channel-id ,msg)))
 
@@ -2586,11 +2585,16 @@ See `slime-compile-and-load-file' for further details."
   (run-hook-with-args 'slime-before-compile-functions (point-min) (point-max))
   (let ((file (slime-to-lisp-filename (buffer-file-name)))
         (options (slime-simplify-plist `(,@slime-compile-file-options
-                                         :policy ',policy))))
+                                         :policy ,policy))))
     (slime-eval-async
-        `(swank:compile-file-for-emacs ,file ,(if load t nil) . ,options)
+        `(swank:compile-file-for-emacs ,file ,(if load t nil) 
+                                       . ,(slime-hack-quotes options))
       #'slime-compilation-finished)
     (message "Compiling %s..." file)))
+
+(defun slime-hack-quotes (arglist)
+  ;; eval is the wrong primitive, we rally want funcall
+  (loop for arg in arglist collect `(quote ,arg)))
 
 (defun slime-simplify-plist (plist)
   (loop for (key val) on plist by #'cddr 
@@ -2604,7 +2608,6 @@ With (positive) prefix argument the form is compiled with maximal
 debug settings (`C-u'). With negative prefix argument it is compiled for
 speed (`M--'). If a numeric argument is passed set debug or speed settings
 to it depending on its sign."
-  
   (interactive "P")
   (let ((slime-compilation-policy (slime-compute-policy raw-prefix-arg)))
     (if (use-region-p)
