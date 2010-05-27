@@ -115,6 +115,9 @@
   (car (rassoc-if (lambda (x) (member coding-system x :test #'equal))
                   *external-format-to-coding-system*)))
 
+(defimplementation socket-fd (stream)
+  (ccl::ioblock-device (ccl::stream-ioblock stream t)))
+
 ;;; Unix signals
 
 (defimplementation getpid ()

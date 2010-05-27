@@ -1,5 +1,9 @@
 2010-05-27  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-ccl.lisp (socket-fd): Implement backend function.
+
+2010-05-27  Helmut Eller  <heller@common-lisp.net>
+
 	Clean up some of the confusion regarding *sldb-quit-restart*.
 
 	* swank.lisp (top-level-restart-p, *toplevel-restart-available*)
