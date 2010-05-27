@@ -1,5 +1,9 @@
 2010-05-26  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-cmucl.lisp (parse-gdb-line-info): Try working dir first.
+
+2010-05-26  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-defun-if-undefined): Renamed from
 	slime-DEFUN-if-undefined. No need to yell.
 

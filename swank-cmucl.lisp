@@ -1941,13 +1941,12 @@ Try to create a informative message."
       (cond ((equal w1 "Line")
              (let ((line (read-word)))
                (assert (equal (read-word) "of"))
-               (let ((file (read-word)))
-                 (make-location (list :file 
-                                      (unix-truename 
-                                       (merge-pathnames 
-                                        (read-from-string file)
-                                        (format nil "~a/lisp/"
-                                                (unix-truename "target:")))))
+               (let* ((file (read-from-string (read-word)))
+                      (pathname
+                       (or (probe-file file)
+                           (probe-file (format nil "target:lisp/~a" file))
+                           file)))
+                 (make-location (list :file (unix-truename pathname))
                                 (list :line (parse-integer line))))))
             (t 
              `(:error ,string))))))
