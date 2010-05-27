@@ -1,3 +1,11 @@
+2010-05-27  Helmut Eller  <heller@common-lisp.net>
+
+	Clean up some of the confusion regarding *sldb-quit-restart*.
+
+	* swank.lisp (top-level-restart-p, *toplevel-restart-available*)
+	(coerce-restart): Deleted.
+	(with-top-level-restart, simple-repl): Simplify.
+
 2010-05-26  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (swank-error): Unrename from swank-protocol-error.

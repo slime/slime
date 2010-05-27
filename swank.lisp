@@ -1032,12 +1032,7 @@ This is an optimized way for Lisp to deliver output to Emacs."
 (defmacro with-top-level-restart ((connection k) &body body)
   `(with-connection (,connection)
      (restart-case
-         ;; We explicitly rebind (and do not look at user's
-         ;; customization), so sldb-quit will always be our restart
-         ;; for rex requests.
-         (let ((*sldb-quit-restart* (find-restart 'abort))
-               (*toplevel-restart-available* t))
-           (declare (special *toplevel-restart-available*))
+         (let ((*sldb-quit-restart* (find-restart 'abort)))
            ,@body)
        (abort (&optional v)
          :report "Return to SLIME's top level."
@@ -1045,22 +1040,10 @@ This is an optimized way for Lisp to deliver output to Emacs."
          (force-user-output)
          ,k))))
 
-(defun top-level-restart-p ()
-  ;; FIXME: this could probably be done better; previously this used
-  ;; *SLDB-QUIT-RESTART* but we cannot use that anymore because it's
-  ;; exported now, and might hence be bound globally.
-  ;;
-  ;; The caveat is that for slime rex requests, we do not want to use
-  ;; the global value of *sldb-quit-restart* because that might be
-  ;; bound to terminate-thread, and hence `q' in the debugger would
-  ;; kill the repl thread.
-  (boundp '*toplevel-restart-available*))
-
 (defun handle-requests (connection &optional timeout)
   "Read and process :emacs-rex requests.
 The processing is done in the extent of the toplevel restart."
-  (cond ((top-level-restart-p)
-         (assert (boundp '*sldb-quit-restart*))
+  (cond ((boundp '*sldb-quit-restart*)
          (assert *emacs-connection*)
          (process-requests timeout))
         (t
@@ -1392,41 +1375,30 @@ event was found."
          (call-with-user-break-handler
           (lambda ()
             (invoke-or-queue-interrupt
-             #'(lambda () (dispatch-interrupt-event connection))))
+             (lambda () (dispatch-interrupt-event connection))))
           (lambda ()
-            (with-simple-restart (close-connection "Close SLIME connection")
-              ;;(handle-requests connection)
+            (with-simple-restart (close-connection "Close SLIME connection.")
               (let* ((stdin (real-input-stream *standard-input*))
                      (*standard-input* (make-repl-input-stream connection 
                                                                stdin)))
-                (simple-repl))))))
+                (tagbody toplevel
+                   (with-top-level-restart (connection (go toplevel))
+                     (simple-repl))))))))
     (close-connection connection nil (safe-backtrace))))
 
 (defun simple-repl ()
-  (flet ((read-eval-print ()
-           (format t "~a> " (package-string-for-prompt *package*))
-           (force-output)
-           (let ((form (read)))
-             (let ((- form)
-                   (values (multiple-value-list (eval form))))
-               (setq *** **  ** *  * (car values)
-                     /// //  // /  / values
-                     +++ ++  ++ +  + form)
-               (cond ((null values) (format t "; No values~&"))
-                     (t (mapc (lambda (v) (format t "~s~&" v)) values)))))))
-    (loop
-      (restart-case
-          (handler-case (read-eval-print)
-            (end-of-file () (return)))
-        (abort (&optional c)
-          :report "Return to inferior-lisp's top-level."
-          :test (lambda (c)
-                  (declare (ignore c))
-                  ;; Do not show this restart if a more appropriate
-                  ;; top-level restart is available (e.g. for REXs and
-                  ;; hence the slime-repl.)
-                  (not (top-level-restart-p)))
-          (declare (ignore c)))))))
+  (loop
+   (format t "~a> " (package-string-for-prompt *package*))
+   (force-output)
+   (let ((form (handler-case (read)
+                 (end-of-file () (return)))))
+     (let ((- form)
+           (values (multiple-value-list (eval form))))
+       (setq *** **  ** *  * (car values)
+             /// //  // /  / values
+             +++ ++  ++ +  + form)
+       (cond ((null values) (format t "; No values~&"))
+             (t (mapc (lambda (v) (format t "~s~&" v)) values)))))))
 
 (defun make-repl-input-stream (connection stdin)
   (make-input-stream
@@ -1438,22 +1410,21 @@ event was found."
                 (if (open-stream-p stdin) 
                     :stdin-open :stdin-closed))
      (loop
-       (with-top-level-restart (connection nil)
-         (let* ((socket (connection.socket-io connection))
-                (inputs (list socket stdin))
-                (ready (wait-for-input inputs)))
-           (cond ((eq ready :interrupt)
-                  (check-slime-interrupts))
-                 ((member socket ready)
-                  ;; A Slime request from Emacs is pending; make sure to
-                  ;; redirect IO to the REPL buffer.
-                  (with-io-redirection (connection)
-                    (handle-requests connection t)))
-                 ((member stdin ready)
-                  ;; User typed something into the  *inferior-lisp* buffer,
-                  ;; so do not redirect.
-                  (return (read-non-blocking stdin)))
-                 (t (assert (null ready))))))))))
+      (let* ((socket (connection.socket-io connection))
+             (inputs (list socket stdin))
+             (ready (wait-for-input inputs)))
+        (cond ((eq ready :interrupt)
+               (check-slime-interrupts))
+              ((member socket ready)
+               ;; A Slime request from Emacs is pending; make sure to
+               ;; redirect IO to the REPL buffer.
+               (with-io-redirection (connection)
+                 (handle-requests connection t)))
+              ((member stdin ready)
+               ;; User typed something into the  *inferior-lisp* buffer,
+               ;; so do not redirect.
+               (return (read-non-blocking stdin)))
+              (t (assert (null ready)))))))))
 
 (defun read-non-blocking (stream)
   (with-output-to-string (str)
@@ -2407,7 +2378,7 @@ WHAT can be:
              ((cons (or string pathname) *)
               `(:filename ,(canonicalize-filename (car what)) ,@(cdr what)))
              ((or symbol cons)
-              `(:function-name ,(prin1-to-string-for-emacs what))))))
+              `(:function-name ,(prin1-to-string what))))))
       (cond (*emacs-connection* (send-oob-to-emacs `(:ed ,target)))
             ((default-connection)
              (with-connection ((default-connection))
@@ -2703,18 +2674,13 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
   (with-simple-restart (continue "Continue from break.")
     (invoke-slime-debugger (coerce-to-condition datum args))))
 
-(defun coerce-restart (restart-designator)
-  (when (or (typep restart-designator 'restart)
-            (typep restart-designator '(and symbol (not null))))
-    (find-restart restart-designator)))
-
 (defslimefun throw-to-toplevel ()
   "Invoke the ABORT-REQUEST restart abort an RPC from Emacs.
 If we are not evaluating an RPC then ABORT instead."
-  (let ((restart (and (boundp '*sldb-quit-restart*)
-                      (coerce-restart *sldb-quit-restart*))))
+  (assert (boundp '*sldb-quit-restart*)) ; bound by debug-in-emacs
+  (let ((restart (find-restart *sldb-quit-restart*)))
     (cond (restart (invoke-restart restart))
-          (t "No toplevel restart active"))))
+          (t (format nil "Restart not active [~s]" *sldb-quit-restart*)))))
 
 (defslimefun invoke-nth-restart-for-emacs (sldb-level n)
   "Invoke the Nth available restart.
