@@ -6875,18 +6875,17 @@ is setup, unless the user already set one explicitly."
                             license)
       (loop for (key . value) in clauses append `(,key ,value))
     `(progn
-       ,(when gnu-only-p
+       ,(when gnu-emacs-only
           `(eval-and-compile
              (assert (not (featurep 'xemacs)) ()
                      ,(concat (symbol-name name)
                               " does not work with XEmacs."))))
-       ,@(mapcar #'(lambda (d) `(require ',d)) slime-deps)
+       ,@(mapcar (lambda (d) `(require ',d)) slime-dependencies)
        (defun ,(intern (concat (symbol-name name) "-init")) ()
-         ,@(mapcar #'(lambda (d) `(slime-require ',d)) swank-deps)
-         ,@load-forms)
+         ,@(mapcar (lambda (d) `(slime-require ',d)) swank-dependencies)
+         ,@on-load)
        (defun ,(intern (concat (symbol-name name) "-unload")) ()
-         ,@unload-forms)
-       (provide ',name))))
+         ,@on-unload))))
 
 (put 'define-slime-contrib 'lisp-indent-function 1)
 (put 'slime-indulge-pretty-colors 'define-slime-contrib t)

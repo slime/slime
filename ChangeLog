@@ -1,5 +1,13 @@
 2010-05-28  Helmut Eller  <heller@common-lisp.net>
 
+	Fix last change.
+
+	* slime.el (define-slime-contrib): Fix names.
+	Remove provide; makes no sense to call provide before file is
+	completely loaded.
+
+2010-05-28  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (define-slime-contrib): Use destructuring-bind.
 
 2010-05-28  Helmut Eller  <heller@common-lisp.net>
