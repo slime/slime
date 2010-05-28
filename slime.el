@@ -6866,26 +6866,20 @@ is setup, unless the user already set one explicitly."
             (slime-eval `(swank:swank-require ',needed))))))
 
 (defmacro define-slime-contrib (name docstring &rest clauses)
-  (let ((slime-deps   '())
-        (swank-deps   '())
-        (load-forms   '())
-        (unload-forms '())
-        (gnu-only-p nil))
-    (dolist (clause clauses)
-      (destructure-case clause
-        ((:slime-dependencies . deps) (setq slime-deps deps))
-        ((:swank-dependencies . deps) (setq swank-deps deps))
-        ((:on-load   . forms)         (setq load-forms forms))
-        ((:on-unload . forms)         (setq unload-forms forms))
-        ((:gnu-emacs-only flag)       (setq gnu-only-p flag))
-        ((:authors . authors))
-        ((:license license))))
+  (destructuring-bind (&key slime-dependencies
+                            swank-dependencies
+                            on-load 
+                            on-unload
+                            gnu-emacs-only
+                            authors 
+                            license)
+      (loop for (key . value) in clauses append `(,key ,value))
     `(progn
        ,(when gnu-only-p
-         `(eval-and-compile
-            (assert (not (featurep 'xemacs)) ()
-                    ,(concat (symbol-name name)
-                             " does not work with XEmacs."))))
+          `(eval-and-compile
+             (assert (not (featurep 'xemacs)) ()
+                     ,(concat (symbol-name name)
+                              " does not work with XEmacs."))))
        ,@(mapcar #'(lambda (d) `(require ',d)) slime-deps)
        (defun ,(intern (concat (symbol-name name) "-init")) ()
          ,@(mapcar #'(lambda (d) `(slime-require ',d)) swank-deps)

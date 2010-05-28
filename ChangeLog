@@ -1,5 +1,9 @@
 2010-05-28  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (define-slime-contrib): Use destructuring-bind.
+
+2010-05-28  Helmut Eller  <heller@common-lisp.net>
+
 	Move some var-defs before first use.
 
 	* slime.el (slime-show-xref-buffer, slime-read-connection)
