@@ -1966,7 +1966,7 @@
   (with (port (call-with-input-file filename))
     (let* ((lang (gnu.expr.Language:getDefaultLanguage))
            (messages (<gnu.text.SourceMessages>))
-           (comp (! parse lang port messages 0)))
+           (comp (! parse lang (as <gnu.mapping.InPort> port) messages 0)))
       (! get-module comp))))
 
 (df list-decls (file)
