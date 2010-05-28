@@ -349,3 +349,4 @@ position, or nil."
                  (slime-autodoc-mode -1))))
       (setq lisp-mode-hook hook))))
 
+(provide 'slime-fontifying-fu)

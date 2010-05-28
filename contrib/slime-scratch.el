@@ -40,3 +40,5 @@
 
 (slime-define-keys slime-scratch-mode-map
   ("\C-j" 'slime-eval-print-last-expression))
+
+(provide 'slime-scratch)

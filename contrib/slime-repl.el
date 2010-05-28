@@ -1905,4 +1905,4 @@ X
 #\\X
 SWANK> " (buffer-string)))))
 
-
+(provide 'slime-repl)

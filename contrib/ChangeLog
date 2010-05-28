@@ -1,5 +1,13 @@
 2010-05-28  Helmut Eller  <heller@common-lisp.net>
 
+	* slime-c-p-c.el slime-fancy-inspector.el slime-fancy.el
+	slime-fontifying-fu.el slime-fuzzy.el slime-package-fu.el
+	slime-parse.el slime-presentations.el slime-references.el
+	slime-repl.el slime-scratch.el: Call provide at the end of the
+	file.
+
+2010-05-28  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-kawa.scm (wrap-compilation): Set Compilation.explict flag.
 	(list-file): Add cast to resolve overloaded parse method.
 	(disassemble-form): Update for change from 2010-05-18.

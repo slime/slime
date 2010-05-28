@@ -140,3 +140,4 @@ See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
     ((:references references) (slime-insert-references references) t)
     (t nil)))
 
+(provide 'slime-references)

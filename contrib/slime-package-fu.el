@@ -207,3 +207,5 @@ symbol in the Lisp image if possible."
 	       (message "Symbol `%s' now exported from `%s'" symbol package)
 	       (message "Symbol `%s' already exported from `%s'" symbol package))
 	   (slime-export-symbol symbol package)))))
+
+(provide 'slime-package-fu)

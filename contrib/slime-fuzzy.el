@@ -581,3 +581,4 @@ nullified."
 configuration was changed, we nullify our saved configuration."
   (setq slime-fuzzy-saved-window-configuration nil))
 
+(provide 'slime-fuzzy)

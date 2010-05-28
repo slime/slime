@@ -230,3 +230,6 @@ This is a superset of the functionality of `slime-insert-arglist'."
                      wished-completion
                      (buffer-string)
                      'equal))
+
+(provide 'slime-c-p-c)
+

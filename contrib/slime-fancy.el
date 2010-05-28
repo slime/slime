@@ -27,3 +27,5 @@
    (slime-references-init)
    (slime-package-fu-init)
    (slime-fontifying-fu-init)))
+
+(provide 'slime-fancy)

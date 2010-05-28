@@ -841,3 +841,4 @@ even on Common Lisp implementations without weak hash tables."
    (in-sldb-face local-value value)
    `(:frame-var ,slime-current-thread ,(car frame) ,index) t))
 
+(provide 'slime-presentations)

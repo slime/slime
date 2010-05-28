@@ -16,3 +16,5 @@
   (interactive)
   (slime-eval-describe `(swank:disassemble-form
                          ,(slime-definition-at-point t))))
+
+(provide 'slime-fancy-inspector)

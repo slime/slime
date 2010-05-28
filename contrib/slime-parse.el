@@ -396,3 +396,4 @@ Point is placed before the first expression in the list."
   (let ((state (slime-current-parser-state)))
     (or (nth 3 state) (nth 4 state))))
 
+(provide 'slime-parse)
