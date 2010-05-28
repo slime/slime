@@ -2,6 +2,7 @@
 
 	* swank-kawa.scm (wrap-compilation): Set Compilation.explict flag.
 	(list-file): Add cast to resolve overloaded parse method.
+	(disassemble-form): Update for change from 2010-05-18.
 
 2010-05-19  Stas Boukarev  <stassats@gmail.com>
 

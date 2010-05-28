@@ -969,11 +969,13 @@
 
 ;;;; Disassemble 
 
-(defslimefun disassemble-symbol (env name)
-  (let ((f (eval (read-from-string name) env)))
-    (typecase f
-      (<gnu.expr.ModuleMethod> 
-       (disassemble (module-method>meth-ref f))))))
+(defslimefun disassemble-form (env form)
+  (mcase (read-from-string form)
+    (('quote name)
+     (let ((f (eval name env)))
+       (typecase f
+         (<gnu.expr.ModuleMethod> 
+          (disassemble (module-method>meth-ref f))))))))
 
 (df disassemble ((mr <meth-ref>) => <str>)
   (with-sink #f (fun (out) (disassemble-meth-ref mr out))))
