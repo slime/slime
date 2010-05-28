@@ -1,3 +1,7 @@
+2010-05-28  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-kawa.scm (wrap-compilation): Set Compilation.explict flag.
+
 2010-05-19  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-list-repl-short-cuts): Don't scroll to the

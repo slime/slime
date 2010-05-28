@@ -655,9 +655,10 @@
         (messages (<gnu.text.SourceMessages>)))
     (try-catch
      (let ((c (as <gnu.expr.Compilation> (f messages))))
+       (set (@ explicit c) #t)
        (! compile-to-archive c (! get-module c) jar))
      (ex <throwable>
-         (log "error during compilation: ~a\n" ex)
+         (log "error during compilation: ~a\n~a" ex (! getStackTrace ex))
          (! error messages (as <char> #\f)
             (to-str (exception-message ex)) #!null)))
     (log "compilation done.\n")
@@ -2165,5 +2166,5 @@
 
 ;; Local Variables:
 ;; mode: goo 
-;; compile-command:"kawa -e '(compile-file \"swank-kawa.scm\"\"swank-kawa\")'" 
+;; compile-command:"kawa -e '(compile-file \"swank-kawa.scm\"\"swank-kawa.zip\")'" 
 ;; End:
