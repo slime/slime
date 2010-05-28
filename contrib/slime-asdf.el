@@ -297,4 +297,4 @@ depending on it."
   (:handler 'slime-reload-system)
   (:one-liner "Recompile and load an ASDF system."))
 
-
+(provide 'slime-asdf)

@@ -8,3 +8,4 @@
   (:license "GPL")
   (:swank-dependencies swank-presentation-streams))
 
+(provide 'slime-presentation-streams)

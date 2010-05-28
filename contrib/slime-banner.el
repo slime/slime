@@ -30,3 +30,5 @@
       (if slime-startup-animation
           (animate-string welcome 0 0) 
         (insert welcome)))))
+
+(provide 'slime-banner)

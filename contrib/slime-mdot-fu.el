@@ -67,5 +67,4 @@ in a local function binding near point."
       (slime-check "Check that we are at the local definition."
 	(looking-at (regexp-quote target-regexp))))))
 
-
-
+(provide 'slime-mdot-fu)

@@ -28,3 +28,4 @@
                       (when motd
                         (slime-repl-insert-result (list :values motd))))))
 
+(provide 'slime-motd)

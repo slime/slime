@@ -143,3 +143,5 @@ points where their bindings are established as second value."
 		always (and (member name fn-names)
 			    (member arglist fn-arglists)))))
       )))
+
+(provide 'slime-enclosing-context)

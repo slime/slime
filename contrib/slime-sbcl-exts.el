@@ -28,3 +28,5 @@ symbol at point, or if QUERY is non-nil."
   (interactive (list (slime-read-sbcl-bug "Bug number (#nnnnnn): ")))
   (browse-url (format "http://bugs.launchpad.net/sbcl/+bug/%s" 
                       (substring bug 1))))
+
+(provide 'slime-sbcl-exts)

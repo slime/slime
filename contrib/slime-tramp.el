@@ -103,3 +103,5 @@ The functions created here expect your tramp-default-method or
 (defun slime-tramp-from-lisp-filename (filename)
   (funcall (second (slime-find-filename-translators (slime-machine-instance)))
            filename))
+
+(provide 'slime-tramp)

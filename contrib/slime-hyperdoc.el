@@ -40,3 +40,5 @@
   (if (memq :hyperdoc (slime-lisp-features))
       (slime-hyperdoc-lookup-rpc symbol-name)
       (slime-hyperspec-lookup symbol-name)))
+
+(provide 'slime-hyperdoc)

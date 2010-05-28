@@ -95,4 +95,4 @@
 	(t
 	 (list 75 nil))))
 
-
+(provide 'slime-typeout-frame)

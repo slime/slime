@@ -208,3 +208,5 @@
             (ding))
            (t
             (slime-show-source-location source-location))))))))
+
+(provide 'slime-sprof)

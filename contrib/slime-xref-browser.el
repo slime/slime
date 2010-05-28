@@ -94,3 +94,4 @@ DSPEC can be used to expand the node."
      (widget-create 'tree-widget :tag name :xref-type type :xref-dspec name 
                     :expander 'slime-expand-xrefs :has-echildren t))))
 
+(provide 'slime-xref-browser)

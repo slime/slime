@@ -179,3 +179,4 @@ This is used for labels spanning multiple lines."
     (delete-char 1)
     (goto-char start-mark)))
 
+(provide 'slime-compiler-notes-tree)

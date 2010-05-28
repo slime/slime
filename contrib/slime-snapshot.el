@@ -19,3 +19,5 @@
 				,(expand-file-name filename))
 			       nil t nil)
 		  (slime-connection)))
+
+(provide 'slime-snapshot)

@@ -162,4 +162,4 @@ debugger to add the object at point to the clipboard."
    `(:sldb ,(sldb-frame-number-at-point) 
 	   ,(sldb-var-number-at-point))))
 
-
+(provide 'slime-clipboard)

@@ -1,5 +1,17 @@
 2010-05-28  Helmut Eller  <heller@common-lisp.net>
 
+	Call provide at the end of the file.
+
+	* slime-asdf.el slime-banner.el slime-clipboard.el
+	slime-compiler-notes-tree.el slime-enclosing-context.el
+	slime-highlight-edits.el slime-hyperdoc.el slime-indentation.el
+	slime-mdot-fu.el slime-motd.el slime-mrepl.el
+	slime-presentation-streams.el slime-sbcl-exts.el slime-snapshot.el
+	slime-sprof.el slime-tramp.el slime-typeout-frame.el
+	slime-xref-browser.el:
+
+2010-05-28  Helmut Eller  <heller@common-lisp.net>
+
 	* slime-c-p-c.el slime-fancy-inspector.el slime-fancy.el
 	slime-fontifying-fu.el slime-fuzzy.el slime-package-fu.el
 	slime-parse.el slime-presentations.el slime-references.el

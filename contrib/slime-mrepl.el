@@ -128,3 +128,4 @@ If NEWLINE is true then add a newline at the end of the input."
 	  (slime-repl-show-maximum-output)))
       channel))))
 
+(provide 'slime-mrepl)

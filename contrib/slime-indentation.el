@@ -1163,3 +1163,5 @@ stored."
 ;;     Define STIL constructs, this should be discarded with the
 ;; introduction of mode-specific indentation methods.
 ;;
+
+(provide 'slime-indentation)

@@ -76,3 +76,4 @@
     (skip-chars-forward " \n\t\r" end)
     (<= end (point))))
 
+(provide 'slime-highlight-edits)
