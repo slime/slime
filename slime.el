@@ -771,19 +771,6 @@ It should be used for \"background\" messages such as argument lists."
                               `(swank:list-all-package-names t)))
 		     nil t initial-value)))
 
-(defun slime-read-connection (prompt &optional initial-value)
-  "Read a connection from the minibuffer. Returns the net
-process, or nil."
-  (assert (memq initial-value slime-net-processes))
-  (flet ((connection-identifier (p)
-           (format "%s (pid %d)" (slime-connection-name p) (slime-pid p))))
-    (let ((candidates (mapcar #'(lambda (p)
-                                  (cons (connection-identifier p) p))
-                              slime-net-processes)))
-      (cdr (assoc (completing-read prompt candidates 
-                                   nil t (connection-identifier initial-value))
-                  candidates)))))
-
 ;; Interface
 (defun slime-read-symbol-name (prompt &optional query)
   "Either read a symbol name or choose the one at point.
@@ -4602,14 +4589,6 @@ source-location."
     (:error (message "%s" (cadr loc)))
     ((nil))))
 
-(defun slime-show-xref-buffer (xrefs type symbol package)
-  (slime-with-xref-buffer (type symbol package)
-    (slime-insert-xrefs xrefs)
-    (setq slime-next-location-function 'slime-goto-next-xref)
-    (setq slime-previous-location-function 'slime-goto-previous-xref)
-    (setq slime-xref-last-buffer (current-buffer))
-    (goto-char (point-min))))
-
 (defvar slime-next-location-function nil
   "Function to call for going to the next location.")
 
@@ -4619,6 +4598,14 @@ source-location."
 (defvar slime-xref-last-buffer nil
   "The most recent XREF results buffer.
 This is used by `slime-goto-next-xref'")
+
+(defun slime-show-xref-buffer (xrefs type symbol package)
+  (slime-with-xref-buffer (type symbol package)
+    (slime-insert-xrefs xrefs)
+    (setq slime-next-location-function 'slime-goto-next-xref)
+    (setq slime-previous-location-function 'slime-goto-previous-xref)
+    (setq slime-xref-last-buffer (current-buffer))
+    (goto-char (point-min))))
 
 (defun slime-show-xrefs (xrefs type symbol package)
   "Show the results of an XREF query."
@@ -5961,6 +5948,18 @@ truly screwed up."
         (insert cmd)
         (comint-send-input)))))
 
+(defun slime-read-connection (prompt &optional initial-value)
+  "Read a connection from the minibuffer. Returns the net
+process, or nil."
+  (assert (memq initial-value slime-net-processes))
+  (flet ((connection-identifier (p)
+           (format "%s (pid %d)" (slime-connection-name p) (slime-pid p))))
+    (let ((candidates (mapcar #'(lambda (p)
+                                  (cons (connection-identifier p) p))
+                              slime-net-processes)))
+      (cdr (assoc (completing-read prompt candidates 
+                                   nil t (connection-identifier initial-value))
+                  candidates)))))
 
 (defun sldb-step ()
   "Step to next basic-block boundary."
@@ -6073,6 +6072,8 @@ was called originally."
       (mapc 'process-line list-of-lines)
       lengths)))
 
+(defvar slime-thread-index-to-id nil)
+
 (defun slime-quit-threads-buffer (&optional _)
   (when slime-threads-buffer-timer
     (cancel-timer slime-threads-buffer-timer)
@@ -6086,8 +6087,6 @@ was called originally."
   (with-current-buffer slime-threads-buffer-name
     (slime-eval-async '(swank:list-threads)
       'slime-display-threads)))
-
-(defvar slime-thread-index-to-id nil)
 
 (defun slime-move-point (position)
   "Move point in the current buffer and in the window the buffer is displayed."

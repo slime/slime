@@ -1,5 +1,12 @@
 2010-05-28  Helmut Eller  <heller@common-lisp.net>
 
+	Move some var-defs before first use.
+
+	* slime.el (slime-show-xref-buffer, slime-read-connection)
+	(slime-thread-index-to-id):
+
+2010-05-28  Helmut Eller  <heller@common-lisp.net>
+
 	Move wacky parsing code to contrib.
 
 	* slime.el (slime-extract-context, slime-parse-context)
