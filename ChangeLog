@@ -1,3 +1,16 @@
+2010-05-28  Helmut Eller  <heller@common-lisp.net>
+
+	Move wacky parsing code to contrib.
+
+	* slime.el (slime-extract-context, slime-parse-context)
+	(slime-in-expression-p, slime-pattern-path)
+	(slime-beginning-of-list, slime-end-of-list)
+	(slime-parse-toplevel-form, slime-arglist-specializers)
+	(slime-definition-at-point, slime-current-parser-state): Moved to
+	contrib/slime-parse.el
+	(slime-inspect-definition, slime-disassemble-definition): Moved to
+	contrib/slime-fancy-inspector.el
+
 2010-05-27  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el ([test] interactive-eval): Fix test.

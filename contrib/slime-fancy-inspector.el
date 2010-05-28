@@ -4,3 +4,15 @@
   (:authors "Marco Baringer <mb@bese.it> and others")
   (:license "GPL")
   (:swank-dependencies swank-fancy-inspector))
+
+
+(defun slime-inspect-definition ()
+  "Inspect definition at point"
+  (interactive)
+  (slime-inspect (slime-definition-at-point)))
+
+(defun slime-disassemble-definition ()
+  "Disassemble definition at point"
+  (interactive)
+  (slime-eval-describe `(swank:disassemble-form
+                         ,(slime-definition-at-point t))))
