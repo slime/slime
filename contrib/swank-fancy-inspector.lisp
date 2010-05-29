@@ -450,7 +450,9 @@ See `methods-by-applicability'.")
                    (lambda (slot)
                      `(:value ,slot ,(inspector-princ
                                       (swank-mop:slot-definition-name slot)))))
-                  '("#<N/A (class not finalized)>"))
+                  `("#<N/A (class not finalized)> "
+                    (:action "[finalize]"
+                             ,(lambda () (swank-mop:finalize-inheritance class)))))
             (:newline)
             ,@(let ((doc (documentation class t)))
                 (when doc
