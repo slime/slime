@@ -3,6 +3,11 @@
 	* swank-fancy-inspector.lisp (emacs-inspect): Add [finalize]
 	button for not finalized classes.
 
+2010-06-04  Helmut Eller  <heller@common-lisp.net>
+
+	* inferior-slime.el (inferior-slime-show-transcript): Update
+	window point
+
 2010-05-28  Helmut Eller  <heller@common-lisp.net>
 
 	Call provide at the end of the file.

@@ -98,7 +98,9 @@ A prefix argument disables this behaviour."
 (defun inferior-slime-show-transcript (string)
   (remove-hook 'comint-output-filter-functions
 	       'inferior-slime-show-transcript t)
-  (display-buffer (process-buffer (slime-inferior-process)) t))
+  (with-current-buffer (process-buffer (slime-inferior-process))
+    (let ((window (display-buffer (current-buffer) t)))
+      (set-window-point window (point-max)))))
 
 (defun inferior-slime-start-transcript ()
   (let ((proc (slime-inferior-process)))
