@@ -1,5 +1,9 @@
 2010-06-04  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-allegro.lisp (socket-fd): Add support for allegro.
+
+2010-06-04  Helmut Eller  <heller@common-lisp.net>
+
 	Some *sldb-quit-restart* related fixes.
 
 	* swank.lisp (*sldb-quit-restart*): Set to nil by default.

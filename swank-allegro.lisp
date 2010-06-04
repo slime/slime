@@ -50,6 +50,9 @@
       (setf (stream-external-format s) external-format))
     s))
 
+(defimplementation socket-fd (stream)
+  (excl::stream-input-handle stream))
+
 (defvar *external-format-to-coding-system*
   '((:iso-8859-1 
      "latin-1" "latin-1-unix" "iso-latin-1-unix" 
