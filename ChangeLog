@@ -1,3 +1,18 @@
+2010-06-04  Helmut Eller  <heller@common-lisp.net>
+
+	Some *sldb-quit-restart* related fixes.
+
+	* swank.lisp (*sldb-quit-restart*): Set to nil by default.
+	(throw-to-toplevel, debug-in-emacs): Get rid of boundp tests.
+	(format-restarts-for-emacs): Add a mark for *sldb-quit-restart*.
+	(handle-requests): Always bind *emacs-connection*.
+	(with-connection): Get rid of call-with-connection so that
+	compilers can remove the call frame more easily.
+	(repl-input-stream-read): Factored out from
+	make-repl-input-stream.  Bind a *sldb-quit-restart* here too; no
+	need to restart the repl and a extra prompt for errors in Emacs
+	requests.
+
 2010-05-28  Helmut Eller  <heller@common-lisp.net>
 
 	Fix last change.

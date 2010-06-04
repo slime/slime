@@ -569,17 +569,16 @@ corresponding values in the CDR of VALUE."
       
 (defmacro with-connection ((connection) &body body)
   "Execute BODY in the context of CONNECTION."
-  `(call-with-connection ,connection (lambda () ,@body)))
-
-(defun call-with-connection (connection function)
-  (if (eq *emacs-connection* connection)
-      (funcall function)
-      (let ((*emacs-connection* connection)
-            (*pending-slime-interrupts* '()))
-        (without-slime-interrupts
-          (with-swank-error-handler (*emacs-connection*)
-            (with-io-redirection (*emacs-connection*)
-              (call-with-debugger-hook #'swank-debugger-hook function)))))))
+  `(let ((connection ,connection)
+         (function (lambda () . ,body)))
+     (if (eq *emacs-connection* connection)
+         (funcall function)
+         (let ((*emacs-connection* connection)
+               (*pending-slime-interrupts* '()))
+           (without-slime-interrupts
+             (with-swank-error-handler (connection)
+               (with-io-redirection (connection)
+                 (call-with-debugger-hook #'swank-debugger-hook function))))))))
 
 (defun call-with-retry-restart (msg thunk)
   (loop (with-simple-restart (retry "~a" msg)
@@ -1022,10 +1021,8 @@ This is an optimized way for Lisp to deliver output to Emacs."
 
 ;;;;; Event Processing
 
-;; By default, this restart will be named "abort" because many people
-;; press "a" instead of "q" in the debugger.
-(define-special *sldb-quit-restart*
-    "The restart that will be invoked when the user calls sldb-quit.")
+(defvar *sldb-quit-restart* nil
+  "The restart that will be invoked when the user calls sldb-quit.")
 
 ;; Establish a top-level restart and execute BODY.
 ;; Execute K if the restart is invoked.
@@ -1043,14 +1040,14 @@ This is an optimized way for Lisp to deliver output to Emacs."
 (defun handle-requests (connection &optional timeout)
   "Read and process :emacs-rex requests.
 The processing is done in the extent of the toplevel restart."
-  (cond ((boundp '*sldb-quit-restart*)
-         (assert *emacs-connection*)
-         (process-requests timeout))
-        (t
-         (tagbody
-          start
-            (with-top-level-restart (connection (go start))
-              (process-requests timeout))))))
+  (with-connection (connection)
+    (cond (*sldb-quit-restart*
+           (process-requests timeout))
+          (t
+           (tagbody
+            start
+              (with-top-level-restart (connection (go start))
+                (process-requests timeout)))))))
 
 (defun process-requests (timeout)
   "Read and process requests from Emacs."
@@ -1402,29 +1399,27 @@ event was found."
 
 (defun make-repl-input-stream (connection stdin)
   (make-input-stream
-   (lambda ()
-     (log-event "pull-input: ~a ~a ~a~%"
-                (connection.socket-io connection)
-                (if (open-stream-p (connection.socket-io connection))
-                    :socket-open :socket-closed)
-                (if (open-stream-p stdin) 
-                    :stdin-open :stdin-closed))
-     (loop
-      (let* ((socket (connection.socket-io connection))
-             (inputs (list socket stdin))
-             (ready (wait-for-input inputs)))
-        (cond ((eq ready :interrupt)
-               (check-slime-interrupts))
-              ((member socket ready)
-               ;; A Slime request from Emacs is pending; make sure to
-               ;; redirect IO to the REPL buffer.
-               (with-io-redirection (connection)
-                 (handle-requests connection t)))
-              ((member stdin ready)
-               ;; User typed something into the  *inferior-lisp* buffer,
-               ;; so do not redirect.
-               (return (read-non-blocking stdin)))
-              (t (assert (null ready)))))))))
+   (lambda () (repl-input-stream-read connection stdin))))
+
+(defun repl-input-stream-read (connection stdin)
+  (loop
+   (let* ((socket (connection.socket-io connection))
+          (inputs (list socket stdin))
+          (ready (wait-for-input inputs)))
+     (cond ((eq ready :interrupt)
+            (check-slime-interrupts))
+           ((member socket ready)
+            ;; A Slime request from Emacs is pending; make sure to
+            ;; redirect IO to the REPL buffer.
+            (with-simple-restart (process-input "Continue reading input.")
+              (let ((*sldb-quit-restart* (find-restart 'process-input)))
+                (with-io-redirection (connection)
+                  (handle-requests connection t)))))
+           ((member stdin ready)
+            ;; User typed something into the  *inferior-lisp* buffer,
+            ;; so do not redirect.
+            (return (read-non-blocking stdin)))
+           (t (assert (null ready)))))))
 
 (defun read-non-blocking (stream)
   (with-output-to-string (str)
@@ -2505,9 +2500,8 @@ after Emacs causes a restart to be invoked."
 (defun debug-in-emacs (condition)
   (let ((*swank-debugger-condition* condition)
         (*sldb-restarts* (compute-restarts condition))
-        (*sldb-quit-restart* (if (boundp '*sldb-quit-restart*)
-                                 *sldb-quit-restart*
-                                 (find-restart 'abort)))
+        (*sldb-quit-restart* (and *sldb-quit-restart*
+                                  (find-restart *sldb-quit-restart*)))
         (*package* (or (and (boundp '*buffer-package*)
                             (symbol-value '*buffer-package*))
                        *package*))
@@ -2578,10 +2572,11 @@ printing."
   "Return a list of restarts for *swank-debugger-condition* in a
 format suitable for Emacs."
   (let ((*print-right-margin* most-positive-fixnum))
-    (loop for restart in *sldb-restarts*
-          collect (list (princ-to-string (restart-name restart))
-                        (princ-to-string restart)))))
-
+    (loop for restart in *sldb-restarts* collect 
+          (list (format nil "~:[~;*~]~a" 
+                        (eq restart *sldb-quit-restart*)
+                        (restart-name restart) )
+                (princ-to-string restart)))))
 
 ;;;;; SLDB entry points
 
@@ -2677,8 +2672,7 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
 (defslimefun throw-to-toplevel ()
   "Invoke the ABORT-REQUEST restart abort an RPC from Emacs.
 If we are not evaluating an RPC then ABORT instead."
-  (assert (boundp '*sldb-quit-restart*)) ; bound by debug-in-emacs
-  (let ((restart (find-restart *sldb-quit-restart*)))
+  (let ((restart (and *sldb-quit-restart* (find-restart *sldb-quit-restart*))))
     (cond (restart (invoke-restart restart))
           (t (format nil "Restart not active [~s]" *sldb-quit-restart*)))))
 
