@@ -3290,6 +3290,52 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
     (list (to-string name) loc)))
 
 
+;;;;; Lazy lists
+
+(defstruct (lcons (:constructor %lcons (car %cdr))
+                  (:predicate lcons?))
+  car
+  (%cdr nil :type (or null lcons function))
+  (forced? nil))
+
+(defmacro lcons (car cdr)
+  `(%lcons ,car (lambda () ,cdr)))
+
+(defmacro lcons* (car cdr &rest more)
+  (cond ((null more) `(lcons ,car ,cdr))
+        (t `(lcons ,car (lcons* ,cdr ,@more)))))
+
+(defun lcons-cdr (lcons)
+  (with-struct* (lcons- @ lcons)
+    (cond ((@ forced?)
+           (@ %cdr))
+          (t
+           (let ((value (funcall (@ %cdr))))
+             (setf (@ forced?) t
+                   (@ %cdr) value))))))
+
+(defun llist-range (llist start end)
+  (llist-take (llist-skip llist start) (- end start)))
+
+(defun llist-skip (lcons index)
+  (do ((i 0 (1+ i))
+       (l lcons (lcons-cdr l)))
+      ((or (= i index) (null l))
+       l)))
+
+(defun llist-take (lcons count)
+  (let ((result '()))
+    (do ((i 0 (1+ i))
+         (l lcons (lcons-cdr l)))
+        ((or (= i count)
+             (null l)))
+      (push (lcons-car l) result))
+    (nreverse result)))
+
+(defun iline (label value)
+  `(:line ,label ,value))
+
+
 ;;;; Inspecting
 
 (defvar *inspector-verbose* nil)
@@ -3509,51 +3555,6 @@ Return nil if there's no previous object."
     (reset-inspector)
     (inspect-object (frame-var-value frame var))))
 
-;;;;; Lazy lists 
-
-(defstruct (lcons (:constructor %lcons (car %cdr))
-                  (:predicate lcons?))
-  car 
-  (%cdr nil :type (or null lcons function))
-  (forced? nil))
-
-(defmacro lcons (car cdr)
-  `(%lcons ,car (lambda () ,cdr)))
-
-(defmacro lcons* (car cdr &rest more)
-  (cond ((null more) `(lcons ,car ,cdr))
-        (t `(lcons ,car (lcons* ,cdr ,@more)))))
-
-(defun lcons-cdr (lcons)
-  (with-struct* (lcons- @ lcons) 
-    (cond ((@ forced?)
-           (@ %cdr))
-          (t
-           (let ((value (funcall (@ %cdr))))
-             (setf (@ forced?) t
-                   (@ %cdr) value))))))
-
-(defun llist-range (llist start end)
-  (llist-take (llist-skip llist start) (- end start)))
-
-(defun llist-skip (lcons index)
-  (do ((i 0 (1+ i))
-       (l lcons (lcons-cdr l)))
-      ((or (= i index) (null l))
-       l)))
-
-(defun llist-take (lcons count)
-  (let ((result '()))
-    (do ((i 0 (1+ i))
-         (l lcons (lcons-cdr l)))
-        ((or (= i count)
-             (null l)))
-      (push (lcons-car l) result))
-    (nreverse result)))
-
-(defun iline (label value)
-  `(:line ,label ,value))
-
 ;;;;; Lists
 
 (defmethod emacs-inspect ((o cons))
@@ -3600,7 +3601,6 @@ Return NIL if LIST is circular."
           ((not (consp (cdr fast))) (return (values (1+ n) (cdr fast)))))))
 
 ;;;;; Hashtables
-
 
 (defun hash-table-to-alist (ht)
   (let ((result '()))

@@ -1,3 +1,7 @@
+2010-06-04 Stelian Ionescu <sionescu@cddr.org>
+
+	* swank.lisp: Move definition of LCONS before first use.
+
 2010-06-04  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-allegro.lisp (socket-fd): Add support for allegro.
