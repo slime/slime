@@ -1,3 +1,7 @@
+2010-06-04  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el, swank.lisp: #'(lambda -> (lambda
+
 2010-06-04 Stelian Ionescu <sionescu@cddr.org>
 
 	* swank.lisp: Move definition of LCONS before first use.

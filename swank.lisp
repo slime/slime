@@ -586,7 +586,7 @@ corresponding values in the CDR of VALUE."
 
 (defmacro with-retry-restart ((&key (msg "Retry.")) &body body)
   (check-type msg string)
-  `(call-with-retry-restart ,msg #'(lambda () ,@body)))
+  `(call-with-retry-restart ,msg (lambda () ,@body)))
 
 (defmacro with-struct* ((conc-name get obj) &body body)
   (let ((var (gensym)))
@@ -2776,7 +2776,7 @@ The time is measured in seconds."
         (handler-bind ((compiler-condition
                         (lambda (c) (push (make-compiler-note c) notes))))
           (measure-time-interval
-           #'(lambda ()
+           (lambda ()
                ;; To report location of error-signaling toplevel forms
                ;; for errors in EVAL-WHEN or during macroexpansion.
                (with-simple-restart (abort "Abort compilation.")
@@ -3604,8 +3604,8 @@ Return NIL if LIST is circular."
 
 (defun hash-table-to-alist (ht)
   (let ((result '()))
-    (maphash #'(lambda (key value)
-                 (setq result (acons key value result)))
+    (maphash (lambda (key value) 
+               (setq result (acons key value result)))
              ht)
     result))
 

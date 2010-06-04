@@ -3899,7 +3899,7 @@ locations."
            (destructure-case (slime-location.position loc)
              ((:tag &rest tags)
               (visit-tags-table tags-file)
-              (mapcar #'(lambda (xref)
+              (mapcar (lambda (xref)
                           (let ((old-dspec (slime-xref.dspec original-xref))
                                 (new-dspec (slime-xref.dspec xref)))
                             (setf (slime-xref.dspec xref) 
@@ -3960,7 +3960,7 @@ tags table. Return a possibly empty list of slime-locations."
 (defun slime-etags-definitions (name)
   "Search definitions matching NAME in the tags file.
 The result is a (possibly empty) list of definitions."
-  (mapcar #'(lambda (loc)
+  (mapcar (lambda (loc)
               (make-slime-xref :dspec (second (slime-location.hints loc))
                                :location loc))
           (slime-etags-to-locations name)))
@@ -5954,7 +5954,7 @@ process, or nil."
   (assert (memq initial-value slime-net-processes))
   (flet ((connection-identifier (p)
            (format "%s (pid %d)" (slime-connection-name p) (slime-pid p))))
-    (let ((candidates (mapcar #'(lambda (p)
+    (let ((candidates (mapcar (lambda (p)
                                   (cons (connection-identifier p) p))
                               slime-net-processes)))
       (cdr (assoc (completing-read prompt candidates 
