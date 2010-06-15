@@ -1,3 +1,8 @@
+2010-06-15  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-asdf.lisp (asdf-central-registry): Use an exported
+	interface for ASDF2.
+
 2010-06-14  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-asdf.lisp (asdf-central-registry): ASDF2 compatibility.

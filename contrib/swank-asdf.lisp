@@ -70,7 +70,7 @@ Example:
 
 (defun asdf-central-registry ()
   (append asdf:*central-registry*
-          #+asdf2 (car asdf::*source-registry*)))
+          #+asdf2 (asdf:ensure-source-registry)))
 
 (defslimefun list-all-systems-in-central-registry ()
   "Returns a list of all systems in ASDF's central registry."
