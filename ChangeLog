@@ -1,5 +1,10 @@
 2010-06-18  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-current-tlf-number,slime-current-form-path):
+	Moved to contrib/slime-parse.el.
+
+2010-06-18  Helmut Eller  <heller@common-lisp.net>
+
 	Don't use goto-line.
 
 	* slime.el (slime-goto-line): New function as replacement without
