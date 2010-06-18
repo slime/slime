@@ -4035,12 +4035,21 @@ This is for use in the implementation of COMMON-LISP:ED."
     (destructure-case what
       ((:filename file &key line column position)
        (find-file (slime-from-lisp-filename file))
-       (when line (goto-line line))
+       (when line (slime-goto-line line))
        (when column (move-to-column column))
        (when position (goto-char position)))
       ((:function-name name)
        (slime-edit-definition name)))))
 
+(defun slime-goto-line (line-number)
+  "Move to line LINE-NUMBER (1-based).
+This is similar to `goto-line' but without pushing the mark and
+the display stuff that we neither need nor want."
+  (assert (= (buffer-size) (- (point-max) (point-min))) ()
+          "slime-goto-line in narrowed buffer")
+  (goto-char (point-min))
+  (forward-line (1- line-number)))
+  
 (defun slime-y-or-n-p (thread tag question)
   (slime-dispatch-event `(:emacs-return ,thread ,tag ,(y-or-n-p question))))
 

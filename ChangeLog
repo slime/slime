@@ -1,3 +1,10 @@
+2010-06-18  Helmut Eller  <heller@common-lisp.net>
+
+	Don't use goto-line.
+
+	* slime.el (slime-goto-line): New function as replacement without
+	goto-line's cruft that we don't want.
+
 2010-06-04  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el, swank.lisp: #'(lambda -> (lambda
