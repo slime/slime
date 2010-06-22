@@ -1,3 +1,7 @@
+2010-06-22  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-loader.lisp (*architecture-features*): ECL uses :x86_64.
+
 2010-06-18  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-current-tlf-number,slime-current-form-path):
