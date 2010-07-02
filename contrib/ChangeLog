@@ -1,3 +1,11 @@
+2010-07-02  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-fancy-inspector.lisp (docstring-ispec): Don't insert an
+	unnecessary space.
+	(emacs-inspect): Delete unnecessary "it" in [... it]
+	buttons.
+	Don't capitalize every word in some messages.
+
 2010-06-15  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-asdf.lisp (asdf-central-registry): Use an exported

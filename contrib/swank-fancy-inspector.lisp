@@ -23,7 +23,7 @@
                                   (symbol-value symbol) :newline nil)
                 ;; unbinding constants might be not a good idea, but
                 ;; implementations usually provide a restart.
-                `(" " (:action "[unbind it]"
+                `(" " (:action "[unbind]"
                                ,(lambda () (makunbound symbol))))
                 '((:newline))))
 	      (t '("It is unbound." (:newline))))
@@ -40,21 +40,20 @@
 			  (:value ,(macro-function symbol)))
 			`("It is a function: " 
 			  (:value ,(symbol-function symbol))))
-		    `(" " (:action "[unbind it]"
+		    `(" " (:action "[unbind]"
 				   ,(lambda () (fmakunbound symbol))))
 		    `((:newline)))
 	    `("It has no function value." (:newline)))
-	(docstring-ispec "Function Documentation" symbol 'function)
+	(docstring-ispec "Function documentation" symbol 'function)
 	(when (compiler-macro-function symbol)
-          
 	    (append
              (label-value-line "It also names the compiler macro"
                                (compiler-macro-function symbol) :newline nil)
-             `(" " (:action "[remove it]"
+             `(" " (:action "[remove]"
                             ,(lambda ()
                                      (setf (compiler-macro-function symbol) nil)))
                    (:newline))))
-	(docstring-ispec "Compiler Macro Documentation" 
+	(docstring-ispec "Compiler macro documentation" 
 			 symbol 'compiler-macro)
 	;;
 	;; Package
@@ -64,10 +63,10 @@
                        (:value ,package ,(package-name package))
                        ,@(if (eq :internal status) 
                              `(" "
-                               (:action "[export it]"
+                               (:action "[export]"
                                         ,(lambda () (export symbol package)))))
                        " "
-                       (:action "[unintern it]"
+                       (:action "[unintern]"
                                 ,(lambda () (unintern symbol package)))
                        (:newline))
             '("It is a non-interned symbol." (:newline)))
@@ -97,7 +96,7 @@
 	      75)
 	   (list label ": " docstring '(:newline)))
 	  (t 
-	   (list label ": " '(:newline) "  " docstring '(:newline))))))
+	   (list label ":" '(:newline) "  " docstring '(:newline))))))
 
 (unless (find-method #'emacs-inspect '() (list (find-class 'function)) nil)
   (defmethod emacs-inspect ((f function))
