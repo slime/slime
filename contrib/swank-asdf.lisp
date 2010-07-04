@@ -189,12 +189,14 @@ already knows."
 
 (defvar *recompile-system* nil)
 
-#+#.(swank-backend:with-symbol 'around 'asdf)
-(defmethod asdf:operation-done-p asdf:around ((operation asdf:compile-op)
-                                              component)
-  (unless (eql *recompile-system*
-               (asdf:component-system component))
-    (call-next-method)))
+(defmethod asdf:operation-done-p
+    #+#.(swank-backend:with-symbol 'around 'asdf) asdf:around
+    #-#.(swank-backend:with-symbol 'around 'asdf) :around
+    ((operation asdf:compile-op)
+     component)
+    (unless (eql *recompile-system*
+                 (asdf:component-system component))
+      (call-next-method)))
 
 (defslimefun reload-system (name)
   (let ((*recompile-system* (asdf:find-system name)))

@@ -1,3 +1,8 @@
+2010-07-04  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-asdf.lisp (asdf:operation-done-p): Fix reloading on
+	ASDF2. ASDF2 no longer has `asdf:around' method combination.
+
 2010-07-02  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-fancy-inspector.lisp (docstring-ispec): Don't insert an
