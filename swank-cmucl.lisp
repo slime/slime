@@ -898,7 +898,9 @@ See CODE-LOCATION-STREAM-POSITION."
           (compiler-macro-definitions name)
           (source-transform-definitions name)
           (function-info-definitions name)
-          (ir1-translator-definitions name)))
+          (ir1-translator-definitions name)
+          (template-definitions name)
+          (primitive-definitions name)))
 
 ;;;;; Functions, macros, generic functions, methods
 ;;;
@@ -1248,7 +1250,8 @@ Signal an error if no constructor can be found."
                 (maybe-make-definition (c::function-info-ir2-convert info)
                                        'c::ir2-convert name)
                 (loop for template in (c::function-info-templates info)
-                      collect (list `(c::vop ,(c::template-name template))
+                      collect (list `(,(type-of template)
+                                       ,(c::template-name template))
                                     (function-location 
                                      (c::vop-info-generator-function 
                                       template))))))))
@@ -1256,6 +1259,22 @@ Signal an error if no constructor can be found."
 (defun ir1-translator-definitions (name)
   (maybe-make-definition (ext:info :function :ir1-convert name)
                          'c:def-ir1-translator name))
+
+(defun template-definitions (name)
+  (let* ((templates (c::backend-template-names c::*backend*))
+         (template (gethash name templates)))
+    (etypecase template
+      (null)
+      (c::vop-info
+       (maybe-make-definition (c::vop-info-generator-function template)
+                              (type-of template) name)))))
+
+;; for cases like: (%primitive NAME ...)
+(defun primitive-definitions (name)
+  (let ((csym (find-symbol (string name) 'c)))
+    (and csym
+         (not (eq csym name))
+         (template-definitions csym))))
 
 
 ;;;; Documentation.

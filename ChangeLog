@@ -1,3 +1,11 @@
+2010-07-06  Helmut Eller  <heller@common-lisp.net>
+
+	Find definition for (%primitive NAME ...)
+
+	* swank-cmucl.lisp (template-definitions, primitive-definitions):
+	New functions.
+	(find-definitions): Use them.
+
 2010-06-22  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-loader.lisp (*architecture-features*): ECL uses :x86_64.
