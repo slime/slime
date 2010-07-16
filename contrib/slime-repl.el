@@ -1437,9 +1437,16 @@ expansion will be added to the REPL's history.)"
 (defun slime-call-defun ()
   "Insert a call to the toplevel form defined around point into the REPL."
   (interactive)
-  (flet ((insert-call (symbol &key (function t)
-                              defclass)
-           (let* ((qualified-symbol-name (slime-qualify-cl-symbol-name symbol))
+  (flet ((insert-call (name &key (function t)
+                            defclass)
+           (let* ((setf (and function
+                               (consp name)
+                               (= (length name) 2)
+                               (eql (car name) 'setf)))
+                  (symbol (if setf
+                              (cadr name)
+                              name))
+                  (qualified-symbol-name (slime-qualify-cl-symbol-name symbol))
                   (symbol-name (slime-cl-symbol-name qualified-symbol-name))
                   (symbol-package (slime-cl-symbol-package qualified-symbol-name))
                   (call (if (equalp (slime-lisp-package) symbol-package)
@@ -1450,12 +1457,17 @@ expansion will be added to the REPL's history.)"
              (insert (if function
                          "("
                          " "))
+             (when setf
+               (insert "setf ("))
              (if defclass
                  (insert "make-instance '"))
              (insert call)
-             (when function
-               (insert " ")
-               (save-excursion (insert ")")))
+             (cond (setf
+                    (insert " ")
+                    (save-excursion (insert ") )")))
+                   (function
+                    (insert " ")
+                    (save-excursion (insert ")"))))
              (unless function
                (goto-char slime-repl-input-start-mark)))))           
     (let ((toplevel (slime-parse-toplevel-form)))
