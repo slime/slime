@@ -1,3 +1,10 @@
+2010-07-21  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-sbcl.lisp (quit-lisp): Use sb-thread:terminate-thread
+	instead of sb-ext:quit :recklessly-p t. This way
+	sb-ext:*exit-hooks* will be run.
+	Reported by Lorenz Mösenlechner.
+
 2010-07-06  Helmut Eller  <heller@common-lisp.net>
 
 	Find definition for (%primitive NAME ...)

@@ -1487,8 +1487,7 @@ stack."
 (defimplementation quit-lisp ()
   #+sb-thread
   (dolist (thread (remove (current-thread) (all-threads)))
-    (ignore-errors (sb-thread:interrupt-thread
-                    thread (lambda () (sb-ext:quit :recklessly-p t)))))
+    (ignore-errors (sb-thread:terminate-thread thread)))
   (sb-ext:quit))
 
 
