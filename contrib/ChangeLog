@@ -1,3 +1,8 @@
+2010-07-23  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-fancy-inspector.el (slime-fancy-inspector): Add
+	slime-parse dependency.
+
 2010-07-16  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-call-defun): Handle setf-functions.
