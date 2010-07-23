@@ -1,5 +1,8 @@
 2010-07-23  Stas Boukarev  <stassats@gmail.com>
 
+	* swank-arglists.lisp (arglist-dispatch): Export it, so it may be
+	extended more easily.
+
 	* slime-fancy-inspector.el (slime-fancy-inspector): Add
 	slime-parse dependency.
 
