@@ -1,6 +1,16 @@
 2010-07-24  Stas Boukarev  <stassats@gmail.com>
 
+	* slime-package-fu.el (slime-frob-defpackage-form): Accept a
+	symbol or a list of symbols. Optimize inserting several symbols at
+	a time.
+	(slime-search-exports-in-defpackage): Search forward until nothing
+	is found, otherwise it searching for FOO will stop after encountering
+	FOO-B.
+	(slime-export-class): Rename from slime-export-structure.
+
 	* swank-package-fu.lisp (export-symbol-for-emacs): Fix typo.
+	(export-structure): Add support for CCL and for exporting
+	standard-class accessors using MOP.
 
 	* slime-sprof.el (slime-sprof-start-alloc)
 	(slime-sprof-start-time): New functions to start profiling in
