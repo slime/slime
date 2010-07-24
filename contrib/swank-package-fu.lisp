@@ -8,7 +8,7 @@
 
 (defslimefun export-symbol-for-emacs (symbol-str package-str)
   (let ((package (guess-package package-str)))
-    (when package
+    (when packagep
       (let ((*buffer-package* package))
 	(export `(,(from-string symbol-str)) package)))))
 
@@ -18,6 +18,17 @@
       (let ((*buffer-package* package))
 	(unexport `(,(from-string symbol-str)) package)))))
 
-
+#+sbcl
+(defslimefun export-structure (name package)
+  (let ((*package* (guess-package package)))
+    (when *package*
+     (let* ((dd (sb-kernel:find-defstruct-description (from-string name)))
+            (symbols (list* (sb-kernel:dd-default-constructor dd)
+                            (sb-kernel:dd-predicate-name dd)
+                            (sb-kernel::dd-copier-name dd)
+                            (mapcar #'sb-kernel:dsd-accessor-name
+                                    (sb-kernel:dd-slots dd)))))
+       (export symbols)
+       symbols))))
 
 (provide :swank-package-fu)

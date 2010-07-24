@@ -208,4 +208,13 @@ symbol in the Lisp image if possible."
 	       (message "Symbol `%s' already exported from `%s'" symbol package))
 	   (slime-export-symbol symbol package)))))
 
+(defun slime-export-structure (name)
+  (interactive (list (slime-read-from-minibuffer "Export structure named: "
+                                                 (slime-symbol-at-point))))
+  (let* ((package (slime-current-package))
+         (symbols (slime-eval `(swank:export-structure ,name ,package))))
+    (dolist (symbol symbols)
+      (slime-frob-defpackage-form package :export symbol))
+    (message "%s symbols exported from `%s'" (length symbols) package)))
+
 (provide 'slime-package-fu)
