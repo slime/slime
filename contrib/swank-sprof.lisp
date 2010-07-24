@@ -130,8 +130,8 @@
               (find-source-location function))))
         `(:error "No source location available"))))
 
-(defslimefun swank-sprof-start ()
-  (sb-sprof:start-profiling))
+(defslimefun swank-sprof-start (&key (mode :cpu))
+  (sb-sprof:start-profiling :mode mode))
 
 (defslimefun swank-sprof-stop ()
   (sb-sprof:stop-profiling))

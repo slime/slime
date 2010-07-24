@@ -1,5 +1,12 @@
 2010-07-24  Stas Boukarev  <stassats@gmail.com>
 
+	* slime-sprof.el (slime-sprof-start-alloc)
+	(slime-sprof-start-time): New functions to start profiling in
+	:alloc and :time mode. The default slime-sprof-start is :cpu.
+	* swank-sprof.lisp (swank-sprof-start): Accept :mode keyword.
+
+2010-07-24  Stas Boukarev  <stassats@gmail.com>
+
 	* slime-package-fu.el (slime-export-structure): New function,
 	export all constructors, accessors, etc.
 	* swank-package-fu.lisp (export-structure): Lisp side of the above
