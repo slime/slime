@@ -1,5 +1,7 @@
 2010-07-24  Stas Boukarev  <stassats@gmail.com>
 
+	* swank-package-fu.lisp (export-symbol-for-emacs): Fix typo.
+
 	* slime-sprof.el (slime-sprof-start-alloc)
 	(slime-sprof-start-time): New functions to start profiling in
 	:alloc and :time mode. The default slime-sprof-start is :cpu.

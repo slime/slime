@@ -8,7 +8,7 @@
 
 (defslimefun export-symbol-for-emacs (symbol-str package-str)
   (let ((package (guess-package package-str)))
-    (when packagep
+    (when package
       (let ((*buffer-package* package))
 	(export `(,(from-string symbol-str)) package)))))
 
