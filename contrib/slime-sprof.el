@@ -37,7 +37,7 @@
 
 ;; Start / stop profiling
 
-(defun slime-sprof-start (&optional (mode :cpu))
+(defun* slime-sprof-start (&optional (mode :cpu))
   (interactive)
   (slime-eval `(swank:swank-sprof-start :mode ,mode)))
 
