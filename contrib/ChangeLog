@@ -1,3 +1,9 @@
+2010-07-28  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-presentations.el (slime-copy-presentation-to-repl): Limit
+	looking-back to one character before point. Solves long freeze on a
+	large buffer.
+
 2010-07-27  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-sprof.el (slime-sprof-start): change defun to defun*,
