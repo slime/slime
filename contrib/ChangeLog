@@ -1,3 +1,7 @@
+2010-07-29  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-c-p-c.el (slime-complete-form): Limit `looking-back' too.
+
 2010-07-28  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-presentations.el (slime-copy-presentation-to-repl): Limit

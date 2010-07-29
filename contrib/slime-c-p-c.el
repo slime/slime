@@ -160,7 +160,9 @@ This is a superset of the functionality of `slime-insert-arglist'."
       (if (eq result :not-available)
           (error "Could not generate completion for the form `%s'" buffer-form)
           (progn
-            (just-one-space (if (looking-back "\\s(") 0 1))
+            (just-one-space (if (looking-back "\\s(" (1- (point)))
+                                0
+                                1))
             (save-excursion
               (insert result)
               (let ((slime-close-parens-limit 1))
