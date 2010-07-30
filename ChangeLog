@@ -1,5 +1,15 @@
 2010-07-30  Helmut Eller  <heller@common-lisp.net>
 
+	Don't get confused by END-OF-FILE on unrelated streams.
+	Fixes bug "slime connection broken on trivial condition..."
+	Reported by Pascal J. Bourguignon.
+
+	* swank.lisp (end-of-repl-input): New condition.
+	(simple-repl, read-non-blocking): Use it.
+	* slime.el ([test] end-of-file): Test it.
+
+2010-07-30  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (print-part-to-string): Bind *print-readably* to nil.
 	Useful when debugging broken printer methods.
 

@@ -8082,7 +8082,24 @@ on *DEBUGGER-HOOK*."
                         3)
   (slime-sync-to-top-level 5))
 
-
+(def-slime-test end-of-file 
+    (expr)
+    "Signalling END-OF-FILE should invoke the debugger."
+    '(((cl:read-from-string ""))
+      ((cl:error 'cl:end-of-file)))
+  (let ((value (slime-eval 
+                `(cl:let ((condition nil))
+                         (cl:with-simple-restart 
+                          (cl:continue "continue")
+                          (cl:let ((cl:*debugger-hook* 
+                                    (cl:lambda (c h)
+                                               (cl:setq condition c)
+                                               (cl:continue))))
+                                  ,expr))
+                         (cl:and (cl:typep condition 'cl:condition)
+                                 (cl:string (cl:type-of condition)))))))
+    (slime-test-expect "Debugger invoked" "END-OF-FILE" value)))
+                      
 (def-slime-test interrupt-at-toplevel
     ()
     "Let's see what happens if we send a user interrupt at toplevel."

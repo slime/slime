@@ -1383,12 +1383,16 @@ event was found."
                      (simple-repl))))))))
     (close-connection connection nil (safe-backtrace))))
 
+;; this is signalled when our custom stream thinks the end-of-file is reached.
+;; (not when the end-of-file on the socket is reached)
+(define-condition end-of-repl-input (end-of-file) ())
+
 (defun simple-repl ()
   (loop
    (format t "~a> " (package-string-for-prompt *package*))
    (force-output)
    (let ((form (handler-case (read)
-                 (end-of-file () (return)))))
+                 (end-of-repl-input () (return)))))
      (let ((- form)
            (values (multiple-value-list (eval form))))
        (setq *** **  ** *  * (car values)
@@ -1423,9 +1427,12 @@ event was found."
 
 (defun read-non-blocking (stream)
   (with-output-to-string (str)
-    (loop (let ((c (read-char-no-hang stream)))
-            (unless c (return))
-            (write-char c str)))))
+    (handler-case 
+        (loop (let ((c (read-char-no-hang stream)))
+                (unless c (return))
+                (write-char c str)))
+      (end-of-file () (error 'end-of-repl-input :stream stream)))))
+
 
 ;;;; IO to Emacs
 ;;;
