@@ -63,7 +63,8 @@
            #:profile-package
            #:default-directory
            #:set-default-directory
-           #:quit-lisp))
+           #:quit-lisp
+           #:eval-for-emacs))
 
 (in-package :swank)
 

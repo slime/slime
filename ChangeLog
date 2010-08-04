@@ -1,3 +1,10 @@
+2010-08-04  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-dispatch-event): :eval-no-wait, lisp sends a
+	form in a string, not a function name and arguments. Add
+	slime-check-eval-in-emacs-enabled.
+	* swank.lisp (defpackage): export eval-for-emacs.
+
 2010-07-30  Helmut Eller  <heller@common-lisp.net>
 
 	Don't get confused by END-OF-FILE on unrelated streams.
