@@ -1,5 +1,11 @@
 2010-08-04  Stas Boukarev  <stassats@gmail.com>
 
+	* swank-allegro.lisp (fspec-definition-locations): Default
+	&optional position to 0, otherwise it may cause errors later.
+	Reported by: Paulo Madeira.
+
+2010-08-04  Stas Boukarev  <stassats@gmail.com>
+
 	* slime.el (slime-dispatch-event): :eval-no-wait, lisp sends a
 	form in a string, not a function name and arguments. Add
 	slime-check-eval-in-emacs-enabled.

@@ -536,7 +536,7 @@
   (cond
     ((and (listp fspec)
           (eql (car fspec) :top-level-form))
-     (destructuring-bind (top-level-form file &optional position) fspec 
+     (destructuring-bind (top-level-form file &optional (position 0)) fspec 
        (declare (ignore top-level-form))
        `((,fspec
           ,(buffer-or-file-location file position)))))
