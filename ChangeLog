@@ -1,3 +1,9 @@
+2010-08-05  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-ccl.lisp (spawn): Specify
+	:use-standard-initial-bindings nil, so that *readtable*
+	etc. modifications persist.
+
 2010-08-04  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-allegro.lisp (fspec-definition-locations): Default
