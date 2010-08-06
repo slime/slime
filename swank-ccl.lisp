@@ -677,8 +677,7 @@
   (queue '() :type list))
 
 (defimplementation spawn (fun &key name)
-  (ccl:process-run-function (list :name (or name "Anonymous (Swank)")
-                                  :use-standard-initial-bindings nil)
+  (ccl:process-run-function (or name "Anonymous (Swank)")
                             fun))
 
 (defimplementation thread-id (thread)
