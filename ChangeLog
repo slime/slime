@@ -1,3 +1,13 @@
+2010-08-11  Helmut Eller  <heller@common-lisp.net>
+
+	Bind *print-readably* to nil when printing the title.
+
+	* swank.lisp (prepare-title): Factored out into new function.
+	(*inspector-printer-bindings*)
+	(*inspector-verbose-printer-bindings*): New.
+	(with-string-stream): New.
+	(emacs-inspect/istate): Renamed from emacs-inspect/printer-bindings.
+
 2010-08-06  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-ccl.lisp (spawn): Revert the previous change, using

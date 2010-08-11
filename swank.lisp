@@ -1945,15 +1945,6 @@ gracefully."
       (without-printing-errors (:object object :stream nil)
         (prin1-to-string object)))))
 
-(defun to-line  (object &optional (width 75))
-  "Print OBJECT to a single line. Return the string."
-  (without-printing-errors (:object object :stream nil)
-    (call/truncated-output-to-string
-     width
-     (lambda (*standard-output*)
-       (write object :right-margin width :lines 1))
-     "..")))
-
 (defun from-string (string)
   "Read string in the *BUFFER-PACKAGE*"
   (with-buffer-syntax ()
@@ -2302,10 +2293,27 @@ aborted and return immediately with the output written so far."
                    (replace buffer ellipsis :start1 fill-pointer)
                    (return-from buffer-full buffer)))))
         (let ((stream (make-output-stream #'write-output)))
-          
           (funcall function stream)
           (finish-output stream)
           (subseq buffer 0 fill-pointer))))))
+
+(defmacro with-string-stream ((var &key length bindings)
+                              &body body)
+  (cond ((and (not bindings) (not length))
+         `(with-output-to-string (,var) . ,body))
+        ((not bindings)
+         `(call/truncated-output-to-string 
+           ,length (lambda (,var) . ,body)))
+        (t
+         `(with-bindings ,bindings 
+            (with-string-stream (,var :length ,length)
+              . ,body)))))
+
+(defun to-line  (object &optional (width 75))
+  "Print OBJECT to a single line. Return the string."
+  (without-printing-errors (:object object :stream nil)
+    (with-string-stream (stream :length width)
+      (write object :stream stream :right-margin width :lines 1))))
 
 (defun escape-string (string stream &key length (map '((#\" . "\\\"")
                                                        (#\\ . "\\\\"))))
@@ -2609,13 +2617,12 @@ frame."
                  ((t) `((:restartable t)))))))
 
 (defun frame-to-string (frame)
-  (with-bindings *backtrace-printer-bindings*
-    (call/truncated-output-to-string 
-     (* (or *print-lines* 1) (or *print-right-margin* 100))
-     (lambda (stream)
-       (handler-case (print-frame frame stream)
-         (serious-condition ()
-           (format stream "[error printing frame]")))))))
+  (with-string-stream (stream :length (* (or *print-lines* 1) 
+                                         (or *print-right-margin* 100))
+                              :bindings *backtrace-printer-bindings*)
+    (handler-case (print-frame frame stream)
+      (serious-condition ()
+        (format stream "[error printing frame]")))))
 
 (defslimefun debugger-info-for-emacs (start end)
   "Return debugger state, with stack frames from START to END.
@@ -3348,7 +3355,19 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
 
 (defvar *inspector-verbose* nil)
 
-(defstruct (inspector-state (:conc-name istate.))
+(defvar *inspector-printer-bindings*
+  '((*print-lines*        . 1) 
+    (*print-right-margin* . 75)
+    (*print-pretty*       . t)
+    (*print-readably*     . nil)))
+
+(defvar *inspector-verbose-printer-bindings*
+  '((*print-escape* . t)
+    (*print-circle* . t)
+    (*print-array*  . nil)))
+
+(defstruct inspector-state)
+(defstruct (istate (:conc-name istate.) (:include inspector-state))
   object
   (verbose *inspector-verbose*)
   (parts (make-array 10 :adjustable t :fill-pointer 0))
@@ -3378,33 +3397,37 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
       data)))
 
 (defun inspect-object (o)
-  ;; Set *ISTATE* first so EMACS-INSPECT can possibly look at it.
-  (setq *istate* (make-inspector-state :object o :previous *istate*))
-  (setf (istate.content *istate*) (emacs-inspect/printer-bindings o))
-  (unless (find o *inspector-history*)
-    (vector-push-extend o *inspector-history*))
-  (let ((previous (istate.previous *istate*)))
-    (if previous (setf (istate.next previous) *istate*)))
-  (istate>elisp *istate*))
+  (let* ((prev *istate*)
+         (istate (make-istate :object o :previous prev
+                              :verbose (cond (prev (istate.verbose prev))
+                                             (t *inspector-verbose*)))))
+    (setq *istate* istate)
+    (setf (istate.content istate) (emacs-inspect/istate istate))
+    (unless (find o *inspector-history*)
+      (vector-push-extend o *inspector-history*))
+    (let ((previous (istate.previous istate)))
+      (if previous (setf (istate.next previous) istate)))
+    (istate>elisp istate)))
 
-(defun emacs-inspect/printer-bindings (object)
-  (let ((*print-lines* 1) (*print-right-margin* 75)
-        (*print-pretty* t) (*print-readably* nil))
-    (emacs-inspect object)))
+(defun emacs-inspect/istate (istate)
+  (with-bindings (if (istate.verbose istate)
+                     *inspector-verbose-printer-bindings*
+                     *inspector-printer-bindings*)
+    (emacs-inspect (istate.object istate))))
 
 (defun istate>elisp (istate)
-  (list :title (if (istate.verbose istate)
-                   (let ((*print-escape* t)
-                         (*print-circle* t)
-                         (*print-array* nil))
-                     (to-string (istate.object istate)))
-                   (call/truncated-output-to-string
-                    200
-                    (lambda (s)
-                      (print-unreadable-object
-                          ((istate.object istate) s :type t :identity t)))))
+  (list :title (prepare-title istate)
         :id (assign-index (istate.object istate) (istate.parts istate))
         :content (prepare-range istate 0 500)))
+
+(defun prepare-title (istate)
+  (if (istate.verbose istate)
+      (with-bindings *inspector-verbose-printer-bindings*
+        (to-string (istate.object istate)))
+      (with-string-stream (stream :length 200
+                                  :bindings *inspector-printer-bindings*)
+        (print-unreadable-object
+            ((istate.object istate) stream :type t :identity t)))))
 
 (defun prepare-range (istate start end)
   (let* ((range (content-range (istate.content istate) start end))
@@ -3463,8 +3486,7 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
 
 (defslimefun inspect-nth-part (index)
   (with-buffer-syntax ()
-    (let ((*inspector-verbose* (istate.verbose *istate*)))
-      (inspect-object (inspector-nth-part index)))))
+    (inspect-object (inspector-nth-part index))))
 
 (defslimefun inspector-range (from to)
   (prepare-range *istate* from to))
@@ -3495,9 +3517,9 @@ Return nil if there's no previous object."
           (t nil))))
 
 (defslimefun inspector-reinspect ()
-  (setf (istate.content *istate*)
-        (emacs-inspect/printer-bindings (istate.object *istate*)))
-  (istate>elisp *istate*))
+  (let ((istate *istate*))
+    (setf (istate.content istate) (emacs-inspect/istate istate))
+    (istate>elisp istate)))
 
 (defslimefun inspector-toggle-verbose ()
   "Toggle verbosity of inspected object."
