@@ -1551,10 +1551,9 @@ stack."
 (defimplementation save-image (filename &optional restart-function)
   (let ((pid (sb-posix:fork)))
     (cond ((= pid 0) 
-           (let ((args `(,filename 
-                         ,@(if restart-function
-                               `((:toplevel ,restart-function))))))
-             (apply #'sb-ext:save-lisp-and-die args)))
+           (apply #'sb-ext:save-lisp-and-die filename
+                  (when restart-function
+                    (list :toplevel restart-function))))
           (t
            (multiple-value-bind (rpid status) (sb-posix:waitpid pid 0)
              (assert (= pid rpid))

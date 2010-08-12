@@ -1,3 +1,8 @@
+2010-08-12  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-sbcl.lisp (save-image): Fix save-lisp-and-die invocation.
+	Based on a patch by Anton Kovalenko.
+
 2010-08-11  Helmut Eller  <heller@common-lisp.net>
 
 	Bind *print-readably* to nil when printing the title.
