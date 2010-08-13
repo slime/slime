@@ -900,7 +900,9 @@ See CODE-LOCATION-STREAM-POSITION."
           (function-info-definitions name)
           (ir1-translator-definitions name)
           (template-definitions name)
-          (primitive-definitions name)))
+          (primitive-definitions name)
+          (vm-support-routine-definitions name)
+          ))
 
 ;;;;; Functions, macros, generic functions, methods
 ;;;
@@ -1275,6 +1277,16 @@ Signal an error if no constructor can be found."
     (and csym
          (not (eq csym name))
          (template-definitions csym))))
+
+(defun vm-support-routine-definitions (name)
+  (let ((sr (c::backend-support-routines c::*backend*))
+        (name (find-symbol (string name) :c)))
+    (and name
+         (slot-exists-p sr name)
+         (maybe-make-definition (slot-value sr name)
+                                (find-symbol (string 'vm-support-routine)
+                                             :c)
+                                name))))
 
 
 ;;;; Documentation.

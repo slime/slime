@@ -1,3 +1,10 @@
+2010-08-13  Helmut Eller  <heller@common-lisp.net>
+
+	Find definition for (def-vm-support-routine NAME ...)
+
+	* swank-cmucl.lisp (vm-support-routine-definitions): New.
+	(find-definitions): Use it.
+
 2010-08-12  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sbcl.lisp (save-image): Fix save-lisp-and-die invocation.
