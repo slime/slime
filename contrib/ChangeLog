@@ -1,3 +1,10 @@
+2010-08-13  Helmut Eller  <heller@common-lisp.net>
+
+	Fix slime-restore.
+
+	* swank-snapshot.lisp (swank-snapshot::resurrect): Adapted to
+	new MAKE-CONNECTION.
+
 2010-07-29  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-c-p-c.el (slime-complete-form): Limit `looking-back' too.
