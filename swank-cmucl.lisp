@@ -1280,12 +1280,11 @@ Signal an error if no constructor can be found."
 
 (defun vm-support-routine-definitions (name)
   (let ((sr (c::backend-support-routines c::*backend*))
-        (name (find-symbol (string name) :c)))
+        (name (find-symbol (string name) 'c)))
     (and name
          (slot-exists-p sr name)
          (maybe-make-definition (slot-value sr name)
-                                (find-symbol (string 'vm-support-routine)
-                                             :c)
+                                (find-symbol (string 'vm-support-routine) 'c)
                                 name))))
 
 
