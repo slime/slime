@@ -817,6 +817,7 @@ connections, otherwise it will be closed after the first."
 (defun setup-server (port announce-fn style dont-close coding-system)
   (declare (type function announce-fn))
   (init-log-output)
+  (find-external-format-or-lose coding-system)
   (let* ((socket (create-socket *loopback-interface* port))
          (local-port (local-port socket)))
     (funcall announce-fn local-port)
@@ -826,7 +827,7 @@ connections, otherwise it will be closed after the first."
         (:spawn
          (initialize-multiprocessing
           (lambda ()
-            (spawn (lambda () 
+            (spawn (lambda ()
                      (cond ((not dont-close) (serve))
                            (t (loop (ignore-errors (serve))))))
                    :name (cat "Swank " (princ-to-string port))))))
