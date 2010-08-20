@@ -2095,6 +2095,10 @@ or nil if nothing suitable can be found.")
   "Figure out which Lisp package the current buffer is associated with."
   (funcall slime-find-buffer-package-function))
 
+(make-variable-buffer-local
+ (defvar slime-package-cache nil
+   "Cons of the form (buffer-modified-tick . package)"))
+
 ;; When modifing this code consider cases like:
 ;;  (in-package #.*foo*)
 ;;  (in-package #:cl)
@@ -2103,13 +2107,21 @@ or nil if nothing suitable can be found.")
 ;;  (in-package |CL|)
 ;;  (in-package #+ansi-cl :cl #-ansi-cl 'lisp)
 (defun slime-search-buffer-package ()
-  (let ((case-fold-search t)
-        (regexp (concat "^(\\(cl:\\|common-lisp:\\)?in-package\\>[ \t']*"
-                        "\\([^)]+\\)[ \t]*)")))
-    (save-excursion
-      (when (or (re-search-backward regexp nil t)
-                (re-search-forward regexp nil t))
-        (match-string-no-properties 2)))))
+  (flet ((search-package ()
+           (let ((case-fold-search t)
+                 (regexp (concat "^(\\(cl:\\|common-lisp:\\)?in-package\\>[ \t']*"
+                                 "\\([^)]+\\)[ \t]*)")))
+             (save-excursion
+               (when (or (re-search-backward regexp nil t)
+                         (re-search-forward regexp nil t))
+                 (match-string-no-properties 2))))))
+    (if (eql (car slime-package-cache) (buffer-modified-tick))
+        (cdr slime-package-cache)
+        (let ((package (search-package)))
+          (setf slime-package-cache
+                (cons (buffer-modified-tick)
+                      package))
+          package))))
 
 ;;; Synchronous requests are implemented in terms of asynchronous
 ;;; ones. We make an asynchronous request with a continuation function

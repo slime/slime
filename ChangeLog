@@ -3,6 +3,8 @@
 	* slime.el (slime-maybe-complete-as-filename): Limit backward
 	search for #\", it slows down on large buffers.
 	Reported by Raymond Toy.
+	(slime-search-buffer-package): Cache the package, searching every time
+	on large buffers may be slow.
 
 2010-08-15  Stas Boukarev  <stassats@gmail.com>
 
