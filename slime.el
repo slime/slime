@@ -3652,11 +3652,11 @@ Perform completion more similar to Emacs' complete-symbol."
 (defun slime-maybe-complete-as-filename ()
   "If point is at a string starting with \", complete it as filename.
 Return nil if point is not at filename."
-  (if (save-excursion (re-search-backward "\"[^ \t\n]+\\=" nil t))
-      (let ((comint-completion-addsuffix '("/" . "\"")))
-        (comint-replace-by-expanded-filename)
-        t)
-    nil))
+  (when (save-excursion (re-search-backward "\"[^ \t\n]+\\=" (max (point-min)
+                                                                  (- (point) 1000)) t))
+    (let ((comint-completion-addsuffix '("/" . "\"")))
+      (comint-replace-by-expanded-filename)
+      t)))
 
 (defun slime-minibuffer-respecting-message (format &rest format-args)
   "Display TEXT as a message, without hiding any minibuffer contents."
