@@ -1,3 +1,21 @@
+2010-08-21  Helmut Eller  <heller@common-lisp.net>
+
+	Add commands to enable/disable contribs.
+
+	* slime.el (slime-enable-contrib, slime-disable-contrib): New.
+	(slime-contrib): New struct to collect meta-data about contribs.
+	(define-slime-contrib): Store meta-data in 'slime-contribs plist.
+	(slime-all-contribs, slime-find-contrib, slime-read-contrib-name):
+	New helpers.
+
+2010-08-21  Anton Kovalenko <anton@sw4me.com>
+
+	Snapshot restore support for SBCL.
+
+	* swank-backend.lisp (background-save-image): New.
+	* swank-sbcl.lisp (command-line-args, dup, sys-execv, exec-image)
+	(make-fd-stream, background-save-image): New.
+
 2010-08-20  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-maybe-complete-as-filename): Limit backward
