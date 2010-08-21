@@ -367,7 +367,10 @@ done."
       (setq buffer-quit-function 'slime-fuzzy-abort)) ; M-Esc Esc
     (when slime-fuzzy-completion-in-place
       ;; switch back to the original buffer
-      (if (minibufferp slime-fuzzy-target-buffer)
+      (if (if (featurep 'xemacs)
+              (eq (window-buffer (minibuffer-window))
+                  slime-fuzzy-target-buffer)
+              (minibufferp slime-fuzzy-target-buffer))
           (select-window (minibuffer-window))
           (switch-to-buffer-other-window slime-fuzzy-target-buffer)))))
 
