@@ -6846,6 +6846,15 @@ is setup, unless the user already set one explicitly."
       (setf (slime-lisp-modules) 
             (slime-eval `(swank:swank-require ',needed))))))
 
+(defstruct slime-contrib
+  name
+  slime-dependencies
+  swank-dependencies
+  enable
+  disable
+  authors
+  license)
+
 (defmacro define-slime-contrib (name docstring &rest clauses)
   (destructuring-bind (&key slime-dependencies
                             swank-dependencies
@@ -6855,6 +6864,8 @@ is setup, unless the user already set one explicitly."
                             authors 
                             license)
       (loop for (key . value) in clauses append `(,key ,value))
+    (let ((enable (intern (concat (symbol-name name) "-init")))
+          (disable (intern (concat (symbol-name name) "-unload"))))
     `(progn
        ,(when gnu-emacs-only
           `(eval-and-compile
@@ -6862,15 +6873,46 @@ is setup, unless the user already set one explicitly."
                      ,(concat (symbol-name name)
                               " does not work with XEmacs."))))
        ,@(mapcar (lambda (d) `(require ',d)) slime-dependencies)
-       (defun ,(intern (concat (symbol-name name) "-init")) ()
+       (defun ,enable ()
          ,@(mapcar (lambda (d) `(slime-require ',d)) swank-dependencies)
          ,@on-load)
-       (defun ,(intern (concat (symbol-name name) "-unload")) ()
-         ,@on-unload))))
+       (defun ,disable ()
+         ,@on-unload)
+       (put 'slime-contribs ',name 
+            (make-slime-contrib
+             :name ',name :authors ',authors :license ',license
+             :slime-dependencies ',slime-dependencies
+             :swank-dependencies ',swank-dependencies
+             :enable ',enable :disable ',disable))))))
 
 (put 'define-slime-contrib 'lisp-indent-function 1)
 (put 'slime-indulge-pretty-colors 'define-slime-contrib t)
 
+(defun slime-all-contribs ()
+  (loop for (name val) on (symbol-plist 'slime-contribs) by #'cddr
+        when (slime-contrib-p val)
+        collect val))
+
+(defun slime-find-contrib (name)
+  (get 'slime-contribs name))
+
+(defun slime-read-contrib-name ()
+  (let ((names (loop for c in (slime-all-contribs) collect 
+                     (symbol-name (slime-contrib-name c)))))
+    (intern (completing-read "Contrib: " names nil t))))
+  
+(defun slime-enable-contrib (name)
+  (interactive (list (slime-read-contrib-name)))
+  (let ((c (or (slime-find-contrib name)
+               (error "Unknown contrib: %S" name))))
+    (funcall (slime-contrib-enable c))))
+
+(defun slime-disable-contrib (name)
+  (interactive (list (slime-read-contrib-name)))
+  (let ((c (or (slime-find-contrib name)
+               (error "Unknown contrib: %S" name))))
+    (funcall (slime-contrib-disable c))))
+  
 
 ;;;;; Pull-down menu
 
