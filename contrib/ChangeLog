@@ -1,3 +1,12 @@
+2010-08-21  Anton Kovalenko <anton@sw4me.com>
+
+	Add support to save snapshots in backround.
+
+	* swank-snapshot.lisp (background-save-snapshot): New.
+	(resurrect): Initialize repl streams.
+	* slime-snapshot.el (slime-snapshot): With prefix-arg perform
+	saving in background.  Also ask before overwriting existing files.
+
 2010-08-13  Helmut Eller  <heller@common-lisp.net>
 
 	Fix slime-restore.

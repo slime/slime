@@ -155,11 +155,17 @@
 (defimplementation remove-fd-handlers (socket)
   (sb-sys:invalidate-descriptor (socket-fd socket)))
 
-(defun socket-fd (socket)
+(defimplementation socket-fd (socket)
   (etypecase socket
     (fixnum socket)
     (sb-bsd-sockets:socket (sb-bsd-sockets:socket-file-descriptor socket))
     (file-stream (sb-sys:fd-stream-fd socket))))
+
+(defimplementation command-line-args ()
+  sb-ext:*posix-argv*)
+
+(defimplementation dup (fd)
+  (sb-posix:dup fd))
 
 (defvar *wait-for-input-called*)
 
@@ -1549,13 +1555,87 @@ stack."
 
 #-win32
 (defimplementation save-image (filename &optional restart-function)
-  (let ((pid (sb-posix:fork)))
-    (cond ((= pid 0) 
-           (apply #'sb-ext:save-lisp-and-die filename
-                  (when restart-function
-                    (list :toplevel restart-function))))
-          (t
-           (multiple-value-bind (rpid status) (sb-posix:waitpid pid 0)
-             (assert (= pid rpid))
-             (assert (and (sb-posix:wifexited status)
-                          (zerop (sb-posix:wexitstatus status)))))))))
+  (flet ((restart-sbcl ()
+           (sb-debug::enable-debugger)
+           (setf sb-impl::*descriptor-handlers* nil)
+           (funcall restart-function)))
+    (let ((pid (sb-posix:fork)))
+      (cond ((= pid 0)
+             (sb-debug::disable-debugger)
+             (apply #'sb-ext:save-lisp-and-die filename
+                    (when restart-function
+                      (list :toplevel #'restart-sbcl))))
+            (t
+             (multiple-value-bind (rpid status) (sb-posix:waitpid pid 0)
+               (assert (= pid rpid))
+               (assert (and (sb-posix:wifexited status)
+                            (zerop (sb-posix:wexitstatus status))))))))))
+
+#+unix
+(progn
+  (sb-alien:define-alien-routine ("execv" sys-execv) sb-alien:int 
+    (program sb-alien:c-string)
+    (argv (* sb-alien:c-string)))
+  
+  (defun execv (program args)
+    "Replace current executable with another one."
+    (let ((a-args (sb-alien:make-alien sb-alien:c-string
+                                       (+ 1 (length args)))))
+      (unwind-protect
+           (progn
+             (loop for index from 0 by 1
+                   and item in (append args '(nil))
+                   do (setf (sb-alien:deref a-args index)
+                            item))
+             (when (minusp
+                    (sys-execv program a-args))
+               (sb-posix:syscall-error)))
+        (sb-alien:free-alien a-args))))
+
+  (defimplementation exec-image (image-file args)
+    (loop with fd-arg =
+          (loop for arg in args
+                and key = "" then arg
+                when (string-equal key "--swank-fd")
+                  return (parse-integer arg))
+          for my-fd from 3 to 1024
+          when (/= my-fd fd-arg)
+            do (ignore-errors (sb-posix:fcntl my-fd sb-posix:f-setfd 1)))
+    (let* ((self-string (pathname-to-filename sb-ext:*runtime-pathname*)))
+      (execv
+       self-string
+       (apply 'list self-string "--core" image-file args)))))
+
+(defimplementation make-fd-stream (fd external-format)
+  (sb-sys:make-fd-stream fd :input t :output t
+                         :element-type 'character
+                         :buffering :full
+                         :dual-channel-p t                         
+                         :external-format external-format))
+
+(defimplementation background-save-image  (filename &key restart-function
+                                              completion-function)
+  (flet ((restart-sbcl ()
+           (sb-debug::enable-debugger)
+           (setf sb-impl::*descriptor-handlers* nil)
+           (funcall restart-function)))
+    (multiple-value-bind (pipe-in pipe-out) (sb-posix:pipe)
+      (let ((pid (sb-posix:fork)))
+        (cond ((= pid 0)
+               (sb-posix:close pipe-in)
+               (sb-debug::disable-debugger)
+               (apply #'sb-ext:save-lisp-and-die filename
+                      (when restart-function
+                        (list :toplevel #'restart-sbcl))))
+              (t
+               (sb-posix:close pipe-out)
+               (sb-sys:add-fd-handler
+                pipe-in :input
+                (lambda (fd)
+                  (sb-sys:invalidate-descriptor fd)
+                  (sb-posix:close fd)
+                  (multiple-value-bind (rpid status) (sb-posix:waitpid pid 0)
+                    (assert (= pid rpid))
+                    (assert (sb-posix:wifexited status))
+                    (funcall completion-function
+                             (zerop (sb-posix:wexitstatus status))))))))))))

@@ -1301,5 +1301,8 @@ SPEC can be:
   "Save a heap image to the file FILENAME.
 RESTART-FUNCTION, if non-nil, should be called when the image is loaded.")
 
-
-  
+(definterface background-save-image (filename &key restart-function
+                                              completion-function)
+  "Request saving a heap image to the file FILENAME.
+RESTART-FUNCTION, if non-nil, should be called when the image is loaded.
+COMPLETION-FUNCTION, if non-nil, should be called after saving the image.")
