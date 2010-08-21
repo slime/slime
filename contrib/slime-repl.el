@@ -29,7 +29,8 @@ maintain."
   (:on-load
    (add-hook 'slime-event-hooks 'slime-repl-event-hook-function)
    (add-hook 'slime-connected-hook 'slime-repl-connected-hook-function)
-   (setq slime-find-buffer-package-function 'slime-repl-find-buffer-package)))
+   (setq slime-find-buffer-package-function 'slime-repl-find-buffer-package))
+  (:on-unload (slime-repl-remove-hooks)))
 
 ;;;;; slime-repl
 

@@ -1,3 +1,7 @@
+2010-08-21  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-repl.el: Specify :on-unload action.
+
 2010-08-21  Anton Kovalenko <anton@sw4me.com>
 
 	Add support to save snapshots in backround.
