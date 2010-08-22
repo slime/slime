@@ -485,10 +485,16 @@ information."
          ;; Only do the unwind-protect of #'with-current-buffer if we're
          ;; actually interested in this buffer
          (with-current-buffer object
-           (setq slime-modeline-string (slime-modeline-string)
-                 redraw-modeline t))))
-     'never t)
+           (setq redraw-modeline
+                 (or (not (equal slime-modeline-string
+                                 (setq slime-modeline-string
+                                       (slime-modeline-string))))
+                     redraw-modeline)))))
+     'never 'visible)
     (and redraw-modeline (redraw-modeline t))))
+
+(and (featurep 'xemacs)
+     (pushnew 'slime-xemacs-recompute-modelines pre-idle-hook))
 
 
 ;;;;; Key bindings

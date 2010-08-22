@@ -1,3 +1,10 @@
+2010-08-22  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-xemacs-recompute-modelines): Add
+	`slime-xemacs-recompute-modelines' to `pre-idle-hook', this solves
+	the problem of synchronization of modelines.
+	Thanks to Aidan Kehoe.
+
 2010-08-21  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-recompute-modelines): Recompute modelines only
