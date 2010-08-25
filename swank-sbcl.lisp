@@ -1592,16 +1592,24 @@ stack."
                (sb-posix:syscall-error)))
         (sb-alien:free-alien a-args))))
 
+  (defun runtime-pathname ()
+    #+#.(swank-backend:with-symbol
+            '*runtime-pathname* 'sb-ext)
+    sb-ext:*runtime-pathname*
+    #-#.(swank-backend:with-symbol
+            '*runtime-pathname* 'sb-ext)
+    (car sb-ext:*posix-argv*))
+
   (defimplementation exec-image (image-file args)
     (loop with fd-arg =
           (loop for arg in args
                 and key = "" then arg
                 when (string-equal key "--swank-fd")
-                  return (parse-integer arg))
+                return (parse-integer arg))
           for my-fd from 3 to 1024
           when (/= my-fd fd-arg)
-            do (ignore-errors (sb-posix:fcntl my-fd sb-posix:f-setfd 1)))
-    (let* ((self-string (pathname-to-filename sb-ext:*runtime-pathname*)))
+          do (ignore-errors (sb-posix:fcntl my-fd sb-posix:f-setfd 1)))
+    (let* ((self-string (pathname-to-filename (runtime-pathname))))
       (execv
        self-string
        (apply 'list self-string "--core" image-file args)))))
