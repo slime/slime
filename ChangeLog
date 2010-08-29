@@ -1,3 +1,11 @@
+2010-08-28  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-cmucl.lisp (*gdb-program-name*): Determine gdb location
+	from PATH.
+	(gdb-exec): Use *gdb-program-name* instead of "gdb".
+	(gdb-command): Mac OS X compatibility.
+	Patch by Raymond Toy.
+
 2010-08-25  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sbcl.lisp (exec-image): Use (car sb-ext:*posix-argv*) if

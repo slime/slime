@@ -1892,7 +1892,10 @@ Try to create a informative message."
 ~8X  Saved Instruction Pointer~%" (mapcar #'fixnum 
                       (multiple-value-list (frame-registers frame)))))))
 
-(defvar *gdb-program-name* "/usr/bin/gdb")
+(defvar *gdb-program-name*
+  (ext:enumerate-search-list (p "path:gdb")
+    (when (probe-file p)
+      (return p))))
 
 (defimplementation disassemble-frame (frame-number)
   (print-frame-registers frame-number)
@@ -1924,20 +1927,24 @@ Try to create a informative message."
       (delete-file name))))
 
 (defun gdb-command (format-string &rest args)
-  (let ((str (gdb-exec (format nil 
+  (let ((str (gdb-exec (format nil
                                "interpreter-exec mi2 \"attach ~d\"~%~
                                 interpreter-exec console ~s~%detach"
                                (getpid)
                                (apply #'format nil format-string args))))
-        (prompt (format nil "~%^done~%(gdb) ~%")))
-    (subseq str (+ (search prompt str) (length prompt)))))
+        (prompt (format nil
+                        #-(and darwin x86) "~%^done~%(gdb) ~%"
+                        #+(and darwin x86)
+"~%^done,thread-id=\"1\"~%(gdb) ~%")))
+    (subseq str (+ (or (search prompt str) 0) (length prompt)))))
 
 (defun gdb-exec (cmd)
   (with-temporary-file (file filename)
     (write-string cmd file)
     (force-output file)
     (let* ((output (make-string-output-stream))
-           (proc (ext:run-program "gdb" `("-batch" "-x" ,filename) 
+           (proc (ext:run-program *gdb-program-name*
+                                  `("-batch" "-x" ,filename) 
                                   :wait t
                                   :output output)))
       (assert (eq (ext:process-status proc) :exited))
