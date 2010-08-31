@@ -1863,7 +1863,22 @@ Try to create a informative message."
              (values ip pc)))
           (di::interpreted-debug-function -1)
           (di::bogus-debug-function
-           #-x86 -1
+           #-x86
+           (let* ((real (di::frame-real-frame (di::frame-up frame)))
+                  (fp (di::frame-pointer real)))
+             ;;#+(or)
+             (progn
+               (format *debug-io* "Frame-real-frame = ~S~%" real)
+               (format *debug-io* "fp = ~S~%" fp)
+               (format *debug-io* "lra = ~S~%"
+                       (kernel:stack-ref fp vm::lra-save-offset)))
+             (values 
+              (sys:int-sap
+               (- (kernel:get-lisp-obj-address
+                   (kernel:stack-ref fp vm::lra-save-offset))
+                  (- (ash vm:function-code-offset vm:word-shift)
+                     vm:function-pointer-type)))
+              0))
            #+x86
            (let ((fp (di::frame-pointer (di:frame-up frame))))
              (multiple-value-bind (ra ofp) (di::x86-call-context fp)
@@ -1943,8 +1958,23 @@ Try to create a informative message."
     (write-string cmd file)
     (force-output file)
     (let* ((output (make-string-output-stream))
+           ;; gdb on sparc needs to know the executable to find the
+           ;; symbols.  Without this, gdb can't disassemble anything.
+           ;; NOTE: We assume that the first entry in
+           ;; lisp::*cmucl-lib* is the bin directory where lisp is
+           ;; located.  If this is not true, we'll have to do
+           ;; something better to find the lisp executable.
+           (lisp-path
+            #+sparc
+             (list
+              (namestring
+               (probe-file
+                (merge-pathnames "lisp" (car (lisp::parse-unix-search-path
+                                              lisp::*cmucl-lib*))))))
+             #-sparc
+             nil)
            (proc (ext:run-program *gdb-program-name*
-                                  `("-batch" "-x" ,filename) 
+                                  `(,@lisp-path "-batch" "-x" ,filename)
                                   :wait t
                                   :output output)))
       (assert (eq (ext:process-status proc) :exited))
@@ -1952,13 +1982,17 @@ Try to create a informative message."
       (get-output-stream-string output))))
 
 (defun foreign-frame-p (frame)
-  #-x86 nil
-  #+x86 (let ((ip (frame-ip frame)))
-          (and (sys:system-area-pointer-p ip)
-               (multiple-value-bind (pc code)
-                   (di::compute-lra-data-from-pc ip)
-                 (declare (ignore pc))
-                 (not code)))))
+  #-x86
+  (let ((ip (frame-ip frame)))
+    (and (sys:system-area-pointer-p ip)
+         (typep (di::frame-debug-function frame) 'di::bogus-debug-function)))
+  #+x86
+  (let ((ip (frame-ip frame)))
+    (and (sys:system-area-pointer-p ip)
+         (multiple-value-bind (pc code)
+             (di::compute-lra-data-from-pc ip)
+           (declare (ignore pc))
+           (not code)))))
 
 (defun foreign-frame-source-location (frame)
   (let ((ip (sys:sap-int (frame-ip frame))))

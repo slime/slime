@@ -1,3 +1,9 @@
+2010-08-31  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-cmucl.lisp (foreign-frame-p, gdb-exec, frame-ip): Sparc
+	support.
+	Patch by Raymond Toy.
+
 2010-08-31  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* swank-sbcl.lisp (make-dspec): Elide the function name when
