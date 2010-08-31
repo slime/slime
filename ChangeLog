@@ -1,3 +1,9 @@
+2010-08-31  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* swank-sbcl.lisp (make-dspec): Elide the function name when
+	generating a VOP description, since the VOP name is more useful
+	and is the first part of the source-description list.
+
 2010-08-28  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-cmucl.lisp (*gdb-program-name*): Determine gdb location

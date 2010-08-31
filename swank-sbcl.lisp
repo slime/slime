@@ -688,9 +688,18 @@ QUALITIES is an alist with (quality . value)"
       (getf *definition-types* type)))
 
 (defun make-dspec (type name source-location)
-  (list* (definition-specifier type name)
-         name
-         (sb-introspect::definition-source-description source-location)))
+  (let ((spec (definition-specifier type name))
+        (desc (sb-introspect::definition-source-description source-location)))
+    (if (eq :define-vop spec)
+        ;; The first part of the VOP description is the name of the template
+        ;; -- which is actually good information and often long. So elide the
+        ;; original name in favor of making the interesting bit more visible.
+        ;;
+        ;; The second part of the VOP description is the associated compiler note, or
+        ;; NIL -- which is quite uninteresting and confuses the eye when reading the actual
+        ;; name which usually has a worthwhile postfix. So drop the note.
+        (list spec (car desc))
+        (list* spec name desc))))
 
 (defimplementation find-definitions (name)
   (loop for type in *definition-types* by #'cddr
