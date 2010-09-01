@@ -1630,8 +1630,9 @@ stack."
                          :dual-channel-p t                         
                          :external-format external-format))
 
-(defimplementation background-save-image  (filename &key restart-function
-                                              completion-function)
+#-win32
+(defimplementation background-save-image (filename &key restart-function
+                                                   completion-function)
   (flet ((restart-sbcl ()
            (sb-debug::enable-debugger)
            (setf sb-impl::*descriptor-handlers* nil)
