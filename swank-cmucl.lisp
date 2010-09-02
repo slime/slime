@@ -27,7 +27,7 @@
 ;;; `READ-SEQUENCE' with large sequences has problems in 18e. This new
 ;;; definition works better.
 
-#-cmu19
+#+cmu18
 (progn
   (let ((s (find-symbol (string :*enable-package-locked-errors*) :lisp)))
     (when s
@@ -577,7 +577,7 @@ Return a `location' record, or (:error REASON) on failure."
 
 ;;; More types of XREF information were added since 18e:
 ;;;
-#+cmu19
+#-cmu18
 (progn
   (defxref who-macroexpands xref:who-macroexpands)
   ;; XXX
@@ -613,8 +613,8 @@ This is a workaround for a CMUCL bug: XREF records are cumulative."
   (when c:*record-xref-info*
     (let ((filename (truename namestring)))
       (dolist (db (list xref::*who-calls*
-                        #+cmu19 xref::*who-is-called*
-                        #+cmu19 xref::*who-macroexpands*
+                        #-cmu18 xref::*who-is-called*
+                        #-cmu18 xref::*who-macroexpands*
                         xref::*who-references*
                         xref::*who-binds*
                         xref::*who-sets*))

@@ -1,3 +1,8 @@
+2010-09-02  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-cmucl.lisp: #-cmu19 -> #+cmu18, cmu18 is allegedly the
+	oldest supported CMUCL.
+
 2010-09-01  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sbcl.lisp (background-save-image): add #-win32, because it
