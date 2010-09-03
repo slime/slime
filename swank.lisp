@@ -2760,11 +2760,12 @@ TAGS has is a list of strings."
 ;;;; Compilation Commands.
 
 (defstruct (:compilation-result
-             (:type list) :named
-             (:constructor make-compilation-result (notes successp duration)))
+             (:type list) :named)
   notes
   (successp nil :type boolean)
-  (duration 0.0 :type float))
+  (duration 0.0 :type float)
+  (loadp nil :type boolean)
+  (faslfile nil :type (or null string)))
 
 (defun measure-time-interval (fun)
   "Call FUN and return the first return value and the elapsed time.
@@ -2788,16 +2789,24 @@ The time is measured in seconds."
 
 (defun collect-notes (function)
   (let ((notes '()))
-    (multiple-value-bind (successp seconds)
+    (multiple-value-bind (result seconds)
         (handler-bind ((compiler-condition
                         (lambda (c) (push (make-compiler-note c) notes))))
           (measure-time-interval
            (lambda ()
-               ;; To report location of error-signaling toplevel forms
-               ;; for errors in EVAL-WHEN or during macroexpansion.
-               (with-simple-restart (abort "Abort compilation.")
-                 (funcall function)))))
-      (make-compilation-result (reverse notes) (and successp t) seconds))))
+             ;; To report location of error-signaling toplevel forms
+             ;; for errors in EVAL-WHEN or during macroexpansion.
+             (restart-case (multiple-value-list (funcall function))
+               (abort () :report "Abort compilation." (list nil))))))
+      (destructuring-bind (successp &optional loadp faslfile) result
+        (let ((faslfile (etypecase faslfile
+                          (null nil)
+                          (pathname (pathname-to-filename faslfile)))))
+          (make-compilation-result :notes (reverse notes) 
+                                   :duration seconds
+                                   :successp (if successp t)
+                                   :loadp (if loadp t)
+                                   :faslfile faslfile))))))
 
 (defslimefun compile-file-for-emacs (filename load-p &rest options &key policy
                                               &allow-other-keys)
@@ -2811,12 +2820,12 @@ Record compiler notes signalled as `compiler-condition's."
          (multiple-value-bind (output-pathname warnings? failure?)
              (swank-compile-file pathname
                                  (fasl-pathname pathname options)
-                                 load-p
+                                 nil
                                  (or (guess-external-format pathname)
                                      :default)
                                  :policy policy)
-           (declare (ignore output-pathname warnings?))
-           (not failure?)))))))
+           (declare (ignore warnings?))
+           (values (not failure?) load-p output-pathname)))))))
 
 (defvar *fasl-pathname-function* nil
   "In non-nil, use this function to compute the name for fasl-files.")

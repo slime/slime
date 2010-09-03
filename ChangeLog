@@ -1,3 +1,15 @@
+2010-09-03  Helmut Eller  <heller@common-lisp.net>
+
+	For C-c C-k, ask before loading possibly broken fasl files.
+
+	* slime.el (slime-compilation-result): Add 2 slots: loadp and
+	faslfile.
+	(slime-compilation-finished): Use them to load the faslfile.
+	* swank.lisp (:compilation-result): Add 2 slots. Use keyword
+	constructor.
+	(compile-file-for-emacs): Return loadp and faslfile to Emacs.
+	(collect-notes): Pass loadp and falsfile along.
+
 2010-09-02  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-cmucl.lisp: #-cmu19 -> #+cmu18, cmu18 is allegedly the

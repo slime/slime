@@ -2553,7 +2553,7 @@ region that will be compiled.")
              (:conc-name slime-compilation-result.)
              (:constructor nil)
              (:copier nil))
-  tag notes successp duration)
+  tag notes successp duration loadp faslfile)
 
 (defvar slime-last-compilation-result nil
   "The result of the most recently issued compilation.")
@@ -2649,12 +2649,17 @@ to it depending on its sign."
    #'slime-compilation-finished))
 
 (defun slime-compilation-finished (result)
-  (with-struct (slime-compilation-result. notes duration successp) result
+  (with-struct (slime-compilation-result. notes duration successp
+                                          loadp faslfile) result
     (setf slime-last-compilation-result result)
     (slime-show-note-counts notes duration successp)
     (when slime-highlight-compiler-notes
       (slime-highlight-notes notes))
-    (run-hook-with-args 'slime-compilation-finished-hook notes)))
+    (run-hook-with-args 'slime-compilation-finished-hook notes)
+    (when (and loadp faslfile 
+               (or successp
+                   (y-or-n-p "Compilation failed.  Load fasl file anyway? ")))
+      (slime-eval-async `(swank:load-file ,faslfile)))))
 
 (defun slime-show-note-counts (notes secs successp)
   (message (concat 
