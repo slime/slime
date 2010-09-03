@@ -484,8 +484,6 @@
 
 ;;; FIXME: not thread safe
 (df %read ((port <gnu.mapping.InPort>) (table <gnu.kawa.lispexpr.ReadTable>))
-  ;;  (parameterize ((current-readtable table))
-  ;;                (read)))
   (let ((old (gnu.kawa.lispexpr.ReadTable:getCurrent)))
     (try-finally
      (seq (gnu.kawa.lispexpr.ReadTable:setCurrent table)
@@ -1274,7 +1272,7 @@
      (log "exception-catch-location: ~s\n" (src-loc>str (! catch-location e)))
      (let ((l (! catch-location e)))
        (cond ((or (nul? l)
-                  ;; (member (! source-path l) '("gnu/expr/ModuleExp.java")
+                  ;; (member (! source-path l) '("gnu/expr/ModuleExp.java"))
                   )
               (process-exception e c state))
              (#t
@@ -1746,10 +1744,11 @@
     thread))
 
 (df %%runnable (f => <java.lang.Runnable>) 
-  (<runnable> f)
-  ;;(<gnu.mapping.RunnableClosure> f)
+  ;;(<runnable> f)
+  (<gnu.mapping.RunnableClosure> f)
   )
 
+#|
 (df %runnable (f => <java.lang.Runnable>)
   (<runnable>
    (fun ()
@@ -1758,6 +1757,7 @@
                     (log "exception in thread ~s: ~s" (current-thread)
                           ex)
                     (! printStackTrace ex))))))
+|#
 
 (df chan () 
   (let ((lock (<object>))
@@ -1866,6 +1866,7 @@
                           ,(map (fun (e) (! to-string e))
                                 (array-to-list (! get-stack-trace ex))))))))))
 
+#|
 (define-simple-class <runnable> (<gnu.mapping.RunnableClosure>)
   (f :: <gnu.mapping.Procedure>)
   ((*init* (f <gnu.mapping.Procedure>))
@@ -1875,6 +1876,7 @@
    (! set-environment-raw (<gnu.mapping.CallContext>:getInstance)
       (@ environment (this)))
    (! apply0 f)))
+|#
 
 ;;;; Logging
 

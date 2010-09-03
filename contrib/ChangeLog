@@ -1,3 +1,7 @@
+2010-09-03  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-kawa.scm (%%runnable): Update for changes in SVN version.
+
 2010-08-21  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-fuzzy.el (slime-fuzzy-choices-buffer): XEmacs compatibility.
