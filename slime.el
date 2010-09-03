@@ -8435,7 +8435,7 @@ and skips comments."
 
 (defun slime-forward-cruft ()
   "Move forward over whitespace, comments, reader conditionals."
-  (while (slime-point-moves-p (skip-chars-forward "[:space:]")
+  (while (slime-point-moves-p (skip-chars-forward " \t\n")
                               (forward-comment (buffer-size))
                               (inline (slime-forward-reader-conditional)))))
 

@@ -1,3 +1,8 @@
+2010-09-03  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-forward-cruft): Use " \t\n" to match whitespaces
+	instead of [:space:], XEmacs compatibility.
+
 2010-09-03  Helmut Eller  <heller@common-lisp.net>
 
 	For C-c C-k, ask before loading possibly broken fasl files.
