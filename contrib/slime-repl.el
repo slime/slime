@@ -681,10 +681,12 @@ buffer."
       (goto-char origin))))
 
 (defun slime-search-property-change (prop &optional backward)
-  (cond (backward 
-         (goto-char (previous-single-char-property-change (point) prop)))
-        (t 
-         (goto-char (next-single-char-property-change (point) prop)))))
+  (cond (backward
+         (goto-char (or (previous-single-char-property-change (point) prop)
+			(point-min))))
+        (t
+         (goto-char (or (next-single-char-property-change (point) prop)
+			(point-max))))))
 
 (defun slime-end-of-proprange-p (property)
   (and (get-char-property (max 1 (1- (point))) property)

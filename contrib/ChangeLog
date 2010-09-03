@@ -1,5 +1,11 @@
 2010-09-03  Stas Boukarev  <stassats@gmail.com>
 
+	* slime-repl.el (slime-search-property-change): XEmacs may return
+	nil on previous/next-single-char-property-change, don't pass it to
+	goto-char.
+
+2010-09-03  Stas Boukarev  <stassats@gmail.com>
+
 	* slime-repl.el (slime-repl-mode-end-of-defun)
 	(slime-repl-mode-beginning-of-defun): Take an optional argument
 	which specifies how many defuns it should move. GNU Emacs catches
