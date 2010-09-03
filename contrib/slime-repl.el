@@ -502,13 +502,17 @@ joined together."))
   (interactive)
   (slime-switch-to-output-buffer))
 
-(defun slime-repl-mode-beginning-of-defun ()
-  (slime-repl-previous-prompt)
-  t)
+(defun slime-repl-mode-beginning-of-defun (&optional arg)
+  (if (and arg (< arg 0))
+      (slime-repl-mode-end-of-defun (- arg))
+      (dotimes (i (or arg 1))
+        (slime-repl-previous-prompt))))
 
-(defun slime-repl-mode-end-of-defun ()
-  (slime-repl-next-prompt)
-  t)
+(defun slime-repl-mode-end-of-defun (&optional arg)
+  (if (and arg (< arg 0))
+      (slime-repl-mode-beginning-of-defun (- arg))
+      (dotimes (i (or arg 1))
+        (slime-repl-next-prompt))))
 
 (defun slime-repl-send-string (string &optional command-string)
   (cond (slime-repl-read-mode
