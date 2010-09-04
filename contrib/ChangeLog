@@ -1,3 +1,8 @@
+2010-09-04  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-fuzzy.lisp (*fuzzy-completion-...*): Change defparameter
+	to defvar for easier customization.
+
 2010-09-03  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-search-property-change): XEmacs may return

@@ -521,15 +521,15 @@ onto the special variable *ALL-CHUNKS* and the function returns."
 
 ;;;;; Fuzzy completion scoring
 
-(defparameter *fuzzy-completion-symbol-prefixes* "*+-%&?<"
+(defvar *fuzzy-completion-symbol-prefixes* "*+-%&?<"
   "Letters that are likely to be at the beginning of a symbol.
 Letters found after one of these prefixes will be scored as if
 they were at the beginning of ths symbol.")
-(defparameter *fuzzy-completion-symbol-suffixes* "*+->"
+(defvar *fuzzy-completion-symbol-suffixes* "*+->"
   "Letters that are likely to be at the end of a symbol.
 Letters found before one of these suffixes will be scored as if
 they were at the end of the symbol.")
-(defparameter *fuzzy-completion-word-separators* "-/."
+(defvar *fuzzy-completion-word-separators* "-/."
   "Letters that separate different words in symbols.  Letters
 after one of these symbols will be scores more highly than other
 letters.")
