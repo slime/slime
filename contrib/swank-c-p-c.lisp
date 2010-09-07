@@ -249,10 +249,13 @@ DELIMETER may be a character, or a list of characters."
     (untokenize-completion
      (loop for token-list in (transpose-lists (mapcar #'tokenizer completions))
            if (notevery #'string= token-list (rest token-list))
-             collect (longest-common-prefix token-list) ; Note that we possibly collect
-             and do (loop-finish)                       ;  the "" here as well, so that
-           else collect (first token-list)))))          ;  UNTOKENIZE-COMPLETION will
-                                                        ;  append a hyphen for us.
+           ;; Note that we possibly collect the "" here as well, so that
+           ;; UNTOKENIZE-COMPLETION will append a delimiter for us.
+             collect (longest-common-prefix token-list delimeter)
+             and do (loop-finish)
+           else collect (first token-list))
+     delimeter)))
+
 (defun tokenize-completion (string delimeter)
   "Return all substrings of STRING delimited by DELIMETER."
   (loop with end
@@ -261,8 +264,8 @@ DELIMETER may be a character, or a list of characters."
         do (setq end (or (position delimeter string :start start) (length string)))
         collect (subseq string start end)))
 
-(defun untokenize-completion (tokens)
-  (format nil "~{~A~^-~}" tokens))
+(defun untokenize-completion (tokens &optional (delimiter #\-))
+  (format nil (format nil "~~{~~A~~^~a~~}" delimiter) tokens))
 
 (defun transpose-lists (lists)
   "Turn a list-of-lists on its side.
