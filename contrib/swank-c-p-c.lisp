@@ -214,54 +214,54 @@ contains lower or upper case characters."
 
 ;;;;; Compound-prefix matching
 
-(defun make-compound-prefix-matcher (delimeter &key (test #'char=))
+(defun make-compound-prefix-matcher (delimiter &key (test #'char=))
   "Returns a matching function that takes a `prefix' and a
 `target' string and which returns T if `prefix' is a
 compound-prefix of `target', and otherwise NIL.
 
 Viewing each of `prefix' and `target' as a series of substrings
-delimited by DELIMETER, if each substring of `prefix' is a prefix
+delimited by DELIMITER, if each substring of `prefix' is a prefix
 of the corresponding substring in `target' then we call `prefix'
 a compound-prefix of `target'.
 
-DELIMETER may be a character, or a list of characters."
-  (let ((delimeters (etypecase delimeter
-		      (character (list delimeter))
-		      (cons      (assert (every #'characterp delimeter))
-			         delimeter))))
+DELIMITER may be a character, or a list of characters."
+  (let ((delimiters (etypecase delimiter
+		      (character (list delimiter))
+		      (cons      (assert (every #'characterp delimiter))
+			         delimiter))))
     (lambda (prefix target)
       (declare (type simple-string prefix target))
       (loop for ch across prefix
 	    with tpos = 0
 	    always (and (< tpos (length target))
-			(let ((delimeter (car (member ch delimeters :test test))))
-			  (if delimeter
-			      (setf tpos (position delimeter target :start tpos))
+			(let ((delimiter (car (member ch delimiters :test test))))
+			  (if delimiter
+			      (setf tpos (position delimiter target :start tpos))
 			      (funcall test ch (aref target tpos)))))
 	    do (incf tpos)))))
 
 
 ;;;;; Extending the input string by completion
 
-(defun longest-compound-prefix (completions &optional (delimeter #\-))
+(defun longest-compound-prefix (completions &optional (delimiter #\-))
   "Return the longest compound _prefix_ for all COMPLETIONS."
-  (flet ((tokenizer (string) (tokenize-completion string delimeter)))
+  (flet ((tokenizer (string) (tokenize-completion string delimiter)))
     (untokenize-completion
      (loop for token-list in (transpose-lists (mapcar #'tokenizer completions))
            if (notevery #'string= token-list (rest token-list))
            ;; Note that we possibly collect the "" here as well, so that
            ;; UNTOKENIZE-COMPLETION will append a delimiter for us.
-             collect (longest-common-prefix token-list delimeter)
+             collect (longest-common-prefix token-list delimiter)
              and do (loop-finish)
            else collect (first token-list))
-     delimeter)))
+     delimiter)))
 
-(defun tokenize-completion (string delimeter)
-  "Return all substrings of STRING delimited by DELIMETER."
+(defun tokenize-completion (string delimiter)
+  "Return all substrings of STRING delimited by DELIMITER."
   (loop with end
         for start = 0 then (1+ end)
         until (> start (length string))
-        do (setq end (or (position delimeter string :start start) (length string)))
+        do (setq end (or (position delimiter string :start start) (length string)))
         collect (subseq string start end)))
 
 (defun untokenize-completion (tokens &optional (delimiter #\-))

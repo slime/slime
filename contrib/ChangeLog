@@ -1,5 +1,9 @@
 2010-09-07  Stas Boukarev  <stassats@gmail.com>
 
+	* swank-c-p-c.lisp: s/delimeter/delimiter/, correct spelling.
+
+2010-09-07  Stas Boukarev  <stassats@gmail.com>
+
 	* swank-c-p-c.lisp (untokenize-completion): Take an optional
 	argument "delimiter".
 	(longest-compound-prefix): Pass delimiter to untokenize-completion.
