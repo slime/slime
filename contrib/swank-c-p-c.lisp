@@ -251,7 +251,7 @@ DELIMITER may be a character, or a list of characters."
            if (notevery #'string= token-list (rest token-list))
            ;; Note that we possibly collect the "" here as well, so that
            ;; UNTOKENIZE-COMPLETION will append a delimiter for us.
-             collect (longest-common-prefix token-list delimiter)
+             collect (longest-common-prefix token-list)
              and do (loop-finish)
            else collect (first token-list))
      delimiter)))
