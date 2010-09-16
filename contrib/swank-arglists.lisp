@@ -1128,10 +1128,12 @@ wrapped in ===> X <===."
   "Return a short description of VARIABLE-NAME, or NIL."
   (let ((*print-pretty* t) (*print-level* 4)
         (*print-length* 10) (*print-lines* 1)
-        (*print-readably* nil))
+        (*print-readably* nil)
+        (value (symbol-value symbol)))
     (call/truncated-output-to-string
      75 (lambda (s)
-          (format s "~A => ~S" symbol (symbol-value symbol))))))
+          (without-printing-errors (:object value :stream s)
+            (format s "~A ~A~S" symbol *echo-area-prefix* value))))))
 
 
 (defslimefun complete-form (raw-form)
