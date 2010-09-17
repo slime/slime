@@ -1,3 +1,8 @@
+2010-09-17  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-sprof.lisp (filter-swank-nodes): Filter other swank
+	packages too, not only SWANK.
+
 2010-09-16  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-arglists.lisp (print-variable-to-string): Use
