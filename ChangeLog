@@ -1,3 +1,21 @@
+2010-09-18  Tobias C. Rittweiler <tcr@freebits.de>
+
+	Make C-c C-m also expand compiler macros. (lp#638720)
+
+	* slime.el (slime-macro/compiler-macro-expand-1): New.
+	(slime-macro/compiler-macro-expand-1-inplace): New.
+	(slime-editing-keys): Map `C-c C-m' to first above.
+	(slime-compiler-macroexpand-1): Take prefix-arg like others.
+	(slime-compiler-macroexpand-1-inplace): Ditto.
+	(slime-compiler-macroexpand): Thus deleted.
+	(slime-compiler-macroexpand-inplace): Ditto.
+
+	* swank.lisp (swank-macro/compiler-macro-expand-1): New interface.
+	(swank-macro/compiler-macro-expand): New interface.
+	(macro/compiler-macro-expand-1): New.
+	(macro/compiler-macro-expand): New.
+	(expand-repeatedly): New helper.
+
 2010-09-03  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-forward-cruft): Use " \t\n" to match whitespaces

@@ -550,7 +550,7 @@ edit s-exprs, e.g. for source buffers and the REPL.")
     ;;("\C-x\M-e" slime-eval-last-expression-display-output :inferior t)
     ("\C-c\C-p"   slime-pprint-eval-last-expression)
     ;; Macroexpand
-    ("\C-c\C-m"   slime-macroexpand-1)
+    ("\C-c\C-m"   slime-macro/compiler-macro-expand-1)
     ("\C-c\M-m"   slime-macroexpand-all)
     ;; Misc
     ("\C-c\C-u"   slime-undefine-function)
@@ -4879,7 +4879,8 @@ When displaying XREF information, this goes to the previous reference."
   (remap 'slime-macroexpand-1 'slime-macroexpand-1-inplace)
   (remap 'slime-macroexpand-all 'slime-macroexpand-all-inplace)
   (remap 'slime-compiler-macroexpand-1 'slime-compiler-macroexpand-1-inplace)
-  (remap 'slime-compiler-macroexpand 'slime-compiler-macroexpand-inplace)
+  (remap 'slime-macro/compiler-macro-expand-1 
+         'slime-macro/compiler-macro-expand-1-inplace)
   (remap 'advertised-undo 'slime-macroexpand-undo)
   (remap 'undo 'slime-macroexpand-undo))
 
@@ -5002,25 +5003,41 @@ argument is given, with CL:MACROEXPAND."
   (interactive)
   (slime-eval-macroexpand-inplace 'swank:swank-macroexpand-all))
 
-(defun slime-compiler-macroexpand ()
+(defun slime-compiler-macroexpand-1 (&optional repeatedly)
   "Display the compiler-macro expansion of sexp at point."
-  (interactive)
-  (slime-eval-macroexpand 'swank:swank-compiler-macroexpand))
+  (interactive "P")
+  (slime-eval-macroexpand
+   (if repeatedly
+       'swank:swank-compiler-macroexpand
+       'swank:swank-compiler-macroexpand-1)))
 
-(defun slime-compiler-macroexpand-inplace ()
+(defun slime-compiler-macroexpand-1-inplace (&optional repeatedly)
   "Display the compiler-macro expansion of sexp at point."
-  (interactive)
-  (slime-eval-macroexpand-inplace 'swank:swank-compiler-macroexpand))
+  (interactive "P")
+  (slime-eval-macroexpand-inplace
+   (if repeatedly
+       'swank:swank-compiler-macroexpand
+       'swank:swank-compiler-macroexpand-1)))
 
-(defun slime-compiler-macroexpand-1 ()
-  "Display the compiler-macro expansion of sexp at point."
-  (interactive)
-  (slime-eval-macroexpand 'swank:swank-compiler-macroexpand-1))
+(defun slime-macro/compiler-macro-expand-1 (&optional repeatedly)
+  "Display the macro expansion of the form at point.
+The form is expanded with CL:MACROEXPAND-1 or, if a prefix
+argument is given, with CL:MACROEXPAND."
+  (interactive "P")
+  (slime-eval-macroexpand
+   (if repeatedly
+       'swank:swank-macro/compiler-macro-expand
+       'swank:swank-macro/compiler-macro-expand-1)))
 
-(defun slime-compiler-macroexpand-1-inplace ()
-  "Display the compiler-macro expansion of sexp at point."
-  (interactive)
-  (slime-eval-macroexpand-inplace 'swank:swank-compiler-macroexpand-1))
+(defun slime-macro/compiler-macro-expand-1-inplace (&optional repeatedly)
+  "Display the macro expansion of the form at point.
+The form is expanded with CL:MACROEXPAND-1 or, if a prefix
+argument is given, with CL:MACROEXPAND."
+  (interactive "P")
+  (slime-eval-macroexpand-inplace
+   (if repeatedly
+       'swank:swank-macro/compiler-macro-expand
+       'swank:swank-macro/compiler-macro-expand-1)))
 
 (defun slime-format-string-expand ()
   "Expand the format-string at point and display it."

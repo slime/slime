@@ -2974,6 +2974,27 @@ the filename of the module (or nil if the file doesn't exist).")
 (defslimefun swank-compiler-macroexpand (string)
   (apply-macro-expander #'compiler-macroexpand string))
 
+(defslimefun swank-macro/compiler-macro-expand-1 (string)
+  (apply-macro-expander #'macro/compiler-macro-expand-1 string))
+
+(defslimefun swank-macro/compiler-macro-expand (string)
+  (apply-macro-expander #'macro/compiler-macro-expand string))
+
+(defun macro/compiler-macro-expand-1 (form)
+  (multiple-value-bind (expansion expanded?) (macroexpand-1 form)
+    (if expanded?
+        (values expansion t)
+        (compiler-macroexpand-1 form))))
+
+(defun macro/compiler-macro-expand (form)
+  (expand-repeatedly #'macro/compiler-macro-expand-1 form))
+
+(defun expand-repeatedly (expander form)
+  (loop
+    (multiple-value-bind (expansion expanded?) (funcall expander form)
+      (unless expanded? (return expansion))
+      (setq form expansion))))
+
 (defslimefun swank-format-string-expand (string)
   (apply-macro-expander #'format-string-expand string))
 
