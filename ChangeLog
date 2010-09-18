@@ -1,5 +1,9 @@
 2010-09-18  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank.lisp (before-init): push :SWANK to *FEATURES*. (lp#627313)
+
+2010-09-18  Tobias C. Rittweiler <tcr@freebits.de>
+
 	Make C-c C-m also expand compiler macros. (lp#638720)
 
 	* slime.el (slime-macro/compiler-macro-expand-1): New.
