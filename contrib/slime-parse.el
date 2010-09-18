@@ -83,12 +83,15 @@ that the character is not escaped."
         (cond ((slime-compare-char-syntax #'char-after "(" t)
                ;; We're at the start of some expression, so make sure
                ;; that SWANK::%CURSOR-MARKER% will come after that
-               ;; expression.
-               (ignore-errors (forward-sexp)))
+               ;; expression. If the expression is not balanced, make
+               ;; still sure that the marker does *not* come directly
+               ;; after the preceding expression.
+               (or (ignore-errors (forward-sexp) t)
+                   (push "" suffix)))
               ((or (bolp) (slime-compare-char-syntax #'char-before " " t))
                ;; We're after some expression, so we have to make sure
-               ;; that %CURSOR-MARKER% does not come directly after that
-               ;; expression.
+               ;; that %CURSOR-MARKER% does *not* come directly after
+               ;; that expression.
                (push "" suffix))
               ((slime-compare-char-syntax #'char-before "(" t)
                ;; We're directly after an opening parenthesis, so we

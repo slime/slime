@@ -111,11 +111,14 @@ Return DOCUMENTATION."
 
 ;;;; Formatting autodoc
 
+(defsubst slime-canonicalize-whitespace (string)
+  (replace-regexp-in-string "[ \n\t]+" " "  string))
+
 (defun slime-format-autodoc (doc multilinep)
   (let ((doc (slime-fontify-string doc)))
     (if multilinep
         doc
-        (slime-oneliner (replace-regexp-in-string "[ \n\t]+" " "  doc)))))
+        (slime-oneliner (slime-canonicalize-whitespace doc)))))
 
 (defun slime-fontify-string (string)
   "Fontify STRING as `font-lock-mode' does in Lisp mode."
@@ -238,13 +241,19 @@ display multiline arglist"
 
 ;;;; Test cases
 
+(defun slime-autodoc-to-string ()
+  "Retrieve and return autodoc for form at point."
+  (let ((autodoc (slime-eval (second (slime-make-autodoc-rpc-form)))))
+    (if (eq autodoc :not-available)
+        :not-available
+        (slime-canonicalize-whitespace autodoc))))
+
 (defun slime-check-autodoc-at-point (arglist)
-  (let ((slime-autodoc-use-multiline-p nil))
-    (slime-test-expect (format "Autodoc in `%s' (at %d) is as expected" 
-                               (buffer-string) (point)) 
-                       arglist
-                       (slime-eval (second (slime-make-autodoc-rpc-form)))
-                       'equal)))
+  (slime-test-expect (format "Autodoc in `%s' (at %d) is as expected" 
+                             (buffer-string) (point)) 
+                     arglist
+                     (slime-autodoc-to-string)
+                     'equal))
 
 (def-slime-test autodoc.1
     (buffer-sexpr wished-arglist &optional skip-trailing-test-p)
@@ -310,6 +319,8 @@ display multiline arglist"
       ;; Test &KEY and nested arglists
       ("(swank::with-retry-restart (:msg *HERE*"
        "(with-retry-restart (&key ===> (msg \"Retry.\") <===) &body body)")
+      ("(swank::with-retry-restart (:msg *HERE*(foo"
+       "(with-retry-restart (&key ===> (msg \"Retry.\") <===) &body body)" t)
       ("(swank::start-server \"/tmp/foo\" :coding-system *HERE*"
        "(start-server port-file &key (style swank:*communication-style*) (dont-close swank:*dont-close*) ===> (coding-system swank::*coding-system*) <===)")
       
