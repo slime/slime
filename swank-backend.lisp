@@ -603,6 +603,15 @@ The result is either a symbol, a list, or NIL if no function name is available."
   (declare (ignore function))
   nil)
 
+(definterface valid-function-name-p (form)
+  "Is FORM syntactically valid to name a function?
+   If true, FBOUNDP should not signal a type-error for FORM."
+  (flet ((length=2 (list)
+           (and (not (null (cdr list))) (null (cddr list)))))
+    (or (symbolp form)
+        (and (consp form) (length=2 form)
+             (eq (first form) 'setf) (symbolp (second form))))))
+
 (definterface macroexpand-all (form)
    "Recursively expand all macros in FORM.
 Return the resulting form.")
@@ -613,7 +622,9 @@ If FORM is a function call for which a compiler-macro has been
 defined, invoke the expander function using *macroexpand-hook* and
 return the results and T.  Otherwise, return the original form and
 NIL."
-  (let ((fun (and (consp form) (compiler-macro-function (car form)))))
+  (let ((fun (and (consp form) 
+                  (valid-function-name-p (car form))
+                  (compiler-macro-function (car form)))))
     (if fun
 	(let ((result (funcall *macroexpand-hook* fun form env)))
           (values result (not (eq result form))))

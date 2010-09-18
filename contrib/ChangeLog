@@ -1,3 +1,11 @@
+2010-09-18  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank-arglist.lisp (function-exists-p): Renamed from
+	FUNCTION-EXISTS-P. Uses new SWANK-BACKEND:VALID-FUNCTION-NAME-P
+	underneath.
+	(valid-operator-name-p): Unused, hence deleted.
+	(boundp-and-interesting): Renamed from INTERESTING-VARIABLE-P.
+
 2010-09-17  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sprof.lisp (filter-swank-nodes): Filter other swank

@@ -51,25 +51,10 @@ Otherwise NIL is returned."
       (special-operator-p symbol)
       (member symbol '(declare declaim))))
 
-(defun valid-operator-name-p (string)
-  "Is STRING the name of a function, macro, or special-operator?"
-  (let ((symbol (parse-symbol string)))
-    (valid-operator-symbol-p symbol)))
-
-(defun valid-function-name-p (form)
-  (and (match form
-         ((#'symbolp _)         t)
-         (('setf (#'symbolp _)) t)
-         (_                     nil))
+(defun function-exists-p (form)
+  (and (valid-function-name-p form)
        (fboundp form)
        t))
-
-(defun interesting-variable-p (symbol)
-  (and symbol
-       (symbolp symbol)
-       (boundp symbol)
-       (not (memq symbol '(cl:t cl:nil)))
-       (not (keywordp symbol))))
 
 (defmacro multiple-value-or (&rest forms)
   (if (null forms)
@@ -980,7 +965,7 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 
 (defmethod arglist-dispatch ((operator (eql 'defmethod)) arguments)
   (match (cons operator arguments)
-    (('defmethod (#'valid-function-name-p gf-name) . rest)
+    (('defmethod (#'function-exists-p gf-name) . rest)
      (let ((gf (fdefinition gf-name)))
        (when (typep gf 'generic-function)
          (with-available-arglist (arglist) (decode-arglist (arglist gf))
@@ -996,7 +981,7 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 
 (defmethod arglist-dispatch ((operator (eql 'define-compiler-macro)) arguments)
   (match (cons operator arguments)
-    (('define-compiler-macro (#'valid-function-name-p gf-name) . _)
+    (('define-compiler-macro (#'function-exists-p gf-name) . _)
      (let ((gf (fdefinition gf-name)))
        (with-available-arglist (arglist) (decode-arglist (arglist gf))
          (return-from arglist-dispatch
@@ -1112,7 +1097,7 @@ wrapped in ===> X <===."
     (with-buffer-syntax ()
       (multiple-value-bind (form arglist obj-at-cursor form-path)
           (find-subform-with-arglist (parse-raw-form raw-form))
-        (cond ((interesting-variable-p obj-at-cursor)
+        (cond ((boundp-and-interesting obj-at-cursor)
                (print-variable-to-string obj-at-cursor))
               (t
                (with-available-arglist (arglist) arglist
@@ -1123,6 +1108,13 @@ wrapped in ===> X <===."
                   :highlight (form-path-to-arglist-path form-path
                                                         form
                                                         arglist)))))))))
+
+(defun boundp-and-interesting (symbol)
+  (and symbol
+       (symbolp symbol)
+       (boundp symbol)
+       (not (memq symbol '(cl:t cl:nil)))
+       (not (keywordp symbol))))
 
 (defun print-variable-to-string (symbol)
   "Return a short description of VARIABLE-NAME, or NIL."

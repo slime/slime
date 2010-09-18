@@ -1,5 +1,11 @@
 2010-09-18  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank-backend.lisp (valid-function-name-p): New interface.
+	(compiler-macroexpand-1): Use it to guard against type errors
+	from COMPILER-MACRO-FUNCTION.
+
+2010-09-18  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank.lisp (before-init): push :SWANK to *FEATURES*. (lp#627313)
 
 2010-09-18  Tobias C. Rittweiler <tcr@freebits.de>
@@ -14,8 +20,8 @@
 	(slime-compiler-macroexpand): Thus deleted.
 	(slime-compiler-macroexpand-inplace): Ditto.
 
-	* swank.lisp (swank-macro/compiler-macro-expand-1): New interface.
-	(swank-macro/compiler-macro-expand): New interface.
+	* swank.lisp (swank-macro/compiler-macro-expand-1): New defslimefun.
+	(swank-macro/compiler-macro-expand): New defslimefun.
 	(macro/compiler-macro-expand-1): New.
 	(macro/compiler-macro-expand): New.
 	(expand-repeatedly): New helper.
