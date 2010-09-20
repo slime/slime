@@ -2556,3 +2556,23 @@ int main (int argc, char** argv) {
       (call-program args :output t)
       (delete-file infile)
       outfile)))
+
+#+#.(swank-backend:with-symbol 'unicode-complete 'lisp)
+(defun match-semi-standard (prefix matchp)
+  ;; Handle the CMUCL's short character names.
+  (loop for name in lisp::char-name-alist
+     when (funcall matchp prefix (car name))
+     collect (car name)))
+
+#+#.(swank-backend:with-symbol 'unicode-complete 'lisp)
+(defimplementation character-completion-set (prefix matchp)
+  (let ((names (lisp::unicode-complete prefix)))
+    ;; Match prefix against semistandard names.  If there's a match,
+    ;; add it to our list of matches.
+    (let ((semi-standard (match-semi-standard prefix matchp)))
+      (when semi-standard
+        (setf names (append semi-standard names))))
+    (setf names (mapcar #'string-capitalize names))
+    (loop for n in names
+       when (funcall matchp prefix n)
+       collect n)))
