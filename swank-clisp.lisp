@@ -177,7 +177,7 @@
 (defvar *external-format-to-coding-system*
   '(((:charset "iso-8859-1" :line-terminator :unix)
      "latin-1-unix" "iso-latin-1-unix" "iso-8859-1-unix")
-    ((:charset "iso-8859-1":latin-1)
+    ((:charset "iso-8859-1")
      "latin-1" "iso-latin-1" "iso-8859-1")
     ((:charset "utf-8") "utf-8")
     ((:charset "utf-8" :line-terminator :unix) "utf-8-unix")
