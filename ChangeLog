@@ -1,5 +1,11 @@
 2010-09-22  Stas Boukarev  <stassats@gmail.com>
 
+	* swank.lisp (eval-for-emacs): Send (:abort condition) where
+	condition is a condition which was aborted instead of just (:abort).
+	* slime.el: Handle the above change.
+
+2010-09-22  Stas Boukarev  <stassats@gmail.com>
+
 	* swank-clisp.lisp (*external-format-to-coding-system*): Remove
 	stray :latin-1 argument for ext:make-encoding.
 	Reported by Mirko Vukovic.

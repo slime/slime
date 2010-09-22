@@ -2076,7 +2076,7 @@ The default value is (slime-current-package).
 CLAUSES is a list of patterns with same syntax as
 `destructure-case'.  The result of the evaluation of SEXP is
 dispatched on CLAUSES.  The result is either a sexp of the
-form (:ok VALUE) or (:abort).  CLAUSES is executed
+form (:ok VALUE) or (:abort CONDITION).  CLAUSES is executed
 asynchronously.
 
 Note: don't use backquote syntax for SEXP, because various Emacs
@@ -2158,7 +2158,7 @@ or nil if nothing suitable can be found.")
             (error "Reply to canceled synchronous eval request tag=%S sexp=%S"
                    tag sexp))
           (throw tag (list #'identity value)))
-         ((:abort)
+         ((:abort condition)
           (throw tag (list #'error "Synchronous Lisp Evaluation aborted"))))
        (let ((debug-on-quit t)
              (inhibit-quit nil)
@@ -2176,8 +2176,8 @@ or nil if nothing suitable can be found.")
      (when cont
        (set-buffer buffer)
        (funcall cont result)))
-    ((:abort)
-     (message "Evaluation aborted.")))
+    ((:abort condition)
+     (message "Evaluation aborted on %s." condition)))
   ;; Guard against arbitrary return values which once upon a time
   ;; showed up in the minibuffer spuriously (due to a bug in
   ;; slime-autodoc.)  If this ever happens again, returning the
@@ -4082,9 +4082,9 @@ inserted in the current buffer."
     ((:ok value)
      (run-hooks 'slime-transcript-stop-hook)
      (slime-display-eval-result value))
-    ((:abort)
+    ((:abort condition)
      (run-hooks 'slime-transcript-stop-hook)
-     (message "Evaluation aborted."))))
+     (message "Evaluation aborted on %s." condition))))
         
 (defun slime-eval-describe (form)
   "Evaluate FORM in Lisp and display the result in a new buffer."
@@ -5884,7 +5884,7 @@ VAR should be a plist with the keys :name, :id, and :value."
   (assert sldb-restarts () "sldb-quit called outside of sldb buffer")
   (slime-rex () ('(swank:throw-to-toplevel))
     ((:ok x) (error "sldb-quit returned [%s]" x))
-    ((:abort))))
+    ((:abort _))))
 
 (defun sldb-continue ()
   "Invoke the \"continue\" restart."
@@ -5895,7 +5895,7 @@ VAR should be a plist with the keys :name, :id, and :value."
     ((:ok _)
      (message "No restart named continue")
      (ding))
-    ((:abort))))
+    ((:abort _))))
 
 (defun sldb-abort ()
   "Invoke the \"abort\" restart."
@@ -5912,7 +5912,7 @@ restart to invoke, otherwise use the restart at point."
     (slime-rex ()
         ((list 'swank:invoke-nth-restart-for-emacs sldb-level restart))
       ((:ok value) (message "Restart returned: %s" value))
-      ((:abort)))))
+      ((:abort _)))))
 
 (defun sldb-invoke-restart-by-name (restart-name)
   (interactive (list (let ((completion-ignore-case t))
@@ -5929,7 +5929,7 @@ restart to invoke, otherwise use the restart at point."
       ((list 'swank:sldb-break-with-default-debugger 
              (not (not dont-unwind)))
        nil slime-current-thread)
-    ((:abort))))
+    ((:abort _))))
 
 (defun sldb-break-with-system-debugger (&optional lightweight)
   "Enter system debugger (gdb)."
@@ -6015,7 +6015,7 @@ return that value, evaluated in the context of the frame."
     (slime-rex ()
         ((list 'swank:sldb-return-from-frame number string))
       ((:ok value) (message "%s" value))
-      ((:abort)))))
+      ((:abort _)))))
 
 (defun sldb-restart-frame ()
   "Causes the frame to restart execution with the same arguments as it
@@ -6025,7 +6025,7 @@ was called originally."
     (slime-rex ()
         ((list 'swank:restart-frame number))
       ((:ok value) (message "%s" value))
-      ((:abort)))))
+      ((:abort _)))))
 
 
 ;;;;;; SLDB recompilation commands

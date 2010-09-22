@@ -524,8 +524,8 @@ joined together."))
       ((list 'swank:listener-eval string) (slime-lisp-package))
     ((:ok result)
      (slime-repl-insert-result result))
-    ((:abort)
-     (slime-repl-show-abort))))
+    ((:abort condition)
+     (slime-repl-show-abort condition))))
 
 (defun slime-repl-insert-result (result)
   (with-current-buffer (slime-output-buffer)
@@ -541,13 +541,13 @@ joined together."))
       (slime-repl-insert-prompt))
     (slime-repl-show-maximum-output)))
 
-(defun slime-repl-show-abort ()
+(defun slime-repl-show-abort (condition)
   (with-current-buffer (slime-output-buffer)
     (save-excursion
       (slime-save-marker slime-output-start
         (slime-save-marker slime-output-end
           (goto-char slime-output-end)
-          (insert-before-markers "; Evaluation aborted.\n")
+          (insert-before-markers (format "; Evaluation aborted on %s.\n" condition))
           (slime-repl-insert-prompt))))
     (slime-repl-show-maximum-output)))
 

@@ -2107,7 +2107,7 @@ Fall back to the the current if no such package exists."
   "Bind *BUFFER-PACKAGE* to BUFFER-PACKAGE and evaluate FORM.
 Return the result to the continuation ID.
 Errors are trapped and invoke our debugger."
-  (let (ok result)
+  (let (ok result condition)
     (unwind-protect
          (let ((*buffer-package* (guess-buffer-package buffer-package))
                (*buffer-readtable* (guess-buffer-readtable buffer-package))
@@ -2116,13 +2116,14 @@ Errors are trapped and invoke our debugger."
            (check-type *buffer-readtable* readtable)
            ;; APPLY would be cleaner than EVAL. 
            ;; (setq result (apply (car form) (cdr form)))
-           (setq result (with-slime-interrupts (eval form)))
+           (handler-bind ((t (lambda (c) (setf condition c))))
+             (setq result (with-slime-interrupts (eval form))))
            (run-hook *pre-reply-hook*)
            (setq ok t))
       (send-to-emacs `(:return ,(current-thread)
                                ,(if ok
                                     `(:ok ,result)
-                                    `(:abort))
+                                    `(:abort ,(prin1-to-string condition)))
                                ,id)))))
 
 (defvar *echo-area-prefix* "=> "
