@@ -1,3 +1,8 @@
+2010-09-26  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-repl-history-pattern): Match \t too,
+	besides \  and \n.
+
 2010-09-22  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el: Handle (:abort condition) message from lisp.
