@@ -442,7 +442,7 @@
         (blocks '())
         (variables '()))
     (setf frame (si::decode-ihs-env (second frame)))
-    (dolist (record frame)
+    (dolist (record (remove-if-not #'consp frame))
       (let* ((record0 (car record))
 	     (record1 (cdr record)))
 	(cond ((or (symbolp record0) (stringp record0))
