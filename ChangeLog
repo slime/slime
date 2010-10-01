@@ -1,5 +1,15 @@
 2010-10-01  Helmut Eller  <heller@common-lisp.net>
 
+	Don't use indent-sexp for macroexpanded code.
+	indent-sexp is potentially slow and usually redundant.
+
+	* slime.el (slime-initialize-macroexpansion-buffer): Don't use
+	indent-sexp.
+	(slime-eval-macroexpand-inplace): Avoid indent-sexp but
+	use slime-insert-indented.
+
+2010-10-01  Helmut Eller  <heller@common-lisp.net>
+
 	Save result in kill ring for M-- C-x C-e.
 	For C-u C-x C-e set mark before inserting.
 

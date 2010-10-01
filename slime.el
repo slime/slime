@@ -4955,7 +4955,6 @@ This variable specifies both what was expanded and how.")
     (erase-buffer)
     (insert expansion)
     (goto-char (point-min))
-    (indent-sexp)
     (font-lock-fontify-buffer)))
 
 (defun slime-create-macroexpansion-buffer ()
@@ -4988,9 +4987,7 @@ NB: Does not affect slime-eval-macroexpand-expression"
                (slime-remove-edits (point-min) (point-max)))
              (goto-char start)
              (delete-region start end)
-             (insert expansion)
-             (goto-char start)
-             (indent-sexp)
+             (slime-insert-indented expansion)
              (goto-char point))))))))
 
 (defun slime-macroexpand-1 (&optional repeatedly)
@@ -8065,7 +8062,8 @@ the buffer's undo-list."
     (slime-execute-as-command 'slime-macroexpand-1)
     (slime-wait-condition "Macroexpansion buffer visible" 
                           (lambda () 
-                            (slime-buffer-visible-p (slime-buffer-name :macroexpansion)))
+                            (slime-buffer-visible-p 
+                             (slime-buffer-name :macroexpansion)))
                           5)
     (with-current-buffer (get-buffer (slime-buffer-name :macroexpansion))
       (slime-test-expect "Initial macroexpansion is correct"
