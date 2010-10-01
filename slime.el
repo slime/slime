@@ -4055,25 +4055,21 @@ the display stuff that we neither need nor want."
 Note: If a prefix argument is in effect then the result will be
 inserted in the current buffer."
   (interactive (list (slime-read-from-minibuffer "Slime Eval: ")))
-  (cond ((not current-prefix-arg)
-         (slime-eval-with-transcript `(swank:interactive-eval ,string)))
-        (t
-         (slime-eval-print string))))
-
-(defun slime-display-eval-result (value)
-  (slime-message "%s" value))
-
-(defun slime-eval-print (string)
-  "Eval STRING in Lisp; insert any output and the result at point."
-  (slime-eval-async `(swank:eval-and-grab-output ,string)
-                    (lambda (result)
-                      (destructuring-bind (output value) result
-                        (insert output value)))))
+  (case current-prefix-arg
+    ((nil)
+     (slime-eval-with-transcript `(swank:interactive-eval ,string)))
+    ((-)
+     (slime-eval-save string))
+    (t
+     (slime-eval-print string))))
 
 (defvar slime-transcript-start-hook nil
   "Hook run before start an evalution.")
 (defvar slime-transcript-stop-hook nil
   "Hook run after finishing a evalution.")
+
+(defun slime-display-eval-result (value)
+  (slime-message "%s" value))
 
 (defun slime-eval-with-transcript (form)
   "Eval FROM in Lisp.  Display output, if any."
@@ -4085,6 +4081,23 @@ inserted in the current buffer."
     ((:abort condition)
      (run-hooks 'slime-transcript-stop-hook)
      (message "Evaluation aborted on %s." condition))))
+
+(defun slime-eval-print (string)
+  "Eval STRING in Lisp; insert any output and the result at point."
+  (slime-eval-async `(swank:eval-and-grab-output ,string)
+                    (lambda (result)
+                      (destructuring-bind (output value) result
+                        (push-mark)
+                        (insert output value)))))
+
+(defun slime-eval-save (string)
+  "Evaluate STRING in Lisp and save the result in the kill ring."
+  (slime-eval-async `(swank:eval-and-grab-output ,string)
+    (lambda (result)
+      (destructuring-bind (output value) result
+        (let ((string (concat output value)))
+          (kill-new string)
+          (message "Evaluation finished; pushed result to kill ring."))))))
         
 (defun slime-eval-describe (form)
   "Evaluate FORM in Lisp and display the result in a new buffer."

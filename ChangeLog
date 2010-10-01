@@ -1,3 +1,12 @@
+2010-10-01  Helmut Eller  <heller@common-lisp.net>
+
+	Save result in kill ring for M-- C-x C-e.
+	For C-u C-x C-e set mark before inserting.
+
+	* slime.el (slime-eval-save): New function.
+	(slime-eval-print): Set mark before inserting.
+	(slime-interactive-eval): Use it.
+
 2010-09-22  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (eval-for-emacs): Send (:abort condition) where
