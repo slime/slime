@@ -1,3 +1,18 @@
+2010-10-02  Helmut Eller  <heller@common-lisp.net>
+
+	Rename slime-macro/compiler-macro-expand-1 => slime-expand-1
+
+	* slime.el (slime-expand-1): Renamed from
+	slime-macro/compiler-macro-expand-1.
+	(slime-expand-1-inplace): Renamed from
+	slime-macro/compiler-macro-expand-1-inplace.
+
+	* swank.lisp (swank-expand-1): Renamed from
+	swank-macro/compiler-macro-expand-1.
+	(swank-expand): Renamed from swank-macro/compiler-macro-expand.
+	(expand-1): Renamed from macro/compiler-macro-expand-1.
+	(expand): Renamed from macro/compiler-macro-expand.
+
 2010-10-01  Helmut Eller  <heller@common-lisp.net>
 
 	Don't use indent-sexp for macroexpanded code.
