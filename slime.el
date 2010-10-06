@@ -3855,12 +3855,15 @@ for the most recently enclosed macro or function."
             (set-syntax-table lisp-mode-syntax-table)))
         minibuffer-setup-hook))
 
-(defun slime-read-from-minibuffer (prompt &optional initial-value history)
+(defun slime-read-from-minibuffer (prompt &optional initial-value history keymap)
   "Read a string from the minibuffer, prompting with PROMPT.
 If INITIAL-VALUE is non-nil, it is inserted into the minibuffer before
 reading input.  The result is a string (\"\" if no input was given)."
-  (let ((minibuffer-setup-hook (slime-minibuffer-setup-hook)))
-    (read-from-minibuffer prompt initial-value slime-minibuffer-map
+  (unless history
+    (setf history 'slime-minibuffer-history))
+  (let ((minibuffer-message-timeout 0)
+        (minibuffer-setup-hook (slime-minibuffer-setup-hook)))
+    (read-from-minibuffer prompt initial-value (or keymap slime-minibuffer-map)
 			  nil (or history 'slime-minibuffer-history))))
 
 (defun slime-bogus-completion-alist (list)
