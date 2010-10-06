@@ -1091,8 +1091,8 @@ use it as an input.  This is useful to get rid of unwanted repl
 history entries while navigating the repl history."
   (interactive (list (slime-repl-current-input)))
   (let ((merged-history
-         (slime-repl-merge-histories slime-repl-input-history
-                                     (slime-repl-read-history nil t))))
+         (slime-repl-merge-histories (slime-repl-read-history nil t)
+                                     slime-repl-input-history)))
     (setq slime-repl-input-history
           (delete* string merged-history :test #'string=))
     (slime-repl-save-history))
