@@ -6597,7 +6597,7 @@ If PREV resp. NEXT are true insert more-buttons as needed."
   (cl-destructuring-bind (ispecs len start end) chunk
     (when (and prev (> start 0))
       (slime-inspector-insert-more-button start t))
-    (mapc #'slime-inspector-insert-ispec ispecs)
+    (mapc slime-inspector-insert-ispec-function ispecs)
     (when (and next (< end len))
       (slime-inspector-insert-more-button end nil))))
 
