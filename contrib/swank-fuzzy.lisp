@@ -659,6 +659,7 @@ matches, all other things being equal."
                  base-score
                  (max base-score
                       (+ (* (score-char (1- pos) (1- chunk-pos)) 0.85)
+                         ;; longer consecutive matches are exponentially higher scored
                          (expt 1.2 chunk-pos)))))
            (score-char (pos chunk-pos)
              (score-or-percentage-of-previous
@@ -671,9 +672,17 @@ matches, all other things being equal."
                     (t                            1))
               pos chunk-pos))
            (score-chunk (chunk)
-             (loop for chunk-pos below (length (second chunk))
-                   for pos from (first chunk)
-                   summing (score-char pos chunk-pos))))
+             (let* ((start-pos (first chunk))
+                    (chunk-length (length (second chunk)))
+                    (result (loop for chunk-pos below chunk-length
+                                  for pos from (first chunk)
+                                  summing (score-char pos chunk-pos))))
+               ;; matches towards the end add less score except when the chunk
+               ;; exactly matches the end
+               (if (or (zerop start-pos)
+                       (= (length full) (+ start-pos chunk-length)))
+                   result
+                   (/ result (+ 1 (/ start-pos 10)))))))
     (let* ((chunk-scores (mapcar #'score-chunk completion))
            (length-score (/ 10.0 (1+ (- (length full) (length short))))))
       (values
