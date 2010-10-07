@@ -1,3 +1,13 @@
+2010-10-07  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	Hanging on to a *log-output* from a previous image is bad on SBCL
+	at least: it is initialized to an FD-STREAM, which cannot be
+	reused from one image to another.
+
+	Deal with this by using sb-ext:*save-hooks* to clear the stream.
+
+	* swank-sbcl.lisp (deinit-log-output): New function.
+
 2010-10-02  Helmut Eller  <heller@common-lisp.net>
 
 	Rename slime-macro/compiler-macro-expand-1 => slime-expand-1

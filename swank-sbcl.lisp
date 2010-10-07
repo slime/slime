@@ -1657,3 +1657,9 @@ stack."
                     (assert (sb-posix:wifexited status))
                     (funcall completion-function
                              (zerop (sb-posix:wexitstatus status))))))))))))
+
+(defun deinit-log-output ()
+  ;; Can't hang on to an fd-stream from a previous session.
+  (setf *log-output* nil))
+
+(pushnew 'deinit-log-output sb-ext:*save-hooks*)
