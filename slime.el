@@ -5575,7 +5575,10 @@ EXTRAS is currently used for the stepper."
 RESTARTS should be a list ((NAME DESCRIPTION) ...)."
   (let* ((len (length restarts))
          (end (if count (min (+ start count) len) len)))
-    (cl-loop for (name string) in (cl-subseq restarts start end)
+    (cl-loop with longest-restart-name-length =
+               (cl-loop for (name nil) in (cl-subseq restarts start end)
+                        maximize (length name))
+             for (name string) in (cl-subseq restarts start end)
              for number from start
              do (slime-insert-propertized
                  `(,@nil restart ,number
@@ -5583,6 +5586,9 @@ RESTARTS should be a list ((NAME DESCRIPTION) ...)."
                          mouse-face highlight)
                  " " (sldb-in-face restart-number (number-to-string number))
                  ": ["  (sldb-in-face restart-type name) "] "
+                 (make-string (- longest-restart-name-length
+                                 (length name))
+                              ?\ )
                  (sldb-in-face restart string))
              (insert "\n"))
     (when (< end len)
