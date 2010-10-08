@@ -434,7 +434,7 @@ If POLICY is supplied, and non-NIL, it may be used by certain
 implementations to compile with optimization qualities of its
 value.
 
-Should return T on successfull compilation, NIL otherwise.
+Should return T on successful compilation, NIL otherwise.
 ")
 
 (definterface swank-compile-file (input-file output-file load-p 

@@ -1,3 +1,19 @@
+2010-10-08  Christophe Rhodes  <csr21@cantab.net>
+
+	Pass more detailed source location information to
+	swank:compile-string-for-emacs.  Motivated by R's source location
+	needs (where srcrefs are line/column based).
+
+	* slime.el (slime-compile-string): Generate :line location format
+	from start-offset, passing it through to
+	swank:compile-file-for-emacs.
+	(find-definition.2): Use new-style position.
+
+	* swank.lisp (compile-string-for-emacs): Use only the offset from
+	the position argument.
+
+	* swank-backend.lisp (swank-compile-string): Fix docstring typo.
+
 2010-10-07  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	Hanging on to a *log-output* from a previous image is bad on SBCL

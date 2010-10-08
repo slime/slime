@@ -2639,14 +2639,18 @@ to it depending on its sign."
     (run-with-timer (or timeout 0.2) nil 'delete-overlay overlay)))
 
 (defun slime-compile-string (string start-offset)
-  (slime-eval-async 
-   `(swank:compile-string-for-emacs
-     ,string
-     ,(buffer-name)
-     ,start-offset
-     ,(if (buffer-file-name) (slime-to-lisp-filename (buffer-file-name)))
-     ',slime-compilation-policy)
-   #'slime-compilation-finished))
+  (let* ((line (save-excursion
+                 (goto-char start-offset)
+                 (list (line-number-at-pos) (1+ (current-column)))))
+         (position `((:position ,start-offset) (:line ,@line))))
+    (slime-eval-async 
+      `(swank:compile-string-for-emacs
+        ,string
+        ,(buffer-name)
+        ',position
+        ,(if (buffer-file-name) (slime-to-lisp-filename (buffer-file-name)))
+        ',slime-compilation-policy)
+      #'slime-compilation-finished)))
 
 (defun slime-compilation-finished (result)
   (with-struct (slime-compilation-result. notes duration successp
@@ -7727,7 +7731,7 @@ confronted with nasty #.-fu."
        `(swank:compile-string-for-emacs
          ,buffer-content
          ,(buffer-name)
-         ,0
+         '((:position 0) (:line 1 1))
          ,nil
          ,nil))
       (let ((bufname (buffer-name)))

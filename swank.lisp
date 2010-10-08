@@ -2853,15 +2853,16 @@ Record compiler notes signalled as `compiler-condition's."
 (defslimefun compile-string-for-emacs (string buffer position filename policy)
   "Compile STRING (exerpted from BUFFER at POSITION).
 Record compiler notes signalled as `compiler-condition's."
-  (with-buffer-syntax ()
-    (collect-notes
-     (lambda () 
-       (let ((*compile-print* t) (*compile-verbose* nil))
-         (swank-compile-string string
-                               :buffer buffer
-                               :position position 
-                               :filename filename
-                               :policy policy))))))
+  (let ((offset (cadr (assoc :position position))))
+    (with-buffer-syntax ()
+      (collect-notes
+       (lambda () 
+         (let ((*compile-print* t) (*compile-verbose* nil))
+           (swank-compile-string string
+                                 :buffer buffer
+                                 :position offset 
+                                 :filename filename
+                                 :policy policy)))))))
 
 (defslimefun compile-multiple-strings-for-emacs (strings policy)
   "Compile STRINGS (exerpted from BUFFER at POSITION).
