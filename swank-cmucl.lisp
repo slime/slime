@@ -2576,3 +2576,16 @@ int main (int argc, char** argv) {
     (loop for n in names
        when (funcall matchp prefix n)
        collect n)))
+
+(defimplementation codepoint-length (string)
+  "Return the number of code points in the string.  The string MUST be
+  a valid UTF-16 string."
+  (do ((len (length string))
+       (index 0 (1+ index))
+       (count 0 (1+ count)))
+      ((>= index len)
+       count)
+    (multiple-value-bind (codepoint wide)
+	(lisp:codepoint string index)
+      (declare (ignore codepoint))
+      (when wide (incf index)))))

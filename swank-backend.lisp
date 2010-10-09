@@ -1317,3 +1317,12 @@ RESTART-FUNCTION, if non-nil, should be called when the image is loaded.")
   "Request saving a heap image to the file FILENAME.
 RESTART-FUNCTION, if non-nil, should be called when the image is loaded.
 COMPLETION-FUNCTION, if non-nil, should be called after saving the image.")
+
+;;; Codepoint length
+
+(definterface codepoint-length (string)
+  "Return the number of codepoints in STRING.
+With some Lisps, like cmucl, LENGTH returns the number of UTF-16 code
+units, but other Lisps return the number of codepoints. The slime
+protocol wants string lengths in terms of codepoints."
+  (length string))

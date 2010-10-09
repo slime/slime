@@ -1,3 +1,16 @@
+2010-10-09  Raymond Toy  <toy.raymond@gmail.com>
+
+	* swank-cmucl.lisp (codepoint-length): Implement codepoint-length
+	to return the number of codepoints in cmucl's utf-16 strings.
+
+	* swank-backend.lisp (:swank-backend): Export codepoint-length. 
+	(codepoint-length): definterface codepoint-length.  Default is to
+	use LENGTH.
+
+	* swank-rpc.lisp (write-message): Call
+	swank-backend:codepoint-length to get the correct length for
+	emacs. 
+
 2010-10-08  Christophe Rhodes  <csr21@cantab.net>
 
 	Pass more detailed source location information to

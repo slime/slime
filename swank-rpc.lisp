@@ -92,7 +92,7 @@
 
 (defun write-message (message package stream)
   (let* ((string (prin1-to-string-for-emacs message package))
-         (length (length string)))
+         (length (swank-backend:codepoint-length string)))
     (let ((*print-pretty* nil))
       (format stream "~6,'0x" length))
     (write-string string stream)
