@@ -17,6 +17,10 @@
 	  - label-value-line* will evaluate and splice the result
 	    of the form after a @ character
 
+	* swank-loader.lisp: Optional integration with ASDF. When ASDF is
+	available, store slime fasl's where ASDF would store them. Also
+	make sure swank.asd is visible to ASDF.
+
 2010-10-09  Raymond Toy  <toy.raymond@gmail.com>
 
 	* swank-cmucl.lisp (codepoint-length): Implement codepoint-length
