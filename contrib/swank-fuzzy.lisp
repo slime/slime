@@ -465,8 +465,9 @@ this call will also recurse.
 
 Once a word has been completely matched, the chunks are pushed
 onto the special variable *ALL-CHUNKS* and the function returns."
-  (declare ;(optimize speed)
-           (fixnum short-index initial-full-index)
+  (declare (optimize speed)
+           (type fixnum short-index initial-full-index)
+           (type list current-chunk)
            (simple-string short full)
            (special *all-chunks*))
   (flet ((short-cur () 
@@ -485,10 +486,13 @@ onto the special variable *ALL-CHUNKS* and the function returns."
            "Collects the current chunk to CHUNKS and prepares for
             a new chunk."
            (when current-chunk
-             (push (list current-chunk-pos
-                         (coerce (reverse current-chunk) 'string)) chunks)
-             (setf current-chunk nil
-                   current-chunk-pos nil))))
+             (let ((current-chunk-as-string (nreverse
+                                             (make-array (length current-chunk)
+                                                         :element-type 'character
+                                                         :initial-contents current-chunk))))
+               (push (list current-chunk-pos current-chunk-as-string) chunks)
+               (setf current-chunk nil
+                     current-chunk-pos nil)))))
     ;; If there's an outstanding chunk coming in collect it.  Since
     ;; we're recursively called on skipping an input character, the
     ;; chunk can't possibly continue on.
