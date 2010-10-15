@@ -6463,6 +6463,8 @@ If PREV resp. NEXT are true insert more-buttons as needed."
                  'mouse-face 'highlight
                  'face 'slime-inspector-value-face)
          (insert string)))
+      ((:label string)
+       (insert (slime-inspector-fontify label string)))
       ((:action string id)
        (slime-insert-propertized (list 'slime-action-number id
                                        'mouse-face 'highlight

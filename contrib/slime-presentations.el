@@ -830,6 +830,8 @@ even on Common Lisp implementations without weak hash tables."
                  'mouse-face 'highlight
                  'face 'slime-inspector-value-face)
          (slime-insert-presentation string `(:inspected-part ,id) t)))
+      ((:label string)
+       (insert (slime-inspector-fontify label string)))
       ((:action string id)
        (slime-insert-propertized (list 'slime-action-number id
                                        'mouse-face 'highlight

@@ -1053,17 +1053,45 @@ output of CL:DESCRIBE."
 
 ;;; Utilities for inspector methods.
 ;;; 
-
-(defun label-value-line (label value &key (newline t))
-  "Create a control list which prints \"LABEL: VALUE\" in the inspector.
-If NEWLINE is non-NIL a `(:newline)' is added to the result."
-  
-  (list* (princ-to-string label) ": " `(:value ,value)
-         (if newline '((:newline)) nil)))
+(defun label-value-line (label value &key padding-length display-nil-value hide-when-nil
+                               splice-as-ispec value-text (newline t))
+  "Create a control list which prints \"LABEL: VALUE\" in the inspector."
+  (if (or value (not hide-when-nil))
+      `((:label ,(princ-to-string label) ":")
+        ,@(when (or value display-nil-value)
+                (list " "))
+        ,@(when (and (or value display-nil-value)
+                     padding-length)
+                (list (make-array padding-length
+                                  :element-type 'character
+                                  :initial-element #\Space)))
+        ,@(when (or value display-nil-value)
+                (if splice-as-ispec
+                    (if (listp value) value (list value))
+                    `((:value ,value ,@(when value-text (list value-text))))))
+        ,@(if newline '((:newline)) nil))
+      (values)))
 
 (defmacro label-value-line* (&rest label-values)
-  ` (append ,@(loop for (label value) in label-values
-                    collect `(label-value-line ,label ,value))))
+  (let ((longest-label-length (loop
+                                 :for (label value) :in label-values
+                                 :maximize (if (stringp label)
+                                               (length label)
+                                               0))))
+  `(append ,@(loop
+                :for entry :in label-values
+                :if (and (consp entry)
+                         (not (consp (first entry)))
+                         (string= (first entry) '@))
+                  :appending (rest entry)
+                :else
+                  :collect (destructuring-bind
+                                 (label value &rest args &key &allow-other-keys) entry
+                             `(label-value-line ,label ,value
+                                                :padding-length ,(when (stringp label)
+                                                                       (- longest-label-length
+                                                                          (length label)))
+                                                ,@args))))))
 
 (definterface describe-primitive-type (object)
   "Return a string describing the primitive type of object."

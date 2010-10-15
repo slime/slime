@@ -1,3 +1,22 @@
+2010-10-16  Attila Lendvai  <attila.lendvai@gmail.com>
+
+	* swank-fuzzy.lisp: speed up by 2-4 times (on sbcl).
+
+	* fuzzy.el: Clean up fuzzy completion's keymap code, drop
+	mimic-key-bindings.
+
+	* slime.el: Added separate host and port history for
+	slime-connect.
+	(slime-lookup-lisp-implementation): better error reporting and
+	allow using a functionp to generate the arguments.
+
+	* swank.lisp: Smarten up the label-value-line macros:
+	  - support a :label emacs font property
+	  - added key args: padding-length, display-nil-value,
+	    hide-when-nil, splice-as-ispec, value-text
+	  - label-value-line* will evaluate and splice the result
+	    of the form after a @ character
+
 2010-10-09  Raymond Toy  <toy.raymond@gmail.com>
 
 	* swank-cmucl.lisp (codepoint-length): Implement codepoint-length
