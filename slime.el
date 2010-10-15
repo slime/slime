@@ -198,6 +198,9 @@ The default is nil, as this feature can be a security risk."
   :type 'integer
   :group 'slime-lisp)
 
+(defvar slime-connect-host-history (list slime-lisp-host))
+(defvar slime-connect-port-history (list (prin1-to-string slime-port)))
+
 (defvar slime-net-valid-coding-systems
   '((iso-latin-1-unix nil "iso-latin-1-unix")
     (iso-8859-1-unix  nil "iso-latin-1-unix")
@@ -1170,9 +1173,12 @@ DIRECTORY change to this directory before starting the process.
 
 (defun slime-connect (host port &optional coding-system)
   "Connect to a running Swank server. Return the connection."
-  (interactive (list (read-from-minibuffer "Host: " slime-lisp-host)
-                     (read-from-minibuffer "Port: " (format "%d" slime-port)
-                                           nil t)))
+  (interactive (list (read-from-minibuffer
+                      "Host: " (first slime-connect-host-history)
+                      nil nil '(slime-connect-host-history . 1))
+                     (read-from-minibuffer
+                      "Port: " (first slime-connect-port-history)
+                      nil nil '(slime-connect-port-history . 1))))
   (when (and (interactive-p) slime-net-processes
              (y-or-n-p "Close old connections first? "))
     (slime-disconnect-all))
