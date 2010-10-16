@@ -1,3 +1,9 @@
+2010-10-16  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-loader.lisp (default-fasl-dir): Guard against using :asdf
+	package if it doesn't exist.
+	Patch by Anton Vodonosov.
+
 2010-10-16  Attila Lendvai  <attila.lendvai@gmail.com>
 
 	* swank-fuzzy.lisp: speed up by 2-4 times (on sbcl).

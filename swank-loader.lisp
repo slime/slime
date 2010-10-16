@@ -126,7 +126,8 @@ Return nil if nothing appropriate is available."
 (defun default-fasl-dir ()
   (or
    ;; If ASDF is available then store Slime's fasl's where ASDF stores them.
-   (let ((translate-fn (find-symbol "COMPILE-FILE-PATHNAME*" :asdf)))
+   (let ((translate-fn (and (find-package :asdf)
+                            (find-symbol "COMPILE-FILE-PATHNAME*" :asdf))))
      (when translate-fn
        (make-pathname
         :name nil :type nil
