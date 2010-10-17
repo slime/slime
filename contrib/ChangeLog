@@ -1,3 +1,26 @@
+2010-10-17  Helmut Eller  <heller@common-lisp.net>
+
+	Some updates to the Kawa backend.
+
+	* swank-kawa.scm (%%runnable): Use standard
+	gnu.mapping.RunnableClosure but print the stacktrace on
+	exceptions.
+	(listener-loop): Invoke debugger on unhandled exceptions.  The
+	debugger will use stacksnapshots if the exception matches.
+	(invoke-debugger, break, breakpoint, request-breakpoint): New.
+	Used to "invoke" the debugger from normal code.
+	(process-vm-event, debug-info, event-stacktrace): Handle
+	breakpoint events.
+	(interrupt-thread, throwable-stacktrace, breakpoint-condition):
+	New.
+	(throw-to-toplevel): For breakpoint events use
+	Thread#forceEarlyReturn.
+	(typecase): Add support for or and eql types.
+	(bytemethod>src-loc): New.
+	(src-loc>elisp): Use stratum "java" as this seems to work better.
+	(print-object, print-unreadable-object): New
+	(pprint-to-string): Use it.
+
 2010-09-26  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-repl-history-pattern): Match \t too,

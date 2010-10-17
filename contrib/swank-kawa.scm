@@ -24,9 +24,9 @@
 
 (defun kawa-slime-init (file _)
   (setq slime-protocol-version 'ignore)
-  (let ((zip ".../slime/contrib/swank-kawa.zip")) ; <-- insert the right path
+  (let ((swank ".../slime/contrib/swank-kawa.scm")) ; <-- insert the right path
     (format "%S\n"
-            `(begin (load ,(expand-file-name zip)) (start-swank ,file)))))
+            `(begin (require ,(expand-file-name swank)) (start-swank ,file)))))
 |#
 ;; 4. Start everything with  M-- M-x slime kawa
 ;;
@@ -34,7 +34,7 @@
 
 ;;;; Module declaration
 
-(module-export start-swank create-swank-server swank-java-source-path)
+(module-export start-swank create-swank-server swank-java-source-path break)
 
 (module-static #t)
 
@@ -51,9 +51,9 @@
 (define-syntax df
   (syntax-rules (=>)
     ((df name (args ... => return-type) body ...)
-     (define (name args ...) :: return-type body ...))
+     (define (name args ...) :: return-type (seq body ...)))
     ((df name (args ...) body ...)
-     (define (name args ...) body ...))))
+     (define (name args ...) (seq body ...)))))
 
 (define-syntax fun
   (syntax-rules ()
@@ -67,7 +67,9 @@
 
 (define-syntax seq
   (syntax-rules ()
-    ((seq body ...)
+    ((seq) 
+     (begin #!void))
+    ((seq body ...) 
      (begin body ...))))
 
 (define-syntax esc
@@ -192,8 +194,8 @@
            (result #!null))
        (if (instance? tmp <pair>)
            (let ((tmp :: <pair> tmp))
-             (mif (p (@ car tmp))
-                (mif (ps (@ cdr tmp))
+             (mif (p (! get-car tmp))
+                (mif (ps (! get-cdr tmp))
                      (set! result then)
                      (set! fail? -1))
                 (set! fail? -1)))
@@ -205,8 +207,8 @@
            (tmp value))
        (if (instance? tmp <pair>)
            (let ((tmp :: <pair> tmp))
-             (mif (p (@ car tmp))
-                  (mif (ps (@ cdr tmp))
+             (mif (p (! get-car tmp))
+                  (mif (ps (! get-cdr tmp))
                        then
                        (fail))
                   (fail)))
@@ -241,20 +243,42 @@
     ((mlet* ((pattern value) ms ...) body ...)
      (mlet (pattern value) (mlet* (ms ...) body ...)))))
 
-(define-syntax typecase 
-  (syntax-rules (::)
-    ((typecase var (type body ...) ...)
+(define-syntax typecase%
+  (syntax-rules (eql or)
+    ((typecase% var (#t body ...) more ...)
+     (seq body ...))
+    ((typecase% var ((eql value) body ...) more ...)
+     (cond ((eqv? var 'value) body ...)
+           (else (typecase% var more ...))))
+    ((typecase% var ((or type) body ...) more ...)
+     (typecase% var (type body ...) more ...))
+    ((typecase% var ((or type ...) body ...) more ...)
+     (let ((f (lambda (var) body ...)))
+       (typecase% var
+                  (type (f var)) ...
+                  (#t (typecase% var more ...)))))
+    ((typecase% var (type body ...) more ...) 
      (cond ((instance? var type) 
             (let ((var :: type var))
               body ...))
-           ...
-           (else (error "typecase failed" var 
-                        (! getClass (as <object> var))))))))
+           (else (typecase% var more ...))))
+    ((typecase% var)
+     (error "typecase% failed" var 
+            (! getClass (as <object> var))))))
+
+(define-syntax-case typecase
+    ()
+  ((_ exp more ...) (identifier? (syntax exp))
+   #`(typecase% exp more ...))
+  ((_ exp more ...)
+   #`(let ((tmp exp))
+       (typecase% tmp more ...))))
 
 (define-syntax ignore-errors
   (syntax-rules ()
     ((ignore-errors body ...)
      (try-catch (begin body ...)
+                (v <java.lang.Error> #f)
                 (v <java.lang.Exception> #f)))))
 
 ;;(define-syntax dc
@@ -307,6 +331,7 @@
 (define-alias <event> <com.sun.jdi.event.Event>)
 (define-alias <exception-event> <com.sun.jdi.event.ExceptionEvent>)
 (define-alias <step-event> <com.sun.jdi.event.StepEvent>)
+(define-alias <breakpoint-event> <com.sun.jdi.event.BreakpointEvent>)
 (define-alias <env> <gnu.mapping.Environment>)
 
 (define-simple-class <chan> ()
@@ -348,6 +373,7 @@
 (define-variable *the-vm* #f)
 (define-variable *last-exception* #f)
 (define-variable *last-stacktrace* #f)
+(df %vm (=> <vm>) *the-vm*)
 
 ;; FIXME: this needs factorization.  But I guess the whole idea of
 ;; using bidirectional channels just sucks.  Mailboxes owned by a
@@ -425,7 +451,7 @@
           ((_ (':emacs-interrupt id))
            (let* ((vm (vm))
                   (t (find-thread id (map cdr threads) repl-thread vm)))
-             (send dbg `(debug-thread ,t))))
+             (send dbg `(interrupt-thread ,t))))
           ((_ (':emacs-rex form _ _ id))
            (send listener `(,form ,id)))
           ((_ ('get-vm c))
@@ -567,15 +593,24 @@
 
 (df listener ((c <chan>) (env <env>))
   (! set-name (current-thread) "swank-listener")
-  (log "listener: ~s ~s ~s ~s\n" 
+  (log "listener: ~s ~s ~s ~s\n"
        (current-thread) ((current-thread):hashCode) c env)
   (let ((out (make-swank-outport (rpc c `(get-channel)))))
     ;;(set (current-output-port) out)
     (let ((vm (as <vm> (rpc c `(get-vm)))))
       (send c `(set-listener ,(vm-mirror vm (current-thread))))
-      (enable-uncaught-exception-events vm))
+      (request-uncaught-exception-events vm)
+      (request-caught-exception-events vm)
+      )
     (rpc c `(get-vm))
     (listener-loop c env out)))
+
+(define-simple-class <listener-abort> (<throwable>)
+  ((*init*)
+   (invoke-special <throwable> (this) '*init* ))
+  ((abort) :: void
+   (primitive-throw (this))
+   #!void))
 
 (df listener-loop ((c <chan>) (env <env>) port)
   (while (not (nul? c))
@@ -595,10 +630,19 @@
          (let* ((val (%eval form env)))
            (force-output)
            (reply c val id))
+         (ex <java.lang.Exception> (invoke-debugger ex) (restart))
+         (ex <java.lang.Error> (invoke-debugger ex) (restart))
          (ex <listener-abort>
              (let ((flag (java.lang.Thread:interrupted)))
                (log "listener-abort: ~s ~a\n" ex flag))
-             (restart)))))))
+             (restart))
+         )))))
+
+(df invoke-debugger (condition)
+  ;;(log "should now invoke debugger: ~a" condition)
+  (try-catch
+   (break condition)
+   (ex <listener-abort> (seq))))
 
 (defslimefun create-repl (env #!rest _)
   (list "user" "user"))
@@ -636,7 +680,8 @@
 
 (df values-for-echo-area (values)
   (let ((values (values-to-list values)))
-    (format "~:[=> ~{~s~^, ~}~;; No values~]" (null? values) values)))
+    (cond ((null? values) "; No value")
+          (#t (format "~{~a~^, ~}" (map pprint-to-string values))))))
 
 ;;;; Compilation
 
@@ -839,6 +884,7 @@
 (df all-definitions (o)
   (typecase o
     (<gnu.expr.ModuleMethod> (list o))
+    (<gnu.expr.PrimProcedure> (list o))
     (<gnu.expr.GenericProc> (append (mappend all-definitions (gf-methods o))
                                     (let ((s (! get-setter o)))
                                       (if s (all-definitions s) '()))))
@@ -857,10 +903,12 @@
 
 (df src-loc (o => <location>)
   (typecase o
+    (<gnu.expr.PrimProcedure> (src-loc (@ method o)))
     (<gnu.expr.ModuleMethod> (module-method>src-loc o))
     (<gnu.expr.GenericProc> (<swank-location> #f #f))
     (<java.lang.Class> (class>src-loc o))
-    (<kawa.lang.Macro> (<swank-location> #f #f))))
+    (<kawa.lang.Macro> (<swank-location> #f #f))
+    (<gnu.bytecode.Method> (bytemethod>src-loc o))))
 
 (df module-method>src-loc ((f <gnu.expr.ModuleMethod>))
   (! location (module-method>meth-ref f)))
@@ -878,18 +926,28 @@
         name)))
 
 (df class>src-loc ((c <java.lang.Class>) => <location>)
-  (let* ((type (! reflectedType (as <com.sun.jdi.ClassObjectReference>
-                                    (vm-mirror *the-vm* c))))
+  (let* ((type (class>class-ref c))
          (locs (! all-line-locations type)))
     (cond ((not (! isEmpty locs)) (1st locs))
-          (#t (<swank-location> (1st (! source-paths type #!null))
+          (#t (<swank-location> (1st (! source-paths type "Java"))
                                 #f)))))
+
+(df class>class-ref ((class <java.lang.Class>) => <class-ref>)
+  (! reflectedType (as <com.sun.jdi.ClassObjectReference>
+                       (vm-mirror *the-vm* class))))
+
+(df bytemethod>src-loc ((m <gnu.bytecode.Method>) => <location>)
+  (let* ((cls (class>class-ref (! get-reflect-class (! get-declaring-class m))))
+         (name (! get-name m))
+         (sig (! get-signature m))
+         (meth (! concrete-method-by-name cls name sig)))
+    (! location meth)))
 
 (df src-loc>elisp ((l <location>))
   (df src-loc>list ((l <location>))
-    (list (ignore-errors (! source-name l))
-          (ignore-errors (! source-path l))
-          (ignore-errors (! line-number l))))
+    (list (ignore-errors (! source-name l "Java"))
+          (ignore-errors (! source-path l "Java"))
+          (ignore-errors (! line-number l "Java"))))
   (mcase (src-loc>list l)
     ((name path line)
      (cond ((not path) 
@@ -906,7 +964,6 @@
                                      path name (source-path)))
                         (:line ,(or line -1)) ()))))))
 
-
 (df src-loc>str ((l <location>))
   (cond ((nul? l) "<null-location>")
         (#t (format "~a ~a ~a" 
@@ -917,9 +974,12 @@
                     (ignore-errors (! lineNumber l))))))
 
 (df ferror (fstring #!rest args)
-  (primitive-throw (<java.lang.Error> (to-str (apply format fstring args)))))
+  (let ((err (<java.lang.Error> (to-str (apply format fstring args)))))
+    (primitive-throw err)))
 
 ;;;;;; class-path hacking
+
+;; (find-file-in-path "kawa/lib/kawa/hashtable.scm" (source-path))
 
 (df find-file-in-path ((filename <str>) (path <list>))
   (let ((f (<file> filename)))
@@ -973,9 +1033,9 @@
      (let ((f (eval name env)))
        (typecase f
          (<gnu.expr.ModuleMethod> 
-          (disassemble (module-method>meth-ref f))))))))
+          (disassemble-to-string (module-method>meth-ref f))))))))
 
-(df disassemble ((mr <meth-ref>) => <str>)
+(df disassemble-to-string ((mr <meth-ref>) => <str>)
   (with-sink #f (fun (out) (disassemble-meth-ref mr out))))
 
 (df disassemble-meth-ref ((mr <meth-ref>) (out <java.io.PrintWriter>))
@@ -1039,9 +1099,9 @@
 
 ;;;; Macroexpansion
 
-(defslimefun swank-macroexpand-1 (env s) (%swank-macroexpand s))
-(defslimefun swank-macroexpand (env s) (%swank-macroexpand s))
-(defslimefun swank-macroexpand-all (env s) (%swank-macroexpand s))
+(defslimefun swank-expand-1 (env s) (%swank-macroexpand s))
+(defslimefun swank-expand (env s) (%swank-macroexpand s))
+(defslimefun swank-expand-all (env s) (%swank-macroexpand s))
 
 (df %swank-macroexpand (string)
   (pprint-to-string (%macroexpand (read-from-string string))))
@@ -1180,7 +1240,7 @@
                     (set! builder:length 0)))) ; pure magic
          (closed #f))
     (while (not closed)
-      (mcase (! poll q 200 <timeunit>:MILLISECONDS)
+      (mcase (! poll q (as long 200) <timeunit>:MILLISECONDS)
         ('#!null (flush))
         (('write s)
          (! append builder (as <str> s))
@@ -1202,11 +1262,14 @@
 
 ;;;; Monitor
 
+;;(define-simple-class <monitorstate> ()
+;;  (threadmap type: (tab)))
+
 (df vm-monitor ((c <chan>))
   (! set-name (current-thread) "swank-vm-monitor")
   (let ((vm (vm-attach)))
     (log-vm-props vm)
-    ;;(enable-uncaught-exception-events vm)
+    (request-breakpoint vm)
     (mlet* (((ev . _) (spawn/chan/catch 
                        (fun (c) 
                          (let ((q (! eventQueue vm)))
@@ -1235,12 +1298,12 @@
            (reply c (thread-frames thread from to state) id))
           ((,c . ('list-threads id))
            (reply c (list-threads vm state) id))
-          ((,c . ('debug-thread ref))
-           (set state (debug-thread ref state c)))
+          ((,c . ('interrupt-thread ref))
+           (set state (interrupt-thread ref state c)))
           ((,c . ('debug-nth-thread n))
            (let ((t (nth (get state 'all-threads #f) n)))
              ;;(log "thread ~d : ~a\n" n t)
-             (set state (debug-thread t state c))))
+             (set state (interrupt-thread t state c))))
           ((,c . ('quit-thread-browser id))
            (reply c 't id)
            (set state (del state 'all-threads)))
@@ -1262,35 +1325,40 @@
   (send c `(forward (:return (:ok ,value) ,id))))
 
 (df reply-abort ((c <chan>) id)
-  (send c `(forward (:return (:abort) ,id))))
+  (send c `(forward (:return (:abort nil) ,id))))
 
 (df process-vm-event ((e <event>) (c <chan>) state)
-  (log "vm-event: ~s\n" e)
+  ;;(log "vm-event: ~s\n" e)
   (typecase e
     (<exception-event>
-     (log "exception-location: ~s\n" (src-loc>str (! location e)))
-     (log "exception-catch-location: ~s\n" (src-loc>str (! catch-location e)))
-     (let ((l (! catch-location e)))
-       (cond ((or (nul? l)
-                  ;; (member (! source-path l) '("gnu/expr/ModuleExp.java"))
-                  )
-              (process-exception e c state))
-             (#t
-              (let* ((t (! thread e))
-                     (r (! request e))
-                     (ex (! exception e)))
-                (unless (eq? *last-exception* ex)
-                  (set *last-exception* ex)
-                  (set *last-stacktrace*  (copy-stack t)))
-                (! resume t))
-              state))))
+     ;;(log "exception: ~s\n" (! exception e))
+     ;;(log "exception-message: ~s\n"
+     ;;     (exception-message (vm-demirror *the-vm* (! exception e))))
+     ;;(log "exception-location: ~s\n" (src-loc>str (! location e)))
+     ;;(log "exception-catch-location: ~s\n" (src-loc>str (! catch-location e)))
+     (cond ((! notifyUncaught (as <com.sun.jdi.request.ExceptionRequest>
+                                  (! request e)))
+            (process-exception e c state))
+           (#t
+            (let* ((t (! thread e))
+                   (r (! request e))
+                   (ex (! exception e)))
+              (unless (eq? *last-exception* ex)
+                (set *last-exception* ex)
+                (set *last-stacktrace*  (copy-stack t)))
+              (! resume t))
+            state)))
     (<step-event>
      (let* ((r (! request e))
             (k (! get-property r 'continuation)))
        (! disable r)
        (log "k: ~s\n" k)
        (k e))
-     state)))
+     state)
+    (<breakpoint-event>
+     (log "breakpoint event: ~a\n" e)
+     (debug-thread (! thread e) e state c))
+    ))
 
 (df process-exception ((e <exception-event>) (c <chan>) state)
     (let* ((tref (! thread e))
@@ -1337,16 +1405,32 @@
                          #!null)
                      (ignore-errors (! thisObject f)))))))))
 
-(define-simple-class <listener-abort> (<java.lang.Throwable>)
-  ((abort) :: void
-   (primitive-throw (this))
-   #!void))
-
-(define-simple-class <break-event> (<com.sun.jdi.event.Event>)
+(define-simple-class <interrupt-event> (<event>)
   (thread :: <thread-ref>)
   ((*init* (thread :: <thread-ref>)) (set (@ thread (this)) thread))
   ((request) :: <com.sun.jdi.request.EventRequest> #!null)
   ((virtualMachine) :: <vm> (! virtualMachine thread)))
+
+(df break (#!optional condition)
+  ((breakpoint condition)))
+
+;; We set a breakpoint on this function.  It returns a function which
+;; specifies what the debuggee should do next (the actual return value
+;; is set via JDI).  Lets hope that the compiler doesn't optimize this
+;; away.
+(df breakpoint (condition => <function>)
+  (fun () #!null))
+
+;; Enable breakpoints event on the breakpoint function.
+(df request-breakpoint ((vm <vm>))
+  (let* ((class :: <class-ref> (1st (! classesByName vm "swank$Mnkawa")))
+         (meth :: <meth-ref> (1st (! methodsByName class "breakpoint")))
+         (erm (! eventRequestManager vm))
+         (req (! createBreakpointRequest erm (! location meth))))
+    (! setSuspendPolicy req (@ SUSPEND_EVENT_THREAD req))
+    (! put-property req 'swank #t)
+    (! put-property req 'argname "condition")
+    (! enable req)))
 
 (df log-vm-props ((vm <vm>))
   (letrec-syntax ((p (syntax-rules ()
@@ -1369,15 +1453,18 @@
 
 ;;;;; Debugger
 
-(df debug-thread ((tref <thread-ref>) state (c <chan>))
-  (! suspend tref)
-  (let* ((ev (<break-event> tref))
-         (id (! uniqueID tref))
+(df debug-thread ((tref <thread-ref>) (ev <event>) state (c <chan>))
+  (unless (! is-suspended tref)
+    (! suspend tref))
+  (let* ((id (! uniqueID tref))
          (level 1)
          (state (put state id (list tref level (list ev)))))
     (send c `(forward (:debug ,id ,level ,@(debug-info id 0 10 state))))
     (send c `(forward (:debug-activate ,id ,level)))
     state))
+
+(df interrupt-thread ((tref <thread-ref>) state (c <chan>))
+  (debug-thread tref (<interrupt-event> tref) state c))
 
 (df debug-info ((tid <int>) (from <int>) to state)
   (mlet ((thread-ref level evs) (get state tid #f))
@@ -1385,19 +1472,24 @@
            (vm (! virtualMachine tref))
            (ev (as <event> (car evs)))
            (ex (typecase ev
+                 (<breakpoint-event> (breakpoint-condition ev))
                  (<exception-event> (! exception ev))
-                 (<break-event> (<java.lang.Exception> "Interrupt"))))
+                 (<interrupt-event> (<java.lang.Exception> "Interrupt"))))
            (desc (typecase ex
                    (<obj-ref> 
                     ;;(log "ex: ~a ~a\n" ex (vm-demirror vm ex))
                     (! toString (vm-demirror vm ex)))
-                   (<java.lang.Exception> (! toString ex))))
+                   (<java.lang.Throwable> (! toString ex))))
            (type (format "  [type ~a]" 
                          (typecase ex
                            (<obj-ref> (! name (! referenceType ex)))
                            (<object> (!! getName getClass ex)))))
            (bt (thread-frames tid from to state)))
       `((,desc ,type nil) (("quit" "terminate current thread")) ,bt ()))))
+
+(df breakpoint-condition ((e <breakpoint-event>) => <obj-ref>)
+  (let ((frame (! frame (! thread e) 0)))
+    (1st (! get-argument-values frame))))
 
 (df thread-frames ((tid <int>) (from <int>) to state)
   (mlet ((thread level evs) (get state tid #f))
@@ -1420,17 +1512,23 @@
                            (set i (1+ i))))))))))
 
 (df event-stacktrace ((ev <event>))
-  (typecase ev
-    (<exception-event>
-     (let ((r (! request ev))
-           (vm (! virtualMachine ev)))
-       (cond ((== (vm-demirror vm (! exception ev))
-                  (ignore-errors (vm-demirror vm *last-exception*)))
-              *last-stacktrace*)
-             (#t
-              (! getStackTrace 
-                 (as <throwable> (vm-demirror vm (! exception ev))))))))
-    (<event> (<java.lang.StackTraceElement[]>))))
+  (let ((nothing (fun () (<java.lang.StackTraceElement[]>)))
+        (vm (! virtualMachine ev)))
+    (typecase ev
+      (<breakpoint-event>
+       (let ((condition (vm-demirror vm (breakpoint-condition ev))))
+         (cond ((instance? condition <throwable>)
+                (throwable-stacktrace vm condition))
+               (#t (nothing)))))
+      (<exception-event>
+       (throwable-stacktrace vm (vm-demirror vm (! exception ev))))
+      (<event> (nothing)))))
+
+(df throwable-stacktrace ((vm <vm>) (ex <throwable>))
+  (cond ((== ex (ignore-errors (vm-demirror vm *last-exception*)))
+         *last-stacktrace*)
+        (#t
+         (! getStackTrace ex))))
 
 (df frame-to-string ((f <frame>))
   (let ((loc (! location f))
@@ -1528,39 +1626,54 @@
        (let* ((l (! location frame))
               (m (! method l))
               (c (! declaringType l)))
-          (disassemble m))))))
+          (disassemble-to-string m))))))
 
 ;;;;; Restarts
 
+;; FIXME: factorize
 (df throw-to-toplevel ((tid <int>) (id <int>) (c <chan>) state)
   (mlet ((tref level exc) (get state tid #f))
     (let* ((t (as <thread-ref> tref))
            (ev (car exc))) 
       (typecase ev
-        (<exception-event>
+        (<exception-event> ; actually uncaughtException
          (! resume t)
          (reply-abort c id)
+         ;;(send-debug-return c tid state)
          (do ((level level (1- level))
               (exc exc (cdr exc)))
              ((null? exc))
            (send c `(forward (:debug-return ,tid ,level nil))))
          (del state tid))
-        (<break-event>
+        (<breakpoint-event>
          ;; XXX race condition? 
-         (let ((vm (! virtualMachine t)))
+         (log "resume from from break (suspendCount: ~d)\n" (! suspendCount t))
+         (let ((vm (! virtualMachine t))
+               (k (fun () (primitive-throw (<listener-abort>)))))
            (reply-abort c id)
-           (! stop t (vm-mirror vm (<listener-abort>)))
-           (! interrupt t)
+           (! force-early-return t (vm-mirror vm k))
            (! resume t)
-           (! interrupt t)
            (do ((level level (1- level))
                 (exc exc (cdr exc)))
                ((null? exc))
              (send c `(forward (:debug-return ,tid ,level nil))))
-           (del state tid)))))))
+           (del state tid)))
+        (<interrupt-event>
+         (log "resume from from interrupt\n")
+         (let ((vm (! virtualMachine t)))
+           (! stop t (vm-mirror vm (<listener-abort>)))
+           (! resume t)
+           (reply-abort c id)
+           (do ((level level (1- level))
+                (exc exc (cdr exc)))
+               ((null? exc))
+             (send c `(forward (:debug-return ,tid ,level nil))))
+           (del state tid))
+         )))))
 
 (df thread-continue ((tid <int>) (id <int>) (c <chan>) state)
   (mlet ((tref level exc) (get state tid #f))
+    (log "thread-continue: ~a ~a ~a \n" tref level exc)
     (let* ((t (as <thread-ref> tref)))
        (! resume t))
     (reply-abort c id)
@@ -1645,12 +1758,15 @@
     (! waitFor p)
     (! read-line (<java.io.BufferedReader> (<in> (! get-input-stream p))))))
 
-(df enable-uncaught-exception-events ((vm <vm>))
+(df request-uncaught-exception-events ((vm <vm>))
   (let* ((erm (! eventRequestManager vm))
          (req (! createExceptionRequest erm #!null #f #t)))
     (! setSuspendPolicy req (@ SUSPEND_EVENT_THREAD req))
     (! addThreadFilter req (vm-mirror vm (current-thread)))
-    (! enable req))
+    (! enable req)))
+
+
+(df request-caught-exception-events ((vm <vm>))
   (let* ((erm (! eventRequestManager vm))
          (req (! createExceptionRequest erm #!null #t #f)))
     (! setSuspendPolicy req (@ SUSPEND_EVENT_THREAD req))
@@ -1658,9 +1774,7 @@
     (! addClassExclusionFilter req "java.lang.ClassLoader")
     (! addClassExclusionFilter req "java.net.URLClassLoader")
     (! addClassExclusionFilter req "java.net.URLClassLoader$1")
-    (! enable req))
-  #!void
-  )
+    (! enable req)))
 
 (df set-stacktrace-recording ((vm <vm>) (flag <boolean>))
   (for (((e <com.sun.jdi.request.ExceptionRequest>) 
@@ -1732,9 +1846,9 @@
   ((*init* (f :: <gnu.mapping.Procedure>)) (set (@ f (this)) f))
   ((uncaughtException (t <thread>) (e <throwable>))
    :: <void>
-   ;;(! println (java.lang.System:.err) (to-str "uhexc:::"))
+   (! println (java.lang.System:.err) (to-str "uhexc:::"))
    (! apply2 f t e)
-    #!void))
+   #!void))
 
 ;;;; Channels
 
@@ -1743,21 +1857,28 @@
     (! start thread)
     thread))
 
+
+;; gnu.mapping.RunnableClosure uses the try{...}catch(Throwable){...}
+;; idiom which defeats all attempts to use a break-on-error-style
+;; debugger.  Previously I had my own version of RunnableClosure
+;; without that deficiency but something in upstream changed and it no
+;; longer worked. Now we use the normal RunnableClosure and at the
+;; cost of taking stack snapshots on every throw.
 (df %%runnable (f => <java.lang.Runnable>) 
   ;;(<runnable> f)
-  (<gnu.mapping.RunnableClosure> f)
+  ;;(<gnu.mapping.RunnableClosure> f)
+  ;;(runnable f)
+  (%runnable f)
   )
 
-#|
 (df %runnable (f => <java.lang.Runnable>)
-  (<runnable>
+  (runnable
    (fun ()
      (try-catch (f)
                 (ex <throwable> 
                     (log "exception in thread ~s: ~s" (current-thread)
                           ex)
                     (! printStackTrace ex))))))
-|#
 
 (df chan () 
   (let ((lock (<object>))
@@ -1866,18 +1987,6 @@
                           ,(map (fun (e) (! to-string e))
                                 (array-to-list (! get-stack-trace ex))))))))))
 
-#|
-(define-simple-class <runnable> (<gnu.mapping.RunnableClosure>)
-  (f :: <gnu.mapping.Procedure>)
-  ((*init* (f <gnu.mapping.Procedure>))
-   (invoke-special <gnu.mapping.RunnableClosure> (this) '*init* f)
-   (set (@ f (this)) f))
-  ((run) :: void
-   (! set-environment-raw (<gnu.mapping.CallContext>:getInstance)
-      (@ environment (this)))
-   (! apply0 f)))
-|#
-
 ;;;; Logging
 
 (define swank-log-port (current-error-port))
@@ -1917,16 +2026,36 @@
   (call-with-input-string str read))
 
 ;;(df print-to-string (obj) (call-with-output-string (fun (p) (write obj p))))
-   
+
 (df pprint-to-string (obj)
   (let* ((w (<java.io.StringWriter>))
          (p (<gnu.mapping.OutPort> w #t #f)))
-    (try-catch (write obj p)
+    (try-catch (print-object obj p)
                (ex <throwable> 
                    (format p "#<error while printing ~a ~a>" 
                            ex (class-name-sans-package ex))))
     (! flush p)
     (to-string (! getBuffer w))))
+
+(df print-object (obj stream)
+  (typecase obj
+    ((or (eql #!null) (eql #!eof)
+         <list> <number> <character> <string> <vector> <procedure> <boolean>)
+     (write obj stream))
+    (#t (print-unreadable-object obj stream))))
+
+(df print-unreadable-object ((o <object>) stream)
+  (let* ((string (! to-string o))
+         (class (! get-class o))
+         (name (! get-name class))
+         (simplename (! get-simple-name class)))
+    (cond ((! starts-with string "#<")
+           (format stream "~a" string))
+          ((or (! starts-with string name)
+               (! starts-with string simplename))
+           (format stream "#<~a>" string))
+          (#t
+           (format stream "#<~a ~a>" name string)))))
 
 (define cat string-append)
 
@@ -1956,10 +2085,14 @@
 (df class-name-sans-package ((obj <object>))
   (cond ((nul? obj) "<#!null>")
         (#t
-         (let* ((c (! get-class obj)) (n (! get-simple-name c)))
-           (cond ((equal n "") (! get-name c))
-                 (#t n))))))
-
+         (try-catch
+          (let* ((c (! get-class obj))
+                 (n (! get-simple-name c)))
+            (cond ((equal n "") (! get-name c))
+                  (#t n)))
+          (e <java.lang.Throwable>
+             (format "#<~a: ~a>" e (! get-message e)))))))
+        
 (df list-env (#!optional (env :: <env> (<env>:current)))
   (let ((enum (! enumerateAllLocations env)))
     (packing (pack)
@@ -2090,7 +2223,7 @@
       ((:file s) (read-bytes (<java.io.FileInputStream> (as <str> s)))))))
 
 (df all-instances ((vm <vm>) (classname <str>))
-  (mappend (fun ((c <class-ref>)) (to-list (! instances c 9999)))
+  (mappend (fun ((c <class-ref>)) (to-list (! instances c (as long 9999))))
 	   (%all-subclasses vm classname)))
 
 (df %all-subclasses ((vm <vm>) (classname <str>))
