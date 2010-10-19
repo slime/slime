@@ -1660,6 +1660,7 @@ stack."
 
 (defun deinit-log-output ()
   ;; Can't hang on to an fd-stream from a previous session.
-  (setf *log-output* nil))
+  (setf (symbol-value (find-symbol "*LOG-OUTPUT*" 'swank))
+        nil))
 
 (pushnew 'deinit-log-output sb-ext:*save-hooks*)

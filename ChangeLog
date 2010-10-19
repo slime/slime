@@ -1,3 +1,9 @@
+2010-10-19  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-sbcl.lisp (deinit-log-output): Use the right symbol for
+	*LOG-OUTPUT*, swank package isn't available at the time
+	swank-backend is compiled.
+
 2010-10-16  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-loader.lisp (default-fasl-dir): Guard against using :asdf
