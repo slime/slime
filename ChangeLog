@@ -1,3 +1,10 @@
+2010-10-20  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-connect): Convert the port number read from
+	minibuffer to an integer, passing it as a string to
+	`make-network-process' isn't portable.
+	Patch by Marko Kocic.
+
 2010-10-19  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (invoke-nth-restart): Make sure there is such restart

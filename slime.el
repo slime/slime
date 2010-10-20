@@ -1182,9 +1182,9 @@ DIRECTORY change to this directory before starting the process.
   (interactive (list (read-from-minibuffer
                       "Host: " (first slime-connect-host-history)
                       nil nil '(slime-connect-host-history . 1))
-                     (read-from-minibuffer
+                     (string-to-int (read-from-minibuffer
                       "Port: " (first slime-connect-port-history)
-                      nil nil '(slime-connect-port-history . 1))))
+                      nil nil '(slime-connect-port-history . 1)))))
   (when (and (interactive-p) slime-net-processes
              (y-or-n-p "Close old connections first? "))
     (slime-disconnect-all))
