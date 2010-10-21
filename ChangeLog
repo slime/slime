@@ -1,5 +1,20 @@
 2010-10-21  Helmut Eller  <heller@common-lisp.net>
 
+	In ABCL, try harder to find the source of stack frames.
+
+	* swank-abcl.lisp (source-location): Now a GF.
+	(source-location [java-stack-frame]): New.
+	(source-location [lisp-stack-frame]): New.
+	(source-location [function]): New.
+	(frame-source-location, find-definitions): Use them.
+	(*source-path*, find-definitions): New.
+	(system-property, pathname-parent, pathname-absolute-p)
+	(split-string, path-separator, search-path-property)
+	(jdk-source-path, class-path, zipfile-contains-p)
+	(find-file-in-path): Noise for filename frobbing.
+
+2010-10-21  Helmut Eller  <heller@common-lisp.net>
+
 	Require ABCL 0.22 and remove obsolete conditionalisation.
 
 	* swank-abcl.lisp (call-with-debugger-hook)

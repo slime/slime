@@ -323,8 +323,9 @@
   (disassemble (debugger:frame-function (nth-frame index))))
 
 (defimplementation frame-source-location (index)
-  (list :error (format nil "Cannot find source for frame: ~A"
-                       (nth-frame index))))
+  (let ((frame (nth-frame index)))
+    (or (source-location (nth-frame index))
+        `(:error ,(format nil "No source for frame: ~a" frame)))))
 
 #+nil
 (defimplementation eval-in-frame (form frame-number)
@@ -435,22 +436,118 @@
 
 (defimplementation find-definitions (symbol)
   (fspec-definition-locations symbol))
-
 |#
 
-(defun source-location (symbol)
+(defgeneric source-location (object))
+
+(defmethod source-location ((symbol symbol))
   (when (pathnamep (ext:source-pathname symbol))
     (let ((pos (ext:source-file-position symbol)))
-      `(((,symbol)
-         (:location
-           (:file ,(namestring (ext:source-pathname symbol)))
-           ,(if pos
-                (list :position (1+ pos))
-                (list :function-name (string symbol)))
-           (:align t)))))))
+      `(:location
+        (:file ,(namestring (ext:source-pathname symbol)))
+        ,(if pos
+             (list :position (1+ pos))
+             (list :function-name (string symbol)))
+        (:align t)))))
+
+(defmethod source-location ((frame sys::java-stack-frame))
+  (destructuring-bind (&key class method file line) (sys:frame-to-list frame)
+    (declare (ignore method))
+    (let ((file (or (find-file-in-path file *source-path*)
+                    (let ((f (format nil "~{~a/~}~a"
+                                     (butlast (split-string class "\\."))
+                                     file)))
+                      (find-file-in-path f *source-path*)))))
+      (and file 
+           `(:location ,file (:line ,line) ())))))
+
+(defmethod source-location ((frame sys::lisp-stack-frame))
+  (destructuring-bind (operator &rest args) (sys:frame-to-list frame)
+    (declare (ignore args))
+    (etypecase operator
+      (function (source-location operator))
+      (list nil)
+      (symbol (source-location operator)))))
+
+(defmethod source-location ((fun function))
+  (let ((name (function-name fun)))
+    (and name (source-location name))))
+
+(defun system-property (name)
+  (java:jstatic "getProperty" "java.lang.System" name))
+
+(defun pathname-parent (pathname)
+  (make-pathname :directory (butlast (pathname-directory pathname))))
+
+(defun pathname-absolute-p (pathname)
+  (eq (car (pathname-directory pathname)) ':absolute))
+
+(defun split-string (string regexp)
+  (coerce 
+   (java:jcall (java:jmethod "java.lang.String" "split" "java.lang.String")
+               string regexp)
+   'list))
+
+(defun path-separator ()
+  (java:jfield "java.io.File" "pathSeparator"))
+
+(defun search-path-property (prop-name)
+  (let ((string (system-property prop-name)))
+    (and string
+         (remove nil 
+                 (mapcar #'truename
+                         (split-string string (path-separator)))))))
+
+(defun jdk-source-path ()
+  (let* ((jre-home (truename (system-property "java.home")))
+         (src-zip (merge-pathnames "src.zip" (pathname-parent jre-home)))
+         (truename (probe-file src-zip)))
+    (and truename (list truename))))
+
+(defun class-path ()
+  (append (search-path-property "java.class.path")
+          (search-path-property "sun.boot.class.path")))
+
+(defvar *source-path*
+  (append (search-path-property "user.dir")
+          (jdk-source-path)
+          ;;(list (truename "/scratch/abcl/src"))
+          )
+  "List of directories to search for source files.")
+
+(defun zipfile-contains-p (zipfile-name entry-name)
+  (let ((zipfile (java:jnew (java:jconstructor "java.util.zip.ZipFile" 
+                                               "java.lang.String")
+                            zipfile-name)))
+    (java:jcall
+     (java:jmethod "java.util.zip.ZipFile" "getEntry" "java.lang.String")
+     zipfile entry-name)))
+
+;; (find-file-in-path "java/lang/String.java" *source-path*)
+;; (find-file-in-path "Lisp.java" *source-path*)
+
+;; Try fo find FILENAME in PATH.  If found, return a file spec as
+;; needed by Emacs.  We also look in zip files.
+(defun find-file-in-path (filename path)
+  (labels ((try (dir)
+             (cond ((not (pathname-type dir))
+                    (let ((f (probe-file (merge-pathnames filename dir))))
+                      (and f `(:file ,(namestring f)))))
+                   ((equal (pathname-type dir) "zip")
+                    (try-zip dir))
+                   (t (error "strange path element: ~s" path))))
+           (try-zip (zip)
+             (let* ((zipfile-name (namestring (truename zip))))
+               (and (zipfile-contains-p zipfile-name filename)
+                    `(:dir ,zipfile-name  ,filename)))))
+    (cond ((pathname-absolute-p filename) (probe-file filename))
+          (t
+           (loop for dir in path
+                 if (try dir) return it)))))
 
 (defimplementation find-definitions (symbol)
-  (source-location symbol))
+  (let ((srcloc (source-location symbol)))
+    (and srcloc `((,symbol ,srcloc)))))
 
 #| 
 Uncomment this if you have patched xref.lisp, as in 
