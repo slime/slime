@@ -1,3 +1,14 @@
+2010-10-21  Helmut Eller  <heller@common-lisp.net>
+
+	Require ABCL 0.22 and remove obsolete conditionalisation.
+
+	* swank-abcl.lisp (call-with-debugger-hook)
+	(install-debugger-globally)
+	(call-with-debugging-environment, backtrace, print-frame, spawn):
+	Remove #+/#- stuff.
+	(preferred-communication-style): Return :spawn unconditionally.
+	(sys::break): Removed.
+
 2010-10-20  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-connect): Convert the port number read from
