@@ -1,3 +1,10 @@
+2010-10-23  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-goto-location-position): In case of
+	(:function-name name) go to (point-min) before searching for
+	function. Remove redundant regexp and regexp-quote function name
+	before inserting it into a regexp.
+
 2010-10-21  Helmut Eller  <heller@common-lisp.net>
 
 	In ABCL, try harder to find the source of stack frames.
