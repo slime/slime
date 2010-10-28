@@ -1,3 +1,8 @@
+2010-10-28  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-package-fu.lisp (list-structure-symbols): Include the name
+	of the structure too.
+
 2010-10-17  Helmut Eller  <heller@common-lisp.net>
 
 	Some updates to the Kawa backend.

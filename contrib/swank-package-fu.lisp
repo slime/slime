@@ -21,7 +21,8 @@
 #+sbcl
 (defun list-structure-symbols (name)
   (let ((dd (sb-kernel:find-defstruct-description name )))
-    (list* (sb-kernel:dd-default-constructor dd)
+    (list* name
+           (sb-kernel:dd-default-constructor dd)
            (sb-kernel:dd-predicate-name dd)
            (sb-kernel::dd-copier-name dd)
            (mapcar #'sb-kernel:dsd-accessor-name
@@ -30,7 +31,8 @@
 #+ccl
 (defun list-structure-symbols (name)
   (let ((definition (gethash name ccl::%defstructs%)))
-    (list* (ccl::sd-constructor definition)
+    (list* name
+           (ccl::sd-constructor definition)
            (ccl::sd-refnames definition))))
 
 (defun list-class-symbols (name)
