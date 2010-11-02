@@ -697,10 +697,8 @@ function names like \(SETF GET)."
 (defxref who-macroexpands hcl:who-calls) ; macros are in the calls table too
 (defxref calls-who      hcl:calls-who)
 (defxref list-callers   list-callers-internal)
-#+lispworks6
 (defxref list-callees   list-callees-internal)
 
-#-lispworks6
 (defun list-callers-internal (name)
   (let ((callers (make-array 100
                              :fill-pointer 0
@@ -708,7 +706,8 @@ function names like \(SETF GET)."
     (hcl:sweep-all-objects
      #'(lambda (object)
          (when (and #+Harlequin-PC-Lisp (low:compiled-code-p object)
-                    #-Harlequin-PC-Lisp (sys::callablep object)
+                    #+Harlequin-Unix-Lisp (sys:callablep object)
+                    #-(or Harlequin-PC-Lisp Harlequin-Unix-Lisp) (sys:compiled-code-p object)
                     (system::find-constant$funcallable name object))
            (vector-push-extend object callers))))
     ;; Delay dspec:object-dspec until after sweep-all-objects
@@ -718,23 +717,18 @@ function names like \(SETF GET)."
 		      (list 'function object)
                       (or (dspec:object-dspec object) object)))))
 
-#+lispworks6
-(defun list-callers-internal (name)
-    ;; Delay dspec:object-dspec until after sweep-all-objects
-    ;; to reduce allocation problems.
-    (loop for object in (hcl::who-calls name)
-          collect (if (symbolp object)
-		      (list 'function object)
-                      (or (dspec:object-dspec object) object))))
-
-#+lispworks6
 (defun list-callees-internal (name)
-    ;; Delay dspec:object-dspec until after sweep-all-objects
-    ;; to reduce allocation problems.
-    (loop for object in (hcl::calls-who name)
-          collect (if (symbolp object)
-		      (list 'function object)
-                      (or (dspec:object-dspec object) object))))
+  (let ((callees '()))
+    (system::find-constant$funcallable
+     'junk name
+     :test #'(lambda (junk constant)
+               (declare (ignore junk))
+               (when (and (symbolp constant)
+                          (fboundp constant))
+                 (pushnew (list 'function constant) callees :test 'equal))
+               ;; Return nil so we iterate over all constants.
+               nil))
+    callees))
 
 ;; only for lispworks 4.2 and above
 #-lispworks4.1

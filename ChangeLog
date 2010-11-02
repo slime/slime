@@ -1,3 +1,10 @@
+2010-11-02  Martin Simmons  <martin@lispworks.com>
+
+	* swank-lispworks.lisp (list-callers-internal): Revert to previous
+	low level implementation, fixed for LW6.
+	(list-callees-internal): Reimplement using low level instead of
+	the compiler's xref.
+
 2010-10-23  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-goto-location-position): In case of
