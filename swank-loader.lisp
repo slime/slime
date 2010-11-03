@@ -56,7 +56,7 @@
 
 (defparameter *architecture-features*
   '(:powerpc :ppc :x86 :x86-64 :x86_64 :amd64 :i686 :i586 :i486 :pc386 :iapx386
-    :sparc64 :sparc :hppa64 :hppa
+    :sparc64 :sparc :hppa64 :hppa :arm
     :pentium3 :pentium4
     :java-1.4 :java-1.5 :java-1.6 :java-1.7))
 

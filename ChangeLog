@@ -1,3 +1,8 @@
+2010-11-03  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-loader.lisp (*architecture-features*): Add :arm for CCL
+	ARM port.
+
 2010-11-02  Martin Simmons  <martin@lispworks.com>
 
 	* swank-lispworks.lisp (list-callers-internal): Revert to previous
