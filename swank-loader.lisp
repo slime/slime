@@ -124,22 +124,12 @@ Return nil if nothing appropriate is available."
     (and s (symbol-name (read s)))))
 
 (defun default-fasl-dir ()
-  (or
-   ;; If ASDF is available then store Slime's fasl's where ASDF stores them.
-   (let ((translate-fn (and (find-package :asdf)
-                            (find-symbol "COMPILE-FILE-PATHNAME*" :asdf))))
-     (when translate-fn
-       (make-pathname
-        :name nil :type nil
-        :defaults (funcall translate-fn
-                           (make-pathname :name "foo"
-                                          :defaults *source-directory*)))))
-   (merge-pathnames
-    (make-pathname
-     :directory `(:relative ".slime" "fasl"
-                            ,@(if (slime-version-string) (list (slime-version-string)))
-                            ,(unique-dir-name)))
-    (user-homedir-pathname))))
+  (merge-pathnames
+   (make-pathname
+    :directory `(:relative ".slime" "fasl"
+                 ,@(if (slime-version-string) (list (slime-version-string)))
+                 ,(unique-dir-name)))
+   (user-homedir-pathname)))
 
 (defvar *fasl-directory* (default-fasl-dir)
   "The directory where fasl files should be placed.")
@@ -244,16 +234,6 @@ If LOAD is true, load the fasl file."
 
 (defun load-swank (&key (src-dir *source-directory*)
                         (fasl-dir *fasl-directory*))
-  (when (find-package :asdf)
-    ;; Make sure our swank.asd is visible to ASDF.
-    (eval
-     (let ((*package* (find-package :swank-loader)))
-       (read-from-string
-        "(let ((swank-system (asdf:find-system :swank nil)))
-          (unless (and swank-system
-                       (equal (asdf:component-pathname swank-system)
-                              (merge-pathnames \"swank.asd\" *source-directory*)))
-            (push *source-directory* asdf:*central-registry*)))"))))
   (compile-files (src-files *swank-files* src-dir) fasl-dir t)
   (funcall (q "swank::before-init")
            (slime-version-string)

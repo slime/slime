@@ -1,3 +1,8 @@
+2010-11-07  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-loader.lisp: ASDF free again.  And proud of it!
+	(default-fasl-dir, load-swank): Remove asdf stuff.
+
 2010-11-03  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-loader.lisp (*architecture-features*): Add :arm for CCL
