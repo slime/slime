@@ -3338,11 +3338,20 @@ Don't move if there are multiple or no calls in the current defun."
   (save-restriction 
     (narrow-to-defun)
     (let ((start (point))
-          (regexp (concat "(" fname "[\n \t]")))
+          (regexp (concat "(" fname "[)\n \t]"))
+          (case-fold-search t))
       (cond ((and (re-search-forward regexp nil t)
                   (not (re-search-forward regexp nil t)))
              (goto-char (match-beginning 0)))
             (t (goto-char start))))))
+
+(defun slime-search-edit-path (edit-path)
+  "Move to EDIT-PATH starting at the current toplevel form."
+  (when edit-path
+    (unless (and (= (current-column) 0)
+                 (looking-at "("))
+      (beginning-of-defun))
+    (slime-forward-source-path edit-path)))
 
 (defun slime-goto-source-location (location &optional noerror)
   "Move to the source location LOCATION.  Several kinds of locations
@@ -3383,6 +3392,8 @@ are supported:
     (let ((hints (slime-location.hints location)))
       (when-let (snippet (getf hints :snippet))
         (slime-isearch snippet))
+      (when-let (snippet (getf hints :edit-path))
+        (slime-search-edit-path snippet))
       (when-let (fname (getf hints :call-site))
         (slime-search-call-site fname))
       (when (getf hints :align)

@@ -1,3 +1,17 @@
+2010-11-12  Helmut Eller  <heller@common-lisp.net>
+
+	Improve frame-source-location for Lispworks.
+
+	* swank-lispworks.lisp (frame-source-location): Exctract the
+	edit-path from the frame and pass it to Emacs.
+	(edit-path-to-cmucl-source-path): New function.
+	(frame-location): Use it.
+
+	* slime.el (slime-location-offset): Add a :edit-path property.
+	(slime-search-edit-path): New function.
+	(slime-search-call-site): Fix regexp to match
+	zero arg functions.
+
 2010-11-07  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-backend.lisp (label-value-line): Remove display-nil-value.

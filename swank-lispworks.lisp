@@ -336,7 +336,7 @@ Return NIL if the symbol is unbound."
 
 (defun nth-frame (index)
   (nth-next-frame *sldb-top-frame* index))
-           
+
 (defun find-top-frame ()
   "Return the most suitable top-frame for the debugger."
   (or (do ((frame (dbg::debugger-stack-current-frame dbg::*debugger-stack*)
@@ -406,9 +406,11 @@ Return NIL if the symbol is unbound."
     (if (dbg::call-frame-p frame)
 	(let ((dspec (dbg::call-frame-function-name frame))
               (cname (and (dbg::call-frame-p callee)
-                          (dbg::call-frame-function-name callee))))
+                          (dbg::call-frame-function-name callee)))
+              (path (and (dbg::call-frame-p frame)
+                         (dbg::call-frame-edit-path frame))))
 	  (if dspec
-              (frame-location dspec cname))))))
+              (frame-location dspec cname path))))))
 
 (defimplementation eval-in-frame (form frame-number)
   (let ((frame (nth-frame frame-number)))
@@ -432,18 +434,33 @@ Return NIL if the symbol is unbound."
 
 ;;; Definition finding
 
-(defun frame-location (dspec callee-name)
+(defun frame-location (dspec callee-name edit-path)
   (let ((infos (dspec:find-dspec-locations dspec)))
     (cond (infos 
            (destructuring-bind ((rdspec location) &rest _) infos
              (declare (ignore _))
              (let ((name (and callee-name (symbolp callee-name)
-                              (string callee-name))))
-               (make-dspec-location rdspec location 
-                                    `(:call-site ,name)))))
+                              (string callee-name)))
+                   (path (edit-path-to-cmucl-source-path edit-path)))
+               (make-dspec-location rdspec location
+                                    `(:call-site ,name :edit-path ,path)))))
           (t 
            (list :error (format nil "Source location not available for: ~S" 
                                 dspec))))))
+
+;; dbg::call-frame-edit-path is not documented but lets assume the
+;; binary representation of the integer EDIT-PATH should be
+;; interpreted as a sequence of CAR or CDR.  #b1111010 is roughly the
+;; same as cadadddr.  Something is odd with the highest bit.
+(defun edit-path-to-cmucl-source-path (edit-path)
+  (and edit-path
+       (cons 0
+             (let ((n -1))
+               (loop for i from (1- (integer-length edit-path)) downto 0
+                     if (logbitp i edit-path) do (incf n)
+                     else collect (prog1 n (setq n 0)))))))
+
+;; (edit-path-to-cmucl-source-path #b1111010) => (0 3 1)
 
 (defimplementation find-definitions (name)
   (let ((locations (dspec:find-name-locations dspec:*dspec-classes* name)))
