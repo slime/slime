@@ -1,3 +1,13 @@
+2010-11-13  Helmut Eller  <heller@common-lisp.net>
+
+	Improve source locations for compiler messages in Lispworks.
+
+	* swank-lispworks.lisp (map-error-database)
+	(signal-error-data-base, make-dspec-progenitor-location): Pass the
+	edit-path along.
+	(signal-undefined-functions): No edit-path available so just use
+	nil.
+
 2010-11-12  Helmut Eller  <heller@common-lisp.net>
 
 	Improve frame-source-location for Lispworks.

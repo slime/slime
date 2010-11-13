@@ -520,8 +520,10 @@ Return NIL if the symbol is unbound."
 (defun map-error-database (database fn)
   (loop for (filename . defs) in database do
 	(loop for (dspec . conditions) in defs do
-	      (dolist (c conditions) 
-		(funcall fn filename dspec (if (consp c) (car c) c))))))
+	      (dolist (c conditions)
+                (multiple-value-bind (condition path)
+                    (if (consp c) (values (car c) (cdr c)) (values c nil))
+                  (funcall fn filename dspec condition path))))))
 
 (defun lispworks-severity (condition)
   (cond ((not condition) :warning)
@@ -649,23 +651,25 @@ Return NIL if the symbol is unbound."
                       (dspec-function-name-position dspec `(:offset ,offset 0))
                       hints)))))
 
-(defun make-dspec-progenitor-location (dspec location)
+(defun make-dspec-progenitor-location (dspec location edit-path)
   (let ((canon-dspec (dspec:canonicalize-dspec dspec)))
     (make-dspec-location
      (if canon-dspec
          (if (dspec:local-dspec-p canon-dspec)
              (dspec:dspec-progenitor canon-dspec)
-           canon-dspec)
-       nil)
-     location)))
+             canon-dspec)
+         nil)
+     location
+     (if edit-path
+         (list :edit-path (edit-path-to-cmucl-source-path edit-path))))))
 
 (defun signal-error-data-base (database &optional location)
   (map-error-database 
    database
-   (lambda (filename dspec condition)
+   (lambda (filename dspec condition edit-path)
      (signal-compiler-condition
       (format nil "~A" condition)
-      (make-dspec-progenitor-location dspec (or location filename))
+      (make-dspec-progenitor-location dspec (or location filename) edit-path)
       condition))))
 
 (defun unmangle-unfun (symbol)
@@ -680,10 +684,11 @@ function names like \(SETF GET)."
 	     (dolist (dspec dspecs)
 	       (signal-compiler-condition 
 		(format nil "Undefined function ~A" (unmangle-unfun unfun))
-		(make-dspec-progenitor-location dspec
-                                                (or filename
-                                                    (gethash (list unfun dspec)
-                                                             *undefined-functions-hash*)))
+		(make-dspec-progenitor-location 
+                 dspec
+                 (or filename
+                     (gethash (list unfun dspec) *undefined-functions-hash*))
+                 nil)
 		nil)))
 	   htab))
 
