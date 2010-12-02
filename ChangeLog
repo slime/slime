@@ -1,3 +1,10 @@
+2010-12-02  Martin Simmons  <martin@lispworks.com>
+
+	* swank-lispworks.lisp (frame-actual-args): Reimplement to include
+	only the values like on other platforms and deal with, optional
+	key and rest args.
+	(print-frame): Format the frame as a call like in other backends.
+
 2010-11-13  Helmut Eller  <heller@common-lisp.net>
 
 	Improve source locations for compiler messages in Lispworks.
