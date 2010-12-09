@@ -2759,6 +2759,10 @@ TAGS has is a list of strings."
 (define-stepper-function sldb-next sldb-step-next)
 (define-stepper-function sldb-out  sldb-step-out)
 
+(defslimefun toggle-break-on-signals ()
+  (setq *break-on-signals* (not *break-on-signals*))
+  (format nil "*break-on-signals* = ~a" *break-on-signals*))
+
 
 ;;;; Compilation Commands.
 

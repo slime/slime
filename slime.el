@@ -2668,7 +2668,8 @@ to it depending on its sign."
   (with-struct (slime-compilation-result. notes duration successp
                                           loadp faslfile) result
     (setf slime-last-compilation-result result)
-    (slime-show-note-counts notes duration successp)
+    (slime-show-note-counts notes duration (cond ((not loadp) successp)
+                                                 (t (and faslfile successp))))
     (when slime-highlight-compiler-notes
       (slime-highlight-notes notes))
     (run-hook-with-args 'slime-compilation-finished-hook notes)
@@ -6063,6 +6064,12 @@ was called originally."
         ((list 'swank:restart-frame number))
       ((:ok value) (message "%s" value))
       ((:abort _)))))
+
+(defun slime-toggle-break-on-signals ()
+  "Toggle the value of *break-on-signals*."
+  (interactive)
+  (slime-eval-async `(swank:toggle-break-on-signals)
+    (lambda (msg) (message "%s" msg))))
 
 
 ;;;;;; SLDB recompilation commands
