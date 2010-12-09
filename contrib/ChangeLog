@@ -1,3 +1,8 @@
+2010-12-09  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-fancy-inspector.lisp (emacs-inspect): Work on methods
+	without associated generic function.
+
 2010-10-28  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-package-fu.lisp (list-structure-symbols): Include the name
