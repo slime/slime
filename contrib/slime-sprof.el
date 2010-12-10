@@ -12,7 +12,7 @@
            `("--"
              [ "Start sb-sprof"  slime-sprof-start ,C ]
              [ "Stop sb-sprof"   slime-sprof-stop ,C ]
-             [ "Report sb-sprof" slime-sprof-browser ,C ])))))
+             [ "Report sb-sprof" slime-sprof-report ,C ])))))
 
 (defvar slime-sprof-exclude-swank nil
   "*Display swank functions in the report.")
@@ -74,7 +74,9 @@
                       :exclude-swank ,exclude-swank)
                     'slime-sprof-format))
 
-(defun slime-sprof-browser ()
+(defalias 'slime-sprof-browser 'slime-sprof-report)
+
+(defun slime-sprof-report ()
   (interactive)
   (slime-with-popup-buffer ((slime-buffer-name :sprof)
                             :connection t

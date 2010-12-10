@@ -1,3 +1,8 @@
+2010-12-10  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-sprof.el (slime-sprof-browser): Rename to
+	`slime-sprof-report', leave `slime-sprof-browser' as an alias.
+
 2010-12-09  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-fancy-inspector.lisp (emacs-inspect): Work on methods

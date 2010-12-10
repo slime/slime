@@ -2958,7 +2958,7 @@ Start profiling.
 
 @cmditem{slime-sprof-stop}
 Stop profiling.
-@cmditem{slime-sprof-browser}
+@cmditem{slime-sprof-report}
 Report results of the profiling.
 @end table
 

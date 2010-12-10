@@ -895,10 +895,10 @@ Restore window configuration when closed.
 
 NAME is the name of the buffer to be created.
 PACKAGE is the value `slime-buffer-package'.
-CONNECTION is the value for `slime-buffer-connection'.
+CONNECTION is the value for `slime-buffer-connection',
+ if nil, no explicit connection is associated with
+ the buffer.  If t, the current connection is taken.
 MODE is the name of a major mode which will be enabled.
-If nil, no explicit connection is associated with
-the buffer.  If t, the current connection is taken.
 "
   `(let* ((vars% (list ,(if (eq package t) '(slime-current-package) package)
                        ,(if (eq connection t) '(slime-connection) connection)))

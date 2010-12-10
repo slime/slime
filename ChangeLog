@@ -1,3 +1,7 @@
+2010-12-10  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-with-popup-buffer): Correct the docstring.
+
 2010-12-09  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-toggle-break-on-signals): New command.
