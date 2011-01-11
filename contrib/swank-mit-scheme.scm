@@ -68,8 +68,11 @@
 (define (swank port)
   (accept-connections (or port 4005) #f))
 
+;; ### hardcoded port number for now.  netcat-openbsd doesn't print
+;; the listener port anymore.
 (define (start-swank port-file)
-  (accept-connections #f port-file))
+  (accept-connections 4055 port-file) 
+  )
 
 ;;;; Networking
 
@@ -84,22 +87,18 @@
 
 (define (netcat port)
   (let* ((sh (os/shell-file-name))
-	 (cmd (format #f "exec netcat -s localhost -q 0 -l -v ~a 2>&1"
-		      (if port (format #f "-p ~a" port) "")))
+	 (cmd (format #f "exec netcat -v -q 0 -l ~a 2>&1" port))
 	 (netcat (start-pipe-subprocess sh 
 					(vector sh "-c" cmd)
 					scheme-subprocess-environment))
-	 (line (read-line (subprocess-input-port netcat)))
-	 (match (re-string-match "^listening on \\[[^]]+\\] \\([0-9]+\\) ...$"
-				 line)))
-    (cond ((not match)
-	   (close-port (subprocess-input-port netcat))
-	   (error "netcat:" line))
-	  (else (list netcat 
-		      (string->number (re-match-extract line match 1)))))))
+	 ;;(line (read-line (subprocess-input-port netcat)))
+	 ;;(match (re-string-match "^listening on \\[[^]]+\\] \\([0-9]+\\) ...$"
+	 ;; line)))
+	 )
+    (list netcat port)))
 
 (define (netcat-accept nc)
-  (let* ((rx "^connect to \\[[^]]+\\] from [^ ]+ \\[[^]]+\\] \\([0-9]+\\)$")
+  (let* ((rx "^Connection from .+ port .+ accepted$")
 	 (line (read-line (subprocess-input-port nc)))
 	 (match (re-string-match rx line)))
     (cond ((not match) (error "netcat:" line))
@@ -217,13 +216,13 @@
 	(else (nearest-repl/environment))))
 
 (define (emacs-rex socket level sexp package thread id)
-  (let ((ok? #f) (result #f))
+  (let ((ok? #f) (result #f) (condition #f))
     (dynamic-wind
 	(lambda () #f)
 	(lambda ()
 	  (bind-condition-handler 
 	   (list condition-type:serious-condition)
-	   (lambda (c) (invoke-sldb socket (1+ level) c))
+	   (lambda (c) (set! condition c) (invoke-sldb socket (1+ level) c))
 	   (lambda ()
 	     (fluid-let ((*buffer-package* package))
 	       (set! result 
@@ -231,8 +230,14 @@
 			   swank-env))
 	       (set! ok? #t)))))
 	(lambda ()
-	  (write-packet `(:return ,(if ok? `(:ok ,result) '(:abort))
-				   ,id)
+	  (write-packet `(:return 
+			  ,(if ok? `(:ok ,result)
+			       `(:abort 
+				 ,(if condition 
+				      (format #f "~a"
+					      (condition/type condition))
+				      "<unknown reason>")))
+			  ,id)
 			 socket)))))
 
 (define (swank:connection-info _)

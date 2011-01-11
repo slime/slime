@@ -1,3 +1,14 @@
+2011-01-11  Helmut Eller  <heller@common-lisp.net>
+
+	Some upgrades for MIT Scheme backend.
+
+	* swank-mit-scheme.scm (netcat, netcat-accept): Use netcat-openbsd
+	syntax.  This version doesn't print the port number anymore
+	defeating the original purpose of using netcat.
+	(start-swank): Hardcode portnumber to 4055 until somebody cares
+	enough to write proper server ports.
+	(emacs-rex): Include a nonsense message with the :abort reply.
+
 2010-12-10  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-sprof.el (slime-sprof-browser): Rename to
