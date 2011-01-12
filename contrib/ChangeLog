@@ -1,3 +1,13 @@
+2011-01-12  Helmut Eller  <heller@common-lisp.net>
+
+	Some more MIT Scheme fixes.
+
+	* swank-mit-scheme.scm (swank:compile-string-for-emacs)
+	(swank:compile-file-for-emacs): Use new result format.
+	(swank:disassemble-form): Added with the needed kludgery for
+	quoted forms.
+	(swank:swank-require): Define this as nop.
+
 2011-01-11  Helmut Eller  <heller@common-lisp.net>
 
 	Some upgrades for MIT Scheme backend.
