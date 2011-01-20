@@ -1,3 +1,11 @@
+2011-01-20  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-ecl.lisp (+TAGS+): change
+	(translate-logical-pathname #P"SYS:TAGS") to
+	(merge-pathnames "TAGS" (translate-logical-pathname "SYS:"))
+	because of case conversion the former results in a pathname with a
+	name "tags", which doesn't exist.
+
 2010-12-10  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-with-popup-buffer): Correct the docstring.
