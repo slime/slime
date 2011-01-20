@@ -1,3 +1,10 @@
+2011-01-20  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-mit-scheme.scm (swank:load-file): Print the result
+	instead of returning it which breaks the protocol.
+
+	* swank-mit-scheme.scm: Require release 9.
+
 2011-01-12  Helmut Eller  <heller@common-lisp.net>
 
 	Some more MIT Scheme fixes.

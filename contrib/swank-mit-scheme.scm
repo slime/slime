@@ -8,7 +8,7 @@
 ;;;; Installation:
 #|
 
-1. You need MIT Scheme (version 7.7.0 and 7.7.90 seem to work).
+1. You need MIT Scheme 9.0.1
 
 2. You also need the `netcat' program to create sockets 
    (netcat-openbsd on Debian).  MIT Scheme has some socket functions
@@ -65,6 +65,10 @@
 |#
 
 ;;; package: (swank)
+
+(if (< (car (get-subsystem-version "Release"))
+       '9)
+    (error "This file requires MIT Scheme Release 9"))
 
 (define (swank port)
   (accept-connections (or port 4005) #f))
@@ -378,7 +382,9 @@
 
 (define (swank:load-file socket file)
   (with-output-to-repl socket
-    (lambda () (load file (user-env *buffer-package*)))))
+    (lambda () 
+      (pprint-to-string 
+       (load file (user-env *buffer-package*))))))
 
 (define (swank:disassemble-form _ string)
   (let ((sexp (let ((sexp (read-from-string string)))
