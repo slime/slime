@@ -1,3 +1,9 @@
+2011-01-22  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-repl-shortcut-help): Don't make ? an alias
+	for help, ? is bound to minibuffer-completion-help, and you can't
+	enter it.
+
 2011-01-20  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-mit-scheme.scm (swank:load-file): Print the result

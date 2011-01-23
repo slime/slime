@@ -1287,8 +1287,7 @@ expansion will be added to the REPL's history.)"
                                     (not (null buffer-file-name)))))
       (save-some-buffers)))
   
-
-(defslime-repl-shortcut slime-repl-shortcut-help ("help" "?")
+(defslime-repl-shortcut slime-repl-shortcut-help ("help")
   (:handler 'slime-list-repl-short-cuts)
   (:one-liner "Display the help."))
 
