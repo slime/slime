@@ -1,3 +1,10 @@
+2011-01-26  Helmut Eller  <heller@common-lisp.net>
+
+	Allow tail-merging in call-with-bindings.
+
+	* swank.lisp (call-with-bindings): Don't use progv if alist is
+	empty alist is empty.
+
 2011-01-20  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-ecl.lisp (+TAGS+): change

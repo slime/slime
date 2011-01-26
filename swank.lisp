@@ -177,11 +177,13 @@ bound to the corresponding VALUE.")
 (defun call-with-bindings (alist fun)
   "Call FUN with variables bound according to ALIST.
 ALIST is a list of the form ((VAR . VAL) ...)."
-  (let* ((rlist (reverse alist))
-         (vars (mapcar #'car rlist))
-         (vals (mapcar #'cdr rlist)))
-    (progv vars vals
-      (funcall fun))))
+  (if (null alist)
+      (funcall fun)
+      (let* ((rlist (reverse alist))
+             (vars (mapcar #'car rlist))
+             (vals (mapcar #'cdr rlist)))
+        (progv vars vals
+          (funcall fun)))))
 
 (defmacro with-bindings (alist &body body)
   "See `call-with-bindings'."
