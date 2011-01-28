@@ -3222,7 +3222,8 @@ you should check twice before modifying.")
     (flet ((file-truename-safe (filename) (and filename (file-truename filename))))
       (let ((target-filename (file-truename-safe filename))
             (buffer-filename (file-truename-safe (buffer-file-name))))
-        (when buffer-filename
+        (when (and target-filename
+                   buffer-filename)
           (slime-maybe-warn-for-different-source-root
            target-filename buffer-filename))))))
 

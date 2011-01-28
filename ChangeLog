@@ -1,3 +1,8 @@
+2011-01-28  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-check-location-filename-sanity): Guard
+	against target-filename being NIL.
+
 2011-01-26  Helmut Eller  <heller@common-lisp.net>
 
 	Allow tail-merging in call-with-bindings.
