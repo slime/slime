@@ -4014,7 +4014,9 @@ The result is a (possibly empty) list of definitions."
                       (slime-check-eval-in-emacs-enabled)
                       (setq value (eval (read form-string)))
                       (setq ok t))
-      (let ((result (if ok `(:ok ,value) `(:abort))))
+      (let ((result (if ok
+                        `(:ok ,(prin1-to-string value))
+                        `(:abort))))
         (slime-dispatch-event `(:emacs-return ,thread ,tag ,result) c)))))
 
 (defun slime-check-eval-in-emacs-enabled ()

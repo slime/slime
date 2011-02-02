@@ -1819,7 +1819,7 @@ converted to lower case."
               (princ-to-string form)))))
 
 (defun eval-in-emacs (form &optional nowait)
-  "Eval FORM in Emacs. 
+  "Eval FORM in Emacs.
 `slime-enable-evaluate-in-emacs' should be set to T on the Emacs side."
   (cond (nowait 
          (send-to-emacs `(:eval-no-wait ,(process-form-for-emacs form))))
@@ -1830,7 +1830,9 @@ converted to lower case."
 				  ,(process-form-for-emacs form)))
 	   (let ((value (caddr (wait-for-event `(:emacs-return ,tag result)))))
 	     (destructure-case value
-	       ((:ok value) value)
+	       ((:ok value)
+                (handler-case (values (read-from-string value))
+                  (reader-error () value)))
 	       ((:abort) (abort))))))))
 
 (defvar *swank-wire-protocol-version* nil

@@ -1,5 +1,11 @@
 2011-02-02  Stas Boukarev  <stassats@gmail.com>
 
+	* slime.el (slime-eval-for-lisp): Return value as a string,
+	because it can be unreadable, e.g. #<buffer foo>
+	* swank.lisp (eval-in-emacs): Prevent reader errors.
+
+2011-02-02  Stas Boukarev  <stassats@gmail.com>
+
 	* swank.lisp (eval-in-emacs): Export it.
 
 2011-01-28  Stas Boukarev  <stassats@gmail.com>
