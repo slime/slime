@@ -1818,6 +1818,14 @@ converted to lower case."
     (number (let ((*print-base* 10))
               (princ-to-string form)))))
 
+(defstruct (unreadable-object
+             (:print-object
+              (lambda (object stream)
+                (print-unreadable-object (object stream :type t :identity t)
+                  (princ (unreadable-object-string object)
+                         stream)))))
+  string)
+
 (defun eval-in-emacs (form &optional nowait)
   "Eval FORM in Emacs.
 `slime-enable-evaluate-in-emacs' should be set to T on the Emacs side."
@@ -1832,7 +1840,7 @@ converted to lower case."
 	     (destructure-case value
 	       ((:ok value)
                 (handler-case (values (read-from-string value))
-                  (reader-error () value)))
+                  (reader-error () (make-unreadable-object :string value))))
 	       ((:abort) (abort))))))))
 
 (defvar *swank-wire-protocol-version* nil
