@@ -64,7 +64,8 @@
            #:default-directory
            #:set-default-directory
            #:quit-lisp
-           #:eval-for-emacs))
+           #:eval-for-emacs
+           #:eval-in-emacs))
 
 (in-package :swank)
 
@@ -1818,7 +1819,8 @@ converted to lower case."
               (princ-to-string form)))))
 
 (defun eval-in-emacs (form &optional nowait)
-  "Eval FORM in Emacs."
+  "Eval FORM in Emacs. 
+`slime-enable-evaluate-in-emacs' should be set to T on the Emacs side."
   (cond (nowait 
          (send-to-emacs `(:eval-no-wait ,(process-form-for-emacs form))))
         (t
