@@ -1,5 +1,11 @@
 2011-02-04  Helmut Eller  <heller@common-lisp.net>
 
+	Be careful with interning.
+
+	* swank.lisp (find-definitions-for-emacs): Use parse-symbol.
+
+2011-02-04  Helmut Eller  <heller@common-lisp.net>
+
 	Don't double encode results for eval-in-emacs.
 
 	* slime.el (slime-check-eval-in-emacs-result): New.
