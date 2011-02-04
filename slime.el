@@ -4009,15 +4009,37 @@ The result is a (possibly empty) list of definitions."
 (defun slime-eval-for-lisp (thread tag form-string)
   (let ((ok nil) 
         (value nil)
+        (error nil)
         (c (slime-connection)))
-    (unwind-protect (progn
-                      (slime-check-eval-in-emacs-enabled)
-                      (setq value (eval (read form-string)))
-                      (setq ok t))
-      (let ((result (if ok
-                        `(:ok ,(prin1-to-string value))
-                        `(:abort))))
+    (unwind-protect 
+        (condition-case err
+            (progn
+              (slime-check-eval-in-emacs-enabled)
+              (setq value (eval (read form-string)))
+              (slime-check-eval-in-emacs-result value)
+              (setq ok t))
+          ((debug error) 
+           (setq error err)))
+      (let ((result (cond (ok `(:ok ,value))
+                          (error `(:error ,(symbol-name (car error))
+                                          . ,(mapcar #'prin1-to-string 
+                                                     (cdr error))))
+                          (t `(:abort)))))
         (slime-dispatch-event `(:emacs-return ,thread ,tag ,result) c)))))
+
+(defun slime-check-eval-in-emacs-result (x)
+  "Raise an error if X can't be marshaled."
+  (or (stringp x)
+      (memq x '(nil t))
+      (integerp x)
+      (keywordp x)
+      (and (consp x)
+           (let ((l x))
+             (while (consp l)
+               (slime-check-eval-in-emacs-result (car x))
+               (setq l (cdr l)))
+             (slime-check-eval-in-emacs-result l)))
+      (error "Non-serializable return value: %S" x)))
 
 (defun slime-check-eval-in-emacs-enabled ()
   "Raise an error if `slime-enable-evaluate-in-emacs' isn't true."
