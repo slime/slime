@@ -1,3 +1,10 @@
+2011-02-08  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-choose-overlay-region): Don't use `list' instead
+	of `values', GNU Emacs fakes multiple values with lists, but
+	XEmacs uses real multiple values.
+	Reported by Raymond Toy.
+
 2011-02-04  Helmut Eller  <heller@common-lisp.net>
 
 	Be careful with interning.
