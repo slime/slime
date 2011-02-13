@@ -2,6 +2,11 @@
 
 	* slime.el (slime-inspector-operate-on-point): Don't save the
 	point when inspecting a different object.
+	(slime-inspector-operate-on-point): If there is no action property
+	directly at the point, try looking at (1- (point)), many
+	inspectable objects are presented the end of the line, so it's
+	easier to navigate to them by C-e and still being able to activate
+	it.
 
 2011-02-08  Stas Boukarev  <stassats@gmail.com>
 
