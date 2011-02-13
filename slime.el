@@ -6538,16 +6538,19 @@ that value.
         (opener (lexical-let ((point (slime-inspector-position)))
                   (lambda (parts)
                     (when parts
-                      (slime-open-inspector parts point))))))
+                      (slime-open-inspector parts point)))))
+        (new-opener (lambda (parts)
+                      (when parts
+                        (slime-open-inspector parts)))))
     (cond (part-number
            (slime-eval-async `(swank:inspect-nth-part ,part-number)
-                             opener)
+                             new-opener)
            (push (slime-inspector-position) slime-inspector-mark-stack))
           (range-button
            (slime-inspector-fetch-more range-button))
           (action-number 
            (slime-eval-async `(swank::inspector-call-nth-action ,action-number)
-                             opener))
+             opener))
           (t (error "No object at point")))))
 
 (defun slime-inspector-operate-on-click (event)

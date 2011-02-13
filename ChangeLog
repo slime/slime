@@ -1,3 +1,8 @@
+2011-02-13  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-inspector-operate-on-point): Don't save the
+	point when inspecting a different object.
+
 2011-02-08  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-choose-overlay-region): Don't use `list' instead
