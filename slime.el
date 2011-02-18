@@ -6206,7 +6206,6 @@ was called originally."
     (cons labels (cdr threads))))
 
 (defun slime-insert-thread (thread longest-lines)
-  (unless (bolp) (insert "\n"))
   (loop for i from 0
         for align in longest-lines
         for element in thread
@@ -6234,7 +6233,8 @@ was called originally."
           for thread in (cdr threads)
           do
           (slime-propertize-region `(thread-id ,index)
-            (slime-insert-thread thread longest-lines)))))
+            (slime-insert-thread thread longest-lines)
+            (insert "\n")))))
 
 
 ;;;;; Major mode

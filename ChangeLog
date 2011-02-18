@@ -1,3 +1,9 @@
+2011-02-18  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-insert-threads): Make sure newlines have the
+	same thread-id property as the rest of the line. This fixes
+	confusion when point is at the end of a line.
+
 2011-02-13  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-inspector-operate-on-point): Don't save the
