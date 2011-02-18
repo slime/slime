@@ -927,8 +927,8 @@ The buffer also uses the minor-mode `slime-popup-buffer-mode'."
 
 (defun slime-init-popup-buffer (buffer-vars)
   (slime-popup-buffer-mode 1)
-  (multiple-value-setq (slime-buffer-package slime-buffer-connection)
-    buffer-vars))
+  (setf slime-buffer-package (car buffer-vars)
+        slime-buffer-connection (cadr buffer-vars)))
 
 (defun slime-display-popup-buffer (select)
   "Display the current buffer.

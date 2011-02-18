@@ -1,5 +1,10 @@
 2011-02-18  Stas Boukarev  <stassats@gmail.com>
 
+	* slime.el (slime-init-popup-buffer): Don't use
+	multiple-value-setq on a list, XEmacs doesn't like it.
+
+2011-02-18  Stas Boukarev  <stassats@gmail.com>
+
 	* slime.el (slime-insert-threads): Make sure newlines have the
 	same thread-id property as the rest of the line. This fixes
 	confusion when point is at the end of a line.
