@@ -149,7 +149,7 @@
 (defun find-topframe ()
   (let ((magic-symbol (intern (symbol-name :swank-debugger-hook)
                               (find-package :swank)))
-        (top-frame (excl::int-newest-frame)))
+        (top-frame (excl::int-newest-frame (excl::current-thread))))
     (loop for frame = top-frame then (next-frame frame)
           for name  = (debugger:frame-name frame)
           for i from 0

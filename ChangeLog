@@ -1,3 +1,9 @@
+2011-02-24  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-allegro.lisp (find-topframe): Fix excl::int-newest-frame
+	invocation for the latest alpha version of Allegro.
+	Patch by Gábor Melis.
+
 2011-02-18  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-init-popup-buffer): Don't use
