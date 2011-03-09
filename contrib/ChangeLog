@@ -1,3 +1,9 @@
+2011-03-09  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-editing-commands.el (slime-beginning-of-defun): Call
+	beginning-of-defun with call-interactively so that the mark gets
+	pushed.
+
 2011-01-22  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-repl-shortcut-help): Don't make ? an alias

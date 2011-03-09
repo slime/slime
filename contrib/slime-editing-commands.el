@@ -17,7 +17,8 @@
   (if (and (boundp 'slime-repl-input-start-mark)
            slime-repl-input-start-mark)
       (slime-repl-beginning-of-defun)
-      (beginning-of-defun)))
+    (let ((this-command 'beginning-of-defun)) ; needed for push-mark
+      (call-interactively 'beginning-of-defun))))
 
 (defun slime-end-of-defun ()
   (interactive)
