@@ -1,5 +1,14 @@
 2011-03-09  Helmut Eller  <heller@common-lisp.net>
 
+	Remove slime-sexp-at-point-for-macroexpansion.
+
+	* slime.el (slime-sexp-at-point-for-macroexpansion): Deleted.
+	(slime-eval-macroexpand): Use slime-sexp-at-point instead.
+	(slime-eval-macroexpand-inplace): Use
+	slime-bounds-of-sexp-at-point directly.
+
+2011-03-09  Helmut Eller  <heller@common-lisp.net>
+
 	Move some of the logic from slime-sexp-at-point-for-macroexpansion
 	into slime-sexp-at-point.
 
