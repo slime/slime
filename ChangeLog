@@ -1,3 +1,13 @@
+2011-03-09  Helmut Eller  <heller@common-lisp.net>
+
+	Move some of the logic from slime-sexp-at-point-for-macroexpansion
+	into slime-sexp-at-point.
+
+	* slime.el (slime-bounds-of-sexp-at-point): New.  Special case if
+	we are at '( as slime-sexp-at-point-for-macroexpansion does.
+	(slime-bounds-of-symbol-at-point): New.
+	(slime-symbol-at-point, slime-sexp-at-point): Use the above.
+
 2011-02-24  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-allegro.lisp (find-topframe): Fix excl::int-newest-frame
