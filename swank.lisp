@@ -2599,8 +2599,12 @@ format suitable for Emacs."
     (loop for restart in *sldb-restarts* collect 
           (list (format nil "~:[~;*~]~a" 
                         (eq restart *sldb-quit-restart*)
-                        (restart-name restart) )
-                (princ-to-string restart)))))
+                        (restart-name restart))
+                (with-output-to-string (stream)
+                  (without-printing-errors (:object restart
+                                            :stream stream
+                                            :msg "<<error printing restart>>")
+                    (princ restart stream)))))))
 
 ;;;;; SLDB entry points
 

@@ -1,3 +1,8 @@
+2011-03-13  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (format-restarts-for-emacs): Add
+	without-printing-errors around restart printing.
+
 2011-03-09  Helmut Eller  <heller@common-lisp.net>
 
 	Remove slime-sexp-at-point-for-macroexpansion.
