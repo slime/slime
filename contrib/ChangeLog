@@ -1,3 +1,8 @@
+2011-03-13  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-sprof.el(abbreviate-name): Rename to
+	slime-sprof-abbreviate-name (no package system, oh well...).
+
 2011-03-09  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-editing-commands.el (slime-beginning-of-defun): Call
