@@ -1,3 +1,9 @@
+2011-03-14  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-sprof.lisp (swank-sprof-get-call-graph): Don't call
+	serialize-call-graph when there's no samples. That prevents it
+	from crashing.
+
 2011-03-13  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-sprof.el(abbreviate-name): Rename to

@@ -74,8 +74,8 @@
                                       `((nil "Elsewhere" ,rest nil nil)))))))))
 
 (defslimefun swank-sprof-get-call-graph (&key exclude-swank)
-  (setf *call-graph* (sb-sprof:report :type nil))
-  (serialize-call-graph :exclude-swank exclude-swank))
+  (when (setf *call-graph* (sb-sprof:report :type nil))
+    (serialize-call-graph :exclude-swank exclude-swank)))
 
 (defslimefun swank-sprof-expand-node (index)
   (let* ((node (gethash index *number-nodes*)))
