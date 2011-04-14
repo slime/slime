@@ -1,3 +1,12 @@
+2011-04-14  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (list-threads): Call `use-threads-p' only when
+	*emacs-connection* is non-nil. `use-threads-p' wouldn't work in
+	this case, and there is no need to remove a worker thread from the
+	list if it's not connected.
+	This fixes an issue with calling swank:stop-server when slime
+	isn't connected.
+
 2011-03-13  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (format-restarts-for-emacs): Add
