@@ -2664,6 +2664,21 @@ to it depending on its sign."
         ',slime-compilation-policy)
       #'slime-compilation-finished)))
 
+(defcustom slime-load-failed-fasl 'ask
+  "Which action to take when COMPILE-FILE set FAILURE-P to T.
+NEVER doesn't load the fasl
+ALWAYS loads the fasl
+ASK asks the user."
+  :type '(choice (const never)
+                 (const always)
+                 (const ask)))
+
+(defun slime-load-failed-fasl-p ()
+  (ecase slime-load-failed-fasl
+    (never nil)
+    (always t)
+    (ask (y-or-n-p "Compilation failed.  Load fasl file anyway? "))))
+
 (defun slime-compilation-finished (result)
   (with-struct (slime-compilation-result. notes duration successp
                                           loadp faslfile) result
@@ -2675,7 +2690,7 @@ to it depending on its sign."
     (run-hook-with-args 'slime-compilation-finished-hook notes)
     (when (and loadp faslfile 
                (or successp
-                   (y-or-n-p "Compilation failed.  Load fasl file anyway? ")))
+                   (slime-load-failed-fasl-p)))
       (slime-eval-async `(swank:load-file ,faslfile)))))
 
 (defun slime-show-note-counts (notes secs successp)

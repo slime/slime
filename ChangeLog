@@ -1,3 +1,9 @@
+2011-04-16  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-load-failed-fasl): New variable. Accepts `ask',
+	`always', and `never' symbols. Loads or not loads fasls produced by
+	compile-file which returned non-nil failure-p.
+
 2011-04-14  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (list-threads): Call `use-threads-p' only when
