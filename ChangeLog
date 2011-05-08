@@ -1,3 +1,14 @@
+2011-05-08  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime.el (slime-intern-indentation-spec): New function. Converts
+	strings in an indentation spec to symbols.
+	(slime-handle-indentation-update): Intern the indentation spec using
+	slime-intern-indentation-spec, so that lisp side can pass complex indentation
+	specs.
+	* contrib/swank-indentation.lisp (application-indentation-hint): Downcase
+	symbol names -- any symbol in an indentation spec is pretty much guaranteed
+	to have a lowecase name on the Emacs side.
+
 2011-04-16  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-load-failed-fasl): New variable. Accepts `ask',

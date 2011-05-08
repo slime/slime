@@ -6921,6 +6921,15 @@ Only considers buffers that are not already visible."
 
 (defvar slime-indentation-update-hooks)
 
+(defun slime-intern-indentation-spec (spec)
+  (cond ((consp spec)
+         (cons (slime-intern-indentation-spec (car spec))
+               (slime-intern-indentation-spec (cdr spec))))
+        ((stringp spec)
+         (intern spec))
+        (t
+         spec)))
+
 (defun slime-handle-indentation-update (alist)
   "Update Lisp indent information.
 
@@ -6929,7 +6938,7 @@ settings for `common-lisp-indent-function'. The appropriate property
 is setup, unless the user already set one explicitly."
   (dolist (info alist)
     (let ((symbol (intern (car info)))
-          (indent (cdr info)))
+          (indent (slime-intern-indentation-spec (cdr info))))
       ;; Does the symbol have an indentation value that we set?
       (when (equal (get symbol 'common-lisp-indent-function)
                    (get symbol 'slime-indent))

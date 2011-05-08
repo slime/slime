@@ -21,7 +21,7 @@ emacs.")
                (etypecase indentation-spec
                  (null nil)
                  (number indentation-spec)
-                 (symbol (symbol-name indentation-spec))
+                 (symbol (string-downcase indentation-spec))
                  (cons (cons (walk (car indentation-spec))
                              (walk (cdr indentation-spec)))))))
       (walk indentation))))
