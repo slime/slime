@@ -562,7 +562,7 @@ compiler state."
     (funcall function)))
 
 
-(defvar *trap-load-time-warnings* nil)
+(defvar *trap-load-time-warnings* t)
 
 (defun compiler-policy (qualities)
   "Return compiler policy qualities present in the QUALITIES alist.
@@ -638,7 +638,9 @@ QUALITIES is an alist with (quality . value)"
                    (:source-plist (list :emacs-buffer buffer
                                         :emacs-filename filename
                                         :emacs-string string
-                                        :emacs-position position))
+                                        :emacs-position position)
+                    :source-namestring filename
+                    :allow-other-keys t)
                  (multiple-value-bind (output-file warningsp failurep)
                      (compile-file temp-file-name)
                    (declare (ignore warningsp))
