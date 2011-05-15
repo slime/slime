@@ -1,5 +1,11 @@
 2011-05-15  Didier Verna  <didier@xemacs.org>
 
+	* slime-cl-indent.el (test-lisp-indent): Make sure
+	indent-tabs-mode is nil in the test buffer. Otherwise, spaces may
+	be converted into tabs which would make the tests fail.
+
+2011-05-15  Didier Verna  <didier@xemacs.org>
+
 	* slime-cl-indent.el (lisp-indent-tagbody):
 	(lisp-indent-lambda-list): Use back-to-indentation.
 

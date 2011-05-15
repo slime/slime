@@ -1014,6 +1014,7 @@ Cause subsequent clauses to be indented.")
     (dolist (test tests)
      (with-temp-buffer
        (lisp-mode)
+       (setq indent-tabs-mode nil)
        (when (consp test)
          (dolist (bind (first test))
            (make-variable-buffer-local (first bind))
