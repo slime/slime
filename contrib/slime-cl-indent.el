@@ -334,6 +334,16 @@ For example, the function `case' has an indent property
                         (not (eq (char-after (- containing-sexp 2)) ?\#)))
                    ;; No indentation for "'(...)" elements
                    (setq calculated (1+ sexp-column)))
+                  ((save-excursion
+                     (goto-char indent-point)
+                     (backward-sexp)
+                     (let ((xxx (buffer-substring-no-properties
+                                 (point) (+ (point) 3))))
+                       (and (eq ?\# (elt xxx 0))
+                            (or (member (elt xxx 1) '(?\+ ?\-))
+                                (and (eq ?\! (elt xxx 1))
+                                     (member (elt xxx 2) '(?\+ ?\-)))))))
+                   normal-indent)
                   ((eq (char-after (1- containing-sexp)) ?\#)
                    ;; "#(...)"
                    (setq calculated (1+ sexp-column)))

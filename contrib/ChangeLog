@@ -1,3 +1,8 @@
+2011-05-11  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime-cl-indent.el (common-lisp-indent-function-1): Handle
+	#+ and #-. Also support the SBCL idiom of #!+ #!-.
+
 2011-05-10  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-cl-indent.el: whitespace cleanup.
