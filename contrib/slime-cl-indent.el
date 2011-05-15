@@ -149,20 +149,20 @@ is set to `defun'.")
 	(looking-at "\\sw"))
     (error t)))
 
-
 (defun common-lisp-loop-part-indentation (indent-point state)
   "Compute the indentation of loop form constituents."
-  (let* ((loop-indentation (save-excursion
-			     (goto-char (elt state 1))
+  (let* ((loop-start (elt state 1))
+         (loop-indentation (save-excursion
+			     (goto-char loop-start)
 			     (current-column))))
     (goto-char indent-point)
     (beginning-of-line)
-    (cond ((not (extended-loop-p (elt state 1)))
-	   (+ loop-indentation lisp-simple-loop-indentation))
-	  ((looking-at "^\\s-*\\(:?\\sw+\\|;\\)")
-	   (+ loop-indentation lisp-loop-keyword-indentation))
-	  (t
-	   (+ loop-indentation lisp-loop-forms-indentation)))))
+    (cond ((not (extended-loop-p loop-start))
+           (+ loop-indentation lisp-simple-loop-indentation))
+          ((looking-at "^\\s-*\\(:?\\sw+\\|;\\)")
+           (list (+ loop-indentation lisp-loop-keyword-indentation) loop-start))
+          (t
+           (list (+ loop-indentation lisp-loop-forms-indentation) loop-start)))))
 
 
 ;;;###autoload

@@ -1,5 +1,13 @@
 2011-05-10  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* slime-cl-indent.el (common-lisp-loop-part-indentation): Return
+	(<indent> <loop-start>) instead of <indent> for non-simple loops.
+	This lets calculate-lisp-indent know that the following lines of
+	the loop might be indented differently -- fixing indent-sexp for
+	loops.
+
+2011-05-10  Nikodemus Siivola  <nikodemus@random-state.net>
+
 	* slime-cl-indent.el (common-lisp-indent-function-1): Remove
 	bogus special casing of ,(...) and ,@(...). Even if backquote
 	was being indented as data, the escaped forms are evaluated,
