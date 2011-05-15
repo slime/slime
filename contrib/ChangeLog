@@ -1,5 +1,17 @@
 2011-05-10  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* slime-cl-indent.el (common-lisp-loop-type): New function,
+	replaces extended-loop-p.
+	(common-lisp-loop-part-indentation): Use common-lisp-loop-type to
+	decide how to indent, supporting both "split" and "unsplit" styles.
+	(lisp-loop-keyword-indentation, lisp-loop-forms-indentation):
+	Deleted: pointless now that both split and unsplit styles work
+	automatically.
+	(extended-loop-p): Deleted.
+	(lisp-simple-loop-indentation): Change default to 2.
+
+2011-05-10  Nikodemus Siivola  <nikodemus@random-state.net>
+
 	* slime-cl-indent.el (common-lisp-loop-part-indentation): Return
 	(<indent> <loop-start>) instead of <indent> for non-simple loops.
 	This lets calculate-lisp-indent know that the following lines of

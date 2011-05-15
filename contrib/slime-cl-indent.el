@@ -69,20 +69,7 @@ If nil, indent backquoted lists as data, i.e., like quoted lists."
   :type 'boolean
   :group 'lisp-indent)
 
-
-(defcustom lisp-loop-keyword-indentation 3
-  "Indentation of loop keywords in extended loop forms."
-  :type 'integer
-  :group 'lisp-indent)
-
-
-(defcustom lisp-loop-forms-indentation 5
-  "Indentation of forms in extended loop forms."
-  :type 'integer
-  :group 'lisp-indent)
-
-
-(defcustom lisp-simple-loop-indentation 3
+(defcustom lisp-simple-loop-indentation 2
   "Indentation of forms in simple loop forms."
   :type 'integer
   :group 'lisp-indent)
@@ -137,32 +124,43 @@ If non-nil, alignment is done with the first parameter
 This applies when the value of the `common-lisp-indent-function' property
 is set to `defun'.") 
 
-
-(defun extended-loop-p (loop-start)
-  "True if an extended loop form starts at LOOP-START."
+(defun common-lisp-loop-type (loop-start)
+  "Returns the type of the loop form at LOOP-START.
+Possible types are SIMPLE, EXTENDED, and EXTENDED/SPLIT.
+EXTENDED/SPLIT refers to extended loops whose body does
+not start on the same line as the opening parenthesis of
+the loop."
   (condition-case ()
       (save-excursion
-	(goto-char loop-start)
-	(forward-char 1)
-	(forward-sexp 2)
-	(backward-sexp 1)
-	(looking-at "\\sw"))
-    (error t)))
+        (goto-char loop-start)
+        (let ((line (line-number-at-pos)))
+          (forward-char 1)
+          (forward-sexp 2)
+          (backward-sexp 1)
+          (if (looking-at "\\sw")
+              (if (= line (line-number-at-pos))
+                  'extended
+                'extended/split)
+            'simple)))
+    (error 'simple)))
 
 (defun common-lisp-loop-part-indentation (indent-point state)
   "Compute the indentation of loop form constituents."
   (let* ((loop-start (elt state 1))
+         (type (common-lisp-loop-type loop-start))
          (loop-indentation (save-excursion
 			     (goto-char loop-start)
-			     (current-column))))
+			     (if (eq 'extended/split type)
+                                 (- (current-column) 4)
+                               (current-column)))))
     (goto-char indent-point)
     (beginning-of-line)
-    (cond ((not (extended-loop-p loop-start))
+    (cond ((eq 'simple type)
            (+ loop-indentation lisp-simple-loop-indentation))
           ((looking-at "^\\s-*\\(:?\\sw+\\|;\\)")
-           (list (+ loop-indentation lisp-loop-keyword-indentation) loop-start))
+           (list (+ loop-indentation 6) loop-start))
           (t
-           (list (+ loop-indentation lisp-loop-forms-indentation) loop-start)))))
+           (list (+ loop-indentation 9) loop-start)))))
 
 
 ;;;###autoload
