@@ -5,6 +5,7 @@
 	indent lambda-lists. Allows indenting destructuring lambda-lists correctly:
 	previously we could align to a keyword in a previous sublist, instead
 	of the sublist itself.
+	(lisp-indent-lambda-list-keywords-regexp): Add support for non-standard &more.
 
 2011-05-11  Nikodemus Siivola  <nikodemus@random-state.net>
 

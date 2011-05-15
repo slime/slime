@@ -426,7 +426,7 @@ For example, the function `case' has an indent property
 
 (defvar lisp-indent-lambda-list-keywords-regexp
   "&\\(\
-optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\
+optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\\|more\
 \\)\\([ \t]\\|$\\)"
   "Regular expression matching lambda-list keywords.")
 
