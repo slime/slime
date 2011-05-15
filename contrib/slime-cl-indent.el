@@ -515,10 +515,7 @@ optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\
                    (null (cdr method)))
               (lisp-indent-report-bad-format method))
 
-          (cond ((and tail (not (consp tem)))
-                 ;; indent tail of &rest in same way as first elt of rest
-                 (throw 'exit normal-indent))
-                ((eq tem '&body)
+          (cond ((eq tem '&body)
                  ;; &body means (&rest <lisp-body-indent>)
                  (throw 'exit
                    (if (and (= n 0)     ;first body form

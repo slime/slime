@@ -1,5 +1,11 @@
 2011-05-10  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* slime-cl-indent.el (lisp-indent-259): Don't throw to exit with
+	normal-indent if processing a tail that isn't a cons. Doing that
+	breaks (... &rest foo) specs.
+
+2011-05-10  Nikodemus Siivola  <nikodemus@random-state.net>
+
 	* slime-cl-indent.el (common-lisp-indent-function-1): Don't take
 	`default' for a tentative defun, unlike anything else starting
 	with `def'.
