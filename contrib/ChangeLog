@@ -1,3 +1,13 @@
+2011-05-10  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime-cl-indent.el: New file. Copy of cl-indent.el from current
+	GNU Emacs HEAD. Replaces the ancient copy previously kept as part
+	of slime-indentation.el.
+	* slime-indentation.el (slime-handle-indentation-update): Deleted.
+	Since we now directly replace the previous version of
+	cl-indent.el, the normal version defined in slime.el works fine.
+	ALSO DELETED: the inline copy of 1995 vintage cl-indent.el.
+
 2011-03-14  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sprof.lisp (swank-sprof-get-call-graph): Don't call
