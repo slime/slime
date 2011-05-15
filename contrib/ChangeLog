@@ -1,3 +1,11 @@
+2011-05-12  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime-cl-indent.el (lisp-indent-lambda-list): Use sexp-based
+	traversal instead of regular expressions to figure out how to
+	indent lambda-lists. Allows indenting destructuring lambda-lists correctly:
+	previously we could align to a keyword in a previous sublist, instead
+	of the sublist itself.
+
 2011-05-11  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-cl-indent.el (common-lisp-indent-function-1): Handle
