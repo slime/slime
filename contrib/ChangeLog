@@ -1,3 +1,13 @@
+2011-05-14  Nikodemus Siivola  <nikodemus@solipsist>
+
+	* slime-cl-indent.el (common-lisp-indent-if*-keyword):
+	(common-lisp-indent-if*, common-lisp-indent-if*-1):
+	(common-lisp-indent-if*-advance-past-keyword-on-line): IF*
+	indentation code from Gabor Melis. It should be noted that this
+	should not be considered an endorsement on IF* by the commiter,
+	but rather an act of compassion to all who labor under its shadow.
+	(run-lisp-indent-tests): Test-case for IF* indentation.
+
 2011-05-12  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-cl-indent.el (lisp-indent-lambda-list): Use sexp-based

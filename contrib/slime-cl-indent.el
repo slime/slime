@@ -839,33 +839,85 @@ Cause subsequent clauses to be indented.")
       nil
     (current-column)))
 
-;; Test-case for subclause indentation
-'(loop for i from 0 below 2
-       for j from 0 below 2
-       when foo
-         do (fubar)
-            (bar)
-            (moo)
-         and collect cash
-               into honduras
-       else do ;; this is the body of the first else
-               ;; the body is ...
-               (indented to the above comment)
-               (ZMACS gets this wrong)
-            and do this
-            and do that
-            and when foo
-                  do the-other
-                  and cry
-       when this-is-a-short-condition do
-         (body code of the when)
-       when here's something I used to botch do (here is a body)
-                                                (rest of body indented same)
-       do
-          (exdented loop body)
-          (I'm not sure I like this but it's compatible)
-       when funny-predicate do ;; Here's a comment
-                               (body filled to comment))
+;;;; IF* is not standard, but a plague upon the land
+;;;; ...let's at least try to indent it.
+
+(defvar common-lisp-indent-if*-keyword
+  "threnret\\|elseif\\|then\\|else"
+  "Regexp matching if* keywords")
+
+(defun common-lisp-indent-if*
+    (path parse-state indent-point sexp-column normal-indent)
+  (list (common-lisp-indent-if*-1 parse-state indent-point)
+	(common-lisp-indent-parse-state-start parse-state)))
+
+(defun common-lisp-indent-if*-1 (parse-state indent-point)
+  (catch 'return-indentation
+    (save-excursion
+      ;; Find first clause of if* macro, and use it to establish
+      ;; base column for indentation
+      (goto-char (common-lisp-indent-parse-state-start parse-state))
+      (let ((if*-start-column (current-column)))
+	(common-lisp-indent-if*-advance-past-keyword-on-line)
+	(let* ((case-fold-search t)
+	       (if*-first-clause (point))
+	       (previous-expression-start
+                (common-lisp-indent-parse-state-prev parse-state))
+	       (default-value (current-column))
+	       (if*-body-p nil)
+	       (if*-body-indentation nil))
+	  ;; Determine context of this if* clause, starting with the
+	  ;; expression immediately preceding the line we're trying to indent
+	  (goto-char previous-expression-start)
+	  ;; Handle a body-introducing-clause which ends a line specially.
+	  (back-to-indentation)
+          (if (< (point) if*-first-clause)
+              (goto-char if*-first-clause))
+          ;; Found start of if* clause preceding the one we're trying to indent.
+          ;; Glean context ...
+          (cond
+           ((looking-at common-lisp-indent-if*-keyword)
+            (setq if*-body-p t)
+            ;; Know there's something else on the line (or would
+            ;; have been caught above)
+            (common-lisp-indent-if*-advance-past-keyword-on-line)
+            (setq if*-body-indentation (current-column)))
+           ((looking-at "#'\\|'\\|(")
+            ;; We're in the middle of a clause body ...
+            (setq if*-body-p t)
+            (setq if*-body-indentation (current-column)))
+           (t
+            (setq if*-body-p nil)
+            ;; We still need if*-body-indentation for "syntax errors" ...
+            (goto-char previous-expression-start)
+            (setq if*-body-indentation (current-column))))
+
+          ;; Go to first non-blank character of the line we're trying to indent.
+          ;; (if none, wind up poised on the new-line ...)
+          (goto-char indent-point)
+          (back-to-indentation)
+          (cond
+           ((or (eolp) (looking-at ";"))
+            ;; Blank line.  If body-p, indent as body, else indent as
+            ;; vanilla clause.
+            (if if*-body-p
+                if*-body-indentation
+              default-value))
+           ((not (looking-at common-lisp-indent-if*-keyword))
+            ;; Clause body ...
+            if*-body-indentation)
+           (t
+            (- (+ 7 if*-start-column)
+               (- (match-end 0) (match-beginning 0))))))))))
+
+(defun common-lisp-indent-if*-advance-past-keyword-on-line ()
+  (forward-word 1)
+  (block move-forward
+    (while (and (looking-at "\\s-") (not (eolp)))
+      (forward-char 1)))
+  (if (eolp)
+      nil
+    (current-column)))
 
 
 ;;;; Indentation specs for standard symbols, and a few semistandard ones.
@@ -916,6 +968,7 @@ Cause subsequent clauses to be indented.")
            (if          (nil nil &body))
            ;; single-else style (then and else equally indented)
            (if          (&rest nil))
+           (if*         common-lisp-indent-if*)
            (lambda      (&lambda &rest lisp-indent-function-lambda-hack))
            (let         ((&whole 4 &rest (&whole 1 1 2)) &body))
            (let* . let)
@@ -1122,7 +1175,15 @@ Cause subsequent clauses to be indented.")
                      (foo)))
                (t
                 (lose
-                 3))))))")))
+                 3))))))"
+     "
+  (if* (eq t nil)
+     then ()
+          ()
+   elseif (dsf)
+     thenret x
+     else (balbkj)
+          (sdf))")))
 
 
 
