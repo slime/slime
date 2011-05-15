@@ -337,13 +337,12 @@ For example, the function `case' has an indent property
                   ((save-excursion
                      (goto-char indent-point)
                      (backward-sexp)
-                     (let ((xxx (buffer-substring-no-properties
-                                 (point) (+ (point) 3))))
-                       (and (eq ?\# (elt xxx 0))
-                            (or (member (elt xxx 1) '(?\+ ?\-))
-                                (and (eq ?\! (elt xxx 1))
-                                     (member (elt xxx 2) '(?\+ ?\-)))))))
-                   normal-indent)
+                     (let ((re "#!?\\(+\\|-\\)"))
+                       (if (or (looking-at re)
+                               (ignore-errors
+                                 (backward-sexp)
+                                 (looking-at re)))
+                         (setq calculated (current-column))))))
                   ((eq (char-after (1- containing-sexp)) ?\#)
                    ;; "#(...)"
                    (setq calculated (1+ sexp-column)))
@@ -1182,7 +1181,10 @@ Cause subsequent clauses to be indented.")
    elseif (dsf)
      thenret x
      else (balbkj)
-          (sdf))")))
+          (sdf))"
+     "
+   (list foo #+foo (foo)
+             #-foo (no-foo))")))
 
 
 
