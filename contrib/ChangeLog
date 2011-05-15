@@ -1,5 +1,9 @@
 2011-05-10  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* slime-cl-indent.el: whitespace cleanup.
+
+2011-05-10  Nikodemus Siivola  <nikodemus@random-state.net>
+
 	* slime-cl-indent.el: subclause aware loop indentation, adapted from
 	cl-indent-patches.el.
 	(lisp-indent-loop-subclauses): New customization.
