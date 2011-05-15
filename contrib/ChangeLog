@@ -1,5 +1,11 @@
 2011-05-10  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* slime-cl-indent.el (common-lisp-indent-function-1): Don't take
+	`default' for a tentative defun, unlike anything else starting
+	with `def'.
+
+2011-05-10  Nikodemus Siivola  <nikodemus@random-state.net>
+
 	slime-indentation: indentation improvements on defmethod and
 	lambda-lists for cl-indent.el by Didier Verna, from emacs-devel.
 

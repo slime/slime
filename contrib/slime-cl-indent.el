@@ -313,8 +313,8 @@ For example, the function `case' has an indent property
                   ((null method)
                    (when (null (cdr path))
 		     ;; (package prefix was stripped off above)
-		     (cond ((string-match "\\`def"
-					  function)
+		     (cond ((and (string-match "\\`def" function)
+                                 (not (string-match "\\`default" function)))
 			    (setq tentative-defun t))
 			   ((string-match
                              (eval-when-compile
