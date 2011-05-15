@@ -6,6 +6,7 @@
 	previously we could align to a keyword in a previous sublist, instead
 	of the sublist itself.
 	(lisp-indent-lambda-list-keywords-regexp): Add support for non-standard &more.
+	(test-lisp-indent, run-lisp-indent-tests): Rudimentary tests.
 
 2011-05-11  Nikodemus Siivola  <nikodemus@random-state.net>
 

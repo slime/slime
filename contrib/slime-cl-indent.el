@@ -960,6 +960,112 @@ Cause subsequent clauses to be indented.")
              (get (cdr el) 'common-lisp-indent-function)
              (car (cdr el))))))
 
+(defun test-lisp-indent (tests)
+  (let ((ok 0))
+    (dolist (test tests)
+     (with-temp-buffer
+       (lisp-mode)
+       (when (consp test)
+         (dolist (bind (first test))
+           (make-variable-buffer-local (first bind))
+           (set (first bind) (second bind)))
+         (setf test (second test)))
+       (insert test)
+       (goto-char 0)
+       (skip-chars-forward " \t\n")
+       ;; Mess up the indentation so we know reindentation works
+       (let ((mess nil))
+         (save-excursion
+           (while (not (eobp))
+             (forward-line 1)
+             (ignore-errors (delete-char 1) (setf mess t))))
+         (if (not mess)
+             (error "Couldn't mess up indentation?")))
+       (indent-sexp)
+       (if (equal (buffer-string) test)
+           (incf ok)
+           (error "Bad indentation.\nWanted: %s\nGot: %s"
+                  test
+                  (buffer-string)))))
+    ok))
+
+;; (run-lisp-indent-tests)
+
+(defun run-lisp-indent-tests ()
+  (test-lisp-indent
+   '("
+ (defun foo ()
+   t)"
+     (((lisp-lambda-list-keyword-parameter-alignment nil)
+       (lisp-lambda-list-keyword-alignment nil))
+      "
+ (defun foo (foo &optional opt1
+                   opt2
+             &rest rest)
+   (list foo opt1 opt2
+         rest))")
+     (((lisp-lambda-list-keyword-parameter-alignment t)
+       (lisp-lambda-list-keyword-alignment nil))
+      "
+ (defun foo (foo &optional opt1
+                           opt2
+             &rest rest)
+   (list foo opt1 opt2
+         rest))")
+     (((lisp-lambda-list-keyword-parameter-alignment nil)
+       (lisp-lambda-list-keyword-alignment t))
+      "
+ (defun foo (foo &optional opt1
+                   opt2
+                 &rest rest)
+   (list foo opt1 opt2
+         rest))")
+     (((lisp-lambda-list-keyword-parameter-alignment y)
+       (lisp-lambda-list-keyword-alignment t))
+      "
+ (defun foo (foo &optional opt1
+                           opt2
+                 &rest rest)
+   (list foo opt1 opt2
+         rest))")
+     "
+  (let ((x y)
+        (foo #-foo (no-foo)
+             #+foo (yes-foo))
+        (bar #-bar
+             (no-bar)
+             #+bar
+             (yes-bar)))
+    (list foo bar
+          x))"
+     "
+  (loop for i from 0 below 2
+        for j from 0 below 2
+        when foo
+          do (fubar)
+             (bar)
+             (moo)
+          and collect cash
+                into honduras
+        else do ;; this is the body of the first else
+                ;; the body is ...
+                (indented to the above comment)
+                (ZMACS gets this wrong)
+             and do this
+             and do that
+             and when foo
+                   do the-other
+                   and cry
+        when this-is-a-short-condition do
+          (body code of the when)
+        when here's something I used to botch do (here is a body)
+                                                 (rest of body indented same)
+        do
+           (exdented loop body)
+           (I'm not sure I like this but it's compatible)
+        when funny-predicate do ;; Here's a comment
+                                (body filled to comment))")))
+
 
 ;(defun foo (x)
 ;  (tagbody
