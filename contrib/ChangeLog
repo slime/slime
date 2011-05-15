@@ -1,5 +1,12 @@
 2011-05-10  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* slime-cl-indent.el (common-lisp-indent-function-1): Remove
+	bogus special casing of ,(...) and ,@(...). Even if backquote
+	was being indented as data, the escaped forms are evaluated,
+	and hence should be indented as lisp code.
+
+2011-05-10  Nikodemus Siivola  <nikodemus@random-state.net>
+
 	* slime-cl-indent.el (lisp-indent-259): Don't throw to exit with
 	normal-indent if processing a tail that isn't a cons. Doing that
 	breaks (... &rest foo) specs.
