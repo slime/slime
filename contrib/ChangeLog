@@ -2,6 +2,8 @@
 
 	* slime-cl-indent.el (common-lisp-indent-function-1): Better #+
 	support.
+	(common-lisp-loop-part-indentation): Make newline-and-indent work better
+	with non-subclause-aware loop indentation.
 
 2011-05-15  Didier Verna  <didier@xemacs.org>
 

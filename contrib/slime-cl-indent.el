@@ -164,7 +164,7 @@ the loop."
     (beginning-of-line)
     (cond ((eq 'simple type)
            (+ loop-indentation lisp-simple-loop-indentation))
-          ((looking-at "^\\s-*\\(:?\\sw+\\|;\\)")
+          ((looking-at "^\\s-*\\(:?\\sw+\\|;\\|)\\|\n\\)")
            (list (+ loop-indentation 6) loop-start))
           (t
            (list (+ loop-indentation 9) loop-start)))))
@@ -1028,7 +1028,7 @@ Cause subsequent clauses to be indented.")
            (while (not (eobp))
              (forward-line 1)
              (ignore-errors (delete-char 1) (setf mess t))))
-         (if (not mess)
+         (if (or (not mess) (equal (buffer-string) test))
              (error "Couldn't mess up indentation?")))
        (indent-sexp)
        (if (equal (buffer-string) test)
@@ -1184,7 +1184,17 @@ Cause subsequent clauses to be indented.")
           (sdf))"
      "
    (list foo #+foo (foo)
-             #-foo (no-foo))")))
+             #-foo (no-foo))"
+     (((lisp-loop-indent-subclauses t))
+      "
+    (loop for x in foo1
+          for y in quux1
+          )")
+     (((lisp-loop-indent-subclauses nil))
+      "
+    (loop for x in foo
+          for y in quux
+          )"))))
 
 
 
