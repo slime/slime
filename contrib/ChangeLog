@@ -7,6 +7,9 @@
 	of the sublist itself.
 	(lisp-indent-lambda-list-keywords-regexp): Add support for non-standard &more.
 	(test-lisp-indent, run-lisp-indent-tests): Rudimentary tests.
+	(lisp-indent-259): Use lambda-list-indentation even if the CDR of the path
+	isn't null: this allows correct indentation of destructuring sublists.
+	(run-lisp-indent-tests): More test-cases.
 
 2011-05-11  Nikodemus Siivola  <nikodemus@random-state.net>
 

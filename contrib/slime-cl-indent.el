@@ -555,15 +555,13 @@ optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\\|mo
                  (throw 'exit
                    (cond ((null p)
                           (list (+ sexp-column 4) containing-form-start))
-                         ((null (cdr p))
+                         (t
                           ;; Indentation within a lambda-list. -- dvl
                           (list (lisp-indent-lambda-list
                                  indent-point
                                  sexp-column
                                  containing-form-start)
-                                containing-form-start))
-                         (t
-                          normal-indent))))
+                                containing-form-start)))))
                 ((integerp tem)
                  (throw 'exit
                    (if (null p)         ;not in subforms
@@ -1020,12 +1018,44 @@ Cause subsequent clauses to be indented.")
                  &rest rest)
    (list foo opt1 opt2
          rest))")
-     (((lisp-lambda-list-keyword-parameter-alignment y)
+     (((lisp-lambda-list-keyword-parameter-alignment t)
        (lisp-lambda-list-keyword-alignment t))
       "
  (defun foo (foo &optional opt1
                            opt2
                  &rest rest)
+   (list foo opt1 opt2
+         rest))")
+     (((lisp-lambda-list-keyword-parameter-alignment nil)
+       (lisp-lambda-list-keyword-alignment nil))
+      "
+ (defmacro foo ((foo &optional opt1
+                       opt2
+                 &rest rest))
+   (list foo opt1 opt2
+         rest))")
+     (((lisp-lambda-list-keyword-parameter-alignment t)
+       (lisp-lambda-list-keyword-alignment nil))
+      "
+ (defmacro foo ((foo &optional opt1
+                               opt2
+                 &rest rest))
+   (list foo opt1 opt2
+         rest))")
+     (((lisp-lambda-list-keyword-parameter-alignment nil)
+       (lisp-lambda-list-keyword-alignment t))
+      "
+ (defmacro foo ((foo &optional opt1
+                       opt2
+                     &rest rest))
+   (list foo opt1 opt2
+         rest))")
+     (((lisp-lambda-list-keyword-parameter-alignment t)
+       (lisp-lambda-list-keyword-alignment t))
+      "
+ (defmacro foo ((foo &optional opt1
+                               opt2
+                     &rest rest))
    (list foo opt1 opt2
          rest))")
      "
@@ -1064,37 +1094,37 @@ Cause subsequent clauses to be indented.")
            (exdented loop body)
            (I'm not sure I like this but it's compatible)
         when funny-predicate do ;; Here's a comment
-                                (body filled to comment))")))
+                                (body filled to comment))"
+     "
+  (defun foo (x)
+    (tagbody
+     foo
+       (bar)
+     baz
+       (when (losing)
+         (with-big-loser
+             (yow)
+           ((lambda ()
+              foo)
+            big)))
+       (flet ((foo (bar baz zap)
+                (zip))
+              (zot ()
+                quux))
+         (do ()
+             ((lose)
+              (foo 1))
+           (quux)
+          foo
+           (lose))
+         (cond ((x)
+                (win 1 2
+                     (foo)))
+               (t
+                (lose
+                 3))))))")))
 
 
-;(defun foo (x)
-;  (tagbody
-;   foo
-;     (bar)
-;   baz
-;     (when (losing)
-;       (with-big-loser
-;           (yow)
-;         ((lambda ()
-;            foo)
-;          big)))
-;     (flet ((foo (bar baz zap)
-;              (zip))
-;            (zot ()
-;              quux))
-;       (do ()
-;           ((lose)
-;            (foo 1))
-;         (quux)
-;        foo
-;         (lose))
-;       (cond ((x)
-;              (win 1 2
-;                   (foo)))
-;             (t
-;              (lose
-;                3))))))
-
 
 ;(put 'while    'common-lisp-indent-function 1)
 ;(put 'defwrapper'common-lisp-indent-function ...)
