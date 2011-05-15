@@ -1,5 +1,29 @@
 2011-05-10  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* slime-cl-indent.el: subclause aware loop indentation, adapted from
+	cl-indent-patches.el.
+	(lisp-indent-loop-subclauses): New customization.
+	(common-lisp-indent-function): Trampoline directly to
+	common-lisp-indent-function-1 -- loop indentation is now picked up
+	by the normal machinery instead of being special cased here.
+	(lisp-indent-loop): New function. Chooses between the old naive
+	indentation and new subclause-aware version based on
+	lisp-indent-loop-subclauses.
+	(common-lisp-indent-body-introducing-loop-macro-keyword):
+	(common-lisp-indent-prefix-loop-macro-keyword):
+	(common-lisp-indent-clause-joining-loop-macro-keyword):
+	(common-lisp-indent-indented-loop-macro-keyword):
+	(common-lisp-indent-indenting-loop-macro-keyword):
+	(common-lisp-indent-loop-macro-else-keyword): Regular expressions
+	for identifying loop parts.
+	(common-lisp-indent-parse-state-depth):
+	(common-lisp-indent-parse-state-start):
+	(common-lisp-indent-parse-state-prev): Parse state accessors.
+	(common-lisp-indent-loop-macro-1): Subclause aware loop indentation.
+	(common-lisp-indent-loop-advance-past-keyword-on-line): Utility used by the above.
+
+2011-05-10  Nikodemus Siivola  <nikodemus@random-state.net>
+
 	* slime-cl-indent.el (common-lisp-loop-type): New function,
 	replaces extended-loop-p.
 	(common-lisp-loop-part-indentation): Use common-lisp-loop-type to
