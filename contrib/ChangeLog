@@ -1,3 +1,8 @@
+2011-05-15  Didier Verna  <didier@xemacs.org>
+
+	* slime-cl-indent.el (lisp-indent-tagbody):
+	(lisp-indent-lambda-list): Use back-to-indentation.
+
 2011-05-14  Nikodemus Siivola  <nikodemus@solipsist>
 
 	* slime-cl-indent.el (common-lisp-indent-if*-keyword):

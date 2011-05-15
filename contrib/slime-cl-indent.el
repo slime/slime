@@ -435,8 +435,7 @@ optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\\|mo
   (let (limit)
     (cond ((save-excursion
              (goto-char indent-point)
-             (beginning-of-line)
-             (skip-chars-forward " \t")
+	     (back-to-indentation)
              (setq limit (point))
              (looking-at lisp-indent-lambda-list-keywords-regexp))
            ;; We're facing a lambda-list keyword.
@@ -596,8 +595,7 @@ optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\\|mo
       normal-indent
     (save-excursion
       (goto-char indent-point)
-      (beginning-of-line)
-      (skip-chars-forward " \t")
+      (back-to-indentation)
       (list (cond ((looking-at "\\sw\\|\\s_")
                    ;; a tagbody tag
                    (+ sexp-column lisp-tag-indentation))
