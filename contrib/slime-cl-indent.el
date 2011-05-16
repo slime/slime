@@ -167,24 +167,24 @@ the loop."
                              (if (eq 'extended/split type)
                                  (- (current-column) 4)
                                (current-column))))
-         (indent loop-indentation))
+         (indent nil)
+         (re "\\(:?\\sw+\\|;\\|)\\|\n\\)"))
     (goto-char indent-point)
-    (beginning-of-line)
+    (back-to-indentation)
     (cond ((eq 'simple type)
            (+ loop-indentation lisp-simple-loop-indentation))
-          ;; Previous line starts a body, and has a form on it
-          ((and (save-excursion
-                  (previous-line)
-                  (back-to-indentation)
-                  (looking-at common-lisp-indent-body-introducing-loop-macro-keyword))
+          ;; We are already in a body, with forms in it.
+          ((and (not (looking-at re))
                 (save-excursion
-                  (when (and (ignore-errors (backward-sexp) t)
-                             (not (looking-at common-lisp-indent-body-introducing-loop-macro-keyword)))
-                    (setf indent (current-column)))))
+                  (while (and (ignore-errors (backward-sexp) t)
+                              (not (looking-at re)))
+                    (setq indent (current-column)))
+                  (when (and indent
+                             (looking-at common-lisp-indent-body-introducing-loop-macro-keyword))
+                    t)))
            (list indent loop-start))
           ;; Keyword-style
-          ((or lisp-loop-indent-forms-like-keywords
-               (looking-at "^\\s-*\\(:?\\sw+\\|;\\|)\\|\n\\)"))
+          ((or lisp-loop-indent-forms-like-keywords (looking-at re))
            (list (+ loop-indentation 6) loop-start))
           ;; Form-style
           (t
@@ -1224,10 +1224,24 @@ Cause subsequent clauses to be indented.")
          for y in quux
          finally (foo)
                  (fo)
+                 (zoo)
          do
          (print x)
-         (print y))")
+         (print y)
+         (print 'ok!))")
       (((lisp-loop-indent-subclauses nil)
+        (lisp-loop-indent-forms-like-keywords nil))
+       "
+   (loop for x in foo
+         for y in quux
+         finally (foo)
+                 (fo)
+                 (zoo)
+         do
+            (print x)
+            (print y)
+            (print 'ok!))")
+      (((lisp-loop-indent-subclauses t)
         (lisp-loop-indent-forms-like-keywords nil))
        "
    (loop for x in foo
@@ -1236,7 +1250,8 @@ Cause subsequent clauses to be indented.")
                  (fo)
          do
             (print x)
-            (print y))"))))
+            (print y)
+            (print 'ok!))"))))
 
 
 
