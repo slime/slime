@@ -79,6 +79,13 @@ If nil, indent backquoted lists as data, i.e., like quoted lists."
   :type 'integer
   :group 'lisp-indent)
 
+(defcustom lisp-loop-indent-forms-like-keywords nil
+  "Whether or not to indent loop subforms just like
+loop keywords. Only matters when `lisp-loop-indent-subclauses'
+is nil."
+  :type 'integer
+  :group 'lisp-indent)
+
 (defcustom lisp-lambda-list-keyword-alignment nil
   "Whether to vertically align lambda-list keywords together.
 If nil (the default), keyworded lambda-list parts are aligned
@@ -159,13 +166,27 @@ the loop."
                              (goto-char loop-start)
                              (if (eq 'extended/split type)
                                  (- (current-column) 4)
-                               (current-column)))))
+                               (current-column))))
+         (indent loop-indentation))
     (goto-char indent-point)
     (beginning-of-line)
     (cond ((eq 'simple type)
            (+ loop-indentation lisp-simple-loop-indentation))
-          ((looking-at "^\\s-*\\(:?\\sw+\\|;\\|)\\|\n\\)")
+          ;; Previous line starts a body, and has a form on it
+          ((and (save-excursion
+                  (previous-line)
+                  (back-to-indentation)
+                  (looking-at common-lisp-indent-body-introducing-loop-macro-keyword))
+                (save-excursion
+                  (when (and (ignore-errors (backward-sexp) t)
+                             (not (looking-at common-lisp-indent-body-introducing-loop-macro-keyword)))
+                    (setf indent (current-column)))))
+           (list indent loop-start))
+          ;; Keyword-style
+          ((or lisp-loop-indent-forms-like-keywords
+               (looking-at "^\\s-*\\(:?\\sw+\\|;\\|)\\|\n\\)"))
            (list (+ loop-indentation 6) loop-start))
+          ;; Form-style
           (t
            (list (+ loop-indentation 9) loop-start)))))
 
@@ -961,8 +982,6 @@ Cause subsequent clauses to be indented.")
            (generic-labels . flet)
            (handler-case (4 &rest (&whole 2 &lambda &body)))
            (restart-case . handler-case)
-           ;; `else-body' style
-           (if          (nil nil &body))
            ;; single-else style (then and else equally indented)
            (if          (&rest nil))
            (if*         common-lisp-indent-if*)
@@ -1015,6 +1034,8 @@ Cause subsequent clauses to be indented.")
        (lisp-mode)
        (setq indent-tabs-mode nil)
        (when (consp test)
+         (when (cddr test)
+           (error "Malformed test: %s" test))
          (dolist (bind (first test))
            (make-variable-buffer-local (first bind))
            (set (first bind) (second bind)))
@@ -1119,7 +1140,8 @@ Cause subsequent clauses to be indented.")
              (yes-bar)))
     (list foo bar
           x))"
-     "
+     (((lisp-loop-indent-subclauses t))
+      "
   (loop for i from 0 below 2
         for j from 0 below 2
         when foo
@@ -1145,7 +1167,7 @@ Cause subsequent clauses to be indented.")
            (exdented loop body)
            (I'm not sure I like this but it's compatible)
         when funny-predicate do ;; Here's a comment
-                                (body filled to comment))"
+                                (body filled to comment))")
      "
   (defun foo (x)
     (tagbody
@@ -1194,7 +1216,27 @@ Cause subsequent clauses to be indented.")
       "
     (loop for x in foo
           for y in quux
-          )"))))
+          )")
+     (((lisp-loop-indent-subclauses nil)
+       (lisp-loop-indent-forms-like-keywords t))
+      "
+   (loop for x in foo
+         for y in quux
+         finally (foo)
+                 (fo)
+         do
+         (print x)
+         (print y))")
+      (((lisp-loop-indent-subclauses nil)
+        (lisp-loop-indent-forms-like-keywords nil))
+       "
+   (loop for x in foo
+         for y in quux
+         finally (foo)
+                 (fo)
+         do
+            (print x)
+            (print y))"))))
 
 
 

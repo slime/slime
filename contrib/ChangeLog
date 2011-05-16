@@ -1,3 +1,11 @@
+2011-05-16  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime-cl-indent.el (lisp-loop-indent-forms-like-keywords)
+	(common-lisp-loop-part-indentation, run-lisp-indent-tests): Cater
+	to loop indentation style that prefers to align forms with keywords.
+	Activated by setting lisp-loop-indent-forms-like-keywords to t,
+	and lisp-loop-indent-subclauses to nil.
+
 2011-05-15  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-cl-indent.el (common-lisp-indent-function-1): Better #+
