@@ -1,3 +1,8 @@
+2011-05-17  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime-cl-indent.el (run-lisp-indent-tests, lisp-indent-loop): Fix
+	indentation of function calls, etc, inside loop forms.
+
 2011-05-16  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-cl-indent.el (lisp-loop-indent-forms-like-keywords)

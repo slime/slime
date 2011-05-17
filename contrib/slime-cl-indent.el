@@ -690,10 +690,13 @@ optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\\|mo
        (error (+ sexp-column lisp-body-indent)))))
 
 (defun lisp-indent-loop (path state indent-point sexp-column normal-indent)
-  (if lisp-loop-indent-subclauses
-      (list (common-lisp-indent-loop-macro-1 state indent-point)
-            (common-lisp-indent-parse-state-start state))
-    (common-lisp-loop-part-indentation indent-point state)))
+  (cond ((not (null (cdr path)))
+         normal-indent)
+        (lisp-loop-indent-subclauses
+         (list (common-lisp-indent-loop-macro-1 state indent-point)
+               (common-lisp-indent-parse-state-start state)))
+        (t
+         (common-lisp-loop-part-indentation indent-point state))))
 
 ;;;; LOOP indentation, the complex version -- handles subclause indentation
 
@@ -1229,8 +1232,8 @@ Cause subsequent clauses to be indented.")
          (print x)
          (print y)
          (print 'ok!))")
-      (((lisp-loop-indent-subclauses nil)
-        (lisp-loop-indent-forms-like-keywords nil))
+     (((lisp-loop-indent-subclauses nil)
+       (lisp-loop-indent-forms-like-keywords nil))
        "
    (loop for x in foo
          for y in quux
@@ -1251,7 +1254,22 @@ Cause subsequent clauses to be indented.")
          do
             (print x)
             (print y)
-            (print 'ok!))"))))
+            (print 'ok!))")
+     (((lisp-loop-indent-subclauses nil)
+       (lisp-loop-indent-forms-like-keywords nil))
+       "
+   (loop for f in files
+         collect (open f
+                       :direction :output)
+         do (foo) (bar)
+            (quux))")
+      (((lisp-loop-indent-subclauses t))
+       "
+   (loop for f in files
+         collect (open f
+                       :direction :output)
+         do (foo) (bar)
+            (quux))"))))
 
 
 
