@@ -648,6 +648,35 @@ optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\\|mo
                (&whole nil &rest 1))
              path state indent-point sexp-column normal-indent)))
 
+(defun lisp-indent-defsetf
+    (path state indent-point sexp-column normal-indent)
+  (list
+   (cond
+    ;; Inside the lambda-list in a long-form defsetf.
+    ((and (eql 2 (car path)) (cdr path))
+     (lisp-indent-lambda-list indent-point sexp-column (elt state 1)))
+    ;; Long form: has a lambda-list.
+    ((or (cdr path)
+         (save-excursion
+           (goto-char (elt state 1))
+           (ignore-errors
+             (down-list)
+             (forward-sexp 3)
+             (backward-sexp)
+             (looking-at "nil\\|("))))
+     (+ sexp-column
+        (case (car path)
+          ((1 3) 4)
+          (2 4)
+          (t 2))))
+    ;; Short form.
+    (t
+     (+ sexp-column
+        (case (car path)
+          (1 4)
+          (2 4)
+          (t 2)))))
+   (elt state 1)))
 
 ;; LISP-INDENT-DEFMETHOD now supports the presence of more than one method
 ;; qualifier and indents the method's lambda list properly. -- dvl
@@ -959,7 +988,7 @@ Cause subsequent clauses to be indented.")
            (defconst     . defcustom)
            (define-condition  . defclass)
            (define-modify-macro (4 &lambda &body))
-           (defsetf     (4 &lambda 4 &body))
+           (defsetf      lisp-indent-defsetf)
            (defun       (4 &lambda &body))
            (defgeneric  (4 &lambda &body))
            (define-setf-method . defun)
@@ -1269,7 +1298,20 @@ Cause subsequent clauses to be indented.")
          collect (open f
                        :direction :output)
          do (foo) (bar)
-            (quux))"))))
+            (quux))")
+       "
+   (defsetf foo bar
+     \"the doc string\")"
+       "
+   (defsetf foo
+       bar
+     \"the doc string\")"
+       (((lisp-lambda-list-keyword-parameter-alignment t))
+        "
+   (defsetf foo (x y &optional a
+                               z)
+       (a b c)
+     stuff)"))))
 
 
 

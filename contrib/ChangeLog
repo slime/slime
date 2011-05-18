@@ -1,3 +1,8 @@
+2011-05-18  Nikodemus Siivola  <nikodemus@solipsist>
+
+	* slime-cl-indent.el (lisp-indent-defsetf, run-lisp-indent-tests):
+	Better DEFSETF indentation: support both long and short forms.
+
 2011-05-17  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-cl-indent.el (run-lisp-indent-tests, lisp-indent-loop): Fix
