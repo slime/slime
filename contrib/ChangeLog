@@ -1,3 +1,9 @@
+2011-05-19  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime-cl-indent.el (common-lisp-indent-function-1)
+	(lisp-align-keywords-in-calls): Support for aligning keyword
+	arguments in calls.
+
 2011-05-18  Nikodemus Siivola  <nikodemus@solipsist>
 
 	* slime-cl-indent.el (lisp-indent-defsetf, run-lisp-indent-tests):

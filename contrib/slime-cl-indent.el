@@ -86,6 +86,22 @@ is nil."
   :type 'integer
   :group 'lisp-indent)
 
+(defcustom lisp-align-keywords-in-calls t
+  "Whether to align keyword arguments vertically or not.
+If t (the default), keywords in contexts where no other
+indentation rule takes precedence are aligned like this:
+
+\(make-instance 'foo :bar t
+                    :quux 42)
+
+If nil, they are indented like any other function
+call arguments:
+
+\(make-instance 'foo :bar t
+               :quux 42)"
+  :type 'boolean
+  :group 'lisp-indent)
+
 (defcustom lisp-lambda-list-keyword-alignment nil
   "Whether to vertically align lambda-list keywords together.
 If nil (the default), keyworded lambda-list parts are aligned
@@ -386,7 +402,19 @@ For example, the function `case' has an indent property
                               function lisp-indent-defun-method
                               path state indent-point
                               sexp-column normal-indent)
-                             normal-indent tentative-calculated)))
+                             normal-indent tentative-calculated)
+                     (when lisp-align-keywords-in-calls
+                       ;; No method so far. If we're looking at a keyword,
+                       ;; align with the first keyword in this expression.
+                       ;; This gives a reasonable indentation to most things
+                       ;; with keyword arguments.
+                       (save-excursion
+                         (goto-char indent-point)
+                         (back-to-indentation)
+                         (when (looking-at ":")
+                           (while (ignore-errors (backward-sexp 2) t)
+                             (when (looking-at ":")
+                               (setq calculated (current-column)))))))))
                   ((integerp method)
                    ;; convenient top-level hack.
                    ;;  (also compatible with lisp-indent-function)
@@ -1311,7 +1339,15 @@ Cause subsequent clauses to be indented.")
    (defsetf foo (x y &optional a
                                z)
        (a b c)
-     stuff)"))))
+     stuff)")
+       (((lisp-align-keywords-in-calls t))
+        "
+    (make-instance 'foo :bar t quux t
+                        :zot t)")
+       (((lisp-align-keywords-in-calls nil))
+        "
+    (make-instance 'foo :bar t quux t
+                   :zot t)"))))
 
 
 
