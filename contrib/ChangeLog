@@ -3,6 +3,9 @@
 	* slime-cl-indent.el (common-lisp-indent-function-1)
 	(lisp-align-keywords-in-calls): Support for aligning keyword
 	arguments in calls.
+	(lisp-lambda-list-indentation, lisp-indent-lambda-list)
+	(run-lisp-indent-tests): Support for turning off the
+	fancy lambda-list indentation.
 
 2011-05-18  Nikodemus Siivola  <nikodemus@solipsist>
 

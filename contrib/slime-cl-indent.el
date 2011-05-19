@@ -102,6 +102,22 @@ call arguments:
   :type 'boolean
   :group 'lisp-indent)
 
+(defcustom lisp-lambda-list-indentation t
+  "Whether to indent lambda-lists specially. Defaults to t. Setting this to
+nil makes `lisp-lambda-list-keyword-alignment',
+`lisp-lambda-list-keyword-parameter-alignment', and
+`lisp-lambda-list-keyword-parameter-indentation' meaningless, causing
+lambda-lists to be indented as if they were data:
+
+\(defun example (a b &optional o1 o2
+                o3 o4
+                &rest r
+                &key k1 k2
+                k3 k4)
+  #|...|#)"
+  :type 'boolean
+  :group 'lisp-indent)
+
 (defcustom lisp-lambda-list-keyword-alignment nil
   "Whether to vertically align lambda-list keywords together.
 If nil (the default), keyworded lambda-list parts are aligned
@@ -480,60 +496,62 @@ optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\\|mo
 
 (defun lisp-indent-lambda-list
     (indent-point sexp-column containing-form-start)
-  (let (limit)
-    (cond ((save-excursion
-             (goto-char indent-point)
-	     (back-to-indentation)
-             (setq limit (point))
-             (looking-at lisp-indent-lambda-list-keywords-regexp))
-           ;; We're facing a lambda-list keyword.
-           (if lisp-lambda-list-keyword-alignment
-               ;; Align to the first keyword if any, or to the beginning of
-               ;; the lambda-list.
-               (save-excursion
-                 (goto-char containing-form-start)
-                 (down-list)
-                 (let ((key-indent nil)
-                       (next t))
-                   (while (and next (< (point) indent-point))
-                     (if (looking-at lisp-indent-lambda-list-keywords-regexp)
-                         (setq key-indent (current-column)
-                               next nil)
-                       (setq next (ignore-errors (forward-sexp) t))
-                       (if next
-                           (ignore-errors
-                             (forward-sexp)
-                             (backward-sexp)))))
-                   (or key-indent
-                       (1+ sexp-column))))
+  (if (not lisp-lambda-list-indentation)
+      (1+ sexp-column)
+    (let (limit)
+      (cond ((save-excursion
+               (goto-char indent-point)
+               (back-to-indentation)
+               (setq limit (point))
+               (looking-at lisp-indent-lambda-list-keywords-regexp))
+             ;; We're facing a lambda-list keyword.
+             (if lisp-lambda-list-keyword-alignment
+                 ;; Align to the first keyword if any, or to the beginning of
+                 ;; the lambda-list.
+                 (save-excursion
+                   (goto-char containing-form-start)
+                   (down-list)
+                   (let ((key-indent nil)
+                         (next t))
+                     (while (and next (< (point) indent-point))
+                       (if (looking-at lisp-indent-lambda-list-keywords-regexp)
+                           (setq key-indent (current-column)
+                                 next nil)
+                         (setq next (ignore-errors (forward-sexp) t))
+                         (if next
+                             (ignore-errors
+                               (forward-sexp)
+                               (backward-sexp)))))
+                     (or key-indent
+                         (1+ sexp-column))))
                ;; Align to the beginning of the lambda-list.
                (1+ sexp-column)))
-          (t
-           ;; Otherwise, align to the first argument of the last lambda-list
-           ;; keyword, the keyword itself, or the beginning of the
-           ;; lambda-list.
-           (save-excursion
-             (goto-char indent-point)
-             (let ((indent nil)
-                   (next t))
-               (while (and next (> (point) containing-form-start))
-                 (setq next (ignore-errors (backward-sexp) t))
-                 (let* ((col (current-column))
-                        (pos
-                         (save-excursion
-                           (ignore-errors (forward-sexp))
-                           (skip-chars-forward " \t")
-                           (if (eolp)
-                               (+ col lisp-lambda-list-keyword-parameter-indentation)
-                             col))))
-                   (if (looking-at lisp-indent-lambda-list-keywords-regexp)
-                       (setq indent (if lisp-lambda-list-keyword-parameter-alignment
-                                        (or indent pos)
-                                      (+ col
-                                         lisp-lambda-list-keyword-parameter-indentation))
-                             next nil)
-                     (setq indent col))))
-               (or indent (1+ sexp-column))))))))
+            (t
+             ;; Otherwise, align to the first argument of the last lambda-list
+             ;; keyword, the keyword itself, or the beginning of the
+             ;; lambda-list.
+             (save-excursion
+               (goto-char indent-point)
+               (let ((indent nil)
+                     (next t))
+                 (while (and next (> (point) containing-form-start))
+                   (setq next (ignore-errors (backward-sexp) t))
+                   (let* ((col (current-column))
+                          (pos
+                           (save-excursion
+                             (ignore-errors (forward-sexp))
+                             (skip-chars-forward " \t")
+                             (if (eolp)
+                                 (+ col lisp-lambda-list-keyword-parameter-indentation)
+                               col))))
+                     (if (looking-at lisp-indent-lambda-list-keywords-regexp)
+                         (setq indent (if lisp-lambda-list-keyword-parameter-alignment
+                                          (or indent pos)
+                                        (+ col
+                                           lisp-lambda-list-keyword-parameter-indentation))
+                               next nil)
+                       (setq indent col))))
+                 (or indent (1+ sexp-column)))))))))
 
 ;; Blame the crufty control structure on dynamic scoping
 ;;  -- not on me!
@@ -1347,7 +1365,15 @@ Cause subsequent clauses to be indented.")
        (((lisp-align-keywords-in-calls nil))
         "
     (make-instance 'foo :bar t quux t
-                   :zot t)"))))
+                   :zot t)")
+       (((lisp-lambda-list-indentation nil))
+        "
+      (defun example (a b &optional o1 o2
+                      o3 o4
+                      &rest r
+                      &key k1 k2
+                      k3 k4)
+        'hello)"))))
 
 
 
