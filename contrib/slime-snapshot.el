@@ -2,7 +2,7 @@
 (define-slime-contrib slime-snapshot
   "Save&restore memory images without disconnecting"
   (:authors "Helmut Eller <heller@common-lisp.net>")
-  (:license "Unknown")
+  (:license "GPL v3")
   (:swank-dependencies swank-snapshot))
 
 (defun slime-snapshot (filename &optional background)

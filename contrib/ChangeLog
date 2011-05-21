@@ -1,5 +1,9 @@
 2011-05-21  Helmut Eller  <heller@common-lisp.net>
 
+	* slime-snapshot.el: License is GPL.
+
+2011-05-21  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-indentation.lisp: Provide :swank-indentation.
 	Reported by Robert Brown
 
