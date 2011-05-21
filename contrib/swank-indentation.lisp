@@ -44,3 +44,5 @@ in Emacs."
          (list
           (macro-indentation arglist)))))
     (t nil)))
+
+(provide :swank-indentation)

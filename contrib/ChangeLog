@@ -1,3 +1,8 @@
+2011-05-21  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-indentation.lisp: Provide :swank-indentation.
+	Reported by Robert Brown
+
 2011-05-19  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-cl-indent.el (common-lisp-indent-function-1)
