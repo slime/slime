@@ -384,6 +384,9 @@ PROPERTIES specifies any default face properties."
 This is a hack so that we can reinitilize the real slime-mode-map
 more easily. See `slime-init-keymaps'.")
 
+(defvar slime-modeline-string)
+(defvar slime-buffer-connection)
+
 (define-minor-mode slime-mode
   "\\<slime-mode-map>\
 SLIME: The Superior Lisp Interaction Mode for Emacs (minor-mode).
@@ -684,6 +687,12 @@ This list of flushed between commands."))
 
 (put 'when-let 'lisp-indent-function 1)
 
+(eval-and-compile
+  (defun slime-flatten-tree (tree)
+    (cond ((atom tree) (list tree))
+          (t (append (slime-flatten-tree (car tree))
+                     (slime-flatten-tree (cdr tree)))))))
+
 (defmacro destructure-case (value &rest patterns)
   "Dispatch VALUE to one of PATTERNS.
 A cross between `case' and `destructuring-bind'.
@@ -704,6 +713,8 @@ corresponding values in the CDR of VALUE."
                          `(t ,@(cdr clause))
                        (destructuring-bind ((op &rest rands) &rest body) clause
                          `(,op (destructuring-bind ,rands ,operands
+                                 ,@(if (memq '_ (slime-flatten-tree rands))
+                                       '((ignore _)))
                                  . ,body)))))
 		   patterns)
 	 ,@(if (eq (caar (last patterns)) t)
@@ -1182,10 +1193,12 @@ DIRECTORY change to this directory before starting the process.
   (interactive (list (read-from-minibuffer
                       "Host: " (first slime-connect-host-history)
                       nil nil '(slime-connect-host-history . 1))
-                     (string-to-int (read-from-minibuffer
-                      "Port: " (first slime-connect-port-history)
-                      nil nil '(slime-connect-port-history . 1)))))
-  (when (and (interactive-p) slime-net-processes
+                     (string-to-number
+                      (read-from-minibuffer
+                       "Port: " (first slime-connect-port-history)
+                       nil nil '(slime-connect-port-history . 1)))))
+  (when (and (called-interactively-p 'interactive)
+             slime-net-processes
              (y-or-n-p "Close old connections first? "))
     (slime-disconnect-all))
   (message "Connecting to Swank on port %S.." port)
@@ -3643,7 +3656,7 @@ terminates a current completion."
   (remove-hook 'pre-command-hook
                'slime-complete-maybe-restore-window-configuration)
   (condition-case err
-      (cond ((find last-command-char "()\"'`,# \r\n:")
+      (cond ((find last-command-event "()\"'`,# \r\n:")
              (slime-complete-restore-window-configuration))
             ((not (slime-completion-window-active-p))
              (slime-complete-forget-window-configuration))
@@ -3666,7 +3679,7 @@ terminates a current completion."
       (display-completion-list completions)
       (let ((offset (- (point) 1 (length base))))
         (with-current-buffer standard-output
-          (setq completion-base-size offset)
+          (setq completion-base-position offset)
           (set-syntax-table lisp-mode-syntax-table))))
     (when savedp
       (setq slime-completions-window
@@ -4606,8 +4619,8 @@ The most important commands:
   ((kbd "RET") 'slime-goto-xref)
   ((kbd "SPC") 'slime-goto-xref)
   ("v" 'slime-show-xref)
-  ("n" (lambda () (interactive) (next-line)))
-  ("p" (lambda () (interactive) (previous-line)))
+  ("n" (lambda () (interactive) (call-interactively #'next-line)))
+  ("p" (lambda () (interactive) (call-interactively #'previous-line)))
   ("\C-c\C-c" 'slime-recompile-xref)
   ("\C-c\C-k" 'slime-recompile-all-xrefs)
   ("\M-," 'slime-xref-retract)

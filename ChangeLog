@@ -1,3 +1,21 @@
+2011-05-21  Helmut Eller  <heller@common-lisp.net>
+
+	Minor tweaks to avoid some compiler warnings.
+
+	* slime.el (slime-modeline-string, slime-buffer-connection):
+	Declare variables.
+	(slime-flatten-tree): Helper function.
+	(destructure-case): Use it, and make '_ ignorable if
+	it occurs in some pattern.
+	(slime-connect): Avoid obsolete functions:
+	string-to-int -> string-to-number
+	interactive-p -> called-interactively-p
+	(slime-complete-maybe-restore-window-configuration)
+	last-command-char -> last-command-event
+	completion-base-size ->  completion-base-position
+	(slime-xref-mode-map): Use call-interactively
+	when calling the remapped next-line/previous-line commands.
+
 2011-05-09  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* swank-sbcl.lisp (swank-compile-string): Use :SOURCE-NAMESTRING
