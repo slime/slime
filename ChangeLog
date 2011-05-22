@@ -1,3 +1,22 @@
+2011-05-22  Helmut Eller  <heller@common-lisp.net>
+
+	Turn on lexical-binding for slime.el.
+	This mostly involves prefixing unused variables
+	with underscores to shut up the compiler, but
+	also some less harmless changes.
+
+	* slime.el (slime-dispatching-connection, slime-current-thread):
+	Add defvars.
+	(slime-connect): called-interactively-p wants 1 arg in Emacs 24
+	but none in Emacs 22.  So we can't use it; instead add an extra
+	optional arg and set that to non-nil in the interactive spec.
+	(slime-read-from-minibuffer): Actually use the history arg.
+	(slime-inspector-quit): Drop the unused kill-buffer arg from the
+	lambda-list.
+	(slime-run-tests): Can't specbind slime-repl-history-file without
+	variable declation.  I don't want to declare it here so I just
+	eliminated it and let somebody else fix slime-repl.el.
+
 2011-05-21  Helmut Eller  <heller@common-lisp.net>
 
 	Minor tweaks to avoid some compiler warnings.
