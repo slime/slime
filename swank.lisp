@@ -2773,6 +2773,9 @@ TAGS has is a list of strings."
   (setq *break-on-signals* (not *break-on-signals*))
   (format nil "*break-on-signals* = ~a" *break-on-signals*))
 
+(defslimefun sdlb-print-condition ()
+  (princ-to-string *swank-debugger-condition*))
+
 
 ;;;; Compilation Commands.
 

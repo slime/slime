@@ -1,3 +1,9 @@
+2011-05-23  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (sdlb-print-condition): New (or old new)
+	function. It was bound by P in sldb-mode, but for some reason it
+	was lost.
+
 2011-05-23  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-apropos-label-properties): Deleted.  Just

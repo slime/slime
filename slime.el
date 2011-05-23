@@ -5905,6 +5905,10 @@ VAR should be a plist with the keys :name, :id, and :value."
   (slime-eval-async '(swank:inspect-current-condition)
                     'slime-open-inspector))
 
+(defun sldb-print-condition ()
+  (interactive)
+  (slime-eval-describe `(swank:sdlb-print-condition)))
+
 
 ;;;;;; SLDB movement
 
