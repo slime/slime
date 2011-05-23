@@ -4518,6 +4518,7 @@ With prefix argument include internal symbols."
                      current-prefix-arg))
   (slime-apropos "" (not internal) package))
 
+(autoload 'apropos-mode "apropos")
 (defun slime-show-apropos (plists string package summary)
   (if (null plists)
       (message "No apropos matches for %S" string)
@@ -4532,55 +4533,42 @@ With prefix argument include internal symbols."
         (set-syntax-table lisp-mode-syntax-table)
         (goto-char (point-min)))))
 
-(defvar slime-apropos-label-properties
-  (progn
-    (require 'apropos)
-    (cond ((and (boundp 'apropos-label-properties) 
-                (symbol-value 'apropos-label-properties)))
-          ((boundp 'apropos-label-face)
-           (etypecase (symbol-value 'apropos-label-face)
-             (symbol `(face ,(or (symbol-value 'apropos-label-face)
-                                 'italic)
-                            mouse-face highlight))
-             (list (symbol-value 'apropos-label-face)))))))
-
 (defun slime-print-apropos (plists)
   (dolist (plist plists)
     (let ((designator (plist-get plist :designator)))
       (assert designator)
       (slime-insert-propertized `(face ,apropos-symbol-face) designator))
     (terpri)
-    (let ((apropos-label-properties slime-apropos-label-properties))
-      (loop for (prop namespace) 
-	    in '((:variable "Variable")
-		 (:function "Function")
-		 (:generic-function "Generic Function")
-                 (:macro "Macro")
-                 (:special-operator "Special Operator")
-		 (:setf "Setf")
-		 (:type "Type")
-		 (:class "Class")
-                 (:alien-type "Alien type")
-                 (:alien-struct "Alien struct")
-                 (:alien-union "Alien type")
-                 (:alien-enum "Alien enum"))
-            ;; Properties not listed here will not show up in the buffer
-	    do
-	    (let ((value (plist-get plist prop))
-		  (start (point)))
-	      (when value
-		(princ "  ") 
-		(slime-insert-propertized apropos-label-properties namespace)
-		(princ ": ")
-		(princ (etypecase value
-			 (string value)
-			 ((member :not-documented) "(not documented)")))
-                (add-text-properties 
-                 start (point)
-                 (list 'type prop 'action 'slime-call-describer
-                       'button t 'apropos-label namespace 
-                       'item (plist-get plist :designator)))
-		(terpri)))))))
+    (loop for (prop namespace)
+          in '((:variable "Variable")
+               (:function "Function")
+               (:generic-function "Generic Function")
+               (:macro "Macro")
+               (:special-operator "Special Operator")
+               (:setf "Setf")
+               (:type "Type")
+               (:class "Class")
+               (:alien-type "Alien type")
+               (:alien-struct "Alien struct")
+               (:alien-union "Alien type")
+               (:alien-enum "Alien enum"))
+          ;; Properties not listed here will not show up in the buffer
+          do
+          (let ((value (plist-get plist prop))
+                (start (point)))
+            (when value
+              (princ "  ")
+              (slime-insert-propertized `(face ,apropos-label-face) namespace)
+              (princ ": ")
+              (princ (etypecase value
+                       (string value)
+                       ((member :not-documented) "(not documented)")))
+              (add-text-properties
+               start (point)
+               (list 'type prop 'action 'slime-call-describer
+                     'button t 'apropos-label namespace
+                     'item (plist-get plist :designator)))
+              (terpri))))))
 
 (defun slime-call-describer (arg)
   (let* ((pos (if (markerp arg) arg (point)))

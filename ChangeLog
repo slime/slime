@@ -1,3 +1,10 @@
+2011-05-23  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-apropos-label-properties): Deleted.  Just
+	auto-load apropos-mode.
+	(slime-print-apropos): Use the variable apropos-label-face
+	which seems to exist in all relevant Emacsen.
+
 2011-05-22  Helmut Eller  <heller@common-lisp.net>
 
 	Turn on lexical-binding for slime.el.
