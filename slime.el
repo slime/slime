@@ -689,12 +689,6 @@ This list of flushed between commands."))
 
 (put 'when-let 'lisp-indent-function 1)
 
-(eval-and-compile
-  (defun slime-flatten-tree (tree)
-    (cond ((atom tree) (list tree))
-          (t (append (slime-flatten-tree (car tree))
-                     (slime-flatten-tree (cdr tree)))))))
-
 (defmacro destructure-case (value &rest patterns)
   "Dispatch VALUE to one of PATTERNS.
 A cross between `case' and `destructuring-bind'.
@@ -715,9 +709,9 @@ corresponding values in the CDR of VALUE."
                          `(t ,@(cdr clause))
                        (destructuring-bind ((op &rest rands) &rest body) clause
                          `(,op (destructuring-bind ,rands ,operands
-                                 ,@(if (memq '_ (slime-flatten-tree rands))
-                                       '((ignore _)))
-                                 . ,body)))))
+                                 . ,(or body 
+                                        '((ignore)) ; suppress some warnings
+                                        ))))))
 		   patterns)
 	 ,@(if (eq (caar (last patterns)) t)
 	       '()
@@ -3053,7 +3047,7 @@ Return nil if there's no useful source location."
   (let ((location (slime-note.location note)))
     (when location 
       (destructure-case location
-        ((:error _) nil)                 ; do nothing
+        ((:error _))                 ; do nothing
         ((:location file pos _hints)
          (cond ((eq (car file) ':source-form) nil)
                ((eq (slime-note.severity note) :read-error)

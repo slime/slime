@@ -1,3 +1,12 @@
+2011-05-24  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (destructure-case): Fix "`_' not left unused" warnings.
+	Insert an (ignore) form for empty bodies; this inhibts the
+	compiler transformation that leads to the spurios warning.  This
+	has no runtime cost in compiled code, since the compiler
+	recognizes (ignore) and emits no code for it.
+	(slime-flatten-tree): Deleted. No longer used.
+
 2011-05-23  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (sdlb-print-condition): New (or old new)
