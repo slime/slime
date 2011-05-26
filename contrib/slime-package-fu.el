@@ -180,17 +180,20 @@ already exported/unexported."
       number-of-actions)))
 
 (defun slime-add-export ()
-    (let (point)
-      (save-excursion
-        (while (ignore-errors (slime-goto-next-export-clause) t)
-          (setq point (point))))
-      (cond (point
-             (goto-char point)
-             (down-list)
-             (slime-end-of-list))
-            (t
-             (insert "(:export ")
-             (save-excursion (insert ")"))))))
+  (let (point)
+    (save-excursion
+      (while (ignore-errors (slime-goto-next-export-clause) t)
+        (setq point (point))))
+    (cond (point
+           (goto-char point)
+           (down-list)
+           (slime-end-of-list))
+          (t
+           (slime-end-of-list)
+           (unless (looking-back "^\\s-*")
+             (newline-and-indent))
+           (insert "(:export ")
+           (save-excursion (insert ")"))))))
 
 (defun slime-insert-export (symbol-name)
   ;; Assumes we're at the inside :export after the last symbol
