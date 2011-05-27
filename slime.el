@@ -1004,10 +1004,10 @@ can restore it later."
  (defvar slime-popup-buffer-quit-function 'slime-popup-buffer-quit
    "The function that is used to quit a temporary popup buffer."))
 
-(defun slime-popup-buffer-quit-function (&optional kill-buffer-p)
+(defun slime-popup-buffer-quit-function ()
   "Wrapper to invoke the value of `slime-popup-buffer-quit-function'."
   (interactive)
-  (funcall slime-popup-buffer-quit-function kill-buffer-p))
+  (funcall slime-popup-buffer-quit-function))
 
 ;; Interface
 (defun slime-popup-buffer-quit (&optional kill-buffer-p)
@@ -6154,7 +6154,7 @@ was called originally."
 
 (defvar slime-thread-index-to-id nil)
 
-(defun slime-quit-threads-buffer (&optional _)
+(defun slime-quit-threads-buffer ()
   (when slime-threads-buffer-timer
     (cancel-timer slime-threads-buffer-timer)
     (setq slime-threads-buffer-timer nil))

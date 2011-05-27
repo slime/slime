@@ -1,3 +1,11 @@
+2011-05-27  Helmut Eller  <heller@common-lisp.net>
+
+	Fix "wrong number of args" problem with slime-inspector-quit.
+	Reported by Anton Kovalenko.
+
+	* slime.el (slime-popup-buffer-quit-function)
+	(slime-quit-threads-buffer): Drop the kill-buffer-p argument.
+
 2011-05-24  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (destructure-case): Fix "`_' not left unused" warnings.
