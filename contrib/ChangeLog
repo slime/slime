@@ -1,7 +1,7 @@
 2011-05-31  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-package-fu.el (slime-export-symbol-representation-auto):
-	New variable. Default value is NIL.
+	New variable. Default value is t.
 	Determine automatically which style is used for symbols, #: or :
 	If it's mixed or no symbols are exported so far,
 	use `slime-export-symbol-representation-function'.

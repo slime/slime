@@ -23,7 +23,7 @@
 (defvar slime-export-symbol-representation-function
   #'(lambda (n) (format "#:%s" n)))
 
-(defvar slime-export-symbol-representation-auto nil
+(defvar slime-export-symbol-representation-auto t
   "Determine automatically which style is used for symbols, #: or :
 If it's mixed or no symbols are exported so far,
 use `slime-export-symbol-representation-function'.")
