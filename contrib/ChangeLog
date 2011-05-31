@@ -1,7 +1,15 @@
+2011-05-31  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-package-fu.el (slime-export-symbol-representation-auto):
+	New variable. Default value is NIL.
+	Determine automatically which style is used for symbols, #: or :
+	If it's mixed or no symbols are exported so far,
+	use `slime-export-symbol-representation-function'.
+
 2011-05-26  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-package-fu.el (slime-add-export): Add :export to the end
-	of a defpackage form when there's no :export present. 
+	of a defpackage form when there's no :export present.
 
 2011-05-21  Helmut Eller  <heller@common-lisp.net>
 
