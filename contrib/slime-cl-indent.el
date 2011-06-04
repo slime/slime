@@ -1046,8 +1046,7 @@ Cause subsequent clauses to be indented.")
            (defpackage  (4 2))
            (defstruct   ((&whole 4 &rest (&whole 2 &rest 1))
                          &rest (&whole 2 &rest 1)))
-           (destructuring-bind
-                        ((&whole 6 &rest 1) 4 &body))
+           (destructuring-bind (&lambda 4 &body))
            (do          lisp-indent-do)
            (do* . do)
            (dolist      ((&whole 4 2 1) &body))
@@ -1077,6 +1076,7 @@ Cause subsequent clauses to be indented.")
            (multiple-value-prog1 1)
            (multiple-value-setq (4 2))
            (multiple-value-setf . multiple-value-setq)
+           (named-lambda (4 &lambda &rest lisp-indent-function-lambda-hack))
            (pprint-logical-block (4 2))
            (print-unreadable-object ((&whole 4 1 &rest 1) &body))
            ;; Combines the worst features of BLOCK, LET and TAGBODY
@@ -1373,7 +1373,24 @@ Cause subsequent clauses to be indented.")
                       &rest r
                       &key k1 k2
                       k3 k4)
-        'hello)"))))
+        'hello)")
+       (((lisp-lambda-list-keyword-parameter-alignment t)
+         (lisp-lambda-list-keyword-alignment t))
+        "
+     (destructuring-bind (foo &optional x
+                                        y 
+                              &key bar
+                                   quux)
+         foo
+       body)")
+       (((lisp-lambda-list-keyword-parameter-alignment t)
+         (lisp-lambda-list-keyword-alignment t))
+        "
+     (named-lambda foo
+         (x &optional y
+                      z
+            &rest more)
+       body)"))))
 
 
 

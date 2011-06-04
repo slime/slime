@@ -1,3 +1,9 @@
+2011-06-04  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime-cl-indent.el (toplevel):
+	(run-lisp-indent-tests): Better named-lambda and
+	destructuring-bind indenation.
+
 2011-05-31  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-package-fu.el (slime-export-symbol-representation-auto):
