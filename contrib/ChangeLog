@@ -1,3 +1,11 @@
+2011-06-09  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	Indirect indentation specs.
+
+	* slime-cl-indent.el (common-lisp-indent-function)
+	(common-lisp-get-indentation, common-lisp-indent-function-1)
+	(lisp-indent-defmethod): Indirect using (as foo) -style specs.
+
 2011-06-08  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-cl-indent.el (common-lisp-indent-function-1): fallback

@@ -168,6 +168,14 @@ If non-nil, alignment is done with the first parameter
 This applies when the value of the `common-lisp-indent-function' property
 is set to `defun'.")
 
+(defun common-lisp-get-indentation (name)
+  "Retrieves the indentation information for NAME."
+  (let ((method
+         (get name 'common-lisp-indent-function)))
+    (if (and (consp method) (eq 'as (car method)))
+        (common-lisp-get-indentation (cadr method))
+      method)))
+
 ;;;; LOOP indentation, the simple version
 
 (defun common-lisp-loop-type (loop-start)
@@ -257,10 +265,13 @@ property are:
   function arguments, and any further arguments like a body.
   This is equivalent to (4 4 ... &body).
 
-* a list.  The list element in position M specifies how to indent the Mth
-  function argument.  If there are fewer elements than function arguments,
-  the last list element applies to all remaining arguments.  The accepted
-  list elements are:
+* a list starting with `as' specifies an indirection: indentation is done as
+  if the form being indented had started with the second element of the list.
+
+* any other list.  The list element in position M specifies how to indent the
+  Mth function argument.  If there are fewer elements than function arguments,
+  the last list element applies to all remaining arguments.  The accepted list
+  elements are:
 
   * nil, meaning the default indentation.
 
@@ -294,7 +305,6 @@ For example, the function `case' has an indent property
     of them.  The first list element has an offset of 2, all the rest
     have an offset of 2+1=3."
   (common-lisp-indent-function-1 indent-point state))
-
 
 (defun common-lisp-indent-function-1 (indent-point state)
   (let ((normal-indent (current-column)))
@@ -336,17 +346,16 @@ For example, the function `case' has an indent property
                                         tem (point))))
               (goto-char tem)
               (setq tem (intern-soft function)
-                    method (get tem 'common-lisp-indent-function))
+                    method (common-lisp-get-indentation tem))
               (cond ((and (null method)
                           (string-match ":[^:]+" function))
                      ;; The pleblisp package feature
                      (setq function (substring function
                                                (1+ (match-beginning 0)))
-                           method (get (intern-soft function)
-                                       'common-lisp-indent-function)))
+                           method (common-lisp-get-indentation (intern-soft function))))
                     ((and (null method))
                      ;; backwards compatibility
-                     (setq method (get tem 'lisp-indent-function)))))
+                     (setq method (common-lisp-get-indentation tem)))))
             (let ((n 0))
               ;; How far into the containing form is the current form?
               (if (< (point) indent-point)
@@ -755,7 +764,7 @@ optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\\|mo
                   (skip-chars-forward " \t\n"))
                 (> nqual 0)))
          (append '(4) (make-list nqual 4) '(&lambda &body))
-         (get 'defun 'common-lisp-indent-function)))
+       (common-lisp-get-indentation 'defun)))
    path state indent-point sexp-column normal-indent))
 
 
@@ -1032,55 +1041,55 @@ Cause subsequent clauses to be indented.")
 ;;;; Indentation specs for standard symbols, and a few semistandard ones.
 (let ((l '((block 1)
            (case        (4 &rest (&whole 2 &rest 1)))
-           (ccase . case)
-           (ecase . case)
-           (typecase . case)
-           (etypecase . case)
-           (ctypecase . case)
+           (ccase       (as case))
+           (ecase       (as case))
+           (typecase    (as case))
+           (etypecase   (as case))
+           (ctypecase   (as case))
            (catch 1)
            (cond        (&rest (&whole 2 &rest 1)))
            (defvar      (4 2 2))
            (defclass    (6 4 (&whole 2 &rest 1) (&whole 2 &rest 1)))
-           (defconstant . defvar)
+           (defconstant (as defvar))
            (defcustom   (4 2 2 2))
-           (defparameter . defvar)
-           (defconst     . defcustom)
-           (define-condition  . defclass)
+           (defparameter     (as defvar))
+           (defconst         (as defcustom))
+           (define-condition (as defclass))
            (define-modify-macro (4 &lambda &body))
            (defsetf      lisp-indent-defsetf)
            (defun       (4 &lambda &body))
            (defgeneric  (4 &lambda &body))
-           (define-setf-method . defun)
-           (define-setf-expander . defun)
-           (defmacro . defun)
-           (defsubst . defun)
-           (deftype . defun)
+           (define-setf-method   (as defun))
+           (define-setf-expander (as defun))
+           (defmacro     (as defun))
+           (defsubst     (as defun))
+           (deftype      (as defun))
            (defmethod   lisp-indent-defmethod)
            (defpackage  (4 2))
            (defstruct   ((&whole 4 &rest (&whole 2 &rest 1))
                          &rest (&whole 2 &rest 1)))
            (destructuring-bind (&lambda 4 &body))
            (do          lisp-indent-do)
-           (do* . do)
+           (do*         (as do))
            (dolist      ((&whole 4 2 1) &body))
-           (dotimes . dolist)
+           (dotimes     (as dolist))
            (eval-when   1)
            (flet        ((&whole 4 &rest (&whole 1 &lambda &body)) &body))
-           (labels . flet)
-           (macrolet . flet)
-           (generic-flet . flet)
-           (generic-labels . flet)
+           (labels         (as flet))
+           (macrolet       (as flet))
+           (generic-flet   (as flet))
+           (generic-labels (as flet))
            (handler-case (4 &rest (&whole 2 &lambda &body)))
-           (restart-case . handler-case)
+           (restart-case (as handler-case))
            ;; single-else style (then and else equally indented)
            (if          (&rest nil))
            (if*         common-lisp-indent-if*)
            (lambda      (&lambda &rest lisp-indent-function-lambda-hack))
            (let         ((&whole 4 &rest (&whole 1 1 2)) &body))
-           (let* . let)
-           (compiler-let . let) ;barf
-           (handler-bind . let)
-           (restart-bind . let)
+           (let*         (as let))
+           (compiler-let (as let))
+           (handler-bind (as let))
+           (restart-bind (as let))
            (locally 1)
            (loop           lisp-indent-loop)
            (:method (&lambda &body)) ; in `defgeneric'
@@ -1088,35 +1097,42 @@ Cause subsequent clauses to be indented.")
            (multiple-value-call (4 &body))
            (multiple-value-prog1 1)
            (multiple-value-setq (4 2))
-           (multiple-value-setf . multiple-value-setq)
+           (multiple-value-setf (as multiple-value-setq))
            (named-lambda (4 &lambda &rest lisp-indent-function-lambda-hack))
            (pprint-logical-block (4 2))
            (print-unreadable-object ((&whole 4 1 &rest 1) &body))
            ;; Combines the worst features of BLOCK, LET and TAGBODY
            (prog        (&lambda &rest lisp-indent-tagbody))
-           (prog* . prog)
+           (prog* (as prog))
            (prog1 1)
            (prog2 2)
            (progn 0)
            (progv       (4 4 &body))
            (return 0)
            (return-from (nil &body))
-           (symbol-macrolet . let)
+           (symbol-macrolet (as let))
            (tagbody     lisp-indent-tagbody)
            (throw 1)
            (unless 1)
            (unwind-protect (5 &body))
            (when 1)
-           (with-accessors . multiple-value-bind)
-           (with-condition-restarts . multiple-value-bind)
+           (with-accessors          (as multiple-value-bind))
+           (with-condition-restarts (as multiple-value-bind))
            (with-output-to-string (4 2))
-           (with-slots . multiple-value-bind)
+           (with-slots              (as multiple-value-bind))
            (with-standard-io-syntax (2)))))
   (dolist (el l)
-    (put (car el) 'common-lisp-indent-function
-         (if (symbolp (cdr el))
-             (get (cdr el) 'common-lisp-indent-function)
-             (car (cdr el))))))
+    (let* ((name (car el))
+           (spec (cdr el))
+           (indentation
+            (if (symbolp spec)
+                (error "Old style indirect indentation spec: %s" el)
+              (when (cdr spec)
+                (error "Malformed indentation specification: %s" el))
+              (car spec))))
+      (unless (symbolp name)
+        (error "Cannot set Common Lisp indentation of a non-symbol: %s" name))
+      (put name 'common-lisp-indent-function indentation))))
 
 (defun test-lisp-indent (tests)
   (let ((ok 0))
@@ -1128,7 +1144,7 @@ Cause subsequent clauses to be indented.")
          (when (cddr test)
            (error "Malformed test: %s" test))
          (dolist (bind (first test))
-           (make-variable-buffer-local (first bind))
+           (make-local-variable (first bind))
            (set (first bind) (second bind)))
          (setf test (second test)))
        (insert test)
