@@ -460,8 +460,21 @@ For example, the function `case' has an indent property
             (condition-case ()
                 (progn (backward-up-list 1)
                        (setq depth (1+ depth)))
-              (error (setq depth lisp-indent-maximum-backtracking))))))
-      (or calculated tentative-calculated))))
+              (error
+               (setq depth lisp-indent-maximum-backtracking))))))
+      (or calculated tentative-calculated
+          ;; Fallback. calculate-lisp-indent doesn't deal with
+          ;; things like (foo (or x
+          ;;                      y) t
+          ;;                  z)
+          ;; but would align the Z with Y.
+          (ignore-errors
+            (save-excursion
+              (goto-char containing-sexp)
+              (down-list)
+              (forward-sexp 2)
+              (backward-sexp)
+              (current-column)))))))
 
 
 (defun common-lisp-indent-call-method (function method path state indent-point
@@ -1378,7 +1391,7 @@ Cause subsequent clauses to be indented.")
          (lisp-lambda-list-keyword-alignment t))
         "
      (destructuring-bind (foo &optional x
-                                        y 
+                                        y
                               &key bar
                                    quux)
          foo
@@ -1390,7 +1403,12 @@ Cause subsequent clauses to be indented.")
          (x &optional y
                       z
             &rest more)
-       body)"))))
+       body)")
+       "
+     (foo fii
+          (or x
+              y) t
+          bar)")))
 
 
 

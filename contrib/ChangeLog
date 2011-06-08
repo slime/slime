@@ -1,3 +1,8 @@
+2011-06-08  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime-cl-indent.el (common-lisp-indent-function-1): fallback
+	method to deal with trailing expressions on the previous line.
+
 2011-06-04  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-cl-indent.el (toplevel):
