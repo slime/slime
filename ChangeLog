@@ -1,5 +1,10 @@
 2011-06-09  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* swank-sbcl.lisp (execv): Stupid SBCL hackers breaking backwards
+	compatibility again: SB-POSIX:SYSCALL-ERROR has a required
+	argument in 1.0.49, but accepts no arguments in older ones. Use
+	plain ERROR instead.
+
 	Support for per-package derived indentation, when
 	slime-indentation is used.
 

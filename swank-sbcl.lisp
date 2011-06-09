@@ -1584,10 +1584,10 @@ stack."
 
 #+unix
 (progn
-  (sb-alien:define-alien-routine ("execv" sys-execv) sb-alien:int 
+  (sb-alien:define-alien-routine ("execv" sys-execv) sb-alien:int
     (program sb-alien:c-string)
     (argv (* sb-alien:c-string)))
-  
+
   (defun execv (program args)
     "Replace current executable with another one."
     (let ((a-args (sb-alien:make-alien sb-alien:c-string
@@ -1600,7 +1600,7 @@ stack."
                             item))
              (when (minusp
                     (sys-execv program a-args))
-               (sb-posix:syscall-error)))
+               (error "execv(3) returned.")))
         (sb-alien:free-alien a-args))))
 
   (defun runtime-pathname ()
