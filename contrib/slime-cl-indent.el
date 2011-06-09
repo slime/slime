@@ -237,6 +237,9 @@ none has been specified."
 ;;; Common Lisp indentation style specifications.
 (defvar common-lisp-styles (make-hash-table :test 'equal))
 
+(defun common-lisp-delete-style (stylename)
+  (remhash stylename common-lisp-styles))
+
 (defun common-lisp-add-style (stylename base variables indentation hooks documentation)
   (let* ((style (or (gethash stylename common-lisp-styles)
                     (let ((new (list (intern stylename)             ; name
@@ -826,11 +829,15 @@ For example, the function `case' has an indent property
           ;; but would align the Z with Y.
           (ignore-errors
             (save-excursion
-              (goto-char containing-sexp)
-              (down-list)
-              (forward-sexp 2)
-              (backward-sexp)
-              (current-column)))))))
+              (goto-char indent-point)
+              (back-to-indentation)
+              (let ((p (point)))
+                (goto-char containing-sexp)
+                (down-list)
+                (forward-sexp 2)
+                (backward-sexp)
+                (unless (= p (point))
+                  (current-column)))))))))
 
 
 (defun common-lisp-indent-call-method (function method path state indent-point
@@ -1771,7 +1778,10 @@ Cause subsequent clauses to be indented.")
      (foo fii
           (or x
               y) t
-          bar)")))
+          bar)"
+       "
+      (foo
+       (bar))")))
 
 
 

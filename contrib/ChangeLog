@@ -2,6 +2,9 @@
 
 	* slime-cl-indent.el (lisp-lambda-list-keyword-parameter-alignment):
 	fix docstring: key1 and key3 were aligned in source, but not in *Help*.
+	(common-lisp-delete-style): Missing function, needed by tests.
+	(common-lisp-indent-function-1, run-lisp-indent-tests): Fix fallback
+	to handle case of first function argument on its own line.
 
 	Support for per-package derived indentation.
 
