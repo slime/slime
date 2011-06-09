@@ -1,3 +1,19 @@
+2011-06-09  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	Support for per-package derived indentation, when
+	slime-indentation is used.
+
+	* swank.lisp (update-indentation/delta-for-emacs): Tell Emacs
+	which packages the symbol is available in. Unless
+	slime-indentation is used, this information is just dropped on the
+	floor.
+
+	* slime.el (slime-update-system-indentation): New function. Use
+	this to inform indentation about derived specs when
+	`common-lisp-system-indentation' is bound.
+	(slime-handle-indentation-update): Adjust to support per-package
+	derived indentation specs when slime-indentation is available.
+
 2011-05-27  Helmut Eller  <heller@common-lisp.net>
 
 	Fix "wrong number of args" problem with slime-inspector-quit.

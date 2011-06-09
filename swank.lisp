@@ -3893,16 +3893,20 @@ If FORCE is true then start again without considering the old cache."
         (send-to-emacs (list :indentation-update delta))))))
 
 (defun update-indentation/delta-for-emacs (cache &optional force)
-  "Update the cache and return the changes in a (SYMBOL . INDENT) list.
+  "Update the cache and return the changes in a (SYMBOL INDENT PACKAGES) list.
 If FORCE is true then check all symbols, otherwise only check symbols
 belonging to the buffer package."
   (let ((alist '()))
-      (flet ((consider (symbol)
+    (flet ((consider (symbol)
              (let ((indent (symbol-indentation symbol)))
                (when indent
                  (unless (equal (gethash symbol cache) indent)
                    (setf (gethash symbol cache) indent)
-                   (push (cons (string-downcase symbol) indent) alist))))))
+                   (let ((pkgs (loop for p in (list-all-packages)
+                                     when (eq symbol (find-symbol (string symbol) p))
+                                     collect (package-name p)))
+                         (name (string-downcase symbol)))
+                     (push (list name indent pkgs) alist)))))))
       (if force
           (do-all-symbols (symbol)
             (consider symbol))

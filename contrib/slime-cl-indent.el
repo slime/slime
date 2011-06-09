@@ -442,17 +442,82 @@ A Common Lisp style is composed of variable and indentation specifications."
     (set (make-local-variable 'common-lisp-style) (car style))
     (set (make-local-variable 'common-lisp-active-style) style)))
 
-;;;; The indentation specs are stored at two levels: the global defaults
-;;;; live in symbol properties: how to indent `foo' is stored in the
-;;;; `common-lisp-indent-function' property of `foo'.
+;;;; The indentation specs are stored at three levels. In order of priority:
 ;;;;
-;;;; When a specific style is in use, we first look in its method table.
-(defun common-lisp-get-indentation (name)
+;;;; 1. Indentation as set by current style, from the indentation table
+;;;;    in the current style.
+;;;;
+;;;; 2. Globally set indentation, from the `common-lisp-indent-function'
+;;;;    property of the symbol.
+;;;;
+;;;; 3. Per-package indentation derived by the system. A live Common Lisp
+;;;;    system may (via Slime, eg.) add indentation specs to
+;;;;    common-lisp-system-indentation, where they are associated with
+;;;;    the package of the symbol. Then we run some lossy heuristics and
+;;;;    find something that looks promising.
+;;;;
+;;;;    FIXME: for non-system packages the derived indentation should probably
+;;;;    take precedence.
+
+;;; This maps symbols into lists of (INDENT . PACKAGES) where INDENT is
+;;; an indentation spec, and PACKAGES are the names of packages where this
+;;; applies.
+;;;
+;;; We never add stuff here by ourselves: this is for things like Slime to
+;;; fill.
+(defvar common-lisp-system-indentation (make-hash-table :test 'equal))
+
+(defun common-lisp-guess-current-package ()
+  (let (pkg)
+    (save-excursion
+      (ignore-errors
+        (when (let ((case-fold-search t))
+                (search-backward "(in-package "))
+          (re-search-forward "[ :\"]+")
+          (let ((start (point)))
+            (re-search-forward "[\":)]")
+            (setf pkg (upcase (buffer-substring-no-properties start (1- (point)))))))))
+    pkg))
+
+(defun common-lisp-current-package-function 'common-lisp-guess-current-package
+  "Function used to the derive the package name to use for indentation at a
+given point. Defaults to `common-lisp-guess-current-package'.")
+
+(defun common-lisp-symbol-package (string)
+  (if (and (stringp string) (string-match ":" string))
+      (let ((p (match-beginning 0)))
+        (if (eql 0 p)
+            "KEYWORD"
+          (upcase (substring string 0 p))))
+    (funcall common-lisp-current-package-function)))
+
+(defun common-lisp-get-indentation (name &optional full)
   "Retrieves the indentation information for NAME."
   (let ((method
-         (or (when common-lisp-active-style
-               (gethash name (third common-lisp-active-style)))
-             (get name 'common-lisp-indent-function))))
+         (or
+          ;; From style
+          (when common-lisp-active-style
+            (gethash name (third common-lisp-active-style)))
+          ;; From global settings.
+          (get name 'common-lisp-indent-function)
+          ;; From system derived information.
+          (let ((system-info (gethash name common-lisp-system-indentation)))
+            (if (not (cdr system-info))
+                (caar system-info)
+              (let ((guess nil)
+                    (guess-n 0)
+                    (package (common-lisp-symbol-package full)))
+                (dolist (info system-info guess)
+                  (let* ((pkgs (cdr info))
+                         (n (length pkgs)))
+                    (cond ((member package pkgs)
+                           ;; This is it.
+                           (return (car info)))
+                          ((> n guess-n)
+                           ;; If we can't find the real thing, go with the one
+                           ;; accessible in most packages.
+                           (setf guess (car info)
+                                 guess-n n)))))))))))
     (if (and (consp method) (eq 'as (car method)))
         (common-lisp-get-indentation (cadr method))
       method)))
@@ -617,14 +682,15 @@ For example, the function `case' has an indent property
           (forward-char 1)
           (parse-partial-sexp (point) indent-point 1 t)
           ;; Move to the car of the relevant containing form
-          (let (tem function method tentative-defun)
+          (let (tem full function method tentative-defun)
             (if (not (looking-at "\\sw\\|\\s_"))
                 ;; This form doesn't seem to start with a symbol
-                (setq function nil method nil)
+                (setq function nil method nil full nil)
               (setq tem (point))
               (forward-sexp 1)
-              (setq function (downcase (buffer-substring-no-properties
-                                        tem (point))))
+              (setq full (downcase (buffer-substring-no-properties
+                                        tem (point)))
+                    function full)
               (goto-char tem)
               (setq tem (intern-soft function)
                     method (common-lisp-get-indentation tem))
@@ -633,7 +699,7 @@ For example, the function `case' has an indent property
                      ;; The pleblisp package feature
                      (setq function (substring function
                                                (1+ (match-beginning 0)))
-                           method (common-lisp-get-indentation (intern-soft function))))
+                           method (common-lisp-get-indentation (intern-soft function) full)))
                     ((and (null method))
                      ;; backwards compatibility
                      (setq method (common-lisp-get-indentation tem)))))

@@ -5,4 +5,6 @@
 
 (load "slime-cl-indent.el")
 
+(setq common-lisp-current-package-function 'slime-current-package)
+
 (provide 'slime-indentation)

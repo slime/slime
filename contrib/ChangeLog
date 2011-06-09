@@ -1,5 +1,20 @@
 2011-06-09  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	Support for per-package derived indentation.
+
+	* slime-cl-indent.el (common-lisp-system-indentation)
+	(common-lisp-guess-current-package)
+	(common-lisp-current-package-function)
+	(common-lisp-symbol-package): New variables and functions.
+	(common-lisp-get-indentation): Adjust to use system derived
+	information when available.
+	(common-lisp-indent-function-1): Adust to provide
+	`common-lisp-get-indentation' with the full symbol incl.
+	package prefix.
+
+	* slime-indentation.el (common-lisp-current-package-function): set
+	to `slime-current-package'.
+
 	Support for named styles.
 
 	* slime-cl-indent.el (common-lisp-style)

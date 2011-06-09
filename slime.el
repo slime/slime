@@ -6932,6 +6932,21 @@ Only considers buffers that are not already visible."
         (t
          spec)))
 
+(defun slime-update-system-indentation (symbol indent packages)
+  (let ((list (gethash symbol common-lisp-system-indentation)))
+    (if (not list)
+        (puthash symbol (list (cons indent packages))
+                 common-lisp-system-indentation)
+      (or (dolist (spec list)
+            (when (equal (car spec) indent)
+              (dolist (p packages)
+                (unless (member p (cdr spec))
+                  (push p (cdr spec))))
+              (return t)))
+          (puthash symbol (cons (cons indent packages)
+                                list)
+                   common-lisp-system-indentation)))))
+
 (defun slime-handle-indentation-update (alist)
   "Update Lisp indent information.
 
@@ -6940,13 +6955,17 @@ settings for `common-lisp-indent-function'. The appropriate property
 is setup, unless the user already set one explicitly."
   (dolist (info alist)
     (let ((symbol (intern (car info)))
-          (indent (slime-intern-indentation-spec (cdr info))))
-      ;; Does the symbol have an indentation value that we set?
-      (when (equal (get symbol 'common-lisp-indent-function)
-                   (get symbol 'slime-indent))
-        (put symbol 'common-lisp-indent-function indent)
-        (put symbol 'slime-indent indent))
-      (run-hook-with-args 'slime-indentation-update-hooks symbol indent))))
+          (indent (slime-intern-indentation-spec (second info)))
+          (packages (third info)))
+      (if (boundp 'common-lisp-system-indentation)
+          ;; A table provided by slime-cl-indent.el.
+          (slime-update-system-indentation symbol indent packages)
+        ;; Does the symbol have an indentation value that we set?
+        (when (equal (get symbol 'common-lisp-indent-function)
+                     (get symbol 'slime-indent))
+          (put symbol 'common-lisp-indent-function indent)
+          (put symbol 'slime-indent indent)))
+      (run-hook-with-args 'slime-indentation-update-hooks symbol indent packages))))
 
 
 ;;;; Contrib modules
