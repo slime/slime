@@ -37,7 +37,6 @@
   "Indentation in Lisp."
   :group 'lisp)
 
-
 (defcustom lisp-indent-maximum-backtracking 3
   "Maximum depth to backtrack out from a sublist for structured indentation.
 If this variable is 0, no backtracking will occur and forms such as `flet'
@@ -168,14 +167,296 @@ If non-nil, alignment is done with the first parameter
 This applies when the value of the `common-lisp-indent-function' property
 is set to `defun'.")
 
+
+;;;; Named styles.
+;;;;
+;;;; -*- common-lisp-style: foo -*-
+;;;;
+;;;; sets the style for the buffer.
+;;;;
+;;;; A Common Lisp style is a list of the form:
+;;;;
+;;;;  (NAME VARIABLES TABLE HOOKS DOCSTRING)
+;;;;
+;;;; where NAME is a symbol naming the style, VARIABLES is an alist specifying
+;;;; buffer local variables for the style, and TABLE is a hashtable specifying
+;;;; non-standard indentations for Common Lisp symbols. HOOKS is a list of
+;;;; functions to call when activating the style. DOCSTRING is the
+;;;; documentation for the style.
+;;;;
+;;;; `common-lisp-style' stores the name of the current style.
+;;;;
+;;;; `common-lisp-default-style' stores the name of the style to use when none
+;;;; has been specified.
+;;;;
+;;;; `common-lisp-active-style' stores the list specifying the current style.
+;;;; Whenever we're indenting, we check that they match -- and update the
+;;;; latter to match the former if necessary.
+;;;;
+;;;; Hence just setting the buffer local common-lisp-style will be enough
+;;;; to have the style take effect. `common-lisp-set-style' can also be called
+;;;; explicitly, however.
+
+(defvar common-lisp-style nil)
+
+;;; `define-common-lisp-style' updates the docstring of `common-lisp-style', using
+;;; this as the base.
+(put 'common-lisp-style 'common-lisp-style-base-doc
+     "Name of the Common Lisp indentation style used in the current buffer.
+Set this by giving eg.
+
+  ;; -*- common-lisp-style: sbcl -*-
+
+in the first line of the file, or by calling `common-lisp-set-style'. If
+buffer has no style specified, but `common-lisp-style-default' is set, that
+style is used instead. Use `define-common-lisp-style' to define new styles.")
+
+(defcustom common-lisp-style-default nil
+    "Name of the Common Lisp indentation style to use in lisp-mode buffers if
+none has been specified."
+  :type 'string
+  :group 'lisp-indent)
+
+;;; Common Lisp indentation style specification for the current buffer.
+(defvar common-lisp-active-style nil)
+
+;;; `lisp-mode' kills all buffer-local variables. Setting the
+;;; `permanent-local' property allows us to retain the style.
+(put 'common-lisp-style 'permanent-local t)
+
+;;; If style is being used, that's a sufficient invitation to snag
+;;; the indentation function.
+(defun common-lisp-lisp-mode-hook ()
+  (let ((style (or common-lisp-style common-lisp-style-default)))
+    (when style
+      (set (make-local-variable 'lisp-indent-function)
+           'common-lisp-indent-function)
+      (common-lisp-set-style style))))
+(add-hook 'lisp-mode-hook 'common-lisp-lisp-mode-hook)
+
+;;; Common Lisp indentation style specifications.
+(defvar common-lisp-styles (make-hash-table :test 'equal))
+
+(defun common-lisp-add-style (stylename base variables indentation hooks documentation)
+  (let* ((style (or (gethash stylename common-lisp-styles)
+                    (let ((new (list (intern stylename)             ; name
+                                     nil                            ; variable bindings
+                                     (make-hash-table :test 'equal) ; indentation table
+                                     nil                            ; hooks
+                                     nil)))                         ; docstring
+                      (puthash stylename new common-lisp-styles)
+                      new)))
+         (base-style (when base
+                       (or (gethash base common-lisp-styles)
+                           (error "Unknown base Common Lisp style: %s" base))))
+         (base-vars (second base-style))
+         (base-methods (third base-style))
+         (base-hooks (fourth base-style)))
+    ;; Variables
+    (setf (second style) variables)
+    (dolist (var base-vars)
+      (unless (assoc (car var) variables)
+        (push var (second style))))
+    ;; Indentation
+    (let ((methods (third style)))
+      (clrhash methods)
+      (when base-methods
+        (maphash (lambda (s m)
+                   (puthash s m methods))
+                 base-methods))
+      (dolist (indent indentation)
+        (let* ((name (car indent))
+               (spec (cdr indent))
+               (method
+                (if (symbolp spec)
+                    (list :as spec)
+                  (when (cdr spec)
+                    (error "Malformed Common Lisp indentation spec: %s" indent))
+                  (car spec))))
+          (puthash name method methods))))
+    ;; Hooks
+    (setf (fourth style) nil)
+    (dolist (hook (reverse base-hooks))
+      (unless (member hook hooks)
+        (push hook (fourth style))))
+    (dolist (hook (reverse hooks))
+      (push hook (fourth style)))
+    ;; Documentation
+    (setf (fifth style) documentation)
+    ;; Frob `common-lisp-style' docstring.
+    (let ((doc (get 'common-lisp-style 'common-lisp-style-base-doc))
+          (all nil))
+      (setq doc (concat doc "\n\nAvailable styles are:\n"))
+      (maphash (lambda (name style)
+                 (push (list name (fifth style)) all))
+               common-lisp-styles)
+      (dolist (info (sort all (lambda (a b) (string< (car a) (car b)))))
+        (let ((style-name (first info))
+              (style-doc (second info)))
+          (if style-doc
+              (setq doc (concat doc
+                                "\n " style-name "\n"
+                                "   " style-doc "\n"))
+                     (setq doc (concat doc
+                                       "\n " style-name " (undocumented)\n")))))
+      (put 'common-lisp-style 'variable-documentation doc))
+    stylename))
+
+(defmacro define-common-lisp-style (name documentation &rest options)
+  "Define a Common Lisp indentation style.
+
+NAME is the name of the style.
+
+DOCUMENTATION is the docstring for the style, automatically added to the
+docstring of `common-lisp-style'.
+
+OPTIONS are:
+
+ (:variables (name value) ...)
+
+  Specifying the buffer local variables associated with the style.
+
+ (:indentation (symbol spec) ...)
+
+  Specifying custom indentations associated with the style. SPEC is
+  a normal `common-lisp-indent-function' indentation specification.
+
+ (:inherit style)
+
+  Inherit variables and indentations from another Common Lisp style.
+
+ (:eval form ...)
+
+  Lisp code to evaluate when activating the style. This can be used to
+  eg. activate other modes.
+"
+  (when (consp documentation)
+    (setq documentation nil
+          options (cons documentation options)))
+  `(common-lisp-add-style ,name
+                          ',(cadr (assoc :inherit options))
+                          ',(cdr (assoc :variables options))
+                          ',(cdr (assoc :indentation options))
+                          ,(when (assoc :eval options)
+                            `(list
+                              (lambda ()
+                                ,@(cdr (assoc :eval options)))))
+                          ,documentation))
+
+(define-common-lisp-style "basic"
+  "This style merely gives all identation variables their default values,
+   making it easy to create new styles that are proof against user
+   customizations."
+  (:variables
+   (lisp-indent-maximum-backtracking 3)
+   (lisp-tag-indentation 1)
+   (lisp-tag-body-indentation 3)
+   (lisp-backquote-indentation t)
+   (lisp-loop-indent-subclauses t)
+   (lisp-loop-indent-forms-like-keywords nil)
+   (lisp-simple-loop-indentation 2)
+   (lisp-align-keywords-in-calls t)
+   (lisp-lambda-list-indentation t)
+   (lisp-lambda-list-keyword-alignment nil)
+   (lisp-lambda-list-keyword-parameter-indentation 2)
+   (lisp-lambda-list-keyword-parameter-alignment nil)
+   (lisp-indent-defun-method (4 &lambda &body))))
+
+(define-common-lisp-style "classic"
+  "This style of indentation emulates the most striking features of 1995
+   vintage cl-indent.el once included as part of Slime: IF indented by two
+   spaces, and CASE clause bodies indentented more deeply than the keys."
+  (:inherit "basic")
+  (:variables
+   (lisp-lambda-list-keyword-parameter-indentation 0))
+  (:indentation
+   (case (4 &rest (&whole 2 &rest 3)))
+   (if   (4 2 2))))
+
+(define-common-lisp-style "modern"
+  "A good general purpose style. Turns on lambda-list keyword and keyword
+   parameter alignment, and turns subclause aware loop indentation off.
+   (Loop indentation so because simpler style is more prevalent in existing
+   sources, not because it is necessarily preferred.)"
+  (:inheric "basic")
+  (:variables
+   (lisp-lambda-list-keyword-alignment t)
+   (lisp-lambda-list-keyword-parameter-alignment t)
+   (lisp-lambda-list-keyword-parameter-indentation 0)
+   (lisp-loop-indent-subclauses nil)))
+
+(define-common-lisp-style "sbcl"
+  "Style used in SBCL sources. A good if somewhat intrusive general purpose
+   style based on the \"modern\" style. Adds indentation for a few SBCL
+   specific constructs, sets indentation to use spaces instead of tabs,
+   fill-column to 78, and activates whitespace-mode to show tabs and trailing
+   whitespace."
+  (:inherit "modern")
+  (:eval
+   (whitespace-mode 1))
+  (:variables
+   (whitespace-style (tabs trailing))
+   (indent-tabs-mode nil)
+   (comment-fill-column nil)
+   (fill-column 78))
+  (:indentation
+   (def!constant       (:as defconstant))
+   (def!macro          (:as defmacro))
+   (def!method         (:as defmethod))
+   (def!struct         (:as defstruct))
+   (def!type           (:as deftype))
+   (defmacro-mundanely (:as defmacro))))
+
+(defvar common-lisp-set-style-history nil)
+
+(defun common-lisp-set-style (stylename)
+  "Set current buffer to use the Common Lisp style STYLENAME.
+STYLENAME, a string, must be an existing Common Lisp style. Styles
+are added (and updated) using `common-lisp-add-style'.
+
+The buffer-local variable `common-lisp-style' will get set to STYLENAME.
+Simply setting
+
+A Common Lisp style is composed of variable and indentation specifications."
+  (interactive
+   (list (let ((completion-ignore-case t)
+               (prompt "Specify Common Lisp indentation style: "))
+           (completing-read prompt
+                            common-lisp-styles nil t nil
+                            'common-lisp-set-style-history))))
+  (let* ((stylename (if (stringp stylename)
+                        stylename
+                      (symbol-name stylename)))
+         (style (or (gethash stylename common-lisp-styles)
+                    (error "Unknown Common Lisp style: %s" stylename))))
+    (common-lisp-activate-style style)))
+
+(defun common-lisp-activate-style (style)
+  (let ((vars (second style))
+        (methods (third style))
+        (hooks (fourth style)))
+    (dolist (var vars)
+      (set (make-local-variable (car var)) (cadr var)))
+    (dolist (hook hooks)
+      (funcall hook))
+    (set (make-local-variable 'common-lisp-style) (car style))
+    (set (make-local-variable 'common-lisp-active-style) style)))
+
+;;;; The indentation specs are stored at two levels: the global defaults
+;;;; live in symbol properties: how to indent `foo' is stored in the
+;;;; `common-lisp-indent-function' property of `foo'.
+;;;;
+;;;; When a specific style is in use, we first look in its method table.
 (defun common-lisp-get-indentation (name)
   "Retrieves the indentation information for NAME."
   (let ((method
-         (get name 'common-lisp-indent-function)))
+         (or (when common-lisp-active-style
+               (gethash name (third common-lisp-active-style)))
+             (get name 'common-lisp-indent-function))))
     (if (and (consp method) (eq 'as (car method)))
         (common-lisp-get-indentation (cadr method))
       method)))
-
+
 ;;;; LOOP indentation, the simple version
 
 (defun common-lisp-loop-type (loop-start)

@@ -1,5 +1,17 @@
 2011-06-09  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	Support for named styles.
+
+	* slime-cl-indent.el (common-lisp-style)
+	(common-lisp-style-default, common-lisp-active-style)
+	(common-lisp-lisp-mode-hook, common-lisp-styles)
+	(common-lisp-add-style, define-common-lisp-style)
+	(common-lisp-set-style, common-lisp-set-style-history)
+	(common-lisp-activate-style, common-lisp-get-indentation): New
+	functions and variables. Setting `common-lisp-style' buffer local
+	variable in a file picks a style -- or use `common-lisp-set-style"
+	to do it. Indentation from style takes precedence.
+
 	Indirect indentation specs.
 
 	* slime-cl-indent.el (common-lisp-indent-function)
