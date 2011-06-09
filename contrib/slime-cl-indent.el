@@ -156,7 +156,7 @@ If non-nil, alignment is done with the first parameter
 \(or falls back to the previous case), as in:
 
 \(defun foo (arg1 arg2 &key key1 key2
-                            key3 key4)
+                           key3 key4)
   #|...|#)"
   :type 'boolean
   :group 'lisp-indent)

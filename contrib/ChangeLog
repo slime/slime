@@ -1,5 +1,8 @@
 2011-06-09  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* slime-cl-indent.el (lisp-lambda-list-keyword-parameter-alignment):
+	fix docstring: key1 and key3 were aligned in source, but not in *Help*.
+
 	Support for per-package derived indentation.
 
 	* slime-cl-indent.el (common-lisp-system-indentation)
