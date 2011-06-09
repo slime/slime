@@ -378,7 +378,7 @@ OPTIONS are:
    parameter alignment, and turns subclause aware loop indentation off.
    (Loop indentation so because simpler style is more prevalent in existing
    sources, not because it is necessarily preferred.)"
-  (:inheric "basic")
+  (:inherit "basic")
   (:variables
    (lisp-lambda-list-keyword-alignment t)
    (lisp-lambda-list-keyword-parameter-alignment t)
