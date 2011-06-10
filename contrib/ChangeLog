@@ -1,5 +1,8 @@
 2011-06-10  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* slime-cl-indent.el ("basic"): Hack comment indentation
+	to avoid inserting spaces where they don't belong.
+
 	slime-indentation: More adjustment to the fallback method.
 
 	* slime-cl-indent.el (common-lisp-indent-function-1): handle

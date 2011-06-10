@@ -349,7 +349,8 @@ OPTIONS are:
 (define-common-lisp-style "basic"
   "This style merely gives all identation variables their default values,
    making it easy to create new styles that are proof against user
-   customizations."
+   customizations. It also adjusts comment indentation from default.
+   All other predefined modes inherit from basic."
   (:variables
    (lisp-indent-maximum-backtracking 3)
    (lisp-tag-indentation 1)
@@ -363,7 +364,11 @@ OPTIONS are:
    (lisp-lambda-list-keyword-alignment nil)
    (lisp-lambda-list-keyword-parameter-indentation 2)
    (lisp-lambda-list-keyword-parameter-alignment nil)
-   (lisp-indent-defun-method (4 &lambda &body))))
+   (lisp-indent-defun-method (4 &lambda &body))
+   ;; Without these (;;foo would get a space inserted between
+   ;; ( and ; by indent-sexp.
+   (comment-indent-function (lambda () nil))
+   (comment-column nil)))
 
 (define-common-lisp-style "classic"
   "This style of indentation emulates the most striking features of 1995
