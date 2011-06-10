@@ -420,3 +420,18 @@
            ,(even-more)
            (foo foo))
        ,@bofy)))
+
+;;; Test: 39
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: t
+;; lisp-lambda-list-keyword-alignment: t
+
+(defstruct (foo (:constructor make-foo (&optional bar
+                                                  quux
+                                        &key zot
+                                             fii)))
+  bar
+  quux
+  zot
+  fii)
+

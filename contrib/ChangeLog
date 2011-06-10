@@ -1,5 +1,12 @@
 2011-06-10  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	Boa-constructor indentation.
+
+	* slime-cl-indent.el: Give :constructor the appropriate
+	indentation method.
+
+	* slime-cl-indent-test.txt: Test-case 39.
+
 	* slime-cl-indent.el (common-lisp-indent-function-1): Missing
 	paren. Teaches me to to paredit.
 
