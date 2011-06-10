@@ -1,5 +1,13 @@
 2011-06-10  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	Better handling of complex indentation specs.
+
+	* slime-cl-indent.el (common-lisp-run-indentation-tests): Add
+	a style with complex specs for testing.
+	(lisp-indent-259): fix handling of nested &whole. Hopefully.
+
+	slime-indentation: Comment indentation in styles.
+
 	* slime-cl-indent.el ("basic"): Hack comment indentation
 	to avoid inserting spaces where they don't belong.
 

@@ -3944,9 +3944,20 @@ in Emacs."
       nil))
 
 (defun macro-indentation (arglist)
-  (if (well-formed-list-p arglist)
-      (position '&body (remove '&optional (clean-arglist arglist)))
-      nil))
+  (labels ((walk (list &optional base)
+             (when (consp list)
+               (let ((head (car list))
+                     (n (if base 4 1)))
+                 (cond ((consp head)
+                        (let ((indent (walk head)))
+                          (cons (list* "&whole" n indent) (walk (cdr list) base))))
+                       ((eq '&body head)
+                        '("&body"))
+                       ((member head lambda-list-keywords)
+                        '("&rest" 1))
+                       (t
+                        (cons n (walk (cdr list) base))))))))
+    (walk arglist t)))
 
 (defun clean-arglist (arglist)
   "Remove &whole, &enviroment, and &aux elements from ARGLIST."

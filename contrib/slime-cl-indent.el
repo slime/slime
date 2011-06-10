@@ -943,103 +943,97 @@ optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\\|mo
 (defun lisp-indent-259
     (method path state indent-point sexp-column normal-indent)
   (catch 'exit
-    (let ((p path)
-          (containing-form-start (elt state 1))
-          n tem tail)
-      ;; Isn't tail-recursion wonderful?
-      (while p
-        ;; This while loop is for destructuring.
-        ;; p is set to (cdr p) each iteration.
-        (if (not (consp method)) (lisp-indent-report-bad-format method))
-        (setq n (1- (car p))
-              p (cdr p)
-              tail nil)
-        (while n
-          ;; This while loop is for advancing along a method
-          ;; until the relevant (possibly &rest/&body) pattern
-          ;; is reached.
-          ;; n is set to (1- n) and method to (cdr method)
-          ;; each iteration.
-          (setq tem (car method))
+    (let* ((p (cdr path))
+           (containing-form-start (elt state 1))
+           (n (1- (car path)))
+           tem tail)
+      (if (not (consp method))
+          (lisp-indent-report-bad-format method))
+      (while n
+        ;; This while loop is for advancing along a method
+        ;; until the relevant (possibly &rest/&body) pattern
+        ;; is reached.
+        ;; n is set to (1- n) and method to (cdr method)
+        ;; each iteration.
+        (setq tem (car method))
 
-          (or (eq tem 'nil)             ;default indentation
-              (eq tem '&lambda)         ;lambda list
-              (and (eq tem '&body) (null (cdr method)))
-              (and (eq tem '&rest)
-                   (consp (cdr method))
-                   (null (cddr method)))
-              (integerp tem)            ;explicit indentation specified
-              (and (consp tem)          ;destructuring
-                   (eq (car tem) '&whole)
-                   (or (symbolp (cadr tem))
-                       (integerp (cadr tem))))
-              (and (symbolp tem)        ;a function to call to do the work.
-                   (null (cdr method)))
-              (lisp-indent-report-bad-format method))
-
-          (cond ((eq tem '&body)
-                 ;; &body means (&rest <lisp-body-indent>)
+        (or (eq tem 'nil)             ;default indentation
+            (eq tem '&lambda)         ;lambda list
+            (and (eq tem '&body) (null (cdr method)))
+            (and (eq tem '&rest)
+                 (consp (cdr method))
+                 (null (cddr method)))
+            (integerp tem)            ;explicit indentation specified
+            (and (consp tem)          ;destructuring
+                 (or (consp (car tem))
+                     (and (eq (car tem) '&whole)
+                          (or (symbolp (cadr tem))
+                              (integerp (cadr tem))))))
+            (and (symbolp tem)        ;a function to call to do the work.
+                 (null (cdr method)))
+            (lisp-indent-report-bad-format method))
+        (cond ((eq tem '&body)
+               ;; &body means (&rest <lisp-body-indent>)
+               (throw 'exit
+                      (if (null p)
+                          (+ sexp-column lisp-body-indent)
+                        normal-indent)))
+              ((eq tem '&rest)
+               ;; this pattern holds for all remaining forms
+               (setq tail (> n 0)
+                     n 0
+                     method (cdr method)))
+              ((> n 0)
+               ;; try next element of pattern
+               (setq n (1- n)
+                     method (cdr method))
+               (if (< n 0)
+                   ;; Too few elements in pattern.
+                   (throw 'exit normal-indent)))
+              ((eq tem 'nil)
+               (throw 'exit (if (consp normal-indent)
+                                normal-indent
+                              (list normal-indent containing-form-start))))
+              ((eq tem '&lambda)
+               (throw 'exit
+                      (cond ((null p)
+                             (list (+ sexp-column 4) containing-form-start))
+                            (t
+                             ;; Indentation within a lambda-list. -- dvl
+                             (list (lisp-indent-lambda-list
+                                    indent-point
+                                    sexp-column
+                                    containing-form-start)
+                                   containing-form-start)))))
+              ((integerp tem)
+               (throw 'exit
+                      (if (null p)         ;not in subforms
+                          (list (+ sexp-column tem) containing-form-start)
+                        normal-indent)))
+              ((symbolp tem)          ;a function to call
+               (throw 'exit
+                      (funcall tem path state indent-point
+                               sexp-column normal-indent)))
+              (t
+               ;; must be a destructing frob
+               (if (not (null p))
+                   ;; descend
+                   (setq method (cddr tem)
+                         n (car p)
+                         p (cdr p))
+                 (setq tem (cadr tem))
                  (throw 'exit
-                   (if (and (= n 0)     ;first body form
-                            (null p))   ;not in subforms
-                       (+ sexp-column
-                          lisp-body-indent)
-                       normal-indent)))
-                ((eq tem '&rest)
-                 ;; this pattern holds for all remaining forms
-                 (setq tail (> n 0)
-                       n 0
-                       method (cdr method)))
-                ((> n 0)
-                 ;; try next element of pattern
-                 (setq n (1- n)
-                       method (cdr method))
-                 (if (< n 0)
-                     ;; Too few elements in pattern.
-                     (throw 'exit normal-indent)))
-                ((eq tem 'nil)
-                 (throw 'exit (if (consp normal-indent)
-                                  normal-indent
-                                (list normal-indent containing-form-start))))
-                ((eq tem '&lambda)
-                 (throw 'exit
-                   (cond ((null p)
-                          (list (+ sexp-column 4) containing-form-start))
-                         (t
-                          ;; Indentation within a lambda-list. -- dvl
-                          (list (lisp-indent-lambda-list
-                                 indent-point
-                                 sexp-column
-                                 containing-form-start)
-                                containing-form-start)))))
-                ((integerp tem)
-                 (throw 'exit
-                   (if (null p)         ;not in subforms
-                       (list (+ sexp-column tem) containing-form-start)
-                       normal-indent)))
-                ((symbolp tem)          ;a function to call
-                 (throw 'exit
-                   (funcall tem path state indent-point
-                            sexp-column normal-indent)))
-                (t
-                 ;; must be a destructing frob
-                 (if (not (null p))
-                     ;; descend
-                     (setq method (cddr tem)
-                           n nil)
-                   (setq tem (cadr tem))
-                   (throw 'exit
-                     (cond (tail
-                            normal-indent)
-                           ((eq tem 'nil)
-                            (list normal-indent
-                                  containing-form-start))
-                           ((integerp tem)
-                            (list (+ sexp-column tem)
-                                  containing-form-start))
-                           (t
-                            (funcall tem path state indent-point
-                                     sexp-column normal-indent))))))))))))
+                        (cond (tail
+                               normal-indent)
+                              ((eq tem 'nil)
+                               (list normal-indent
+                                     containing-form-start))
+                              ((integerp tem)
+                               (list (+ sexp-column tem)
+                                     containing-form-start))
+                              (t
+                               (funcall tem path state indent-point
+                                        sexp-column normal-indent)))))))))))
 
 (defun lisp-indent-tagbody (path state indent-point sexp-column normal-indent)
   (if (not (null (cdr path)))
@@ -1501,6 +1495,7 @@ Cause subsequent clauses to be indented.")
   (with-temp-buffer
     (lisp-mode)
     (setq indent-tabs-mode nil)
+    (common-lisp-set-style "common-lisp-indent-test")
     (dolist (bind bindings)
       (set (make-local-variable (car bind)) (cdr bind)))
     (insert test)
@@ -1533,6 +1528,14 @@ Cause subsequent clauses to be indented.")
                (buffer-string))))))
 
 (defun common-lisp-run-indentation-tests ()
+  (define-common-lisp-style "common-lisp-indent-test"
+    ;; Used to specify a few complex indentation specs for testing.
+    (:inherit "basic")
+    (:indentation
+     (complex-indent.1 ((&whole 4 (&whole 1 1 1 1 (&whole 1 1) &rest 1)
+                                &body) &body))
+     (complex-indent.2 (4 (&whole 4 &rest 1) &body))
+     (complex-indent.3 (4 &body))))
   (with-temp-buffer
     (insert-file "slime-cl-indent-test.txt")
     (goto-char 0)
@@ -1568,6 +1571,7 @@ Cause subsequent clauses to be indented.")
                   (common-lisp-indent-test test-name bindings test)
                   (incf n))))
           (forward-line 1)))
+      (common-lisp-delete-style "common-lisp-indent-test")
       (message "%s tests OK." n))))
 
 ;;; (common-lisp-run-indentation-tests)

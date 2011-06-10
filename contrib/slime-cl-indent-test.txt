@@ -361,3 +361,37 @@
           zot)
          (
           quux))
+
+;;; Test: 33
+
+(complex-indent.1 ((x z
+                    f
+                    ((fox foo
+                          foo))
+                    :note (ding bar quux
+                                zot)
+                    :wait (this! is
+                                 a funcall))
+                    ;; Not 100% sure this should not be a step left.
+                    (abbb)
+                    (abb))
+  (bodyform)
+  (another))
+
+;;; Test: 34
+
+(complex-indent.2 (bar quux
+                       zot)
+    (a b
+     c d)
+  (form1)
+  (form2))
+
+;;; Test: 35
+
+(complex-indent.3 (:wait fii
+                         (this is
+                               a funcall))
+  (bodyform)
+  (another))
+
