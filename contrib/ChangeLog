@@ -1,5 +1,15 @@
 2011-06-10  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	slime-indentation: More adjustment to the fallback method.
+
+	* slime-cl-indent.el (common-lisp-indent-function-1): handle
+	case of empty or comment line following the opening paren
+	of the containing expression.
+
+	* slime-cl-indent-test.txt: new test case.
+
+	slime-indentation: Test refactoring.
+
 	* slime-cl-indent.el (common-lisp-indent-test): replaces
 	test-lisp-indent.
 	(common-lisp-run-indentation-tests): replaces

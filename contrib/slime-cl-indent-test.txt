@@ -346,3 +346,18 @@
 
 (foo
  (bar))
+
+;;; Test: 32
+;;
+;; comment-indent-function: (lambda () nil)
+;; comment-column: nil
+
+(unknown (;; KLUDGE: comment-indent hackery to get
+          ;; the comment right. Otherwise we get a
+          ;; space before the first ;.
+          bar quux
+          zot)
+         (#|fii|#
+          zot)
+         (
+          quux))

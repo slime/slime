@@ -834,10 +834,14 @@ For example, the function `case' has an indent property
               (let ((p (point)))
                 (goto-char containing-sexp)
                 (down-list)
-                (forward-sexp 2)
-                (backward-sexp)
-                (unless (= p (point))
-                  (current-column)))))))))
+                (let ((one (current-column)))
+                  (skip-chars-forward " \t")
+                  (if (or (eolp) (looking-at ";"))
+                      one
+                    (forward-sexp 2)
+                    (backward-sexp)
+                    (unless (= p (point))
+                      (current-column)))))))))))
 
 
 (defun common-lisp-indent-call-method (function method path state indent-point
@@ -1492,7 +1496,6 @@ Cause subsequent clauses to be indented.")
   (with-temp-buffer
     (lisp-mode)
     (setq indent-tabs-mode nil)
-    (common-lisp-set-style "common-lisp-indent-test")
     (dolist (bind bindings)
       (set (make-local-variable (car bind)) (cdr bind)))
     (insert test)
