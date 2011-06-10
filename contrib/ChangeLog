@@ -1,5 +1,8 @@
 2011-06-10  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* slime-cl-indent.el (common-lisp-indent-function-1): Missing
+	paren. Teaches me to to paredit.
+
 	Take , and ,@ into account properly.
 
 	* slime-cl-indent.el (common-lisp-indent-function-1): Adjust
