@@ -661,6 +661,10 @@ For example, the function `case' has an indent property
   (common-lisp-indent-function-1 indent-point state))
 
 (defun common-lisp-indent-function-1 (indent-point state)
+  ;; If we're looking at a splice, move to the first comma.
+  (when (or (looking-back ",") (looking-back ",@"))
+    (when (re-search-backward "[^,@'],")
+      (forward-char 1))
   (let ((normal-indent (current-column)))
     ;; Walk up list levels until we see something
     ;;  which does special things with subforms.

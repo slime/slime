@@ -395,3 +395,28 @@
   (bodyform)
   (another))
 
+;;; Test: 36
+
+(defmacro foo (body)
+  `(let (,@(stuff)
+         ,(more-stuff)
+         ,(even-more)
+         (foo foo))
+     ,@bofy))
+
+;;; Test: 37
+
+(defun foo ()
+  `(list foo bar
+         ,@(quux fo
+                 foo)))
+
+;;; Test: 38
+
+(defmacro foofoo (body)
+  `(foo
+    `(let (,',@,(stuff)
+           ,(more-stuff)
+           ,(even-more)
+           (foo foo))
+       ,@bofy)))

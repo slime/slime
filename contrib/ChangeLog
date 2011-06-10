@@ -1,5 +1,12 @@
 2011-06-10  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	Take , and ,@ into account properly.
+
+	* slime-cl-indent.el (common-lisp-indent-function-1): Adjust
+	normal-indent to take , and ,@ into account
+
+	* slime-cl-indent-test.txt: Test case 36-38.
+
 	Better handling of complex indentation specs.
 
 	* slime-cl-indent.el (common-lisp-run-indentation-tests): Add
