@@ -1,3 +1,13 @@
+2011-06-10  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime-cl-indent.el (common-lisp-indent-test): replaces
+	test-lisp-indent.
+	(common-lisp-run-indentation-tests): replaces
+	run-lisp-indent-tests.
+
+	* slime-cl-indent-test.txt: new file, contains all the indentation
+	tests.
+
 2011-06-09  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-cl-indent.el (lisp-lambda-list-keyword-parameter-alignment):

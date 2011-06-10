@@ -1488,315 +1488,80 @@ Cause subsequent clauses to be indented.")
         (error "Cannot set Common Lisp indentation of a non-symbol: %s" name))
       (put name 'common-lisp-indent-function indentation))))
 
-(defun test-lisp-indent (tests)
-  (let ((ok 0))
-    (dolist (test tests)
-     (with-temp-buffer
-       (lisp-mode)
-       (setq indent-tabs-mode nil)
-       (when (consp test)
-         (when (cddr test)
-           (error "Malformed test: %s" test))
-         (dolist (bind (first test))
-           (make-local-variable (first bind))
-           (set (first bind) (second bind)))
-         (setf test (second test)))
-       (insert test)
-       (goto-char 0)
-       (skip-chars-forward " \t\n")
-       ;; Mess up the indentation so we know reindentation works
-       (let ((mess nil))
-         (save-excursion
-           (while (not (eobp))
-             (forward-line 1)
-             (ignore-errors (delete-char 1) (setf mess t))))
-         (if (or (not mess) (equal (buffer-string) test))
-             (error "Couldn't mess up indentation?")))
-       (indent-sexp)
-       (if (equal (buffer-string) test)
-           (incf ok)
-           (error "Bad indentation.\nWanted: %s\nGot: %s"
-                  test
-                  (buffer-string)))))
-    ok))
+(defun common-lisp-indent-test (name bindings test)
+  (with-temp-buffer
+    (lisp-mode)
+    (setq indent-tabs-mode nil)
+    (common-lisp-set-style "common-lisp-indent-test")
+    (dolist (bind bindings)
+      (set (make-local-variable (car bind)) (cdr bind)))
+    (insert test)
+    (goto-char 0)
+    ;; Find the first line with content.
+    (skip-chars-forward " \t\n\r")
+    ;; Mess up the indentation so we know reindentation works
+    (save-excursion
+      (while (not (eobp))
+        (forward-line 1)
+        (unless (looking-at "^$")
+          (case (random 2)
+            (0
+             ;; Delete all leading whitespace.
+             (while (looking-at " ") (delete-char 1)))
+            (1
+             ;; Insert whitespace random.
+             (let ((n (1+ (random 24))))
+               (while (> n 0) (decf n) (insert " "))))))))
+    (let ((mess (buffer-string)))
+      (when (equal mess test)
+        (error "Could not mess up indentation?"))
+      (indent-sexp)
+      (if (equal (buffer-string) test)
+          t
+        (error "Bad indentation in test %s.\nMess: %s\nWanted: %s\nGot: %s"
+               name
+               mess
+               test
+               (buffer-string))))))
 
-;; (run-lisp-indent-tests)
+(defun common-lisp-run-indentation-tests ()
+  (with-temp-buffer
+    (insert-file "slime-cl-indent-test.txt")
+    (goto-char 0)
+    (let ((test-mark ";;; Test: ")
+          (n 0))
+      (while (not (eobp))
+        (if (looking-at test-mark)
+            (let* ((name-start (progn (search-forward ": ") (point)))
+                   (name-end (progn (end-of-line) (point)))
+                   (test-name
+                    (buffer-substring-no-properties name-start name-end))
+                   (bindings nil))
+              (forward-line 1)
+              (while (looking-at ";")
+                (when (looking-at ";; ")
+                  (skip-chars-forward "; ")
+                  (unless (eolp)
+                    (let* ((var-start (point))
+                           (val-start (progn (search-forward ": ") (point)))
+                           (var
+                            (intern (buffer-substring-no-properties
+                                     var-start (- val-start 2))))
+                           (val
+                            (car (read-from-string
+                                  (buffer-substring-no-properties
+                                   val-start (progn (end-of-line) (point)))))))
+                      (push (cons var val) bindings))))
+                (forward-line 1))
+              (let ((test-start (point)))
+                (while (not (or (eobp) (looking-at test-mark)))
+                  (forward-line 1))
+                (let ((test (buffer-substring-no-properties test-start (point))))
+                  (common-lisp-indent-test test-name bindings test)
+                  (incf n))))
+          (forward-line 1)))
+      (message "%s tests OK." n))))
 
-(defun run-lisp-indent-tests ()
-  (test-lisp-indent
-   '("
- (defun foo ()
-   t)"
-     (((lisp-lambda-list-keyword-parameter-alignment nil)
-       (lisp-lambda-list-keyword-alignment nil))
-      "
- (defun foo (foo &optional opt1
-                   opt2
-             &rest rest)
-   (list foo opt1 opt2
-         rest))")
-     (((lisp-lambda-list-keyword-parameter-alignment t)
-       (lisp-lambda-list-keyword-alignment nil))
-      "
- (defun foo (foo &optional opt1
-                           opt2
-             &rest rest)
-   (list foo opt1 opt2
-         rest))")
-     (((lisp-lambda-list-keyword-parameter-alignment nil)
-       (lisp-lambda-list-keyword-alignment t))
-      "
- (defun foo (foo &optional opt1
-                   opt2
-                 &rest rest)
-   (list foo opt1 opt2
-         rest))")
-     (((lisp-lambda-list-keyword-parameter-alignment t)
-       (lisp-lambda-list-keyword-alignment t))
-      "
- (defun foo (foo &optional opt1
-                           opt2
-                 &rest rest)
-   (list foo opt1 opt2
-         rest))")
-     (((lisp-lambda-list-keyword-parameter-alignment nil)
-       (lisp-lambda-list-keyword-alignment nil))
-      "
- (defmacro foo ((foo &optional opt1
-                       opt2
-                 &rest rest))
-   (list foo opt1 opt2
-         rest))")
-     (((lisp-lambda-list-keyword-parameter-alignment t)
-       (lisp-lambda-list-keyword-alignment nil))
-      "
- (defmacro foo ((foo &optional opt1
-                               opt2
-                 &rest rest))
-   (list foo opt1 opt2
-         rest))")
-     (((lisp-lambda-list-keyword-parameter-alignment nil)
-       (lisp-lambda-list-keyword-alignment t))
-      "
- (defmacro foo ((foo &optional opt1
-                       opt2
-                     &rest rest))
-   (list foo opt1 opt2
-         rest))")
-     (((lisp-lambda-list-keyword-parameter-alignment t)
-       (lisp-lambda-list-keyword-alignment t))
-      "
- (defmacro foo ((foo &optional opt1
-                               opt2
-                     &rest rest))
-   (list foo opt1 opt2
-         rest))")
-     "
-  (let ((x y)
-        (foo #-foo (no-foo)
-             #+foo (yes-foo))
-        (bar #-bar
-             (no-bar)
-             #+bar
-             (yes-bar)))
-    (list foo bar
-          x))"
-     (((lisp-loop-indent-subclauses t))
-      "
-  (loop for i from 0 below 2
-        for j from 0 below 2
-        when foo
-          do (fubar)
-             (bar)
-             (moo)
-          and collect cash
-                into honduras
-        else do ;; this is the body of the first else
-                ;; the body is ...
-                (indented to the above comment)
-                (ZMACS gets this wrong)
-             and do this
-             and do that
-             and when foo
-                   do the-other
-                   and cry
-        when this-is-a-short-condition do
-          (body code of the when)
-        when here's something I used to botch do (here is a body)
-                                                 (rest of body indented same)
-        do
-           (exdented loop body)
-           (I'm not sure I like this but it's compatible)
-        when funny-predicate do ;; Here's a comment
-                                (body filled to comment))")
-     "
-  (defun foo (x)
-    (tagbody
-     foo
-       (bar)
-     baz
-       (when (losing)
-         (with-big-loser
-             (yow)
-           ((lambda ()
-              foo)
-            big)))
-       (flet ((foo (bar baz zap)
-                (zip))
-              (zot ()
-                quux))
-         (do ()
-             ((lose)
-              (foo 1))
-           (quux)
-          foo
-           (lose))
-         (cond ((x)
-                (win 1 2
-                     (foo)))
-               (t
-                (lose
-                 3))))))"
-     "
-  (if* (eq t nil)
-     then ()
-          ()
-   elseif (dsf)
-     thenret x
-     else (balbkj)
-          (sdf))"
-     "
-   (list foo #+foo (foo)
-             #-foo (no-foo))"
-     (((lisp-loop-indent-subclauses t))
-      "
-    (loop for x in foo1
-          for y in quux1
-          )")
-     (((lisp-loop-indent-subclauses nil))
-      "
-    (loop for x in foo
-          for y in quux
-          )")
-     (((lisp-loop-indent-subclauses nil)
-       (lisp-loop-indent-forms-like-keywords t))
-      "
-   (loop for x in foo
-         for y in quux
-         finally (foo)
-                 (fo)
-                 (zoo)
-         do
-         (print x)
-         (print y)
-         (print 'ok!))")
-     (((lisp-loop-indent-subclauses nil)
-       (lisp-loop-indent-forms-like-keywords nil))
-       "
-   (loop for x in foo
-         for y in quux
-         finally (foo)
-                 (fo)
-                 (zoo)
-         do
-            (print x)
-            (print y)
-            (print 'ok!))")
-      (((lisp-loop-indent-subclauses t)
-        (lisp-loop-indent-forms-like-keywords nil))
-       "
-   (loop for x in foo
-         for y in quux
-         finally (foo)
-                 (fo)
-         do
-            (print x)
-            (print y)
-            (print 'ok!))")
-     (((lisp-loop-indent-subclauses nil)
-       (lisp-loop-indent-forms-like-keywords nil))
-       "
-   (loop for f in files
-         collect (open f
-                       :direction :output)
-         do (foo) (bar)
-            (quux))")
-      (((lisp-loop-indent-subclauses t))
-       "
-   (loop for f in files
-         collect (open f
-                       :direction :output)
-         do (foo) (bar)
-            (quux))")
-       "
-   (defsetf foo bar
-     \"the doc string\")"
-       "
-   (defsetf foo
-       bar
-     \"the doc string\")"
-       (((lisp-lambda-list-keyword-parameter-alignment t))
-        "
-   (defsetf foo (x y &optional a
-                               z)
-       (a b c)
-     stuff)")
-       (((lisp-align-keywords-in-calls t))
-        "
-    (make-instance 'foo :bar t quux t
-                        :zot t)")
-       (((lisp-align-keywords-in-calls nil))
-        "
-    (make-instance 'foo :bar t quux t
-                   :zot t)")
-       (((lisp-lambda-list-indentation nil))
-        "
-      (defun example (a b &optional o1 o2
-                      o3 o4
-                      &rest r
-                      &key k1 k2
-                      k3 k4)
-        'hello)")
-       (((lisp-lambda-list-keyword-parameter-alignment t)
-         (lisp-lambda-list-keyword-alignment t))
-        "
-     (destructuring-bind (foo &optional x
-                                        y
-                              &key bar
-                                   quux)
-         foo
-       body)")
-       (((lisp-lambda-list-keyword-parameter-alignment t)
-         (lisp-lambda-list-keyword-alignment t))
-        "
-     (named-lambda foo
-         (x &optional y
-                      z
-            &rest more)
-       body)")
-       "
-     (foo fii
-          (or x
-              y) t
-          bar)"
-       "
-      (foo
-       (bar))")))
-
-
-
-;(put 'while    'common-lisp-indent-function 1)
-;(put 'defwrapper'common-lisp-indent-function ...)
-;(put 'def 'common-lisp-indent-function ...)
-;(put 'defflavor        'common-lisp-indent-function ...)
-;(put 'defsubst 'common-lisp-indent-function ...)
-
-;(put 'with-restart 'common-lisp-indent-function '((1 4 ((* 1))) (2 &body)))
-;(put 'restart-case 'common-lisp-indent-function '((1 4) (* 2 ((0 1) (* 1)))))
-;(put 'define-condition 'common-lisp-indent-function '((1 6) (2 6 ((&whole 1))) (3 4 ((&whole 1))) (4 &body)))
-;(put 'with-condition-handler 'common-lisp-indent-function '((1 4 ((* 1))) (2 &body)))
-;(put 'condition-case 'common-lisp-indent-function '((1 4) (* 2 ((0 1) (1 3) (2 &body)))))
-;(put 'defclass 'common-lisp-indent-function '((&whole 2 &rest (&whole 2 &rest 1) &rest (&whole 2 &rest 1)))
-;(put 'defgeneric 'common-lisp-indent-function 'defun)
+;;; (common-lisp-run-indentation-tests)
 
 ;;; cl-indent.el ends here

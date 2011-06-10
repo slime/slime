@@ -1,0 +1,348 @@
+;;;; -*- mode: lisp -*-
+;;;;
+;;;; This file is .txt, because it's not meant to be evaluated.
+;;;; common-lisp-run-indentation-tests in slime-cl-ident.el
+;;;; parses this and runs the specified tests.
+
+;;; Test: 1
+
+(defun foo ()
+  t)
+
+;;; Test: 2
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: nil
+;; lisp-lambda-list-keyword-alignment: nil
+
+(defun foo (foo &optional opt1
+                  opt2
+            &rest rest)
+  (list foo opt1 opt2
+        rest))
+
+;;; Test: 3
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: t
+;; lisp-lambda-list-keyword-alignment: nil
+
+(defun foo (foo &optional opt1
+                          opt2
+            &rest rest)
+  (list foo opt1 opt2
+        rest))
+
+;;; Test: 4
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: nil
+;; lisp-lambda-list-keyword-alignment: t
+
+(defun foo (foo &optional opt1
+                  opt2
+                &rest rest)
+  (list foo opt1 opt2
+        rest))
+
+;;; Test: 5
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: t
+;; lisp-lambda-list-keyword-alignment: t
+
+(defun foo (foo &optional opt1
+                          opt2
+                &rest rest)
+  (list foo opt1 opt2
+        rest))
+
+;;; Test: 6
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: nil
+;; lisp-lambda-list-keyword-alignment: nil
+
+(defmacro foo ((foo &optional opt1
+                      opt2
+                &rest rest))
+  (list foo opt1 opt2
+        rest))
+
+;;; Test: 7
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: t
+;; lisp-lambda-list-keyword-alignment: nil
+
+(defmacro foo ((foo &optional opt1
+                              opt2
+                &rest rest))
+  (list foo opt1 opt2
+        rest))
+
+;;; Test: 8
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: nil
+;; lisp-lambda-list-keyword-alignment: t
+
+(defmacro foo ((foo &optional opt1
+                      opt2
+                    &rest rest))
+  (list foo opt1 opt2
+        rest))
+
+;;; Test: 9
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: t
+;; lisp-lambda-list-keyword-alignment: t
+
+(defmacro foo ((foo &optional opt1
+                              opt2
+                    &rest rest))
+  (list foo opt1 opt2
+        rest))
+
+;;; Test: 10
+
+(let ((x y)
+      (foo #-foo (no-foo)
+           #+foo (yes-foo))
+      (bar #-bar
+           (no-bar)
+           #+bar
+           (yes-bar)))
+  (list foo bar
+        x))
+
+;;; Test: 11
+;;
+;; lisp-loop-indent-subclauses: t
+
+(loop for i from 0 below 2
+      for j from 0 below 2
+      when foo
+        do (fubar)
+           (bar)
+           (moo)
+        and collect cash
+              into honduras
+      else do ;; this is the body of the first else
+              ;; the body is ...
+              (indented to the above comment)
+              (ZMACS gets this wrong)
+           and do this
+           and do that
+           and when foo
+                 do the-other
+                 and cry
+      when this-is-a-short-condition do
+        (body code of the when)
+      when here's something I used to botch do (here is a body)
+                                               (rest of body indented same)
+      do
+         (exdented loop body)
+         (I'm not sure I like this but it's compatible)
+      when funny-predicate do ;; Here's a comment
+                              (body filled to comment))
+
+;;; Test: 12
+
+(defun foo (x)
+  (tagbody
+   foo
+     (bar)
+   baz
+     (when (losing)
+       (with-big-loser
+           (yow)
+         ((lambda ()
+            foo)
+          big)))
+     (flet ((foo (bar baz zap)
+              (zip))
+            (zot ()
+              quux))
+       (do ()
+           ((lose)
+            (foo 1))
+         (quux)
+        foo
+         (lose))
+       (cond ((x)
+              (win 1 2
+                   (foo)))
+             (t
+              (lose
+               3))))))
+
+;;; Test: 13
+
+(if* (eq t nil)
+   then ()
+        ()
+ elseif (dsf)
+   thenret x
+   else (balbkj)
+        (sdf))
+
+;;; Test: 14
+
+(list foo #+foo (foo)
+          #-foo (no-foo))
+
+;;; Test: 15
+;;
+;; lisp-loop-indent-subclauses: t
+
+(loop for x in foo1
+      for y in quux1
+      )
+
+;;; Test: 16
+;;
+;; lisp-loop-indent-subclauses: nil
+
+(loop for x in foo1
+      for y in quux1
+      )
+
+;;; Test: 17
+;;
+;; lisp-loop-indent-subclauses: nil
+;; lisp-loop-indent-forms-like-keywords: t
+
+(loop for x in foo
+      for y in quux
+      finally (foo)
+              (fo)
+              (zoo)
+      do
+      (print x)
+      (print y)
+      (print 'ok!))
+
+;;; Test: 18
+;;
+;; lisp-loop-indent-subclauses: nil
+;; lisp-loop-indent-forms-like-keywords: nil
+
+(loop for x in foo
+      for y in quux
+      finally (foo)
+              (fo)
+              (zoo)
+      do
+         (print x)
+         (print y)
+         (print 'ok!))
+
+;;; Test: 19
+;;
+;; lisp-loop-indent-subclauses: t
+;; lisp-loop-indent-forms-like-keywords: nil
+
+(loop for x in foo
+      for y in quux
+      finally (foo)
+              (fo)
+              (zoo)
+      do
+         (print x)
+         (print y)
+         (print 'ok!))
+
+;;; Test: 20
+;;
+;; lisp-loop-indent-subclauses: nil
+;; lisp-loop-indent-forms-like-keywords: nil
+
+(loop for f in files
+      collect (open f
+                    :direction :output)
+      do (foo) (bar)
+         (quux))
+
+;;; Test: 21
+;;
+;; lisp-loop-indent-subclauses: t
+
+(loop for f in files
+      collect (open f
+                    :direction :output)
+      do (foo) (bar)
+         (quux))
+
+;;; Test: 22
+
+(defsetf foo bar
+  "the doc string")
+
+;;; Test: 23
+
+(defsetf foo
+    bar
+  "the doc string")
+
+;;; Test: 24
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: t
+
+(defsetf foo (x y &optional a
+                            z)
+    (a b c)
+  stuff)
+
+;;; Test: 25
+;;
+;; lisp-align-keywords-in-calls: t
+
+(make-instance 'foo :bar t :quux t
+                    :zot t)
+
+;;; Test: 26
+;;
+;; lisp-align-keywords-in-calls: nil
+
+(make-instance 'foo :bar t :quux t
+               :zot t)
+
+;;; Test: 27
+;;
+;; lisp-lambda-list-indentation: nil
+
+(defun example (a b &optional o1 o2
+                o3 o4
+                &rest r
+                &key k1 k2
+                k3 k4)
+  'hello)
+
+;;; Test: 28
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: t
+;; lisp-lambda-list-keyword-alignment: t
+
+(destructuring-bind (foo &optional x
+                                   y
+                         &key bar
+                              quux)
+    foo
+  body)
+
+;;; Test: 29
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: t
+;; lisp-lambda-list-keyword-alignment: t
+
+(named-lambda foo
+    (x &optional y
+                 z
+       &rest more)
+  body)
+
+;;; Test: 30
+
+(foo fii
+     (or x
+         y) t
+     bar)
+
+;;; Test: 31
+
+(foo
+ (bar))
