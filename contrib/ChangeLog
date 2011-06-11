@@ -1,3 +1,23 @@
+2011-06-11  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	Refactoring named styles.
+
+	* slime-cl-indent.el (define-common-lisp-style): Not a list of hooks anymore,
+	but just a single hook. Document the fact that code in :eval option may get
+	called multiple times over the lifetime of a buffer.
+	(common-lisp-style-name, common-lisp-style-inherits)
+	(common-lisp-style-variables, common-lisp-style-indentation)
+	(common-lisp-style-hook, common-lisp-style-docstring)
+	(common-lisp-make-style, common-lisp-find-style): New functions.
+	Convenience accessors, locator, and constructor.
+	(common-lisp-add-style): Don't precompute inheritance.
+	(common-lisp-safe-style-p): For use with safe-local-variable.
+	(common-lisp-activate-style): Now handles inheritance.
+	(common-lisp-active-style-methods): New function, computes and caches
+	inheritance.
+	(common-lisp-set-style): Changes to match others.
+	(common-lisp-get-indentation): Use common-lisp-active-style-methods.
+
 2011-06-10  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	Boa-constructor indentation.
