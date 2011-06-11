@@ -1,5 +1,15 @@
 2011-06-11  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	XEmacs compatibility.
+
+	* slime-cl-indent.el (common-lisp-style-names): New function.
+	(common-lisp-set-style): Call common-lisp-style-names instead of
+	using the hashtable directly: XEmacs doesn't like hash-tables in
+	completing-read.
+	(common-lisp-looking-back): New function.
+	(common-lisp-indent-function-1): Use common-lisp-looking-back instead
+	of looking-back: XEmacs doesn't have looking-back.
+
 	Refactoring named styles.
 
 	* slime-cl-indent.el (define-common-lisp-style): Not a list of hooks anymore,

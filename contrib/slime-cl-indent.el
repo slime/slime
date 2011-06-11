@@ -348,6 +348,13 @@ Ie. styles that will not evaluate arbitrary code on activation."
 
 (defvar common-lisp-set-style-history nil)
 
+(defun common-lisp-style-names ()
+  (let (names)
+    (maphash (lambda (k v)
+               (push k names))
+             common-lisp-styles)
+    names))
+
 (defun common-lisp-set-style (stylename)
   "Set current buffer to use the Common Lisp style STYLENAME.
 STYLENAME, a string, must be an existing Common Lisp style. Styles
@@ -362,7 +369,7 @@ activation."
    (list (let ((completion-ignore-case t)
                (prompt "Specify Common Lisp indentation style: "))
            (completing-read prompt
-                            common-lisp-styles nil t nil
+                            (common-lisp-style-names) nil t nil
                             'common-lisp-set-style-history))))
   (setq common-lisp-style (common-lisp-style-name (common-lisp-find-style stylename))
         common-lisp-active-style nil)
@@ -691,9 +698,17 @@ For example, the function `case' has an indent property
     have an offset of 2+1=3."
   (common-lisp-indent-function-1 indent-point state))
 
+;;; XEmacs doesn't have looking-back, so we define a simple one. Faster to
+;;; boot, and sufficient for our needs.
+(defun common-lisp-looking-back (string)
+  (let ((len (length string)))
+    (dotimes (i len t)
+      (unless (eql (elt string (- len i 1)) (char-before (- (point) i)))
+        (return nil)))))
+
 (defun common-lisp-indent-function-1 (indent-point state)
   ;; If we're looking at a splice, move to the first comma.
-  (when (or (looking-back ",") (looking-back ",@"))
+  (when (or (common-lisp-looking-back ",") (common-lisp-looking-back ",@"))
     (when (re-search-backward "[^,@'],")
       (forward-char 1)))
   (let ((normal-indent (current-column)))
