@@ -1,5 +1,8 @@
 2011-06-11  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* slime-cl-indent.el (common-lisp-style-names): XEmacs doesn't
+	like lists either in completing-read -- need an alist.
+
 	XEmacs compatibility.
 
 	* slime-cl-indent.el (common-lisp-style-names): New function.

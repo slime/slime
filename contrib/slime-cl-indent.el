@@ -351,7 +351,7 @@ Ie. styles that will not evaluate arbitrary code on activation."
 (defun common-lisp-style-names ()
   (let (names)
     (maphash (lambda (k v)
-               (push k names))
+               (push (cons k v) names))
              common-lisp-styles)
     names))
 
