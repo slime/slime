@@ -1153,27 +1153,32 @@ optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\\|mo
           (t 2)))))
    (elt state 1)))
 
+(defun lisp-beginning-of-defmethod ()
+  (let ((regexp "(defmethod\\|(DEFMETHOD\\|(:method\\|(:METHOD")
+        (ok nil))
+    (while (and (not (setq ok (looking-at regexp)))
+                (ignore-errors (backward-up-list) t)))
+    ok))
+
 ;; LISP-INDENT-DEFMETHOD now supports the presence of more than one method
 ;; qualifier and indents the method's lambda list properly. -- dvl
 (defun lisp-indent-defmethod
     (path state indent-point sexp-column normal-indent)
   (lisp-indent-259
-   (let ((nqual 0))
-     (if (and (>= (car path) 3)
-              (save-excursion
-                (beginning-of-defun)
-                (forward-char 1)
-                (forward-sexp 2)
-                (skip-chars-forward " \t\n")
-                (while (looking-at "\\sw\\|\\s_")
-                  (incf nqual)
-                  (forward-sexp)
-                  (skip-chars-forward " \t\n"))
-                (> nqual 0)))
-         (append '(4) (make-list nqual 4) '(&lambda &body))
+   (let ((nskip 0))
+     (if (save-excursion
+           (when (lisp-beginning-of-defmethod)
+             (forward-char)
+             (forward-sexp 1)
+             (skip-chars-forward " \t\n")
+             (while (looking-at "\\sw\\|\\s_")
+               (incf nskip)
+               (forward-sexp)
+               (skip-chars-forward " \t\n"))
+             t))
+         (append (make-list nskip 4) '(&lambda &body))
        (common-lisp-get-indentation 'defun)))
    path state indent-point sexp-column normal-indent))
-
 
 (defun lisp-indent-function-lambda-hack (path state indent-point
                                          sexp-column normal-indent)
@@ -1501,7 +1506,7 @@ Cause subsequent clauses to be indented.")
            (restart-bind (as let))
            (locally 1)
            (loop           lisp-indent-loop)
-           (:method (&lambda &body)) ; in `defgeneric'
+           (:method        lisp-indent-defmethod) ; in `defgeneric'
            (multiple-value-bind ((&whole 6 &rest 1) 4 &body))
            (multiple-value-call (4 &body))
            (multiple-value-prog1 1)

@@ -1,3 +1,11 @@
+2011-06-14  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime-cl-indent.el (lisp-beginning-of-defmethod): New function.
+	(lisp-indent-defmethod): Extend to work with non-toplevel defmethods,
+	and method definitions inside defgenerics.
+
+	* slime-cl-indent-test.txt: Tests 40-43.
+
 2011-06-11  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-cl-indent.el (common-lisp-style-names): XEmacs doesn't

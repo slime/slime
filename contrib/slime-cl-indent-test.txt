@@ -435,3 +435,43 @@
   zot
   fii)
 
+;;; Test: 40
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: t
+;; lisp-lambda-list-keyword-alignment: t
+
+(defmethod foo :around (zot &key x
+                                 y)
+  (list zot))
+
+;;; Test: 41
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: t
+;; lisp-lambda-list-keyword-alignment: t
+
+(progn
+  (defmethod foo :around (fii &key x
+                                   y)
+    (list fii)))
+
+;;; Test: 42
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: t
+;; lisp-lambda-list-keyword-alignment: t
+
+(progn
+  (defgeneric foo (x y &optional a
+                                 b)
+    (:method :around (a b &optional x
+                                    y)
+      (list a b x y))))
+
+;;; Test: 43
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: t
+;; lisp-lambda-list-keyword-alignment: t
+
+(defgeneric foo (x &optional a b)
+  (:method (x y &optional a
+                          b)
+    (list x y a b)))
