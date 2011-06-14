@@ -491,3 +491,9 @@
       bar
       quux)
   ...)
+
+;;; Test: 46
+
+(let (foo bar
+      quux)
+  ...)

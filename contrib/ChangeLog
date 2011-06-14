@@ -1,5 +1,13 @@
 2011-06-14  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	Fix indentation of incomplete destructring.
+
+	* slime-cl-indent.el (lisp-indent-259): If there's a level of
+	destructuring specified in a tail, but we're looking at a word,
+	indent to sexp instead.
+
+	* slime-cl-indent-test.txt: Test 46.
+
 	Don't consider DEFINER and DEFINITION as tentative defuns.
 
 	* slime-cl-indent.el (common-lisp-indent-function-1): Don't consider

@@ -1063,24 +1063,35 @@ optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\\|mo
                                sexp-column normal-indent)))
               (t
                ;; must be a destructing frob
-               (if (not (null p))
+               (if p
                    ;; descend
                    (setq method (cddr tem)
                          n (car p)
-                         p (cdr p))
-                 (setq tem (cadr tem))
-                 (throw 'exit
-                        (cond (tail
-                               normal-indent)
-                              ((eq tem 'nil)
-                               (list normal-indent
-                                     containing-form-start))
-                              ((integerp tem)
-                               (list (+ sexp-column tem)
-                                     containing-form-start))
-                              (t
-                               (funcall tem path state indent-point
-                                        sexp-column normal-indent)))))))))))
+                         p (cdr p)
+                         tail nil)
+                 (let ((wholep (eq '&whole (car tem))))
+                   (setq tem (cadr tem))
+                   (throw 'exit
+                          (cond (tail
+                                 (if (and wholep (integerp tem)
+                                          (save-excursion
+                                            (goto-char indent-point)
+                                            (back-to-indentation)
+                                            (looking-at "\\sw")))
+                                     ;; There's a further level of
+                                     ;; destructuring, but we're looking at a
+                                     ;; word -- indent to sexp.
+                                     (+ sexp-column tem)
+                                   normal-indent))
+                                ((not tem)
+                                 (list normal-indent
+                                       containing-form-start))
+                                ((integerp tem)
+                                 (list (+ sexp-column tem)
+                                       containing-form-start))
+                                (t
+                                 (funcall tem path state indent-point
+                                          sexp-column normal-indent))))))))))))
 
 (defun lisp-indent-tagbody (path state indent-point sexp-column normal-indent)
   (if (not (null (cdr path)))
@@ -1575,6 +1586,10 @@ Cause subsequent clauses to be indented.")
       (indent-sexp)
       (if (equal (buffer-string) test)
           t
+        ;; (let ((test-buffer (current-buffer)))
+        ;;   (with-temp-buffer
+        ;;     (insert test)
+        ;;     (ediff-buffers (current-buffer) test-buffer)))
         (error "Bad indentation in test %s.\nMess: %s\nWanted: %s\nGot: %s"
                name
                mess
