@@ -1,5 +1,10 @@
 2011-06-14  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* swank-backend.lisp (call-with-io-timeout): New DEFINTERFACE.
+	* swank-sbcl.lisp (call-with-io-timeout): DEFIMPLEMENTATION for it.
+	* swank.lisp (auto-flush-loop): Call FINISH-OUTPUT using
+	CALL-WITH-IO-TIMEOUT to prevent deadlocks.
+
 	* swank.lisp (macro-indentation): Fix handling of lambda-list
 	keywords other than &rest and &body.
 

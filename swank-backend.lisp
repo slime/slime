@@ -1325,3 +1325,10 @@ With some Lisps, like cmucl, LENGTH returns the number of UTF-16 code
 units, but other Lisps return the number of codepoints. The slime
 protocol wants string lengths in terms of codepoints."
   (length string))
+
+;;; Timeouts
+
+(definterface call-with-io-timeout (function &key seconds)
+  "Calls function with the specified IO timeout."
+  (declare (ignore seconds))
+  (funcall function))
