@@ -1,5 +1,11 @@
 2011-06-14  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	WITH-COMPILATION-UNIT indentation.
+
+	* slime-cl-indent.el: Add indentation method.
+
+	* slime-cl-indent-test.txt: Test 47.
+
 	Fix indentation of incomplete destructring.
 
 	* slime-cl-indent.el (lisp-indent-259): If there's a level of

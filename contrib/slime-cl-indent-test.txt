@@ -497,3 +497,11 @@
 (let (foo bar
       quux)
   ...)
+
+;;; Test: 47
+
+(with-compilation-unit 
+    (:foo t
+     :quux nil)
+  ...)
+
