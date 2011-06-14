@@ -410,6 +410,7 @@
 
 
 (defvar *buffer-name* nil)
+(defvar *buffer-tmpfile* nil)
 (defvar *buffer-offset*)
 (defvar *buffer-substring* nil)
 
@@ -492,11 +493,15 @@ information."
 (defun compiling-from-buffer-p (filename)
   (and *buffer-name*
        ;; The following is to trigger COMPILING-FROM-GENERATED-CODE-P
-       ;; in LOCATE-COMPILER-NOTE.
-       (not (eq filename :lisp))))
+       ;; in LOCATE-COMPILER-NOTE, and allows handling nested
+       ;; compilation from eg. hitting C-C on (eval-when ... (require ..))).
+       (pathnamep filename)
+       (string= (namestring filename) *buffer-tmpfile*)))
 
 (defun compiling-from-file-p (filename)
-  (and (pathnamep filename) (null *buffer-name*)))
+  (and (pathnamep filename)
+       (or (null *buffer-name*)
+           (string/= (namestring filename) *buffer-tmpfile*))))
 
 (defun compiling-from-generated-code-p (filename source)
   (and (eq filename :lisp) (stringp source)))
@@ -629,7 +634,7 @@ QUALITIES is an alist with (quality . value)"
   (let ((*buffer-name* buffer)
         (*buffer-offset* position)
         (*buffer-substring* string)
-        (temp-file-name (temp-file-name)))
+        (*buffer-tmpfile* (temp-file-name)))
     (flet ((load-it (filename)
              (when filename (load filename)))
            (compile-it (cont)
@@ -642,11 +647,11 @@ QUALITIES is an alist with (quality . value)"
                     :source-namestring filename
                     :allow-other-keys t)
                  (multiple-value-bind (output-file warningsp failurep)
-                     (compile-file temp-file-name)
+                     (compile-file *buffer-tmpfile*)
                    (declare (ignore warningsp))
                    (unless failurep
                      (funcall cont output-file)))))))
-      (with-open-file (s temp-file-name :direction :output :if-exists :error)
+      (with-open-file (s *buffer-tmpfile* :direction :output :if-exists :error)
         (write-string string s))
       (unwind-protect
            (with-compiler-policy policy
@@ -654,8 +659,8 @@ QUALITIES is an alist with (quality . value)"
                 (compile-it #'load-it)
                 (load-it (compile-it #'identity))))
         (ignore-errors
-          (delete-file temp-file-name)
-          (delete-file (compile-file-pathname temp-file-name)))))))
+          (delete-file *buffer-tmpfile*)
+          (delete-file (compile-file-pathname *buffer-tmpfile*)))))))
 
 ;;;; Definitions
 
