@@ -1,5 +1,8 @@
 2011-06-14  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* swank.lisp (macro-indentation): Fix handling of lambda-list
+	keywords other than &rest and &body.
+
 	* slime.el (slime-update-system-indentation): Remove stale specs
 	from common-lisp-system-indentation when new one arrives.
 

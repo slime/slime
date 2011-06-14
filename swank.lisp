@@ -3954,7 +3954,9 @@ in Emacs."
                        ((eq '&body head)
                         '("&body"))
                        ((member head lambda-list-keywords)
-                        '("&rest" 1))
+                        (if (member head '(&rest &key))
+                            (list "&rest" n)
+                            (walk (cdr list) base)))
                        (t
                         (cons n (walk (cdr list) base))))))))
     (walk arglist t)))
