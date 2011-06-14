@@ -475,3 +475,19 @@
   (:method (x y &optional a
                           b)
     (list x y a b)))
+
+;;; Test: 44
+
+(let (definer
+      foo
+      bar
+      quux)
+  ...)
+
+;;; Test: 45
+
+(let (definition
+      foo
+      bar
+      quux)
+  ...)

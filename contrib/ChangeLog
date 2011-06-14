@@ -1,5 +1,14 @@
 2011-06-14  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	Don't consider DEFINER and DEFINITION as tentative defuns.
+
+	* slime-cl-indent.el (common-lisp-indent-function-1): Don't consider
+	"definition" or "definer" to be tentative defuns.
+
+	* slime-cl-indent-test.txt: Tests 44-45.
+
+	Better DEFMETHOD and :METHOD indentation.
+
 	* slime-cl-indent.el (lisp-beginning-of-defmethod): New function.
 	(lisp-indent-defmethod): Extend to work with non-toplevel defmethods,
 	and method definitions inside defgenerics.

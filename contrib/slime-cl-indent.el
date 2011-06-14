@@ -776,24 +776,21 @@ For example, the function `case' has an indent property
                            (error nil))))
               (setq path (cons n path)))
 
-            ;; backwards compatibility.
-            (cond ((null function))
-                  ((null method)
-                   (when (null (cdr path))
-                     ;; (package prefix was stripped off above)
-                     (cond ((and (string-match "\\`def" function)
-                                 (not (string-match "\\`default" function)))
-                            (setq tentative-defun t))
-                           ((string-match
-                             (eval-when-compile
-                              (concat "\\`\\("
-                                      (regexp-opt '("with" "without" "do"))
-                                      "\\)-"))
-                             function)
-                            (setq method '(&lambda &body))))))
-                  ;; backwards compatibility.  Bletch.
-                  ((eq method 'defun)
-                   (setq method lisp-indent-defun-method)))
+            ;; Guess.
+            (when (and (not method) function (null (cdr path)))
+              ;; (package prefix was stripped off above)
+              (cond ((and (string-match "\\`def" function)
+                          (not (string-match "\\`default" function))
+                          (not (string-match "\\`definition" function))
+                          (not (string-match "\\`definer" function)))
+                     (setq tentative-defun t))
+                    ((string-match
+                      (eval-when-compile
+                        (concat "\\`\\("
+                                (regexp-opt '("with" "without" "do"))
+                                "\\)-"))
+                      function)
+                     (setq method '(&lambda &body)))))
 
             (cond ((and (or (eq (char-after (1- containing-sexp)) ?\')
                             (and (not lisp-backquote-indentation)
