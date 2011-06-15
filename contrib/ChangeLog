@@ -1,3 +1,9 @@
+2011-06-15  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-scheme.el (slime-scheme-indentation-update):
+	`slime-indentation-update-hooks' now requires functions to accept
+	three arguments. Add `packages' parameter.
+
 2011-06-14  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	WITH-COMPILATION-UNIT indentation.
