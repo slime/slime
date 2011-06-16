@@ -1,5 +1,7 @@
 2011-06-16  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* swank.lisp (macro-indentation): Restore the old simple version.
+
 	* swank-sbcl.lisp (compiling-from-buffer-p): PROBE-FILE to
 	handle cases there the tmp-directory is a symlink.
 	(compiling-from-file-p): Ditto.
