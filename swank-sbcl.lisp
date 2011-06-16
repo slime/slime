@@ -495,13 +495,20 @@ information."
        ;; The following is to trigger COMPILING-FROM-GENERATED-CODE-P
        ;; in LOCATE-COMPILER-NOTE, and allows handling nested
        ;; compilation from eg. hitting C-C on (eval-when ... (require ..))).
+       ;;
+       ;; PROBE-FILE to handle tempfile directory being a symlink.
        (pathnamep filename)
-       (string= (namestring filename) *buffer-tmpfile*)))
+       (let ((true1 (probe-file filename))
+             (true2 (probe-file *buffer-tmpfile*)))
+         (and true1 (equal true1 true2)))))
 
 (defun compiling-from-file-p (filename)
   (and (pathnamep filename)
        (or (null *buffer-name*)
-           (string/= (namestring filename) *buffer-tmpfile*))))
+           (null *buffer-tmpfile*)
+           (let ((true1 (probe-file filename))
+                 (true2 (probe-file *buffer-tmpfile*)))
+             (not (and true1 (equal true1 true2)))))))
 
 (defun compiling-from-generated-code-p (filename source)
   (and (eq filename :lisp) (stringp source)))

@@ -1,3 +1,9 @@
+2011-06-16  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* swank-sbcl.lisp (compiling-from-buffer-p): PROBE-FILE to
+	handle cases there the tmp-directory is a symlink.
+	(compiling-from-file-p): Ditto.
+
 2011-06-14  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* swank-backend.lisp (call-with-io-timeout): New DEFINTERFACE.
