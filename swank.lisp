@@ -3867,6 +3867,10 @@ The server port is written to PORT-FILE-NAME."
   "When true, automatically send indentation information to Emacs
 after each command.")
 
+(defvar *indentation-cache-lock*
+  ;; Hash-tables aren't necessarily thread safe.
+  (make-lock :name "Indentation Cache Lock"))
+
 (defslimefun update-indentation-information ()
   (perform-indentation-update *emacs-connection* t)
   nil)
@@ -3889,7 +3893,9 @@ instead, we only do a full scan if the set of packages has changed."
   "Update the indentation cache in CONNECTION and update Emacs.
 If FORCE is true then start again without considering the old cache."
   (let ((cache (connection.indentation-cache connection)))
-    (when force (clrhash cache))
+    (when force
+      (call-with-lock-held 
+       *indentation-cache-lock* (lambda () (clrhash cache))))
     (let ((delta (update-indentation/delta-for-emacs cache force)))
       (setf (connection.indentation-cache-packages connection)
             (list-all-packages))
@@ -3904,13 +3910,16 @@ belonging to the buffer package."
     (flet ((consider (symbol)
              (let ((indent (symbol-indentation symbol)))
                (when indent
-                 (unless (equal (gethash symbol cache) indent)
-                   (setf (gethash symbol cache) indent)
-                   (let ((pkgs (loop for p in (list-all-packages)
-                                     when (eq symbol (find-symbol (string symbol) p))
-                                     collect (package-name p)))
-                         (name (string-downcase symbol)))
-                     (push (list name indent pkgs) alist)))))))
+                 (call-with-lock-held
+                  *indentation-cache-lock*
+                  (lambda ()
+                    (unless (equal (gethash symbol cache) indent)
+                      (setf (gethash symbol cache) indent)
+                      (let ((pkgs (loop for p in (list-all-packages)
+                                        when (eq symbol (find-symbol (string symbol) p))
+                                        collect (package-name p)))
+                            (name (string-downcase symbol)))
+                        (push (list name indent pkgs) alist)))))))))
       (if force
           (do-all-symbols (symbol)
             (consider symbol))

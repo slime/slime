@@ -1,3 +1,12 @@
+2011-06-18  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* swank.lisp (*indentation-cache-lock*): New variable:
+	hash-table updates aren't necessarily thread-safe.
+	(perform-indentation-update, update-indentation/delta-for-emacs):
+	Grab the lock when necessary -- in delta-for-emacs we hold on to
+	it a bit longer than necessary, but the code is easier to read
+	this way.
+
 2011-06-16  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* swank.lisp (macro-indentation): Restore the old simple version.
