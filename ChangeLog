@@ -1,3 +1,15 @@
+2011-06-21  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* swank.lisp (*indentation-cache-lock*): Deleted.
+	(perform-indentation-update): Spawn a new thread to handle the
+	indentation update when using threads. Move cache-clearing to
+	UPDATE-INDENTATION/DELTA-FOR-EMACS. Replace the old cache by
+	the one returned from U-I/D-F-E.
+	(update-indentation/delta-for-emacs): When clearing the cache,
+	allocate a new table. When threads are being used, copy the
+	cache before mutation, to ensure that caches possibly seen by other
+	threads are write-only by then.
+
 2011-06-18  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* swank.lisp (*indentation-cache-lock*): New variable:
