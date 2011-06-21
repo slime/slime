@@ -1,3 +1,11 @@
+2011-06-21  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime-cl-indent.el (lisp-loop-indent-forms-like-keywords): Fix type error.
+	(common-lisp-style-default): Fix type error, move to after styles have been
+	defined so as to be able to offer a menu for picking the predefined styles.
+	("sbcl"): Oops! It's (as ...) not (:as ...). Also add couple of missing defining
+	forms.
+
 2011-06-16  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* swank-indentation.lisp (macro-indentation): More complex

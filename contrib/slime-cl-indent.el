@@ -82,7 +82,7 @@ If nil, indent backquoted lists as data, i.e., like quoted lists."
   "Whether or not to indent loop subforms just like
 loop keywords. Only matters when `lisp-loop-indent-subclauses'
 is nil."
-  :type 'integer
+  :type 'boolean
   :group 'lisp-indent)
 
 (defcustom lisp-align-keywords-in-calls t
@@ -224,12 +224,6 @@ Set this by giving eg.
 in the first line of the file, or by calling `common-lisp-set-style'. If
 buffer has no style specified, but `common-lisp-style-default' is set, that
 style is used instead. Use `define-common-lisp-style' to define new styles.")
-
-(defcustom common-lisp-style-default nil
-    "Name of the Common Lisp indentation style to use in lisp-mode buffers if
-none has been specified."
-  :type 'string
-  :group 'lisp-indent)
 
 (make-variable-buffer-local 'common-lisp-style)
 (set-default 'common-lisp-style nil)
@@ -481,12 +475,23 @@ OPTIONS are:
    (comment-fill-column nil)
    (fill-column 78))
   (:indentation
-   (def!constant       (:as defconstant))
-   (def!macro          (:as defmacro))
-   (def!method         (:as defmethod))
-   (def!struct         (:as defstruct))
-   (def!type           (:as deftype))
-   (defmacro-mundanely (:as defmacro))))
+   (def!constant       (as defconstant))
+   (def!macro          (as defmacro))
+   (def!method         (as defmethod))
+   (def!struct         (as defstruct))
+   (def!type           (as deftype))
+   (defmacro-mundanely (as defmacro))
+   (define-source-transform (as defun))))
+
+(defcustom common-lisp-style-default nil
+    "Name of the Common Lisp indentation style to use in lisp-mode buffers if
+none has been specified."
+  :type `(choice (const :tag "None" nil)
+                 ,@(mapcar (lambda (spec)
+                             `(const :tag ,(car spec) ,(car spec)))
+                           (common-lisp-style-names))
+                 (string :tag "Other"))
+  :group 'lisp-indent)
 
 ;;;; The indentation specs are stored at three levels. In order of priority:
 ;;;;
