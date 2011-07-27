@@ -1,3 +1,8 @@
+2011-07-27  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime-cl-indent.el: Tweak COND indentation.
+	* slime-cl-indent-test.txt: Tests 48 and 49.
+
 2011-06-21  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-cl-indent.el (lisp-loop-indent-forms-like-keywords): Fix type error.

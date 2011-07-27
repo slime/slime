@@ -505,3 +505,30 @@
      :quux nil)
   ...)
 
+;;; Test: 48
+
+(cond
+  ((> x y) (foo)
+   ;; This isn't ideal -- I at least would align with (FOO here.
+   (bar) (quux)
+   (zot))
+  (qux (foo)
+       (bar)
+       (zot))
+  (zot
+   (foo)
+   (foo2))
+  (t (foo)
+     (bar)))
+
+;;; Test: 49
+
+(cond ((> x y) (foo)
+       ;; This isn't ideal -- I at least would align with (FOO here.
+       (bar))
+      (qux (foo)
+           (bar))
+      (zot
+       (foo))
+      (t (foo)
+         (bar)))

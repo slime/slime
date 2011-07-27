@@ -1472,7 +1472,7 @@ Cause subsequent clauses to be indented.")
            (etypecase   (as case))
            (ctypecase   (as case))
            (catch 1)
-           (cond        (&rest (&whole 2 &rest 1)))
+           (cond        (&rest (&whole 2 &rest nil)))
            ;; for DEFSTRUCT
            (:constructor (4 &lambda))
            (defvar      (4 2 2))
