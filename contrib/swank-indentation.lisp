@@ -47,25 +47,31 @@ in Emacs."
 
 ;;; More complex version.
 (defun macro-indentation (arglist)
-  (labels ((frob (list)
+  (labels ((frob (list &optional base)
              (if (every (lambda (x)
                           (member x '(nil "&rest") :test #'equal))
                         list)
                  ;; If there was nothing interesting, don't return anything.
                  nil
-                 ;; Otherwise substitute leading NIL's with 4.
+                 ;; Otherwise substitute leading NIL's with 4 or 1.
                  (let ((ok t))
-                   (substitute-if 4 (lambda (x)
-                                      (if (and ok (not x))
-                                          t
-                                          (setf ok nil)))
+                   (substitute-if (if base
+                                      4
+                                      1)
+                                  (lambda (x)
+                                    (if (and ok (not x))
+                                        t
+                                        (setf ok nil)))
                                   list))))
            (walk (list level &optional firstp)
              (when (consp list)
                (let ((head (car list)))
                  (if (consp head)
                      (let ((indent (frob (walk head (+ level 1) t))))
-                       (cons (list* "&whole" 4 indent) (walk (cdr list) level)))
+                       (cons (list* "&whole" (if (zerop level)
+                                                 4
+                                                 1)
+                                    indent) (walk (cdr list) level)))
                      (case head
                        ;; &BODY is &BODY, this is clear.
                        (&body
@@ -116,7 +122,7 @@ in Emacs."
                        (otherwise
                         (unless (member head lambda-list-keywords)
                           (cons nil (walk (cdr list) level))))))))))
-    (frob (walk arglist 0 t))))
+    (frob (walk arglist 0 t) t)))
 
 #+nil
 (progn
@@ -126,7 +132,7 @@ in Emacs."
                  (macro-indentation '(a b c &rest more))))
   (assert (equal '(4 4 4 "&body")
                  (macro-indentation '(a b c &body more))))
-  (assert (equal '(("&whole" 4 4 4 "&rest" 1) "&body")
+  (assert (equal '(("&whole" 4 1 1 "&rest" 1) "&body")
                  (macro-indentation '((name zot &key foo bar) &body body))))
   (assert (equal nil
                  (macro-indentation '(x y &key z)))))

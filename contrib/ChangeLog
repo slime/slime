@@ -1,3 +1,8 @@
+2011-08-05  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* swank-indentation.lisp (macro-indentation): Tweak so that
+	things that could be bindings are indented by 1, not 4.
+
 2011-07-27  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-cl-indent.el: Tweak COND indentation.
