@@ -1,8 +1,9 @@
 2011-07-03  Nikodemus Siivola  <nikodemus@random-state.net>
 
-	* swank-sbcl.lisp (debug-var-info): New function: calls SB-DI::DEBUG-VAR-INFO
-	when available.
-	(frame-locals, frame-var-value): Treat more-context and more-count vars specially.
+	* swank-sbcl.lisp (debug-var-info): New function: calls
+	SB-DI::DEBUG-VAR-INFO when available.
+	(frame-locals, frame-var-value): Treat more-context and more-count
+	vars specially.
 
 2011-06-21  Nikodemus Siivola  <nikodemus@random-state.net>
 
@@ -154,12 +155,12 @@
 
 	* slime.el (slime-intern-indentation-spec): New function. Converts
 	strings in an indentation spec to symbols.
-	(slime-handle-indentation-update): Intern the indentation spec using
-	slime-intern-indentation-spec, so that lisp side can pass complex indentation
-	specs.
-	* contrib/swank-indentation.lisp (application-indentation-hint): Downcase
-	symbol names -- any symbol in an indentation spec is pretty much guaranteed
-	to have a lowecase name on the Emacs side.
+	(slime-handle-indentation-update): Intern the indentation spec
+	using slime-intern-indentation-spec, so that lisp side can pass
+	complex indentation specs.
+	* contrib/swank-indentation.lisp (application-indentation-hint):
+	Downcase symbol names -- any symbol in an indentation spec is
+	pretty much guaranteed to have a lowecase name on the Emacs side.
 
 2011-04-16  Stas Boukarev  <stassats@gmail.com>
 
