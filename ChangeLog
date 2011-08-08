@@ -1,3 +1,8 @@
+2011-08-08  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-unintern-symbol): New command.
+	* swank.lisp (unintern-symbol): Lisp-side implementation.
+
 2011-07-03  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* swank-sbcl.lisp (debug-var-info): New function: calls

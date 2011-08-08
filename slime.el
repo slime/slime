@@ -4329,6 +4329,14 @@ in Lisp when committed with \\[slime-edit-value-commit]."
   (slime-eval-async `(swank:undefine-function ,symbol-name)
                     (lambda (result) (message "%s" result))))
 
+(defun slime-unintern-symbol (symbol-name package)
+  "Unintern the symbol given with SYMBOL-NAME PACKAGE."
+  (interactive (list (slime-read-symbol-name "Unintern symbol: " t)
+                     (slime-read-package-name "from package: "
+                                              (slime-current-package))))
+  (slime-eval-async `(swank:unintern-symbol ,symbol-name ,package)
+                    (lambda (result) (message "%s" result))))
+
 (defun slime-load-file (filename)
   "Load the Lisp file FILENAME."
   (interactive (list 
