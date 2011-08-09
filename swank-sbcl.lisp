@@ -281,7 +281,10 @@
                                      #+sb-unicode :external-format
                                      #+sb-unicode external-format
                                      :serve-events
-                                     (eq :fd-handler swank:*communication-style*)))
+                                     (eq :fd-handler
+                                         ;; KLUDGE: SWANK package isn't
+                                         ;; available when backend is loaded.
+                                         (intern "*COMMUNICATION-STYLE*" :swank))))
 
 (defun accept (socket)
   "Like socket-accept, but retry on EAGAIN."
