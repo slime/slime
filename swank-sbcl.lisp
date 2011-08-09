@@ -280,7 +280,8 @@
                                      :buffering buffering
                                      #+sb-unicode :external-format
                                      #+sb-unicode external-format
-                                     ))
+                                     :serve-events
+                                     (eq :fd-handler swank:*communication-style*)))
 
 (defun accept (socket)
   "Like socket-accept, but retry on EAGAIN."
