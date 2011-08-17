@@ -1,3 +1,9 @@
+2011-08-17  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-allegro.lisp (with-redirected-y-or-n-p): Fix modern-mode
+	issues.
+	Patch by Andrew Myers.
+
 2011-08-09  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* swank-sbcl.lisp (make-socket-io-stream): Use :SERVE-EVENTS T when

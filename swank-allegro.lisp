@@ -642,17 +642,14 @@
   ;; As the CL:Y-OR-N-P question is (for some reason) not directly
   ;; sent to the Slime user, the function CL:Y-OR-N-P is temporarily
   ;; overruled.
-  `(let* ((pkg       (find-package "common-lisp"))
+  `(let* ((pkg       (find-package :common-lisp))
           (saved-pdl (excl::package-definition-lock pkg))
           (saved-ynp (symbol-function 'cl:y-or-n-p)))
-     
      (setf (excl::package-definition-lock pkg) nil
-           (symbol-function 'cl:y-or-n-p)   (symbol-function
-                                             (find-symbol "y-or-n-p-in-emacs"
-                                                          "swank")))
+           (symbol-function 'cl:y-or-n-p)
+           (symbol-function (read-from-string "swank:y-or-n-p-in-emacs")))
      (unwind-protect
-         (progn ,@body)
-       
+          (progn ,@body)
        (setf (symbol-function 'cl:y-or-n-p)      saved-ynp
              (excl::package-definition-lock pkg) saved-pdl))))
 

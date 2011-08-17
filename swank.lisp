@@ -65,7 +65,8 @@
            #:set-default-directory
            #:quit-lisp
            #:eval-for-emacs
-           #:eval-in-emacs))
+           #:eval-in-emacs
+           #:y-or-n-p-in-emacs))
 
 (in-package :swank)
 
