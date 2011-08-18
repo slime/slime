@@ -2913,7 +2913,9 @@ This is quite an expensive operation so use carefully."
     (save-excursion
       (slime-goto-source-location location)
       (list (or (buffer-file-name) (buffer-name))
-            (line-number-at-pos)
+            (save-restriction
+              (widen)
+              (line-number-at-pos))
             (1+ (current-column))))))
 
 (defun slime-canonicalized-location-to-string (loc)
