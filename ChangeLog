@@ -1,3 +1,8 @@
+2011-08-26  Mark Evenson  <evenson@panix.com>
+
+	* swank-abcl.lisp (class-slots): Use exported symbol allowing
+	classes with non-standard metaobjects to be inspected.
+
 2011-08-18  Helmut Eller  <heller@common-lisp.net>
 
 	Fix line numbers for compiler notes if is narrowing was in effect.

@@ -58,7 +58,7 @@
   (mop::%slot-definition-name slot))
 
 (defun class-slots (class)
-  (mop::%class-slots class))
+  (mop:class-slots class))
 
 (defun method-generic-function (method)
   (mop::%method-generic-function method))
@@ -634,7 +634,7 @@ part of *sysdep-pathnames* in swank.loader.lisp.
            `((:action "[compute toString()]" ,to-string) (:newline)))
        (loop :for (label . value) :in (sys:inspected-parts o)
           :appending (label-value-line label value)))))
-  
+
 ;;;; Multithreading
 
 (defimplementation spawn (fn &key name)
