@@ -411,9 +411,10 @@ joined together."))
   ("\C-z" 'slime-switch-to-output-buffer)
   ("\M-p" 'slime-repl-set-package))
 
-(slime-define-keys slime-mode-map 
+(slime-define-keys slime-mode-map
   ("\C-c~" 'slime-sync-package-and-default-directory)
-  ("\C-c\C-y" 'slime-call-defun))
+  ("\C-c\C-y" 'slime-call-defun)
+  ("\C-c\C-j" 'slime-eval-last-expression-in-repl))
 
 (slime-define-keys slime-connection-list-mode-map
   ((kbd "RET") 'slime-goto-connection)
@@ -551,26 +552,32 @@ joined together."))
           (slime-repl-insert-prompt))))
     (slime-repl-show-maximum-output)))
 
+(defvar slime-repl-suppress-prompt nil
+  "Supresses Slime REPL prompt when bound to T.")
+
 (defun slime-repl-insert-prompt ()
   "Insert the prompt (before markers!).
-Set point after the prompt.  
-Return the position of the prompt beginning."
+Set point after the prompt.
+Return the position of the prompt beginning.
+
+If `slime-repl-suppress-prompt' is true, does nothing and returns nil."
   (goto-char slime-repl-input-start-mark)
-  (slime-save-marker slime-output-start
-    (slime-save-marker slime-output-end
-      (unless (bolp) (insert-before-markers "\n"))
-      (let ((prompt-start (point))
-            (prompt (format "%s> " (slime-lisp-package-prompt-string))))
-        (slime-propertize-region
-            '(face slime-repl-prompt-face read-only t intangible t
-                   slime-repl-prompt t
-                   ;; emacs stuff
-                   rear-nonsticky (slime-repl-prompt read-only face intangible)
-                   ;; xemacs stuff
-                   start-open t end-open t)
-          (insert-before-markers prompt))
-        (set-marker slime-repl-prompt-start-mark prompt-start)
-        prompt-start))))
+  (unless slime-repl-suppress-prompt
+    (slime-save-marker slime-output-start
+      (slime-save-marker slime-output-end
+        (unless (bolp) (insert-before-markers "\n"))
+        (let ((prompt-start (point))
+              (prompt (format "%s> " (slime-lisp-package-prompt-string))))
+          (slime-propertize-region
+              '(face slime-repl-prompt-face read-only t intangible t
+                     slime-repl-prompt t
+                     ;; emacs stuff
+                     rear-nonsticky (slime-repl-prompt read-only face intangible)
+                     ;; xemacs stuff
+                     start-open t end-open t)
+            (insert-before-markers prompt))
+          (set-marker slime-repl-prompt-start-mark prompt-start)
+          prompt-start)))))
 
 (defun slime-repl-show-maximum-output ()
   "Put the end of the buffer at the bottom of the window."
@@ -799,6 +806,45 @@ earlier in the buffer."
   "Delete all text from the prompt."
   (interactive)
   (delete-region slime-repl-input-start-mark (point-max)))
+
+(defun slime-eval-last-expression-in-repl (prefix)
+  "Evaluates last expression in the Slime REPL.
+
+Switches REPL to current package of the source buffer for the duration. If
+used with a prefix argument (C-u), doesn't switch back afterwards."
+  (interactive "P")
+  (let ((expr (slime-last-expression))
+        (buffer-name (buffer-name (current-buffer)))
+        (new-package (slime-current-package))
+        (old-package (slime-lisp-package))
+        (slime-repl-suppress-prompt t)
+        (yank-back nil))
+    (save-excursion
+      (set-buffer (slime-output-buffer))
+      (unless (eq (current-buffer) (window-buffer))
+        (pop-to-buffer (current-buffer) t))
+      (end-of-buffer)
+      ;; Kill pending input in the REPL
+      (when (< (marker-position slime-repl-input-start-mark) (point))
+        (kill-region slime-repl-input-start-mark (point))
+        (setq yank-back t))
+      (unwind-protect
+          (progn
+            (insert-before-markers (format "\n;;; from %s\n" buffer-name))
+            (when new-package
+              (slime-repl-set-package new-package))
+            (let ((slime-repl-suppress-prompt nil))
+              (slime-repl-insert-prompt))
+            (insert expr)
+            (slime-repl-return))
+        (unless (or prefix (equal (slime-lisp-package) old-package))
+          ;; Switch back.
+          (slime-repl-set-package old-package)
+          (let ((slime-repl-suppress-prompt nil))
+            (slime-repl-insert-prompt))))
+      ;; Put pending input back.
+      (when yank-back
+        (yank)))))
 
 (defun slime-repl-kill-input ()
   "Kill all text from the prompt to point."

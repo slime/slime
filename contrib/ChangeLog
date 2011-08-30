@@ -1,3 +1,11 @@
+2011-08-30  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime-repl.el	(slime-repl-suppress-prompt): New variable. Bind to T to
+	temporarily suppress the prompt.
+	(slime-eval-last-expression-in-repl): New command. Sends form from
+	another buffer to REPL for evaluation.
+	(slime-mode-map): Bind slime-eval-last-expression-in-repl to C-c C-j.
+
 2011-08-05  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* swank-indentation.lisp (macro-indentation): Tweak so that

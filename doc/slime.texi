@@ -2214,6 +2214,11 @@ Select the output buffer, preferably in a different window.
 @kbditem{C-c C-y, slime-call-defun}
 Insert a call to the function defined around point into the REPL.
 
+@kbditem{C-c C-j, slime-eval-last-expression-in-repl}
+Inserts the last expression to the REPL and evaluates it there.
+Switches to the current packae of the source buffer for the duration.
+If used with a prefix argument, doesn't switch back afterwards.
+
 @end table
 
 @menu
