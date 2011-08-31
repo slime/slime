@@ -1,3 +1,8 @@
+2011-08-31  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* swank-sbcl.lisp (make-socket-io-stream): Backwards compatibility with
+	SBCL < 1.0.42.43 -- and bugfix.
+
 2011-08-26  Mark Evenson  <evenson@panix.com>
 
 	* swank-abcl.lisp (class-slots): Use exported symbol allowing

@@ -284,7 +284,11 @@
                                      (eq :fd-handler
                                          ;; KLUDGE: SWANK package isn't
                                          ;; available when backend is loaded.
-                                         (intern "*COMMUNICATION-STYLE*" :swank))))
+                                         (symbol-value
+                                          (intern "*COMMUNICATION-STYLE*" :swank)))
+                                     ;; SBCL < 1.0.42.43 doesn't support :SERVE-EVENTS
+                                     ;; argument.
+                                     :allow-other-keys t))
 
 (defun accept (socket)
   "Like socket-accept, but retry on EAGAIN."
