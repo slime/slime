@@ -67,8 +67,8 @@
   (cond
     ;; fixme: when SBCL/win32 gains better select() support, remove
     ;; this.
-    ((member :win32 *features*) nil)
     ((member :sb-thread *features*) :spawn)
+    ((member :win32 *features*) nil)
     (t :fd-handler)))
 
 (defun resolve-hostname (name)

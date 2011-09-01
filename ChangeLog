@@ -1,3 +1,9 @@
+2011-08-31  Anton Kovalenko  <anton@sw4me.com>
+
+	* swank-sbcl.lisp (preferred-communication-style): check for
+	:sb-thread before :win32, so :spawn is preferred for threaded
+	Windows builds.
+
 2011-08-31  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* swank-sbcl.lisp (make-socket-io-stream): Backwards compatibility with
