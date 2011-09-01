@@ -101,8 +101,8 @@ If false, move point to the end of the inserted text."
                (equal (char-before) ?\())))
         (when function-call-position-p
           (if (null args)
-              (insert-and-inherit ")")
-              (insert-and-inherit " ")
+              (execute-kbd-macro ")")
+              (execute-kbd-macro " ")
               (when (and (slime-background-activities-enabled-p)
                          (not (minibuffer-window-active-p (minibuffer-window))))
                 (slime-echo-arglist))))))))
