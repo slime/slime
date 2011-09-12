@@ -1,3 +1,10 @@
+2011-09-12  Christophe Rhodes  <csr21@cantab.net>
+
+	* slime-media.el (slime-dispatch-media-event): allow swank to
+	popup a buffer with a given name, mode and contents.  Intended to
+	support display of information formatted by the inferior process
+	as a return value: in particular, R help_files_with_topic objects.
+
 2011-09-01  Anton Kovalenko  <anton@sw4me.com>
 
 	* slime-c-p-c.el (slime-complete-symbol*-fancy-bit): "imitate" a

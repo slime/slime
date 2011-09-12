@@ -13,6 +13,11 @@
      (let ((image (find-image image)))
        (slime-media-insert-image image string))
      t)
+    ((:popup-buffer bufname string mode)
+     (slime-with-popup-buffer (bufname :mode mode :connection t :package t)
+       (princ string)
+       (goto-char (point-min)))
+     t)
     (t nil)))
 
 (defun slime-media-insert-image (image string &optional bol)
