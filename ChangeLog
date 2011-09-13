@@ -1,3 +1,9 @@
+2011-09-13  Christophe Rhodes  <csr21@cantab.net>
+
+	* slime.el (slime-simple-complete-symbol): only display "Complete
+	but not unique" message if the partial completion figures in the
+	completion list.
+
 2011-08-31  Anton Kovalenko  <anton@sw4me.com>
 
 	* swank-sbcl.lisp (preferred-communication-style): check for
