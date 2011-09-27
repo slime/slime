@@ -1,3 +1,9 @@
+2011-09-27  Mark Evenson  <evenson@panix.com>
+
+	* swank-abcl.lisp (describe-symbol-for-emacs): Differentiate
+	between function, generic function, special forms, and macros by
+	copying SBCL implementation.
+
 2011-09-13  Christophe Rhodes  <csr21@cantab.net>
 
 	* slime.el (slime-simple-complete-symbol): only display "Complete
