@@ -65,7 +65,6 @@
 (require 'comint)
 (require 'timer)
 (require 'pp)
-(require 'hideshow)
 (require 'font-lock)
 (when (featurep 'xemacs)
   (require 'overlay))
