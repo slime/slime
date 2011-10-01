@@ -1,5 +1,10 @@
 2011-10-01  Stas Boukarev  <stassats@gmail.com>
 
+	* slime-repl.el (slime-repl-set-package): Don't redisplay the
+	prompt if it doesn't change.
+
+2011-10-01  Stas Boukarev  <stassats@gmail.com>
+
 	* slime-fuzzy.el (slime-fuzzy-done): Fix completion in the minibuffer.
 
 2011-10-01  Stas Boukarev  <stassats@gmail.com>
