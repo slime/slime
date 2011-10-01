@@ -1,3 +1,10 @@
+2011-10-01  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-asdf.lisp (xref-doit): Guard against using on things
+	other than symbols and strings. slime-edit-uses may call it on
+	(setf function), and it'll pop into the debugger.
+	Report by Bart Botta.
+
 2011-09-12  Christophe Rhodes  <csr21@cantab.net>
 
 	* slime-media.el (slime-dispatch-media-event): allow swank to

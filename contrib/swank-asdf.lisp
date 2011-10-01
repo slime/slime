@@ -38,15 +38,16 @@
       result)))
 
 (defmethod xref-doit ((type (eql :depends-on)) thing)
-  (loop for dependency in (who-depends-on thing)
-        for asd-file = (asdf:system-definition-pathname dependency)
-        when asd-file
+  (when (typep thing '(or string symbol))
+    (loop for dependency in (who-depends-on thing)
+          for asd-file = (asdf:system-definition-pathname dependency)
+          when asd-file
           collect (list dependency
                         (swank-backend::make-location
                          `(:file ,(namestring asd-file))
                          `(:position 1)
                          `(:snippet ,(format nil "(defsystem :~A" dependency)
-                           :align t)))))
+                           :align t))))))
 
 
 (defslimefun operate-on-system-for-emacs (system-name operation &rest keywords)
