@@ -328,6 +328,11 @@ so that the new text is present."
       (setq slime-fuzzy-text text)
       (goto-char slime-fuzzy-end)))))
 
+(defun slime-minibuffer-p (buffer)
+  (if (featurep 'xemacs)
+      (eq buffer (window-buffer (minibuffer-window)))
+      (minibufferp buffer)))
+
 (defun slime-fuzzy-choices-buffer (completions interrupted-p start end)
   "Creates (if neccessary), populates, and pops up the *Fuzzy
 Completions* buffer with the completions from `completions' and
@@ -361,10 +366,7 @@ done."
       (setq buffer-quit-function 'slime-fuzzy-abort)) ; M-Esc Esc
     (when slime-fuzzy-completion-in-place
       ;; switch back to the original buffer
-      (if (if (featurep 'xemacs)
-              (eq (window-buffer (minibuffer-window))
-                  slime-fuzzy-target-buffer)
-              (minibufferp slime-fuzzy-target-buffer))
+      (if (slime-minibuffer-p slime-fuzzy-target-buffer)
           (select-window (minibuffer-window))
           (switch-to-buffer-other-window slime-fuzzy-target-buffer)))))
 
@@ -555,7 +557,9 @@ configuration alone."
         ;; completions buffer and let something else fill it in.
         (pop-to-buffer (slime-get-fuzzy-buffer))
         (bury-buffer))
-    (pop-to-buffer slime-fuzzy-target-buffer)
+    (if (slime-minibuffer-p slime-fuzzy-target-buffer)
+        (select-window (minibuffer-window))
+        (pop-to-buffer slime-fuzzy-target-buffer))
     (goto-char slime-fuzzy-end)
     (setq slime-fuzzy-target-buffer nil)
     (remove-hook 'window-configuration-change-hook

@@ -1,5 +1,9 @@
 2011-10-01  Stas Boukarev  <stassats@gmail.com>
 
+	* slime-fuzzy.el (slime-fuzzy-done): Fix completion in the minibuffer.
+
+2011-10-01  Stas Boukarev  <stassats@gmail.com>
+
 	* swank-asdf.lisp (xref-doit): Guard against using on things
 	other than symbols and strings. slime-edit-uses may call it on
 	(setf function), and it'll pop into the debugger.
