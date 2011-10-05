@@ -1,3 +1,10 @@
+2011-10-05  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-clear-repl-variables): New function, clears *, /,
+	and + variables.
+	(slime-repl-clear-buffer-hook): Add `slime-clear-repl-variables'
+	to it, now C-c M-o clears variables, allowing bound objects to be GCed.
+
 2011-10-05  Anton Kovalenko  <anton@sw4me.com>
 
 	* swank-asdf.lisp (asdf-system-directory): preserve

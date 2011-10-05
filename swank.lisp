@@ -2260,6 +2260,11 @@ Return the full package-name and the string to use in the prompt."
            (funcall *send-repl-results-function* values))))))
   nil)
 
+(defslimefun clear-repl-variables ()
+  (let ((variables '(*** ** * /// // / +++ ++ +)))
+    (loop for variable in variables
+          do (setf (symbol-value variable) nil))))
+
 (defun track-package (fun)
   (let ((p *package*))
     (unwind-protect (funcall fun)
