@@ -1,3 +1,12 @@
+2011-10-05  Anton Kovalenko  <anton@sw4me.com>
+
+	* swank-asdf.lisp (asdf-system-directory): preserve
+	pathname-device and use NAMESTRING for final conversion, so both
+	device and directory are passed to SLIME. It is required e.g. on
+	MS Windows with implementations using PATHNAME-DEVICE for drive
+	letters (SBCL); intended to be portable and useful on every
+	platform where DEVICE is important.
+
 2011-10-01  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-repl-set-package): Don't redisplay the

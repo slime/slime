@@ -141,9 +141,12 @@ already knows."
        t))
 
 (defslimefun asdf-system-directory (name)
-  (cl:directory-namestring
-   (cl:truename
-    (asdf:system-definition-pathname (asdf:find-system name)))))
+  (let ((truename
+          (truename
+           (asdf:system-definition-pathname (asdf:find-system name)))))
+    (namestring
+     (make-pathname :device (pathname-device truename)
+                    :directory (pathname-directory truename)))))
 
 (defun system-contains-file-p (module pathname pathname-name)
   (some #'(lambda (component)
