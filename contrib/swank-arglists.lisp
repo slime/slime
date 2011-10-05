@@ -1085,9 +1085,12 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 ;;; considered.
 
 (defslimefun autodoc (raw-form &key print-right-margin)
-  "Return a string representing the arglist for the deepest subform in
+  "Return a list of two elements. 
+First, a string representing the arglist for the deepest subform in
 RAW-FORM that does have an arglist. The highlighted parameter is
-wrapped in ===> X <===."
+wrapped in ===> X <===.
+
+Second, a boolean value telling whether the returned string can be cached."
   (handler-bind ((serious-condition
                   #'(lambda (c)
                       (unless (debug-on-swank-error)
@@ -1098,16 +1101,18 @@ wrapped in ===> X <===."
       (multiple-value-bind (form arglist obj-at-cursor form-path)
           (find-subform-with-arglist (parse-raw-form raw-form))
         (cond ((boundp-and-interesting obj-at-cursor)
-               (print-variable-to-string obj-at-cursor))
+               (list (print-variable-to-string obj-at-cursor) nil))
               (t
-               (with-available-arglist (arglist) arglist
-                 (decoded-arglist-to-string
-                  arglist
-                  :print-right-margin print-right-margin
-                  :operator (car form)
-                  :highlight (form-path-to-arglist-path form-path
-                                                        form
-                                                        arglist)))))))))
+               (list
+                (with-available-arglist (arglist) arglist
+                  (decoded-arglist-to-string
+                   arglist
+                   :print-right-margin print-right-margin
+                   :operator (car form)
+                   :highlight (form-path-to-arglist-path form-path
+                                                         form
+                                                         arglist)))
+                t)))))))
 
 (defun boundp-and-interesting (symbol)
   (and symbol

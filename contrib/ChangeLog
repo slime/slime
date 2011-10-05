@@ -1,5 +1,10 @@
 2011-10-05  Stas Boukarev  <stassats@gmail.com>
 
+	* slime-autodoc.el (slime-autodoc): Don't cache variable values.
+	(slime-autodoc-global-at-point): Remove, unused.
+
+2011-10-05  Stas Boukarev  <stassats@gmail.com>
+
 	* slime-repl.el (slime-clear-repl-variables): New function, clears *, /,
 	and + variables.
 	(slime-repl-clear-buffer-hook): Add `slime-clear-repl-variables'
