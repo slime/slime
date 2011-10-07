@@ -1,3 +1,8 @@
+2011-10-07  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-repl-clear-output): Fix clearing output
+	when there's something entered after the prompt.
+
 2011-10-05  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-autodoc.el (slime-autodoc): Don't cache variable values.

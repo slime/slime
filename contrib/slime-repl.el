@@ -885,11 +885,13 @@ used with a prefix argument (C-u), doesn't switch back afterwards."
 (defun slime-repl-clear-output ()
   "Delete the output inserted since the last input."
   (interactive)
-  (let ((start (save-excursion 
-                 (slime-repl-previous-prompt)
-                 (ignore-errors (forward-sexp))
-                 (forward-line)
-                 (point)))
+  (let ((start (save-excursion
+                (when (>= (point) slime-repl-input-start-mark)
+                  (goto-char slime-repl-input-start-mark))
+                (slime-repl-previous-prompt)
+                (ignore-errors (forward-sexp))
+                (forward-line)
+                (point)))
         (end (1- (slime-repl-input-line-beginning-position))))
     (when (< start end)
       (let ((inhibit-read-only t))
