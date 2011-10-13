@@ -3050,8 +3050,12 @@ the filename of the module (or nil if the file doesn't exist).")
                       ((not pname) (guess-buffer-package package))
                       (t (guess-package pname))))
 	   (test (lambda (sym) (prefix-match-p name (symbol-name sym))))
-	   (syms (and pkg (matching-symbols pkg extern test))))
-      (format-completion-set (mapcar #'unparse-symbol syms) intern pname))))
+	   (syms (and pkg (matching-symbols pkg extern test)))
+           (strings (loop for sym in syms
+                          for str = (unparse-symbol sym)
+                          when (prefix-match-p name str) ; remove |Foo|
+                          collect str)))
+      (format-completion-set strings intern pname))))
 
 (defun matching-symbols (package external test)
   (let ((test (if external 

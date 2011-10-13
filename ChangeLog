@@ -1,3 +1,8 @@
+2011-10-13  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (all-completions): Remove mixed case syms e.g |Foo|.
+	"fo" is not a prefix of "|Foo|" and it would be problematic later.
+
 2011-10-05  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (clear-repl-variables): New functions, clears *, /,
