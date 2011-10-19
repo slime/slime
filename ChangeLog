@@ -1,3 +1,8 @@
+2011-10-19  Andrew Myers <asm198@gmail.com>
+
+	* swank-allegro.lisp (frob-allegro-field-def): Add missing type to
+	ecase for inspector.
+
 2011-10-13  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (all-completions): Remove mixed case syms e.g |Foo|.

@@ -720,8 +720,8 @@
   (with-struct (inspect::field-def- name type access) def
     (ecase type
       ((:unsigned-word :unsigned-byte :unsigned-natural
-                       :unsigned-long :unsigned-half-long 
-                       :unsigned-3byte)
+                       :unsigned-long :unsigned-half-long
+                       :unsigned-3byte :unsigned-long32)
        (label-value-line name (inspect::component-ref-v object access type)))
       ((:lisp :value :func)
        (label-value-line name (inspect::component-ref object access)))
