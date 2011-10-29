@@ -1,3 +1,14 @@
+2011-10-29  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	Two patches by Tomohiro Matsuyama <tomo@cx4a.org>.
+
+	* slime-cl-indent.el (define-common-lisp-style): Fix handling
+	of :documentation option, which accidentally threw out the docstring.
+	(lisp-indent-lambda-list-keywords-regexp): Handle trailing
+	&allow-other-keys correctly.
+
+	* slime-cl-indent-test.txt: Tests 50-53.
+
 2011-10-07  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-repl-clear-output): Fix clearing output

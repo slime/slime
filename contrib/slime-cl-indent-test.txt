@@ -532,3 +532,51 @@
        (foo))
       (t (foo)
          (bar)))
+
+;;; Test: 50
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: nil
+;; lisp-lambda-list-keyword-alignment: nil
+
+(defun foo (x &optional opt1
+                opt2
+            &rest rest
+            &allow-other-keys)
+  (list opt1 opt2
+        rest))
+
+;;; Test: 51
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: t
+;; lisp-lambda-list-keyword-alignment: nil
+
+(defun foo (x &optional opt1
+                        opt2
+            &rest rest
+            &allow-other-keys)
+  (list opt1 opt2
+        rest))
+
+;;; Test: 52
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: nil
+;; lisp-lambda-list-keyword-alignment: t
+
+(defun foo (x &optional opt1
+                opt2
+              &rest rest
+              &allow-other-keys)
+  (list opt1 opt2
+        rest))
+
+;;; Test: 53
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: t
+;; lisp-lambda-list-keyword-alignment: t
+
+(defun foo (x &optional opt1
+                        opt2
+              &rest rest
+              &allow-other-keys)
+  (list opt1 opt2
+        rest))

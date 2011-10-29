@@ -402,8 +402,8 @@ OPTIONS are:
   option should cope with that.
 "
   (when (consp documentation)
-    (setq documentation nil
-          options (cons documentation options)))
+    (setq options (cons documentation options)
+          documentation nil))
   `(common-lisp-add-style ,name
                           ',(cadr (assoc :inherit options))
                           ',(cdr (assoc :variables options))
@@ -928,7 +928,7 @@ For example, the function `case' has an indent property
 (defvar lisp-indent-lambda-list-keywords-regexp
   "&\\(\
 optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\\|more\
-\\)\\([ \t]\\|$\\)"
+\\)\\_>"
   "Regular expression matching lambda-list keywords.")
 
 (defun lisp-indent-lambda-list
