@@ -1,5 +1,21 @@
 2011-10-31  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	Improve indentation of comments inside LOOP.
+
+	* slime-cl-indent-test.txt: New tests 54-63.
+
+	* slime-cl-indent.el (common-lisp-loop-type): Deal with comments
+	at the start of the loop, add simple/split type.
+
+	* slime-cl-indent.el (lisp-indent-loop): Use
+	common-lisp-loop-part-indentation for simple loops regardless of
+	the value of lisp-loop-indent-subclauses.
+
+	* slime-cl-indent.el (common-lisp-loop-part-indentation): Handle the
+	new simple/split type, improve comment indentation logic.
+
+2011-10-31  Nikodemus Siivola  <nikodemus@random-state.net>
+
 	* slime-cl-indent.el (style "sbcl"): Indentation for !DEF-TYPE-TRANSLATOR.
 
 2011-10-29  Nikodemus Siivola  <nikodemus@random-state.net>

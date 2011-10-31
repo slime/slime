@@ -580,3 +580,90 @@
               &allow-other-keys)
   (list opt1 opt2
         rest))
+
+;;; Test: 54
+;;
+
+(loop (foo)
+      ;; comment
+      (bar)
+      (quux))
+
+;;; Test: 55
+;;
+
+(loop ;; comment
+      (foo)
+      (bar))
+
+;;; Test: 56
+;;
+
+(loop
+  (foo)
+  ;; comment
+  (bar))
+
+
+;;; Test: 57
+;;
+
+(loop
+  ;; comment
+  (foo)
+  (bar))
+
+;;; Test: 58
+;;
+;; lisp-loop-indent-subclauses: t
+
+(loop ;; comment at toplevel of the loop
+      with foo = t
+      do (foo foo)
+         (foo))
+
+;;; Test: 59
+;;
+;; lisp-loop-indent-subclauses: nil
+
+(loop ;; comment at toplevel of the loop
+      with foo = t
+      do (foo foo)
+         (foo))
+
+;;; Test: 60
+;;
+;; lisp-loop-indent-subclauses: t
+
+(loop
+  ;; comment at toplevel of the loop
+  with foo = t
+  do (foo foo))
+
+;;; Test: 61
+;;
+;; lisp-loop-indent-subclauses: nil
+
+(loop
+  ;; comment at toplevel of the loop
+  with foo = t
+  do (foo foo)
+     (foo))
+
+;;; Test: 62
+;;
+;; lisp-loop-indent-subclauses: t
+
+(loop with foo = t
+      do (foo foo)
+         ;; comment inside clause
+         (bar))
+
+;;; Test: 63
+;;
+;; lisp-loop-indent-subclauses: nil
+
+(loop with foo = t
+      do (foo foo)
+         ;; comment inside clause
+         (bar))

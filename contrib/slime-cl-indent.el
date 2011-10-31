@@ -578,39 +578,54 @@ given point. Defaults to `common-lisp-guess-current-package'.")
 
 (defun common-lisp-loop-type (loop-start)
   "Returns the type of the loop form at LOOP-START.
-Possible types are SIMPLE, EXTENDED, and EXTENDED/SPLIT.
-EXTENDED/SPLIT refers to extended loops whose body does
-not start on the same line as the opening parenthesis of
-the loop."
-  (condition-case ()
-      (save-excursion
-        (goto-char loop-start)
-        (let ((line (line-number-at-pos)))
-          (forward-char 1)
-          (forward-sexp 2)
-          (backward-sexp 1)
-          (if (looking-at "\\sw")
-              (if (= line (line-number-at-pos))
-                  'extended
-                'extended/split)
-            'simple)))
-    (error 'simple)))
+Possible types are SIMPLE, SIMPLE/SPLIT, EXTENDED, and EXTENDED/SPLIT. */SPLIT
+refers to extended loops whose body does not start on the same line as the
+opening parenthesis of the loop."
+  (let (comment-split)
+    (condition-case ()
+        (save-excursion
+          (goto-char loop-start)
+          (let ((line (line-number-at-pos))
+                (maybe-split t))
+            (forward-char 1)
+            (forward-sexp 1)
+            (save-excursion
+              (when (looking-at "\\s-*\\\n*;")
+                (search-forward ";")
+                (backward-char 1)
+                (if (= line (line-number-at-pos))
+                    (setq maybe-split nil)
+                  (setq comment-split t))))
+            (forward-sexp 1)
+            (backward-sexp 1)
+            (if (looking-at "\\sw")
+                (if (or (not maybe-split) (= line (line-number-at-pos)))
+                    'extended
+                  'extended/split)
+              (if (or (not maybe-split) (= line (line-number-at-pos)))
+                  'simple
+                'simple/split))))
+      (error
+       (if comment-split
+           'simple/split
+         'simple)))))
 
-(defun common-lisp-loop-part-indentation (indent-point state)
+(defun common-lisp-loop-part-indentation (indent-point state type)
   "Compute the indentation of loop form constituents."
   (let* ((loop-start (elt state 1))
-         (type (common-lisp-loop-type loop-start))
          (loop-indentation (save-excursion
                              (goto-char loop-start)
-                             (if (eq 'extended/split type)
+                             (if (eq type 'extended/split)
                                  (- (current-column) 4)
                                (current-column))))
          (indent nil)
-         (re "\\(:?\\sw+\\|;\\|)\\|\n\\)"))
+         (re "\\(:?\\sw+\\|)\\|\n\\)"))
     (goto-char indent-point)
     (back-to-indentation)
-    (cond ((eq 'simple type)
+    (cond ((eq type 'simple/split)
            (+ loop-indentation lisp-simple-loop-indentation))
+          ((eq type 'simple)
+           (+ loop-indentation 6))
           ;; We are already in a body, with forms in it.
           ((and (not (looking-at re))
                 (save-excursion
@@ -621,8 +636,8 @@ the loop."
                              (looking-at common-lisp-indent-body-introducing-loop-macro-keyword))
                     t)))
            (list indent loop-start))
-          ;; Keyword-style
-          ((or lisp-loop-indent-forms-like-keywords (looking-at re))
+          ;; Keyword-style or comment outside body
+          ((or lisp-loop-indent-forms-like-keywords (looking-at re) (looking-at ";"))
            (list (+ loop-indentation 6) loop-start))
           ;; Form-style
           (t
@@ -1213,13 +1228,15 @@ optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\\|mo
        (error (+ sexp-column lisp-body-indent)))))
 
 (defun lisp-indent-loop (path state indent-point sexp-column normal-indent)
-  (cond ((not (null (cdr path)))
-         normal-indent)
-        (lisp-loop-indent-subclauses
-         (list (common-lisp-indent-loop-macro-1 state indent-point)
-               (common-lisp-indent-parse-state-start state)))
-        (t
-         (common-lisp-loop-part-indentation indent-point state))))
+  (if (cdr path)
+      normal-indent
+    (let* ((loop-start (elt state 1))
+           (type (common-lisp-loop-type loop-start)))
+      (cond ((and lisp-loop-indent-subclauses (member type '(extended extended/split)))
+             (list (common-lisp-indent-loop-macro-1 state indent-point)
+                   (common-lisp-indent-parse-state-start state)))
+            (t
+             (common-lisp-loop-part-indentation indent-point state type))))))
 
 ;;;; LOOP indentation, the complex version -- handles subclause indentation
 
