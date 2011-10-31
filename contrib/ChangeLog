@@ -1,5 +1,10 @@
 2011-10-31  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* slime-cl-indent.el (common-lisp-run-indentation-tests): Make it
+	possible to run only a specific test.
+
+2011-10-31  Nikodemus Siivola  <nikodemus@random-state.net>
+
 	Improve indentation of comments inside LOOP.
 
 	* slime-cl-indent-test.txt: New tests 54-63.

@@ -1620,7 +1620,7 @@ Cause subsequent clauses to be indented.")
                test
                (buffer-string))))))
 
-(defun common-lisp-run-indentation-tests ()
+(defun common-lisp-run-indentation-tests (run)
   (define-common-lisp-style "common-lisp-indent-test"
     ;; Used to specify a few complex indentation specs for testing.
     (:inherit "basic")
@@ -1633,7 +1633,8 @@ Cause subsequent clauses to be indented.")
     (insert-file "slime-cl-indent-test.txt")
     (goto-char 0)
     (let ((test-mark ";;; Test: ")
-          (n 0))
+          (n 0)
+          (test-to-run (or (eq t run) (format "%s" run))))
       (while (not (eobp))
         (if (looking-at test-mark)
             (let* ((name-start (progn (search-forward ": ") (point)))
@@ -1660,13 +1661,18 @@ Cause subsequent clauses to be indented.")
               (let ((test-start (point)))
                 (while (not (or (eobp) (looking-at test-mark)))
                   (forward-line 1))
-                (let ((test (buffer-substring-no-properties test-start (point))))
-                  (common-lisp-indent-test test-name bindings test)
-                  (incf n))))
+                (when (or (eq t run) (equal test-to-run test-name))
+                  (let ((test (buffer-substring-no-properties test-start (point))))
+                    (common-lisp-indent-test test-name bindings test)
+                    (incf n)))))
           (forward-line 1)))
       (common-lisp-delete-style "common-lisp-indent-test")
       (message "%s tests OK." n))))
 
-;;; (common-lisp-run-indentation-tests)
+;;; Run all tests:
+;;;   (common-lisp-run-indentation-tests t)
+;;;
+;;; Run specific test:
+;;;   (common-lisp-run-indentation-tests 17)
 
 ;;; cl-indent.el ends here
