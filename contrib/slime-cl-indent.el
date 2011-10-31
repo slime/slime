@@ -481,7 +481,8 @@ OPTIONS are:
    (def!struct         (as defstruct))
    (def!type           (as deftype))
    (defmacro-mundanely (as defmacro))
-   (define-source-transform (as defun))))
+   (define-source-transform (as defun))
+   (!def-type-translator (as defun))))
 
 (defcustom common-lisp-style-default nil
     "Name of the Common Lisp indentation style to use in lisp-mode buffers if

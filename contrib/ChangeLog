@@ -1,3 +1,7 @@
+2011-10-31  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime-cl-indent.el (style "sbcl"): Indentation for !DEF-TYPE-TRANSLATOR.
+
 2011-10-29  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	Two patches by Tomohiro Matsuyama <tomo@cx4a.org>.
