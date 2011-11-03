@@ -104,23 +104,227 @@
                           :read-timeout timeout
                           :element-type 'base-char))
           (t
-           (make-flexi-stream 
-            (make-instance 'comm:socket-stream
-                           :socket fd
-                           :direction :io
-                           :read-timeout timeout
-                           :element-type '(unsigned-byte 8))
-            external-format)))))
+           (assert (member (first external-format) '(:utf-8)))
+           (make-instance 'utf8-stream
+                          :byte-stream
+                          (make-instance 'comm:socket-stream
+                                         :socket fd
+                                         :direction :io
+                                         :read-timeout timeout
+                                         :element-type '(unsigned-byte 8)))))))
 
-(defun make-flexi-stream (stream external-format)
-  (unless (member :flexi-streams *features*)
-    (error "Cannot use external format ~A without having installed flexi-streams in the inferior-lisp."
-           external-format))
-  (funcall (read-from-string "FLEXI-STREAMS:MAKE-FLEXI-STREAM")
-           stream
-           :external-format
-           (apply (read-from-string "FLEXI-STREAMS:MAKE-EXTERNAL-FORMAT")
-                  external-format)))
+(defclass utf8-stream (stream:fundamental-character-input-stream
+                       stream:fundamental-character-output-stream)
+  ((byte-stream :type comm:socket-stream
+                :initform nil
+                :initarg :byte-stream
+                :accessor utf8-stream-byte-stream)))
+
+;; Helper function.  Decode the next N bytes starting from INDEX.
+;; Return the decoded char and the new index.
+(defun utf8-decode-aux (buffer index limit byte0 n)
+  (declare (simple-string buffer) (fixnum index limit byte0 n))
+  (if (< (- limit index) n)
+      (values nil index)
+      (do ((i 0 (1+ i))
+           (code byte0 (let ((byte (char-code (schar buffer (+ index i)))))
+                         (cond ((= (ldb (byte 2 6) byte) #b10)
+                                (+ (ash code 6) (ldb (byte 6 0) byte)))
+                               (t
+                                (error "Invalid encoding"))))))
+          ((= i n)
+           (values (cond ((<= code #xff) (code-char code))
+                         ((<= #xdc00 code #xdbff)
+                          (error "Invalid Unicode code point: #x~x" code))
+                         ((< code char-code-limit)
+                          (code-char code))
+                         (t
+                          (error
+                           "Can't represent code point: #x~x ~
+                            (char-code-limit is #x~x)" 
+                           code char-code-limit)))
+                   (+ index n))))))
+
+;; Decode one character in BUFFER starting at INDEX.
+;; Return 2 values: the character and the new index.
+;; If there aren't enough bytes between INDEX and LIMIT return nil. 
+(defun utf8-decode (buffer index limit)
+  (declare (simple-string buffer) (fixnum index limit))
+  (if (= index limit)
+      (values nil index)
+      (let ((b (char-code (schar buffer index))))
+        (if (<= b #x7f)
+            (values (code-char b) (1+ index))
+            (macrolet ((try (marker else)
+                         (let* ((l (integer-length marker))
+                                (n (- l 2)))
+                           `(if (= (ldb (byte ,l ,(- 8 l)) b) ,marker)
+                                (utf8-decode-aux buffer (1+ index) limit
+                                                 (ldb (byte ,(- 8 l) 0) b)
+                                                 ,n)
+                                ,else))))
+              (try #b110
+                   (try #b1110
+                        (try #b11110
+                             (try #b111110
+                                  (try #b1111110
+                                       (error "Invalid encoding")))))))))))
+
+;; Decode characters from BUFFER and write them to STRING.
+;; Return 2 values: LASTINDEX and LASTSTART where
+;; LASTINDEX is the last index in BUFFER that was not decoded
+;; and LASTSTART is the last index in STRING not written.
+(defun utf8-decode-into (buffer index limit string start end)
+  (declare (string string) (fixnum index limit start end))
+  (loop
+   (cond ((= start end)
+          (return (values index start)))
+         (t
+          (multiple-value-bind (c i) (utf8-decode buffer index limit)
+            (cond (c
+                   (setf (aref string start) c)
+                   (setq index i)
+                   (setq start (1+ start)))
+                  (t
+                   (return (values index start)))))))))
+
+(defmacro utf8-encode-aux (code buffer start end n)
+  `(cond ((< (- ,end ,start) ,n)
+          ,start)
+         (t
+          (setf (schar ,buffer ,start)
+                (code-char
+                 (dpb (ldb (byte ,(- 7 n) ,(* 6 (1- n))) ,code)
+                      (byte ,(- 7 n) 0)
+                      ,(dpb 0 (byte 1 (- 7 n)) #xff))))
+          ,@(loop for i from 0 upto (- n 2) collect
+                  `(setf (schar ,buffer (+ ,start ,(- n 1 i)))
+                         (code-char
+                          (dpb (ldb (byte 6 ,(* 6 i)) ,code)
+                               (byte 6 0)
+                               #b10111111))))
+          (+ ,start ,n))))
+
+(defun utf8-encode (char buffer start end)
+  (declare (fixnum start end))
+  (let ((code (char-code char)))
+    (cond ((<= code #x7f)
+           (cond ((< start end)
+                  (setf (schar buffer start) char)
+                  (1+ start))
+                 (t start)))
+          ((<= code #x7ff) (utf8-encode-aux code buffer start end 2))
+          ((<= #xd800 code #xdfff)
+           (error "Invalid Unicode code point (surrogate): #x~x" code))
+          ((<= code #xffff) (utf8-encode-aux code buffer start end 3))
+          ((<= code #x1fffff) (utf8-encode-aux code buffer start end 4))
+          ((<= code #x3ffffff) (utf8-encode-aux code buffer start end 5))
+          ((<= code #x7fffffff) (utf8-encode-aux code buffer start end 6))
+          (t (error "Can't encode ~s (~x)" char code)))))
+
+(defun utf8-encode-into (string start end buffer index limit)
+  (loop
+   (cond ((= start end)
+          (return (values start index)))
+         ((= index limit)
+          (return (values start index)))
+         (t
+          (let ((i2 (utf8-encode (char string start) buffer index limit)))
+            (cond ((= i2 index)
+                   (return (values start index)))
+                  (t
+                   (setq index i2)
+                   (incf start))))))))
+
+(defun utf8-stream-read-char (stream no-hang)
+  (with-slots (byte-stream) stream
+    (loop
+     (stream:with-stream-input-buffer (b i l) byte-stream
+       (multiple-value-bind (c i2) (utf8-decode b i l)
+         (cond (c 
+                (setf i i2)
+                (return c))
+               ((and no-hang
+                     (not (sys:wait-for-input-streams-returning-first 
+                           (list byte-stream) :timeout 0)))
+                (return nil))
+               ((stream:stream-fill-buffer byte-stream)
+                #| next iteration |# )
+               (t
+                (return :eof))))))))
+
+(defmethod stream:stream-read-char ((stream utf8-stream))
+  (utf8-stream-read-char stream nil))
+
+(defmethod stream:stream-read-char-no-hang ((stream utf8-stream))
+  (utf8-stream-read-char stream t))
+
+(defmethod stream:stream-read-sequence ((stream utf8-stream) (string string)
+                                        start end)
+  (with-slots (byte-stream) stream
+    (loop
+     (stream:with-stream-input-buffer (b i l) byte-stream
+       (multiple-value-bind (i2 s2) (utf8-decode-into b i l string start end)
+         (setq i i2)
+         (setq start s2)
+         (cond ((= start end)
+                (return start))
+               ((stream:stream-fill-buffer byte-stream)
+                #| next iteration |# )
+               (t
+                (return start))))))))
+
+(defmethod stream:stream-unread-char ((stream utf8-stream) (c character))
+  (with-slots (byte-stream) stream
+    (stream:with-stream-input-buffer (b i l) byte-stream
+      (declare (ignorable l))
+      (let* ((bytes (ef:encode-lisp-string (string c) :utf-8))
+             (len (length bytes))
+             (i2 (- i len)))
+        (assert (equal (utf8-decode b i2 i) c))
+        (setq i i2)
+        nil))))
+
+(defmethod stream:stream-write-char ((stream utf8-stream) (char character))
+  (with-slots (byte-stream) stream
+    (loop
+     (stream:with-stream-output-buffer (b i l) byte-stream
+       (let ((i2 (utf8-encode char b i l)))
+         (cond ((< i i2)
+                (setf i i2)
+                (return char))
+               ((stream:stream-flush-buffer byte-stream)
+                )
+               (t
+                (error "Can't flush buffer"))))))))
+
+(defmethod stream:stream-write-string ((stream utf8-stream) 
+                                       (string string) 
+                                       &optional (start 0) 
+                                         (end (length string)))
+  (with-slots (byte-stream) stream
+    (loop
+     (stream:with-stream-output-buffer (b i l) byte-stream
+       (multiple-value-bind (s2 i2) (utf8-encode-into string start end
+                                                      b i l)
+         (setf i i2)
+         (setf start s2)
+         (cond ((= start end)
+                (return string))
+               ((stream:stream-flush-buffer byte-stream)
+                )
+               (t
+                (error "Can't flush buffer"))))))))
+
+(defmethod stream:stream-write-sequence ((stream utf8-stream)
+                                         seq start end)
+  (stream:stream-write-string seq start end))
+
+(defmethod stream:stream-force-output ((stream utf8-stream))
+  (with-slots (byte-stream) stream (force-output byte-stream)))
+
+(defmethod stream:stream-finish-output ((stream utf8-stream))
+  (with-slots (byte-stream) stream (finish-output byte-stream)))
 
 ;;; Coding Systems
 
@@ -131,13 +335,12 @@
 (defvar *external-format-to-coding-system*
   '(((:latin-1 :eol-style :lf) 
      "latin-1-unix" "iso-latin-1-unix" "iso-8859-1-unix")
-    ((:latin-1) 
-     "latin-1" "iso-latin-1" "iso-8859-1")
-    ((:utf-8) "utf-8")
+    ;;((:latin-1) "latin-1" "iso-latin-1" "iso-8859-1")
+    ;;((:utf-8) "utf-8")
     ((:utf-8 :eol-style :lf) "utf-8-unix")
-    ((:euc-jp) "euc-jp")
+    ;;((:euc-jp) "euc-jp")
     ((:euc-jp :eol-style :lf) "euc-jp-unix")
-    ((:ascii) "us-ascii")
+    ;;((:ascii) "us-ascii")
     ((:ascii :eol-style :lf) "us-ascii-unix")))
 
 (defimplementation find-external-format (coding-system)
