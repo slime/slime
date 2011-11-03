@@ -1,5 +1,9 @@
 2011-11-03  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (close-connection): Be more careful with non-ascii.
+
+2011-11-03  Helmut Eller  <heller@common-lisp.net>
+
 	Remove dependecy on FLEXI-STREAMS for Lispworks.
 
 	* swank-lispworks.lisp (make-flexi-stream): Deleted.

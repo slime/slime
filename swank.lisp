@@ -1073,8 +1073,9 @@ The processing is done in the extent of the toplevel restart."
 
 (defun close-connection (c condition backtrace)
   (let ((*debugger-hook* nil))
-    (log-event "close-connection: ~a ...~%" condition)
-  (format *log-output* "~&;; swank:close-connection: ~A~%" condition)
+    (log-event "close-connection: ~a ...~%" condition))
+  (format *log-output* "~&;; swank:close-connection: ~A~%"
+          (escape-non-ascii (safe-condition-message condition)))
   (let ((cleanup (connection.cleanup c)))
     (when cleanup
       (funcall cleanup c)))
@@ -1094,15 +1095,15 @@ The processing is done in the extent of the toplevel restart."
                         ;;  type: ~S~%~
                         ;;  encoding: ~A vs. ~A~%~
                         ;;  style: ~S dedicated: ~S]~%"
-            backtrace
+            (mapcar #'escape-non-ascii (mapcar #'frame-to-string backtrace))
             (escape-non-ascii (safe-condition-message condition) )
             (type-of condition)
             (connection.coding-system c)
             (connection.external-format c)
             (connection.communication-style c)
-            *use-dedicated-output-stream*)
-    (finish-output *log-output*))
-  (log-event "close-connection ~a ... done.~%" condition)))
+            *use-dedicated-output-stream*))
+  (finish-output *log-output*)
+  (log-event "close-connection ~a ... done.~%" condition))
 
 ;;;;;; Thread based communication
 
