@@ -27,6 +27,15 @@
   (documentation slot t))
 
 
+;;;; UTF8
+
+(defimplementation string-to-utf8 (s)
+  (excl:string-to-octets s :external-format :utf8))
+
+(defimplementation utf8-to-string (u)
+  (excl:octets-to-string u :external-format :utf8))
+
+
 ;;;; TCP Server
 
 (defimplementation preferred-communication-style ()

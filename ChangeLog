@@ -1,5 +1,9 @@
 2011-11-06  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-allegro.lisp (string-to-utf8, string-to-utf8): Implemented.
+
+2011-11-06  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-abcl.lisp (string-to-utf8, string-to-utf8): Implemented.
 	(octets-to-jbytes, jbytes-to-octets): New helpers.
 
