@@ -7370,13 +7370,19 @@ that succeeded initially folded away."
         (goto-char (overlay-start o))
         (show-subtree)))))
 
-(defun slime-run-one-test (name)
+(defun slime-run-test (name)
   "Ask for the name of a test and then execute the test."
   (interactive (list (slime-read-test-name)))
   (let ((test (find name slime-tests :key #'slime-test.name)))
     (assert test)
     (let ((slime-tests (list test)))
       (slime-run-tests))))
+
+(defun slime-toggle-test-debug-on-error ()
+  (interactive)
+  (setq slime-test-debug-on-error (not slime-test-debug-on-error))
+  (message "slime-test-debug-on-error is now %s"
+           (if slime-test-debug-on-error "enabled" "disabled")))
 
 (defun slime-read-test-name ()
   (let ((alist (mapcar (lambda (test) 
@@ -8272,20 +8278,21 @@ the buffer's undo-list."
   (slime-eval-async 
    `(cl:eval (cl:read-from-string 
               ,(prin1-to-string `(dotimes (i ,times) 
-                                   ,exp 
-                                   (swank::sleep-for 0.2))))))
+                                   (unless (= i 0)
+                                     (swank::sleep-for 1))
+                                   ,exp)))))
   (dotimes (i times)
     (slime-wait-condition "Debugger visible" 
                           (lambda () 
                             (and (slime-sldb-level= 1)
-                                 (get-buffer-window 
+                                 (get-buffer-window
                                   (sldb-get-default-buffer))))
                           3)
     (with-current-buffer (sldb-get-default-buffer)
       (sldb-continue))
     (slime-wait-condition "sldb closed" 
                           (lambda () (not (sldb-get-default-buffer)))
-                          1))
+                          0.5))
   (slime-sync-to-top-level 1))
 
 (def-slime-test (break2 (:fails-for "cmucl" "allegro" "ccl"))

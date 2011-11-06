@@ -1,5 +1,11 @@
 2011-11-06  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-run-test): Renamed from slime-run-one-test.
+	(slime-toggle-test-debug-on-error): New.
+	([test] break): Longer timeouts.
+
+2011-11-06  Helmut Eller  <heller@common-lisp.net>
+
 	Add portable versions for string-to-utf8 and utf8-to-string.
 
 	* swank-backend.lisp (default-string-to-utf8)
@@ -43,8 +49,6 @@
 	(slime-net-encode-length, slime-net-have-input-p): Use new format.
 	(slime-unibyte-string, slime-handle-net-read-error): New.
 	(featurep): Require 'un-define for XEmacs.
-	([test] break): Longer timeouts.
-	(slime-run-test): Renamed from slime-run-one-test.
 
 	* swank-sbcl.lisp (input-ready-p): Use sb-sys:wait-until-fd-usable.
 

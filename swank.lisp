@@ -3927,6 +3927,7 @@ If FORCE is true then start again without considering the old cache."
           (spawn #'perform-it :name "indentation-update-thread")
           (perform-it)))))
 
+;; FIXME: too complicated
 (defun update-indentation/delta-for-emacs (cache &optional force)
   "Update the cache and return the changes in a (SYMBOL INDENT PACKAGES) list.
 If FORCE is true then check all symbols, otherwise only check symbols
