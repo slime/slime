@@ -1,5 +1,9 @@
 2011-11-06  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-ccl.lisp (string-to-utf8, string-to-utf8): Implemented.
+
+2011-11-06  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-allegro.lisp (string-to-utf8, string-to-utf8): Implemented.
 
 2011-11-06  Helmut Eller  <heller@common-lisp.net>

@@ -82,6 +82,13 @@
   (let ((str (symbol-name sym)))
     `(or (find-symbol ,str :swank)
          (error "There is no symbol named ~a in the SWANK package" ,str))))
+;;; UTF8
+
+(defimplementation string-to-utf8 (string)
+  (ccl:encode-string-to-octets string :external-format :utf-8))
+
+(defimplementation utf8-to-string (octets)
+  (ccl:decode-string-from-octets octets :external-format :utf-8))
 
 ;;; TCP Server
 
