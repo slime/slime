@@ -1,5 +1,18 @@
 2011-11-06  Helmut Eller  <heller@common-lisp.net>
 
+	Add portable versions for string-to-utf8 and utf8-to-string.
+
+	* swank-backend.lisp (default-string-to-utf8)
+	(default-utf8-to-string): New.
+	(string-to-utf8, utf8-to-string): Use default implementations.
+
+	* swank-lispworks.lisp (make-flexi-stream): Restored.
+	(utf8-stream): Deleted.  The utf8 stuff is now used for the
+	default implementation of utf8-to-string and would cause name
+	clashes.
+
+2011-11-06  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-allegro.lisp (swank-compile-string): For reader errors
 	return nil not (values nil nil t).
 
