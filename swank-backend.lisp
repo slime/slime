@@ -268,11 +268,167 @@ EXCEPT is a list of symbol names which should be ignored."
 
 ;;;; UFT8
 
+(deftype octet () '(unsigned-byte 8))
+(deftype octets () '(simple-array octet (*)))
+
+;; Helper function.  Decode the next N bytes starting from INDEX.
+;; Return the decoded char and the new index.
+(defun utf8-decode-aux (buffer index limit byte0 n)
+  (declare (type octets buffer) (fixnum index limit byte0 n))
+  (if (< (- limit index) n)
+      (values nil index)
+      (do ((i 0 (1+ i))
+           (code byte0 (let ((byte (aref buffer (+ index i))))
+                         (cond ((= (ldb (byte 2 6) byte) #b10)
+                                (+ (ash code 6) (ldb (byte 6 0) byte)))
+                               (t
+                                (error "Invalid encoding"))))))
+          ((= i n)
+           (values (cond ((<= code #xff) (code-char code))
+                         ((<= #xd800 code #xdfff)
+                          (error "Invalid Unicode code point: #x~x" code))
+                         ((and (< code char-code-limit) 
+                               (code-char code)))
+                         (t
+                          (error
+                           "Can't represent code point: #x~x ~
+                            (char-code-limit is #x~x)" 
+                           code char-code-limit)))
+                   (+ index n))))))
+
+;; Decode one character in BUFFER starting at INDEX.
+;; Return 2 values: the character and the new index.
+;; If there aren't enough bytes between INDEX and LIMIT return nil. 
+(defun utf8-decode (buffer index limit)
+  (declare (type octets buffer) (fixnum index limit))
+  (if (= index limit)
+      (values nil index)
+      (let ((b (aref buffer index)))
+        (if (<= b #x7f)
+            (values (code-char b) (1+ index))
+            (macrolet ((try (marker else)
+                         (let* ((l (integer-length marker))
+                                (n (- l 2)))
+                           `(if (= (ldb (byte ,l ,(- 8 l)) b) ,marker)
+                                (utf8-decode-aux buffer (1+ index) limit
+                                                 (ldb (byte ,(- 8 l) 0) b)
+                                                 ,n)
+                                ,else))))
+              (try #b110
+                   (try #b1110
+                        (try #b11110
+                             (try #b111110
+                                  (try #b1111110
+                                       (error "Invalid encoding")))))))))))
+
+;; Decode characters from BUFFER and write them to STRING.
+;; Return 2 values: LASTINDEX and LASTSTART where
+;; LASTINDEX is the last index in BUFFER that was not decoded
+;; and LASTSTART is the last index in STRING not written.
+(defun utf8-decode-into (buffer index limit string start end)
+  (declare (string string) (fixnum index limit start end) (type octets buffer))
+  (loop
+   (cond ((= start end)
+          (return (values index start)))
+         (t
+          (multiple-value-bind (c i) (utf8-decode buffer index limit)
+            (cond (c
+                   (setf (aref string start) c)
+                   (setq index i)
+                   (setq start (1+ start)))
+                  (t
+                   (return (values index start)))))))))
+
+(defun default-utf8-to-string (octets)
+  (let* ((limit (length octets))
+         (str (make-string limit)))
+    (multiple-value-bind (i s) (utf8-decode-into octets 0 limit str 0 limit)
+      (if (= i limit)
+          (if (= limit s)
+              str
+              (adjust-array str s))
+          (loop
+           (let ((end (+ (length str) (- limit i))))
+             (setq str (adjust-array str end))
+             (multiple-value-bind (i2 s2)
+                 (utf8-decode-into octets i limit str s end)
+               (cond ((= i2 limit)
+                      (return (adjust-array str s2)))
+                     (t
+                      (setq i i2)
+                      (setq s s2))))))))))
+
+(defmacro utf8-encode-aux (code buffer start end n)
+  `(cond ((< (- ,end ,start) ,n)
+          ,start)
+         (t
+          (setf (aref ,buffer ,start)
+                (dpb (ldb (byte ,(- 7 n) ,(* 6 (1- n))) ,code)
+                     (byte ,(- 7 n) 0)
+                     ,(dpb 0 (byte 1 (- 7 n)) #xff)))
+          ,@(loop for i from 0 upto (- n 2) collect
+                  `(setf (aref ,buffer (+ ,start ,(- n 1 i)))
+                         (dpb (ldb (byte 6 ,(* 6 i)) ,code)
+                              (byte 6 0)
+                              #b10111111)))
+          (+ ,start ,n))))
+
+(defun utf8-encode (char buffer start end)
+  (declare (character char) (type octets buffer) (fixnum start end))
+  (let ((code (char-code char)))
+    (cond ((<= code #x7f)
+           (cond ((< start end)
+                  (setf (aref buffer start) code)
+                  (1+ start))
+                 (t start)))
+          ((<= code #x7ff) (utf8-encode-aux code buffer start end 2))
+          ((<= #xd800 code #xdfff)
+           (error "Invalid Unicode code point (surrogate): #x~x" code))
+          ((<= code #xffff) (utf8-encode-aux code buffer start end 3))
+          ((<= code #x1fffff) (utf8-encode-aux code buffer start end 4))
+          ((<= code #x3ffffff) (utf8-encode-aux code buffer start end 5))
+          ((<= code #x7fffffff) (utf8-encode-aux code buffer start end 6))
+          (t (error "Can't encode ~s (~x)" char code)))))
+
+(defun utf8-encode-into (string start end buffer index limit)
+  (declare (string string) (type octets buffer) (fixnum start end index limit))
+  (loop
+   (cond ((= start end)
+          (return (values start index)))
+         ((= index limit)
+          (return (values start index)))
+         (t
+          (let ((i2 (utf8-encode (char string start) buffer index limit)))
+            (cond ((= i2 index)
+                   (return (values start index)))
+                  (t
+                   (setq index i2)
+                   (incf start))))))))
+
+(defun default-string-to-utf8 (string)
+  (let* ((len (length string))
+         (b (make-array len :element-type 'octet)))
+    (multiple-value-bind (s i) (utf8-encode-into string 0 len b 0 len)
+      (if (= s len)
+          b
+          (loop
+           (let ((limit (+ (length b) (- len s))))
+             (setq b (coerce (adjust-array b limit) 'octets))
+             (multiple-value-bind (s2 i2)
+                 (utf8-encode-into string s len b i limit)
+               (cond ((= s2 len)
+                      (return (coerce (adjust-array b i2) 'octets)))
+                     (t
+                      (setq i i2)
+                      (setq s s2))))))))))
+
 (definterface string-to-utf8 (string)
-  "Convert the string STRING to a (simple-array (unsigned-byte 8))")
+  "Convert the string STRING to a (simple-array (unsigned-byte 8))"
+  (default-string-to-utf8 string))
 
 (definterface utf8-to-string (octets)
-  "Convert the (simple-array (unsigned-byte 8)) OCTETS to a string.")
+  "Convert the (simple-array (unsigned-byte 8)) OCTETS to a string."
+  (default-utf8-to-string octets))
 
 
 ;;;; TCP server
@@ -1213,13 +1369,6 @@ If TIMEOUT is a number and no streams is ready after TIMEOUT seconds,
 return nil.
 
 Return :interrupt if an interrupt occurs while waiting.")
-
-;;  (assert (member timeout '(nil t)))
-;;  (cond #+(or)
-;;        ((null (cdr streams)) 
-;;         (wait-for-one-stream (car streams) timeout))
-;;        (t
-;;         (wait-for-streams streams timeout))))
 
 (defun wait-for-streams (streams timeout)
   (loop
