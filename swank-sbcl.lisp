@@ -61,6 +61,14 @@
 (defimplementation getpid ()
   (sb-posix:getpid))
 
+;;; UTF8
+
+(defimplementation string-to-utf8 (string)
+  (sb-ext:string-to-octets string :external-format :utf8))
+
+(defimplementation utf8-to-string (octets)
+  (sb-ext:octets-to-string octets :external-format :utf8))
+
 ;;; TCP Server
 
 (defimplementation preferred-communication-style ()
