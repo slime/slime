@@ -1,5 +1,11 @@
 2011-11-06  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-backend.lisp (accept-connection): Improve docstring.  In
+	particular say that we want a binary stream if the EXTERNAL-FORMAT
+	argument is nil.
+
+2011-11-06  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-sbcl.lisp (string-to-utf8, string-to-utf8): Implemented.
 
 2011-11-06  Helmut Eller  <heller@common-lisp.net>

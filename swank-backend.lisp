@@ -289,7 +289,13 @@ EXCEPT is a list of symbol names which should be ignored."
 (definterface accept-connection (socket &key external-format
                                         buffering timeout)
    "Accept a client connection on the listening socket SOCKET.  
-Return a stream for the new connection.")
+Return a stream for the new connection.
+If EXTERNAL-FORMAT is nil return a binary stream
+otherwise create a character stream.
+BUFFERING can be one of: 
+  nil or :none ... no buffering
+  t   or :full ... enable buffering
+         :line ... some buffering with autmatic flushing on eol.")
 
 (definterface add-sigio-handler (socket fn)
   "Call FN whenever SOCKET is readable.")
