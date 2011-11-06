@@ -84,7 +84,10 @@
   (sb-bsd-sockets:socket-make-stream (accept socket)
                                      :output t
                                      :input t
-                                     :buffering buffering
+                                     :buffering (ecase buffering
+                                                  ((t) :full)
+                                                  ((nil) :none)
+                                                  (:line line))
                                      :external-format external-format))
 (defun accept (socket)
   "Like socket-accept, but retry on EAGAIN."

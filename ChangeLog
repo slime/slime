@@ -1,5 +1,6 @@
 2011-11-06  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-ecl.lisp (accept-connection): Fix buffering arg.
 	* swank-cmucl.lisp (accept-connection): Fix buffering arg.
 
 2011-11-06  Helmut Eller  <heller@common-lisp.net>
