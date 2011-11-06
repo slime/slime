@@ -63,6 +63,16 @@
   )
 
 (in-package :swank-backend)
+
+;;; UTF8
+
+(defimplementation string-to-utf8 (string)
+  (let ((ef (load-time-value (stream::find-external-format :utf-8) t)))
+    (stream:string-to-octets string :external-format ef)))
+
+(defimplementation utf8-to-string (octets)
+  (let ((ef (load-time-value (stream::find-external-format :utf-8) t)))
+    (stream:octets-to-string octets :external-format ef)))
 
 
 ;;;; TCP server
