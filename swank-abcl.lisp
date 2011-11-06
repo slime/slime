@@ -146,6 +146,44 @@
   (ext:get-socket-stream (ext:socket-accept socket)
                          :external-format external-format))
 
+;;;; UTF8 
+
+;; faster please!
+(defimplementation string-to-utf8 (s)
+  (jbytes-to-octets
+   (java:jcall 
+    (java:jmethod "java.lang.String" "getBytes" "java.lang.String")
+    s
+    "UTF8")))
+
+(defimplementation utf8-to-string (u)
+  (java:jnew 
+   (java:jconstructor "org.armedbear.lisp.SimpleString" 
+                      "java.lang.String")
+   (java:jnew (java:jconstructor "java.lang.String" "[B" "java.lang.String")
+              (octets-to-jbytes u)
+              "UTF8")))
+
+(defun octets-to-jbytes (octets)
+  (declare (type octets (simple-array (unsigned-byte 8) (*))))
+  (let* ((len (length octets))
+         (bytes (java:jnew-array "byte" len)))
+    (loop for byte across octets
+          for i from 0
+          do (java:jstatic (java:jmethod "java.lang.reflect.Array"  "setByte" 
+                            "java.lang.Object" "int" "byte")
+                           "java.lang.relect.Array"
+                           bytes i byte))
+    bytes))
+
+(defun jbytes-to-octets (jbytes)
+  (let* ((len (java:jarray-length jbytes))
+         (octets (make-array len :element-type '(unsigned-byte 8))))
+    (loop for i from 0 below len
+          for jbyte = (java:jarray-ref jbytes i)
+          do (setf (aref octets i) jbyte))
+    octets))
+
 ;;;; External formats
 
 (defvar *external-format-to-coding-system*
