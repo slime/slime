@@ -112,8 +112,11 @@
                                       external-format buffering timeout)
   (declare (ignore timeout))
   (make-socket-io-stream (ext:accept-tcp-connection socket) 
-                         (or buffering :full)
-                         (or external-format :iso-8859-1)))
+                         (ecase buffering
+                           (:full :full)
+                           (:line :line)
+                           ((:none nil) :none))
+                         external-format))
 
 ;;;;; Sockets
 
@@ -141,11 +144,15 @@
 
 (defun make-socket-io-stream (fd buffering external-format)
   "Create a new input/output fd-stream for FD."
-  #-unicode(declare (ignore external-format))
-  (sys:make-fd-stream fd :input t :output t :element-type 'base-char
-                      :buffering buffering
-                      #+unicode :external-format 
-                      #+unicode external-format))
+  (cond ((and external-format (ext:featurep :unicode))
+         (sys:make-fd-stream fd :input t :output t 
+                             :element-type '(unsigned-byte 8)
+                             :buffering buffering
+                             :external-format external-format))
+        (t
+         (sys:make-fd-stream fd :input t :output t 
+                             :element-type '(unsigned-byte 8)
+                             :buffering buffering))))
 
 (defimplementation make-fd-stream (fd external-format)
   (make-socket-io-stream fd :full external-format))

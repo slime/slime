@@ -165,9 +165,11 @@
                                       &key external-format buffering timeout)
   (declare (ignore buffering timeout))
   (socket:socket-accept socket
-                        :buffered nil ;; XXX should be t
-                        :element-type 'character
-                        :external-format external-format))
+                        :buffered buffering ;; XXX may not work if t
+                        :element-type (if external-format 
+                                          'character
+                                          '(unsigned-byte 8))
+                        :external-format (or external-format :default)))
 
 #-win32
 (defimplementation wait-for-input (streams &optional timeout)

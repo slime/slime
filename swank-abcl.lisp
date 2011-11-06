@@ -144,7 +144,10 @@
                                       &key external-format buffering timeout)
   (declare (ignore buffering timeout))
   (ext:get-socket-stream (ext:socket-accept socket)
-                         :external-format external-format))
+                         :element-type (if external-format 
+                                           'character 
+                                           '(unsigned-byte 8))
+                         :external-format (or external-format :default)))
 
 ;;;; UTF8 
 

@@ -103,9 +103,11 @@
                                       external-format
                                       buffering timeout)
   (declare (ignore timeout))
-  (make-socket-io-stream (accept socket)
-                         (or external-format :iso-latin-1-unix)
-                         (or buffering :full)))
+  (make-socket-io-stream (accept socket) external-format 
+                         (ecase buffering
+                           ((t :full) :full)
+                           ((nil :none) :none)
+                           ((:line) :line))))
 
 #-win32
 (defimplementation install-sigint-handler (function)
@@ -281,22 +283,25 @@
                   *external-format-to-coding-system*)))
 
 (defun make-socket-io-stream (socket external-format buffering)
-  (sb-bsd-sockets:socket-make-stream socket
-                                     :output t
-                                     :input t
-                                     :element-type 'character
-                                     :buffering buffering
-                                     #+sb-unicode :external-format
-                                     #+sb-unicode external-format
-                                     :serve-events
-                                     (eq :fd-handler
-                                         ;; KLUDGE: SWANK package isn't
-                                         ;; available when backend is loaded.
-                                         (symbol-value
-                                          (intern "*COMMUNICATION-STYLE*" :swank)))
-                                     ;; SBCL < 1.0.42.43 doesn't support :SERVE-EVENTS
-                                     ;; argument.
-                                     :allow-other-keys t))
+  (let ((args `(,@()
+                :output t
+                :input t
+                :element-type ,(if external-format
+                                   'character 
+                                   '(unsigned-byte 8))
+                :buffering ,buffering
+                ,@(cond ((and external-format (sb-int:featurep :sb-unicode))
+                         `(:external-format ,external-format))
+                        (t '()))
+                :serve-events ,(eq :fd-handler
+                                   ;; KLUDGE: SWANK package isn't
+                                   ;; available when backend is loaded.
+                                   (symbol-value
+                                    (intern "*COMMUNICATION-STYLE*" :swank)))
+                  ;; SBCL < 1.0.42.43 doesn't support :SERVE-EVENTS
+                  ;; argument.
+                :allow-other-keys t)))
+  (apply #'sb-bsd-sockets:socket-make-stream socket args)))
 
 (defun accept (socket)
   "Like socket-accept, but retry on EAGAIN."

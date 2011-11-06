@@ -104,22 +104,29 @@
   (declare (ignore buffering))
   (let* ((fd (comm::get-fd-from-socket socket)))
     (assert (/= fd -1))
-    (assert (valid-external-format-p external-format))
-    (cond ((member (first external-format) '(:latin-1 :ascii))
+    (cond ((not external-format)
            (make-instance 'comm:socket-stream
                           :socket fd
                           :direction :io
                           :read-timeout timeout
-                          :element-type 'base-char))
+                          :element-type '(unsigned-byte 8)))
           (t
-           (assert (member (first external-format) '(:utf-8)))
-           (make-instance 'utf8-stream
-                          :byte-stream
-                          (make-instance 'comm:socket-stream
-                                         :socket fd
-                                         :direction :io
-                                         :read-timeout timeout
-                                         :element-type '(unsigned-byte 8)))))))
+           (assert (valid-external-format-p external-format))
+           (ecase (first external-format)
+             ((:latin-1 :ascii)
+              (make-instance 'comm:socket-stream
+                             :socket fd
+                             :direction :io
+                             :read-timeout timeout
+                             :element-type 'base-char))
+             (:utf-8
+              (make-instance 'utf8-stream :byte-stream
+                             (make-instance 
+                              'comm:socket-stream
+                              :socket fd
+                              :direction :io
+                              :read-timeout timeout
+                              :element-type '(unsigned-byte 8)))))))))
 
 (defclass utf8-stream (stream:fundamental-character-input-stream
                        stream:fundamental-character-output-stream)

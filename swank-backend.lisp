@@ -292,10 +292,10 @@ EXCEPT is a list of symbol names which should be ignored."
 Return a stream for the new connection.
 If EXTERNAL-FORMAT is nil return a binary stream
 otherwise create a character stream.
-BUFFERING can be one of: 
-  nil or :none ... no buffering
-  t   or :full ... enable buffering
-         :line ... some buffering with autmatic flushing on eol.")
+BUFFERING can be one of:
+  nil   ... no buffering
+  t     ... enable buffering
+  :line ... enable buffering with automatic flushing on eol.")
 
 (definterface add-sigio-handler (socket fn)
   "Call FN whenever SOCKET is readable.")

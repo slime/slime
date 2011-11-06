@@ -4,38 +4,25 @@
 	particular say that we want a binary stream if the EXTERNAL-FORMAT
 	argument is nil.
 
-2011-11-06  Helmut Eller  <heller@common-lisp.net>
-
-	* swank-sbcl.lisp (string-to-utf8, string-to-utf8): Implemented.
-
-2011-11-06  Helmut Eller  <heller@common-lisp.net>
-
-	* swank-lispworks.lisp (string-to-utf8, string-to-utf8): Implemented.
-
-2011-11-06  Helmut Eller  <heller@common-lisp.net>
-
-	* swank-cmucl.lisp (string-to-utf8, string-to-utf8): Implemented.
-
-2011-11-06  Helmut Eller  <heller@common-lisp.net>
-
-	* swank-clisp.lisp (string-to-utf8, string-to-utf8): Implemented.
-
-2011-11-06  Helmut Eller  <heller@common-lisp.net>
-
-	* swank-ccl.lisp (string-to-utf8, string-to-utf8): Implemented.
-
-2011-11-06  Helmut Eller  <heller@common-lisp.net>
-
-	* swank-allegro.lisp (string-to-utf8, string-to-utf8): Implemented.
-
-2011-11-06  Helmut Eller  <heller@common-lisp.net>
-
-	* swank-abcl.lisp (string-to-utf8, string-to-utf8): Implemented.
-	(octets-to-jbytes, jbytes-to-octets): New helpers.
+	* swank-abcl.lisp (accept-connection): Make it so.
+	* swank-clisp.lisp (accept-connection): Make it so.
+	* swank-cmucl.lisp (accept-connection): Make it so.
+	* swank-lispworks.lisp (accept-connection): Make it so.
+	* swank-sbcl.lisp (accept-connection): Make it so.
+	* swank-scl.lisp (accept-connection): Make it so.
 
 2011-11-06  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-backend.lisp (utf8-to-string, string-to-utf8): New.
+
+	* swank-sbcl.lisp (string-to-utf8, string-to-utf8): Implemented	.
+	* swank-lispworks.lisp (string-to-utf8, string-to-utf8): Implemented.
+	* swank-cmucl.lisp (string-to-utf8, string-to-utf8): Implemented.
+	* swank-clisp.lisp (string-to-utf8, string-to-utf8): Implemented.
+	* swank-ccl.lisp (string-to-utf8, string-to-utf8): Implemented.
+	* swank-allegro.lisp (string-to-utf8, string-to-utf8): Implemented.
+	* swank-abcl.lisp (string-to-utf8, string-to-utf8): Implemented.
+	(octets-to-jbytes, jbytes-to-octets): New helpers.
 
 2011-11-03  Helmut Eller  <heller@common-lisp.net>
 
