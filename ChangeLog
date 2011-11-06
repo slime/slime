@@ -1,5 +1,10 @@
 2011-11-06  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-allegro.lisp (swank-compile-string): For reader errors
+	return nil not (values nil nil t).
+
+2011-11-06  Helmut Eller  <heller@common-lisp.net>
+
 	New wire format.
 
 	Switch from character streams to binary streams.  Counting
@@ -26,6 +31,7 @@
 	(slime-unibyte-string, slime-handle-net-read-error): New.
 	(featurep): Require 'un-define for XEmacs.
 	([test] break): Longer timeouts.
+	(slime-run-test): Renamed from slime-run-one-test.
 
 	* swank-sbcl.lisp (input-ready-p): Use sb-sys:wait-until-fd-usable.
 

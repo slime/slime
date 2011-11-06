@@ -30,10 +30,12 @@
 ;;;; UTF8
 
 (defimplementation string-to-utf8 (s)
-  (excl:string-to-octets s :external-format :utf8))
+  (let ((ef (load-time-value (excl:find-external-format :utf-8) t)))
+    (excl:string-to-octets s :external-format ef)))
 
 (defimplementation utf8-to-string (u)
-  (excl:octets-to-string u :external-format :utf8))
+  (let ((ef (load-time-value (excl:find-external-format :utf-8) t)))
+    (excl:octets-to-string u :external-format ef)))
 
 
 ;;;; TCP Server
@@ -471,7 +473,7 @@
                    (merge-pathnames (pathname filename))
                    *default-pathname-defaults*)))
           (compile-from-temp-file string buffer position filename)))
-    (reader-error () (values nil nil t))))
+    (reader-error () nil)))
 
 ;;;; Definition Finding
 
