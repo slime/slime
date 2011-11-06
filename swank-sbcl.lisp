@@ -194,11 +194,9 @@
 
 #-win32
 (defun input-ready-p (stream)
-  (let ((c (read-char-no-hang stream nil :eof)))
-    (etypecase c
-      (character (unread-char c stream) t)
-      (null nil)
-      ((member :eof) t))))
+  (sb-sys:wait-until-fd-usable (sb-impl::fd-stream-fd stream)
+                               :input 
+                               0))
 
 #+win32
 (progn

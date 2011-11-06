@@ -1,5 +1,36 @@
 2011-11-06  Helmut Eller  <heller@common-lisp.net>
 
+	New wire format.
+
+	Switch from character streams to binary streams.  Counting
+	characters was error prone because some Lisps use utf-16
+	internally and so READ-SEQUENCE can't be used easily.
+
+	The new format looks so:
+
+	  | byte0 | 3 bytes length |
+	  |    ... payload ...     |
+
+	The playload is an s-exp encoded as UTF-8 string.  byte0 is
+	currently always 0; other values are reserved for future use.
+
+	* swank-rpc.lisp (write-message): Use new format.
+	(write-header, parse-header, asciify, encoding-error): New.
+
+	* swank.lisp (accept-connections): Create a binary stream.
+	(input-available-p): Can't read-char-no-hang on binary streams.
+
+	* slime.el (slime-net-connect): Use binary as coding system.
+	(slime-net-send, slime-net-read, slime-net-decode-length)
+	(slime-net-encode-length, slime-net-have-input-p): Use new format.
+	(slime-unibyte-string, slime-handle-net-read-error): New.
+	(featurep): Require 'un-define for XEmacs.
+	([test] break): Longer timeouts.
+
+	* swank-sbcl.lisp (input-ready-p): Use sb-sys:wait-until-fd-usable.
+
+2011-11-06  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (close-connection): Fix thinko.
 
 2011-11-06  Helmut Eller  <heller@common-lisp.net>

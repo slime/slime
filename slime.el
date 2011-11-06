@@ -67,7 +67,8 @@
 (require 'pp)
 (require 'font-lock)
 (when (featurep 'xemacs)
-  (require 'overlay))
+  (require 'overlay)
+  (require 'un-define))
 (require 'easymenu)
 (eval-when (compile)
   (require 'arc-mode)
@@ -1475,10 +1476,16 @@ The default condition handler for timer functions (see
 ;;; This section covers the low-level networking: establishing
 ;;; connections and encoding/decoding protocol messages.
 ;;;
-;;; Each SLIME protocol message beings with a 3-byte length header
-;;; followed by an S-expression as text. The sexp must be readable
-;;; both by Emacs and by Common Lisp, so if it contains any embedded
-;;; code fragments they should be sent as strings.
+;;; Each SLIME protocol message beings with a 4-byte header followed
+;;; by an S-expression as text. The sexp must be readable both by
+;;; Emacs and by Common Lisp, so if it contains any embedded code
+;;; fragments they should be sent as strings:
+;;; 
+;;;  | byte0 | 3 bytes length |
+;;;  |    ... s-exp ...       |
+;;;
+;;; The s-exp text is encoded in UTF8.  byte0 is currently always 0;
+;;; other values are reserved for future use.
 ;;;
 ;;; The set of meaningful protocol messages are not specified
 ;;; here. They are defined elsewhere by the event-dispatching
@@ -1514,8 +1521,7 @@ first line of the file."
     (set-process-sentinel proc 'slime-net-sentinel)
     (slime-set-query-on-exit-flag proc)
     (when (fboundp 'set-process-coding-system)
-      (slime-check-coding-system coding-system)
-      (set-process-coding-system proc coding-system coding-system))
+      (set-process-coding-system proc 'binary 'binary))
     (when-let (secret (slime-secret))
       (slime-net-send secret proc))
     proc))
@@ -1561,14 +1567,14 @@ first line of the file."
   "Send a SEXP to Lisp over the socket PROC.
 This is the lowest level of communication. The sexp will be READ and
 EVAL'd by Lisp."
-  (let* ((msg (concat (slime-prin1-to-string sexp) "\n"))
-         (string (concat (slime-net-encode-length (length msg)) msg))
-         (coding-system (cdr (process-coding-system proc))))
+  (let* ((payload (encode-coding-string
+                   (concat (slime-prin1-to-string sexp) "\n")
+                   'utf-8-unix))
+         (string (concat (slime-unibyte-string 0)
+                         (slime-net-encode-length (length payload))
+                         payload)))
     (slime-log-event sexp)
-    (cond ((slime-safe-encoding-p coding-system string)
-           (process-send-string proc string))
-          (t (error "Coding system %s not suitable for %S"
-                    coding-system string)))))
+    (process-send-string proc string)))
 
 (defun slime-safe-encoding-p (coding-system string)
   "Return true iff CODING-SYSTEM can safely encode STRING."
@@ -1626,8 +1632,8 @@ EVAL'd by Lisp."
 (defun slime-net-have-input-p ()
   "Return true if a complete message is available."
   (goto-char (point-min))
-  (and (>= (buffer-size) 6)
-       (>= (- (buffer-size) 6) (slime-net-decode-length))))
+  (and (>= (buffer-size) 4)
+       (>= (- (buffer-size) 4) (slime-net-decode-length))))
 
 (defun slime-run-when-idle (function &rest args)
   "Call FUNCTION as soon as Emacs is idle."
@@ -1635,11 +1641,22 @@ EVAL'd by Lisp."
          (if (featurep 'xemacs) itimer-short-interval 0) 
          nil function args))
 
+(defun slime-handle-net-read-error (error)
+  (let ((packet (buffer-string)))
+    (slime-with-popup-buffer ((slime-buffer-name :error))
+      (princ (format "%s\nin packet:\n%s" (error-message-string error) packet))
+      (goto-char (point-min)))
+    (cond ((y-or-n-p "Skip this packet? ")
+           `(:emacs-skipped-packet ,packet))
+          (t
+           (when (y-or-n-p "Enter debugger instead? ")
+             (debug 'error error))
+           (signal (car error) (cdr error))))))
+
 (defun slime-net-read-or-lose (process)
   (condition-case error
       (slime-net-read)
     (error
-     (debug 'error error)
      (slime-net-close process t)
      (error "net-read error: %S" error))))
 
@@ -1647,21 +1664,33 @@ EVAL'd by Lisp."
   "Read a message from the network buffer."
   (goto-char (point-min))
   (let* ((length (slime-net-decode-length))
-         (start (+ 6 (point)))
+         (start (+ (point) 4))
          (end (+ start length)))
     (assert (plusp length))
     (prog1 (save-restriction
              (narrow-to-region start end)
-             (read (current-buffer)))
+             (condition-case error 
+                 (progn
+                   (decode-coding-region start end 'utf-8-unix)
+                   (setq end (point-max))
+                   (read (current-buffer)))
+               (error
+                (slime-handle-net-read-error error))))
       (delete-region (point-min) end))))
 
 (defun slime-net-decode-length ()
-  "Read a 24-bit hex-encoded integer from buffer."
-  (string-to-number (buffer-substring-no-properties (point) (+ (point) 6)) 16))
+  "Read a 24-bit little endian integer from buffer."
+  ;; extra masking for "raw bytes" in multibyte text above #x3FFF00
+  (logior (lsh (logand (char-after (+ (point) 1)) #xff) 16)
+          (lsh (logand (char-after (+ (point) 2)) #xff) 8)
+          (lsh (logand (char-after (+ (point) 3)) #xff) 0)))
 
 (defun slime-net-encode-length (n)
-  "Encode an integer into a 24-bit hex string."
-  (format "%06x" n))
+  (assert (<= 0 n))
+  (assert (<= n #xffffff))
+  (slime-unibyte-string (logand (lsh n -16) #xff)
+                        (logand (lsh n -8) #xff)
+                        (logand (lsh n 0) #xff)))
 
 (defun slime-prin1-to-string (sexp)
   "Like `prin1-to-string' but don't octal-escape non-ascii characters.
@@ -2339,14 +2368,16 @@ Debugged requests are ignored."
            (slime-send `(:emacs-pong ,thread ,tag)))
           ((:reader-error packet condition)
            (slime-with-popup-buffer ((slime-buffer-name :error))
-             (princ (format "Invalid protocol message:\n%s\n\n%S"
+             (princ (format "Invalid protocol message:\n%s\n\n%s"
                             condition packet))
              (goto-char (point-min)))
            (error "Invalid protocol message"))
           ((:invalid-rpc id message)
            (setf (slime-rex-continuations)
                  (remove* id (slime-rex-continuations) :key #'car))
-           (error "Invalid rpc: %s" message))))))
+           (error "Invalid rpc: %s" message))
+          ((:emacs-skipped-packet _pkg))
+          ))))
 
 (defun slime-send (sexp)
   "Send SEXP directly over the wire on the current connection."
@@ -8249,12 +8280,12 @@ the buffer's undo-list."
                             (and (slime-sldb-level= 1)
                                  (get-buffer-window 
                                   (sldb-get-default-buffer))))
-                          1)
+                          3)
     (with-current-buffer (sldb-get-default-buffer)
       (sldb-continue))
     (slime-wait-condition "sldb closed" 
                           (lambda () (not (sldb-get-default-buffer)))
-                          0.2))
+                          1))
   (slime-sync-to-top-level 1))
 
 (def-slime-test (break2 (:fails-for "cmucl" "allegro" "ccl"))
@@ -8800,6 +8831,12 @@ will return \"\"."
                                 (if timeout (truncate timeout))
                                 ;; Emacs 21 uses microsecs; Emacs 22 millisecs
                                 (if timeout (truncate (* timeout 1000000)))))))
+
+(defun slime-unibyte-string (&rest bytes)
+  (cond ((fboundp 'unibyte-string) 
+         (apply #'unibyte-string bytes))
+        (t
+         (apply #'string bytes))))
 
 (defun slime-pop-to-buffer (buffer &optional other-window)
   "Select buffer BUFFER in some window.

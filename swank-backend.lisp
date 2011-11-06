@@ -1207,18 +1207,19 @@ Backends can use this function to abort slow operations.")
 (definterface wait-for-input (streams &optional timeout)
   "Wait for input on a list of streams.  Return those that are ready.
 STREAMS is a list of streams
-TIMEOUT nil, t, or real number. If TIMEOUT is t, return
-those streams which are ready immediately, without waiting.
+TIMEOUT nil, t, or real number. If TIMEOUT is t, return those streams
+which are ready (or have reached end-of-file) without waiting.
 If TIMEOUT is a number and no streams is ready after TIMEOUT seconds,
 return nil.
 
-Return :interrupt if an interrupt occurs while waiting."
-  (assert (member timeout '(nil t)))
-  (cond #+(or)
-        ((null (cdr streams)) 
-         (wait-for-one-stream (car streams) timeout))
-        (t
-         (wait-for-streams streams timeout))))
+Return :interrupt if an interrupt occurs while waiting.")
+
+;;  (assert (member timeout '(nil t)))
+;;  (cond #+(or)
+;;        ((null (cdr streams)) 
+;;         (wait-for-one-stream (car streams) timeout))
+;;        (t
+;;         (wait-for-streams streams timeout))))
 
 (defun wait-for-streams (streams timeout)
   (loop

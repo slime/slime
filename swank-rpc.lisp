@@ -23,26 +23,46 @@
 ;;;;; Input
 
 (define-condition swank-reader-error (reader-error)
-  ((packet :type string :initarg :packet :reader swank-reader-error.packet)
-   (cause :type reader-error :initarg :cause :reader swank-reader-error.cause)))
+  ((packet :type string :initarg :packet 
+           :reader swank-reader-error.packet)
+   (cause :type reader-error :initarg :cause 
+          :reader swank-reader-error.cause)))
 
 (defun read-message (stream package)
   (let ((packet (read-packet stream)))
     (handler-case (values (read-form packet package))
       (reader-error (c)
-        (error (make-condition 'swank-reader-error :packet packet :cause c))))))
+        (error (make-condition 'swank-reader-error 
+                               :packet packet :cause c))))))
 
-;; use peek-char to detect EOF, read-sequence may return 0 instead of
-;; signaling a condition.
 (defun read-packet (stream)
-  (peek-char nil stream) 
-  (let* ((header (read-chunk stream 6))
-         (length (parse-integer header :radix #x10))
-         (payload (read-chunk stream length)))
-    payload))
+  (multiple-value-bind (byte0 length) (parse-header stream)
+    (cond ((= byte0 0)
+           (let ((octets (read-chunk stream length)))
+             (handler-case (swank-backend:utf8-to-string octets)
+               (error (c) 
+                 (error (make-condition 'swank-reader-error 
+                                        :packet (asciify octets)
+                                        :cause c))))))
+          (t
+           (error "Invalid header byte0 #b~b" byte0)))))
 
+(defun asciify (packet)
+  (with-output-to-string (*standard-output*)
+    (loop for code across (etypecase packet 
+                            (string (map 'vector #'char-code packet))
+                            (vector packet))
+          do (cond ((<= code #x7f) (write-char (code-char code)))
+                   (t (format t "\\x~x" code))))))
+
+(defun parse-header (stream)
+  (values (read-byte stream)
+          (logior (ash (read-byte stream) 16)
+                  (ash (read-byte stream) 8)
+                  (read-byte stream))))
+                  
 (defun read-chunk (stream length)
-  (let* ((buffer (make-string length))
+  (let* ((buffer (make-array length :element-type '(unsigned-byte 8)))
          (count (read-sequence buffer stream)))
     (assert (= count length) () "Short read: length=~D  count=~D" length count)
     buffer))
@@ -92,11 +112,32 @@
 
 (defun write-message (message package stream)
   (let* ((string (prin1-to-string-for-emacs message package))
-         (length (swank-backend:codepoint-length string)))
-    (let ((*print-pretty* nil))
-      (format stream "~6,'0x" length))
-    (write-string string stream)
+         (octets (handler-case (swank-backend:string-to-utf8 string)
+                   (error (c) (encoding-error c string))))
+         (length (length octets)))
+    (write-header stream 0 length)
+    (write-sequence octets stream)
     (finish-output stream)))
+
+;; FIXME: for now just tell emacs that we and an encoding problem.
+(defun encoding-error (condition string)
+  (swank-backend:string-to-utf8
+   (prin1-to-string-for-emacs
+    `(:reader-error
+      ,(asciify string)
+      ,(format nil "Error during string-to-utf8: ~a"
+               (or (ignore-errors (asciify (princ-to-string condition)))
+                   (asciify (princ-to-string (type-of condition))))))
+    (find-package :cl))))
+
+(defun write-header (stream byte0 length)
+  (declare (type (unsigned-byte 8) byte0)
+           (type (unsigned-byte 24) length))
+  ;;(format *trace-output* "byte0: ~d length: ~d (#x~x)~%" byte0 length length)
+  (write-byte byte0 stream)
+  (write-byte (ldb (byte 8 16) length) stream)
+  (write-byte (ldb (byte 8 8) length) stream)
+  (write-byte (ldb (byte 8 0) length) stream))
 
 (defun prin1-to-string-for-emacs (object package)
   (with-standard-io-syntax

@@ -876,10 +876,12 @@ first."
   (create-server :port port :style style :dont-close dont-close
                  :coding-system coding-system))
 
+;; FIXME: get rid of coding-system argument
 (defun accept-connections (socket style coding-system dont-close)
   (let* ((ef (find-external-format-or-lose coding-system))
          (client (unwind-protect 
-                      (accept-connection socket :external-format ef)
+                      (accept-connection socket :external-format nil
+                                         :buffering t)
                    (unless dont-close
                      (close-socket socket)))))
     (authenticate-client client)
@@ -1745,14 +1747,11 @@ NIL if streams are not globally redirected.")
 
 
 (defun input-available-p (stream)
-  ;; return true iff we can read from STREAM without waiting or if we
-  ;; hit EOF
-  (let ((c (read-char-no-hang stream nil :eof)))
-    (cond ((not c) nil)
-          ((eq c :eof) t)
-          (t 
-           (unread-char c stream)
-           t))))
+  (loop
+   (etypecase (wait-for-input (list stream) t)
+     (null (return nil))
+     (cons (return t))
+     ((member :interrupt)))))
 
 (defvar *slime-features* nil
   "The feature list that has been sent to Emacs.")
