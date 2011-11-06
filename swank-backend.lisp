@@ -266,6 +266,15 @@ EXCEPT is a list of symbol names which should be ignored."
       '(:or)))
 
 
+;;;; UFT8
+
+(definterface string-to-utf8 (string)
+  "Convert the string STRING to a (simple-array (unsigned-byte 8))")
+
+(definterface utf8-to-string (octets)
+  "Convert the (simple-array (unsigned-byte 8)) OCTETS to a string.")
+
+
 ;;;; TCP server
 
 (definterface create-socket (host port)
