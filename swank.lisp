@@ -1095,7 +1095,8 @@ The processing is done in the extent of the toplevel restart."
                         ;;  type: ~S~%~
                         ;;  encoding: ~A vs. ~A~%~
                         ;;  style: ~S dedicated: ~S]~%"
-            (mapcar #'escape-non-ascii (mapcar #'frame-to-string backtrace))
+            (loop for (i f) in backtrace collect 
+                  (ignore-errors (format nil "~d: ~a" i (escape-non-ascii f))))
             (escape-non-ascii (safe-condition-message condition) )
             (type-of condition)
             (connection.coding-system c)
