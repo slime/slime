@@ -113,9 +113,9 @@
   (declare (ignore timeout))
   (make-socket-io-stream (ext:accept-tcp-connection socket) 
                          (ecase buffering
-                           (:full :full)
+                           ((t) :full)
                            (:line :line)
-                           ((:none nil) :none))
+                           ((nil) :none))
                          external-format))
 
 ;;;;; Sockets

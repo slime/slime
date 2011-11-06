@@ -1,5 +1,9 @@
 2011-11-06  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-cmucl.lisp (accept-connection): Fix buffering arg.
+
+2011-11-06  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-run-test): Renamed from slime-run-one-test.
 	(slime-toggle-test-debug-on-error): New.
 	([test] break): Longer timeouts.
