@@ -135,6 +135,20 @@
                        :name file 
                        :type type)))))
 
+;;;; UTF 
+
+(defimplementation string-to-utf8 (string)
+  (let ((enc (load-time-value 
+              (ext:make-encoding :charset "utf-8" :line-terminator :unix)
+              t)))
+    (ext:convert-string-to-bytes string enc)))
+
+(defimplementation utf8-to-string (octets)
+  (let ((enc (load-time-value 
+              (ext:make-encoding :charset "utf-8" :line-terminator :unix)
+              t)))
+    (ext:convert-string-from-bytes octets enc)))
+
 ;;;; TCP Server
 
 (defimplementation create-socket (host port)
