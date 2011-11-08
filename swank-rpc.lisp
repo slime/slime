@@ -36,16 +36,13 @@
                                :packet packet :cause c))))))
 
 (defun read-packet (stream)
-  (multiple-value-bind (byte0 length) (parse-header stream)
-    (cond ((= byte0 0)
-           (let ((octets (read-chunk stream length)))
-             (handler-case (swank-backend:utf8-to-string octets)
-               (error (c) 
-                 (error (make-condition 'swank-reader-error 
-                                        :packet (asciify octets)
-                                        :cause c))))))
-          (t
-           (error "Invalid header byte0 #b~b" byte0)))))
+  (let* ((length (parse-header stream))
+         (octets (read-chunk stream length)))
+    (handler-case (swank-backend:utf8-to-string octets)
+      (error (c) 
+        (error (make-condition 'swank-reader-error 
+                               :packet (asciify octets)
+                               :cause c))))))
 
 (defun asciify (packet)
   (with-output-to-string (*standard-output*)
@@ -56,11 +53,9 @@
                    (t (format t "\\x~x" code))))))
 
 (defun parse-header (stream)
-  (values (read-byte stream)
-          (logior (ash (read-byte stream) 16)
-                  (ash (read-byte stream) 8)
-                  (read-byte stream))))
-                  
+  (parse-integer (map 'string #'code-char (read-chunk stream 6))
+                 :radix 16))
+
 (defun read-chunk (stream length)
   (let* ((buffer (make-array length :element-type '(unsigned-byte 8)))
          (count (read-sequence buffer stream)))
@@ -115,7 +110,7 @@
          (octets (handler-case (swank-backend:string-to-utf8 string)
                    (error (c) (encoding-error c string))))
          (length (length octets)))
-    (write-header stream 0 length)
+    (write-header stream length)
     (write-sequence octets stream)
     (finish-output stream)))
 
@@ -130,14 +125,11 @@
                    (asciify (princ-to-string (type-of condition))))))
     (find-package :cl))))
 
-(defun write-header (stream byte0 length)
-  (declare (type (unsigned-byte 8) byte0)
-           (type (unsigned-byte 24) length))
-  ;;(format *trace-output* "byte0: ~d length: ~d (#x~x)~%" byte0 length length)
-  (write-byte byte0 stream)
-  (write-byte (ldb (byte 8 16) length) stream)
-  (write-byte (ldb (byte 8 8) length) stream)
-  (write-byte (ldb (byte 8 0) length) stream))
+(defun write-header (stream length)
+  (declare (type (unsigned-byte 24) length))
+  ;;(format *trace-output* "length: ~d (#x~x)~%" length length)
+  (loop for c across (format nil "~6,'0x" length)
+        do (write-byte (char-code c) stream)))
 
 (defun prin1-to-string-for-emacs (object package)
   (with-standard-io-syntax

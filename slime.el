@@ -1476,16 +1476,10 @@ The default condition handler for timer functions (see
 ;;; This section covers the low-level networking: establishing
 ;;; connections and encoding/decoding protocol messages.
 ;;;
-;;; Each SLIME protocol message beings with a 4-byte header followed
+;;; Each SLIME protocol message beings with a 6-byte header followed
 ;;; by an S-expression as text. The sexp must be readable both by
 ;;; Emacs and by Common Lisp, so if it contains any embedded code
 ;;; fragments they should be sent as strings:
-;;; 
-;;;  | byte0 | 3 bytes length |
-;;;  |    ... s-exp ...       |
-;;;
-;;; The s-exp text is encoded in UTF8.  byte0 is currently always 0;
-;;; other values are reserved for future use.
 ;;;
 ;;; The set of meaningful protocol messages are not specified
 ;;; here. They are defined elsewhere by the event-dispatching
@@ -1570,8 +1564,7 @@ EVAL'd by Lisp."
   (let* ((payload (encode-coding-string
                    (concat (slime-prin1-to-string sexp) "\n")
                    'utf-8-unix))
-         (string (concat (slime-unibyte-string 0)
-                         (slime-net-encode-length (length payload))
+         (string (concat (slime-net-encode-length (length payload))
                          payload)))
     (slime-log-event sexp)
     (process-send-string proc string)))
@@ -1632,8 +1625,8 @@ EVAL'd by Lisp."
 (defun slime-net-have-input-p ()
   "Return true if a complete message is available."
   (goto-char (point-min))
-  (and (>= (buffer-size) 4)
-       (>= (- (buffer-size) 4) (slime-net-decode-length))))
+  (and (>= (buffer-size) 6)
+       (>= (- (buffer-size) 6) (slime-net-decode-length))))
 
 (defun slime-run-when-idle (function &rest args)
   "Call FUNCTION as soon as Emacs is idle."
@@ -1664,7 +1657,7 @@ EVAL'd by Lisp."
   "Read a message from the network buffer."
   (goto-char (point-min))
   (let* ((length (slime-net-decode-length))
-         (start (+ (point) 4))
+         (start (+ (point) 6))
          (end (+ start length)))
     (assert (plusp length))
     (prog1 (save-restriction
@@ -1679,18 +1672,11 @@ EVAL'd by Lisp."
       (delete-region (point-min) end))))
 
 (defun slime-net-decode-length ()
-  "Read a 24-bit little endian integer from buffer."
-  ;; extra masking for "raw bytes" in multibyte text above #x3FFF00
-  (logior (lsh (logand (char-after (+ (point) 1)) #xff) 16)
-          (lsh (logand (char-after (+ (point) 2)) #xff) 8)
-          (lsh (logand (char-after (+ (point) 3)) #xff) 0)))
+  (string-to-number (buffer-substring-no-properties (point) (+ (point) 6))
+                    16))
 
 (defun slime-net-encode-length (n)
-  (assert (<= 0 n))
-  (assert (<= n #xffffff))
-  (slime-unibyte-string (logand (lsh n -16) #xff)
-                        (logand (lsh n -8) #xff)
-                        (logand (lsh n 0) #xff)))
+  (format "%06x" n))
 
 (defun slime-prin1-to-string (sexp)
   "Like `prin1-to-string' but don't octal-escape non-ascii characters.

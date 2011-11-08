@@ -1,3 +1,10 @@
+2011-11-08  Helmut Eller  <heller@common-lisp.net>
+
+	Restore old header format.
+
+	* swank-rpc.lisp (parse-header, write-header)
+	* slime.el (slime-net-decode-length, slime-net-encode-length)
+
 2011-11-06  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-ecl.lisp (accept-connection): Fix buffering arg.
