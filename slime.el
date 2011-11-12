@@ -4117,11 +4117,14 @@ This is for use in the implementation of COMMON-LISP:ED."
     (select-frame slime-ed-frame))
   (when what
     (destructure-case what
-      ((:filename file &key line column position)
+      ((:filename file &key line column position bytep)
        (find-file (slime-from-lisp-filename file))
        (when line (slime-goto-line line))
        (when column (move-to-column column))
-       (when position (goto-char position)))
+       (when position
+         (goto-char (if bytep
+                        (byte-to-position position)
+                        position))))
       ((:function-name name)
        (slime-edit-definition name)))))
 

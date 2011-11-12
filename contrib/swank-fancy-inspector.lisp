@@ -828,7 +828,7 @@ SPECIAL-OPERATOR groups."
     (:newline) "  "
     ,@(when position
         `((:action "[visit file and show current position]"
-                   ,(lambda () (ed-in-emacs `(,pathname :charpos ,position)))
+                   ,(lambda () (ed-in-emacs `(,pathname :position ,position :bytep t)))
                    :refreshp nil)
           (:newline)))))
 

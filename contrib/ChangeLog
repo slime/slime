@@ -10,6 +10,12 @@
 
 	* slime-cl-indent-test.txt: Tests 64 and 65.
 
+2011-11-11  Anton Kovalenko  <anton@sw4me.com>
+
+	* swank-fancy-inspector.lisp (make-pathname-ispec): Use :position
+	instead of :charpos, according to slime-ed interface. Add :bytep
+	t, telling slime-ed to interpret it as byte offset.
+
 2011-10-31  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-cl-indent.el (common-lisp-run-indentation-tests): Make it

@@ -1,3 +1,8 @@
+2011-11-11  Anton Kovalenko  <anton@sw4me.com>
+
+	* slime.el (slime-ed): add bytep argument to destructure-case.
+	When it's true, position is interpreted as byte offset.
+
 2011-11-08  Helmut Eller  <heller@common-lisp.net>
 
 	Restore old header format.
