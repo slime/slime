@@ -667,3 +667,22 @@
       do (foo foo)
          ;; comment inside clause
          (bar))
+
+
+;;; Test: 64
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: t
+;; lisp-lambda-list-keyword-alignment: t
+
+(defmethod (setf foo) :around (zot &key x
+                                        y)
+  (list zot))
+
+;;; Test: 65
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: t
+;; lisp-lambda-list-keyword-alignment: t
+
+(defmethod (setf foo)
+    :around (zot &key x y)
+  (list zot))

@@ -1182,23 +1182,30 @@ optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\\|mo
           (t 2)))))
    (elt state 1)))
 
-(defun lisp-beginning-of-defmethod ()
-  (let ((regexp "(defmethod\\|(DEFMETHOD\\|(:method\\|(:METHOD")
-        (ok nil))
-    (while (and (not (setq ok (looking-at regexp)))
+(defun lisp-beginning-of-defmethod-qualifiers ()
+  (let ((regexp-1 "(defmethod\\|(DEFMETHOD")
+        (regexp-2 "(:method\\|(:METHOD"))
+    (while (and (not (or (looking-at regexp-1)
+                         (looking-at regexp-2)))
                 (ignore-errors (backward-up-list) t)))
-    ok))
+    (cond ((looking-at regexp-1)
+           (forward-char)
+           ;; Skip name.
+           (forward-sexp 2)
+           1)
+          ((looking-at regexp-2)
+           (forward-char)
+           (forward-sexp 1)
+           0))))
 
 ;; LISP-INDENT-DEFMETHOD now supports the presence of more than one method
 ;; qualifier and indents the method's lambda list properly. -- dvl
 (defun lisp-indent-defmethod
     (path state indent-point sexp-column normal-indent)
   (lisp-indent-259
-   (let ((nskip 0))
+   (let ((nskip nil))
      (if (save-excursion
-           (when (lisp-beginning-of-defmethod)
-             (forward-char)
-             (forward-sexp 1)
+           (when (setq nskip (lisp-beginning-of-defmethod-qualifiers))
              (skip-chars-forward " \t\n")
              (while (looking-at "\\sw\\|\\s_")
                (incf nskip)

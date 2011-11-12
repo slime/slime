@@ -1,3 +1,15 @@
+2011-11-12  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	Fix DEFMETHOD indentation when the name is a SETF-name, and qualifiers
+	are present.
+
+	* slime-cl-indent.el (lisp-beginning-of-defmethod-qualifiers): Renamed
+	from `lisp-beginning-of-defmethod'. Skip the method name as well, since
+	unlike qualifiers it can be list -- eg. (setf foo).
+	(lisp-indent-defmethod): Use the above to get the number of skips right.
+
+	* slime-cl-indent-test.txt: Tests 64 and 65.
+
 2011-10-31  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-cl-indent.el (common-lisp-run-indentation-tests): Make it
