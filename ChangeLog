@@ -1,3 +1,12 @@
+2011-11-16  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (open-dedicated-output-stream): Open a stream with
+	the right coding system.
+	Change (:open-dedicated-output-stream port) message to
+	(:open-dedicated-output-stream port coding-system), because Emacs
+	can no longer determine the coding system based on the main
+	network streams since they are binary now.
+
 2011-11-11  Anton Kovalenko  <anton@sw4me.com>
 
 	* slime.el (slime-ed): add bytep argument to destructure-case.

@@ -876,14 +876,12 @@ first."
   (create-server :port port :style style :dont-close dont-close
                  :coding-system coding-system))
 
-;; FIXME: get rid of coding-system argument
 (defun accept-connections (socket style coding-system dont-close)
-  (let* ((ef (find-external-format-or-lose coding-system))
-         (client (unwind-protect 
-                      (accept-connection socket :external-format nil
-                                         :buffering t)
-                   (unless dont-close
-                     (close-socket socket)))))
+  (let ((client (unwind-protect 
+                     (accept-connection socket :external-format nil
+                                               :buffering t)
+                  (unless dont-close
+                    (close-socket socket)))))
     (authenticate-client client)
     (serve-requests (make-connection socket client style coding-system))))
 
@@ -931,8 +929,7 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
                                     "Abort reading input from Emacs.")
                 (read-user-input-from-emacs)))))
          (dedicated-output (if *use-dedicated-output-stream*
-                               (open-dedicated-output-stream
-                                (connection.socket-io connection))))
+                               (open-dedicated-output-stream connection)))
          (in (make-input-stream input-fn))
          (out (or dedicated-output
                   (make-output-stream (make-output-function connection))))
@@ -981,7 +978,7 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
   "Create a stream that sends output to a specific TARGET in Emacs."
   (make-output-stream (make-output-function-for-target connection target)))
 
-(defun open-dedicated-output-stream (socket-io)
+(defun open-dedicated-output-stream (connection)
   "Open a dedicated output connection to the Emacs on SOCKET-IO.
 Return an output stream suitable for writing program output.
 
@@ -990,12 +987,15 @@ This is an optimized way for Lisp to deliver output to Emacs."
                                *dedicated-output-stream-port*)))
     (unwind-protect
          (let ((port (local-port socket)))
-           (encode-message `(:open-dedicated-output-stream ,port) socket-io)
+           (encode-message `(:open-dedicated-output-stream
+                             ,port
+                             ,(connection.coding-system connection))
+                           (connection.socket-io connection))
            (let ((dedicated (accept-connection
                              socket 
                              :external-format 
-                             (or (ignore-errors
-                                   (stream-external-format socket-io))
+                             (or (find-external-format
+                                  (connection.coding-system connection))
                                  :default)
                              :buffering *dedicated-output-stream-buffering*
                              :timeout 30)))

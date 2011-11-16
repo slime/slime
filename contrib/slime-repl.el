@@ -180,15 +180,14 @@ maintain."
 
 (defvar slime-open-stream-hooks)
 
-(defun slime-open-stream-to-lisp (port)
+(defun slime-open-stream-to-lisp (port coding-system)
   (let ((stream (open-network-stream "*lisp-output-stream*" 
                                      (slime-with-connection-buffer ()
                                        (current-buffer))
 				     slime-lisp-host port)))
     (slime-set-query-on-exit-flag stream)
     (set-process-filter stream 'slime-output-filter)
-    (let ((pcs (process-coding-system (slime-current-connection))))
-      (set-process-coding-system stream (car pcs) (cdr pcs)))
+    (set-process-coding-system stream coding-system coding-system)
     (when-let (secret (slime-secret))
       (slime-net-send secret stream))
     (run-hook-with-args 'slime-open-stream-hooks stream)
@@ -1678,8 +1677,8 @@ expansion will be added to the REPL's history.)"
     ((:read-aborted thread tag)
      (slime-repl-abort-read thread tag)
      t)
-    ((:open-dedicated-output-stream port)
-     (slime-open-stream-to-lisp port)
+    ((:open-dedicated-output-stream port coding-system)
+     (slime-open-stream-to-lisp port coding-system)
      t)
     ((:new-package package prompt-string)
      (setf (slime-lisp-package) package)

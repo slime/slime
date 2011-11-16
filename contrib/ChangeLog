@@ -1,3 +1,8 @@
+2011-11-16  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-open-stream-to-lisp): Set the process coding system
+	to the right coding system.
+
 2011-11-12  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	Fix DEFMETHOD indentation when the name is a SETF-name, and qualifiers
