@@ -1,3 +1,7 @@
+2011-11-19  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime-cl-indent.el ("sbcl"): Add indentation alias for !def-debug-command.
+
 2011-11-16  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-open-stream-to-lisp): Set the process coding system
