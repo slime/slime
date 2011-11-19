@@ -1284,18 +1284,23 @@ stack."
                                                    (lambda ()
                                                      (values-list values)))))
             (t (format nil "Cannot return from frame: ~S" frame)))))
-  
+
   (defimplementation restart-frame (index)
-    (let* ((frame (nth-frame index)))
-      (cond ((sb-debug:frame-has-debug-tag-p frame)
-             (let* ((call-list (sb-debug::frame-call-as-list frame))
-                    (fun (fdefinition (car call-list)))
-                    (thunk (lambda () 
-                             ;; Ensure that the thunk gets tail-call-optimized
-                             (declare (optimize (debug 1)))
-                             (apply fun (cdr call-list)))))
-               (sb-debug:unwind-to-frame-and-call frame thunk)))
-            (t (format nil "Cannot restart frame: ~S" frame))))))
+    (let ((frame (nth-frame index)))
+      (when (sb-debug:frame-has-debug-tag-p frame)
+        (multiple-value-bind (fname args) (sb-debug::frame-call frame)
+          (multiple-value-bind (fun arglist)
+              (if (and (sb-int:legal-fun-name-p fname) (fboundp fname))
+                  (values (fdefinition fname) args)
+                  (values (sb-di:debug-fun-fun (sb-di:frame-debug-fun frame))
+                          (sb-debug::frame-args-as-list frame)))
+            (when (functionp fun)
+              (sb-debug:unwind-to-frame-and-call frame
+                                                 (lambda ()
+                                                   ;; Ensure TCO.
+                                                   (declare (optimize (debug 0)))
+                                                   (apply fun arglist)))))))
+      (format nil "Cannot restart frame: ~S" frame))))
 
 ;; FIXME: this implementation doesn't unwind the stack before
 ;; re-invoking the function, but it's better than no implementation at
