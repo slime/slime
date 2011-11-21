@@ -1,7 +1,13 @@
-2011-11-19  Nikodemus Siivola  <nikodemus@random-state.net>
+2011-11-21  Helmut Eller  <heller@common-lisp.net>
 
-	* swank-sbcl.lisp (restart-frame): Make it possible to restart
-	frames of anonymous functions -- at least some of the time.
+	* swank.lisp (*sldb-printer-bindings*): Removed.  Rather useless
+	since the change from 2009-02-26.  It could at best have some
+	influence on the way conditions are printed.  *sldb-string-length*
+	and *sldb-bitvector-length* where both nil so
+	*sldb-pprint-dispatch-table* was also not used by default.  In
+	summary, spending 3 pages for something that's not used by default
+	was pretty silly.  One variable less where we can get the defaults
+	wrong.
 
 2011-11-21  Helmut Eller  <heller@common-lisp.net>
 
@@ -16,6 +22,11 @@
 	* swank.lisp (frame-package-name, eval-in-frame-aux): New.
 	(eval-string-in-frame, pprint-eval-string-in-frame): Use package
 	argument.
+
+2011-11-19  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* swank-sbcl.lisp (restart-frame): Make it possible to restart
+	frames of anonymous functions -- at least some of the time.
 
 2011-11-16  Stas Boukarev  <stassats@gmail.com>
 

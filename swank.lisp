@@ -42,7 +42,6 @@
            #:*backtrace-printer-bindings*
            #:*default-worker-thread-bindings*
            #:*macroexpand-printer-bindings*
-           #:*sldb-printer-bindings*
            #:*swank-pprint-bindings*
            #:*record-repl-results*
            #:*inspector-verbose*
@@ -91,62 +90,6 @@
 
 (defvar *swank-debug-p* t
   "When true, print extra debugging information.")
-
-;;;;; SLDB customized pprint dispatch table
-;;;
-;;; CLHS 22.1.3.4, and CLHS 22.1.3.6 do not specify *PRINT-LENGTH* to
-;;; affect the printing of strings and bit-vectors.
-;;;
-;;; We use a customized pprint dispatch table to do it for us.
-
-(defvar *sldb-string-length* nil)
-(defvar *sldb-bitvector-length* nil)
-
-(defvar *sldb-pprint-dispatch-table*
-  (let ((initial-table (copy-pprint-dispatch nil))
-        (result-table  (copy-pprint-dispatch nil)))
-    (flet ((sldb-bitvector-pprint (stream bitvector)
-             ;;; Truncate bit-vectors according to *SLDB-BITVECTOR-LENGTH*.
-             (if (not *sldb-bitvector-length*)
-                 (write bitvector :stream stream :circle nil
-                        :pprint-dispatch initial-table)
-                 (loop initially (write-string "#*" stream)
-                       for i from 0 and bit across bitvector do
-                       (when (= i *sldb-bitvector-length*)
-                         (write-string "..." stream)
-                         (loop-finish))
-                       (write-char (if (= bit 0) #\0 #\1) stream))))
-           (sldb-string-pprint (stream string)
-             ;;; Truncate strings according to *SLDB-STRING-LENGTH*.
-             (cond ((not *print-escape*)
-                    (write-string string stream))
-                   ((not *sldb-string-length*)
-                    (write string :stream stream :circle nil
-                           :pprint-dispatch initial-table))
-                   (t
-                    (escape-string string stream
-                                   :length *sldb-string-length*)))))
-      (set-pprint-dispatch 'bit-vector #'sldb-bitvector-pprint 0 result-table)
-      (set-pprint-dispatch 'string #'sldb-string-pprint 0 result-table)
-      result-table)))
-
-(defvar *sldb-printer-bindings*
-  `((*print-pretty*           . t)
-    (*print-level*            . 4)
-    (*print-length*           . 10)
-    (*print-circle*           . t)
-    (*print-readably*         . nil)
-    (*print-pprint-dispatch*  . ,*sldb-pprint-dispatch-table*)
-    (*print-gensym*           . t)
-    (*print-base*             . 10)
-    (*print-radix*            . nil)
-    (*print-array*            . t)
-    (*print-lines*            . nil)
-    (*print-escape*           . t)
-    (*print-right-margin*     . 65)
-    (*sldb-bitvector-length*  . 25)
-    (*sldb-string-length*     . 50))
-  "A set of printer variables used in the debugger.")
 
 (defvar *backtrace-pprint-dispatch-table*
   (let ((table (copy-pprint-dispatch nil)))
@@ -2545,18 +2488,15 @@ after Emacs causes a restart to be invoked."
     (force-user-output)
     (call-with-debugging-environment
      (lambda ()
-       ;; We used to have (WITH-BINDING *SLDB-PRINTER-BINDINGS* ...)
-       ;; here, but that truncated the result of an eval-in-frame.
        (sldb-loop *sldb-level*)))))
 
 (defun sldb-loop (level)
   (unwind-protect
        (loop
         (with-simple-restart (abort "Return to sldb level ~D." level)
-          (send-to-emacs 
+          (send-to-emacs
            (list* :debug (current-thread-id) level
-                  (with-bindings *sldb-printer-bindings*
-                    (debugger-info-for-emacs 0 *sldb-initial-frames*))))
+                  (debugger-info-for-emacs 0 *sldb-initial-frames*)))
           (send-to-emacs 
            (list :debug-activate (current-thread-id) level nil))
           (loop 
