@@ -3,6 +3,20 @@
 	* swank-sbcl.lisp (restart-frame): Make it possible to restart
 	frames of anonymous functions -- at least some of the time.
 
+2011-11-21  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (sldb-eval-in-frame): Try to figure the package out.
+	Ask Lisp if the function for frame was defined in a particular
+	package and use it to read the form.
+	(sldb-read-form-for-frame): New helper.
+
+	* swank-backend (frame-package): New.
+	* swank-cmucl (frame-package): Implement it.
+
+	* swank.lisp (frame-package-name, eval-in-frame-aux): New.
+	(eval-string-in-frame, pprint-eval-string-in-frame): Use package
+	argument.
+
 2011-11-16  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (open-dedicated-output-stream): Open a stream with

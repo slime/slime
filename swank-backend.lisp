@@ -949,6 +949,12 @@ frame which invoked the debugger.
 The return value is the result of evaulating FORM in the
 appropriate context.")
 
+(definterface frame-package (frame-number)
+  "Return the package corresponding to the frame at FRAME-NUMBER.
+Return nil if the backend can't figure it out."
+  (declare (ignore frame-number))
+  nil)
+
 (definterface frame-call (frame-number)
   "Return a string representing a call to the entry point of a frame.")
 

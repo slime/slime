@@ -1641,6 +1641,17 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 (defimplementation frame-catch-tags (index)
   (mapcar #'car (di:frame-catches (nth-frame index))))
 
+(defimplementation frame-package (frame-number)
+  (let* ((frame (nth-frame frame-number))
+         (dbg-fun (di:frame-debug-function frame)))
+    (typecase dbg-fun
+      (di::compiled-debug-function
+       (let* ((comp (di::compiled-debug-function-component dbg-fun))
+              (dbg-info (kernel:%code-debug-info comp)))
+         (typecase dbg-info
+           (c::compiled-debug-info
+            (find-package (c::compiled-debug-info-package dbg-info)))))))))
+
 (defimplementation return-from-frame (index form)
   (let ((sym (find-symbol (string 'find-debug-tag-for-frame)
                           :debug-internals)))

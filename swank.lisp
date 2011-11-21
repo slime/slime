@@ -1919,8 +1919,8 @@ Emacs buffer."
   `(call-with-buffer-syntax ,package (lambda () ,@body)))
 
 (defun call-with-buffer-syntax (package fun)
-  (let ((*package* (if package 
-                       (guess-buffer-package package) 
+  (let ((*package* (if package
+                       (guess-buffer-package package)
                        *buffer-package*)))
     ;; Don't shadow *readtable* unnecessarily because that prevents
     ;; the user from assigning to it.
@@ -2727,15 +2727,21 @@ has changed, ignore the request."
   `(let ((*sldb-level* ,*sldb-level*))
      ,form))
 
-(defslimefun eval-string-in-frame (string index)
-  (values-to-string
-   (eval-in-frame (wrap-sldb-vars (from-string string))
-                  index)))
+(defun eval-in-frame-aux (frame string package print)
+  (with-buffer-syntax (package)
+    (let ((form (wrap-sldb-vars (parse-string string package))))
+      (funcall print (multiple-value-list (eval-in-frame form frame))))))
 
-(defslimefun pprint-eval-string-in-frame (string index)
-  (swank-pprint
-   (multiple-value-list 
-    (eval-in-frame (wrap-sldb-vars (from-string string)) index))))
+(defslimefun eval-string-in-frame (string frame package)
+  (eval-in-frame-aux frame string package #'format-values-for-echo-area))
+
+(defslimefun pprint-eval-string-in-frame (string frame package)
+  (eval-in-frame-aux frame string package #'swank-pprint))
+
+(defslimefun frame-package-name (frame)
+  (let ((pkg (frame-package frame)))
+    (cond (pkg (package-name pkg))
+          (t (with-buffer-syntax () (package-name *package*))))))
 
 (defslimefun frame-locals-and-catch-tags (index)
   "Return a list (LOCALS TAGS) for vars and catch tags in the frame INDEX.

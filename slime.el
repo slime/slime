@@ -5891,22 +5891,29 @@ VAR should be a plist with the keys :name, :id, and :value."
 
 ;;;;;; SLDB eval and inspect
 
-(defun sldb-eval-in-frame (string)
+(defun sldb-eval-in-frame (frame string package)
   "Prompt for an expression and evaluate it in the selected frame."
-  (interactive (list (slime-read-from-minibuffer "Eval in frame: ")))
-  (let* ((number (sldb-frame-number-at-point)))
-    (slime-eval-async `(swank:eval-string-in-frame ,string ,number)
-                      (if current-prefix-arg
-                          'slime-write-string
-                        'slime-display-eval-result))))
+  (interactive (sldb-read-form-for-frame "Eval in frame (%s)> "))
+  (slime-eval-async `(swank:eval-string-in-frame ,string ,frame ,package)
+    (if current-prefix-arg
+        'slime-write-string
+      'slime-display-eval-result)))
 
-(defun sldb-pprint-eval-in-frame (string)
+(defun sldb-pprint-eval-in-frame (frame string package)
   "Prompt for an expression, evaluate in selected frame, pretty-print result."
-  (interactive (list (slime-read-from-minibuffer "Eval in frame: ")))
-  (let* ((number (sldb-frame-number-at-point)))
-    (slime-eval-async `(swank:pprint-eval-string-in-frame ,string ,number)
-		      (lambda (result)
-			(slime-show-description result nil)))))
+  (interactive (sldb-read-form-for-frame "Eval in frame (%s)> "))
+  (slime-eval-async
+      `(swank:pprint-eval-string-in-frame ,string ,frame ,package)
+    (lambda (result)
+      (slime-show-description result nil))))
+
+(defun sldb-read-form-for-frame (fstring)
+  (let* ((frame (sldb-frame-number-at-point))
+         (pkg (slime-eval `(swank:frame-package-name ,frame))))
+    (list frame
+          (let ((slime-buffer-package pkg))
+            (slime-read-from-minibuffer (format fstring pkg)))
+          pkg)))
 
 (defun sldb-inspect-in-frame (string)
   "Prompt for an expression and inspect it in the selected frame."
