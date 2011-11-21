@@ -66,6 +66,11 @@
 
 ;;; UTF8
 
+(locally (declare (ext:inhibit-warnings 3))
+  (stream:octets-to-string
+   (stream:string-to-octets "compile utf8 transcoder" :external-format :utf-8)
+   :external-format :utf-8))
+
 (defimplementation string-to-utf8 (string)
   (let ((ef (load-time-value (stream::find-external-format :utf-8) t)))
     (stream:string-to-octets string :external-format ef)))

@@ -1,5 +1,10 @@
 2011-11-21  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-cmucl.lisp: Trigger compilation of utf8 stuff before first
+	real use.
+
+2011-11-21  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (*sldb-printer-bindings*): Removed.  Rather useless
 	since the change from 2009-02-26.  It could at best have some
 	influence on the way conditions are printed.  *sldb-string-length*
