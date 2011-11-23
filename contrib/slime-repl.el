@@ -184,10 +184,13 @@ maintain."
   (let ((stream (open-network-stream "*lisp-output-stream*" 
                                      (slime-with-connection-buffer ()
                                        (current-buffer))
-				     slime-lisp-host port)))
+				     slime-lisp-host port))
+        (emacs-coding-system (car (find coding-system
+                                        slime-net-valid-coding-systems
+                                        :key #'third))))
     (slime-set-query-on-exit-flag stream)
     (set-process-filter stream 'slime-output-filter)
-    (set-process-coding-system stream coding-system coding-system)
+    (set-process-coding-system stream emacs-coding-system emacs-coding-system)
     (when-let (secret (slime-secret))
       (slime-net-send secret stream))
     (run-hook-with-args 'slime-open-stream-hooks stream)

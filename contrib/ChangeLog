@@ -1,3 +1,8 @@
+2011-11-23  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-open-stream-to-lisp): Convert "utf-8-unix"
+	to 'utf-8-unix.
+
 2011-11-19  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-cl-indent.el ("sbcl"): Add indentation alias for !def-debug-command.
