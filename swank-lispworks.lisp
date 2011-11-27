@@ -80,10 +80,11 @@
     (fixnum socket)
     (comm:socket-stream (comm:socket-stream-socket socket))))
 
-(defimplementation create-socket (host port)
+(defimplementation create-socket (host port &key backlog)
   (multiple-value-bind (socket where errno)
       #-(or lispworks4.1 (and macosx lispworks4.3))
-      (comm::create-tcp-socket-for-service port :address host)
+      (comm::create-tcp-socket-for-service port :address host
+                                           :backlog (or backlog 5))
       #+(or lispworks4.1 (and macosx lispworks4.3))
       (comm::create-tcp-socket-for-service port)
     (cond (socket socket)

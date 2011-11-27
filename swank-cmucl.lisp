@@ -92,16 +92,17 @@
   :sigio)
 
 #-(or darwin mips)
-(defimplementation create-socket (host port)
+(defimplementation create-socket (host port &key backlog)
   (let* ((addr (resolve-hostname host))
          (addr (if (not (find-symbol "SOCKET-ERROR" :ext))
                    (ext:htonl addr)
                    addr)))
-    (ext:create-inet-listener port :stream :reuse-address t :host addr)))
+    (ext:create-inet-listener port :stream :reuse-address t :host addr
+                              :backlog (or backlog 5))))
 
 ;; There seems to be a bug in create-inet-listener on Mac/OSX and Irix.
 #+(or darwin mips)
-(defimplementation create-socket (host port)
+(defimplementation create-socket (host port &key backlog)
   (declare (ignore host))
   (ext:create-inet-listener port :stream :reuse-address t))
 

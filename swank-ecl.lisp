@@ -62,13 +62,13 @@
   (car (sb-bsd-sockets:host-ent-addresses
         (sb-bsd-sockets:get-host-by-name name))))
 
-(defimplementation create-socket (host port)
+(defimplementation create-socket (host port &key backlog)
   (let ((socket (make-instance 'sb-bsd-sockets:inet-socket
 			       :type :stream
 			       :protocol :tcp)))
     (setf (sb-bsd-sockets:sockopt-reuse-address socket) t)
     (sb-bsd-sockets:socket-bind socket (resolve-hostname host) port)
-    (sb-bsd-sockets:socket-listen socket 5)
+    (sb-bsd-sockets:socket-listen socket (or backlog 5))
     socket))
 
 (defimplementation local-port (socket)

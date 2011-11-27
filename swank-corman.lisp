@@ -224,7 +224,7 @@
 
 ;;; Socket communication
 
-(defimplementation create-socket (host port)
+(defimplementation create-socket (host port &key backlog)
   (sockets:start-sockets)
   (sockets:make-server-socket :host host :port port))
 

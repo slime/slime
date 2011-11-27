@@ -433,8 +433,9 @@ EXCEPT is a list of symbol names which should be ignored."
 
 ;;;; TCP server
 
-(definterface create-socket (host port)
-  "Create a listening TCP socket on interface HOST and port PORT .")
+(definterface create-socket (host port &key backlog)
+  "Create a listening TCP socket on interface HOST and port PORT.
+BACKLOG queue length for incoming connections.")
 
 (definterface local-port (socket)
   "Return the local port number of SOCKET.")

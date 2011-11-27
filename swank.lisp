@@ -733,16 +733,17 @@ Valid values are nil, t, :line")
 This is the entry point for Emacs."
   (setup-server 0
                 (lambda (port) (announce-server-port port-file port))
-                style dont-close))
+                style dont-close nil))
 
 (defun create-server (&key (port default-server-port)
                         (style *communication-style*)
-                        (dont-close *dont-close*))
+                        (dont-close *dont-close*)
+                        backlog)
   "Start a SWANK server on PORT running in STYLE.
 If DONT-CLOSE is true then the listen socket will accept multiple
 connections, otherwise it will be closed after the first."
   (setup-server port #'simple-announce-function
-                style dont-close))
+                style dont-close backlog))
 
 (defun find-external-format-or-lose (coding-system)
   (or (find-external-format coding-system)
@@ -750,10 +751,10 @@ connections, otherwise it will be closed after the first."
 
 (defparameter *loopback-interface* "127.0.0.1")
 
-(defun setup-server (port announce-fn style dont-close)
+(defun setup-server (port announce-fn style dont-close backlog)
   (declare (type function announce-fn))
   (init-log-output)
-  (let* ((socket (create-socket *loopback-interface* port))
+  (let* ((socket (create-socket *loopback-interface* port :backlog backlog))
          (local-port (local-port socket)))
     (funcall announce-fn local-port)
     (flet ((serve ()

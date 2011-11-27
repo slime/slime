@@ -131,7 +131,7 @@
 (defimplementation preferred-communication-style ()
   :spawn)
 
-(defimplementation create-socket (host port)
+(defimplementation create-socket (host port &key backlog)
   (ext:make-server-socket port))
 
 (defimplementation local-port (socket)

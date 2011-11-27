@@ -151,9 +151,8 @@
 
 ;;;; TCP Server
 
-(defimplementation create-socket (host port)
-  (declare (ignore host))
-  (socket:socket-server port))
+(defimplementation create-socket (host port &key backlog)
+  (socket:socket-server port :interface host :backlog (or backlog 5)))
 
 (defimplementation local-port (socket)
   (socket:socket-server-port socket))

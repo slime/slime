@@ -43,9 +43,10 @@
 (defimplementation preferred-communication-style ()
   :spawn)
 
-(defimplementation create-socket (host port)
+(defimplementation create-socket (host port &key backlog)
   (socket:make-socket :connect :passive :local-port port 
-                      :local-host host :reuse-address t))
+                      :local-host host :reuse-address t
+                      :backlog (or backlog 5)))
 
 (defimplementation local-port (socket)
   (socket:local-port socket))

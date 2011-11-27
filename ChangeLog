@@ -1,5 +1,22 @@
 2011-11-27  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (create-server): Add a :backlog argument.
+	(setup-server): Pass it along.
+
+	* swank-backend.lisp (create-socket): Backlog argument.
+	* swank-abcl.lisp: Implement it.
+	* swank-allegro.lisp:
+	* swank-ccl.lisp:
+	* swank-clisp.lisp:
+	* swank-cmucl.lisp:
+	* swank-corman.lisp:
+	* swank-ecl.lisp:
+	* swank-lispworks.lisp:
+	* swank-sbcl.lisp:
+	* swank-scl.lisp:
+
+2011-11-27  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-cmucl.lisp (make-socket-io-stream): Create character
 	stream if external-format is non-nil.
 
