@@ -1,3 +1,8 @@
+2011-11-27  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (eval-in-frame-aux): Don't bind *package* during
+	eval.
+
 2011-11-21  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-cmucl.lisp: Trigger compilation of utf8 stuff before first

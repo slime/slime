@@ -2668,9 +2668,10 @@ has changed, ignore the request."
      ,form))
 
 (defun eval-in-frame-aux (frame string package print)
-  (with-buffer-syntax (package)
-    (let ((form (wrap-sldb-vars (parse-string string package))))
-      (funcall print (multiple-value-list (eval-in-frame form frame))))))
+  (let* ((form (wrap-sldb-vars (parse-string string package)))
+         (values (multiple-value-list (eval-in-frame form frame))))
+    (with-buffer-syntax (package)
+      (funcall print values))))
 
 (defslimefun eval-string-in-frame (string frame package)
   (eval-in-frame-aux frame string package #'format-values-for-echo-area))
