@@ -1343,8 +1343,7 @@ See `slime-start'."
   "Return a string to initialize Lisp."
   (let ((loader (if (file-name-absolute-p slime-backend)
                     slime-backend
-                  (concat slime-path slime-backend)))
-        (encoding (slime-coding-system-cl-name coding-system)))
+                  (concat slime-path slime-backend))))
     ;; Return a single form to avoid problems with buffered input.
     (format "%S\n\n"
             `(progn
@@ -1352,8 +1351,7 @@ See `slime-start'."
                      :verbose t)
                (funcall (read-from-string "swank-loader:init"))
                (funcall (read-from-string "swank:start-server")
-                        ,(slime-to-lisp-filename port-filename)
-                        :coding-system ,encoding)))))
+                        ,(slime-to-lisp-filename port-filename))))))
 
 (defun slime-swank-port-file ()
   "Filename where the SWANK server writes its TCP port number."
@@ -1904,6 +1902,9 @@ This is automatically synchronized from Lisp.")
 (slime-def-connection-var slime-machine-instance nil
   "The name of the (remote) machine running the Lisp process.")
 
+(slime-def-connection-var slime-connection-coding-systems nil
+  "Coding systems supported by the Lisp process.")
+
 ;;;;; Connection setup
 
 (defvar slime-connection-counter 0
@@ -1939,7 +1940,8 @@ This is automatically synchronized from Lisp.")
   (let ((slime-dispatching-connection connection)
         (slime-current-thread t))
     (destructuring-bind (&key pid style lisp-implementation machine
-                              features version modules &allow-other-keys) info
+                              features version modules encoding
+                              &allow-other-keys) info
       (slime-check-version version connection)
       (setf (slime-pid) pid
             (slime-communication-style) style
@@ -1952,7 +1954,9 @@ This is automatically synchronized from Lisp.")
               (slime-lisp-implementation-program) program
               (slime-connection-name) (slime-generate-connection-name name)))
       (destructuring-bind (&key instance ((:type _)) ((:version _))) machine
-        (setf (slime-machine-instance) instance)))
+        (setf (slime-machine-instance) instance))
+      (destructuring-bind (&key coding-systems) encoding
+        (setf (slime-connection-coding-systems) coding-systems)))
     (let ((args (when-let (p (slime-inferior-process))
                   (slime-inferior-lisp-args p))))
       (when-let (name (plist-get args ':name))

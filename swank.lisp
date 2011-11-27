@@ -244,8 +244,6 @@ Backend code should treat the connection structure as opaque.")
   (indentation-cache-packages '())
   ;; The communication style used.
   (communication-style nil :type (member nil :spawn :sigio :fd-handler))
-  ;; The coding system for network streams.
-  coding-system
   ;; The SIGINT handler we should restore when the connection is
   ;; closed.
   saved-sigint-handler)
@@ -269,7 +267,7 @@ The default connection is defined (quite arbitrarily) as the most
 recently established one."
   (first *connections*))
 
-(defun make-connection (socket stream style coding-system)
+(defun make-connection (socket stream style)
   (multiple-value-bind (serve cleanup)
       (ecase style
         (:spawn
@@ -283,16 +281,11 @@ recently established one."
     (let ((conn (%make-connection :socket socket
                                   :socket-io stream
                                   :communication-style style
-                                  :coding-system coding-system
                                   :serve-requests serve
                                   :cleanup cleanup)))
       (run-hook *new-connection-hook* conn)
       (push conn *connections*)
       conn)))
-
-(defun connection.external-format (connection)
-  (ignore-errors
-    (stream-external-format (connection.socket-io connection))))
 
 (defslimefun ping (tag)
   tag)
@@ -725,11 +718,9 @@ boundp fboundp generic-function class macro special-operator package"
   create-server.")
 
 (defvar *dedicated-output-stream-buffering* 
-  (if (eq *communication-style* :spawn) :full :none)
+  (if (eq *communication-style* :spawn) t nil)
   "The buffering scheme that should be used for the output stream.
-Valid values are :none, :line, and :full.")
-
-(defvar *coding-system* "iso-latin-1-unix")
+Valid values are nil, t, :line")
 
 (defvar *listener-sockets* nil
   "A property list of lists containing style, socket pairs used 
@@ -737,23 +728,21 @@ Valid values are :none, :line, and :full.")
    are used to close sockets on server shutdown or restart.")
 
 (defun start-server (port-file &key (style *communication-style*)
-                                    (dont-close *dont-close*)
-                                    (coding-system *coding-system*))
+                                    (dont-close *dont-close*))
   "Start the server and write the listen port number to PORT-FILE.
 This is the entry point for Emacs."
   (setup-server 0
                 (lambda (port) (announce-server-port port-file port))
-                style dont-close coding-system))
+                style dont-close))
 
 (defun create-server (&key (port default-server-port)
-                      (style *communication-style*)
-                      (dont-close *dont-close*) 
-                      (coding-system *coding-system*))
+                        (style *communication-style*)
+                        (dont-close *dont-close*))
   "Start a SWANK server on PORT running in STYLE.
 If DONT-CLOSE is true then the listen socket will accept multiple
 connections, otherwise it will be closed after the first."
   (setup-server port #'simple-announce-function
-                style dont-close coding-system))
+                style dont-close))
 
 (defun find-external-format-or-lose (coding-system)
   (or (find-external-format coding-system)
@@ -761,15 +750,14 @@ connections, otherwise it will be closed after the first."
 
 (defparameter *loopback-interface* "127.0.0.1")
 
-(defun setup-server (port announce-fn style dont-close coding-system)
+(defun setup-server (port announce-fn style dont-close)
   (declare (type function announce-fn))
   (init-log-output)
-  (find-external-format-or-lose coding-system)
   (let* ((socket (create-socket *loopback-interface* port))
          (local-port (local-port socket)))
     (funcall announce-fn local-port)
     (flet ((serve ()
-             (accept-connections socket style coding-system dont-close)))
+             (accept-connections socket style dont-close)))
       (ecase style
         (:spawn
          (initialize-multiprocessing
@@ -808,25 +796,23 @@ connections, otherwise it will be closed after the first."
 
 (defun restart-server (&key (port default-server-port)
                        (style *communication-style*)
-                       (dont-close *dont-close*) 
-                       (coding-system *coding-system*))
+                       (dont-close *dont-close*))
   "Stop the server listening on PORT, then start a new SWANK server 
 on PORT running in STYLE. If DONT-CLOSE is true then the listen socket 
 will accept multiple connections, otherwise it will be closed after the 
 first."
   (stop-server port)
   (sleep 5)
-  (create-server :port port :style style :dont-close dont-close
-                 :coding-system coding-system))
+  (create-server :port port :style style :dont-close dont-close))
 
-(defun accept-connections (socket style coding-system dont-close)
+(defun accept-connections (socket style dont-close)
   (let ((client (unwind-protect 
                      (accept-connection socket :external-format nil
                                                :buffering t)
                   (unless dont-close
                     (close-socket socket)))))
     (authenticate-client client)
-    (serve-requests (make-connection socket client style coding-system))))
+    (serve-requests (make-connection socket client style))))
 
 (defun authenticate-client (stream)
   (let ((secret (slime-secret)))
@@ -862,7 +848,7 @@ if the file doesn't exist; otherwise the first line of the file."
     (format *log-output* "~&;; Swank started at port: ~D.~%" port)
     (force-output *log-output*)))
 
-(defun open-streams (connection)
+(defun open-streams (connection properties)
   "Return the 5 streams for IO redirection:
 DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
   (let* ((input-fn
@@ -872,7 +858,9 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
                                     "Abort reading input from Emacs.")
                 (read-user-input-from-emacs)))))
          (dedicated-output (if *use-dedicated-output-stream*
-                               (open-dedicated-output-stream connection)))
+                               (open-dedicated-output-stream 
+                                connection
+                                (getf properties :coding-system))))
          (in (make-input-stream input-fn))
          (out (or dedicated-output
                   (make-output-stream (make-output-function connection))))
@@ -921,25 +909,22 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
   "Create a stream that sends output to a specific TARGET in Emacs."
   (make-output-stream (make-output-function-for-target connection target)))
 
-(defun open-dedicated-output-stream (connection)
+(defun open-dedicated-output-stream (connection coding-system)
   "Open a dedicated output connection to the Emacs on SOCKET-IO.
 Return an output stream suitable for writing program output.
 
 This is an optimized way for Lisp to deliver output to Emacs."
-  (let ((socket (create-socket *loopback-interface* 
-                               *dedicated-output-stream-port*)))
+  (let ((socket (create-socket *loopback-interface*
+                               *dedicated-output-stream-port*))
+        (ef (find-external-format-or-lose coding-system)))
     (unwind-protect
          (let ((port (local-port socket)))
-           (encode-message `(:open-dedicated-output-stream
-                             ,port
-                             ,(connection.coding-system connection))
+           (encode-message `(:open-dedicated-output-stream ,port 
+                                                           ,coding-system)
                            (connection.socket-io connection))
-           (let ((dedicated (accept-connection
+           (let ((dedicated (accept-connection 
                              socket 
-                             :external-format 
-                             (or (find-external-format
-                                  (connection.coding-system connection))
-                                 :default)
+                             :external-format ef
                              :buffering *dedicated-output-stream-buffering*
                              :timeout 30)))
              (authenticate-client dedicated)
@@ -1038,14 +1023,11 @@ The processing is done in the extent of the toplevel restart."
                         ;; Connection to Emacs lost. [~%~
                         ;;  condition: ~A~%~
                         ;;  type: ~S~%~
-                        ;;  encoding: ~A vs. ~A~%~
                         ;;  style: ~S dedicated: ~S]~%"
             (loop for (i f) in backtrace collect 
                   (ignore-errors (format nil "~d: ~a" i (escape-non-ascii f))))
             (escape-non-ascii (safe-condition-message condition) )
             (type-of condition)
-            (connection.coding-system c)
-            (connection.external-format c)
             (connection.communication-style c)
             *use-dedicated-output-stream*))
   (finish-output *log-output*)
@@ -1545,10 +1527,10 @@ NIL if streams are not globally redirected.")
 ;;; We always redirect the standard streams to Emacs while evaluating
 ;;; an RPC. This is done with simple dynamic bindings.
 
-(defslimefun create-repl (target)
+(defslimefun create-repl (target &key coding-system)
   (assert (eq target nil))
   (let ((conn *emacs-connection*))
-    (initialize-streams-for-connection conn)
+    (initialize-streams-for-connection conn `(:coding-system ,coding-system))
     (with-struct* (connection. @ conn)
       (setf (@ env)
             `((*standard-output* . ,(@ user-output))
@@ -1564,9 +1546,9 @@ NIL if streams are not globally redirected.")
       (list (package-name *package*)
             (package-string-for-prompt *package*)))))
 
-(defun initialize-streams-for-connection (connection)
+(defun initialize-streams-for-connection (connection properties)
   (multiple-value-bind (dedicated in out io repl-results) 
-      (open-streams connection)
+      (open-streams connection properties)
     (setf (connection.dedicated-output connection) dedicated
           (connection.user-io connection)          io
           (connection.user-output connection)      out
@@ -1798,11 +1780,9 @@ VERSION: the protocol version"
   (let ((c *emacs-connection*))
     (setq *slime-features* *features*)
     `(:pid ,(getpid) :style ,(connection.communication-style c)
-      :encoding (:coding-system ,(connection.coding-system c)
-                 ;; external-formats are totally implementation-dependent,
-                 ;; so better play safe.
-                 :external-format ,(princ-to-string
-                                    (connection.external-format c)))
+      :encoding (:coding-systems
+                 ,(loop for cs in '("utf-8-unix" "iso-latin-1-unix")
+                        when (find-external-format cs) collect cs))
       :lisp-implementation (:type ,(lisp-implementation-type)
                             :name ,(lisp-implementation-type-name)
                             :version ,(lisp-implementation-version)

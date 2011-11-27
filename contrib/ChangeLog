@@ -1,3 +1,8 @@
+2011-11-27  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-repl.el (slime-repl-choose-coding-system): New.
+	(slime-repl-connected-hook-function): Use it.
+
 2011-11-23  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-open-stream-to-lisp): Convert "utf-8-unix"

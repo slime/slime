@@ -1,5 +1,22 @@
 2011-11-27  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (create-server): Remove coding-system argument.
+	([defstruct] connection): Remove coding-system slot.
+	(connection.external-format, *coding-system*): Deleted.
+	(make-connection, start-server, create-server, setup-server)
+	(accept-connections): Drop coding-system arg.
+
+	(connection-info): Return supported coding systems.
+	(create-repl, open-dedicated-output-stream)
+	(open-streams, initialize-streams-for-connection): Add
+	coding-system arg.
+
+	* slime.el (slime-init-command): Ignore the coding-system arg.
+	(slime-connection-coding-systems): New connection variable.
+	(slime-set-connection-info): Set it.
+
+2011-11-27  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (eval-in-frame-aux): Don't bind *package* during
 	eval.
 

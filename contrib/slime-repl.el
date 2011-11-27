@@ -1659,10 +1659,21 @@ expansion will be added to the REPL's history.)"
            (pop-to-buffer repl-buffer)
            (goto-char (point-max))))))
 
+(defun slime-repl-choose-coding-system ()
+  (let ((candidates (slime-connection-coding-systems)))
+    (or (find (symbol-name (car default-process-coding-system))
+	      candidates
+	      :test (lambda (s1 s2)
+		      (if (fboundp 'coding-system-equal)
+			  (coding-system-equal (intern s1) (intern s2)))))
+	(car candidates)
+	(error "Can't find suitable coding-system"))))
+
 (defun slime-repl-connected-hook-function ()
   (destructuring-bind (package prompt) 
-      (let ((slime-current-thread t))
-	(slime-eval '(swank:create-repl nil)))
+      (let ((slime-current-thread t)
+	    (cs (slime-repl-choose-coding-system)))
+	(slime-eval `(swank:create-repl nil :coding-system ,cs)))
     (setf (slime-lisp-package) package)
     (setf (slime-lisp-package-prompt-string) prompt))
   (slime-hide-inferior-lisp-buffer)
