@@ -1,5 +1,9 @@
 2011-11-27  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-cmucl.lisp (make-socket-io-stream): Create character
+	stream if external-format is non-nil.
+
+2011-11-27  Helmut Eller  <heller@common-lisp.net>
 	* swank.lisp (create-server): Remove coding-system argument.
 	([defstruct] connection): Remove coding-system slot.
 	(connection.external-format, *coding-system*): Deleted.

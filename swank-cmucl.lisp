@@ -137,11 +137,9 @@
     (car (ext:host-entry-addr-list hostent))))
 
 (defvar *external-format-to-coding-system*
-  '((:iso-8859-1
-     "latin-1" "latin-1-unix" "iso-latin-1-unix"
-     "iso-8859-1" "iso-8859-1-unix")
+  '((:iso-8859-1 "iso-latin-1-unix")
     #+unicode
-    (:utf-8 "utf-8" "utf-8-unix")))
+    (:utf-8 "utf-8-unix")))
 
 (defimplementation find-external-format (coding-system)
   (car (rassoc-if (lambda (x) (member coding-system x :test #'equal))
@@ -149,9 +147,9 @@
 
 (defun make-socket-io-stream (fd buffering external-format)
   "Create a new input/output fd-stream for FD."
-  (cond ((and external-format (ext:featurep :unicode))
+  (cond (external-format
          (sys:make-fd-stream fd :input t :output t 
-                             :element-type '(unsigned-byte 8)
+                             :element-type 'character
                              :buffering buffering
                              :external-format external-format))
         (t
