@@ -1,5 +1,16 @@
 2011-11-28  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* slime-cl-indent.el (common-lisp-trailing-comment): New function.
+	Returns the column of a trailing comment.
+	(common-lisp-loop-part-indentation)
+	(common-lisp-indent-loop-macro-1): fix indentation of multiline
+	comments starting from a trailing position.
+
+
+	* slime-cl-indent-test.txt: Add tests 68 and 69.
+
+2011-11-28  Nikodemus Siivola  <nikodemus@random-state.net>
+
 	* slime-cl-indent.el: fix DEFCLASS and DEFINE-CONDITION superclass-list
 	indentation.
 

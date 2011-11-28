@@ -611,6 +611,16 @@ opening parenthesis of the loop."
            'simple/split
          'simple)))))
 
+(defun common-lisp-trailing-comment ()
+  (ignore-errors
+    ;; If we had a trailing comment just before this, find it.
+    (save-excursion
+      (backward-sexp)
+      (forward-sexp)
+      (when (looking-at "\\s-*;")
+        (search-forward ";")
+        (1- (current-column))))))
+
 (defun common-lisp-loop-part-indentation (indent-point state type)
   "Compute the indentation of loop form constituents."
   (let* ((loop-start (elt state 1))
@@ -639,7 +649,12 @@ opening parenthesis of the loop."
            (list indent loop-start))
           ;; Keyword-style or comment outside body
           ((or lisp-loop-indent-forms-like-keywords (looking-at re) (looking-at ";"))
-           (list (+ loop-indentation 6) loop-start))
+           (if (and (looking-at ";")
+                    (let ((p (common-lisp-trailing-comment)))
+                      (when p
+                        (setq loop-indentation p))))
+               (list loop-indentation loop-start)
+             (list (+ loop-indentation 6) loop-start)))
           ;; Form-style
           (t
            (list (+ loop-indentation 9) loop-start)))))
@@ -1378,7 +1393,8 @@ Cause subsequent clauses to be indented.")
             ;; vanilla clause.
             (if loop-body-p
                 loop-body-indentation
-              default-value))
+              (or (and (looking-at ";") (common-lisp-trailing-comment))
+                  default-value)))
            ((looking-at common-lisp-indent-indented-loop-macro-keyword)
             indented-clause-indentation)
            ((looking-at common-lisp-indent-clause-joining-loop-macro-keyword)
@@ -1681,6 +1697,6 @@ Cause subsequent clauses to be indented.")
 ;;;   (common-lisp-run-indentation-tests t)
 ;;;
 ;;; Run specific test:
-;;;   (common-lisp-run-indentation-tests 17)
+;;;   (common-lisp-run-indentation-tests 69)
 
 ;;; cl-indent.el ends here
