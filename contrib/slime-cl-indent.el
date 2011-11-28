@@ -1502,7 +1502,7 @@ Cause subsequent clauses to be indented.")
            ;; for DEFSTRUCT
            (:constructor (4 &lambda))
            (defvar      (4 2 2))
-           (defclass    (6 4 (&whole 2 &rest 1) (&whole 2 &rest 1)))
+           (defclass    (6 (&whole 4 &rest 1) (&whole 2 &rest 1) (&whole 2 &rest 1)))
            (defconstant (as defvar))
            (defcustom   (4 2 2 2))
            (defparameter     (as defvar))

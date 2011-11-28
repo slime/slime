@@ -1,3 +1,10 @@
+2011-11-28  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime-cl-indent.el: fix DEFCLASS and DEFINE-CONDITION superclass-list
+	indentation.
+
+	* slime-cl-indent-test.txt: Add tests 66 and 67.
+
 2011-11-27  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-repl.el (slime-repl-choose-coding-system): New.

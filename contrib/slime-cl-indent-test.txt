@@ -686,3 +686,23 @@
 (defmethod (setf foo)
     :around (zot &key x y)
   (list zot))
+
+;;; Test: 66
+;;
+
+(define-condition
+      foo
+    (bar quux
+     zot)
+  ()
+  (:report "foo"))
+
+;;; Test: 67
+;;
+
+(defclass
+      foo
+    (bar quxx
+     xoo)
+  ()
+  (:metaclass foo-class))
