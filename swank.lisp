@@ -2252,11 +2252,12 @@ aborted and return immediately with the output written so far."
             (with-string-stream (,var :length ,length)
               . ,body)))))
 
-(defun to-line  (object &optional (width 75))
+(defun to-line (object &optional width)
   "Print OBJECT to a single line. Return the string."
-  (without-printing-errors (:object object :stream nil)
-    (with-string-stream (stream :length width)
-      (write object :stream stream :right-margin width :lines 1))))
+  (let ((width (or width 512)))
+    (without-printing-errors (:object object :stream nil)
+      (with-string-stream (stream :length width)
+        (write object :stream stream :right-margin width :lines 1)))))
 
 (defun escape-string (string stream &key length (map '((#\" . "\\\"")
                                                        (#\\ . "\\\\"))))
@@ -2674,11 +2675,11 @@ TAGS has is a list of strings."
 
 (defun frame-locals-for-emacs (index)
   (with-bindings *backtrace-printer-bindings*
-    (loop for var in (frame-locals index)
-          collect (destructuring-bind (&key name id value) var
-                    (list :name (prin1-to-string name) 
-                          :id id
-                          :value (to-line value))))))
+    (loop for var in (frame-locals index) collect 
+          (destructuring-bind (&key name id value) var
+            (list :name (prin1-to-string name)
+                  :id id
+                  :value (to-line value *print-right-margin*))))))
 
 (defslimefun sldb-disassemble (index)
   (with-output-to-string (*standard-output*)

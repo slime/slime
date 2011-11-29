@@ -1,3 +1,9 @@
+2011-11-29  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (to-line): Increase default limit to 512.
+	(frame-locals-for-emacs): Let *print-right-margin* override
+	default line width.
+
 2011-11-27  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (create-server): Add a :backlog argument.
@@ -21,6 +27,7 @@
 	stream if external-format is non-nil.
 
 2011-11-27  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (create-server): Remove coding-system argument.
 	([defstruct] connection): Remove coding-system slot.
 	(connection.external-format, *coding-system*): Deleted.
