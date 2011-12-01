@@ -1075,10 +1075,19 @@ Signal an error if no constructor can be found."
          (qualifiers (pcl:method-qualifiers method)))
     `(method ,name ,@qualifiers ,(pcl::unparse-specializers specializers))))
 
-;; XXX maybe special case setters/getters
 (defun method-location (method)
-  (function-location (or (pcl::method-fast-function method)
-                         (pcl:method-function method))))
+  (typecase method
+    (pcl::standard-accessor-method
+     (definition-source-location
+         (cond ((pcl::definition-source method) 
+                method)
+               (t
+                (pcl::slot-definition-class
+                 (pcl::accessor-method-slot-definition method))))
+         (pcl::accessor-method-slot-name method)))
+    (t
+     (function-location (or (pcl::method-fast-function method)
+                            (pcl:method-function method))))))
 
 (defun genericp (fn)
   (typep fn 'generic-function))
