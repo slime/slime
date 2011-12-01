@@ -187,28 +187,83 @@
     (loop
      (let ((ready (remove-if-not #'input-ready-p streams)))
        (when ready (return ready)))
-     (when timeout (return nil))
      (when (check-slime-interrupts) (return :interrupt))
-            (when *wait-for-input-called* (return :interrupt))
-     (sleep 0.2))))
+     (when *wait-for-input-called* (return :interrupt))
+     #-win32
+     (progn
+       (let ((readable (poll streams () (ecase timeout 
+                                          ((nil) nil)
+                                          ((t) 0)))))
+         (when readable (return readable))
+         (when timeout (return nil))))
+     #+win32
+     (progn
+       (when timeout (return nil))
+       (sleep 0.1)))))
+
+(defun fd-stream-input-buffer-empty-p (stream)
+  (let ((buffer (sb-impl::fd-stream-ibuf stream)))
+    (or (not buffer)
+        (= (sb-impl::buffer-head buffer)
+           (sb-impl::buffer-tail buffer)))))
 
 #-win32
-(defun input-ready-p (stream)
-  (sb-sys:wait-until-fd-usable (sb-impl::fd-stream-fd stream)
-                               :input 
-                               0))
+(progn
+  (defun input-ready-p (stream)
+    (not (fd-stream-input-buffer-empty-p stream)))
 
+  (sb-alien:define-alien-type pollfd (sb-alien:struct sb-unix::pollfd))
+  (sb-alien:define-alien-routine ("poll" poll%) sb-alien:int
+    (descs (sb-alien:* pollfd)) (ndescs sb-alien:int) (millis sb-alien:int))
+
+  (defun poll (read-streams write-streams milliseconds)
+    (let* ((rlen (length read-streams))
+           (wlen (length write-streams))
+           (len (+ rlen wlen)))
+      (assert (< len 10))
+      (sb-alien:with-alien ((pollfds (sb-alien:array pollfd 10)))
+        (flet ((set-events (i stream flags)
+                 (symbol-macrolet ((pfd (sb-alien:deref pollfds i)))
+                   (setf (sb-alien:slot pfd 'sb-unix::fd)
+                         (sb-impl::fd-stream-fd stream))
+                   (setf (sb-alien:slot pfd 'sb-unix::events) flags)
+                   (setf (sb-alien:slot pfd 'sb-unix::revents) 0)))
+               (revents? (i)
+                 (let ((revents (sb-alien:slot (sb-alien:deref pollfds i)
+                                               'sb-unix::revents)))
+                   (not (zerop revents)))))
+          (declare (inline set-events revents?))
+          (loop with rflags = (logior sb-unix::pollin
+                                      #+linux #x2000 #|POLLRDHUP|#)
+                for i below rlen  for s in read-streams 
+                do (set-events i s rflags))
+          (loop for i from rlen below len  for s in write-streams 
+                do (set-events i s sb-unix::pollout))
+          (let* ((timeout (etypecase milliseconds
+                            (null -1)
+                            (integer milliseconds)))
+                 (code (poll% (sb-alien:addr (sb-alien:deref pollfds 0))
+                              len timeout))
+                 (errno (sb-alien:get-errno)))
+            (cond ((zerop code)
+                   (values () ()))
+                  ((plusp code)
+                   (values 
+                    (loop for i below rlen  for s in read-streams
+                          if (revents? i) collect s)
+                    (loop for i from rlen below len for s in write-streams
+                          if (revents? i) collect s)))
+                  ((= errno sb-posix:eintr)
+                   :interrupt)
+                  (t
+                   (error "~a" (sb-int:strerror errno)))))))))
+
+  )
 #+win32
 (progn
   (defun input-ready-p (stream)
-    (or (has-buffered-input-p stream)
-        (handle-listen (sockint::fd->handle 
-                        (sb-impl::fd-stream-fd stream)))))
-
-  (defun has-buffered-input-p (stream)
-    (let ((ibuf (sb-impl::fd-stream-ibuf stream)))
-      (/= (sb-impl::buffer-head ibuf)
-          (sb-impl::buffer-tail ibuf))))
+    (or (not (fd-stream-input-buffer-empty-p stream))
+        (handle-listen (sockint::fd->handle (sb-impl::fd-stream-fd stream)))))
 
   (sb-alien:define-alien-routine ("WSACreateEvent" wsa-create-event)
       sb-win32:handle)

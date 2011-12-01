@@ -1,5 +1,11 @@
 2011-12-01  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-sbcl.lisp (wait-for-input): Call poll(2).
+	* swank-backend.lisp (wait-for-streams, wait-for-one-stream):
+	Deleted. Wouldn't work on binary streams.
+
+2011-12-01  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-loader.lisp (*contribs*): Add swank-util.
 
 2011-12-01  Helmut Eller  <heller@common-lisp.net>
@@ -16,7 +22,6 @@
 	* swank.lisp (to-line): Increase default limit to 512.
 	(frame-locals-for-emacs): Let *print-right-margin* override
 	default line width.
-
 
 2011-11-27  Helmut Eller  <heller@common-lisp.net>
 
