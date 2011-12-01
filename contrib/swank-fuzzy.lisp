@@ -11,6 +11,7 @@
 (in-package :swank)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
+  (swank-require :swank-util)
   (swank-require :swank-c-p-c))
 
 ;;; For nomenclature of the fuzzy completion section, please read

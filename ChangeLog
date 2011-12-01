@@ -1,8 +1,14 @@
 2011-11-29  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (do-symbols*, classify-symbol)
+	(symbol-classification-string): Moved to contrib/swank-util.lisp.
+
+2011-11-29  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (to-line): Increase default limit to 512.
 	(frame-locals-for-emacs): Let *print-right-margin* override
 	default line width.
+
 
 2011-11-27  Helmut Eller  <heller@common-lisp.net>
 

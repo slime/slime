@@ -1,3 +1,10 @@
+2011-11-29  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-util.lisp: New file.
+	* swank-c-p-c.lisp: Use it.
+	* swank-fancy-inspector.lisp:
+	* swank-fuzzy.lisp:
+
 2011-11-28  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-cl-indent.el (common-lisp-trailing-comment): New function.
