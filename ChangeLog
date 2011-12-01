@@ -1,5 +1,9 @@
 2011-12-01  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-loader.lisp (*contribs*): Add swank-util.
+
+2011-12-01  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-cmucl.lisp (method-location): Special case accessors.
 
 2011-11-29  Helmut Eller  <heller@common-lisp.net>

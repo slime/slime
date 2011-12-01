@@ -214,7 +214,8 @@ If LOAD is true, load the fasl file."
   `(swank-backend ,@*sysdep-files* swank-match swank-rpc swank))
 
 (defvar *contribs*
-  '(swank-c-p-c swank-arglists swank-fuzzy
+  '(swank-util 
+    swank-c-p-c swank-arglists swank-fuzzy
     swank-fancy-inspector
     swank-presentations swank-presentation-streams
     #+(or asdf sbcl ecl) swank-asdf
