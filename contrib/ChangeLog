@@ -1,3 +1,10 @@
+2011-12-01  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-kawa.scm (mangled-name): Try to deal unnamed lambdas.
+	(inspect): Split up into inspect-array-ref and inspect-obj-ref.
+	(inspect-array-ref): New.
+	(inspect-obj-ref): New. Include methods in result.
+
 2011-11-29  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-util.lisp: New file.
