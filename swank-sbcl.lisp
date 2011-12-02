@@ -179,6 +179,7 @@
 
 (defvar *wait-for-input-called*)
 
+#+(or win32 os-provides-poll)
 (defimplementation wait-for-input (streams &optional timeout)
   (assert (member timeout '(nil t)))
   (when (boundp '*wait-for-input-called*)
@@ -257,9 +258,9 @@
                    :interrupt)
                   (t
                    (error "~a" (sb-int:strerror errno)))))))))
-
   )
-#-os-provides-poll
+
+#+win32
 (progn
   (defun input-ready-p (stream)
     (or (not (fd-stream-input-buffer-empty-p stream))

@@ -1,6 +1,7 @@
 2011-12-02  Stas Boukarev  <stassats@gmail.com>
 
-	* swank-sbcl.lisp (wait-for-input): Use poll only on #+os-provides-poll.
+	* swank-sbcl.lisp (wait-for-input): Define only if
+	#+os-provides-poll or #+win32.
 
 2011-12-02  Helmut Eller  <heller@common-lisp.net>
 
