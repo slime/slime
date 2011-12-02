@@ -1,3 +1,8 @@
+2011-12-02  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-repl-send-input): Don't put `read-only'
+	property on an overlay, overlays don't support it.
+
 2011-12-02  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-kawa.scm (inspect-obj-ref): Use for instead of iter.

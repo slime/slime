@@ -754,7 +754,6 @@ If NEWLINE is true then add a newline at the end of the input."
     (let ((overlay (make-overlay slime-repl-input-start-mark end)))
       ;; These properties are on an overlay so that they won't be taken
       ;; by kill/yank.
-      (overlay-put overlay 'read-only t)
       (overlay-put overlay 'face 'slime-repl-input-face)))
   (let ((input (slime-repl-current-input)))
     (goto-char (point-max))
