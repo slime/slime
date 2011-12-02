@@ -1,3 +1,8 @@
+2011-12-02  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (listener-channel): Moved to contrib/swank-mrepl.lisp
+	(create-listener, initial-listener-bindings, spawn-listener-thread).
+
 2011-12-01  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-sbcl.lisp (wait-for-input): Call poll(2).
