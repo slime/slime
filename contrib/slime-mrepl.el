@@ -2,130 +2,147 @@
 ;; single Slime socket.  M-x slime-open-listener creates a new REPL
 ;; buffer.
 ;;
-;; Some copy&pasting from slime-repl.el
 
 (define-slime-contrib slime-mrepl
   "Multiple REPLs."
   (:authors "Helmut Eller <heller@common-lisp.net>")
   (:license "GPL")
-  (:slime-dependencies slime-repl))
+  (:swank-dependencies swank-mrepl))
+
+(require 'comint)
+
+(defvar slime-mrepl-remote-channel nil)
+(defvar slime-mrepl-expect-sexp nil)
+
+(define-derived-mode slime-mrepl-mode comint-mode "mrepl"
+  ;; idea lifted from ielm
+  (unless (get-buffer-process (current-buffer))
+    (let* ((process-connection-type nil)
+	   (proc (start-process "mrepl (dummy)" (current-buffer) "hexl")))
+      (set-process-query-on-exit-flag proc nil)))
+  (set (make-local-variable 'comint-use-prompt-regexp) nil)
+  (set (make-local-variable 'comint-inhibit-carriage-motion) t)
+  (set (make-local-variable 'comint-input-sender) 'slime-mrepl-input-sender)
+  (set (make-local-variable 'comint-output-filter-functions) nil)
+  (set (make-local-variable 'slime-mrepl-expect-sexp) t)
+  ;;(set (make-local-variable 'comint-get-old-input) 'ielm-get-old-input)
+  (set-syntax-table lisp-mode-syntax-table)
+  )
+
+(slime-define-keys slime-mrepl-mode-map
+  ((kbd "RET") 'slime-mrepl-return)
+  ([return] 'slime-mrepl-return)
+  ((kbd "TAB") 'slime-indent-and-complete-symbol)
+  ((kbd "C-c C-b") 'slime-interrupt)
+  ((kbd "C-c C-c") 'slime-interrupt))
+
+(defun slime-mrepl-process% () (get-buffer-process (current-buffer))) ;stupid
+(defun slime-mrepl-mark () (process-mark (slime-mrepl-process%)))
+
+(defun slime-mrepl-insert (string)
+  (comint-output-filter (slime-mrepl-process%) string))
 
 (slime-define-channel-type listener)
 
 (slime-define-channel-method listener :prompt (package prompt)
   (with-current-buffer (slime-channel-get self 'buffer)
-    (setf slime-buffer-package package)
-    (letf (((slime-lisp-package-prompt-string) prompt))
-      (slime-repl-insert-prompt))))
+    (slime-mrepl-prompt package prompt)))
+
+(defun slime-mrepl-prompt (package prompt)
+  (setf slime-buffer-package package)
+  (slime-mrepl-insert (format "%s%s> "
+			      (case (current-column)
+				(0 "")
+				(t "\n"))
+			      prompt))
+  (slime-mrepl-recenter))
+
+(defun slime-mrepl-recenter ()
+  (when (get-buffer-window)
+    (recenter -1)))
 
 (slime-define-channel-method listener :write-result (result)
-  (letf (((slime-connection-output-buffer) (slime-channel-get self 'buffer)))
-    (slime-repl-emit-result result t)))
-
-(slime-define-channel-method listener :evaluation-aborted (package prompt)
   (with-current-buffer (slime-channel-get self 'buffer)
-    (setq slime-buffer-package package)
-    (letf (((slime-connection-output-buffer) (current-buffer))
-	   ((slime-lisp-package-prompt-string) prompt))
-      (slime-repl-show-abort))))
+    (goto-char (point-max))
+    (slime-mrepl-insert result)))
+
+(slime-define-channel-method listener :evaluation-aborted ()
+  (with-current-buffer (slime-channel-get self 'buffer)
+    (goto-char (point-max))
+    (slime-mrepl-insert "; Evaluation aborted\n")))
 
 (slime-define-channel-method listener :write-string (string)
   (slime-mrepl-write-string self string))
 
 (defun slime-mrepl-write-string (self string)
-  (letf (((slime-connection-output-buffer) (slime-channel-get self 'buffer)))
-    (slime-repl-emit string)))
+  (with-current-buffer (slime-channel-get self 'buffer)
+    (goto-char (slime-mrepl-mark))
+    (slime-mrepl-insert string)))
 
-(byte-compile 'slime-mrepl-write-string)
-
-(slime-define-channel-method listener :read-string (thread tag)
-  (letf (((slime-connection-output-buffer) (slime-channel-get self 'buffer)))
-    (slime-repl-read-string thread tag)))
-
-(define-derived-mode slime-mrepl-mode slime-repl-mode "mrepl")
-
-(slime-define-keys slime-mrepl-mode-map
-  ((kbd "RET") 'slime-mrepl-return)
-  ([return] 'slime-mrepl-return))
+(slime-define-channel-method listener :set-read-mode (mode)
+  (with-current-buffer (slime-channel-get self 'buffer)
+    (ecase mode
+      (:read (setq slime-mrepl-expect-sexp nil)
+	     (message "[Listener is waiting for input]"))
+      (:eval (setq slime-mrepl-expect-sexp t)))))
 
 (defun slime-mrepl-return (&optional end-of-input)
-  "Evaluate the current input string, or insert a newline.  
-Send the current input ony if a whole expression has been entered,
-i.e. the parenthesis are matched. 
-
-With prefix argument send the input even if the parenthesis are not
-balanced."
   (interactive "P")
   (slime-check-connected)
-  (cond (end-of-input
-         (slime-mrepl-send-input))
-        (slime-repl-read-mode ; bad style?
-         (slime-mrepl-send-input t))
-        ((and (get-text-property (point) 'slime-repl-old-input)
-              (< (point) slime-repl-input-start-mark))
-         (slime-repl-grab-old-input end-of-input)
-         (slime-repl-recenter-if-needed))
-        ((slime-input-complete-p slime-repl-input-start-mark (point-max))
-         (slime-mrepl-send-input t))
-        (t 
-         (slime-repl-newline-and-indent)
-         (message "[input not complete]"))))
-
-(defun slime-mrepl-send-input (&optional newline)
-  "Goto to the end of the input and send the current input.
-If NEWLINE is true then add a newline at the end of the input."
-  (unless (slime-repl-in-input-area-p)
-    (error "No input at point."))
   (goto-char (point-max))
-  (let ((end (point))) ; end of input, without the newline
-    (slime-repl-add-to-input-history 
-     (buffer-substring slime-repl-input-start-mark end))
-    (when newline 
-      (insert "\n")
-      (slime-repl-show-maximum-output))
-    (let ((inhibit-modification-hooks t))
-      (add-text-properties slime-repl-input-start-mark 
-                           (point)
-                           `(slime-repl-old-input
-                             ,(incf slime-repl-old-input-counter))))
-    (let ((overlay (make-overlay slime-repl-input-start-mark end)))
-      ;; These properties are on an overlay so that they won't be taken
-      ;; by kill/yank.
-      (overlay-put overlay 'read-only t)
-      (overlay-put overlay 'face 'slime-repl-input-face)))
-  (let ((input (slime-repl-current-input)))
-    (goto-char (point-max))
-    (slime-mark-input-start)
-    (slime-mark-output-start)
-    (slime-mrepl-send-string input)))
+  (cond ((and slime-mrepl-expect-sexp
+	      (or (slime-input-complete-p (slime-mrepl-mark) (point))
+		  end-of-input))
+	 (comint-send-input))
+	((not slime-mrepl-expect-sexp)
+	 (unless end-of-input
+	   (insert "\n"))
+	 (comint-send-input t))
+        (t
+	 (insert "\n")
+	 (inferior-slime-indent-line)
+         (message "[input not complete]")))
+  (slime-mrepl-recenter))
+
+(defun slime-mrepl-input-sender (proc string)
+  (slime-mrepl-send-string (substring-no-properties string)))
 
 (defun slime-mrepl-send-string (string &optional command-string)
-  (cond (slime-repl-read-mode
-         (slime-repl-return-string string))
-        (t (slime-mrepl-send `(:eval ,string)))))
+  (slime-mrepl-send `(:process ,string)))
 
 (defun slime-mrepl-send (msg)
   "Send MSG to the remote channel."
   (slime-send-to-remote-channel slime-mrepl-remote-channel msg))
 
-(defun slime-open-listener ()
+(defun slime-new-mrepl ()
   "Create a new listener window."
   (interactive)
   (let ((channel (slime-make-channel slime-listener-channel-methods)))
     (slime-eval-async
-     `(swank:create-listener ,(slime-channel.id channel))
+     `(swank-mrepl:create-mrepl ,(slime-channel.id channel))
      (slime-rcurry 
       (lambda (result channel)
 	(destructuring-bind (remote thread-id package prompt) result
-	  (pop-to-buffer (generate-new-buffer (slime-buffer-name :listener)))
+	  (pop-to-buffer (generate-new-buffer (slime-buffer-name :mrepl)))
 	  (slime-mrepl-mode)
 	  (setq slime-current-thread thread-id)
 	  (setq slime-buffer-connection (slime-connection))
 	  (set (make-local-variable 'slime-mrepl-remote-channel) remote)
 	  (slime-channel-put channel 'buffer (current-buffer))
-	  (slime-reset-repl-markers)
-	  (slime-channel-send channel `(:prompt ,package ,prompt))
-	  (slime-repl-show-maximum-output)))
+	  (slime-channel-send channel `(:prompt ,package ,prompt))))
       channel))))
+
+(defun slime-mrepl ()
+  (let ((conn (slime-connection)))
+    (find-if (lambda (x) 
+	       (with-current-buffer x 
+		 (and (eq major-mode 'slime-mrepl-mode)
+		      (eq (slime-current-connection) conn))))
+	     (buffer-list))))
+
+(def-slime-selector-method ?m
+  "First mrepl-buffer"
+  (or (slime-mrepl)
+      (error "No mrepl buffer (%s)" (slime-connection-name))))
 
 (provide 'slime-mrepl)

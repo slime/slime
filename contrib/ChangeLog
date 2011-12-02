@@ -1,3 +1,12 @@
+2011-12-02  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-mrepl.el: Drop dependency on slime-repl. Use comint
+	instead.
+
+2011-12-02  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-mrepl.lisp: New file.
+
 2011-12-01  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-kawa.scm (mangled-name): Try to deal unnamed lambdas.
