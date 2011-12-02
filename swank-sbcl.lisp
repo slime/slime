@@ -189,14 +189,14 @@
        (when ready (return ready)))
      (when (check-slime-interrupts) (return :interrupt))
      (when *wait-for-input-called* (return :interrupt))
-     #-win32
-     (progn
-       (let ((readable (poll streams () (ecase timeout 
-                                          ((nil) nil)
-                                          ((t) 0)))))
-         (when readable (return readable))
-         (when timeout (return nil))))
-     #+win32
+     #+os-provides-poll
+     (let ((readable (poll streams () (ecase timeout 
+                                        ((nil) nil)
+                                        ((t) 0)))))
+       (when readable (return readable))
+       (when timeout (return nil)))
+
+     #-os-provides-poll
      (progn
        (when timeout (return nil))
        (sleep 0.1)))))
@@ -207,7 +207,7 @@
         (= (sb-impl::buffer-head buffer)
            (sb-impl::buffer-tail buffer)))))
 
-#-win32
+#+os-provides-poll
 (progn
   (defun input-ready-p (stream)
     (not (fd-stream-input-buffer-empty-p stream)))
@@ -259,7 +259,7 @@
                    (error "~a" (sb-int:strerror errno)))))))))
 
   )
-#+win32
+#-os-provides-poll
 (progn
   (defun input-ready-p (stream)
     (or (not (fd-stream-input-buffer-empty-p stream))
