@@ -1,5 +1,9 @@
 2011-12-02  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-kawa.scm (inspect-obj-ref): Use for instead of iter.
+
+2011-12-02  Helmut Eller  <heller@common-lisp.net>
+
 	* slime-mrepl.el: Drop dependency on slime-repl. Use comint
 	instead.
 
