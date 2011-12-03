@@ -3,6 +3,7 @@ Known problems with SLIME                                   -*- outline -*-
 * Common to all backends
 
 ** Caution: network security
+
 The `M-x slime' command has Lisp listen on a TCP socket and wait for
 Emacs to connect, which typically takes on the order of one second. If
 someone else were to connect to this socket then they could use the
@@ -38,14 +39,6 @@ forms for code compiled at (debug 2) or higher. The default level is
 lower and SBCL itself is compiled at a lower setting. Thus only
 defun-granularity is available with default policies.
 
-The XREF commands are not implemented.
-
-** OpenMCL
-
-We support OpenMCL 0.14.3.
-
-The XREF commands are not available.
-
 ** LispWorks
 
 On Windows, SLIME hangs when calling foreign functions or certain
@@ -61,12 +54,18 @@ responds much faster if mp:*default-process-quantum* is set to 0.1.
 
 ** CLISP
 
-We require version 2.33.2 or higher. We also require socket support, so
+We require version 2.49 or higher. We also require socket support, so
 you may have to start CLISP with "clisp -K full".
 
 Under Windows, interrupting (with C-c C-b) doesn't work.  Emacs sends
 a SIGINT signal, but the signal is either ignored or CLISP exits
 immediately.
+
+On Windows, CLISP may refuse to parse filenames like
+"C:\\DOCUME~1\\johndoe\\LOCALS~1\\Temp\\slime.1424" when we actually
+mean C:\Documents and Settings\johndoe\Local Settings\slime.1424.  As
+a workaround, you could set slime-to-lisp-filename-function to some
+function that returns a string that is accepted by CLISP.
 
 Function arguments and local variables aren't displayed properly in
 the backtrace.  Changes to CLISP's C code are needed to fix this
