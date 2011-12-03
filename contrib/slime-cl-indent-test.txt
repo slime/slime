@@ -736,3 +736,30 @@
                    ;; is a beginning
         do (foo)))
 
+;;; Test: 70
+;;
+;; lisp-loop-indent-subclauses: nil
+
+(progn
+  (loop
+    :repeat 1000
+    #:do ;; This is the
+         ;; beginning
+       (foo))
+  (loop #:repeat 100 ;; This too
+                     ;; is a beginning
+        :do (foo)))
+
+;;; Test: 71
+;;
+;; lisp-loop-indent-subclauses: t
+
+(progn
+  (loop
+    #:repeat 1000
+    #:do ;; This is the
+         ;; beginning
+         (foo))
+  (loop :repeat 100 ;; This too
+                    ;; is a beginning
+        #:do (foo)))

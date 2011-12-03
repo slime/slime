@@ -599,13 +599,13 @@ opening parenthesis of the loop."
                   (setq comment-split t))))
             (forward-sexp 1)
             (backward-sexp 1)
-            (if (looking-at "\\sw")
-                (if (or (not maybe-split) (= line (line-number-at-pos)))
-                    'extended
-                  'extended/split)
+            (if (eql (char-after) ?\()
+		(if (or (not maybe-split) (= line (line-number-at-pos)))
+		    'simple
+		    'simple/split)
               (if (or (not maybe-split) (= line (line-number-at-pos)))
-                  'simple
-                'simple/split))))
+		  'extended
+		  'extended/split))))
       (error
        (if comment-split
            'simple/split
@@ -630,7 +630,7 @@ opening parenthesis of the loop."
                                  (- (current-column) 4)
                                (current-column))))
          (indent nil)
-         (re "\\(:?\\sw+\\|)\\|\n\\)"))
+         (re "\\(\\(#?:\\)?\\sw+\\|)\\|\n\\)"))
     (goto-char indent-point)
     (back-to-indentation)
     (cond ((eq type 'simple/split)
@@ -1265,32 +1265,32 @@ optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\\|mo
 
 ;; Regexps matching various varieties of loop macro keyword ...
 (defvar common-lisp-indent-body-introducing-loop-macro-keyword
-  "do\\|finally\\|initially"
+  "\\(#?:\\)?\\(do\\|finally\\|initially\\)"
   "Regexp matching loop macro keywords which introduce body-forms.")
 
 ;; This is so "and when" and "else when" get handled right
 ;; (not to mention "else do" !!!)
 (defvar common-lisp-indent-prefix-loop-macro-keyword
-  "and\\|else"
+  "\\(#?:\\)?\\(and\\|else\\)"
   "Regexp matching loop macro keywords which are prefixes.")
 
 (defvar common-lisp-indent-clause-joining-loop-macro-keyword
-  "and"
+  "\\(#?:\\)?and"
   "Regexp matching 'and', and anything else there ever comes to be like it.")
 
 ;; This is handled right, but it's incomplete ...
 ;; (It could probably get arbitrarily long if I did *every* iteration-path)
 (defvar common-lisp-indent-indented-loop-macro-keyword
-  "into\\|by\\|upto\\|downto\\|above\\|below\\|on\\|being\\|=\\|first\\|then\\|from\\|to"
+  "\\(#?:\\)?\\(into\\|by\\|upto\\|downto\\|above\\|below\\|on\\|being\\|=\\|first\\|then\\|from\\|to\\)"
   "Regexp matching keywords introducing loop subclauses.
 Always indented two.")
 
 (defvar common-lisp-indent-indenting-loop-macro-keyword
-  "when\\|unless\\|if"
+  "\\(#?:\\)?\\(when\\|unless\\|if\\)"
   "Regexp matching keywords introducing conditional clauses.
 Cause subsequent clauses to be indented.")
 
-(defvar common-lisp-indent-loop-macro-else-keyword "else")
+(defvar common-lisp-indent-loop-macro-else-keyword "\\(#?:\\)?else")
 
 ;;; Attempt to indent the loop macro ...
 
@@ -1404,7 +1404,7 @@ Cause subsequent clauses to be indented.")
                           (> (point) loop-macro-first-clause))
                 (back-to-indentation)
                 (if (and (< (current-column) loop-body-indentation)
-                         (looking-at "\\sw"))
+                         (looking-at "\\(#?:\\)?\\sw"))
                     (progn
                       (if (looking-at common-lisp-indent-loop-macro-else-keyword)
                           (common-lisp-indent-loop-advance-past-keyword-on-line))
@@ -1697,6 +1697,6 @@ Cause subsequent clauses to be indented.")
 ;;;   (common-lisp-run-indentation-tests t)
 ;;;
 ;;; Run specific test:
-;;;   (common-lisp-run-indentation-tests 69)
+;;;   (common-lisp-run-indentation-tests 70)
 
 ;;; cl-indent.el ends here

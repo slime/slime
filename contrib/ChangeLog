@@ -1,5 +1,18 @@
 2011-12-03  Didier Verna  <didier@xemacs.org>
 
+       * slime-cl-indent.el (common-lisp-loop-type)
+       (common-lisp-loop-part-indentation)
+       (common-lisp-indent-body-introducing-loop-macro-keyword)
+       (common-lisp-indent-prefix-loop-macro-keyword)
+       (common-lisp-indent-clause-joining-loop-macro-keyword)
+       (common-lisp-indent-indented-loop-macro-keyword)
+       (common-lisp-indent-indenting-loop-macro-keyword)
+       (common-lisp-indent-loop-macro-else-keyword)
+       (common-lisp-indent-loop-macro-1): Match not only KEYWORD but also
+       :KEYWORD and #:KEYWORD in the LOOP macro.
+
+2011-12-03  Didier Verna  <didier@xemacs.org>
+
        * slime-cl-indent.el (lisp-indent-lambda-list-keywords-regexp):
        Match empty string after a word consitituent (\>) instead of a
        symbol constituent (\_>) because XEmacs doesn't have that syntax,
