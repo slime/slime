@@ -199,7 +199,7 @@
 (defun input-ready-p (stream)
   (or (let ((buffer (sb-impl::fd-stream-ibuf stream)))
         (when buffer
-          (= (sb-impl::buffer-head buffer)
+          (< (sb-impl::buffer-head buffer)
              (sb-impl::buffer-tail buffer))))
       (eq :regular (sb-impl::fd-stream-fd-type stream))
       (not (sb-impl::sysread-may-block-p stream))))
