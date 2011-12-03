@@ -1,3 +1,10 @@
+2011-12-03  Gábor Melis  <mega@retes.hu>
+
+	* swank-allegro.lisp (set-default-initial-binding): In 9.0 alpha,
+	*CL-DEFAULT-SPECIAL-BINDINGS* is [soon to be] deprecated.  It's
+	otherwise the same EXCL:*REQUIRED-TOP-LEVEL-BINDINGS* (i.e. no
+	change in behavior).
+
 2011-12-03  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-clisp.lisp (wait-for-input): Add a version for windows.

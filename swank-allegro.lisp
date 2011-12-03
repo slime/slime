@@ -832,8 +832,11 @@
                                    #'mp:gate-open-p (mailbox.gate mbox)))))
 
 (defimplementation set-default-initial-binding (var form)
-  (setq excl:*cl-default-special-bindings*
-        (acons var form excl:*cl-default-special-bindings*)))
+  (push (cons var form)
+        #+(version>= 9 0)
+        excl:*required-thread-bindings*
+        #-(version>= 9 0)
+        excl::required-thread-bindings))
 
 (defimplementation quit-lisp ()
   (excl:exit 0 :quiet t))
