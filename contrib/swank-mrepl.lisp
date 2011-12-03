@@ -39,7 +39,7 @@
    (tag :initform nil)))
 
 (defun package-prompt (package)
-  (reduce (lambda (x y) (if (< (length x) (length y)) x y))
+  (reduce (lambda (x y) (if (<= (length x) (length y)) x y))
 	  (cons (package-name package) (package-nicknames package))))
 
 (defslimefun create-mrepl (remote)

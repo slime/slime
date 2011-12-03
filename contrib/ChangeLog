@@ -1,3 +1,8 @@
+2011-12-03  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-mrepl.lisp (package-prompt): Use <= instead of < to give
+	package-name priority over nicknames.
+
 2011-12-02  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-repl-send-input): Don't put `read-only'

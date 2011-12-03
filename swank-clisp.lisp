@@ -187,6 +187,41 @@
                                if x collect s)))
               (when ready (return ready))))))))
 
+#+win32
+(defimplementation wait-for-input (streams &optional timeout)
+  (assert (member timeout '(nil t)))
+  (loop
+   (cond ((check-slime-interrupts) (return :interrupt))
+         (t 
+          (let ((ready (remove-if-not #'input-available-p streams)))
+            (when ready (return ready)))
+          (when timeout (return nil))
+          (sleep 0.1)))))
+
+#+win32
+;; Some facts to remember (for the next time we need to debug this):
+;;  - interactive-sream-p returns t for socket-streams
+;;  - listen returns nil for socket-streams
+;;  - (type-of <socket-stream>) is 'stream
+;;  - (type-of *terminal-io*) is 'two-way-stream
+;;  - stream-element-type on our sockets is usually (UNSIGNED-BYTE 8)
+;;  - calling socket:socket-status on non sockets signals an error,
+;;    but seems to mess up something internally.
+;;  - calling read-char-no-hang on sockets does not signal an error,
+;;    but seems to mess up something internally.
+(defun input-available-p (stream)
+  (case (stream-element-type stream)
+    (character
+     (let ((c (read-char-no-hang stream nil nil)))
+       (cond ((not c)
+              nil)
+             (t
+              (unread-char c stream)
+              t))))
+    (t
+     (eq (socket:socket-status (cons stream :input) 0 0)
+         :input))))
+
 ;;;; Coding systems
 
 (defvar *external-format-to-coding-system*
