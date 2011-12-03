@@ -1,6 +1,13 @@
 * SLIME News                                         -*- outline -*-
 
-* 3.0 (not released yet)
+* (since 2.3)
+
+** UTF8 encoding
+SLIME now uses only UTF8 to encode strings on the wire.  Customization
+variables like slime-net-coding-system or swank:*coding-system* are
+now useless.
+
+* 2.3 (October 2011)
 
 ** REPL no longer loaded by default
 SLIME has a REPL which communicates exclusively over SLIME's socket.
@@ -23,6 +30,8 @@ augment the process environment of the Lisp process.  E.g.:
      ("/home/me/sbcl-cvs/src/runtime/sbcl"
       "--core" "/home/me/sbcl-cvs/output/sbcl.core")
      :env ("SBCL_HOME=/home/me/sbcl-cvs/contrib/"))
+
+* 2.1
 
 ** Removed Features
 Some of the more esoteric features, like presentations or fuzzy
