@@ -1,3 +1,9 @@
+2011-12-03  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* swank-sbcl.lisp (wait-for-input): Another go at this. Rip out POLL,
+	build on top of just INPUT-READY-P.
+	(input-ready-p): Outside Windows, use SYSREAD-MAY-BLOCK-P to check.
+
 2011-12-03  Gábor Melis  <mega@retes.hu>
 
 	* swank-allegro.lisp (set-default-initial-binding): In 9.0 alpha,
