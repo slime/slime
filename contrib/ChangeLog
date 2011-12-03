@@ -1,3 +1,10 @@
+2011-12-03  Didier Verna  <didier@xemacs.org>
+
+       * slime-cl-indent.el (lisp-indent-lambda-list-keywords-regexp):
+       Match empty string after a word consitituent (\>) instead of a
+       symbol constituent (\_>) because XEmacs doesn't have that syntax,
+       and here, it doesn't hurt anyway.
+
 2011-12-03  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-mrepl.lisp (package-prompt): Use <= instead of < to give
