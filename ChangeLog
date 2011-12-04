@@ -1,5 +1,10 @@
 2011-12-04  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp: Minor cleanups.
+	* swank-rpc.lisp:
+
+2011-12-04  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (create-repl): Moved to contrib/swank-repl.lisp.
 	(*use-dedicated-output-stream*, *dedicated-output-stream-port*
 	(*dedicated-output-stream-buffering*, open-streams)

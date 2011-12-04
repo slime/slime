@@ -78,13 +78,6 @@
 (defconstant keyword-package (find-package :keyword)
   "The KEYWORD package.")
 
-(defvar *canonical-package-nicknames*
-  `((:common-lisp-user . :cl-user))
-  "Canonical package names to use instead of shortest name/nickname.")
-
-(defvar *auto-abbreviate-dotted-packages* t
-  "Abbreviate dotted package names to their last component if T.")
-
 (defconstant default-server-port 4005
   "The default TCP port for the server (when started manually).")
 
@@ -462,6 +455,11 @@ corresponding values in the CDR of VALUE."
                '()
                `((t (error "destructure-case failed: ~S" ,tmp))))))))
 
+
+;;;; Interrupt handling 
+
+;; FIXME: should document how this is supposed to work.
+
 ;; If true execute interrupts, otherwise queue them.
 ;; Note: `with-connection' binds *pending-slime-interrupts*.
 (defvar *slime-interrupts-enabled*)
@@ -503,6 +501,7 @@ corresponding values in the CDR of VALUE."
                   (funcall *interrupt-queued-handler*)))))))
 
 
+;;; FIXME: poor name?
 (defmacro with-io-redirection ((connection) &body body)
   "Execute BODY I/O redirection to CONNECTION. "
   `(with-bindings (connection.env ,connection)
@@ -519,7 +518,8 @@ corresponding values in the CDR of VALUE."
            (without-slime-interrupts
              (with-swank-error-handler (connection)
                (with-io-redirection (connection)
-                 (call-with-debugger-hook #'swank-debugger-hook function))))))))
+                 (call-with-debugger-hook #'swank-debugger-hook 
+                                          function))))))))
 
 (defun call-with-retry-restart (msg thunk)
   (loop (with-simple-restart (retry "~a" msg)
@@ -563,6 +563,7 @@ This is like defvar, but NAME will not be initialized."
 
 ;;;;; Symbols
 
+;; FIXME: this docstring is more confusing than helpful.
 (defun symbol-status (symbol &optional (package (symbol-package symbol)))
   "Returns one of 
 
@@ -905,6 +906,7 @@ The processing is done in the extent of the toplevel restart."
      :seconds 0.1)
     (sleep *auto-flush-interval*)))
 
+;; FIXME: drop dependicy on find-repl-thread
 (defun find-worker-thread (id)
   (etypecase id
     ((member t)
@@ -914,6 +916,7 @@ The processing is done in the extent of the toplevel restart."
     (fixnum 
      (find-thread id))))
 
+;; FIXME: drop dependicy on find-repl-thread
 (defun interrupt-worker-thread (id)
   (let ((thread (or (find-worker-thread id)
                     (find-repl-thread *emacs-connection*)
@@ -1196,6 +1199,8 @@ event was found."
       (end-of-file () (error 'end-of-repl-input :stream stream)))))
 
 
+;; FIXME: would be nice if we could move this I/O stuff to swank-repl.lisp.
+
 ;;;; IO to Emacs
 ;;;
 ;;; This code handles redirection of the standard I/O streams
@@ -1347,6 +1352,7 @@ NIL if streams are not globally redirected.")
 
 ;;; Channels
 
+;; FIXME: should be per connection not global.
 (defvar *channels* '())
 (defvar *channel-counter* 0)
 
@@ -1355,9 +1361,7 @@ NIL if streams are not globally redirected.")
    (thread :initarg :thread :initform (current-thread) :reader channel-thread)
    (name :initarg :name :initform nil)))
 
-(defmethod initialize-instance ((ch channel) &rest initargs)
-  (declare (ignore initargs))
-  (call-next-method)
+(defmethod initialize-instance :after ((ch channel) &key)
   (with-slots (id) ch
     (setf id (incf *channel-counter*))
     (push (cons id ch) *channels*)))
@@ -1382,24 +1386,19 @@ NIL if streams are not globally redirected.")
 
 
 
-(defun input-available-p (stream)
-  (loop
-   (etypecase (wait-for-input (list stream) t)
-     (null (return nil))
-     (cons (return t))
-     ((member :interrupt)))))
-
 (defvar *slime-features* nil
   "The feature list that has been sent to Emacs.")
 
 (defun send-oob-to-emacs (object)
   (send-to-emacs object))
 
+;; FIXME: belongs to swank-repl.lisp
 (defun force-user-output ()
   (force-output (connection.user-io *emacs-connection*)))
 
 (add-hook *pre-reply-hook* 'force-user-output)
 
+;; FIXME: belongs to swank-repl.lisp
 (defun clear-user-input  ()
   (clear-input (connection.user-input *emacs-connection*)))
 
@@ -1934,6 +1933,19 @@ MAP -- rewrite the chars in STRING according to this alist."
                   (t (write-char c stream)))))
     (write-char #\" stream)))
 
+
+;;;; Prompt 
+
+;; FIXME: do we really need 45 lines of code just to figure out the
+;; prompt?
+
+(defvar *canonical-package-nicknames*
+  `((:common-lisp-user . :cl-user))
+  "Canonical package names to use instead of shortest name/nickname.")
+
+(defvar *auto-abbreviate-dotted-packages* t
+  "Abbreviate dotted package names to their last component if T.")
+
 (defun package-string-for-prompt (package)
   "Return the shortest nickname (or canonical name) of PACKAGE."
   (unparse-name
@@ -1972,6 +1984,8 @@ N.B. this is not an actual package name or nickname."
                                    name
                                    shortest)
               finally (return shortest)))
+
+
 
 (defslimefun ed-in-emacs (&optional what)
   "Edit WHAT in Emacs.
@@ -3109,7 +3123,7 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
               ((:value obj &optional str) 
                (list (value-part obj str (istate.parts istate))))
               ((:label &rest strs)
-               (list (list :label (apply #'concatenate 'string (mapcar #'string strs)))))
+               (list (list :label (apply #'cat (mapcar #'string strs)))))
               ((:action label lambda &key (refreshp t)) 
                (list (action-part label lambda refreshp
                                   (istate.actions istate))))

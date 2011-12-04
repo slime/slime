@@ -66,7 +66,6 @@
           (t
            (error "Short read: length=~D  count=~D" length count)))))
 
-;; end-of-file
 ;; FIXME: no one ever tested this and will probably not work.
 (defparameter *validate-input* nil
   "Set to true to require input that strictly conforms to the protocol")
