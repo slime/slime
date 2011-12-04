@@ -1,5 +1,9 @@
 2011-12-04  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-loader.lisp (*contribs*): Add swank-mrepl.
+
+2011-12-04  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-rpc.lisp (read-chunk): Signal end-of-file we had no input.
 
 2011-12-03  Nikodemus Siivola  <nikodemus@random-state.net>

@@ -222,6 +222,7 @@ If LOAD is true, load the fasl file."
     swank-package-fu
     swank-hyperdoc
     #+sbcl swank-sbcl-exts
+    swank-mrepl
     )
   "List of names for contrib modules.")
 
