@@ -916,10 +916,8 @@ The processing is done in the extent of the toplevel restart."
     (fixnum 
      (find-thread id))))
 
-;; FIXME: drop dependicy on find-repl-thread
 (defun interrupt-worker-thread (id)
   (let ((thread (or (find-worker-thread id)
-                    (find-repl-thread *emacs-connection*)
                     ;; FIXME: to something better here
                     (spawn (lambda ()) :name "ephemeral"))))
     (log-event "interrupt-worker-thread: ~a ~a~%" id thread)

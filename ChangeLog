@@ -1,5 +1,10 @@
 2011-12-04  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (interrupt-worker-thread): Don't use find-repl-thread
+	as fallback.
+
+2011-12-04  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp: Minor cleanups.
 	* swank-rpc.lisp:
 
