@@ -644,23 +644,11 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
 
 ;;;; TCP Server
 
-(defvar *use-dedicated-output-stream* nil
-  "When T swank will attempt to create a second connection to
-  Emacs which is used just to send output.")
-
-(defvar *dedicated-output-stream-port* 0
-  "Which port we should use for the dedicated output stream.")
-
 (defvar *communication-style* (preferred-communication-style))
 
 (defvar *dont-close* nil
   "Default value of :dont-close argument to start-server and
   create-server.")
-
-(defvar *dedicated-output-stream-buffering* 
-  (if (eq *communication-style* :spawn) t nil)
-  "The buffering scheme that should be used for the output stream.
-Valid values are nil, t, :line")
 
 (defvar *listener-sockets* nil
   "A property list of lists containing style, socket pairs used 
@@ -788,92 +776,6 @@ if the file doesn't exist; otherwise the first line of the file."
   (when *swank-debug-p*
     (format *log-output* "~&;; Swank started at port: ~D.~%" port)
     (force-output *log-output*)))
-
-(defun open-streams (connection properties)
-  "Return the 5 streams for IO redirection:
-DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
-  (let* ((input-fn
-          (lambda () 
-            (with-connection (connection)
-              (with-simple-restart (abort-read
-                                    "Abort reading input from Emacs.")
-                (read-user-input-from-emacs)))))
-         (dedicated-output (if *use-dedicated-output-stream*
-                               (open-dedicated-output-stream 
-                                connection
-                                (getf properties :coding-system))))
-         (in (make-input-stream input-fn))
-         (out (or dedicated-output
-                  (make-output-stream (make-output-function connection))))
-         (io (make-two-way-stream in out))
-         (repl-results (make-output-stream-for-target connection
-                                                      :repl-result)))
-    (when (eq (connection.communication-style connection) :spawn)
-      (setf (connection.auto-flush-thread connection)
-            (spawn (lambda () (auto-flush-loop out))
-                   :name "auto-flush-thread")))
-    (values dedicated-output in out io repl-results)))
-
-;; FIXME: if wait-for-event aborts the event will stay in the queue forever.
-(defun make-output-function (connection)
-  "Create function to send user output to Emacs."
-  (let ((i 0) (tag 0) (l 0))
-    (lambda (string)
-      (with-connection (connection)
-        (multiple-value-setq (i tag l) 
-          (send-user-output string i tag l))))))
-
-(defvar *maximum-pipelined-output-chunks* 50)
-(defvar *maximum-pipelined-output-length* (* 80 20 5))
-(defun send-user-output (string pcount tag plength)
-  ;; send output with flow control
-  (when (or (> pcount *maximum-pipelined-output-chunks*) 
-            (> plength *maximum-pipelined-output-length*))
-    (setf tag (mod (1+ tag) 1000))
-    (send-to-emacs `(:ping ,(current-thread-id) ,tag))
-    (with-simple-restart (abort "Abort sending output to Emacs.")
-      (wait-for-event `(:emacs-pong ,tag)))
-    (setf pcount 0) 
-    (setf plength 0))
-  (send-to-emacs `(:write-string ,string))
-  (values (1+ pcount) tag (+ plength (length string))))
-
-(defun make-output-function-for-target (connection target)
-  "Create a function to send user output to a specific TARGET in Emacs."
-  (lambda (string) 
-    (with-connection (connection)
-      (with-simple-restart
-          (abort "Abort sending output to Emacs.")
-        (send-to-emacs `(:write-string ,string ,target))))))
-
-(defun make-output-stream-for-target (connection target)
-  "Create a stream that sends output to a specific TARGET in Emacs."
-  (make-output-stream (make-output-function-for-target connection target)))
-
-(defun open-dedicated-output-stream (connection coding-system)
-  "Open a dedicated output connection to the Emacs on SOCKET-IO.
-Return an output stream suitable for writing program output.
-
-This is an optimized way for Lisp to deliver output to Emacs."
-  (let ((socket (create-socket *loopback-interface*
-                               *dedicated-output-stream-port*))
-        (ef (find-external-format-or-lose coding-system)))
-    (unwind-protect
-         (let ((port (local-port socket)))
-           (encode-message `(:open-dedicated-output-stream ,port 
-                                                           ,coding-system)
-                           (connection.socket-io connection))
-           (let ((dedicated (accept-connection 
-                             socket 
-                             :external-format ef
-                             :buffering *dedicated-output-stream-buffering*
-                             :timeout 30)))
-             (authenticate-client dedicated)
-             (close-socket socket)
-             (setf socket nil)
-             dedicated))
-      (when socket
-        (close-socket socket)))))
 
 
 ;;;;; Event Decoding/Encoding
@@ -1003,17 +905,6 @@ The processing is done in the extent of the toplevel restart."
      :seconds 0.1)
     (sleep *auto-flush-interval*)))
 
-(defun find-repl-thread (connection)
-  (cond ((not (use-threads-p))
-         (current-thread))
-        (t
-         (let ((thread (connection.repl-thread connection)))
-           (cond ((not thread) nil)
-                 ((thread-alive-p thread) thread)
-                 (t
-                  (setf (connection.repl-thread connection)
-                        (spawn-repl-thread connection "new-repl-thread"))))))))
-
 (defun find-worker-thread (id)
   (etypecase id
     ((member t)
@@ -1056,12 +947,6 @@ The processing is done in the extent of the toplevel restart."
                (apply #'eval-for-emacs 
                       (cdr (wait-for-event `(:emacs-rex . _)))))))
          :name "worker"))
-
-(defun spawn-repl-thread (connection name)
-  (spawn (lambda () 
-           (with-bindings *default-worker-thread-bindings*
-             (repl-loop connection)))
-         :name name))
 
 (defun dispatch-event (event)
   "Handle an event triggered either by Emacs or within Lisp."
@@ -1196,9 +1081,6 @@ event was found."
                  (thread-alive-p thread)
                  (not (equal (current-thread) thread)))
         (kill-thread thread)))))
-
-(defun repl-loop (connection)
-  (handle-requests connection))
 
 ;;;;;; Signal driven IO
 
@@ -1463,41 +1345,6 @@ NIL if streams are not globally redirected.")
 
 (add-hook *connection-closed-hook* 'update-redirection-after-close)
 
-;;;;; Redirection during requests
-;;;
-;;; We always redirect the standard streams to Emacs while evaluating
-;;; an RPC. This is done with simple dynamic bindings.
-
-(defslimefun create-repl (target &key coding-system)
-  (assert (eq target nil))
-  (let ((conn *emacs-connection*))
-    (initialize-streams-for-connection conn `(:coding-system ,coding-system))
-    (with-struct* (connection. @ conn)
-      (setf (@ env)
-            `((*standard-output* . ,(@ user-output))
-              (*standard-input*  . ,(@ user-input))
-              (*trace-output*    . ,(or (@ trace-output) (@ user-output)))
-              (*error-output*    . ,(@ user-output))
-              (*debug-io*        . ,(@ user-io))
-              (*query-io*        . ,(@ user-io))
-              (*terminal-io*     . ,(@ user-io))))
-      (maybe-redirect-global-io conn)
-      (when (use-threads-p)
-        (setf (@ repl-thread) (spawn-repl-thread conn "repl-thread")))
-      (list (package-name *package*)
-            (package-string-for-prompt *package*)))))
-
-(defun initialize-streams-for-connection (connection properties)
-  (multiple-value-bind (dedicated in out io repl-results) 
-      (open-streams connection properties)
-    (setf (connection.dedicated-output connection) dedicated
-          (connection.user-io connection)          io
-          (connection.user-output connection)      out
-          (connection.user-input connection)       in
-          (connection.repl-results connection)     repl-results)
-    connection))
-
-
 ;;; Channels
 
 (defvar *channels* '())
@@ -1560,17 +1407,6 @@ NIL if streams are not globally redirected.")
 
 (defun make-tag () 
   (setq *tag-counter* (mod (1+ *tag-counter*) (expt 2 22))))
-
-(defun read-user-input-from-emacs ()
-  (let ((tag (make-tag)))
-    (force-output)
-    (send-to-emacs `(:read-string ,(current-thread-id) ,tag))
-    (let ((ok nil))
-      (unwind-protect
-           (prog1 (caddr (wait-for-event `(:emacs-return-string ,tag value)))
-             (setq ok t))
-        (unless ok 
-          (send-to-emacs `(:read-aborted ,(current-thread-id) ,tag)))))))
 
 (defun y-or-n-p-in-emacs (format-string &rest arguments)
   "Like y-or-n-p, but ask in the Emacs minibuffer."
@@ -2026,48 +1862,6 @@ Return the full package-name and the string to use in the prompt."
     (assert (packagep p) nil "Package ~a doesn't exist." name)
     (setq *package* p)
     (list (package-name p) (package-string-for-prompt p))))
-
-;;;;; Listener eval
-
-(defvar *listener-eval-function* 'repl-eval)
-
-(defslimefun listener-eval (string)
-  (funcall *listener-eval-function* string))
-
-(defvar *send-repl-results-function* 'send-repl-results-to-emacs)
-
-(defun repl-eval (string)
-  (clear-user-input)
-  (with-buffer-syntax ()
-    (with-retry-restart (:msg "Retry SLIME REPL evaluation request.")
-      (track-package 
-       (lambda ()
-         (multiple-value-bind (values last-form) (eval-region string)
-           (setq *** **  ** *  * (car values)
-                 /// //  // /  / values
-                 +++ ++  ++ +  + last-form)
-           (funcall *send-repl-results-function* values))))))
-  nil)
-
-(defslimefun clear-repl-variables ()
-  (let ((variables '(*** ** * /// // / +++ ++ +)))
-    (loop for variable in variables
-          do (setf (symbol-value variable) nil))))
-
-(defun track-package (fun)
-  (let ((p *package*))
-    (unwind-protect (funcall fun)
-      (unless (eq *package* p)
-        (send-to-emacs (list :new-package (package-name *package*)
-                             (package-string-for-prompt *package*)))))))
-
-(defun send-repl-results-to-emacs (values)    
-  (finish-output)
-  (if (null values)
-      (send-to-emacs `(:write-string "; No value" :repl-result))
-      (dolist (v values)
-        (send-to-emacs `(:write-string ,(cat (prin1-to-string v) #\newline)
-                                       :repl-result)))))
 
 (defun cat (&rest strings)
   "Concatenate all arguments and make the result a string."
@@ -3055,11 +2849,6 @@ Include the nicknames if NICKNAMES is true."
 
 (defslimefun untrace-all ()
   (untrace))
-
-(defslimefun redirect-trace-output (target)
-  (setf (connection.trace-output *emacs-connection*)
-        (make-output-stream-for-target *emacs-connection* target))
-  nil)
 
 
 ;;;; Undefing
