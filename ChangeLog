@@ -1,5 +1,20 @@
 2011-12-04  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (create-repl): Moved to contrib/swank-repl.lisp.
+	(*use-dedicated-output-stream*, *dedicated-output-stream-port*
+	(*dedicated-output-stream-buffering*, open-streams)
+	(make-output-function, send-user-output)
+	(make-output-function-for-target, make-output-stream-for-target)
+	(open-dedicated-output-stream, find-repl-thread)
+	(spawn-repl-thread, repl-loop, initialize-streams-for-connection)
+	(read-user-input-from-emacs,  *listener-eval-function*)
+	(listener-eval, *send-repl-results-function*, repl-eval)
+	(clear-repl-variables, track-package, send-repl-results-to-emacs)
+	(redirect-trace-output);
+	* swank-loader.lisp (*contribs*): Add swank-repl.
+
+2011-12-04  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-loader.lisp (*contribs*): Add swank-mrepl.
 
 2011-12-04  Helmut Eller  <heller@common-lisp.net>
