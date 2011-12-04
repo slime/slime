@@ -59,9 +59,14 @@
 (defun read-chunk (stream length)
   (let* ((buffer (make-array length :element-type '(unsigned-byte 8)))
          (count (read-sequence buffer stream)))
-    (assert (= count length) () "Short read: length=~D  count=~D" length count)
-    buffer))
+    (cond ((= count length)
+           buffer)
+          ((zerop count)
+           (error (make-condition 'end-of-file :stream stream)))
+          (t
+           (error "Short read: length=~D  count=~D" length count)))))
 
+;; end-of-file
 ;; FIXME: no one ever tested this and will probably not work.
 (defparameter *validate-input* nil
   "Set to true to require input that strictly conforms to the protocol")

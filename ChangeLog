@@ -1,3 +1,7 @@
+2011-12-04  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-rpc.lisp (read-chunk): Signal end-of-file we had no input.
+
 2011-12-03  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* swank-sbcl.lisp (wait-for-input): Another go at this. Rip out POLL,
