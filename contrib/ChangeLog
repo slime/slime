@@ -1,6 +1,7 @@
 2011-12-04  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-repl.lisp: New file.
+	* slime-repl.el (slime-repl): Add swank-dependecy.
 
 2011-12-03  Didier Verna  <didier@xemacs.org>
 
