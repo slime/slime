@@ -3,8 +3,6 @@
 ;;; e.g. sbcl --load start-swank.lisp
 ;;;
 ;;; Default port is 4005
-;;; Default encoding is "iso-latin-1-unix"
-;;;  see Emacs variable `slime-net-valid-coding-systems' for possible values.
 
 ;;; For additional swank-side configurations see
 ;;; 6.2 section of the Slime user manual.
