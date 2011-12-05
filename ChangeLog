@@ -1,7 +1,3 @@
-2011-12-05  Stas Boukarev  <stassats@gmail.com>
-
-	* start-swank.lisp: Remove :coding-system argument.
-
 2011-12-05  Helmut Eller  <heller@common-lisp.net>
 
 	Move flow control into dispatch-event.
@@ -26,10 +22,17 @@
 	(close-connection): Use it.  Can't use
 	*use-dedicated-output-stream* here.
 
+	* swank.lisp (background-message): Do nothing if
+	connection.slowdown is set.
+
 2011-12-05  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el ([test] arglist): swank::create-server now has an
 	optional argument.  Use swank::compute-backtrace instead.
+
+2011-12-05  Stas Boukarev  <stassats@gmail.com>
+
+	* start-swank.lisp: Remove :coding-system argument.
 
 2011-12-04  Helmut Eller  <heller@common-lisp.net>
 

@@ -2106,8 +2106,9 @@ FORM and VALUE are both strings from Emacs."
   "Display a message in Emacs' echo area.
 
 Use this function for informative messages only.  The message may even
-be dropped, if we are too busy with other things."
-  (when *emacs-connection*
+be dropped if we are too busy with other things."
+  (when (and *emacs-connection*
+             (not (connection.slowdown *emacs-connection*)))
     (send-to-emacs `(:background-message 
                      ,(apply #'format nil format-string args)))))
 
