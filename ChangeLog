@@ -2,6 +2,35 @@
 
 	* start-swank.lisp: Remove :coding-system argument.
 
+2011-12-05  Helmut Eller  <heller@common-lisp.net>
+
+	Move flow control into dispatch-event.
+
+	* swank.lisp (maybe-slow-down, ping-pong): New functions.
+	(dispatch-event): Use it. Also require connection argument.
+	Update callers accordingly.
+	([defstruct] connection): New slots: send-counter and slowdown.
+	* slime.el (slime-dispatch-event): Drop thread from
+	:ping/:emacs-ping messages.
+
+	Use subclasses of connection.  Wasn't neccessary for flow control
+	but seems like a good idea for the future.
+
+	* swank.lisp (multithreaded-connection)
+	(singlethreaded-connection): New
+	(make-connection): Create multi/single threaded variant depending
+	on style argument.
+	([defstruct] serve-requests, cleanup): Delete slots.  Dispatch on
+	connection type instead.
+	(stop-serving-requests): New.
+	(close-connection): Use it.  Can't use
+	*use-dedicated-output-stream* here.
+
+2011-12-05  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el ([test] arglist): swank::create-server now has an
+	optional argument.  Use swank::compute-backtrace instead.
+
 2011-12-04  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (interrupt-worker-thread): Don't use find-repl-thread

@@ -2342,20 +2342,18 @@ Debugged requests are ignored."
            (slime-send `(:emacs-return ,thread ,tag ,value)))
           ((:ed what)
            (slime-ed what))
-          ((:inspect what wait-thread wait-tag)
-           (let ((hook (when (and wait-thread wait-tag)
-                         (lexical-let ((thread wait-thread)
-                                       (tag wait-tag))
-                           (lambda ()
-                             (slime-send `(:emacs-return ,thread ,tag nil)))))))
+          ((:inspect what thread tag)
+           (let ((hook (when (and thread tag)
+                         (slime-curry #'slime-send 
+                                      `(:emacs-return ,thread ,tag nil)))))
              (slime-open-inspector what nil hook)))
           ((:background-message message)
            (slime-background-message "%s" message))
           ((:debug-condition thread message)
            (assert thread)
            (message "%s" message))
-          ((:ping thread tag)
-           (slime-send `(:emacs-pong ,thread ,tag)))
+          ((:ping tag)
+           (slime-send `(:emacs-pong ,tag)))
           ((:reader-error packet condition)
            (slime-with-popup-buffer ((slime-buffer-name :error))
              (princ (format "Invalid protocol message:\n%s\n\n%s"
@@ -7913,7 +7911,7 @@ confronted with nasty #.-fu."
     "Lookup the argument list for FUNCTION-NAME.
 Confirm that EXPECTED-ARGLIST is displayed."
     '(("swank::operator-arglist" "(swank::operator-arglist name package)")
-      ("swank::create-socket" "(swank::create-socket host port)")
+      ("swank::compute-backtrace" "(swank::compute-backtrace start end)")
       ("swank::emacs-connected" "(swank::emacs-connected)")
       ("swank::compile-string-for-emacs"
        "(swank::compile-string-for-emacs string buffer position filename policy)")

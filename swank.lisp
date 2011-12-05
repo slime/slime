@@ -210,6 +210,33 @@ Backend code should treat the connection structure as opaque.")
   (trace-output     nil :type (or stream null))
   ;; A stream where we send REPL results.
   (repl-results     nil :type (or stream null))
+  ;; Cache of macro-indentation information that has been sent to Emacs.
+  ;; This is used for preparing deltas to update Emacs's knowledge.
+  ;; Maps: symbol -> indentation-specification
+  (indentation-cache (make-hash-table :test 'eq) :type hash-table)
+  ;; The list of packages represented in the cache:
+  (indentation-cache-packages '())
+  ;; The communication style used.
+  (communication-style nil :type (member nil :spawn :sigio :fd-handler))
+  ;; Used for control flow.  If non-nil we should wait a bit before
+  ;; sending something to Emacs.
+  (slowdown nil :type (or null float))
+  ;; Used for control flow.
+  (send-counter 0 :type (mod 1000))
+  )
+
+(defun print-connection (conn stream depth)
+  (declare (ignore depth))
+  (print-unreadable-object (conn stream :type t :identity t)))
+
+(defstruct (singlethreaded-connection (:include connection)
+                                      (:conc-name sconn.))
+  ;; The SIGINT handler we should restore when the connection is
+  ;; closed.
+  saved-sigint-handler)
+
+(defstruct (multithreaded-connection (:include connection)
+                                     (:conc-name mconn.))
   ;; In multithreaded systems we delegate certain tasks to specific
   ;; threads. The `reader-thread' is responsible for reading network
   ;; requests from Emacs and sending them to the `control-thread'; the
@@ -221,29 +248,7 @@ Backend code should treat the connection structure as opaque.")
   reader-thread
   control-thread
   repl-thread
-  auto-flush-thread
-  ;; Callback functions:
-  ;; (SERVE-REQUESTS <this-connection>) serves all pending requests
-  ;; from Emacs.
-  (serve-requests   (missing-arg) :type function)
-  ;; (CLEANUP <this-connection>) is called when the connection is
-  ;; closed.
-  (cleanup          nil :type (or null function))
-  ;; Cache of macro-indentation information that has been sent to Emacs.
-  ;; This is used for preparing deltas to update Emacs's knowledge.
-  ;; Maps: symbol -> indentation-specification
-  (indentation-cache (make-hash-table :test 'eq) :type hash-table)
-  ;; The list of packages represented in the cache:
-  (indentation-cache-packages '())
-  ;; The communication style used.
-  (communication-style nil :type (member nil :spawn :sigio :fd-handler))
-  ;; The SIGINT handler we should restore when the connection is
-  ;; closed.
-  saved-sigint-handler)
-
-(defun print-connection (conn stream depth)
-  (declare (ignore depth))
-  (print-unreadable-object (conn stream :type t :identity t)))
+  auto-flush-thread)
 
 (defvar *connections* '()
   "List of all active connections, with the most recent at the front.")
@@ -261,24 +266,17 @@ recently established one."
   (first *connections*))
 
 (defun make-connection (socket stream style)
-  (multiple-value-bind (serve cleanup)
-      (ecase style
-        (:spawn
-         (values #'spawn-threads-for-connection #'cleanup-connection-threads))
-        (:sigio
-         (values #'install-sigio-handler #'deinstall-sigio-handler))
-        (:fd-handler
-         (values #'install-fd-handler #'deinstall-fd-handler))
-        ((nil)
-         (values #'simple-serve-requests nil)))
-    (let ((conn (%make-connection :socket socket
-                                  :socket-io stream
-                                  :communication-style style
-                                  :serve-requests serve
-                                  :cleanup cleanup)))
-      (run-hook *new-connection-hook* conn)
-      (push conn *connections*)
-      conn)))
+  (let ((conn (funcall (ecase style
+                         (:spawn 
+                          #'make-multithreaded-connection)
+                         ((:sigio nil :fd-handler)
+                          #'make-singlethreaded-connection))
+                       :socket socket
+                       :socket-io stream
+                       :communication-style style)))
+    (run-hook *new-connection-hook* conn)
+    (push conn *connections*)
+    conn))
 
 (defslimefun ping (tag)
   tag)
@@ -763,7 +761,24 @@ if the file doesn't exist; otherwise the first line of the file."
 
 (defun serve-requests (connection)
   "Read and process all requests on connections."
-  (funcall (connection.serve-requests connection) connection))
+  (etypecase connection
+    (multithreaded-connection
+     (spawn-threads-for-connection connection))
+    (singlethreaded-connection
+     (ecase (connection.communication-style connection)
+       ((nil) (simple-serve-requests connection))
+       (:sigio (install-sigio-handler connection))
+       (:fd-handler (install-fd-handler connection))))))
+
+(defun stop-serving-requests (connection)
+  (etypecase connection
+    (multithreaded-connection
+     (cleanup-connection-threads connection))
+    (singlethreaded-connection
+     (ecase (connection.communication-style connection)
+       ((nil))
+       (:sigio (deinstall-sigio-handler connection))
+       (:fd-handler (deinstall-fd-handler connection))))))
 
 (defun announce-server-port (file port)
   (with-open-file (s file
@@ -850,9 +865,7 @@ The processing is done in the extent of the toplevel restart."
     (log-event "close-connection: ~a ...~%" condition))
   (format *log-output* "~&;; swank:close-connection: ~A~%"
           (escape-non-ascii (safe-condition-message condition)))
-  (let ((cleanup (connection.cleanup c)))
-    (when cleanup
-      (funcall cleanup c)))
+  (stop-serving-requests c)
   (close (connection.socket-io c))
   (when (connection.dedicated-output c)
     (close (connection.dedicated-output c)))
@@ -867,13 +880,12 @@ The processing is done in the extent of the toplevel restart."
                         ;; Connection to Emacs lost. [~%~
                         ;;  condition: ~A~%~
                         ;;  type: ~S~%~
-                        ;;  style: ~S dedicated: ~S]~%"
+                        ;;  style: ~S]~%"
             (loop for (i f) in backtrace collect 
                   (ignore-errors (format nil "~d: ~a" i (escape-non-ascii f))))
             (escape-non-ascii (safe-condition-message condition) )
             (type-of condition)
-            (connection.communication-style c)
-            *use-dedicated-output-stream*))
+            (connection.communication-style c)))
   (finish-output *log-output*)
   (log-event "close-connection ~a ... done.~%" condition))
 
@@ -883,14 +895,14 @@ The processing is done in the extent of the toplevel restart."
 
 (defun read-loop (connection)
   (let ((input-stream (connection.socket-io connection))
-        (control-thread (connection.control-thread connection)))
+        (control-thread (mconn.control-thread connection)))
     (with-swank-error-handler (connection)
       (loop (send control-thread (decode-message input-stream))))))
 
 (defun dispatch-loop (connection)
   (let ((*emacs-connection* connection))
     (with-panic-handler (connection)
-      (loop (dispatch-event (receive))))))
+      (loop (dispatch-event connection (receive))))))
 
 (defvar *auto-flush-interval* 0.2)
 
@@ -949,7 +961,7 @@ The processing is done in the extent of the toplevel restart."
                       (cdr (wait-for-event `(:emacs-rex . _)))))))
          :name "worker"))
 
-(defun dispatch-event (event)
+(defun dispatch-event (connection event)
   "Handle an event triggered either by Emacs or within Lisp."
   (log-event "dispatch-event: ~s~%" event)
   (destructure-case event
@@ -978,8 +990,9 @@ The processing is done in the extent of the toplevel restart."
        :y-or-n-p :read-from-minibuffer :read-string :read-aborted)
       &rest _)
      (declare (ignore _))
-     (encode-message event (current-socket-io)))
-    (((:emacs-pong :emacs-return :emacs-return-string) thread-id &rest args)
+     (encode-message event (current-socket-io))
+     (maybe-slow-down connection))
+    (((:emacs-return :emacs-return-string) thread-id &rest args)
      (send-event (find-thread thread-id) (cons (car event) args)))
     ((:emacs-channel-send channel-id msg)
      (let ((ch (find-channel channel-id)))
@@ -987,8 +1000,40 @@ The processing is done in the extent of the toplevel restart."
     ((:reader-error packet condition)
      (encode-message `(:reader-error ,packet 
                                      ,(safe-condition-message condition))
-                     (current-socket-io)))))
+                     (current-socket-io)))
+    ((:emacs-pong _)
+     (declare (ignore _))
+     (assert (singlethreaded-connection-p connection))
+     (send-event (current-thread) event))))
 
+
+;;;; Flow control
+
+;; After sending N (usually 100) messages we slow down and ping Emacs
+;; to make sure that everything we have sent so far was received.
+
+(defconstant send-counter-limit 100)
+
+(defun maybe-slow-down (connection)
+  (let ((counter (incf (connection.send-counter connection))))
+    (when (< send-counter-limit counter)
+      (setf (connection.send-counter connection) 0)
+      (setf (connection.slowdown connection) 0.1)
+      (ping-pong connection)
+      (setf (connection.slowdown connection) nil))))
+
+(defun ping-pong (connection)
+  (let* ((tag (make-tag))
+         (pattern `(:emacs-pong ,tag)))
+    (encode-message `(:ping ,tag) (connection.socket-io connection))
+    (etypecase connection
+      (multithreaded-connection
+       (receive-if (lambda (e) (event-match-p e pattern)) nil))
+      (singlethreaded-connection
+       (let ((*emacs-connection* connection))
+         (wait-for-event pattern))))))
+
+
 (defvar *event-queue* '())
 (defvar *events-enqueued* 0)
 
@@ -1002,9 +1047,14 @@ The processing is done in the extent of the toplevel restart."
 (defun send-to-emacs (event)
   "Send EVENT to Emacs."
   ;;(log-event "send-to-emacs: ~a" event)
-  (cond ((use-threads-p)
-         (send (connection.control-thread *emacs-connection*) event))
-        (t (dispatch-event event))))
+  (let ((c *emacs-connection*))
+    (etypecase c
+      (multithreaded-connection
+       (when (connection.slowdown c)
+         (sleep 0.1))
+       (send (mconn.control-thread c) event))
+      (singlethreaded-connection
+       (dispatch-event c event)))))
 
 (defun wait-for-event (pattern &optional timeout)
   "Scan the event queue for PATTERN and return the event.
@@ -1014,12 +1064,14 @@ The second return value is t if the timeout expired before a matching
 event was found."
   (log-event "wait-for-event: ~s ~s~%" pattern timeout)
   (without-slime-interrupts
-    (cond ((use-threads-p) 
-           (receive-if (lambda (e) (event-match-p e pattern)) timeout))
-          (t 
-           (wait-for-event/event-loop pattern timeout)))))
+    (let ((c *emacs-connection*))
+      (etypecase c
+        (multithreaded-connection
+         (receive-if (lambda (e) (event-match-p e pattern)) timeout))
+        (singlethreaded-connection
+         (wait-for-event/event-loop c pattern timeout))))))
 
-(defun wait-for-event/event-loop (pattern timeout)
+(defun wait-for-event/event-loop (connection pattern timeout)
   (assert (or (not timeout) (eq timeout t)))
   (loop 
    (check-slime-interrupts)
@@ -1035,7 +1087,8 @@ event was found."
             )
            (t
             (assert (equal ready (list (current-socket-io))))
-            (dispatch-event (decode-message (current-socket-io))))))))
+            (dispatch-event connection
+                            (decode-message (current-socket-io))))))))
 
 (defun poll-for-event (pattern)
   (let ((tail (member-if (lambda (e) (event-match-p e pattern))
@@ -1060,23 +1113,24 @@ event was found."
         (t (error "Invalid pattern: ~S" pattern))))
 
 (defun spawn-threads-for-connection (connection)
-  (setf (connection.control-thread connection) 
+  (setf (mconn.control-thread connection)
         (spawn (lambda () (control-thread connection))
                :name "control-thread"))
   connection)
 
 (defun control-thread (connection)
-  (with-struct* (connection. @ connection)
+  (with-struct* (mconn. @ connection)
     (setf (@ control-thread) (current-thread))
     (setf (@ reader-thread) (spawn (lambda () (read-loop connection)) 
                                    :name "reader-thread"))
     (dispatch-loop connection)))
 
 (defun cleanup-connection-threads (connection)
-  (let ((threads (list (connection.repl-thread connection)
-                       (connection.reader-thread connection)
-                       (connection.control-thread connection)
-                       (connection.auto-flush-thread connection))))
+  (let* ((c connection)
+         (threads (list (mconn.repl-thread c)
+                        (mconn.reader-thread c)
+                        (mconn.control-thread c)
+                        (mconn.auto-flush-thread c))))
     (dolist (thread threads)
       (when (and thread 
                  (thread-alive-p thread)
@@ -1109,7 +1163,7 @@ event was found."
 (defun install-fd-handler (connection)
   (add-fd-handler (connection.socket-io connection)
                   (lambda () (handle-requests connection t)))
-  (setf (connection.saved-sigint-handler connection)
+  (setf (sconn.saved-sigint-handler connection)
         (install-sigint-handler 
          (lambda () 
            (invoke-or-queue-interrupt
@@ -1120,12 +1174,12 @@ event was found."
   ;; This boils down to INTERRUPT-WORKER-THREAD which uses
   ;; USE-THREADS-P which needs *EMACS-CONNECTION*.
   (with-connection (connection)
-    (dispatch-event `(:emacs-interrupt ,(current-thread-id)))))
+    (dispatch-event connection `(:emacs-interrupt ,(current-thread-id)))))
 
 (defun deinstall-fd-handler (connection)
   (log-event "deinstall-fd-handler~%")
   (remove-fd-handlers (connection.socket-io connection))
-  (install-sigint-handler (connection.saved-sigint-handler connection)))
+  (install-sigint-handler (sconn.saved-sigint-handler connection)))
 
 ;;;;;; Simple sequential IO
 
