@@ -1,3 +1,15 @@
+2011-12-05  Helmut Eller  <heller@common-lisp.net>
+
+	Drop flow control from repl-output-stream.
+	That's now done at a lower level.
+
+	* swank-repl.lisp (make-output-function): Use :write-string directly.
+	(send-user-output, *maximum-pipelined-output-chunks*)
+	(*maximum-pipelined-output-length*): Deleted.
+
+	* swank-repl.lisp (create-repl, open-streams, find-repl-thread):
+	Use accessors for multithreaded-connection where needed.
+
 2011-12-04  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-repl.lisp: New file.

@@ -35,35 +35,18 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
          (io (make-two-way-stream in out))
          (repl-results (make-output-stream-for-target connection
                                                       :repl-result)))
-    (when (eq (connection.communication-style connection) :spawn)
-      (setf (connection.auto-flush-thread connection)
-            (spawn (lambda () (auto-flush-loop out))
-                   :name "auto-flush-thread")))
+    (typecase connection
+      (multithreaded-connection
+       (setf (mconn.auto-flush-thread connection)
+	     (spawn (lambda () (auto-flush-loop out))
+		    :name "auto-flush-thread"))))
     (values dedicated-output in out io repl-results)))
 
-;; FIXME: if wait-for-event aborts the event will stay in the queue forever.
 (defun make-output-function (connection)
   "Create function to send user output to Emacs."
-  (let ((i 0) (tag 0) (l 0))
-    (lambda (string)
-      (with-connection (connection)
-        (multiple-value-setq (i tag l)
-          (send-user-output string i tag l))))))
-
-(defvar *maximum-pipelined-output-chunks* 50)
-(defvar *maximum-pipelined-output-length* (* 80 20 5))
-(defun send-user-output (string pcount tag plength)
-  ;; send output with flow control
-  (when (or (> pcount *maximum-pipelined-output-chunks*)
-            (> plength *maximum-pipelined-output-length*))
-    (setf tag (mod (1+ tag) 1000))
-    (send-to-emacs `(:ping ,(current-thread-id) ,tag))
-    (with-simple-restart (abort "Abort sending output to Emacs.")
-      (wait-for-event `(:emacs-pong ,tag)))
-    (setf pcount 0)
-    (setf plength 0))
-  (send-to-emacs `(:write-string ,string))
-  (values (1+ pcount) tag (+ plength (length string))))
+  (lambda (string)
+    (with-connection (connection)
+      (send-to-emacs `(:write-string ,string)))))
 
 (defun make-output-function-for-target (connection target)
   "Create a function to send user output to a specific TARGET in Emacs."
@@ -106,11 +89,11 @@ This is an optimized way for Lisp to deliver output to Emacs."
   (cond ((not (use-threads-p))
          (current-thread))
         (t
-         (let ((thread (connection.repl-thread connection)))
+         (let ((thread (mconn.repl-thread connection)))
            (cond ((not thread) nil)
                  ((thread-alive-p thread) thread)
                  (t
-                  (setf (connection.repl-thread connection)
+                  (setf (mconn.repl-thread connection)
                         (spawn-repl-thread connection "new-repl-thread"))))))))
 
 (defun spawn-repl-thread (connection name)
@@ -141,8 +124,10 @@ This is an optimized way for Lisp to deliver output to Emacs."
               (*query-io*        . ,(@ user-io))
               (*terminal-io*     . ,(@ user-io))))
       (maybe-redirect-global-io conn)
-      (when (use-threads-p)
-        (setf (@ repl-thread) (spawn-repl-thread conn "repl-thread")))
+      (typecase conn
+	(multithreaded-connection
+	 (setf (mconn.repl-thread conn) 
+	       (spawn-repl-thread conn "repl-thread"))))
       (list (package-name *package*)
             (package-string-for-prompt *package*)))))
 
