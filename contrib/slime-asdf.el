@@ -1,4 +1,3 @@
-
 (define-slime-contrib slime-asdf
   "ASDF support."
   (:authors "Daniel Barlow       <dan@telent.net>"
@@ -17,6 +16,11 @@
 ;;; avoid it as local variable name.
 
 ;;; Utilities
+
+(defgroup slime-asdf nil
+  "ASDF support for Slime."
+  :prefix "slime-asdf-"
+  :group 'slime)
 
 (defvar slime-system-history nil
   "History list for ASDF system names.")
@@ -69,7 +73,9 @@ in the directory of the current buffer."
 (defcustom slime-asdf-collect-notes t
   "Collect and display notes produced by the compiler.
 
-See also `slime-highlight-compiler-notes' and `slime-compilation-finished-hook'.")
+See also `slime-highlight-compiler-notes' and
+`slime-compilation-finished-hook'."
+  :group 'slime-asdf)
 
 (defun slime-asdf-operation-finished-function (system)
   (if slime-asdf-collect-notes

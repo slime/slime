@@ -1,3 +1,8 @@
+2011-12-06  Didier Verna  <didier@xemacs.org>
+
+	* slime-asdf.el (slime-asdf): New custom group.
+	* slime-asdf.el (slime-asdf-collect-notes): Put this variable in.
+
 2011-12-05  Helmut Eller  <heller@common-lisp.net>
 
 	Drop flow control from repl-output-stream.
