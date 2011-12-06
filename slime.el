@@ -2667,9 +2667,13 @@ to it depending on its sign."
 (defun slime-compile-region (start end)
   "Compile the region."
   (interactive "r")
-  (slime-flash-region start end)
+  ;; Check connection before running hooks
+  ;; things like slime-flash-region don't make much sense if there's no connection
+  (slime-connection) 
   (run-hook-with-args 'slime-before-compile-functions start end)
   (slime-compile-string (buffer-substring-no-properties start end) start))
+
+(add-hook 'slime-before-compile-functions 'slime-flash-region)
 
 (defun slime-flash-region (start end &optional timeout)
   "Temporarily highlight region from START to END."

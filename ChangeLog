@@ -1,3 +1,9 @@
+2011-12-06  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-compile-region): Check connection before running
+	hooks, invoking slime-flash-region doesn't make much sense when
+	there's no connection.
+
 2011-12-05  Helmut Eller  <heller@common-lisp.net>
 
 	Move flow control into dispatch-event.
