@@ -1,3 +1,9 @@
+2011-12-05  Didier Verna  <didier@xemacs.org>
+
+	* slime.el ([xemacs]): Don't require 'un-define in XEmacs 21.5 and
+	later. Mule-UCS is not needed anymore because of internal Unicode
+	support (and conflicts with it).
+
 2011-12-06  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-compile-region): Check connection before running
