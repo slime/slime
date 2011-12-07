@@ -1,5 +1,11 @@
 2011-12-07  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el ([xemacs]): Use (find-coding-system 'utf-8-unix)
+	instead of checking the XEmacs version to decide when 'un-define
+	is required.
+
+2011-12-07  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (send-to-emacs): Add a without-slime-interrupts to
 	protect send/receive from arbitrary interrupts.
 
