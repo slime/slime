@@ -1,5 +1,10 @@
 2011-12-07  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (send-to-emacs): Add a without-slime-interrupts to
+	protect send/receive from arbitrary interrupts.
+
+2011-12-07  Helmut Eller  <heller@common-lisp.net>
+
 	Move flow control from dispatch-event to send-to-emacs.
 
 	* swank.lisp (*send-counter*): New thread local variable.

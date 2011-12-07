@@ -1016,14 +1016,15 @@ The processing is done in the extent of the toplevel restart."
 (defun send-to-emacs (event)
   "Send EVENT to Emacs."
   ;;(log-event "send-to-emacs: ~a" event)
-  (let ((c *emacs-connection*))
-    (etypecase c
-      (multithreaded-connection
-       (send (mconn.control-thread c) event))
-      (singlethreaded-connection
-       (dispatch-event c event)))
-    (maybe-slow-down)))
-
+  (without-slime-interrupts
+    (let ((c *emacs-connection*))
+      (etypecase c
+        (multithreaded-connection
+         (send (mconn.control-thread c) event))
+        (singlethreaded-connection
+         (dispatch-event c event)))
+      (maybe-slow-down))))
+  
 
 ;;;;;; Flow control
 
@@ -2084,7 +2085,7 @@ FORM and VALUE are both strings from Emacs."
 Use this function for informative messages only.  The message may even
 be dropped if we are too busy with other things."
   (when *emacs-connection*
-    (send-to-emacs `(:background-message 
+    (send-to-emacs `(:background-message
                      ,(apply #'format nil format-string args)))))
 
 ;; This is only used by the test suite.
@@ -3692,8 +3693,7 @@ Collisions are caused because package information is ignored."
                    (lambda (string)
                      (declare (ignore string))
                      (with-connection (conn)
-                       (progn ;without-slime-interrupts
-                         (send-to-emacs `(:test-delay ,delay)))))))))
+                       (send-to-emacs `(:test-delay ,delay))))))))
     (dotimes (i n)
       (print i stream)
       (force-output stream)
