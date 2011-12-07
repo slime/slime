@@ -1,5 +1,10 @@
 2011-12-07  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (*slime-interrupts-enabled*): Describe the idea
+	behind the interrupt handlig code a bit.
+
+2011-12-07  Helmut Eller  <heller@common-lisp.net>
+
 	Make *event-queue* and *events-enqueued* slots of the connection
 	struct.
 
