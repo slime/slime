@@ -1,3 +1,12 @@
+2011-12-07  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-batch-test): Forgot to rename slime-run-one-test
+	to slime-run-test here.
+	(slime-net-connect): Remove coding-system argument.
+	(slime-xref-insert-recompilation-flags): Use insert-char instead
+	of (dotimes (i ..) (insert " " ..)) to avoid the compiler warning.
+	([test] break, slime-forward-sexp): Use _i in dotimes.
+
 2011-12-07  Stas Boukarev  <stassats@gmail.com>
 
 	* doc/.cvsignore: Aadd html.tgz

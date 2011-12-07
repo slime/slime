@@ -1202,12 +1202,9 @@ DIRECTORY change to this directory before starting the process.
              (y-or-n-p "Close old connections first? "))
     (slime-disconnect-all))
   (message "Connecting to Swank on port %S.." port)
-  (let ((coding-system (or coding-system slime-net-coding-system)))
-    (slime-check-coding-system coding-system)
-    (message "Connecting to Swank on port %S.." port)
-    (let* ((process (slime-net-connect host port coding-system))
-           (slime-dispatching-connection process))
-      (slime-setup-connection process))))
+  (let* ((process (slime-net-connect host port))
+         (slime-dispatching-connection process))
+    (slime-setup-connection process)))
 
 ;; FIXME: seems redundant
 (defun slime-start-and-init (options fun)
@@ -1505,7 +1502,7 @@ first line of the file."
     (file-error nil)))
 
 ;;; Interface
-(defun slime-net-connect (host port coding-system)
+(defun slime-net-connect (host port)
   "Establish a connection with a CL."
   (let* ((inhibit-quit nil)
          (proc (open-network-stream "SLIME Lisp" nil host port))
@@ -4973,9 +4970,7 @@ When displaying XREF information, this goes to the previous reference."
                                                  (slime-xref-dspec-at-point))
                      until (equal dspec-at-point dspec))
                (end-of-line) ; skip old status information.
-               (dotimes (i (- max-column (current-column)))
-                 (insert " "))
-               (insert " ")
+               (insert-char ?\  (1+ (- max-column (current-column))))
                (insert (format "[%s]"
                                (case result
                                  ((t)   :success)
@@ -7483,7 +7478,7 @@ Exits Emacs when finished. The exit code is the number of failed tests."
     (slime-sync-to-top-level 5)
     (switch-to-buffer "*scratch*")
     (let* ((slime-randomize-test-order (when randomize (random t) t))
-           (failed-tests (cond (test-name (slime-run-one-test test-name))
+           (failed-tests (cond (test-name (slime-run-test test-name))
                                (t (slime-run-tests)))))
       (with-current-buffer slime-test-buffer-name
         (slime-delete-hidden-outline-text)
@@ -8286,7 +8281,7 @@ the buffer's undo-list."
                                    (unless (= i 0)
                                      (swank::sleep-for 1))
                                    ,exp)))))
-  (dotimes (i times)
+  (dotimes (_i times)
     (slime-wait-condition "Debugger visible" 
                           (lambda () 
                             (and (slime-sldb-level= 1)
@@ -8592,7 +8587,7 @@ current package is used."
 (defun slime-forward-sexp (&optional count)
   "Like `forward-sexp', but understands reader-conditionals (#- and #+),
 and skips comments."
-  (dotimes (i (or count 1))
+  (dotimes (_i (or count 1))
     (slime-forward-cruft)
     (forward-sexp)))
 
