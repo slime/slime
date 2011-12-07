@@ -228,7 +228,14 @@ Backend code should treat the connection structure as opaque.")
                                       (:conc-name sconn.))
   ;; The SIGINT handler we should restore when the connection is
   ;; closed.
-  saved-sigint-handler)
+  saved-sigint-handler
+  ;; A queue of events.  Not all events can be processed in order and
+  ;; we need a place to stored them.
+  (event-queue '() :type list)
+  ;; A counter that is incremented whenever an event is added to the
+  ;; queue.  This is used to detected modifications to the event queue
+  ;; by interrupts.  The counter wraps around.
+  (events-enqueued 0 :type fixnum))
 
 (defstruct (multithreaded-connection (:include connection)
                                      (:conc-name mconn.))
@@ -1008,10 +1015,14 @@ The processing is done in the extent of the toplevel restart."
 
 (defun send-event (thread event)
   (log-event "send-event: ~s ~s~%" thread event)
-  (cond ((use-threads-p) (send thread event))
-        (t (setf *event-queue* (nconc *event-queue* (list event)))
-           (setf *events-enqueued* (mod (1+ *events-enqueued*)
-                                        most-positive-fixnum)))))
+  (let ((c *emacs-connection*))
+    (etypecase c
+      (multithreaded-connection 
+       (send thread event))
+      (singlethreaded-connection 
+       (setf (sconn.event-queue c) (nconc (sconn.event-queue c) (list event)))
+       (setf (sconn.events-enqueued c) (mod (1+ (sconn.events-enqueued c))
+                                            most-positive-fixnum))))))
 
 (defun send-to-emacs (event)
   "Send EVENT to Emacs."
@@ -1065,13 +1076,13 @@ event was found."
   (assert (or (not timeout) (eq timeout t)))
   (loop 
    (check-slime-interrupts)
-   (let ((event (poll-for-event pattern)))
+   (let ((event (poll-for-event connection pattern)))
      (when event (return (car event))))
-   (let ((events-enqueued *events-enqueued*)
+   (let ((events-enqueued (sconn.events-enqueued connection))
          (ready (wait-for-input (list (current-socket-io)) timeout)))
      (cond ((and timeout (not ready))
             (return (values nil t)))
-           ((or (/= events-enqueued *events-enqueued*)
+           ((or (/= events-enqueued (sconn.events-enqueued connection))
                 (eq ready :interrupt))
             ;; rescan event queue, interrupts may enqueue new events 
             )
@@ -1080,12 +1091,13 @@ event was found."
             (dispatch-event connection
                             (decode-message (current-socket-io))))))))
 
-(defun poll-for-event (pattern)
-  (let ((tail (member-if (lambda (e) (event-match-p e pattern))
-                         *event-queue*)))
+(defun poll-for-event (connection pattern)
+  (let* ((c connection)
+         (tail (member-if (lambda (e) (event-match-p e pattern))
+                          (sconn.event-queue c))))
     (when tail 
-      (setq *event-queue* (nconc (ldiff *event-queue* tail)
-                                 (cdr tail)))
+      (setf (sconn.event-queue c) 
+            (nconc (ldiff (sconn.event-queue c) tail) (cdr tail)))
       tail)))
 
 ;;; FIXME: Make this use SWANK-MATCH.

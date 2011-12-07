@@ -1,5 +1,16 @@
 2011-12-07  Helmut Eller  <heller@common-lisp.net>
 
+	Make *event-queue* and *events-enqueued* slots of the connection
+	struct.
+
+	* swank.lisp (*event-queue*, *events-enqueued*): Deleted
+	([struct] singlethreaded-connection): New slots event-queue and
+	events-enqueued.
+	(poll-for-event, send-event, wait-for-event/event-loop): Update
+	accordingly.
+
+2011-12-07  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el ([xemacs]): Use (find-coding-system 'utf-8-unix)
 	instead of checking the XEmacs version to decide when 'un-define
 	is required.
