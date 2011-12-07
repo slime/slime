@@ -1,6 +1,27 @@
 2011-12-07  Helmut Eller  <heller@common-lisp.net>
 
-	* slime.el (slime-update-system-indentation): Move to
+	Move flow control from dispatch-event to send-to-emacs.
+
+	* swank.lisp (*send-counter*): New thread local variable.
+	(with-connection): Bind it.
+	(send-to-emacs): Call maybe-slow-down.
+	(maybe-slow-down, ping-pong): Go through dispatch-event instead of
+	writing to the socket directly.
+	(dispatch-event): Re-add thread arg to :ping/:emacs-pong.
+	Also add a :test-delay event.
+	(perform-indentation-update): Use with-connection to bind
+	*emacs-connection* and *send-counter*.
+	(background-message): Remove reference to connection.slowdown.
+	(flow-control-test): New support code for testing flow-control.
+	([defstruct] connection): Delete send-counter and slowdown slots.
+
+	* slime.el (slime-dispatch-event): Re-add thread arg to
+	:ping/:emacs-pong and :test-delay event.
+	([test] flow-control): New test.
+
+2011-12-07  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-update-system-indentation): Moved to
 	contrib/slime-indentation.el.
 
 2011-12-07  Helmut Eller  <heller@common-lisp.net>

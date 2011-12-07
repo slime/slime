@@ -218,11 +218,6 @@ Backend code should treat the connection structure as opaque.")
   (indentation-cache-packages '())
   ;; The communication style used.
   (communication-style nil :type (member nil :spawn :sigio :fd-handler))
-  ;; Used for control flow.  If non-nil we should wait a bit before
-  ;; sending something to Emacs.
-  (slowdown nil :type (or null float))
-  ;; Used for control flow.
-  (send-counter 0 :type (mod 1000))
   )
 
 (defun print-connection (conn stream depth)
@@ -504,7 +499,11 @@ corresponding values in the CDR of VALUE."
   "Execute BODY I/O redirection to CONNECTION. "
   `(with-bindings (connection.env ,connection)
      . ,body))
-      
+
+;; Thread local variable used for flow-control.
+;; It's bound by with-connection.
+(defvar *send-counter*)
+
 (defmacro with-connection ((connection) &body body)
   "Execute BODY in the context of CONNECTION."
   `(let ((connection ,connection)
@@ -512,7 +511,8 @@ corresponding values in the CDR of VALUE."
      (if (eq *emacs-connection* connection)
          (funcall function)
          (let ((*emacs-connection* connection)
-               (*pending-slime-interrupts* '()))
+               (*pending-slime-interrupts* '())
+               (*send-counter* 0))
            (without-slime-interrupts
              (with-swank-error-handler (connection)
                (with-io-redirection (connection)
@@ -963,6 +963,7 @@ The processing is done in the extent of the toplevel restart."
 
 (defun dispatch-event (connection event)
   "Handle an event triggered either by Emacs or within Lisp."
+  (declare (ignore connection))
   (log-event "dispatch-event: ~s~%" event)
   (destructure-case event
     ((:emacs-rex form package thread-id id)
@@ -982,17 +983,16 @@ The processing is done in the extent of the toplevel restart."
      (encode-message `(:return ,@args) (current-socket-io)))
     ((:emacs-interrupt thread-id)
      (interrupt-worker-thread thread-id))
-    (((:write-string
+    (((:write-string 
        :debug :debug-condition :debug-activate :debug-return :channel-send
        :presentation-start :presentation-end
        :new-package :new-features :ed :indentation-update
        :eval :eval-no-wait :background-message :inspect :ping
-       :y-or-n-p :read-from-minibuffer :read-string :read-aborted)
+       :y-or-n-p :read-from-minibuffer :read-string :read-aborted :test-delay)
       &rest _)
      (declare (ignore _))
-     (encode-message event (current-socket-io))
-     (maybe-slow-down connection))
-    (((:emacs-return :emacs-return-string) thread-id &rest args)
+     (encode-message event (current-socket-io)))
+    (((:emacs-pong :emacs-return :emacs-return-string) thread-id &rest args)
      (send-event (find-thread thread-id) (cons (car event) args)))
     ((:emacs-channel-send channel-id msg)
      (let ((ch (find-channel channel-id)))
@@ -1000,38 +1000,7 @@ The processing is done in the extent of the toplevel restart."
     ((:reader-error packet condition)
      (encode-message `(:reader-error ,packet 
                                      ,(safe-condition-message condition))
-                     (current-socket-io)))
-    ((:emacs-pong _)
-     (declare (ignore _))
-     (assert (singlethreaded-connection-p connection))
-     (send-event (current-thread) event))))
-
-
-;;;; Flow control
-
-;; After sending N (usually 100) messages we slow down and ping Emacs
-;; to make sure that everything we have sent so far was received.
-
-(defconstant send-counter-limit 100)
-
-(defun maybe-slow-down (connection)
-  (let ((counter (incf (connection.send-counter connection))))
-    (when (< send-counter-limit counter)
-      (setf (connection.send-counter connection) 0)
-      (setf (connection.slowdown connection) 0.1)
-      (ping-pong connection)
-      (setf (connection.slowdown connection) nil))))
-
-(defun ping-pong (connection)
-  (let* ((tag (make-tag))
-         (pattern `(:emacs-pong ,tag)))
-    (encode-message `(:ping ,tag) (connection.socket-io connection))
-    (etypecase connection
-      (multithreaded-connection
-       (receive-if (lambda (e) (event-match-p e pattern)) nil))
-      (singlethreaded-connection
-       (let ((*emacs-connection* connection))
-         (wait-for-event pattern))))))
+                     (current-socket-io)))))
 
 
 (defvar *event-queue* '())
@@ -1050,12 +1019,32 @@ The processing is done in the extent of the toplevel restart."
   (let ((c *emacs-connection*))
     (etypecase c
       (multithreaded-connection
-       (when (connection.slowdown c)
-         (sleep 0.1))
        (send (mconn.control-thread c) event))
       (singlethreaded-connection
-       (dispatch-event c event)))))
+       (dispatch-event c event)))
+    (maybe-slow-down)))
 
+
+;;;;;; Flow control
+
+;; After sending N (usually 100) messages we slow down and ping Emacs
+;; to make sure that everything we have sent so far was received.
+
+(defconstant send-counter-limit 100)
+
+(defun maybe-slow-down ()
+  (let ((counter (incf *send-counter*)))
+    (when (< send-counter-limit counter)
+      (setf *send-counter* 0)
+      (ping-pong))))
+
+(defun ping-pong ()
+  (let* ((tag (make-tag))
+         (pattern `(:emacs-pong ,tag)))
+    (send-to-emacs `(:ping ,(current-thread-id) ,tag))
+    (wait-for-event pattern)))
+
+
 (defun wait-for-event (pattern &optional timeout)
   "Scan the event queue for PATTERN and return the event.
 If TIMEOUT is 'nil wait until a matching event is enqued.
@@ -1112,6 +1101,8 @@ event was found."
                         (event-match-p (cdr event) (cdr pattern)))))))
         (t (error "Invalid pattern: ~S" pattern))))
 
+
+
 (defun spawn-threads-for-connection (connection)
   (setf (mconn.control-thread connection)
         (spawn (lambda () (control-thread connection))
@@ -1546,21 +1537,6 @@ VERSION: the protocol version"
       :package (:name ,(package-name *package*)
                :prompt ,(package-string-for-prompt *package*))
       :version ,*swank-wire-protocol-version*)))
-
-(defslimefun io-speed-test (&optional (n 1000) (m 1))
-  (let* ((s *standard-output*)
-         (*trace-output* (make-broadcast-stream s *log-output*)))
-    (time (progn
-            (dotimes (i n)
-              (format s "~D abcdefghijklm~%" i)
-              (when (zerop (mod n m))
-                (finish-output s)))
-            (finish-output s)
-            (when *emacs-connection*
-              (eval-in-emacs '(message "done.")))))
-    (terpri *trace-output*)
-    (finish-output *trace-output*)
-    nil))
 
 (defun debug-on-swank-error ()
   (assert (eq *debug-on-swank-protocol-error* *debug-swank-backend*))
@@ -2107,8 +2083,7 @@ FORM and VALUE are both strings from Emacs."
 
 Use this function for informative messages only.  The message may even
 be dropped if we are too busy with other things."
-  (when (and *emacs-connection*
-             (not (connection.slowdown *emacs-connection*)))
+  (when *emacs-connection*
     (send-to-emacs `(:background-message 
                      ,(apply #'format nil format-string args)))))
 
@@ -3563,8 +3538,6 @@ If FORCE is true then start again without considering the old cache."
   (let ((pkg *buffer-package*))
     (flet ((perform-it ()
              (let ((cache (connection.indentation-cache connection))
-                   ;; Rebind for spawned thread.
-                   (*emacs-connection* connection)
                    (*buffer-package* pkg))
                (multiple-value-bind (delta cache)
                    (update-indentation/delta-for-emacs cache force)
@@ -3573,9 +3546,12 @@ If FORCE is true then start again without considering the old cache."
                  (unless (null delta)
                    (setf (connection.indentation-cache connection) cache)
                    (send-to-emacs (list :indentation-update delta)))))))
-      (if (use-threads-p)
-          (spawn #'perform-it :name "indentation-update-thread")
-          (perform-it)))))
+      (etypecase connection
+        (multithreaded-connection
+         (spawn (lambda () (with-connection (connection) (perform-it)))
+                :name "indentation-update-thread"))
+        (singlethreaded-connection
+         (perform-it))))))
 
 ;; FIXME: too complicated
 (defun update-indentation/delta-for-emacs (cache &optional force)
@@ -3692,6 +3668,38 @@ Collisions are caused because package information is ignored."
 
 (add-hook *pre-reply-hook* 'sync-indentation-to-emacs)
 
+
+;;;; Testing 
+
+(defslimefun io-speed-test (&optional (n 1000) (m 1))
+  (let* ((s *standard-output*)
+         (*trace-output* (make-broadcast-stream s *log-output*)))
+    (time (progn
+            (dotimes (i n)
+              (format s "~D abcdefghijklm~%" i)
+              (when (zerop (mod n m))
+                (finish-output s)))
+            (finish-output s)
+            (when *emacs-connection*
+              (eval-in-emacs '(message "done.")))))
+    (terpri *trace-output*)
+    (finish-output *trace-output*)
+    nil))
+
+(defslimefun flow-control-test (n delay)
+  (let ((stream (make-output-stream 
+                 (let ((conn *emacs-connection*))
+                   (lambda (string)
+                     (declare (ignore string))
+                     (with-connection (conn)
+                       (progn ;without-slime-interrupts
+                         (send-to-emacs `(:test-delay ,delay)))))))))
+    (dotimes (i n)
+      (print i stream)
+      (force-output stream)
+      (background-message "flow-control-test: ~d" i))))
+
+
 (defun before-init (version load-path)
   (pushnew :swank *features*)
   (setq *swank-wire-protocol-version* version)

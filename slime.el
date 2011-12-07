@@ -2353,8 +2353,8 @@ Debugged requests are ignored."
           ((:debug-condition thread message)
            (assert thread)
            (message "%s" message))
-          ((:ping tag)
-           (slime-send `(:emacs-pong ,tag)))
+          ((:ping thread tag)
+           (slime-send `(:emacs-pong ,thread ,tag)))
           ((:reader-error packet condition)
            (slime-with-popup-buffer ((slime-buffer-name :error))
              (princ (format "Invalid protocol message:\n%s\n\n%s"
@@ -2366,7 +2366,8 @@ Debugged requests are ignored."
                  (remove* id (slime-rex-continuations) :key #'car))
            (error "Invalid rpc: %s" message))
           ((:emacs-skipped-packet _pkg))
-          ))))
+          ((:test-delay seconds) ; for testing only
+           (sit-for seconds))))))
 
 (defun slime-send (sexp)
   "Send SEXP directly over the wire on the current connection."
@@ -8377,6 +8378,23 @@ CONTINUES  ... how often the continue restart should be invoked"
   (with-current-buffer (sldb-get-default-buffer)
     (sldb-quit))
   (slime-sync-to-top-level 1))
+
+(def-slime-test flow-control 
+    (n delay interrupts)
+    "Let Lisp produce output faster than Emacs can consume it."
+    `((400 0.03 3))
+  (slime-check "No debugger" (not (sldb-get-default-buffer)))
+  (slime-eval-async `(swank:flow-control-test ,n ,delay))
+  (sleep-for 0.2)
+  (dotimes (_i interrupts)
+    (slime-interrupt)
+    (slime-wait-condition "In debugger" (lambda () (slime-sldb-level= 1)) 5)
+    (slime-check "In debugger" (slime-sldb-level= 1))
+    (with-current-buffer (sldb-get-default-buffer)
+      (sldb-continue))
+    (slime-wait-condition "No debugger" (lambda () (slime-sldb-level= nil)) 3)
+    (slime-check "Debugger closed" (slime-sldb-level= nil)))
+  (slime-sync-to-top-level 8))
 
 ;;; FIXME: reconnection is broken since the recent io-redirection changes.    
 (def-slime-test (disconnect-one-connection (:style :spawn)) ()
