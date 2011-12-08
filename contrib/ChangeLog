@@ -1,5 +1,16 @@
 2011-12-08  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* slime-cl-indent.el (lisp-indent-maximum-backtracking)
+	("basic"): Increase default backtracking level to 6, so that at
+	least mildly nested macrolet-lambda lists can be identified as
+	such.
+
+	* slime-cl-indent.el (common-lisp-init-standard-indentation): Fix
+	FLET indentation spec, which caused local function lambda-lists to
+	be indented as part of the body.
+
+	* slime-cl-indent-test.txt (tests 72-76): New tests.
+
 	* slime-cl-indent.el (common-lisp-init-standard-indentation): New function,
 	wraps initialization of the common-lisp-indent-function properties.
 

@@ -37,10 +37,10 @@
   "Indentation in Lisp."
   :group 'lisp)
 
-(defcustom lisp-indent-maximum-backtracking 3
+(defcustom lisp-indent-maximum-backtracking 6
   "Maximum depth to backtrack out from a sublist for structured indentation.
 If this variable is 0, no backtracking will occur and forms such as `flet'
-may not be correctly indented."
+may not be correctly indented if this value is less than 4."
   :type 'integer
   :group 'lisp-indent)
 
@@ -419,7 +419,7 @@ OPTIONS are:
    customizations. It also adjusts comment indentation from default.
    All other predefined modes inherit from basic."
   (:variables
-   (lisp-indent-maximum-backtracking 3)
+   (lisp-indent-maximum-backtracking 6)
    (lisp-tag-indentation 1)
    (lisp-tag-body-indentation 3)
    (lisp-backquote-indentation t)
@@ -1544,7 +1544,7 @@ Cause subsequent clauses to be indented.")
              (dolist      ((&whole 4 2 1) &body))
              (dotimes     (as dolist))
              (eval-when   1)
-             (flet        ((&whole 4 &rest (&whole 1 &lambda &body)) &body))
+             (flet        ((&whole 4 &rest (&whole 1 4 &lambda &body)) &body))
              (labels         (as flet))
              (macrolet       (as flet))
              (generic-flet   (as flet))
