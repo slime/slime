@@ -250,7 +250,9 @@ Backend code should treat the connection structure as opaque.")
   reader-thread
   control-thread
   repl-thread
-  auto-flush-thread)
+  auto-flush-thread
+  indentation-cache-thread
+  )
 
 (defvar *connections* '()
   "List of all active connections, with the most recent at the front.")
@@ -1148,6 +1150,9 @@ event was found."
     (setf (@ control-thread) (current-thread))
     (setf (@ reader-thread) (spawn (lambda () (read-loop connection)) 
                                    :name "reader-thread"))
+    (setf (@ indentation-cache-thread)
+          (spawn (lambda () (indentation-cache-loop connection))
+                 :name "swank-indentation-cache-thread"))
     (dispatch-loop connection)))
 
 (defun cleanup-connection-threads (connection)
@@ -1155,9 +1160,10 @@ event was found."
          (threads (list (mconn.repl-thread c)
                         (mconn.reader-thread c)
                         (mconn.control-thread c)
-                        (mconn.auto-flush-thread c))))
+                        (mconn.auto-flush-thread c)
+                        (mconn.indentation-cache-thread c))))
     (dolist (thread threads)
-      (when (and thread 
+      (when (and thread
                  (thread-alive-p thread)
                  (not (equal (current-thread) thread)))
         (kill-thread thread)))))
@@ -3549,15 +3555,39 @@ The server port is written to PORT-FILE-NAME."
 after each command.")
 
 (defslimefun update-indentation-information ()
-  (perform-indentation-update *emacs-connection* t)
+  (send-to-indentation-cache `(:update-indentation-information))
   nil)
 
 ;; This function is for *PRE-REPLY-HOOK*.
 (defun sync-indentation-to-emacs ()
   "Send any indentation updates to Emacs via CONNECTION."
   (when *configure-emacs-indentation*
-    (let ((fullp (need-full-indentation-update-p *emacs-connection*)))
-      (perform-indentation-update *emacs-connection* fullp))))
+    (send-to-indentation-cache `(:sync-indentation ,*buffer-package*))))
+
+;; Send REQUEST to the cache.  If we are single threaded perform the
+;; request right away, otherwise delegate the request to the
+;; indentation-cache-thread.
+(defun send-to-indentation-cache (request)
+  (let ((c *emacs-connection*))
+    (etypecase c
+      (singlethreaded-connection 
+       (handle-indentation-cache-request c request))
+      (multithreaded-connection
+       (without-slime-interrupts
+         (send (mconn.indentation-cache-thread c) request))))))
+
+(defun indentation-cache-loop (connection)
+  (with-connection (connection)
+    (loop
+     (handle-indentation-cache-request connection (receive)))))
+
+(defun handle-indentation-cache-request (connection request)
+  (destructure-case request
+    ((:sync-indentation package)
+     (let ((fullp (need-full-indentation-update-p connection)))
+       (perform-indentation-update connection fullp package)))
+    ((:update-indentation-information)
+     (perform-indentation-update connection t nil))))
 
 (defun need-full-indentation-update-p (connection)
   "Return true if the whole indentation cache should be updated.
@@ -3566,72 +3596,51 @@ instead, we only do a full scan if the set of packages has changed."
   (set-difference (list-all-packages)
                   (connection.indentation-cache-packages connection)))
 
-(defun perform-indentation-update (connection force)
+(defun perform-indentation-update (connection force package)
   "Update the indentation cache in CONNECTION and update Emacs.
 If FORCE is true then start again without considering the old cache."
-  (let ((pkg *buffer-package*))
-    (flet ((perform-it ()
-             (let ((cache (connection.indentation-cache connection))
-                   (*buffer-package* pkg))
-               (multiple-value-bind (delta cache)
-                   (update-indentation/delta-for-emacs cache force)
-                 (setf (connection.indentation-cache-packages connection)
-                       (list-all-packages))
-                 (unless (null delta)
-                   (setf (connection.indentation-cache connection) cache)
-                   (send-to-emacs (list :indentation-update delta)))))))
-      (etypecase connection
-        (multithreaded-connection
-         (spawn (lambda () (with-connection (connection) (perform-it)))
-                :name "indentation-update-thread"))
-        (singlethreaded-connection
-         (perform-it))))))
+  (let ((cache (connection.indentation-cache connection)))
+    (when force (clrhash cache))
+    (let ((delta (update-indentation/delta-for-emacs cache force package)))
+      (setf (connection.indentation-cache-packages connection)
+            (list-all-packages))
+      (unless (null delta)
+        (setf (connection.indentation-cache connection) cache)
+        (send-to-emacs (list :indentation-update delta))))))
 
-;; FIXME: too complicated
-(defun update-indentation/delta-for-emacs (cache &optional force)
+(defun update-indentation/delta-for-emacs (cache force package)
   "Update the cache and return the changes in a (SYMBOL INDENT PACKAGES) list.
 If FORCE is true then check all symbols, otherwise only check symbols
-belonging to the buffer package."
-  (let ((alist '())
-        (must-copy (use-threads-p)))
-    ;; The hash-table copying hair here is to ensure no two threads ever
-    ;; operate on the same hash-table -- except in the worst case with
-    ;; parallel readers. (Hash-tables aren't guaranteed to be thread-safe at
-    ;; all, but we make the hopefully-portable assumption that parallel
-    ;; readers are OK.)
+belonging to PACKAGE."
+  (let ((alist '()))
     (flet ((consider (symbol)
              (let ((indent (symbol-indentation symbol)))
                (when indent
                  (unless (equal (gethash symbol cache) indent)
-                   (when must-copy
-                     (setf cache (let ((new (make-hash-table :test #'eq)))
-                                   (maphash (lambda (k v)
-                                              (setf (gethash k new) v))
-                                            cache)
-                                   new)
-                           must-copy nil))
                    (setf (gethash symbol cache) indent)
-                   (let ((pkgs (loop for p in (list-all-packages)
-                                     when (eq symbol (find-symbol (string symbol) p))
-                                     collect (package-name p)))
+                   (let ((pkgs (mapcar #'package-name 
+                                       (symbol-packages symbol)))
                          (name (string-downcase symbol)))
                      (push (list name indent pkgs) alist)))))))
       (cond (force
-             (setf cache (make-hash-table :test 'eq)
-                   must-copy nil)
              (do-all-symbols (symbol)
                (consider symbol)))
             (t
-             (do-symbols (symbol *buffer-package*)
-               ;; We're really just interested in the symbols of *BUFFER-PACKAGE*,
-               ;; and *not* all symbols that are _present_ (cf. SYMBOL-STATUS.)
-               (when (eq (symbol-package symbol) *buffer-package*)
+             (do-symbols (symbol package)
+               (when (eq (symbol-package symbol) package)
                  (consider symbol)))))
-      (values alist cache))))
+      alist)))
 
 (defun package-names (package)
   "Return the name and all nicknames of PACKAGE in a fresh list."
   (cons (package-name package) (copy-list (package-nicknames package))))
+
+(defun symbol-packages (symbol)
+  "Return the  packages where SYMBOL can be found."
+  (let ((string (string symbol)))
+    (loop for p in (list-all-packages)
+          when (eq symbol (find-symbol string p))
+          collect p)))
 
 (defun cl-symbol-p (symbol)
   "Is SYMBOL a symbol in the COMMON-LISP package?"

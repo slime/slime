@@ -1,3 +1,20 @@
+2011-12-09  Helmut Eller  <heller@common-lisp.net>
+
+	Create an extra thread for the indentation cache.
+
+	* swank.lisp (indentation-cache-loop): New.
+	([struct] multithreaded-connection): New slot
+	indentation-cache-thread.
+	(control-thread, cleanup-connection-threads): Create/kill it.
+	(send-to-indentation-cache): New function.
+	(update-indentation-information, sync-indentation-to-emacs): Use
+	it.
+	(perform-indentation-update, update-indentation/delta-for-emacs):
+	Add package as argument; that used to be *buffer-package.  Can
+	again be simpler as the indentation-cache-thread doesn't share the
+	cache with others.
+	(handle-indentation-cache-request, symbol-packages): New helpers.
+
 2011-12-07  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (*slime-interrupts-enabled*): Describe the idea
