@@ -291,8 +291,6 @@ dynamic binding."
                          *standard-input-streams*
                          *standard-io-streams*))))))
 
-(add-hook *after-init-hook* 'init-global-stream-redirection)
-
 (defun globally-redirect-io-to-connection (connection)
   "Set the standard I/O streams to redirect to CONNECTION.
 Assigns *CURRENT-<STREAM>* for all standard streams."
@@ -334,6 +332,8 @@ NIL if streams are not globally redirected.")
   "Consider globally redirecting to CONNECTION."
   (when (and *globally-redirect-io* (null *global-stdio-connection*)
              (connection.user-io connection))
+    (unless *saved-global-streams*
+      (init-global-stream-redirection))
     (setq *global-stdio-connection* connection)
     (globally-redirect-io-to-connection connection)))
 

@@ -1,3 +1,11 @@
+2011-12-10  Helmut Eller  <heller@common-lisp.net>
+
+	Don't call init-global-stream-redirection in *after-init-hook*.
+	*after-init-hook* may be called before the contrib was loaded.
+
+	* swank-repl.lisp (maybe-redirect-global-io): Call
+	init-global-stream-redirection here instead.
+
 2011-12-08  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-cl-indent.el (lisp-indent-maximum-backtracking)
