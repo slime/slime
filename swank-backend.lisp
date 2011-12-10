@@ -430,6 +430,16 @@ EXCEPT is a list of symbol names which should be ignored."
   "Convert the (simple-array (unsigned-byte 8)) OCTETS to a string."
   (default-utf8-to-string octets))
 
+;;; Codepoint length
+
+;; we don't need this anymore.
+(definterface codepoint-length (string)
+  "Return the number of codepoints in STRING.
+With some Lisps, like cmucl, LENGTH returns the number of UTF-16 code
+units, but other Lisps return the number of codepoints. The slime
+protocol wants string lengths in terms of codepoints."
+  (length string))
+
 
 ;;;; TCP server
 
@@ -1086,9 +1096,10 @@ respective DEFSTRUCT definition, and so on."
   (make-error-location "FIND-DEFINITIONS is not yet implemented on ~
                         this implementation."))
 
-
 (definterface buffer-first-change (filename)
-  "Called for effect the first time FILENAME's buffer is modified."
+  "Called for effect the first time FILENAME's buffer is modified.
+CMUCL/SBCL use this to cache the unmodified file and use the
+unmodified text to improve the precision of source locations."
   (declare (ignore filename))
   nil)
 
@@ -1189,6 +1200,19 @@ functions recorded.
 When called with arguments :METHODS T, profile all methods of all
 generic functions having names in the given package.  Generic functions
 themselves, that is, their dispatch functions, are left alone.")
+
+
+;;;; Trace
+
+(definterface toggle-trace (spec)
+  "Toggle tracing of the function(s) given with SPEC.
+SPEC can be:
+ (setf NAME)                            ; a setf function
+ (:defmethod NAME QUALIFIER... (SPECIALIZER...)) ; a specific method
+ (:defgeneric NAME)                     ; a generic function with all methods
+ (:call CALLER CALLEE)                  ; trace calls from CALLER to CALLEE.
+ (:labels TOPLEVEL LOCAL) 
+ (:flet TOPLEVEL LOCAL) ")
 
 
 ;;;; Inspector
@@ -1293,19 +1317,6 @@ have to be unique."
   (declare (ignore thread))
   '())
 
-(definterface make-lock (&key name)
-   "Make a lock for thread synchronization.
-Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time
-but that thread may hold it more than once."
-   (declare (ignore name))
-   :null-lock)
-
-(definterface call-with-lock-held (lock function)
-   "Call FUNCTION with LOCK held, queueing if necessary."
-   (declare (ignore lock)
-            (type function function))
-   (funcall function))
-
 (definterface current-thread ()
   "Return the currently executing thread."
   0)
@@ -1377,15 +1388,30 @@ return nil.
 
 Return :interrupt if an interrupt occurs while waiting.")
 
-(definterface toggle-trace (spec)
-  "Toggle tracing of the function(s) given with SPEC.
-SPEC can be:
- (setf NAME)                            ; a setf function
- (:defmethod NAME QUALIFIER... (SPECIALIZER...)) ; a specific method
- (:defgeneric NAME)                     ; a generic function with all methods
- (:call CALLER CALLEE)                  ; trace calls from CALLER to CALLEE.
- (:labels TOPLEVEL LOCAL) 
- (:flet TOPLEVEL LOCAL) ")
+
+;;;;  Locks 
+
+;; Please use locks only in swank-gray.lisp.  Locks are too low-level
+;; for our taste.
+
+(definterface make-lock (&key name)
+   "Make a lock for thread synchronization.
+Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time
+but that thread may hold it more than once."
+   (declare (ignore name))
+   :null-lock)
+
+(definterface call-with-lock-held (lock function)
+   "Call FUNCTION with LOCK held, queueing if necessary."
+   (declare (ignore lock)
+            (type function function))
+   (funcall function))
+
+;; Same here: don't use this outside of swank-gray.lisp.
+(definterface call-with-io-timeout (function &key seconds)
+  "Calls function with the specified IO timeout."
+  (declare (ignore seconds))
+  (funcall function))
 
 
 ;;;; Weak datastructures
@@ -1460,19 +1486,3 @@ RESTART-FUNCTION, if non-nil, should be called when the image is loaded.")
   "Request saving a heap image to the file FILENAME.
 RESTART-FUNCTION, if non-nil, should be called when the image is loaded.
 COMPLETION-FUNCTION, if non-nil, should be called after saving the image.")
-
-;;; Codepoint length
-
-(definterface codepoint-length (string)
-  "Return the number of codepoints in STRING.
-With some Lisps, like cmucl, LENGTH returns the number of UTF-16 code
-units, but other Lisps return the number of codepoints. The slime
-protocol wants string lengths in terms of codepoints."
-  (length string))
-
-;;; Timeouts
-
-(definterface call-with-io-timeout (function &key seconds)
-  "Calls function with the specified IO timeout."
-  (declare (ignore seconds))
-  (funcall function))

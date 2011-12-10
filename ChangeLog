@@ -1,5 +1,13 @@
 2011-12-10  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (auto-flush-loop): Don't use call-with-io-timeout.
+	Removing it had no effect on the number of failed tests.  If you
+	want it back, first create a test case to demonstrate the problem.
+	* swank-backend.lisp: Mention that locks should only be used in
+	swank-gray.lisp.
+
+2011-12-10  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp: Move global io-redirection contrib/slime-repl.lisp.
 
 2011-12-10  Helmut Eller  <heller@common-lisp.net>

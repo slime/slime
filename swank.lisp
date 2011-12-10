@@ -941,15 +941,11 @@ The processing is done in the extent of the toplevel restart."
 
 (defun auto-flush-loop (stream)
   (loop
-    (when (not (and (open-stream-p stream) 
-                    (output-stream-p stream)))
-      (return nil))
-    ;; Use an IO timeout to avoid deadlocks
-    ;; on the stream we're flushing.
-    (call-with-io-timeout
-     (lambda () (finish-output stream))
-     :seconds 0.1)
-    (sleep *auto-flush-interval*)))
+   (when (not (and (open-stream-p stream)
+                   (output-stream-p stream)))
+     (return nil))
+   (force-output stream)
+   (sleep *auto-flush-interval*)))
 
 ;; FIXME: drop dependency on find-repl-thread
 (defun find-worker-thread (connection id)
