@@ -1,5 +1,9 @@
 2011-12-10  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp: Move global io-redirection contrib/slime-repl.lisp.
+
+2011-12-10  Helmut Eller  <heller@common-lisp.net>
+
 	Make *active-threads* a slot of the connection struct.
 
 	* swank.lisp (*active-threads*): Deleted
