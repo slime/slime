@@ -1,5 +1,15 @@
 2011-12-10  Helmut Eller  <heller@common-lisp.net>
 
+	Make *active-threads* a slot of the connection struct.
+
+	* swank.lisp (*active-threads*): Deleted
+	([struct] multithreaded-connection): New slot active-threads.
+	(find-worker-thread, interrupt-worker-thread)
+	(thread-for-evaluation): Update accordingly.
+	(add-active-thread, remove-active-thread): New helpers.
+
+2011-12-10  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-loader.lisp (delete-stale-contrib-fasl-files): New.
 	(compile-contribs): Use it.
 

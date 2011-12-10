@@ -252,6 +252,11 @@ Backend code should treat the connection structure as opaque.")
   repl-thread
   auto-flush-thread
   indentation-cache-thread
+  ;; List of threads that are currently processing requests.  We use
+  ;; this to find the newest/current thread for an interrupt.  In the
+  ;; future we may store here (thread . request-tag) pairs so that we
+  ;; can interrupt specific requests.
+  (active-threads '() :type list)
   )
 
 (defvar *connections* '()
@@ -921,8 +926,6 @@ The processing is done in the extent of the toplevel restart."
 
 ;;;;;; Thread based communication
 
-(defvar *active-threads* '())
-
 (defun read-loop (connection)
   (let ((input-stream (connection.socket-io connection))
         (control-thread (mconn.control-thread connection)))
@@ -948,40 +951,44 @@ The processing is done in the extent of the toplevel restart."
      :seconds 0.1)
     (sleep *auto-flush-interval*)))
 
-;; FIXME: drop dependicy on find-repl-thread
-(defun find-worker-thread (id)
+;; FIXME: drop dependency on find-repl-thread
+(defun find-worker-thread (connection id)
   (etypecase id
     ((member t)
-     (car *active-threads*))
+     (etypecase connection
+       (multithreaded-connection (car (mconn.active-threads connection)))
+       (singlethreaded-connection (current-thread))))
     ((member :repl-thread) 
-     (find-repl-thread *emacs-connection*))
+     (find-repl-thread connection))
     (fixnum 
      (find-thread id))))
 
-(defun interrupt-worker-thread (id)
-  (let ((thread (or (find-worker-thread id)
+(defun interrupt-worker-thread (connection id)
+  (let ((thread (or (find-worker-thread connection id)
                     ;; FIXME: to something better here
                     (spawn (lambda ()) :name "ephemeral"))))
     (log-event "interrupt-worker-thread: ~a ~a~%" id thread)
     (assert thread)
-    (cond ((use-threads-p)
-           (interrupt-thread thread
-                             (lambda ()
-                               ;; safely interrupt THREAD
-                               (invoke-or-queue-interrupt #'simple-break))))
-          (t (simple-break)))))
+    (etypecase connection
+      (multithreaded-connection
+       (interrupt-thread thread
+                         (lambda ()
+                           ;; safely interrupt THREAD
+                           (invoke-or-queue-interrupt #'simple-break))))
+      (singlethreaded-connection
+       (simple-break)))))
 
-(defun thread-for-evaluation (id)
+(defun thread-for-evaluation (connection id)
   "Find or create a thread to evaluate the next request."
-  (let ((c *emacs-connection*))
-    (etypecase id
-      ((member t)
-       (cond ((use-threads-p) (spawn-worker-thread c))
-             (t (current-thread))))
-      ((member :repl-thread)
-       (find-repl-thread c))
-      (fixnum
-       (find-thread id)))))
+  (etypecase id
+    ((member t)
+     (etypecase connection
+       (multithreaded-connection (spawn-worker-thread connection))
+       (singlethreaded-connection (current-thread))))
+    ((member :repl-thread)
+     (find-repl-thread connection))
+    (fixnum
+     (find-thread id))))
 
 (defun spawn-worker-thread (connection)
   (spawn (lambda () 
@@ -991,15 +998,27 @@ The processing is done in the extent of the toplevel restart."
                       (cdr (wait-for-event `(:emacs-rex . _)))))))
          :name "worker"))
 
+(defun add-active-thread (connection thread)
+  (etypecase connection
+    (multithreaded-connection 
+     (push thread (mconn.active-threads connection)))
+    (singlethreaded-connection)))
+
+(defun remove-active-thread (connection thread)
+  (etypecase connection
+    (multithreaded-connection
+     (setf (mconn.active-threads connection)
+           (delete thread (mconn.active-threads connection) :count 1)))
+    (singlethreaded-connection)))
+
 (defun dispatch-event (connection event)
   "Handle an event triggered either by Emacs or within Lisp."
-  (declare (ignore connection))
   (log-event "dispatch-event: ~s~%" event)
   (destructure-case event
     ((:emacs-rex form package thread-id id)
-     (let ((thread (thread-for-evaluation thread-id)))
-       (cond (thread 
-              (push thread *active-threads*)
+     (let ((thread (thread-for-evaluation connection thread-id)))
+       (cond (thread
+              (add-active-thread connection thread)
               (send-event thread `(:emacs-rex ,form ,package ,id)))
              (t
               (encode-message 
@@ -1007,12 +1026,10 @@ The processing is done in the extent of the toplevel restart."
                      (format nil "Thread not found: ~s" thread-id))
                (current-socket-io))))))
     ((:return thread &rest args)
-     (let ((tail (member thread *active-threads*)))
-       (setq *active-threads* (nconc (ldiff *active-threads* tail)
-				     (cdr tail))))
+     (remove-active-thread connection thread)
      (encode-message `(:return ,@args) (current-socket-io)))
     ((:emacs-interrupt thread-id)
-     (interrupt-worker-thread thread-id))
+     (interrupt-worker-thread connection thread-id))
     (((:write-string 
        :debug :debug-condition :debug-activate :debug-return :channel-send
        :presentation-start :presentation-end
@@ -1033,9 +1050,6 @@ The processing is done in the extent of the toplevel restart."
                      (current-socket-io)))))
 
 
-(defvar *event-queue* '())
-(defvar *events-enqueued* 0)
-
 (defun send-event (thread event)
   (log-event "send-event: ~s ~s~%" thread event)
   (let ((c *emacs-connection*))
@@ -1202,8 +1216,6 @@ event was found."
   (handle-requests connection t))
 
 (defun dispatch-interrupt-event (connection)
-  ;; This boils down to INTERRUPT-WORKER-THREAD which uses
-  ;; USE-THREADS-P which needs *EMACS-CONNECTION*.
   (with-connection (connection)
     (dispatch-event connection `(:emacs-interrupt ,(current-thread-id)))))
 
