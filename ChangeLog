@@ -8,7 +8,7 @@
 
 2011-12-10  Helmut Eller  <heller@common-lisp.net>
 
-	* swank.lisp: Move global io-redirection contrib/slime-repl.lisp.
+	* swank.lisp: Move io-redirection to contrib/swank-repl.lisp.
 
 2011-12-10  Helmut Eller  <heller@common-lisp.net>
 
@@ -45,7 +45,7 @@
 2011-12-07  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (*slime-interrupts-enabled*): Describe the idea
-	behind the interrupt handlig code a bit.
+	behind the interrupt handling code a bit.
 
 2011-12-07  Helmut Eller  <heller@common-lisp.net>
 
@@ -106,7 +106,7 @@
 
 2011-12-07  Stas Boukarev  <stassats@gmail.com>
 
-	* doc/.cvsignore: Aadd html.tgz
+	* doc/.cvsignore: Add html.tgz
 
 2011-12-07  Didier Verna  <didier@xemacs.org>
 
