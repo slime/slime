@@ -1,3 +1,8 @@
+2011-12-10  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-loader.lisp (delete-stale-contrib-fasl-files): New.
+	(compile-contribs): Use it.
+
 2011-12-09  Helmut Eller  <heller@common-lisp.net>
 
 	Create an extra thread for the indentation cache.
