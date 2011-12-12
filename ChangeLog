@@ -1,3 +1,9 @@
+2011-12-12  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-compile-region): Run slime-flash-region
+	directly, not from `slime-before-compile-functions', which is run
+	also for C-c C-k.
+
 2011-12-10  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (auto-flush-loop): Don't use call-with-io-timeout.
