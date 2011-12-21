@@ -201,6 +201,7 @@
         (when buffer
           (< (sb-impl::buffer-head buffer)
              (sb-impl::buffer-tail buffer))))
+      #+#.(swank-backend:with-symbol 'fd-stream-fd-type 'sb-impl)
       (eq :regular (sb-impl::fd-stream-fd-type stream))
       (not (sb-impl::sysread-may-block-p stream))))
 
