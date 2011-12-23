@@ -1811,6 +1811,8 @@ This doesn't mean it will connect right after Slime is loaded."
   "Make PROCESS the default connection."
   (setq slime-default-connection process))
 
+(defvar slime-cycle-connections-hook nil)
+
 (defun slime-cycle-connections ()
   "Change current slime connection, cycling through all connections."
   (interactive)
@@ -1819,6 +1821,7 @@ This doesn't mean it will connect right after Slime is loaded."
                    slime-net-processes))
          (p (car tail)))
     (slime-select-connection p)
+    (run-hooks 'slime-cycle-connections-hook)
     (message "Lisp: %s %s" (slime-connection-name p) (process-contact p))))
 
 (defmacro* slime-with-connection-buffer ((&optional process) &rest body)

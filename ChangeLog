@@ -1,3 +1,8 @@
+2011-12-23  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-cycle-connections): Add
+	`slime-cycle-connections-hook', to be used by slime-repl.
+
 2011-12-21  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sbcl.lisp (input-ready-p): Don't use

@@ -27,8 +27,7 @@ maintain."
   (:authors "too many to mention")
   (:license "GPL")
   (:on-load
-   (add-hook 'slime-event-hooks 'slime-repl-event-hook-function)
-   (add-hook 'slime-connected-hook 'slime-repl-connected-hook-function)
+   (slime-repl-add-hooks) 
    (setq slime-find-buffer-package-function 'slime-repl-find-buffer-package))
   (:on-unload (slime-repl-remove-hooks))
   (:swank-dependencies swank-repl))
@@ -1704,13 +1703,26 @@ expansion will be added to the REPL's history.)"
      t)
     (t nil)))
 
+(defun slime-change-repl-to-default-connection ()
+  "Change current REPL to the REPL of the default connection.
+If the current buffer is not a REPL, don't do anything."
+  (when (equal major-mode 'slime-repl-mode)
+    (let ((slime-buffer-connection slime-default-connection))
+      (pop-to-buffer-same-window (slime-connection-output-buffer)))))
+
 (defun slime-repl-find-buffer-package ()
   (or (slime-search-buffer-package)
       (slime-lisp-package)))
 
+(defun slime-repl-add-hooks ()
+  (add-hook 'slime-event-hooks 'slime-repl-event-hook-function)
+  (add-hook 'slime-connected-hook 'slime-repl-connected-hook-function)
+  (add-hook 'slime-cycle-connections-hook 'slime-change-repl-to-default-connection))
+
 (defun slime-repl-remove-hooks ()
   (remove-hook 'slime-event-hooks 'slime-repl-event-hook-function)
-  (remove-hook 'slime-connected-hook 'slime-repl-connected-hook-function))
+  (remove-hook 'slime-connected-hook 'slime-repl-connected-hook-function)
+  (remove-hook 'slime-cycle-connections-hook 'slime-change-repl-to-default-connection))
 
 (let ((byte-compile-warnings '()))
   (mapc #'byte-compile

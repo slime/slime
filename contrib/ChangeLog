@@ -1,3 +1,13 @@
+2011-12-23  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-change-repl-to-default-connection): New
+	function.
+	Changes the current REPL to the REPL of the default connection. If
+	the current buffer is not a REPL, don't do anything.
+	Put it into `slime-cycle-connections-hook', so that when
+	connections are cycled through it will change the currently
+	displayed REPL.
+
 2011-12-10  Helmut Eller  <heller@common-lisp.net>
 
 	Don't call init-global-stream-redirection in *after-init-hook*.
