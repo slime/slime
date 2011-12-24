@@ -1,3 +1,10 @@
+2011-12-24  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (throw-to-toplevel): If *sldb-quit-restart* is not
+	found, try to invoke the last restart, which usually is a
+	top-level abort restart. This is useful when the debugger is
+	invoked from a non-slime thread.
+
 2011-12-23  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-cycle-connections): Add

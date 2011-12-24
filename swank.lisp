@@ -2231,7 +2231,8 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
 (defslimefun throw-to-toplevel ()
   "Invoke the ABORT-REQUEST restart abort an RPC from Emacs.
 If we are not evaluating an RPC then ABORT instead."
-  (let ((restart (and *sldb-quit-restart* (find-restart *sldb-quit-restart*))))
+  (let ((restart (or (and *sldb-quit-restart* (find-restart *sldb-quit-restart*))
+                     (car (last (compute-restarts))))))
     (cond (restart (invoke-restart restart))
           (t (format nil "Restart not active [~s]" *sldb-quit-restart*)))))
 
