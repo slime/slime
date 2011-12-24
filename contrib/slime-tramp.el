@@ -48,10 +48,8 @@ See also `slime-create-filename-translator'."
   :group 'slime-lisp)
 
 (defun slime-find-filename-translators (hostname)
-  (cond ((and hostname slime-filename-translations)
-         (or (cdr (assoc-if (lambda (regexp) (string-match regexp hostname))
-                            slime-filename-translations))
-             (error "No filename-translations for hostname: %s" hostname)))
+  (cond ((cdr (assoc-if (lambda (regexp) (string-match regexp hostname))
+                            slime-filename-translations)))
         (t (list #'identity #'identity))))
 
 (defun slime-make-tramp-file-name (username remote-host lisp-filename)

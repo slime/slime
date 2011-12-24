@@ -1,3 +1,8 @@
+2011-12-24  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-tramp.el (slime-find-filename-translators): Don't signal
+	an error if there's no translators for a hostname, just use 'identity.
+
 2011-12-23  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-change-repl-to-default-connection): New
