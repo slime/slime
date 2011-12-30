@@ -1,3 +1,22 @@
+2011-12-30  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime-cl-indent.el (common-lisp-looking-at-keyword): New function. Looks
+	past #+foo expressions.
+	(common-lisp-backward-keyword-argument): New function. Semi-aware
+	of #+foo expressions.
+	(common-lisp-indent-function-1):
+	1. Use `common-lisp-indent-parse-state-start'.
+	2. Move #+/- cleavernes outside the cond: it is always a default, and shouldn't
+	trump other indentation logic. Also make it use the column of the first feature
+	expression, not the last.
+	3. Make keyword alignment somewhat feature-expression aware.
+	4. Make heuristics not force remaining forms to be indented at the same line.
+	(common-lisp-indent-test): Leave one leading whitespace on comment lines
+	when messing up indentation.
+
+	* slime-cl-indent-test.txt (tests 77-83): Tests for feature-expression
+	and keyword alignment interaction.
+
 2011-12-24  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-tramp.el (slime-find-filename-translators): Don't signal

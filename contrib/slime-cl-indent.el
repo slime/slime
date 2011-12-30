@@ -743,6 +743,34 @@ For example, the function `case' has an indent property
       (unless (eql (elt string (- len i 1)) (char-before (- (point) i)))
         (return nil)))))
 
+(defvar common-lisp-feature-expression-regexp "#!?\\(+\\|-\\)")
+
+;;; Semi-feature-expression aware keyword check.
+(defun common-lisp-looking-at-keyword ()
+  (or (looking-at ":")
+      (and (looking-at common-lisp-feature-expression-regexp)
+           (save-excursion
+             (forward-sexp)
+             (skip-chars-forward " \t\n")
+             (common-lisp-looking-at-keyword)))))
+
+;;; Semi-feature-expression aware backwards movement for keyword argument pairs.
+(defun common-lisp-backward-keyword-argument ()
+  (ignore-errors
+    (backward-sexp 2)
+    (when (looking-at common-lisp-feature-expression-regexp)
+      (cond ((ignore-errors
+               (save-excursion
+                 (backward-sexp 2)
+                 (looking-at common-lisp-feature-expression-regexp)))
+             (common-lisp-backward-keyword-argument))
+            ((ignore-errors
+               (save-excursion
+                 (backward-sexp 1)
+                 (looking-at ":")))
+             (backward-sexp))))
+    t))
+
 (defun common-lisp-indent-function-1 (indent-point state)
   ;; If we're looking at a splice, move to the first comma.
   (when (or (common-lisp-looking-back ",") (common-lisp-looking-back ",@"))
@@ -763,7 +791,7 @@ For example, the function `case' has an indent property
           tentative-calculated
           (last-point indent-point)
           ;; the position of the open-paren of the innermost containing list
-          (containing-form-start (elt state 1))
+          (containing-form-start (common-lisp-indent-parse-state-start state))
           ;; the column of the above
           sexp-column)
       ;; Move to start of innermost containing list
@@ -829,21 +857,32 @@ For example, the function `case' has an indent property
                       function)
                      (setq method '(&lambda &body)))))
 
+            ;; #+ and #- cleverness.
+            (save-excursion
+              (goto-char indent-point)
+              (backward-sexp)
+              (let ((indent (current-column)))
+                (when (or (looking-at common-lisp-feature-expression-regexp)
+                          (ignore-errors
+                            (backward-sexp)
+                            (when (looking-at common-lisp-feature-expression-regexp)
+                              (setq indent (current-column))
+                              (let ((line (line-number-at-pos)))
+                                (while (ignore-errors
+                                         (backward-sexp 2)
+                                         (and
+                                          (= line (line-number-at-pos))
+                                          (looking-at common-lisp-feature-expression-regexp)))
+                                  (setq indent (current-column))))
+                              t)))
+                  (setq calculated (list indent containing-form-start)))))
+
             (cond ((and (or (eq (char-after (1- containing-sexp)) ?\')
                             (and (not lisp-backquote-indentation)
                                  (eq (char-after (1- containing-sexp)) ?\`)))
                         (not (eq (char-after (- containing-sexp 2)) ?\#)))
                    ;; No indentation for "'(...)" elements
                    (setq calculated (1+ sexp-column)))
-                  ((save-excursion
-                     (goto-char indent-point)
-                     (backward-sexp)
-                     (let ((re "#!?\\(+\\|-\\)"))
-                       (if (or (looking-at re)
-                               (ignore-errors
-                                 (backward-sexp)
-                                 (looking-at re)))
-                         (setq calculated (current-column))))))
                   ((eq (char-after (1- containing-sexp)) ?\#)
                    ;; "#(...)"
                    (setq calculated (1+ sexp-column)))
@@ -875,10 +914,11 @@ For example, the function `case' has an indent property
                        (save-excursion
                          (goto-char indent-point)
                          (back-to-indentation)
-                         (when (looking-at ":")
-                           (while (ignore-errors (backward-sexp 2) t)
-                             (when (looking-at ":")
-                               (setq calculated (current-column)))))))))
+                         (when (common-lisp-looking-at-keyword)
+                           (while (common-lisp-backward-keyword-argument)
+                             (when (common-lisp-looking-at-keyword)
+                               (setq calculated (list (current-column)
+                                                      containing-form-start)))))))))
                   ((integerp method)
                    ;; convenient top-level hack.
                    ;;  (also compatible with lisp-indent-function)
@@ -926,11 +966,11 @@ For example, the function `case' has an indent property
                 (let ((one (current-column)))
                   (skip-chars-forward " \t")
                   (if (or (eolp) (looking-at ";"))
-                      one
+                      (list one containing-form-start)
                     (forward-sexp 2)
                     (backward-sexp)
                     (unless (= p (point))
-                      (current-column)))))))))))
+                      (list (current-column) containing-form-start)))))))))))
 
 
 (defun common-lisp-indent-call-method (function method path state indent-point
@@ -1624,8 +1664,9 @@ Cause subsequent clauses to be indented.")
         (unless (looking-at "^$")
           (case (random 2)
             (0
-             ;; Delete all leading whitespace.
-             (while (looking-at " ") (delete-char 1)))
+             ;; Delete all leading whitespace -- except for comment lines.
+             (while (and (looking-at " ") (not (looking-at " ;")))
+               (delete-char 1)))
             (1
              ;; Insert whitespace random.
              (let ((n (1+ (random 24))))
@@ -1699,6 +1740,6 @@ Cause subsequent clauses to be indented.")
 ;;;   (common-lisp-run-indentation-tests t)
 ;;;
 ;;; Run specific test:
-;;;   (common-lisp-run-indentation-tests 70)
+;;;   (common-lisp-run-indentation-tests 77)
 
 ;;; cl-indent.el ends here

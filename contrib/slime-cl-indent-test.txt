@@ -827,3 +827,66 @@
              (list foo opt1 opt2
                    rest)))
   ...)
+
+;;; Test: 77
+;;
+;; lisp-align-keywords-in-calls: t
+
+(foo *foo*
+     :bar t
+     :quux #+quux t
+           #-quux nil
+     :zot t)
+
+;;; Test: 78
+;;
+;; lisp-align-keywords-in-calls: t
+
+(foo *foo* :fii t
+           :bar t
+           :quux #+quux t
+                 #+zot nil
+           :zot t)
+
+;;; Test: 79
+
+(foo #+quux :quux #+quux t
+     #-quux :zoo #-quux t)
+
+;;; Test: 80
+;;
+;; lisp-align-keywords-in-calls: t
+
+(foo *foo* :fii t
+           :bar t
+           #+quux :quux #+quux t
+           :zot t)
+
+;;; Test: 81
+;;
+;; lisp-align-keywords-in-calls: t
+
+(foo *foo* :fii t
+           :bar t
+           #+quux #+quux :quux t
+           :zot t)
+
+;;; Test: 82
+;;
+;; lisp-align-keywords-in-calls: t
+
+(foo *foo* :fii t
+           :bar t
+           #+quux
+           :quux #+quux t
+           :zot t)
+
+;;; Test: 83
+;;
+;; lisp-align-keywords-in-calls: t
+
+(foo *foo* :fii t
+           :bar t
+           #+quux #+quux
+           :quux t
+           :zot t)
