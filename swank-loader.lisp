@@ -73,7 +73,11 @@
 (defun lisp-version-string ()
   #+(or clozure cmu) (substitute-if #\_ (lambda (x) (find x " /"))
                                     (lisp-implementation-version))
-  #+(or cormanlisp scl sbcl) (lisp-implementation-version)
+  #+(or cormanlisp scl) (lisp-implementation-version)
+  #+sbcl (format nil "~a~:[~;-no-threads~]"
+                 (lisp-implementation-version)
+                 #+sb-thread nil
+                 #-sb-thread t)
   #+lispworks (lisp-implementation-version)
   #+allegro   (format nil "~A~A~A~A"
                       excl::*common-lisp-version-number*
