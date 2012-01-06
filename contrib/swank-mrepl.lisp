@@ -28,7 +28,7 @@
 
 (defpackage :swank-mrepl
   (:use :cl :swank-api)
-  (:export #:create-listener))
+  (:export #:create-mrepl))
 
 (in-package :swank-mrepl)
 
@@ -107,7 +107,7 @@
 
 (defun send-prompt (channel)
   (with-slots (env remote) channel
-    (let ((pkg (cdr (or (assoc '*package* env) *package*)))
+    (let ((pkg (or (cdr (assoc '*package* env)) *package*))
 	  (out (cdr (assoc '*standard-output* env)))
 	  (in (cdr (assoc '*standard-input* env))))
       (when out (force-output out))
