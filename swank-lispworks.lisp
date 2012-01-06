@@ -945,6 +945,26 @@ function names like \(SETF GET)."
       (setf (mailbox.queue mbox)
             (nconc (mailbox.queue mbox) (list message))))))
 
+(let ((alist '())
+      (lock (mp:make-lock :name "register-thread")))
+
+  (defimplementation register-thread (name thread)
+    (declare (type symbol name))
+    (mp:with-lock (lock)
+      (etypecase thread
+        (null 
+         (setf alist (delete name alist :key #'car)))
+        (mp:process
+         (let ((probe (assoc name alist)))
+           (cond (probe (setf (cdr probe) thread))
+                 (t (setf alist (acons name thread alist))))))))
+    nil)
+
+  (defimplementation find-registered (name)
+    (mp:with-lock (lock)
+      (cdr (assoc name alist)))))
+
+
 (defimplementation set-default-initial-binding (var form)
   (setq mp:*process-initial-bindings* 
         (acons var `(eval (quote ,form))

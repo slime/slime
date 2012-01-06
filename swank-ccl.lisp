@@ -760,6 +760,25 @@
      (when (eq timeout t) (return (values nil t)))
      (ccl:timed-wait-on-semaphore (mailbox.semaphore mbox) 1))))
 
+(let ((alist '())
+      (lock (ccl:make-lock "register-thread")))
+
+  (defimplementation register-thread (name thread)
+    (declare (type symbol name))
+    (ccl:with-lock-grabbed (lock)
+      (etypecase thread
+        (null 
+         (setf alist (delete name alist :key #'car)))
+        (ccl:process
+         (let ((probe (assoc name alist)))
+           (cond (probe (setf (cdr probe) thread))
+                 (t (setf alist (acons name thread alist))))))))
+    nil)
+
+  (defimplementation find-registered (name)
+    (ccl:with-lock-grabbed (lock)
+      (cdr (assoc name alist)))))
+
 (defimplementation set-default-initial-binding (var form)
   (eval `(ccl::def-standard-initial-binding ,var ,form)))
 

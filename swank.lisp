@@ -259,20 +259,8 @@ Backend code should treat the connection structure as opaque.")
   (active-threads '() :type list)
   )
 
-(defvar *connections* '()
-  "List of all active connections, with the most recent at the front.")
-
 (defvar *emacs-connection* nil
   "The connection to Emacs currently in use.")
-
-(defun default-connection ()
-  "Return the 'default' Emacs connection.
-This connection can be used to talk with Emacs when no specific
-connection is in use, i.e. *EMACS-CONNECTION* is NIL.
-
-The default connection is defined (quite arbitrarily) as the most
-recently established one."
-  (first *connections*))
 
 (defun make-connection (socket stream style)
   (let ((conn (funcall (ecase style
@@ -284,7 +272,7 @@ recently established one."
                        :socket-io stream
                        :communication-style style)))
     (run-hook *new-connection-hook* conn)
-    (push conn *connections*)
+    (send-to-sentinel `(:add-connection ,conn))
     conn))
 
 (defslimefun ping (tag)
@@ -581,6 +569,83 @@ This is like defvar, but NAME will not be initialized."
     (setf (documentation ',name 'variable) ,doc)))
 
 
+;;;;; Sentinel
+;;;
+;;; The sentinel thread manages some global lists.
+;;; FIXME: Overdesigned?
+
+(defvar *connections* '()
+  "List of all active connections, with the most recent at the front.")
+
+(defvar *servers* '()
+  "A list ((server-socket port thread) ...) describing the listening sockets.
+Used to close sockets on server shutdown or restart.")
+
+;; FIXME: we simply access the global variable here.  We could ask the
+;; sentinel thread instead but then we still have the problem that the
+;; connection could be closed before we use it.  
+(defun default-connection ()
+  "Return the 'default' Emacs connection.
+This connection can be used to talk with Emacs when no specific
+connection is in use, i.e. *EMACS-CONNECTION* is NIL.
+
+The default connection is defined (quite arbitrarily) as the most
+recently established one."
+  (car *connections*))
+
+(defun start-sentinel () 
+  (unless (find-registered 'sentinel)
+    (let ((thread (spawn #'sentinel :name "Swank Sentinel")))
+      (register-thread 'sentinel thread))))
+
+(defun sentinel ()
+  (catch 'exit-sentinel
+    (loop (sentinel-serve (receive)))))
+
+(defun send-to-sentinel (msg)
+  (let ((sentinel (find-registered 'sentinel)))
+    (cond (sentinel (send sentinel msg))
+          (t (sentinel-serve msg)))))
+
+(defun sentinel-serve (msg)
+  (destructure-case msg
+    ((:add-connection conn)
+     (push conn *connections*))
+    ((:close-connection connection condition backtrace)
+     (close-connection% connection condition backtrace)
+     (sentinel-maybe-exit))
+    ((:add-server socket port thread)
+     (push (list socket port thread) *servers*))
+    ((:stop-server key port)
+     (sentinel-stop-server key port)
+     (sentinel-maybe-exit))))
+
+(defun sentinel-stop-server (key value)
+  (let ((probe (find value *servers* :key (ecase key 
+                                            (:socket #'car)
+                                            (:port #'cadr)))))
+    (cond (probe 
+           (setq *servers* (delete probe *servers*))
+           (destructuring-bind (socket _port thread) probe
+             (declare (ignore _port))
+             (ignore-errors (close-socket socket))
+             (when (and thread 
+                        (thread-alive-p thread)
+                        (not (eq thread (current-thread))))
+               (kill-thread thread))))
+          (t
+           (warn "No server for ~s: ~s" key value)))))
+
+(defun sentinel-maybe-exit ()
+  (when (and (null *connections*)
+             (null *servers*)
+             (and (current-thread)
+                  (eq (find-registered 'sentinel)
+                      (current-thread))))
+    (register-thread 'sentinel nil)
+    (throw 'exit-sentinel nil)))
+
+
 ;;;;; Misc
 
 (defun use-threads-p ()
@@ -684,11 +749,6 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
   "Default value of :dont-close argument to start-server and
   create-server.")
 
-(defvar *listener-sockets* nil
-  "A property list of lists containing style, socket pairs used 
-   by swank server listeners, keyed on socket port number. They 
-   are used to close sockets on server shutdown or restart.")
-
 (defun start-server (port-file &key (style *communication-style*)
                                     (dont-close *dont-close*))
   "Start the server and write the listen port number to PORT-FILE.
@@ -714,48 +774,28 @@ connections, otherwise it will be closed after the first."
 (defparameter *loopback-interface* "127.0.0.1")
 
 (defun setup-server (port announce-fn style dont-close backlog)
-  (declare (type function announce-fn))
   (init-log-output)
   (let* ((socket (create-socket *loopback-interface* port :backlog backlog))
-         (local-port (local-port socket)))
-    (funcall announce-fn local-port)
-    (flet ((serve ()
-             (accept-connections socket style dont-close)))
+         (port (local-port socket)))
+    (funcall announce-fn port)
+    (labels ((serve () (accept-connections socket style dont-close))
+             (note () (send-to-sentinel `(:add-server ,socket ,port 
+                                                      ,(current-thread))))
+             (serve-loop () (note) (loop do (serve) while dont-close)))
       (ecase style
-        (:spawn
-         (initialize-multiprocessing
-          (lambda ()
-            (spawn (lambda ()
-                     (cond ((not dont-close) (serve))
-                           (t (loop (ignore-errors (serve))))))
-                   :name (cat "Swank " (princ-to-string port))))))
-        ((:fd-handler :sigio)
-         (add-fd-handler socket (lambda () (serve))))
-        ((nil) (loop do (serve) while dont-close)))
-      (setf (getf *listener-sockets* port) (list style socket))
-      local-port)))
+        (:spawn (initialize-multiprocessing 
+                 (lambda ()
+                   (start-sentinel)
+                   (spawn #'serve-loop :name (format nil "Swank ~s" port)))))
+        ((:fd-handler :sigio) 
+         (note) 
+         (add-fd-handler socket #'serve))
+        ((nil) (serve-loop))))
+    port))
 
 (defun stop-server (port)
   "Stop server running on PORT."
-  (let* ((socket-description (getf *listener-sockets* port))
-         (style (first socket-description))
-         (socket (second socket-description)))
-    (ecase style
-      (:spawn
-       (let ((thread-position
-              (position-if 
-               (lambda (x) 
-                 (string-equal (second x)
-                               (cat "Swank " (princ-to-string port))))
-               (list-threads))))
-         (when thread-position
-           (kill-nth-thread (1- thread-position))
-           (close-socket socket)
-           (remf *listener-sockets* port))))
-      ((:fd-handler :sigio)
-       (remove-fd-handlers socket)
-       (close-socket socket)
-       (remf *listener-sockets* port)))))
+  (send-to-sentinel `(:stop-server :port ,port)))
 
 (defun restart-server (&key (port default-server-port)
                        (style *communication-style*)
@@ -775,7 +815,9 @@ first."
                   (unless dont-close
                     (close-socket socket)))))
     (authenticate-client client)
-    (serve-requests (make-connection socket client style))))
+    (serve-requests (make-connection socket client style))
+    (unless dont-close
+      (send-to-sentinel `(:stop-server :socket ,socket)))))
 
 (defun authenticate-client (stream)
   (let ((secret (slime-secret)))
@@ -895,7 +937,10 @@ The processing is done in the extent of the toplevel restart."
 (defun current-socket-io ()
   (connection.socket-io *emacs-connection*))
 
-(defun close-connection (c condition backtrace)
+(defun close-connection (connection condition backtrace)
+  (send-to-sentinel `(:close-connection ,connection ,condition ,backtrace)))
+
+(defun close-connection% (c condition backtrace)
   (let ((*debugger-hook* nil))
     (log-event "close-connection: ~a ...~%" condition))
   (format *log-output* "~&;; swank:close-connection: ~A~%"
@@ -1342,6 +1387,7 @@ event was found."
 (defun clear-user-input  ()
   (clear-input (connection.user-input *emacs-connection*)))
 
+;; FIXME: not thread save.
 (defvar *tag-counter* 0)
 
 (defun make-tag () 

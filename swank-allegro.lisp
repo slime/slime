@@ -831,6 +831,25 @@
      (mp:process-wait-with-timeout "receive-if" 0.5
                                    #'mp:gate-open-p (mailbox.gate mbox)))))
 
+(let ((alist '())
+      (lock (mp:make-process-lock :name "register-thread")))
+
+  (defimplementation register-thread (name thread)
+    (declare (type symbol name))
+    (mp:with-process-lock (lock)
+      (etypecase thread
+        (null 
+         (setf alist (delete name alist :key #'car)))
+        (mp:process
+         (let ((probe (assoc name alist)))
+           (cond (probe (setf (cdr probe) thread))
+                 (t (setf alist (acons name thread alist))))))))
+    nil)
+
+  (defimplementation find-registered (name)
+    (mp:with-process-lock (lock)
+      (cdr (assoc name alist)))))
+
 (defimplementation set-default-initial-binding (var form)
   (push (cons var form)
         #+(version>= 9 0)

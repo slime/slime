@@ -1340,7 +1340,8 @@ Don't execute unwind-protected sections, don't raise conditions.
   nil)
 
 (definterface send (thread object)
-  "Send OBJECT to thread THREAD.")
+  "Send OBJECT to thread THREAD."
+  object)
 
 (definterface receive (&optional timeout)
   "Return the next message from current thread's mailbox."
@@ -1348,6 +1349,18 @@ Don't execute unwind-protected sections, don't raise conditions.
 
 (definterface receive-if (predicate &optional timeout)
   "Return the first message satisfiying PREDICATE.")
+
+(definterface register-thread (name thread)
+  "Associate the thread THREAD with the symbol NAME.
+The thread can then be retrieved with `find-registered'.
+If THREAD is nil delete the association."
+  (declare (ignore name thread))
+  nil)
+
+(definterface find-registered (name)
+  "Find the thread that was registered for the symbol NAME.
+Return nil if the no thread was registred or if the tread is dead."
+  nil)
 
 (definterface set-default-initial-binding (var form)
   "Initialize special variable VAR by default with FORM.

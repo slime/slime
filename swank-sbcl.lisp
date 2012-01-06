@@ -1578,6 +1578,26 @@ stack."
              (return (car tail))))
          (when (eq timeout t) (return (values nil t)))
          (condition-timed-wait waitq mutex 0.2)))))
+
+  (let ((alist '())
+        (mutex (sb-thread:make-mutex :name "register-thread")))
+
+    (defimplementation register-thread (name thread)
+      (declare (type symbol name))
+      (sb-thread:with-mutex (mutex)
+        (etypecase thread
+          (null 
+           (setf alist (delete name alist :key #'car)))
+          (sb-thread:thread
+           (let ((probe (assoc name alist)))
+             (cond (probe (setf (cdr probe) thread))
+                   (t (setf alist (acons name thread alist))))))))
+      nil)
+
+    (defimplementation find-registered (name)
+      (sb-thread:with-mutex (mutex) 
+        (cdr (assoc name alist)))))
+
   )
 
 (defimplementation quit-lisp ()

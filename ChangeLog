@@ -1,3 +1,18 @@
+2012-01-06  Helmut Eller  <heller@common-lisp.net>
+
+	Add a "sentinel thread" to protect access to global lists.
+
+	* swank.lisp (start-sentinel, sentinel, send-to-sentinel)
+	(sentinel-serve, sentinel-stop-server, sentinel-maybe-exit): New.
+	(make-connection, close-connection, setup-server, stop-server):
+	Use the sentinel.
+	(close-connection%): Factored out.
+	* swank-backend.lisp (register-thread, find-registered): New.
+	* swank-allegro.lisp: Implement it.
+	* swank-ccl.lisp:
+	* swank-lispworks.lisp:
+	* swank-sbcl.lisp:
+
 2012-01-02  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-loader.lisp (lisp-version-string): Append -no-threads to
