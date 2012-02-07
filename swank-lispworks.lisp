@@ -659,7 +659,7 @@ Return NIL if the symbol is unbound."
     (with-open-file (stream file)
       (let ((pos 
              #-(or lispworks4.1 lispworks4.2)
-             (dspec-stream-position stream dspec)))
+             (ignore-errors (dspec-stream-position stream dspec))))
         (if pos
             (list :position (1+ pos))
             (dspec-function-name-position dspec `(:position 1)))))))
