@@ -88,6 +88,9 @@
                                                   ((t) :full)
                                                   ((nil) :none)
                                                   (:line line))
+                                     :element-type (if external-format
+                                                       'character 
+                                                       '(unsigned-byte 8))
                                      :external-format external-format))
 (defun accept (socket)
   "Like socket-accept, but retry on EAGAIN."

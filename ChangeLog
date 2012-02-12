@@ -1,5 +1,10 @@
 2012-02-12  Stas Boukarev  <stassats@gmail.com>
 
+	* swank-ecl.lisp (accept-connection): Use the proper element-type
+	for the stream.
+
+2012-02-12  Stas Boukarev  <stassats@gmail.com>
+
 	* swank-clisp.lisp (c-error): The number of parameters to
 	sys::c-warn was changed, accommodate both versions.
 
