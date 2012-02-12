@@ -1,3 +1,8 @@
+2012-02-12  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-clisp.lisp (c-error): The number of parameters to
+	sys::c-warn was changed, accommodate both versions.
+
 2012-02-07  Martin Simmons (martin@lispworks.com>
 
 	* swank-lispworks.lisp (dspec-file-position): Fall back to regexp

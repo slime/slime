@@ -636,8 +636,15 @@ Execute BODY with NAME's function slot set to FUNCTION."
   (dynamic-flet ((sys::c-warn *orig-c-warn*))
     (signal-compiler-warning cstring args :style-warning *orig-c-style-warn*)))
 
-(defun c-error (cstring &rest args)
-  (signal-compiler-warning cstring args :error *orig-c-error*))
+(defun c-error (&rest args)
+  (signal (make-condition 'compiler-condition
+                          :severity :error
+                          :message (apply #'format nil
+                                          (if (= (length args) 3)
+                                              (cdr args)
+                                              args))
+                          :location (compiler-note-location)))
+  (apply *orig-c-error* args))
 
 (defimplementation call-with-compilation-hooks (function)
   (handler-bind ((warning #'handle-notification-condition))
