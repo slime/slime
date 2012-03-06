@@ -23,7 +23,9 @@
 (import-from :ccl *gray-stream-symbols* :swank-backend)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (require 'xref))
+  (multiple-value-bind (ok err) (ignore-errors (require 'xref))
+    (unless ok
+      (warn "~a~%" err))))
 
 ;;; swank-mop
 
@@ -235,8 +237,8 @@
   (delete-duplicates
    (mapcan #'find-definitions
            (if inverse 
-             (ccl:get-relation relation name :wild :exhaustive t)
-             (ccl:get-relation relation :wild name :exhaustive t)))
+             (ccl::get-relation relation name :wild :exhaustive t)
+             (ccl::get-relation relation :wild name :exhaustive t)))
    :test 'equal))
 
 (defimplementation who-binds (name)

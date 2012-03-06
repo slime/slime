@@ -1,5 +1,10 @@
 2012-03-06  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-ccl.lisp: If 'xref is not provided warn about it but
+	continue.
+
+2012-03-06  Helmut Eller  <heller@common-lisp.net>
+
 	Fix SBCL backend for Windows.
 
 	* swank-sbcl.lisp (fd-stream-input-buffer-empty-p): Restore it.
