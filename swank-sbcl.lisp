@@ -195,12 +195,15 @@
         (return nil))
       (sleep 0.1))))
 
+(defun fd-stream-input-buffer-empty-p (stream)
+  (let ((buffer (sb-impl::fd-stream-ibuf stream)))
+    (or (not buffer)
+        (= (sb-impl::buffer-head buffer)
+           (sb-impl::buffer-tail buffer)))))
+
 #-win32
 (defun input-ready-p (stream)
-  (or (let ((buffer (sb-impl::fd-stream-ibuf stream)))
-        (when buffer
-          (< (sb-impl::buffer-head buffer)
-             (sb-impl::buffer-tail buffer))))
+  (or (not (fd-stream-input-buffer-empty-p stream))
       #+#.(swank-backend:with-symbol 'fd-stream-fd-type 'sb-impl)
       (eq :regular (sb-impl::fd-stream-fd-type stream))
       (not (sb-impl::sysread-may-block-p stream))))
