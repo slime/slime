@@ -2516,7 +2516,9 @@ Record compiler notes signalled as `compiler-condition's."
     (unless (member (string module) *modules* :test #'string=)
       (require module (if filename
                           (filename-to-pathname filename)
-                          (module-filename module)))))
+                          (module-filename module)))
+      (assert (member (string module) *modules* :test #'string=)
+              () "Required module ~s was not provided" module)))
   *modules*)
 
 (defvar *find-module* 'find-module

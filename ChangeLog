@@ -1,3 +1,7 @@
+2012-03-06  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (swank-require): Ensure that provide as called.
+
 2012-02-12  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-ecl.lisp (accept-connection): Use the proper element-type
