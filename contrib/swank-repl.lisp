@@ -349,3 +349,5 @@ NIL if streams are not globally redirected.")
                (setq *global-stdio-connection* nil)))))
 
 (add-hook *connection-closed-hook* 'update-redirection-after-close)
+
+(provide :swank-repl)

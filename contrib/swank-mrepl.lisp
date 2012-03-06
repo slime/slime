@@ -158,3 +158,5 @@
 	   (catch tag (process-requests nil))
 	(setf tag old-tag)
 	(set-mode channel old-mode)))))
+
+(provide :swank-mrepl)

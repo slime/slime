@@ -62,3 +62,5 @@ boundp fboundp generic-function class macro special-operator package"
       (when (special-operator-p symbol) (flip #\s))
       (when (find-package symbol)       (flip #\p))
       result)))
+
+(provide :swank-util)
