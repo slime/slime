@@ -914,18 +914,23 @@
   (! location (module-method>meth-ref f)))
 
 (df module-method>meth-ref ((f <gnu.expr.ModuleMethod>) => <meth-ref>)
-  (let ((module (! reference-type
-                   (as <obj-ref> (vm-mirror *the-vm* (@ module f)))))
-	(name (mangled-name f)))
-    (as <meth-ref> (1st (! methods-by-name module name)))))
+  (let* ((module (! reference-type
+                    (as <obj-ref> (vm-mirror *the-vm* (@ module f)))))
+         (1st-method-by-name (fun (name)
+                               (let ((i (! methods-by-name module name)))
+                                 (cond ((! is-empty i) #f)
+                                       (#t (1st i)))))))
+    (as <meth-ref> (or (1st-method-by-name (! get-name f))
+                       (let ((mangled (mangled-name f)))
+                         (or (1st-method-by-name mangled)
+                             (1st-method-by-name (cat mangled "$V"))
+                             (1st-method-by-name (cat mangled "$X"))))))))
 
 (df mangled-name ((f <gnu.expr.ModuleMethod>))
   (let* ((name0 (! get-name f))
          (name (cond ((nul? name0) (format "lambda~d" (@ selector f)))
                      (#t (gnu.expr.Compilation:mangleName name0)))))
-    (if (= (! maxArgs f) -1)
-        (cat name "$V")
-        name)))
+    name))
 
 (df class>src-loc ((c <java.lang.Class>) => <location>)
   (let* ((type (class>class-ref c))

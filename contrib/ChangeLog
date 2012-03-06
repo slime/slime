@@ -1,5 +1,10 @@
 2012-03-06  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-kawa.scm (module-method>meth-ref):  Slightly better
+	heuristic for vararg functions.
+
+2012-03-06  Helmut Eller  <heller@common-lisp.net>
+
 	Add missing provide.
 
 	* swank-repl.lisp
