@@ -28,6 +28,9 @@
 If it's mixed or no symbols are exported so far,
 use `slime-export-symbol-representation-function'.")
 
+(defvar slime-export-save-file nil
+  "Save the package file after each automatic modification")
+
 (defvar slime-defpackage-regexp
   "^(\\(cl:\\|common-lisp:\\)?defpackage\\>[ \t']*")
 
@@ -181,6 +184,8 @@ already exported/unexported."
              (when (slime-symbol-exported-p symbol-name exported-symbols)
                (slime-remove-export symbol-name)
                (incf number-of-actions))))))
+      (when slime-export-save-file
+        (save-buffer))
       number-of-actions)))
 
 (defun slime-add-export ()
