@@ -1,6 +1,8 @@
 2012-03-09  Stas Boukarev  <stassats@gmail.com>
 
-	* swank-clipboard.lisp: Add provide.
+	* swank-motd.lisp,
+	 swank-clipboard.lisp,
+         swank-hyperdoc.lisp: Add provide.
 
 2012-03-08  Stas Boukarev  <stassats@gmail.com>
 

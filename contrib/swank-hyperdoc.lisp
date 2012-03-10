@@ -14,3 +14,5 @@
                                      *buffer-package*
                                      package))
                    symbol-name))))))
+
+(provide :swank-hyperdoc)
