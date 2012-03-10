@@ -1,3 +1,7 @@
+2012-03-09  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-clipboard.lisp: Add provide.
+
 2012-03-08  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-arglists.lisp (print-decoded-arglist): When the source of
