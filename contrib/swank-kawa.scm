@@ -17,6 +17,7 @@
 ;; You also need to start the debug agent.
 (setq slime-lisp-implementations
       '((kawa ("java"
+               "-Xss450k" ; compiler needs more stack
 	       "-cp" "/opt/kawa/kawa-svn:/opt/java/jdk1.6.0/lib/tools.jar"
 	       "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n"
 	       "kawa.repl" "-s")
@@ -36,14 +37,15 @@
 
 (module-export start-swank create-swank-server swank-java-source-path break)
 
-(module-static #t)
-
 (module-compile-options
+ warn-unknown-member: #t
  warn-invoke-unknown-method: #t
  warn-undefined-variable: #t
  )
 
+;;(import (rnrs hashtables))
 (require 'hash-table)
+(import (only (gnu kawa slib syntaxutils) expand))
 
 
 ;;;; Macros ()
@@ -1106,16 +1108,14 @@
 
 ;;;; Macroexpansion
 
-(defslimefun swank-expand-1 (env s) (%swank-macroexpand s))
-(defslimefun swank-expand (env s) (%swank-macroexpand s))
-(defslimefun swank-expand-all (env s) (%swank-macroexpand s))
+(defslimefun swank-expand-1 (env s) (%swank-macroexpand s env))
+(defslimefun swank-expand (env s) (%swank-macroexpand s env))
+(defslimefun swank-expand-all (env s) (%swank-macroexpand s env))
 
-(df %swank-macroexpand (string)
-  (pprint-to-string (%macroexpand (read-from-string string))))
+(df %swank-macroexpand (string env)
+  (pprint-to-string (%macroexpand (read-from-string string) env)))
 
-(df %macroexpand (sexp)
-  (let ((tr :: kawa.lang.Translator (gnu.expr.Compilation:getCurrent)))
-    (! rewrite tr `(begin ,sexp))))
+(df %macroexpand (sexp env) (expand sexp env: env))
 
 
 ;;;; Inspector
@@ -2033,6 +2033,11 @@
 (df get (tab key default) (hash-table-ref/default tab key default))
 (df del (tab key) (hash-table-delete! tab key) tab)
 (df tab () (make-hash-table))
+
+;;(df put (tab key value) (hashtable-set! tab key value) tab)
+;;(df get (tab key default) (hashtable-ref tab key default))
+;;(df del (tab key) (hashtable-delete! tab key) tab)
+;;(df tab () (make-eqv-hashtable))
 
 (df equal (x y => <boolean>) (equal? x y))
 

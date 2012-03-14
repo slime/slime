@@ -10,6 +10,10 @@
 	the arglist is a local definition from FLET, some parts may be
 	represented as ARGLIST-DUMMY, handle them.
 
+2012-03-14  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-kawa.scm (%macroexpand): Use Kawa's syntaxutils.
+
 2012-03-06  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-kawa.scm (module-method>meth-ref):  Slightly better
