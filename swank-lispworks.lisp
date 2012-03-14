@@ -65,10 +65,10 @@
 ;;; UTF8
 
 (defimplementation string-to-utf8 (string)
-  (ef:encode-lisp-string string :utf-8))
+  (ef:encode-lisp-string string '(:utf-8 :eol-style :lf)))
 
 (defimplementation utf8-to-string (octets)
-  (ef:decode-external-string octets :utf-8))
+  (ef:decode-external-string octets '(:utf-8 :eol-style :lf)))
 
 ;;; TCP server
 

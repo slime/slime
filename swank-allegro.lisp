@@ -29,13 +29,16 @@
 
 ;;;; UTF8
 
+(define-symbol-macro utf8-ef 
+    (load-time-value 
+     (excl:crlf-base-ef (excl:find-external-format :utf-8))
+     t))
+
 (defimplementation string-to-utf8 (s)
-  (let ((ef (load-time-value (excl:find-external-format :utf-8) t)))
-    (excl:string-to-octets s :external-format ef)))
+  (excl:string-to-octets s :external-format utf8-ef))
 
 (defimplementation utf8-to-string (u)
-  (let ((ef (load-time-value (excl:find-external-format :utf-8) t)))
-    (excl:octets-to-string u :external-format ef)))
+  (excl:octets-to-string u :external-format utf8-ef))
 
 
 ;;;; TCP Server

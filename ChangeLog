@@ -1,3 +1,12 @@
+2012-03-14  Paulo Madeira <acelent@gmail.com>
+
+	Use Unix-EOL convention even on Windows.
+
+	* swank-allegro.lisp (string-to-utf8, utf8-to-string): Use
+	excl:crlf-base-ef.
+	* swank-lispworks.lisp (string-to-utf8,  utf8-to-string): Use
+	'(:utf-8 :eol-style :lf)
+
 2012-03-06  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-ccl.lisp: If 'xref is not provided warn about it but
