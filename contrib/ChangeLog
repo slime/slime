@@ -1,3 +1,8 @@
+2012-03-19  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-arglists.lisp (compute-enriched-decoded-arglist): Add
+	arglist display for MULTIPLE-VALUE-CALL, the same as with APPLY.
+
 2012-03-09  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-motd.lisp,

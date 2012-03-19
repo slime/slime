@@ -918,6 +918,10 @@ If the arglist is not available, return :NOT-AVAILABLE."))
                       t)))))))
   (call-next-method))
 
+(defmethod compute-enriched-decoded-arglist
+    ((operator-form (eql 'multiple-value-call)) argument-forms)
+  (compute-enriched-decoded-arglist 'apply argument-forms))
+
 (defun delete-given-args (decoded-arglist args)
   "Delete given ARGS from DECODED-ARGLIST."
   (macrolet ((pop-or-return (list)
