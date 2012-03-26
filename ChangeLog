@@ -1,5 +1,7 @@
 2012-03-26  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-sbcl.lisp (swank-compile-string): Use utf8.
+
 	* swank-cmucl.lisp (swank-compile-file): Use external-format arg.
 
 	* swank-ccl.lisp (swank-compile-string, compile-temp-file): Use

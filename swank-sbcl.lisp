@@ -677,11 +677,12 @@ QUALITIES is an alist with (quality . value)"
                     :source-namestring filename
                     :allow-other-keys t)
                  (multiple-value-bind (output-file warningsp failurep)
-                     (compile-file *buffer-tmpfile*)
+                     (compile-file *buffer-tmpfile* :external-format :utf-8)
                    (declare (ignore warningsp))
                    (unless failurep
                      (funcall cont output-file)))))))
-      (with-open-file (s *buffer-tmpfile* :direction :output :if-exists :error)
+      (with-open-file (s *buffer-tmpfile* :direction :output :if-exists :error
+                         :external-format :utf-8)
         (write-string string s))
       (unwind-protect
            (with-compiler-policy policy
