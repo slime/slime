@@ -427,13 +427,14 @@ NIL if we aren't compiling from a buffer.")
 (defimplementation swank-compile-file (input-file output-file
                                        load-p external-format
                                        &key policy)
-  (declare (ignore external-format policy))
+  (declare (ignore policy))
   (clear-xref-info input-file)
   (with-compilation-hooks ()
     (let ((*buffer-name* nil)
           (ext:*ignore-extra-close-parentheses* nil))
       (multiple-value-bind (output-file warnings-p failure-p)
-          (compile-file input-file :output-file output-file)
+          (compile-file input-file :output-file output-file 
+                        :external-format external-format)
         (values output-file warnings-p
                 (or failure-p
                     (when load-p
