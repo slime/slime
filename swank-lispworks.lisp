@@ -681,8 +681,8 @@ Return NIL if the symbol is unbound."
     (symbol 
      `(:error ,(format nil "Cannot resolve location: ~S" location)))
     ((satisfies emacs-buffer-location-p)
-     (destructuring-bind (_ buffer offset string) location
-       (declare (ignore _ string))
+     (destructuring-bind (_ buffer offset) location
+       (declare (ignore _))
        (make-location `(:buffer ,buffer)
                       (dspec-function-name-position dspec `(:offset ,offset 0))
                       hints)))))
@@ -733,7 +733,7 @@ function names like \(SETF GET)."
   (declare (ignore filename policy))
   (assert buffer)
   (assert position)
-  (let* ((location (list :emacs-buffer buffer position string))
+  (let* ((location (list :emacs-buffer buffer position))
          (tmpname (hcl:make-temp-file nil "lisp")))
     (with-swank-compilation-unit (location)
       (compile-from-temp-file 

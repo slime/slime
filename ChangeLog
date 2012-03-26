@@ -1,5 +1,10 @@
 2012-03-26  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-lispworks.lisp (swank-compile-string): Don't include the
+	source-string in the dspec::*location*.  As LW has the habbit to
+	print the entire *location* on redefinition the source-string
+	would causes troubles for the test case.
+
 	* swank-sbcl.lisp (swank-compile-string): Use utf8.
 
 	* swank-cmucl.lisp (swank-compile-file): Use external-format arg.
