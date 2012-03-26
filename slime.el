@@ -8017,10 +8017,11 @@ Confirm that SUBFORM is correctly located."
               (insert ";; -*- coding: utf-8-unix -*- \n")
               (insert input)
               (save-buffer)
-              (slime-compile-and-load-file)
-              (slime-wait-condition "Compilation finished" 
-                                    (lambda () (car cell))
-                                    0.5)
+              (let ((slime-load-failed-fasl 'always))
+                (slime-compile-and-load-file)
+                (slime-wait-condition "Compilation finished" 
+                                      (lambda () (car cell))
+                                      0.5))
               (slime-test-expect "Compile-file result correct"
                                  output (slime-eval '(cl-user::foo))))
           (remove-hook 'slime-compilation-finished-hook hook)
