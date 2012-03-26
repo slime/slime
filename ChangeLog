@@ -1,5 +1,8 @@
 2012-03-26  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-ccl.lisp (swank-compile-string, compile-temp-file): Use
+	utf8.
+
 	* slime.el (utf-8-source): New test case.
 
 2012-03-14  Paulo Madeira <acelent@gmail.com>
