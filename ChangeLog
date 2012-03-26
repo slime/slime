@@ -1,5 +1,8 @@
 2012-03-26  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (utf-8-source): XEmacs has no set-buffer-multibyte.
+	(slime-create-test-results-buffer): Set file-coding-system.
+
 	* swank-lispworks.lisp (swank-compile-string): Don't include the
 	source-string in the dspec::*location*.  As LW has the habbit to
 	print the entire *location* on redefinition the source-string

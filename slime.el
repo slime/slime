@@ -7481,6 +7481,7 @@ Exits Emacs when finished. The exit code is the number of failed tests."
   (with-current-buffer (get-buffer-create slime-test-buffer-name)
     (erase-buffer)
     (outline-mode)
+    (setq buffer-file-coding-system 'binary)
     (set (make-local-variable 'outline-regexp) "\\*+")
     (slime-set-truncate-lines)))
 
@@ -8009,14 +8010,15 @@ Confirm that SUBFORM is correctly located."
       (let ((filename "/tmp/slime-tmp-file.lisp"))
         (setcar cell nil)
         (add-hook 'slime-compilation-finished-hook hook)
-        (unwind-protect 
+        (unwind-protect
             (with-temp-buffer
-              (set-buffer-multibyte t)
+              (when (fboundp 'set-buffer-multibyte)
+                (set-buffer-multibyte t))
               (setq buffer-file-coding-system 'utf-8-unix)
               (setq buffer-file-name filename)
               (insert ";; -*- coding: utf-8-unix -*- \n")
               (insert input)
-              (save-buffer)
+              (write-region nil nil filename nil t)
               (let ((slime-load-failed-fasl 'always))
                 (slime-compile-and-load-file)
                 (slime-wait-condition "Compilation finished" 
@@ -8025,7 +8027,7 @@ Confirm that SUBFORM is correctly located."
               (slime-test-expect "Compile-file result correct"
                                  output (slime-eval '(cl-user::foo))))
           (remove-hook 'slime-compilation-finished-hook hook)
-          (delete-file filename))))))
+          (ignore-errors (delete-file filename)))))))
 
 (def-slime-test async-eval-debugging (depth)
   "Test recursive debugging of asynchronous evaluation requests."
