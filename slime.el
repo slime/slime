@@ -7986,6 +7986,46 @@ Confirm that SUBFORM is correctly located."
         (slime-check "Compilation successfull" 
           (eq (slime-compilation-result.successp result) t))))))
 
+(def-slime-test utf-8-source
+    (input output)
+    "Source code containing utf-8 should work"
+    '(("(defun cl-user::foo () \"\x304a\x306f\x3088\x3046\")"
+       "\x304a\x306f\x3088\x3046"))
+  (slime-eval `(cl:eval (cl:read-from-string ,input)))
+  (slime-test-expect "Eval result correct"
+                     output (slime-eval '(cl-user::foo)))
+  (let ((cell (cons nil nil)))
+    (let ((hook (slime-curry (lambda (cell &rest _) (setcar cell t)) cell)))
+      (add-hook 'slime-compilation-finished-hook hook)
+      (unwind-protect 
+          (progn
+            (slime-compile-string input 0)
+            (slime-wait-condition "Compilation finished" 
+                                  (lambda () (car cell))
+                                  0.5)
+            (slime-test-expect "Compile-string result correct"
+                               output (slime-eval '(cl-user::foo))))
+        (remove-hook 'slime-compilation-finished-hook hook))
+      (let ((filename "/tmp/slime-tmp-file.lisp"))
+        (setcar cell nil)
+        (add-hook 'slime-compilation-finished-hook hook)
+        (unwind-protect 
+            (with-temp-buffer
+              (set-buffer-multibyte t)
+              (setq buffer-file-coding-system 'utf-8-unix)
+              (setq buffer-file-name filename)
+              (insert ";; -*- coding: utf-8-unix -*- \n")
+              (insert input)
+              (save-buffer)
+              (slime-compile-and-load-file)
+              (slime-wait-condition "Compilation finished" 
+                                    (lambda () (car cell))
+                                    0.5)
+              (slime-test-expect "Compile-file result correct"
+                                 output (slime-eval '(cl-user::foo))))
+          (remove-hook 'slime-compilation-finished-hook hook)
+          (delete-file filename))))))
+
 (def-slime-test async-eval-debugging (depth)
   "Test recursive debugging of asynchronous evaluation requests."
   '((1) (2) (3))
@@ -8332,7 +8372,7 @@ on *DEBUGGER-HOOK*."
                          (cl:and (cl:typep condition 'cl:condition)
                                  (cl:string (cl:type-of condition)))))))
     (slime-test-expect "Debugger invoked" "END-OF-FILE" value)))
-                      
+
 (def-slime-test interrupt-at-toplevel
     ()
     "Let's see what happens if we send a user interrupt at toplevel."

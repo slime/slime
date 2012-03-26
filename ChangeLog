@@ -1,3 +1,7 @@
+2012-03-26  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (utf-8-source): New test case.
+
 2012-03-14  Paulo Madeira <acelent@gmail.com>
 
 	Use Unix-EOL convention even on Windows.
