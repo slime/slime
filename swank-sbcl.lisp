@@ -1129,8 +1129,10 @@ stack."
 
 (defun lisp-source-location (code-location)
   (let ((source (prin1-to-string
-                 (sb-debug::code-location-source-form code-location 100))))
-    (if (and (typep swank::*swank-debugger-condition* 'sb-impl::step-form-condition)
+                 (sb-debug::code-location-source-form code-location 100)))
+        (condition (intern "*swank-debugger-condition*" :swank)))
+    (if (and (boundp condition)
+             (typep (symbol-value condition) 'sb-impl::step-form-condition)
              (and (search "SB-IMPL::WITH-STEPPING-ENABLED" source :test #'char-equal)
                   (search "SB-IMPL::STEP-FINISHED" source :test #'char-equal)))
         ;; The initial form is utterly uninteresting -- and almost certainly right there
