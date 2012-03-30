@@ -1,3 +1,9 @@
+2012-03-30  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* swank-sbcl.lisp (lisp-source-location): When processing a STEP-FORM-CONDITION,
+	don't show the initial form from expansion of STEP. (Currently SBCL doesn't
+	give the form at all, but when it does seeing it is distinctly useless.)
+
 2012-03-26  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (utf-8-source): XEmacs has no set-buffer-multibyte.
