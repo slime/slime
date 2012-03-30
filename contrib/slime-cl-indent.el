@@ -951,11 +951,31 @@ For example, the function `case' has an indent property
               (error
                (setq depth lisp-indent-maximum-backtracking))))))
       (or calculated tentative-calculated
-          ;; Fallback. calculate-lisp-indent doesn't deal with
-          ;; things like (foo (or x
-          ;;                      y) t
-          ;;                  z)
-          ;; but would align the Z with Y.
+          ;; Fallback.
+          ;;
+          ;; Instead of punting directly to calculate-lisp-indent we handle a few
+          ;; of cases it doesn't deal with:
+          ;;
+          ;; A: (foo (
+          ;;          bar zot
+          ;;          quux))
+          ;;
+          ;;    would align QUUX with ZOT.
+          ;;
+          ;; B:
+          ;;   (foo (or x
+          ;;            y) t
+          ;;        z)
+          ;;
+          ;;   would align the Z with Y.
+          ;;
+          ;; C:
+          ;;   (foo ;; Comment
+          ;;        (bar)
+          ;;        ;; Comment 2
+          ;;        (quux))
+          ;;
+          ;;   would indent BAR and QUUX by one.
           (ignore-errors
             (save-excursion
               (goto-char indent-point)
@@ -966,11 +986,20 @@ For example, the function `case' has an indent property
                 (let ((one (current-column)))
                   (skip-chars-forward " \t")
                   (if (or (eolp) (looking-at ";"))
+                      ;; A.
                       (list one containing-form-start)
                     (forward-sexp 2)
                     (backward-sexp)
-                    (unless (= p (point))
-                      (list (current-column) containing-form-start)))))))))))
+                    (if (/= p (point))
+                        ;; B.
+                        (list (current-column) containing-form-start)
+                      (backward-sexp)
+                      (forward-sexp)
+                      (let ((tmp (+ (current-column) 1)))
+                        (skip-chars-forward " \t")
+                        (if (looking-at ";")
+                            ;; C.
+                            (list tmp containing-form-start)))))))))))))
 
 
 (defun common-lisp-indent-call-method (function method path state indent-point

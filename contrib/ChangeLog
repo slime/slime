@@ -43,6 +43,14 @@
 	* swank-mrepl.lisp (send-prompt): Fix use of OR.
 	Reported by Mark H. David.
 
+2012-03-30  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime-cl-indent.el (common-lisp-indent-function-1): Fix indentation
+	of (and ;; Foo\n...). Previously following lines were indented by one, instead
+	of using normal indentation.
+
+	* slime-cl-indent-test.txt (tests 84-86): Tests.
+
 2011-12-30  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-cl-indent.el (common-lisp-looking-at-keyword): New function. Looks

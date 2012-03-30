@@ -890,3 +890,23 @@
            #+quux #+quux
            :quux t
            :zot t)
+
+;;; Test: 84
+
+(and ;; Foo
+     (something)
+     ;; Quux
+     (more))
+
+;;; Test: 85
+
+(and      ;; Foo
+     (something)
+     ;; Quux
+     (more))
+
+;;; Test: 86
+
+(foo (
+      bar quux
+      zor))
