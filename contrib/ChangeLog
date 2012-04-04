@@ -1,3 +1,12 @@
+2012-04-04  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime-cl-indent.el (common-lisp-lambda-list-initial-value-form-p): New function.
+	Identifies initial-value-forms from lambda-lists, allowing them to be indented
+	as regular code.
+	(lisp-indent-259): Use the previous when indenting using &lambda to punt to
+	normal indentation when approriate.
+	* slime-cl-indent-test.txt (Test 87): Test indentation of initial-value forms.
+
 2012-03-19  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-arglists.lisp (compute-enriched-decoded-arglist): Add

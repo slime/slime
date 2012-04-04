@@ -910,3 +910,19 @@
 (foo (
       bar quux
       zor))
+
+;;; Test: 87
+;;
+;; lisp-lambda-list-keyword-parameter-alignment: t
+;; lisp-lambda-list-keyword-alignment: t
+
+(defmacro foo ((foo &optional (opt1 (or (this)
+                                        (that)))
+                              (opt2 (the-default)
+                                    opt2-p)
+                              (opt3
+                               (the-default (foo)
+                                            (bar)))
+                    &rest rest))
+  (list foo opt1 opt2
+        rest))
