@@ -1,3 +1,8 @@
+2012-04-06  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-fancy-inspector.lisp (format-iso8601-time): Add 1 to the
+	time-zone if DST value of decode-universal-time is T.
+
 2012-04-04  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-cl-indent.el (common-lisp-lambda-list-initial-value-form-p): New function.
