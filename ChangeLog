@@ -1,3 +1,9 @@
+2012-04-06  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (interrupt-worker-thread): Interrupt the REPL thread if
+	there are no threads found. Send Emacs an error message if no
+	threads are found at all.
+
 2012-03-30  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* swank-sbcl.lisp (lisp-source-location): When processing a STEP-FORM-CONDITION,

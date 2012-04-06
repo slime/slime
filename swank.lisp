@@ -997,27 +997,29 @@ The processing is done in the extent of the toplevel restart."
   (etypecase id
     ((member t)
      (etypecase connection
-       (multithreaded-connection (car (mconn.active-threads connection)))
+       (multithreaded-connection (or (car (mconn.active-threads connection))
+                                     (find-repl-thread connection)))
        (singlethreaded-connection (current-thread))))
     ((member :repl-thread) 
      (find-repl-thread connection))
-    (fixnum 
+    (fixnum
      (find-thread id))))
 
 (defun interrupt-worker-thread (connection id)
-  (let ((thread (or (find-worker-thread connection id)
-                    ;; FIXME: to something better here
-                    (spawn (lambda ()) :name "ephemeral"))))
+  (let ((thread (find-worker-thread connection id)))
     (log-event "interrupt-worker-thread: ~a ~a~%" id thread)
-    (assert thread)
-    (etypecase connection
-      (multithreaded-connection
-       (interrupt-thread thread
-                         (lambda ()
-                           ;; safely interrupt THREAD
-                           (invoke-or-queue-interrupt #'simple-break))))
-      (singlethreaded-connection
-       (simple-break)))))
+    (if thread
+        (etypecase connection
+          (multithreaded-connection
+           (interrupt-thread thread
+                             (lambda ()
+                               ;; safely interrupt THREAD
+                               (invoke-or-queue-interrupt #'simple-break))))
+          (singlethreaded-connection
+           (simple-break)))
+        (let ((*send-counter* 0)) ;; shouldn't be necessary, but it is
+          (send-to-emacs (list :debug-condition (current-thread-id)
+                               (format nil "Thread with id ~a not found" id)))))))
 
 (defun thread-for-evaluation (connection id)
   "Find or create a thread to evaluate the next request."
