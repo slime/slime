@@ -406,8 +406,10 @@ Commands for visiting compiler notes:
 \\[slime-remove-notes]	- Remove compiler-note annotations in buffer.
 
 Finding definitions:
-\\[slime-edit-definition]	- Edit the definition of the function called at point.
-\\[slime-pop-find-definition-stack]	- Pop the definition stack to go back from a definition.
+\\[slime-edit-definition]	\
+- Edit the definition of the function called at point.
+\\[slime-pop-find-definition-stack]	\
+- Pop the definition stack to go back from a definition.
 
 Documentation commands:
 \\[slime-describe-symbol]	- Describe symbol.
@@ -417,7 +419,8 @@ Documentation commands:
 Evaluation commands:
 \\[slime-eval-defun]	- Evaluate top-level from containing point.
 \\[slime-eval-last-expression]	- Evaluate sexp before point.
-\\[slime-pprint-eval-last-expression]	- Evaluate sexp before point, pretty-print result.
+\\[slime-pprint-eval-last-expression]	\
+- Evaluate sexp before point, pretty-print result.
 
 Full set of commands:
 \\{slime-mode-map}"
@@ -2670,8 +2673,8 @@ to it depending on its sign."
 (defun slime-compile-region (start end)
   "Compile the region."
   (interactive "r")
-  ;; Check connection before running hooks
-  ;; things like slime-flash-region don't make much sense if there's no connection
+  ;; Check connection before running hooks things like
+  ;; slime-flash-region don't make much sense if there's no connection
   (slime-connection)
   (slime-flash-region start end)
   (run-hook-with-args 'slime-before-compile-functions start end)
@@ -3189,8 +3192,10 @@ E.g. (slime-file-name-merge-source-root
  
         ==> \"/usr/local/src/joe/hacked/sbcl/code/late-extensions.lisp\"
 "
-  (let ((target-dirs (slime-split-string (file-name-directory target-filename) "/" t))
-        (buffer-dirs (slime-split-string (file-name-directory buffer-filename) "/" t)))
+  (let ((target-dirs (slime-split-string (file-name-directory target-filename)
+                                         "/" t))
+        (buffer-dirs (slime-split-string (file-name-directory buffer-filename)
+                                         "/" t)))
     ;; Starting from the end, we look if one of the TARGET-DIRS exists
     ;; in BUFFER-FILENAME---if so, it and everything left from that dirname
     ;; is considered to be the source root directory of BUFFER-FILENAME.
@@ -3203,12 +3208,17 @@ E.g. (slime-file-name-merge-source-root
                (let ((pos (position target-dir buffer-dirs* :test #'equal)))
                  (if (not pos)    ; TARGET-DIR not in BUFFER-FILENAME?
                      (push target-dir target-suffix-dirs)
-                     (let* ((target-suffix (concat-dirs target-suffix-dirs)) ; PUSH reversed for us!
-                            (buffer-root   (concat-dirs (reverse (nthcdr pos buffer-dirs*)))))
+                     (let* ((target-suffix 
+                                        ; PUSH reversed for us!
+                             (concat-dirs target-suffix-dirs)) 
+                            (buffer-root   
+                             (concat-dirs 
+                              (reverse (nthcdr pos buffer-dirs*)))))
                        (return (concat (slime-filesystem-toplevel-directory)
                                        buffer-root
                                        target-suffix
-                                       (file-name-nondirectory target-filename))))))))))
+                                       (file-name-nondirectory 
+                                        target-filename))))))))))
 
 (defun slime-highlight-differences-in-dirname (base-dirname contrast-dirname)
   "Returns a copy of BASE-DIRNAME where all differences between
@@ -3230,7 +3240,8 @@ highlighting face."
                 (if (not pos)
                     (insert-dir/propzd base-dir)
                     (progn (insert-dir base-dir)
-                           (setq contrast-dirs (nthcdr (1+ pos) contrast-dirs))))))
+                           (setq contrast-dirs 
+                                 (nthcdr (1+ pos) contrast-dirs))))))
         (buffer-substring (point-min) (point-max))))))
 
 (defvar slime-warn-when-possibly-tricked-by-M-. t
@@ -3255,7 +3266,8 @@ There's no guarantee that all possible cases are covered, but
 if you encounter such a warning, it's a strong indication that
 you should check twice before modifying.")
 
-(defun slime-maybe-warn-for-different-source-root (target-filename buffer-filename)
+(defun slime-maybe-warn-for-different-source-root (target-filename 
+                                                   buffer-filename)
   (let ((guessed-target (slime-file-name-merge-source-root target-filename
                                                            buffer-filename)))
     (when (and guessed-target
@@ -3269,7 +3281,8 @@ you should check twice before modifying.")
 
 (defun slime-check-location-filename-sanity (filename)
   (when slime-warn-when-possibly-tricked-by-M-.
-    (flet ((file-truename-safe (filename) (and filename (file-truename filename))))
+    (flet ((file-truename-safe (filename) (and filename 
+                                               (file-truename filename))))
       (let ((target-filename (file-truename-safe filename))
             (buffer-filename (file-truename-safe (buffer-file-name))))
         (when (and target-filename
@@ -3368,14 +3381,17 @@ you should check twice before modifying.")
          (name (regexp-quote name))
          (qualifiers (mapconcat (lambda (el) (concat ".+?\\<" el "\\>"))
                                 qualifiers ""))
-         (specializers (mapconcat (lambda (el) 
-                                    (if (eql (aref el 0) ?\()
-                                        (let ((spec (read el)))
-                                          (if (eq (car spec) 'EQL)
-                                              (concat ".*?\\n\\{0,1\\}.*?(EQL.*?'\\{0,1\\}"
-                                                      (format "%s" (second spec)) ")")
-                                            (error "don't understand specializer: %s,%s" el (car spec))))
-                                      (concat ".+?\n\\{0,1\\}.+?\\<" el "\\>")))
+         (specializers (mapconcat 
+                        (lambda (el) 
+                          (if (eql (aref el 0) ?\()
+                              (let ((spec (read el)))
+                                (if (eq (car spec) 'EQL)
+                                    (concat 
+                                     ".*?\\n\\{0,1\\}.*?(EQL.*?'\\{0,1\\}"
+                                     (format "%s" (second spec)) ")")
+                                  (error "don't understand specializer: %s,%s"
+                                         el (car spec))))
+                            (concat ".+?\n\\{0,1\\}.+?\\<" el "\\>")))
                                   (remove "T" specializers) ""))
          (regexp (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\s +%s%s" name
                          qualifiers specializers)))
@@ -3422,7 +3438,7 @@ are supported:
              | (:line <line> [<column>])
              | (:function-name <string>)
              | (:source-path <list> <start-position>) 
-             | (:method <name string> <specializer strings> . <qualifiers strings>)"
+             | (:method <name string> <specializers> . <qualifiers>)"
   (destructure-case location
     ((:location buffer _position _hints)
      (slime-goto-location-buffer buffer)
@@ -3687,7 +3703,8 @@ terminates a current completion."
     (error
      ;; Because this is called on the pre-command-hook, we mustn't let
      ;; errors propagate.
-     (message "Error in slime-complete-restore-window-configuration: %S" err))))
+     (message "Error in slime-complete-restore-window-configuration: %S"
+              err))))
 
 (defun slime-completion-window-active-p ()
   "Is the completion window currently active?"
@@ -3760,8 +3777,9 @@ Perform completion more similar to Emacs' complete-symbol."
 (defun slime-maybe-complete-as-filename ()
   "If point is at a string starting with \", complete it as filename.
 Return nil if point is not at filename."
-  (when (save-excursion (re-search-backward "\"[^ \t\n]+\\=" (max (point-min)
-                                                                  (- (point) 1000)) t))
+  (when (save-excursion (re-search-backward "\"[^ \t\n]+\\=" 
+                                            (max (point-min)
+                                                 (- (point) 1000)) t))
     (let ((comint-completion-addsuffix '("/" . "\"")))
       (comint-replace-by-expanded-filename)
       t)))
@@ -6820,8 +6838,9 @@ If ARG is negative, move forwards."
   ("g" 'slime-inspector-reinspect)
   ("v" 'slime-inspector-toggle-verbose)
   ("\C-i" 'slime-inspector-next-inspectable-object)
-  ([(shift tab)] 'slime-inspector-previous-inspectable-object) ; Emacs translates S-TAB
-  ([backtab]     'slime-inspector-previous-inspectable-object) ; to BACKTAB on X.
+  ([(shift tab)] 
+   'slime-inspector-previous-inspectable-object) ; Emacs translates S-TAB
+  ([backtab] 'slime-inspector-previous-inspectable-object) ; to BACKTAB on X.
   ("." 'slime-inspector-show-source)
   (">" 'slime-inspector-fetch-all))
 
@@ -6996,7 +7015,8 @@ is setup, unless the user already set one explicitly."
                      (get symbol 'slime-indent))
           (put symbol 'common-lisp-indent-function indent)
           (put symbol 'slime-indent indent)))
-      (run-hook-with-args 'slime-indentation-update-hooks symbol indent packages))))
+      (run-hook-with-args 'slime-indentation-update-hooks 
+                          symbol indent packages))))
 
 
 ;;;; Contrib modules
@@ -7211,7 +7231,8 @@ is setup, unless the user already set one explicitly."
                 (slime-compile-defun "Compile current top level form")
                 (slime-interactive-eval "Prompt for form and eval it")
                 (slime-compile-and-load-file "Compile and load current file")
-                (slime-sync-package-and-default-directory "Synch default package and directory with current buffer")
+                (slime-sync-package-and-default-directory 
+                 "Synch default package and directory with current buffer")
                 (slime-next-note "Next compiler note")
                 (slime-previous-note "Previous compiler note")
                 (slime-remove-notes "Remove notes")
@@ -7229,11 +7250,14 @@ is setup, unless the user already set one explicitly."
                 (sldb-continue "Invoke CONTINUE restart (if available)")
                 (sldb-show-source "Jump to frame's source code")
                 (sldb-eval-in-frame "Evaluate in frame at point")
-                (sldb-inspect-in-frame "Evaluate in frame at point and inspect result")))
+                (sldb-inspect-in-frame 
+                 "Evaluate in frame at point and inspect result")))
     (:title "Within the Inspector" 
      :map slime-inspector-mode-map
-     :bindings ((slime-inspector-next-inspectable-object "Jump to next inspectable object")
-                (slime-inspector-operate-on-point "Inspect object or execute action at point")
+     :bindings ((slime-inspector-next-inspectable-object 
+                 "Jump to next inspectable object")
+                (slime-inspector-operate-on-point 
+                 "Inspect object or execute action at point")
                 (slime-inspector-reinspect "Reinspect current object")
                 (slime-inspector-pop "Return to previous object")
                 ;;(slime-inspector-copy-down "Send object at point to REPL")
@@ -7541,8 +7565,10 @@ conditions (assertions)."
                        (name  (first name))
                        (fails-for (cdr (assq :fails-for opts)))
                        (style (cdr (assq :style opts))))
-                  ;; :style and :fails-for only options, given no more than one time?
-                  (assert (null (remove* :style (remove* :fails-for opts :key #'car)
+                  ;; :style and :fails-for only options,
+                  ;; given no more than one time?
+                  (assert (null (remove* :style 
+                                         (remove* :fails-for opts :key #'car)
                                          :key #'car)))
                   (values name fails-for style))))
     (let ((fname (intern (format "slime-test-%s" name))))
@@ -7787,17 +7813,20 @@ BODY returns true if the check succeeds."
        (slime-buffer-narrowed-p))
 
       (slime-with-popup-buffer (random-buffer-name)
-        (slime-check ("Checking that we're in Slime's temp buffer `%s'" random-buffer-name)
+        (slime-check ("Checking that we're in Slime's temp buffer `%s'" 
+                      random-buffer-name)
           (equal (buffer-name (current-buffer)) random-buffer-name)))
       (with-current-buffer random-buffer-name
         ;; Notice that we cannot quit the buffer within the the extent
         ;; of slime-with-output-to-temp-buffer.
         (slime-popup-buffer-quit t)) 
-      (slime-check ("Checking that we've got back from `%s'" random-buffer-name)
+      (slime-check ("Checking that we've got back from `%s'" 
+                    random-buffer-name)
         (and (eq (current-buffer) tmpbuffer)
              (= (point) defun-pos)))
       
-      (slime-check "Checking that narrowing sustained after quitting Slime's temp buffer."
+      (slime-check "Checking that narrowing sustained \
+after quitting Slime's temp buffer."
         (slime-buffer-narrowed-p))
 
       (let ((slime-buffer-package "SWANK")
@@ -7902,9 +7931,11 @@ Confirm that EXPECTED-ARGLIST is displayed."
       ("swank::compute-backtrace" "(swank::compute-backtrace start end)")
       ("swank::emacs-connected" "(swank::emacs-connected)")
       ("swank::compile-string-for-emacs"
-       "(swank::compile-string-for-emacs string buffer position filename policy)")
+       "(swank::compile-string-for-emacs \
+string buffer position filename policy)")
       ("swank::connection.socket-io"
-       "(swank::connection.socket-io \\(struct\\(ure\\)?\\|object\\|instance\\|x\\))")
+       "(swank::connection.socket-io \
+\\(struct\\(ure\\)?\\|object\\|instance\\|x\\))")
       ("cl:lisp-implementation-type" "(cl:lisp-implementation-type)")
       ("cl:class-name" 
        "(cl:class-name \\(class\\|object\\|instance\\|structure\\))"))
@@ -7915,7 +7946,8 @@ Confirm that EXPECTED-ARGLIST is displayed."
                        (lambda (pattern arglist)
                          (and arglist (string-match pattern arglist))))))
 
-(def-slime-test (compile-defun (:fails-for "allegro" "lispworks" "clisp" "ccl"))
+(def-slime-test (compile-defun (:fails-for "allegro" "lispworks" "clisp" 
+                                           "ccl"))
     (program subform)
     "Compile PROGRAM containing errors.
 Confirm that SUBFORM is correctly located."
@@ -8136,7 +8168,10 @@ Confirm that SUBFORM is correctly located."
   (lexical-let ((done nil))
     (let ((sldb-hook (lambda () (sldb-continue) (setq done t))))
       (slime-interactive-eval 
-       "(progn(cerror \"foo\" \"restart\")(cerror \"bar\" \"restart\")(+ 1 2))")
+       "(progn\
+ (cerror \"foo\" \"restart\")\
+ (cerror \"bar\" \"restart\")\
+ (+ 1 2))")
       (while (not done) (slime-accept-process-output))
       (slime-sync-to-top-level 5)
       (slime-check-top-level)
@@ -8612,7 +8647,8 @@ current package is used."
         s
       (format "%s::%s"
               (let* ((package (slime-current-package)))
-                ;; package is a string like ":cl-user" or "CL-USER", or "\"CL-USER\"".
+                ;; package is a string like ":cl-user" 
+                ;; or "CL-USER", or "\"CL-USER\"".
                 (if package
                     (slime-pretty-package-name package)
                   "CL-USER"))
@@ -9226,7 +9262,8 @@ If they are not, position point at the first syntax error found."
                 (2 font-lock-variable-name-face))))))
  
 (unless (featurep 'xemacs)
-  (loop for (symbol flag) on (symbol-plist 'slime-indulge-pretty-colors) by 'cddr
+  (loop for (symbol flag) on (symbol-plist 'slime-indulge-pretty-colors) 
+        by 'cddr
         when (eq flag 't) do (slime-indulge-pretty-colors symbol)))
  
 ;;;; Finishing up
@@ -9269,6 +9306,8 @@ If they are not, position point at the first syntax error found."
 ;; outline-regexp: ";;;;+"
 ;; indent-tabs-mode: nil
 ;; coding: latin-1-unix
-;; compile-command: "emacs -batch -L . -eval '(byte-compile-file \"slime.el\")' ; rm -v slime.elc"
+;; compile-command: "emacs -batch -L . \
+;;  -eval '(byte-compile-file \"slime.el\")' ; \
+;;  rm -v slime.elc"
 ;; End:
 ;;; slime.el ends here

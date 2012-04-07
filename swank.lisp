@@ -134,7 +134,9 @@ ALIST is a list of the form ((VAR . VAL) ...)."
   "A DEFUN for functions that Emacs can call by RPC."
   `(progn
      (defun ,name ,arglist ,@rest)
-     ;; see <http://www.franz.com/support/documentation/6.2/doc/pages/variables/compiler/s_cltl1-compile-file-toplevel-compatibility-p_s.htm>
+     ;; see <http://www.franz.com/support/documentation/6.2/\
+     ;; doc/pages/variables/compiler/\
+     ;; s_cltl1-compile-file-toplevel-compatibility-p_s.htm>
      (eval-when (:compile-toplevel :load-toplevel :execute)
        (export ',name (symbol-package ',name)))))
 
@@ -1022,7 +1024,8 @@ The processing is done in the extent of the toplevel restart."
            (simple-break)))
         (let ((*send-counter* 0)) ;; shouldn't be necessary, but it is
           (send-to-emacs (list :debug-condition (current-thread-id)
-                               (format nil "Thread with id ~a not found" id)))))))
+                               (format nil "Thread with id ~a not found" 
+                                       id)))))))
 
 (defun thread-for-evaluation (connection id)
   "Find or create a thread to evaluate the next request."
@@ -1942,7 +1945,8 @@ N.B. this is not an actual package name or nickname."
   (when *auto-abbreviate-dotted-packages*
     (loop with package-name = (package-name package)
           with offset = nil
-          do (let ((last-dot-pos (position #\. package-name :end offset :from-end t)))
+          do (let ((last-dot-pos (position #\. package-name :end offset 
+                                           :from-end t)))
                (unless last-dot-pos
                  (return nil))
                ;; If a dot chunk contains only numbers, that chunk most
@@ -2279,10 +2283,12 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
   (with-simple-restart (continue "Continue from break.")
     (invoke-slime-debugger (coerce-to-condition datum args))))
 
+;; FIXME: (last (compute-restarts)) looks dubious.
 (defslimefun throw-to-toplevel ()
   "Invoke the ABORT-REQUEST restart abort an RPC from Emacs.
 If we are not evaluating an RPC then ABORT instead."
-  (let ((restart (or (and *sldb-quit-restart* (find-restart *sldb-quit-restart*))
+  (let ((restart (or (and *sldb-quit-restart* 
+                          (find-restart *sldb-quit-restart*))
                      (car (last (compute-restarts))))))
     (cond (restart (invoke-restart restart))
           (t (format nil "Restart not active [~s]" *sldb-quit-restart*)))))
