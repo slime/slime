@@ -993,6 +993,7 @@ The processing is done in the extent of the toplevel restart."
    (sleep *auto-flush-interval*)))
 
 ;; FIXME: drop dependency on find-repl-thread
+;; FIXME: and don't add and any more 
 (defun find-worker-thread (connection id)
   (etypecase id
     ((member t)
@@ -1005,6 +1006,8 @@ The processing is done in the extent of the toplevel restart."
     (fixnum
      (find-thread id))))
 
+;; FIXME: the else branch does look like it was written by someone who
+;; doesn't know what he is doeing.
 (defun interrupt-worker-thread (connection id)
   (let ((thread (find-worker-thread connection id)))
     (log-event "interrupt-worker-thread: ~a ~a~%" id thread)
