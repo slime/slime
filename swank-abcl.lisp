@@ -80,7 +80,8 @@
    standard-slot-definition ;;dummy
    cl:method
    cl:standard-class
-   #+#.(swank-backend:with-symbol 'compute-applicable-methods-using-classes 'mop)
+   #+#.(swank-backend:with-symbol 'compute-applicable-methods-using-classes 
+         'mop)
    mop::compute-applicable-methods-using-classes
    ;; standard-class readers
    mop::class-default-initargs
@@ -191,7 +192,8 @@
 
 (defvar *external-format-to-coding-system*
   '((:iso-8859-1 "latin-1" "iso-latin-1" "iso-8859-1")
-    ((:iso-8859-1 :eol-style :lf) "latin-1-unix" "iso-latin-1-unix" "iso-8859-1-unix")
+    ((:iso-8859-1 :eol-style :lf) 
+     "latin-1-unix" "iso-latin-1-unix" "iso-8859-1-unix")
     (:utf-8 "utf-8")
     ((:utf-8 :eol-style :lf) "utf-8-unix")
     (:euc-jp "euc-jp")
@@ -256,7 +258,8 @@
               (sys::arglist fun)
             (when (and (not present)
                        (fboundp fun)
-                       (typep (symbol-function fun) 'standard-generic-function))
+                       (typep (symbol-function fun) 
+                              'standard-generic-function))
               (setq arglist
                     (mop::generic-function-lambda-list (symbol-function fun))
                     present
@@ -629,22 +632,25 @@ part of *sysdep-pathnames* in swank.loader.lisp.
       ,@(if parts
            (loop :for (label . value) :in parts
               :appending (label-value-line label value))
-            (list "No inspectable parts, dumping output of CL:DESCRIBE:" '(:newline) 
+           (list "No inspectable parts, dumping output of CL:DESCRIBE:" 
+                 '(:newline) 
                   (with-output-to-string (desc) (describe o desc)))))))
 
 (defmethod emacs-inspect ((slot mop::slot-definition))
-  `("Name: " (:value ,(mop::%slot-definition-name slot))
-             (:newline)
-             "Documentation:" (:newline)
-             ,@(when (slot-definition-documentation slot)
-                     `((:value ,(slot-definition-documentation slot)) (:newline)))
-             "Initialization:" (:newline)
-             "  Args: " (:value ,(mop::%slot-definition-initargs slot)) (:newline)
-             "  Form: "  ,(if (mop::%slot-definition-initfunction slot)
-                              `(:value ,(mop::%slot-definition-initform slot))
-                              "#<unspecified>") (:newline)
-                              "  Function: " (:value ,(mop::%slot-definition-initfunction slot))
-                              (:newline)))
+  `("Name: " 
+    (:value ,(mop::%slot-definition-name slot))
+    (:newline)
+    "Documentation:" (:newline)
+    ,@(when (slot-definition-documentation slot)
+            `((:value ,(slot-definition-documentation slot)) (:newline)))
+    "Initialization:" (:newline)
+    "  Args: " (:value ,(mop::%slot-definition-initargs slot)) (:newline)
+    "  Form: "  ,(if (mop::%slot-definition-initfunction slot)
+                     `(:value ,(mop::%slot-definition-initform slot))
+                     "#<unspecified>") (:newline)
+                     "  Function: " 
+                     (:value ,(mop::%slot-definition-initfunction slot))
+                     (:newline)))
 
 (defmethod emacs-inspect ((f function))
   `(,@(when (function-name f)
@@ -652,10 +658,13 @@ part of *sysdep-pathnames* in swank.loader.lisp.
               ,(princ-to-string (function-name f)) (:newline)))
       ,@(multiple-value-bind (args present) 
                              (sys::arglist f)
-                             (when present `("Argument list: " ,(princ-to-string args) (:newline))))
+                             (when present 
+                               `("Argument list: " 
+                                 ,(princ-to-string args) (:newline))))
       (:newline)
       #+nil,@(when (documentation f t)
-                   `("Documentation:" (:newline) ,(documentation f t) (:newline)))
+                   `("Documentation:" (:newline) 
+                                      ,(documentation f t) (:newline)))
       ,@(when (function-lambda-expression f)
               `("Lambda expression:" 
                 (:newline) ,(princ-to-string
@@ -666,20 +675,21 @@ part of *sysdep-pathnames* in swank.loader.lisp.
 ;;; case, so make its computation a user interaction.
 (defparameter *to-string-hashtable* (make-hash-table))
 (defmethod emacs-inspect ((o java:java-object))
-    (let ((to-string (lambda ()
-                      (handler-case
-                          (setf (gethash o *to-string-hashtable*)
-                                         (java:jcall "toString" o))
-                        (t (e)
-                          (setf (gethash o *to-string-hashtable*)
-                                         (format nil "Could not invoke toString(): ~A"
-                                                 e)))))))
-      (append
-       (if (gethash o *to-string-hashtable*)
-           (label-value-line "toString()" (gethash o *to-string-hashtable*))
-           `((:action "[compute toString()]" ,to-string) (:newline)))
-       (loop :for (label . value) :in (sys:inspected-parts o)
-          :appending (label-value-line label value)))))
+  (let ((to-string (lambda ()
+                     (handler-case
+                         (setf (gethash o *to-string-hashtable*)
+                               (java:jcall "toString" o))
+                       (t (e)
+                         (setf (gethash o *to-string-hashtable*)
+                               (format nil 
+                                       "Could not invoke toString(): ~A"
+                                       e)))))))
+    (append
+     (if (gethash o *to-string-hashtable*)
+         (label-value-line "toString()" (gethash o *to-string-hashtable*))
+         `((:action "[compute toString()]" ,to-string) (:newline)))
+     (loop :for (label . value) :in (sys:inspected-parts o)
+      :appending (label-value-line label value)))))
 
 ;;;; Multithreading
 

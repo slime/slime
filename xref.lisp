@@ -49,27 +49,27 @@
 ;;; Use and copying of this software and the preparation of derivative
 ;;; works based on this software are permitted, so long as the following
 ;;; conditions are met:
-;;; 	o  The copyright notice and this entire notice are included intact
-;;; 	   and prominently carried on all copies and supporting documentation.
-;;; 	o  No fees or compensation are charged for use, copies, or
-;;; 	   access to this software. You may charge a nominal
-;;; 	   distribution fee for the physical act of transferring a
-;;; 	   copy, but you may not charge for the program itself. 
-;;; 	o  If you modify this software, you must cause the modified
-;;; 	   file(s) to carry prominent notices (a Change Log)
-;;; 	   describing the changes, who made the changes, and the date
-;;; 	   of those changes.
-;;; 	o  Any work distributed or published that in whole or in part
-;;; 	   contains or is a derivative of this software or any part 
-;;; 	   thereof is subject to the terms of this agreement. The 
-;;; 	   aggregation of another unrelated program with this software
-;;; 	   or its derivative on a volume of storage or distribution
-;;; 	   medium does not bring the other program under the scope
-;;; 	   of these terms.
-;;; 	o  Permission is granted to manufacturers and distributors of
-;;; 	   lisp compilers and interpreters to include this software
-;;; 	   with their distribution. 
-;;; 
+;;;	o  The copyright notice and this entire notice are included intact
+;;;        and prominently carried on all copies and supporting documentation.
+;;;	o  No fees or compensation are charged for use, copies, or
+;;;	   access to this software. You may charge a nominal
+;;;	   distribution fee for the physical act of transferring a
+;;;	   copy, but you may not charge for the program itself. 
+;;;	o  If you modify this software, you must cause the modified
+;;;	   file(s) to carry prominent notices (a Change Log)
+;;;	   describing the changes, who made the changes, and the date
+;;;	   of those changes.
+;;;	o  Any work distributed or published that in whole or in part
+;;;	   contains or is a derivative of this software or any part 
+;;;	   thereof is subject to the terms of this agreement. The 
+;;;	   aggregation of another unrelated program with this software
+;;;	   or its derivative on a volume of storage or distribution
+;;;	   medium does not bring the other program under the scope
+;;;	   of these terms.
+;;;	o  Permission is granted to manufacturers and distributors of
+;;;	   lisp compilers and interpreters to include this software
+;;;	   with their distribution. 
+;;;
 ;;; This software is made available AS IS, and is distributed without 
 ;;; warranty of any kind, either expressed or implied.
 ;;; 
@@ -141,6 +141,7 @@
 ;;;                 source is loaded.
 ;;; 20-SEP-93 mk    Added fix from Peter Norvig to allow Xref to xref itself.
 ;;;                 The arg to macro-function must be a symbol.
+;;;  7-APR-12 heller  Break lines at 80 columns.
 
 ;;; ********************************
 ;;; To Do **************************
@@ -589,17 +590,22 @@ Cross-referencing file /afs/cs/user/mkant/Lisp/Graph-Dag/graph-dag.lisp.
 48 forms processed.
 <cl> (xref:display-database :readers)
 
-*DISPLAY-CUTOFF-DEPTH* is referenced by CALCULATE-LEVEL-POSITION CALCULATE-LEVEL-POSITION-BEFORE CALCULATE-POSITION-IN-LEVEL.
-*OFFSET-FROM-EDGE-OF-PANE* is referenced by CALCULATE-LEVEL-POSITION CALCULATE-LEVEL-POSITION-BEFORE.
+*DISPLAY-CUTOFF-DEPTH* is referenced by CALCULATE-LEVEL-POSITION
+CALCULATE-LEVEL-POSITION-BEFORE CALCULATE-POSITION-IN-LEVEL.
+*OFFSET-FROM-EDGE-OF-PANE* is referenced by CALCULATE-LEVEL-POSITION
+CALCULATE-LEVEL-POSITION-BEFORE.
 *WITHIN-LEVEL-SPACING* is referenced by BREADTH CALCULATE-POSITION-INFO.
 *DIRECTION* is referenced by CREATE-POSITION-INFO.
 *LINK-OFFSET* is referenced by OFFSET-OF-LINK-FROM-ATTACHMENT-POINT.
 *ROOT-IS-SEQUENCE* is referenced by GRAPH.
-*LEVEL-SPACING* is referenced by CALCULATE-LEVEL-POSITION CALCULATE-LEVEL-POSITION-BEFORE.
-*ORIENTATION* is referenced by BREADTH CALCULATE-LEVEL-POSITION CALCULATE-LEVEL-POSITION-BEFORE CALCULATE-POSITION-IN-LEVEL.
+*LEVEL-SPACING* is referenced by CALCULATE-LEVEL-POSITION
+CALCULATE-LEVEL-POSITION-BEFORE.
+*ORIENTATION* is referenced by BREADTH CALCULATE-LEVEL-POSITION
+CALCULATE-LEVEL-POSITION-BEFORE CALCULATE-POSITION-IN-LEVEL.
 *DEFAULT-GRAPH-POSITION* is referenced by CREATE-POSITION-INFO.
 *GRAPHING-CUTOFF-DEPTH* is referenced by CREATE-NODE-STRUCTURE.
-*LIST-OF-NODES* is referenced by CALCULATE-LEVEL-POSITION CALCULATE-LEVEL-POSITION-BEFORE CREATE-NODE FIND-NODE.
+*LIST-OF-NODES* is referenced by CALCULATE-LEVEL-POSITION
+CALCULATE-LEVEL-POSITION-BEFORE CREATE-NODE FIND-NODE.
 *GRAPH-TYPE* is referenced by CREATE-NODE-STRUCTURE.
 <cl> (xref:print-caller-trees :root-nodes '(display-graph))
 
@@ -1229,8 +1235,8 @@ Rooted calling trees:
 ;;; Misc Utilities *****************
 ;;; ********************************
 (defvar *types-to-ignore*
-  '(:lisp				; CLtL 1st Edition
-    :lisp2				; CLtL 2nd Edition additional patterns
+  '(:lisp			; CLtL 1st Edition
+    :lisp2			; CLtL 2nd Edition additional patterns
     )
   "Default set of caller types (as specified in the patterns) to ignore
    in the database handling functions. :lisp is CLtL 1st edition,
@@ -1906,7 +1912,8 @@ Rooted calling trees:
   :lisp2)
 (define-caller-pattern compiler-macro-function (form) :lisp2)
 (define-caller-pattern compiler-macroexpand (form (:optional :ignore)) :lisp2)
-(define-caller-pattern compiler-macroexpand-1 (form (:optional :ignore)) :lisp2)
+(define-caller-pattern compiler-macroexpand-1 (form (:optional :ignore))
+  :lisp2)
 
 ;;; Environments
 (define-caller-pattern variable-information (form &optional :ignore) 
@@ -2262,10 +2269,12 @@ Rooted calling trees:
 (define-caller-pattern delete-duplicates (form &key (:star form)) :lisp)
 (define-caller-pattern substitute (form form form &key (:star form)) :lisp)
 (define-caller-pattern substitute-if (form fn form &key (:star form)) :lisp)
-(define-caller-pattern substitute-if-not (form fn form &key (:star form)) :lisp)
+(define-caller-pattern substitute-if-not (form fn form &key (:star form))
+  :lisp)
 (define-caller-pattern nsubstitute (form form form &key (:star form)) :lisp)
 (define-caller-pattern nsubstitute-if (form fn form &key (:star form)) :lisp)
-(define-caller-pattern nsubstitute-if-not (form fn form &key (:star form)) :lisp)
+(define-caller-pattern nsubstitute-if-not (form fn form &key (:star form))
+  :lisp)
 (define-caller-pattern find (form form &key (:star form)) :lisp)
 (define-caller-pattern find-if (fn form &key (:star form)) :lisp)
 (define-caller-pattern find-if-not (fn form &key (:star form)) :lisp)
@@ -2497,7 +2506,8 @@ Rooted calling trees:
 (define-caller-pattern make-concatenated-stream ((:star form)) :lisp)
 (define-caller-pattern make-two-way-stream (form form) :lisp)
 (define-caller-pattern make-echo-stream (form form) :lisp)
-(define-caller-pattern make-string-input-stream (form &optional form form) :lisp) 
+(define-caller-pattern make-string-input-stream (form &optional form form)
+  :lisp)
 (define-caller-pattern make-string-output-stream (&key (:star form)) :lisp)
 (define-caller-pattern get-output-stream-string (form) :lisp)
 
@@ -2541,7 +2551,8 @@ Rooted calling trees:
 (define-variable-pattern *readtable* :lisp)
 (define-caller-pattern copy-readtable (&optional form form) :lisp)
 (define-caller-pattern readtablep (form) :lisp)
-(define-caller-pattern set-syntax-from-char (form form &optional form form) :lisp)
+(define-caller-pattern set-syntax-from-char (form form &optional form form)
+  :lisp)
 (define-caller-pattern set-macro-character (form fn &optional form) :lisp)
 (define-caller-pattern get-macro-character (form (:optional form)) :lisp)
 (define-caller-pattern make-dispatch-macro-character (form &optional form form)
@@ -2592,8 +2603,10 @@ Rooted calling trees:
 (define-caller-pattern prin1-to-string (form) :lisp)
 (define-caller-pattern princ-to-string (form) :lisp)
 (define-caller-pattern write-char (form (:optional form)) :lisp)
-(define-caller-pattern write-string (form &optional form &key (:star form)) :lisp)
-(define-caller-pattern write-line (form &optional form &key (:star form)) :lisp)
+(define-caller-pattern write-string (form &optional form &key (:star form))
+  :lisp)
+(define-caller-pattern write-line (form &optional form &key (:star form))
+  :lisp)
 (define-caller-pattern terpri ((:optional form)) :lisp)
 (define-caller-pattern fresh-line ((:optional form)) :lisp)
 (define-caller-pattern finish-output ((:optional form)) :lisp)
@@ -2621,7 +2634,8 @@ Rooted calling trees:
   :lisp2)
 
 (define-caller-pattern logical-pathname (form) :lisp2)
-(define-caller-pattern translate-logical-pathname (form &key (:star form)) :lisp2)
+(define-caller-pattern translate-logical-pathname (form &key (:star form))
+  :lisp2)
 (define-caller-pattern logical-pathname-translations (form) :lisp2)
 (define-caller-pattern load-logical-pathname-translations (form) :lisp2)
 (define-caller-pattern compile-file-pathname (form &key form) :lisp2)
@@ -2760,7 +2774,8 @@ Rooted calling trees:
 (define-caller-pattern pprint-tab (form form form &optional form) :lisp2)
 (define-caller-pattern pprint-fill (form form &optional form form) :lisp2)
 (define-caller-pattern pprint-linear (form form &optional form form) :lisp2)
-(define-caller-pattern pprint-tabular (form form &optional form form form) :lisp2)
+(define-caller-pattern pprint-tabular (form form &optional form form form)
+  :lisp2)
 (define-caller-pattern formatter (control-string) :lisp2)
 (define-caller-pattern copy-pprint-dispatch (&optional form) :lisp2)
 (define-caller-pattern pprint-dispatch (form &optional form) :lisp2)

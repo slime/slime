@@ -476,7 +476,8 @@
   (third (elt *backtrace* frame-number)))
 
 (defimplementation frame-locals (frame-number)
-  (loop for (name . value) in (nth-value 2 (frame-decode-env (elt *backtrace* frame-number)))
+  (loop for (name . value) in (nth-value 2 (frame-decode-env 
+                                            (elt *backtrace* frame-number)))
         with i = 0
         collect (list :name name :id (prog1 i (incf i)) :value value)))
 

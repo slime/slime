@@ -317,7 +317,8 @@
                     (funcall output-fn (make-string fill-size
                                                     :initial-element #\space))
                     (setf (slot-value stream 'position) target-position))
-                  (setf (slot-value stream 'last-write) (get-internal-real-time))
+                  (setf (slot-value stream 'last-write) 
+                        (get-internal-real-time))
                   t)
                  (t
                   nil))))
@@ -556,7 +557,8 @@
       (let ((file (c::compiler-error-context-file-name context))
             (source (c::compiler-error-context-original-source context))
             (path
-             (reverse (c::compiler-error-context-original-source-path context))))
+             (reverse 
+              (c::compiler-error-context-original-source-path context))))
         (or (locate-compiler-note file source path)
             (note-error-location)))))
 
@@ -1052,7 +1054,8 @@ Signal an error if no constructor can be found."
          (name (clos:generic-function-name gf))
          (specializers (clos:method-specializers method))
          (qualifiers (clos:method-qualifiers method)))
-    `(method ,name ,@qualifiers ,specializers #+nil (clos::unparse-specializers specializers))))
+    `(method ,name ,@qualifiers ,specializers 
+             #+nil (clos::unparse-specializers specializers))))
 
 ;; XXX maybe special case setters/getters
 (defun method-location (method)
@@ -1557,8 +1560,9 @@ Signal an error if no constructor can be found."
                (list (1st sc)))))))))
 
 (defun mv-function-end-breakpoint-values (sigcontext)
-  (let ((sym (find-symbol (symbol-name '#:function-end-breakpoint-values/standard)
-                          :debug-internals)))
+  (let ((sym (find-symbol 
+              (symbol-name '#:function-end-breakpoint-values/standard)
+              :debug-internals)))
     (cond (sym (funcall sym sigcontext))
           (t (di::get-function-end-breakpoint-values sigcontext)))))
 
@@ -1952,7 +1956,8 @@ The `symbol-value' of each element is a type tag.")
   (sys:without-interrupts
     (thread:with-lock-held (*mailbox-lock*)
       (or (getf (thread:thread-plist thread) 'mailbox)
-          (setf (getf (thread:thread-plist thread) 'mailbox) (make-mailbox))))))
+          (setf (getf (thread:thread-plist thread) 'mailbox)
+                (make-mailbox))))))
   
 (defimplementation send (thread message)
   (let* ((mbox (mailbox thread))

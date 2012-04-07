@@ -7,6 +7,19 @@
 	* ChangeLog:
 	* swank-cmucl.lisp:
 	* swank-lispworks.lisp:
+	* contrib/ChangeLog
+	* hyperspec.el
+	* metering.lisp
+	* swank-abcl.lisp
+	* swank-allegro.lisp
+	* swank-backend.lisp
+	* swank-clisp.lisp
+	* swank-corman.lisp
+	* swank-ecl.lisp
+	* swank-sbcl.lisp
+	* swank-scl.lisp
+	* swank-source-path-parser.lisp
+	* xref.lisp
 
 2012-04-06  Stas Boukarev  <stassats@gmail.com>
 

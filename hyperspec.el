@@ -100,7 +100,8 @@ If you copy the HyperSpec to another location, customize the variable
                           t stripped-symbol
                           'common-lisp-hyperspec-history)))))
   (maplist (lambda (entry)
-             (browse-url (concat common-lisp-hyperspec-root "Body/" (car entry)))
+             (browse-url (concat common-lisp-hyperspec-root "Body/"
+				 (car entry)))
              (if (cdr entry)
                  (sleep-for 1.5)))
            (let ((symbol (intern-soft 
@@ -140,7 +141,8 @@ If you copy the HyperSpec to another location, customize the variable
 ;;; 20020213 Edi Weitz
 
 (if common-lisp-hyperspec-symbol-table
-    (let ((index-buffer (find-file-noselect common-lisp-hyperspec-symbol-table)))
+    (let ((index-buffer (find-file-noselect 
+			 common-lisp-hyperspec-symbol-table)))
       (labels ((get-one-line ()
                  (prog1 
                      (delete* ?\n (thing-at-point 'line))
@@ -153,7 +155,8 @@ If you copy the HyperSpec to another location, customize the variable
                    (relative-url (get-one-line)))
               (intern-clhs-symbol symbol-name 
                                   (subseq relative-url
-                                          (1+ (position ?\/ relative-url :from-end t)))))))))
+                                          (1+ (position ?\/ relative-url
+							:from-end t)))))))))
   (mapc (lambda (entry) (intern-clhs-symbol (car entry) (cadr entry)))
         '(("&allow-other-keys" "03_da.htm")
           ("&aux" "03_da.htm")
@@ -1247,8 +1250,9 @@ If you copy the HyperSpec to another location, customize the variable
  		nil nil 'common-lisp-hyperspec-format-history)))))
    (maplist (lambda (entry)
 	      (browse-url (common-lisp-hyperspec-section (car entry))))
-	    (let ((symbol (intern-soft character-name
-				       common-lisp-hyperspec-format-characters)))
+	    (let ((symbol (intern-soft 
+			   character-name
+			   common-lisp-hyperspec-format-characters)))
 	      (if (and symbol (boundp symbol))
 		  (symbol-value symbol)
 		  (error "The symbol `%s' is not defined in Common Lisp"
@@ -1347,7 +1351,8 @@ cross-references table which is usually \"Map_IssX.txt\" or
 (defvar common-lisp-hyperspec-issuex-symbols (make-vector 67 0))
 
 (if common-lisp-hyperspec-issuex-table
-    (let ((index-buffer (find-file-noselect common-lisp-hyperspec-issuex-table)))
+    (let ((index-buffer (find-file-noselect 
+			 common-lisp-hyperspec-issuex-table)))
       (labels ((get-one-line ()
 			     (prog1 
 				 (delete* ?\n (thing-at-point 'line))
@@ -1360,7 +1365,8 @@ cross-references table which is usually \"Map_IssX.txt\" or
                                    common-lisp-hyperspec-issuex-symbols))
                    (relative-url (get-one-line)))
               (set symbol (subseq relative-url
-				  (1+ (position ?\/ relative-url :from-end t)))))))))
+				  (1+ (position ?\/ relative-url 
+						:from-end t)))))))))
   (mapcar 
    (lambda (entry)
      (let ((symbol (intern (car entry) common-lisp-hyperspec-issuex-symbols)))
@@ -1466,7 +1472,8 @@ cross-references table which is usually \"Map_IssX.txt\" or
      ("defconstant-special:no" "iss099.htm")
      ("defgeneric-declare:allow-multiple" "iss100.htm")
      ("define-compiler-macro:x3j13-nov89" "iss101.htm")
-     ("define-condition-syntax:incompatibly-more-like-defclass+emphasize-read-only" "iss102.htm")
+     ("define-condition-syntax:\
+incompatibly-more-like-defclass+emphasize-read-only" "iss102.htm")
      ("define-method-combination-behavior:clarify" "iss103.htm")
      ("defining-macros-non-top-level:allow" "iss104.htm")
      ("defmacro-block-scope:excludes-bindings" "iss105.htm")
@@ -1637,7 +1644,8 @@ cross-references table which is usually \"Map_IssX.txt\" or
      ("pretty-print-interface" "iss270.htm")
      ("princ-readably:x3j13-dec-91" "iss271.htm")
      ("print-case-behavior:clarify" "iss272.htm")
-     ("print-case-print-escape-interaction:vertical-bar-rule-no-upcase" "iss273.htm") 
+     ("print-case-print-escape-interaction:vertical-bar-rule-no-upcase" 
+      "iss273.htm") 
      ("print-circle-shared:respect-print-circle" "iss274.htm")
      ("print-circle-structure:user-functions-work" "iss275.htm") 
      ("print-readably-behavior:clarify" "iss276.htm")

@@ -223,7 +223,8 @@
                          (car (debugger:frame-expression frame))))))))))
 
 (defun function-source-location (fun)
-  (cadr (car (fspec-definition-locations (xref::object-to-function-name fun)))))
+  (cadr (car (fspec-definition-locations 
+              (xref::object-to-function-name fun)))))
 
 #+(version>= 8 2)
 (defun pc-source-location (fun pc)
@@ -533,7 +534,8 @@
                  (t
                   (find-definition-in-file fspec type file top-level)))))
         ((member :top-level)
-         (make-error-location "Defined at toplevel: ~A" (fspec->string fspec))))
+         (make-error-location "Defined at toplevel: ~A" 
+                              (fspec->string fspec))))
     (error (e)
       (make-error-location "Error: ~A" e))))
 
@@ -646,7 +648,8 @@
 ;;;; Profiling
 
 ;; Per-function profiling based on description in
-;;  http://www.franz.com/support/documentation/8.0/doc/runtime-analyzer.htm#data-collection-control-2
+;;  http://www.franz.com/support/documentation/8.0/\
+;;  doc/runtime-analyzer.htm#data-collection-control-2
 
 (defvar *profiled-functions* ())
 (defvar *profile-depth* 0)

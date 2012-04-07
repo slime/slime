@@ -78,7 +78,8 @@
 
 (defclass swank-mop:standard-slot-definition ()
   ()
-  (:documentation "Dummy class created so that swank.lisp will compile and load."))
+  (:documentation 
+   "Dummy class created so that swank.lisp will compile and load."))
 
 (defun named-by-gensym-p (c)
   (null (symbol-package (class-name c))))
@@ -168,10 +169,12 @@
                           (make-frame :function nil)
                           (loop for i from db::*debug-min-level*
                              upto db::*debug-max-level*
-                             until (eq (db::get-frame-function i) cl::*top-level*)
+                             until (eq (db::get-frame-function i) 
+				       cl::*top-level*)
                              collect
-                               (make-frame :function (db::get-frame-function i)
-                                           :address (db::get-frame-address i))))
+                               (make-frame 
+				:function (db::get-frame-function i)
+				:address (db::get-frame-address i))))
                          :key #'frame-function)))))
     (funcall fn)))
 
@@ -280,8 +283,9 @@
                              (if (ccl::function-source-line fspec)
                                  (list :line 
 				       (1+ (ccl::function-source-line fspec)))
-                                 (list :function-name (princ-to-string
-                                                       (function-name fspec))))))
+                                 (list :function-name 
+				       (princ-to-string
+					(function-name fspec))))))
           (error (c) (list :error (princ-to-string c))))
         (list :error (format nil "No source information available for ~S"
                              fspec)))))
@@ -396,56 +400,67 @@
               collect ", ")))
 
 (defmethod emacs-inspect ((class standard-class))
-          `("Name: " (:value ,(class-name class))
-            (:newline)
-            "Super classes: "
-            ,@(comma-separated (swank-mop:class-direct-superclasses class))
-            (:newline)
-            "Direct Slots: "
-            ,@(comma-separated
-               (swank-mop:class-direct-slots class)
-               (lambda (slot)
-                 `(:value ,slot ,(princ-to-string (swank-mop:slot-definition-name slot)))))
-            (:newline)
-            "Effective Slots: "
-            ,@(if (swank-mop:class-finalized-p class)
-                  (comma-separated
-                   (swank-mop:class-slots class)
-                   (lambda (slot)
-                     `(:value ,slot ,(princ-to-string
-                                      (swank-mop:slot-definition-name slot)))))
-                  '("#<N/A (class not finalized)>"))
-            (:newline)
-            ,@(when (documentation class t)
-                `("Documentation:" (:newline) ,(documentation class t) (:newline)))
-            "Sub classes: "
-            ,@(comma-separated (swank-mop:class-direct-subclasses class)
-                               (lambda (sub)
-                                 `(:value ,sub ,(princ-to-string (class-name sub)))))
-            (:newline)
-            "Precedence List: "
-            ,@(if (swank-mop:class-finalized-p class)
-                  (comma-separated (swank-mop:class-precedence-list class)
-                                         (lambda (class)
-                                           `(:value ,class ,(princ-to-string (class-name class)))))
-                  '("#<N/A (class not finalized)>"))
-            (:newline)))
+  `("Name: " 
+    (:value ,(class-name class))
+    (:newline)
+    "Super classes: "
+    ,@(comma-separated (swank-mop:class-direct-superclasses class))
+    (:newline)
+    "Direct Slots: "
+    ,@(comma-separated
+       (swank-mop:class-direct-slots class)
+       (lambda (slot)
+	 `(:value ,slot 
+		  ,(princ-to-string 
+		    (swank-mop:slot-definition-name slot)))))
+    (:newline)
+    "Effective Slots: "
+    ,@(if (swank-mop:class-finalized-p class)
+	  (comma-separated
+	   (swank-mop:class-slots class)
+	   (lambda (slot)
+	     `(:value ,slot ,(princ-to-string
+			      (swank-mop:slot-definition-name slot)))))
+	  '("#<N/A (class not finalized)>"))
+    (:newline)
+    ,@(when (documentation class t)
+	    `("Documentation:" (:newline) ,(documentation class t) (:newline)))
+    "Sub classes: "
+    ,@(comma-separated (swank-mop:class-direct-subclasses class)
+		       (lambda (sub)
+			 `(:value ,sub ,(princ-to-string (class-name sub)))))
+    (:newline)
+    "Precedence List: "
+    ,@(if (swank-mop:class-finalized-p class)
+	  (comma-separated 
+	   (swank-mop:class-precedence-list class)
+	   (lambda (class)
+	     `(:value ,class 
+		      ,(princ-to-string (class-name class)))))
+	  '("#<N/A (class not finalized)>"))
+    (:newline)))
 
 (defmethod emacs-inspect ((slot cons))
   ;; Inspects slot definitions
   (if (eq (car slot) :name)
-              `("Name: " (:value ,(swank-mop:slot-definition-name slot))
-                         (:newline)
-                         ,@(when (swank-mop:slot-definition-documentation slot)
-                             `("Documentation:"  (:newline)
-                                                 (:value ,(swank-mop:slot-definition-documentation slot))
-                                                 (:newline)))
-                         "Init args: " (:value ,(swank-mop:slot-definition-initargs slot)) (:newline)
-                         "Init form: "  ,(if (swank-mop:slot-definition-initfunction slot)
-                                             `(:value ,(swank-mop:slot-definition-initform slot))
-                                             "#<unspecified>") (:newline)
-                                             "Init function: " (:value ,(swank-mop:slot-definition-initfunction slot))
-                                             (:newline))
+      `("Name: " (:value ,(swank-mop:slot-definition-name slot))
+		 (:newline)
+		 ,@(when (swank-mop:slot-definition-documentation slot)
+			 `("Documentation:"  
+			   (:newline)
+			   (:value 
+			    ,(swank-mop:slot-definition-documentation slot))
+			   (:newline)))
+		 "Init args: " (:value 
+				,(swank-mop:slot-definition-initargs slot))
+		 (:newline)
+		 "Init form: "
+		 ,(if (swank-mop:slot-definition-initfunction slot)
+		      `(:value ,(swank-mop:slot-definition-initform slot))
+		      "#<unspecified>") (:newline)
+		      "Init function: " 
+		      (:value ,(swank-mop:slot-definition-initfunction slot))
+		      (:newline))
       (call-next-method)))
   
 (defmethod emacs-inspect ((pathname pathnames::pathname-internal))

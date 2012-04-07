@@ -160,7 +160,6 @@ Backends implement these functions using DEFIMPLEMENTATION."
        ,(if (null default-body)
             `(pushnew ',name *unimplemented-interfaces*)
             (gen-default-impl))
-       ;; see <http://www.franz.com/support/documentation/6.2/doc/pages/variables/compiler/s_cltl1-compile-file-toplevel-compatibility-p_s.htm>
        (eval-when (:compile-toplevel :load-toplevel :execute)
          (export ',name :swank-backend))
        ',name)))
@@ -755,10 +754,12 @@ additional information on the specifiers defined in ANSI Common Lisp.")
       (type           '(type-specifier &rest args))
       (ftype          '(type-specifier &rest function-names))
       (otherwise
-       (flet ((typespec-p (symbol) (member :type (describe-symbol-for-emacs symbol))))
+       (flet ((typespec-p (symbol) 
+                (member :type (describe-symbol-for-emacs symbol))))
          (cond ((and (symbolp decl-identifier) (typespec-p decl-identifier))
                 '(&rest variables))
-               ((and (listp decl-identifier) (typespec-p (first decl-identifier)))
+               ((and (listp decl-identifier) 
+                     (typespec-p (first decl-identifier)))
                 '(&rest variables))
                (t :not-available)))))))
 
@@ -781,7 +782,8 @@ additional information on the specifiers defined in ANSI Common Lisp.")
 (definterface function-name (function)
   "Return the name of the function object FUNCTION.
 
-The result is either a symbol, a list, or NIL if no function name is available."
+The result is either a symbol, a list, or NIL if no function name is
+available."
   (declare (ignore function))
   nil)
 
@@ -1066,7 +1068,8 @@ returns.")
   (cond ((typep datum 'condition)
          `(:error ,(format nil "Error: ~A" datum)))
         ((symbolp datum)
-         `(:error ,(format nil "Error: ~A" (apply #'make-condition datum args))))
+         `(:error ,(format nil "Error: ~A" 
+                           (apply #'make-condition datum args))))
         (t
          (assert (stringp datum))
          `(:error ,(apply #'format nil datum args)))))

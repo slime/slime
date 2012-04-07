@@ -5,12 +5,14 @@
 
 2012-04-04  Nikodemus Siivola  <nikodemus@random-state.net>
 
-	* slime-cl-indent.el (common-lisp-lambda-list-initial-value-form-p): New function.
-	Identifies initial-value-forms from lambda-lists, allowing them to be indented
-	as regular code.
-	(lisp-indent-259): Use the previous when indenting using &lambda to punt to
-	normal indentation when approriate.
-	* slime-cl-indent-test.txt (Test 87): Test indentation of initial-value forms.
+	* slime-cl-indent.el
+	(common-lisp-lambda-list-initial-value-form-p): New function.
+	Identifies initial-value-forms from lambda-lists, allowing them to
+	be indented as regular code.
+	(lisp-indent-259): Use the previous when indenting using &lambda
+	to punt to normal indentation when approriate.
+	* slime-cl-indent-test.txt (Test 87): Test indentation of
+	initial-value forms.
 
 2012-03-19  Stas Boukarev  <stassats@gmail.com>
 
@@ -59,27 +61,29 @@
 
 2012-03-30  Nikodemus Siivola  <nikodemus@random-state.net>
 
-	* slime-cl-indent.el (common-lisp-indent-function-1): Fix indentation
-	of (and ;; Foo\n...). Previously following lines were indented by one, instead
-	of using normal indentation.
+	* slime-cl-indent.el (common-lisp-indent-function-1): Fix
+	indentation of (and ;; Foo\n...). Previously following lines were
+	indented by one, instead of using normal indentation.
 
 	* slime-cl-indent-test.txt (tests 84-86): Tests.
 
 2011-12-30  Nikodemus Siivola  <nikodemus@random-state.net>
 
-	* slime-cl-indent.el (common-lisp-looking-at-keyword): New function. Looks
-	past #+foo expressions.
+	* slime-cl-indent.el (common-lisp-looking-at-keyword): New
+	function. Looks past #+foo expressions.
 	(common-lisp-backward-keyword-argument): New function. Semi-aware
 	of #+foo expressions.
 	(common-lisp-indent-function-1):
 	1. Use `common-lisp-indent-parse-state-start'.
-	2. Move #+/- cleavernes outside the cond: it is always a default, and shouldn't
-	trump other indentation logic. Also make it use the column of the first feature
-	expression, not the last.
+	2. Move #+/- cleavernes outside the cond: it is always a default,
+	and shouldn't trump other indentation logic. Also make it use the
+	column of the first feature expression, not the last.
 	3. Make keyword alignment somewhat feature-expression aware.
-	4. Make heuristics not force remaining forms to be indented at the same line.
-	(common-lisp-indent-test): Leave one leading whitespace on comment lines
-	when messing up indentation.
+	4. Make heuristics not force remaining forms to be indented
+	at the same line.
+
+	(common-lisp-indent-test): Leave one leading whitespace on comment
+	lines when messing up indentation.
 
 	* slime-cl-indent-test.txt (tests 77-83): Tests for feature-expression
 	and keyword alignment interaction.
@@ -120,8 +124,9 @@
 
 	* slime-cl-indent-test.txt (tests 72-76): New tests.
 
-	* slime-cl-indent.el (common-lisp-init-standard-indentation): New function,
-	wraps initialization of the common-lisp-indent-function properties.
+	* slime-cl-indent.el (common-lisp-init-standard-indentation): New
+	function, wraps initialization of the common-lisp-indent-function
+	properties.
 
 2011-12-06  Didier Verna  <didier@xemacs.org>
 
@@ -232,12 +237,13 @@
 
 2011-11-19  Nikodemus Siivola  <nikodemus@random-state.net>
 
-	* slime-cl-indent.el ("sbcl"): Add indentation alias for !def-debug-command.
+	* slime-cl-indent.el ("sbcl"): Add indentation alias for
+	!def-debug-command.
 
 2011-11-16  Stas Boukarev  <stassats@gmail.com>
 
-	* slime-repl.el (slime-open-stream-to-lisp): Set the process coding system
-	to the right coding system.
+	* slime-repl.el (slime-open-stream-to-lisp): Set the process
+	coding system to the right coding system.
 
 2011-11-12  Nikodemus Siivola  <nikodemus@random-state.net>
 
@@ -247,7 +253,8 @@
 	* slime-cl-indent.el (lisp-beginning-of-defmethod-qualifiers): Renamed
 	from `lisp-beginning-of-defmethod'. Skip the method name as well, since
 	unlike qualifiers it can be list -- eg. (setf foo).
-	(lisp-indent-defmethod): Use the above to get the number of skips right.
+	(lisp-indent-defmethod): Use the above to get the number of skips
+	right.
 
 	* slime-cl-indent-test.txt: Tests 64 and 65.
 
@@ -280,7 +287,8 @@
 
 2011-10-31  Nikodemus Siivola  <nikodemus@random-state.net>
 
-	* slime-cl-indent.el (style "sbcl"): Indentation for !DEF-TYPE-TRANSLATOR.
+	* slime-cl-indent.el (style "sbcl"): Indentation for
+	!DEF-TYPE-TRANSLATOR.
 
 2011-10-29  Nikodemus Siivola  <nikodemus@random-state.net>
 
@@ -305,8 +313,8 @@
 
 2011-10-05  Stas Boukarev  <stassats@gmail.com>
 
-	* slime-repl.el (slime-clear-repl-variables): New function, clears *, /,
-	and + variables.
+	* slime-repl.el (slime-clear-repl-variables): New function, clears
+	*, /, and + variables.
 	(slime-repl-clear-buffer-hook): Add `slime-clear-repl-variables'
 	to it, now C-c M-o clears variables, allowing bound objects to be GCed.
 
@@ -352,8 +360,8 @@
 
 2011-08-30  Nikodemus Siivola  <nikodemus@random-state.net>
 
-	* slime-repl.el	(slime-repl-suppress-prompt): New variable. Bind to T to
-	temporarily suppress the prompt.
+	* slime-repl.el (slime-repl-suppress-prompt): New variable. Bind
+	to T to temporarily suppress the prompt.
 	(slime-eval-last-expression-in-repl): New command. Sends form from
 	another buffer to REPL for evaluation.
 	(slime-mode-map): Bind slime-eval-last-expression-in-repl to C-c C-j.
@@ -370,11 +378,13 @@
 
 2011-06-21  Nikodemus Siivola  <nikodemus@random-state.net>
 
-	* slime-cl-indent.el (lisp-loop-indent-forms-like-keywords): Fix type error.
-	(common-lisp-style-default): Fix type error, move to after styles have been
-	defined so as to be able to offer a menu for picking the predefined styles.
-	("sbcl"): Oops! It's (as ...) not (:as ...). Also add couple of missing defining
-	forms.
+	* slime-cl-indent.el (lisp-loop-indent-forms-like-keywords): Fix
+	type error.
+	(common-lisp-style-default): Fix type error, move to after styles
+	have been defined so as to be able to offer a menu for picking the
+	predefined styles.
+	("sbcl"): Oops! It's (as ...) not (:as ...). Also add couple of
+	missing defining forms.
 
 2011-06-16  Nikodemus Siivola  <nikodemus@random-state.net>
 
@@ -436,9 +446,10 @@
 
 	Refactoring named styles.
 
-	* slime-cl-indent.el (define-common-lisp-style): Not a list of hooks anymore,
-	but just a single hook. Document the fact that code in :eval option may get
-	called multiple times over the lifetime of a buffer.
+	* slime-cl-indent.el (define-common-lisp-style): Not a list of
+	hooks anymore, but just a single hook. Document the fact that code
+	in :eval option may get called multiple times over the lifetime of
+	a buffer.
 	(common-lisp-style-name, common-lisp-style-inherits)
 	(common-lisp-style-variables, common-lisp-style-indentation)
 	(common-lisp-style-hook, common-lisp-style-docstring)
@@ -605,8 +616,8 @@
 
 	* slime-cl-indent.el (common-lisp-indent-function-1): Better #+
 	support.
-	(common-lisp-loop-part-indentation): Make newline-and-indent work better
-	with non-subclause-aware loop indentation.
+	(common-lisp-loop-part-indentation): Make newline-and-indent work
+	better with non-subclause-aware loop indentation.
 
 2011-05-15  Didier Verna  <didier@xemacs.org>
 
@@ -633,13 +644,15 @@
 
 	* slime-cl-indent.el (lisp-indent-lambda-list): Use sexp-based
 	traversal instead of regular expressions to figure out how to
-	indent lambda-lists. Allows indenting destructuring lambda-lists correctly:
-	previously we could align to a keyword in a previous sublist, instead
-	of the sublist itself.
-	(lisp-indent-lambda-list-keywords-regexp): Add support for non-standard &more.
+	indent lambda-lists. Allows indenting destructuring lambda-lists
+	correctly: previously we could align to a keyword in a previous
+	sublist, instead of the sublist itself.
+	(lisp-indent-lambda-list-keywords-regexp): Add support for
+	non-standard &more.
 	(test-lisp-indent, run-lisp-indent-tests): Rudimentary tests.
-	(lisp-indent-259): Use lambda-list-indentation even if the CDR of the path
-	isn't null: this allows correct indentation of destructuring sublists.
+	(lisp-indent-259): Use lambda-list-indentation even if the CDR of
+	the path isn't null: this allows correct indentation of
+	destructuring sublists.
 	(run-lisp-indent-tests): More test-cases.
 
 2011-05-11  Nikodemus Siivola  <nikodemus@random-state.net>
@@ -673,7 +686,8 @@
 	(common-lisp-indent-parse-state-start):
 	(common-lisp-indent-parse-state-prev): Parse state accessors.
 	(common-lisp-indent-loop-macro-1): Subclause aware loop indentation.
-	(common-lisp-indent-loop-advance-past-keyword-on-line): Utility used by the above.
+	(common-lisp-indent-loop-advance-past-keyword-on-line): Utility
+	used by the above.
 
 2011-05-10  Nikodemus Siivola  <nikodemus@random-state.net>
 
@@ -723,8 +737,9 @@
         entries.
 	* slime-cl-indent.el (lisp-lambda-list-keyword-alignment):
 	* slime-cl-indent.el (lisp-lambda-list-keyword-parameter-indentation):
-	* slime-cl-indent.el (lisp-lambda-list-keyword-parameter-alignment): New
-        customizable user options.
+	* slime-cl-indent.el
+	(lisp-lambda-list-keyword-parameter-alignment): New customizable
+	user options.
 	* slime-cl-indent.el (lisp-indent-defun-method): Improve docstring.
 	* slime-cl-indent.el (extended-loop-p): Fix comment.
 	* slime-cl-indent.el (lisp-indent-lambda-list-keywords-regexp): New
@@ -1138,10 +1153,12 @@
 2010-04-18  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-presentations.el
-	(slime-repl-grab-old-output,slime-copy-or-inspect-presentation-at-mouse):
-	If the presentation at point is no longer available, remove
-	presentation properties from the object.
-	* swank-presentations.lisp (lookup-presented-object): defun->defslimefun.
+	(slime-repl-grab-old-output)
+	(slime-copy-or-inspect-presentation-at-mouse): If the presentation
+	at point is no longer available, remove presentation properties
+	from the object.
+	* swank-presentations.lisp (lookup-presented-object):
+	defun->defslimefun.
 
 2010-04-06  Stas Boukarev  <stassats@gmail.com>
 
@@ -1225,15 +1242,15 @@
 
 2010-03-20  Stas Boukarev  <stassats@gmail.com>
 
-	* slime-c-p-c.el, slime-fuzzy.el: Don't define keys on slime-repl-mode-map
-	if slime-repl isn't loaded.
+	* slime-c-p-c.el, slime-fuzzy.el: Don't define keys on
+	slime-repl-mode-map if slime-repl isn't loaded.
 	* slime-presentations.el: Refuse to load if slime-repl isn't loaded.
 	Reported by Robert Goldman.
 
 2010-03-13  Stas Boukarev  <stassats@gmail.com>
 
-	* slime-asdf.el: use slime-from-lisp-filename so that slime-tramp can work.
-	Reported by Peter Stirling.
+	* slime-asdf.el: use slime-from-lisp-filename so that slime-tramp
+	can work.  Reported by Peter Stirling.
 
 2010-03-12  Stas Boukarev  <stassats@gmail.com>
 
@@ -1879,8 +1896,9 @@
 
 	* slime-repl.el (slime-repl-position-in-history): Add new optional
 	parameter `exclude-string'.
-	(slime-repl-history-replace): Don't replace history item if it's exactly
-	matching the current input, search for the next match instead.
+	(slime-repl-history-replace): Don't replace history item if it's
+	exactly matching the current input, search for the next match
+	instead.
 
 2009-11-19  Tobias C. Rittweiler  <tcr@freebits.de>
 
@@ -1962,10 +1980,10 @@
 
 2009-11-02  Stas Boukarev  <stassats@gmail.com>
 
-	* slime-parse.el (slime-incomplete-form-at-point): Concatenate " )"
-	not just ")", because the form's last char may be \, and the parenthesis
-	will be escaped.
-	That fixes a bug reported by Ariel Badichi.
+	* slime-parse.el (slime-incomplete-form-at-point): Concatenate
+	" )" not just ")", because the form's last char may be \,
+	and the parenthesis will be escaped.  That fixes a bug reported by
+	Ariel Badichi.
 
 2009-10-31  Tobias C. Rittweiler  <tcr@freebits.de>
 
@@ -2156,7 +2174,8 @@
 
 2009-08-27  Stas Boukarev  <stassats@gmail.com>
 
-	* slime-c-p-c.el (slime-contextual-completions): Detect characters properly.
+	* slime-c-p-c.el (slime-contextual-completions): Detect characters
+	properly.
 	(slime-completions-for-character): Append #\ to the character names.
 	This fixes character completion, reported by Nick Levine.
 
@@ -2265,9 +2284,9 @@
 	* slime-fuzzy.el (slime-fuzzy-complete-symbol): show message in the
 	minibuffer after showing completion list, because completion
 	itself can take place in the minibuffer.
-	(slime-fuzzy-choices-buffer): if completion was started in the minibuffer,
-	don't switch to minibuffer in the other window, but select minibuffer window
-	instead.
+	(slime-fuzzy-choices-buffer): if completion was started in the
+	minibuffer, don't switch to minibuffer in the other window, but
+	select minibuffer window instead.
 
 2009-06-23  Helmut Eller  <heller@common-lisp.net>
 
@@ -3051,10 +3070,10 @@
 
 2008-04-06  Tobias C. Rittweiler  <tcr@freebits.de>
 
-	* slime-presentations.lisp: 
+	* slime-presentations.lisp:
 	(slime-maybe-M-.-presentation-at-point): Renamed to
 	`slime-edit-presentation'. Now makes sure to decline if user gave
-	a name explicitly. 
+	a name explicitly.
 
 2008-03-24  Helmut Eller  <heller@common-lisp.net>
 
@@ -3072,7 +3091,7 @@
 	string representation of the classifications rather than the
 	classifications themselves. (Notice this propagates up to (and
 	consequently changes the return value of) the RPC function
-	FUZZY-COMPLETIONS. (incompatible api change.)  
+	FUZZY-COMPLETIONS. (incompatible api change.)
 
 	Rationale: The number of supported classification can be changed
 	without having to adapt its display at the client.
@@ -3106,11 +3125,11 @@
 
 2008-03-02  Tobias C. Rittweiler  <tcr@freebits.de>
 
-	M-. now works on presentations. 
+	M-. now works on presentations.
 
 	Additionally, a Find Definition entry is presented in the menu
 	appearing on right clicking on a presentation.
-	
+
 	* slime-presentations.lisp (slime-M-.-presentation): New function.
 	(slime-M-.-presentation-at-mouse): New function.
 	(slime-M-.-presentation-at-point): New function.
@@ -3128,7 +3147,7 @@
 	Having the `slime-presentations' contrib enabled, (princ 10)
 	resulted in "1010" rather than "10\n10". (This also caused a
 	regression in the `repl-test' test case.)
-	
+
 	* swank-presentations.lisp (present-repl-results): Emit fresh-line
 	as the original SEND-REPL-RESULTS-TO-EMACS does.
 
@@ -3222,16 +3241,16 @@
 
 2008-01-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
-	Hook presentations into debugger and inspector, restoring 
+	Hook presentations into debugger and inspector, restoring
 	features that were removed on 2007-08-27.
-	
+
 	* slime-presentations.el (slime-presentation-add-easy-menu):
 	Install presentation menu also in the debugger and inspector.
 	(slime-presentation-inspector-insert-ispec): New.
 	(slime-presentation-sldb-insert-frame-variable-value): New.
 	(slime-presentations-init): Install these functions as
 	slime-inspector-insert-ispec-function and
-	sldb-insert-frame-variable-value-function. 
+	sldb-insert-frame-variable-value-function.
 
 2008-01-19  Helmut Eller   <heller@common-lisp.net>
 
@@ -3243,7 +3262,7 @@
 	* slime-presentations.el
 	(slime-copy-or-inspect-presentation-at-mouse): Call
 	slime-copy-presentation-at-mouse-to-repl rather than
-	slime-copy-presentation-at-mouse. 
+	slime-copy-presentation-at-mouse.
 
 2008-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
@@ -3252,42 +3271,42 @@
 
 	* swank-arglist.lisp (read-form-spec): Added assertion against
 	receiving junk form specs from Emacs.
-	
+
 2008-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-editing-commands.el (slime-close-all-parens-in-sexp): Use
 	new portability function `slime-delete-and-extract-region'.
-	
+
 2008-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-parse.lisp (slime-incomplete-form-at-point): Hopefully
 	better fix than before.
-	
+
 2008-01-10  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Add keyboard commands (starting with C-c C-v) and a top-level menu
 	for presentation-related commands.  Add a command (C-c C-v M-o) to
 	forget all objects associated with presentations, without
 	clearing the REPL buffer.
-	
+
 	* slime-presentations.el
 	(slime-presentation-around-or-before-point-or-error): New
 	function.
 	(slime-inspect-presentation): New function, factored out from
-	slime-inspect-presentation-at-mouse. 
+	slime-inspect-presentation-at-mouse.
 	(slime-inspect-presentation-at-mouse): Use it here.
 	(slime-inspect-presentation-at-point): New command.
 	(slime-copy-presentation-to-repl): New function, factored out
 	from slime-copy-presentation-at-mouse.
 	(slime-copy-presentation-at-mouse-to-repl): Renamed from
 	slime-copy-presentation-at-mouse; use the new function
-	slime-copy-presentation-to-repl. 
+	slime-copy-presentation-to-repl.
 	(slime-copy-presentation-at-point-to-repl): New command.
 	(slime-copy-presentation-to-kill-ring): New function, factored
 	out from slime-copy-presentation-at-mouse-to-kill-ring.
 	(slime-copy-presentation-at-point-to-kill-ring): New command.
 	(slime-describe-presentation): New function, factored out from
-	slime-describe-presentation-at-mouse. 
+	slime-describe-presentation-at-mouse.
 	(slime-describe-presentation-at-mouse): Use it here.
 	(slime-describe-presentation-at-point): New command.
 	(slime-pretty-print-presentation): New function, factored out
@@ -3296,7 +3315,7 @@
 	(slime-pretty-print-presentation-at-point): New command.
 	(slime-mark-presentation): New command.
 	(slime-previous-presentation, slime-next-presentation): New
-	commands. 
+	commands.
 	(slime-presentation-command-map, slime-presentation-bindings):
 	New variables.
 	(slime-presentation-init-keymaps): New function.
@@ -3314,13 +3333,13 @@
 	arglist index the user's point is located at correctly into
 	account. Previously `C-c C-s' on `(defun |foo' would have inserted
         `args body...)', now it inserts `name args body...)'
-	
+
 2008-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-arglists.lisp (read-form-spec): Changed "cons" clause to
 	"list" clause in etypecase. Fix for error on arglist display on
 	`(declare (ftype (|)))', | being point.
-	
+
 2008-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-fuzzy.el (slime-fuzzy-completion-time-limit-in-msec):
@@ -3331,12 +3350,12 @@
 	(fuzzy-generate-matchings): Sort package matchings before
 	traversal, such that they're traversed in the order of their
 	score. (Important when time limit exhausts during traversal.)
-	
+
 2008-01-09  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Restore support for Scheme programs that was removed from core
 	SLIME on 2007-09-19, as a "slime-scheme" contrib.
-	
+
 	* slime-scheme.el: New file.
 
 2007-12-30  Tobias C. Rittweiler  <tcr@freebits.de>
@@ -3353,15 +3372,15 @@
 2007-11-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-arglists.lisp (arglist-dispatch 'defmethod): Use
-	VALID-FUNCTION-NAME-P. Fixes error on certain `(defmethod (setf	...))'
-	forms.
-	
+	VALID-FUNCTION-NAME-P. Fixes error on certain
+	`(defmethod (setf	...))' forms.
+
 2007-11-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-arglists.lisp (print-arglist): Print initforms in &optional and
 	&key lambda list specifiers as if by PRIN1 instead of PRINC.
 	Reported by Michael Weber.
-	
+
 2007-11-24  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-fuzzy.el: Use slime-require instead of a connected-hook.
@@ -3394,7 +3413,7 @@
 	* slime-typeout-frame.el: Messages in the typeout frame were too
 	easily overwritten by `slime-autodoc'. Fix that.
 	Reported by Geoff Wozniak.
-	
+
 	(slime-typeout-message-aux): Split out from `slime-typeout-message'.
 	(slime-typeout-message): Wrapper around it. Additionally disable
 	the autodoc timer temporarily.
@@ -3451,11 +3470,11 @@
 	* swank-fuzzy.lisp: Fix regression that would not allow to fuzzy
 	complete on inputs without package qualifier like "app".
 	Reported by David J. Neu.
-	
+
 	(%make-duplicate-symbols-filter): Return complement.
 	(fuzzy-find-matching-symbols): Treat passed filter as an acceptor
 	predicate, not as a rejector.
-	
+
 2007-09-15  Helmut Eller  <heller@common-lisp.net>
 
 	Add the necessary hooks when loading some contribs, so that those
@@ -3478,7 +3497,7 @@
 	* slime-parse.el: Fix extended arglist display on misbalanced
 	expressions like `(defun foo | ... (defun bar () 'bar)'
 	Reported by Ariel Badichi.
-	
+
 	(slime-inside-string-p): Use `beginning-of-defun' directly than
 	relying on `slime-region-for-defun-at-point' (as this one uses
 	`end-of-defun' which signals an error on misbalanced expressions.)
@@ -3509,17 +3528,17 @@
 	than their home package when the home package is among the matched
 	packages. Try to take the time needed to sort the generated
 	matchings into account for the time-limit.
-	(%guess-sort-duration): Helper. 
+	(%guess-sort-duration): Helper.
 	Tries to guess how long the sort will take.
-	(%make-duplicate-symbols-filter): Helper. 
+	(%make-duplicate-symbols-filter): Helper.
 	Used for pruning of matchings.
 	(fuzzy-matching-greaterp): New testing predicate for sorting.
 
 	(fuzzy-find-matching-symbols): Now takes a :filter keyarg; only
 	considers symbols that pass through the filter.
 	(fuzzy-find-matching-packages): Do not return matchings for all
-	nicknames of package, but just the one that matches best.	
-	
+	nicknames of package, but just the one that matches best.
+
 2007-09-11  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-editing-commands.el: Automatically bind the editing
@@ -3527,7 +3546,8 @@
 	enable them explicitly, but this is inconsistent to, for instance,
 	the `slime-c-p-c' module which also sets up its bindings
 	automatically.)
-	(slime-bind-editing-commands): Renamed to `slime-editing-commands-init'.
+	(slime-bind-editing-commands): Renamed to
+	`slime-editing-commands-init'.
 	(slime-editing-commands-init): Evaluated at toplevel.
 
 2007-09-11  Tobias C. Rittweiler  <tcr@freebits.de>
@@ -3546,7 +3566,7 @@
 2007-09-11  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-fancy.el: Require `slime-references'.
-	
+
 2007-09-10  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-parse.el (slime-cl-symbol-name, slime-cl-symbol-package):
@@ -3559,12 +3579,12 @@
 2007-09-10  Helmut Eller  <heller@common-lisp.net>
 
 	Fix some of the bugs introduced with the last change.
-	
+
 	* slime-references.el (sldb-reference-face): Add missing quote.
 	(sldb-reference-properties): We are lucky and can use keywords
 	instead of strings.
 	(sldb-maybe-insert-references): Insert newlines differently.
-	
+
 2007-09-10  Helmut Eller  <heller@common-lisp.net>
 
 	Move SBCL doc references to contrib.
@@ -3576,7 +3596,7 @@
 	* slime-fuzzy.el: Fixed some race condition that prevented a
 	proper closing of the *Fuzzy Completions* buffer in some
 	circumstances.
-	
+
 	(slime-fuzzy-save-window-configuration): Removed. Hooking up
 	`window-configuration-change-hook' via `run-with-timer' was racy
 	and lead to this bug; we now set the hook explicitely at the
@@ -3605,7 +3625,7 @@
 2007-09-05  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-c-p-c.el: This file incorrectly provided the module
-	`:swank-compound-prefix'; changed that to `:swank-c-p-c'. 
+	`:swank-compound-prefix'; changed that to `:swank-c-p-c'.
 
 	This gets rid off the nasty redefinition warnings that were
 	previously signalled when loading SWANK with SBCL.
@@ -3618,17 +3638,17 @@
 
 	* slime-c-p-c.el (slime-c-p-c-init): Bind `slime-complete-form' to
 	`C-c C-s' in `slime-repl-mode-map'.
-	
+
 2007-09-05  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	Added extended arglist display for DECLAIM and PROCLAIM.
-	
+
 	* slime-parse.el (slime-extended-operator-name-parser-alist): Added
 	entries for "DECLAIM", and "PROCLAIM".
 	(slime-parse-extended-operator/declare): Provide information about
 	the operator the arglist is requested for.
 	(slime-make-form-spec-from-string): Fixed for "()" as input.
-	
+
 	* swank-arglists.lisp (valid-operator-symbol-p): Explicitly allow
 	the symbol 'DECLARE.
 	(arglist-dispatch): New method for `DECLARE'. We have to catch
@@ -3655,7 +3675,7 @@
 	   `(defun foo (x)
 	      (let ((bar 'quux))
 	        (with-open-file (s f :|'    [`|' being point]
-	
+
 2007-09-04  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-arglists.lisp (parse-first-valid-form-spec): Rewrite it for
@@ -3707,19 +3727,20 @@
 
 	Makes `slime-complete-form' work on `(eval-when |'; doesn't work
 	on `(eval-when (|' yet.
-	
+
 	* slime-parse.el (slime-parse-sexp-at-point): Guard against
 	`(char-after)' being NIL at end of buffer (especially important
 	for use on the REPL.)
 
 	* swank-arglist.lisp (arglist-dispatch 'eval-when): Fix typo.
 	(print-decoded-arglist-as-template): Print keywords with PRIN1.
-	
+
 2007-08-31  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	Added extended arglist display for EVAL-WHEN, viz:
 
-	  (eval-when (&any :compile-toplevel :load-toplevel :execute) &body body)
+	  (eval-when (&any :compile-toplevel :load-toplevel :execute)
+	     &body body)
 
 	Notice that completion works as expected on these keywords.
 
@@ -3728,8 +3749,8 @@
 	* swank-arglist (arglist-dispatch): New method for EVAL-WHEN.
 	(print-arglist): Print keywords with PRIN1 rather than PRINC,
 	to get a result as shown above for the EVAL-WHEN case.
-	(completions-for-keyword): Add support for &ANY args.	 
-	
+	(completions-for-keyword): Add support for &ANY args.
+
 2007-08-31  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-arglist.lisp: Do not fall back to READ when interpreting
@@ -3753,7 +3774,7 @@
 	elements of the passed ``raw form spec''. Uses `read-softly' as
 	default reader.
 
-	(complete-form, completions-for-keywords): 
+	(complete-form, completions-for-keywords):
 	Use `unintern-in-home-package'.
 
 2007-08-31  Helmut Eller  <heller@common-lisp.net>
@@ -3804,9 +3825,9 @@
 
 2007-08-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
-	* swank-presentations.lisp (send-repl-results-to-emacs): 
+	* swank-presentations.lisp (send-repl-results-to-emacs):
 	Override core defun to mark up REPL results as presentations.
-	
+
 	* swank-presentations.lisp: New file.
 	* slime-presentations.el: Load it.
 
@@ -3825,11 +3846,11 @@
 2007-08-24  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Some fixes to the presentation-streams contrib.
-	
+
 	* swank-presentation-streams.lisp [sbcl]: Load the pretty-printer
 	patch only at load time.  Add some trickery so that SBCL does not
 	complain about the changed layout of the pretty-stream class.
-	
+
 	* swank-presentation-streams.lisp (slime-stream-p): Using special
 	return values, indicate whether we are printing to the
 	REPL-results stream, or a dedicated stream.
@@ -3838,10 +3859,10 @@
 	global variable *use-dedicated-output-stream*) to decide whether
 	to use the bridge protocol or the :presentation-start/-end
 	protocol.  Also use it as the TARGET argument of
-	:presentation-start/-end messages. 
+	:presentation-start/-end messages.
 	(presenting-object-1): Use the new return values of
 	slime-stream-p.
-	
+
 	* swank-presentation-streams.lisp (slime-stream-p) [cmu]: Use the
 	return value of slime-stream-p rather than the global variable
 	*use-dedicated-output-stream* to decide whether printing through
@@ -3851,11 +3872,11 @@
 
 	Make the fancy "presentation streams" feature a contrib.
 	Previously, it was only available if "present.lisp" was loaded
-	manually. 
-	
+	manually.
+
 	* slime-presentation-streams.el: New file.
 	* swank-presentation-streams.lisp: New file, moved here from
-	../present.lisp 
+	../present.lisp
 
 2007-08-24  Helmut Eller  <heller@common-lisp.net>
 

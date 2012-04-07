@@ -330,20 +330,24 @@ Return NIL if the symbol is unbound."
       (fspec-pathname fspec)
     (list (if type (list name type) name)
 	  (cond (file
-		 (multiple-value-bind (truename c) (ignore-errors (truename file))
+		 (multiple-value-bind (truename c) 
+                     (ignore-errors (truename file))
 		   (cond (truename
-			  (make-location (list :file (namestring truename))
-					 (if (consp lines)
-					     (list* :line lines)
-					     (list :function-name (string name)))
-                                         (when (consp type)
-                                           (list :snippet (format nil "~A" type)))))
+			  (make-location 
+                           (list :file (namestring truename))
+                           (if (consp lines)
+                               (list* :line lines)
+                               (list :function-name (string name)))
+                           (when (consp type)
+                             (list :snippet (format nil "~A" type)))))
 			 (t (list :error (princ-to-string c))))))
-		(t (list :error (format nil "No source information available for: ~S"
-					fspec)))))))
+		(t (list :error 
+                         (format nil "No source information available for: ~S"
+                                 fspec)))))))
 
 (defimplementation find-definitions (name)
-  (mapcar #'(lambda (e) (fspec-location name e)) (documentation name 'sys::file)))
+  (mapcar #'(lambda (e) (fspec-location name e)) 
+          (documentation name 'sys::file)))
 
 (defun trim-whitespace (string)
   (string-trim #(#\newline #\space #\tab) string))

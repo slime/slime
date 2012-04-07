@@ -274,7 +274,8 @@
     (:euc-jp "euc-jp" "euc-jp-unix")
     (:us-ascii "us-ascii" "us-ascii-unix")))
 
-;; C.f. R.M.Kreuter in <20536.1219412774@progn.net> on sbcl-general, 2008-08-22.
+;; C.f. R.M.Kreuter in <20536.1219412774@progn.net> on sbcl-general,
+;; 2008-08-22.
 (defvar *physical-pathname-host* (pathname-host (user-homedir-pathname)))
 
 (defimplementation filename-to-pathname (filename)
@@ -417,12 +418,14 @@
   (flet ((ensure-list (thing) (if (listp thing) thing (list thing))))
     (let* ((flags (sb-cltl2:declaration-information decl-identifier)))
       (if flags
-          ;; Symbols aren't printed with package qualifiers, but the FLAGS would
-          ;; have to be fully qualified when used inside a declaration. So we
-          ;; strip those as long as there's no better way. (FIXME)
-          `(&any ,@(remove-if-not #'(lambda (qualifier)
-                                      (find-symbol (symbol-name (first qualifier)) :cl))
-                                  flags :key #'ensure-list))
+          ;; Symbols aren't printed with package qualifiers, but the
+          ;; FLAGS would have to be fully qualified when used inside a
+          ;; declaration. So we strip those as long as there's no
+          ;; better way. (FIXME)
+          `(&any ,@(remove-if-not
+                    #'(lambda (qualifier)
+                        (find-symbol (symbol-name (first qualifier)) :cl))
+                    flags :key #'ensure-list))
           (call-next-method)))))
 
 #+#.(swank-backend:with-symbol 'deftype-lambda-list 'sb-introspect)
@@ -464,7 +467,8 @@ information."
                        (sb-c:compiler-error  :error)
                        (reader-error         :read-error)
                        (error                :error)
-                       #+#.(swank-backend:with-symbol redefinition-warning sb-kernel)
+                       #+#.(swank-backend:with-symbol redefinition-warning 
+                             sb-kernel)
                        (sb-kernel:redefinition-warning
                                              :redefinition)
                        (style-warning        :style-warning)
@@ -500,9 +504,9 @@ information."
              (unless (open-stream-p stream)
                (bailout))
              (if (compiling-from-buffer-p file)
-                 ;; The stream position for e.g. "comma not inside backquote"
-                 ;; is at the character following the comma, :offset is 0-based,
-                 ;; hence the 1-.
+                 ;; The stream position for e.g. "comma not inside
+                 ;; backquote" is at the character following the
+                 ;; comma, :offset is 0-based, hence the 1-.
                  (make-location (list :buffer *buffer-name*)
                                 (list :offset *buffer-offset*
                                       (1- (file-position stream))))
@@ -550,7 +554,8 @@ information."
          (make-location (list :source-form source)
                         (list :position 1)))
         (t
-         (error "unhandled case in compiler note ~S ~S ~S" file source-path source))))
+         (error "unhandled case in compiler note ~S ~S ~S" 
+                file source-path source))))
 
 (defun brief-compiler-message-for-emacs (condition)
   "Briefly describe a compiler error for Emacs.
@@ -733,9 +738,10 @@ QUALITIES is an alist with (quality . value)"
         ;; -- which is actually good information and often long. So elide the
         ;; original name in favor of making the interesting bit more visible.
         ;;
-        ;; The second part of the VOP description is the associated compiler note, or
-        ;; NIL -- which is quite uninteresting and confuses the eye when reading the actual
-        ;; name which usually has a worthwhile postfix. So drop the note.
+        ;; The second part of the VOP description is the associated
+        ;; compiler note, or NIL -- which is quite uninteresting and
+        ;; confuses the eye when reading the actual name which usually
+        ;; has a worthwhile postfix. So drop the note.
         (list spec (car desc))
         (list* spec name desc))))
 
@@ -745,7 +751,8 @@ QUALITIES is an alist with (quality . value)"
         append (loop for defsrc in defsrcs collect
                      (list (make-dspec type name defsrc)
                            (converting-errors-to-error-location
-                             (definition-source-for-emacs defsrc type name))))))
+                             (definition-source-for-emacs defsrc
+                                 type name))))))
 
 (defimplementation find-source-location (obj)
   (flet ((general-type-of (obj)
@@ -763,7 +770,8 @@ QUALITIES is an alist with (quality . value)"
              (t                  :thing)))
          (to-string (obj)
            (typecase obj
-             (package (princ-to-string obj)) ; Packages are possibly named entities.
+             ;; Packages are possibly named entities.
+             (package (princ-to-string obj)) 
              ((or structure-object standard-object condition)
               (with-output-to-string (s)
                 (print-unreadable-object (obj s :type t :identity t))))
@@ -810,7 +818,8 @@ QUALITIES is an alist with (quality . value)"
       (:file
        (let* ((namestring (namestring (translate-logical-pathname pathname)))
               (pos (if form-path
-                       (source-file-position namestring file-write-date form-path)
+                       (source-file-position namestring file-write-date 
+                                             form-path)
                        character-offset))
               (snippet (source-hint-snippet namestring file-write-date pos)))
          (make-location `(:file ,namestring)
@@ -819,10 +828,12 @@ QUALITIES is an alist with (quality . value)"
                         `(:position ,(1+ pos))
                         `(:snippet ,snippet))))
       (:file-without-position
-       (make-location `(:file ,(namestring (translate-logical-pathname pathname)))
+       (make-location `(:file ,(namestring 
+                                (translate-logical-pathname pathname)))
                       '(:position 1)
                       (when (eql type :function)
-                        `(:snippet ,(format nil "(defun ~a " (symbol-name name))))))
+                        `(:snippet ,(format nil "(defun ~a " 
+                                            (symbol-name name))))))
       (:invalid
        (error "DEFINITION-SOURCE of ~A ~A did not contain ~
                meaningful information."
@@ -1015,7 +1026,8 @@ Return a list of the form (NAME LOCATION)."
   (declare (type function debugger-loop-fn))
   (let* ((*sldb-stack-top* (if *debug-swank-backend*
                                (sb-di:top-frame)
-                               (or sb-debug:*stack-top-hint* (sb-di:top-frame))))
+                               (or sb-debug:*stack-top-hint*
+                                   (sb-di:top-frame))))
          (sb-debug:*stack-top-hint* nil))
     (handler-bind ((sb-di:debug-condition
 		    (lambda (condition)
@@ -1133,10 +1145,11 @@ stack."
         (condition (intern "*swank-debugger-condition*" :swank)))
     (if (and (boundp condition)
              (typep (symbol-value condition) 'sb-impl::step-form-condition)
-             (and (search "SB-IMPL::WITH-STEPPING-ENABLED" source :test #'char-equal)
+             (and (search "SB-IMPL::WITH-STEPPING-ENABLED" source 
+                          :test #'char-equal)
                   (search "SB-IMPL::STEP-FINISHED" source :test #'char-equal)))
-        ;; The initial form is utterly uninteresting -- and almost certainly right there
-        ;; in the REPL.
+        ;; The initial form is utterly uninteresting -- and almost
+        ;; certainly right there in the REPL.
         (make-error-location "Stepping...")
         (make-location `(:source-form ,source) '(:position 1)))))
 
@@ -1256,8 +1269,9 @@ stack."
                                 (list :name more-name
                                       :id more-id
                                       :value (multiple-value-list
-                                              (sb-c:%more-arg-values more-context
-                                                                     0 more-count)))))))
+                                              (sb-c:%more-arg-values 
+                                               more-context
+                                               0 more-count)))))))
         locals))))
 
 (defimplementation frame-var-value (frame var)
@@ -1265,15 +1279,19 @@ stack."
          (vars (frame-debug-vars frame))
          (loc (sb-di:frame-code-location frame))
          (dvar (if (= var (length vars))
-                   ;; If VAR is out of bounds, it must be the fake var we made up for
-                   ;; &MORE.
-                   (let* ((context-var (find :more-context vars :key #'debug-var-info))
-                          (more-context (debug-var-value context-var frame loc))
-                          (count-var (find :more-count vars :key #'debug-var-info))
+                   ;; If VAR is out of bounds, it must be the fake var
+                   ;; we made up for &MORE.
+                   (let* ((context-var (find :more-context vars 
+                                             :key #'debug-var-info))
+                          (more-context (debug-var-value context-var frame 
+                                                         loc))
+                          (count-var (find :more-count vars 
+                                           :key #'debug-var-info))
                           (more-count (debug-var-value count-var frame loc)))
                      (return-from frame-var-value
-                       (multiple-value-list (sb-c:%more-arg-values more-context
-                                                                   0 more-count))))
+                       (multiple-value-list (sb-c:%more-arg-values
+                                             more-context
+                                             0 more-count))))
                    (aref vars var))))
     (debug-var-value dvar frame loc)))
 
@@ -1308,11 +1326,12 @@ stack."
                   (values (sb-di:debug-fun-fun (sb-di:frame-debug-fun frame))
                           (sb-debug::frame-args-as-list frame)))
             (when (functionp fun)
-              (sb-debug:unwind-to-frame-and-call frame
-                                                 (lambda ()
-                                                   ;; Ensure TCO.
-                                                   (declare (optimize (debug 0)))
-                                                   (apply fun arglist)))))))
+              (sb-debug:unwind-to-frame-and-call 
+               frame
+               (lambda ()
+                 ;; Ensure TCO.
+                 (declare (optimize (debug 0)))
+                 (apply fun arglist)))))))
       (format nil "Cannot restart frame: ~S" frame))))
 
 ;; FIXME: this implementation doesn't unwind the stack before
