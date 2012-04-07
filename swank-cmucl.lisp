@@ -41,14 +41,16 @@
       (error 'type-error
              :datum (read-char stream nil #\Null)
              :expected-type (stream-element-type stream)
-             :format-control "Trying to read characters from a binary stream."))
+             :format-control 
+             "Trying to read characters from a binary stream."))
     ;; Let's go as low level as it seems reasonable.
     (let* ((numbytes (- end start))
            (total-bytes 0))
       ;; read-n-bytes may return fewer bytes than requested, so we need
       ;; to keep trying.
       (loop while (plusp numbytes) do
-            (let ((bytes-read (system:read-n-bytes stream s start numbytes nil)))
+            (let ((bytes-read (system:read-n-bytes stream s 
+                                                   start numbytes nil)))
               (when (zerop bytes-read)
                 (return-from read-into-simple-string total-bytes))
               (incf total-bytes bytes-read)

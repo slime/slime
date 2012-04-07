@@ -363,7 +363,8 @@ Return NIL if the symbol is unbound."
                     (eq (dbg::call-frame-function-name frame) 
                         'invoke-debugger)))
            (nth-next-frame frame 1)))
-      ;; if we can't find a invoke-debugger frame, take any old frame at the top
+      ;; if we can't find a invoke-debugger frame, take any old frame
+      ;; at the top
       (dbg::debugger-stack-current-frame dbg::*debugger-stack*)))
   
 (defimplementation call-with-debugging-environment (fn)
@@ -400,7 +401,8 @@ Return NIL if the symbol is unbound."
                           (list (cond ((symbolp arg)
                                        (intern (symbol-name arg) :keyword))
                                       ((and (consp arg) (symbolp (car arg)))
-                                       (intern (symbol-name (car arg)) :keyword))
+                                       (intern (symbol-name (car arg))
+                                               :keyword))
                                       (t (caar arg)))))
                      (list (dbg::dbg-eval
                             (cond ((symbolp arg) arg)
@@ -765,7 +767,8 @@ function names like \(SETF GET)."
      #'(lambda (object)
          (when (and #+Harlequin-PC-Lisp (low:compiled-code-p object)
                     #+Harlequin-Unix-Lisp (sys:callablep object)
-                    #-(or Harlequin-PC-Lisp Harlequin-Unix-Lisp) (sys:compiled-code-p object)
+                    #-(or Harlequin-PC-Lisp Harlequin-Unix-Lisp) 
+                    (sys:compiled-code-p object)
                     (system::find-constant$funcallable name object))
            (vector-push-extend object callers))))
     ;; Delay dspec:object-dspec until after sweep-all-objects

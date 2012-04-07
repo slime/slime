@@ -5,6 +5,8 @@
 	* swank.lisp:
 	* slime.el:
 	* ChangeLog:
+	* swank-cmucl.lisp:
+	* swank-lispworks.lisp:
 
 2012-04-06  Stas Boukarev  <stassats@gmail.com>
 
@@ -554,7 +556,7 @@
 
 	* swank-backend.lisp (utf8-to-string, string-to-utf8): New.
 
-	* swank-sbcl.lisp (string-to-utf8, string-to-utf8): Implemented	.
+	* swank-sbcl.lisp (string-to-utf8, string-to-utf8): Implemented.
 	* swank-lispworks.lisp (string-to-utf8, string-to-utf8): Implemented.
 	* swank-cmucl.lisp (string-to-utf8, string-to-utf8): Implemented.
 	* swank-clisp.lisp (string-to-utf8, string-to-utf8): Implemented.
@@ -1492,7 +1494,8 @@
 	for long error message, tooltip shows the same text and doesn't
 	add any value.
 	(slime-definition-at-point): factor out of `slime-inspect-definition'.
-	(slime-disassemble-definition): New, similar to `slime-inspect-definition'.
+	(slime-disassemble-definition): New, similar to
+	`slime-inspect-definition'.
 
 	* swank.lisp (disassemble-form): rename from disassemble-symbol,
 	do the same as before but evaluate the argument.
@@ -1653,7 +1656,8 @@
 	since it doesn't need to use minor-mode-list to distinguish
 	between minor and major modes.
 
-	* swank.lisp (list-threads): Delete the current thread from the listing.
+	* swank.lisp (list-threads): Delete the current thread from the
+	listing.
 
 2010-04-15  Tobias C. Rittweiler <tcr@freebits.de>
 
@@ -1727,7 +1731,8 @@
 
 2010-04-05  Stas Boukarev  <stassats@gmail.com>
 
-	* slime.el: Some further adaptations to the new slime-with-popup-buffer.
+	* slime.el: Some further adaptations to the new
+	slime-with-popup-buffer.
 
 2010-04-04  Stas Boukarev  <stassats@gmail.com>
 
@@ -2163,7 +2168,8 @@
 
 	* swank-loader.lisp (ecl-version-string): In
 	#+(or) (progn #+#.(cl:print cl:nil) 1) PRINT does run on SBCL, which
-	breaks #+#.(cl:if (cl:find-symbol "SYMBOL" :ext) ...) here, guard it with
+	breaks #+#.(cl:if (cl:find-symbol "SYMBOL" :ext) ...) here,
+	guard it with
 	(find-package :ext) until further investigations.
 
 2010-02-25  Tobias C. Rittweiler <tcr@freebits.de>
@@ -2833,11 +2839,12 @@
 
 2009-11-13  Stas Boukarev  <stassats@gmail.com>
 
-	* swank.lisp (classify-symbol): Check fbound before calling fdefinition,
-	ECL doesn't like (fdefinition nil).
+	* swank.lisp (classify-symbol): Check fbound before calling
+	fdefinition, ECL doesn't like (fdefinition nil).
 
-	* swank-ecl.lisp (swank-mop:compute-applicable-methods-using-classes):
-	Add a dummy function. ECL doesn't have it, but some contribs are using it.
+	* swank-ecl.lisp
+	(swank-mop:compute-applicable-methods-using-classes): Add a dummy
+	function. ECL doesn't have it, but some contribs are using it.
 	Patch by Andy Hefner.
 
 2009-11-13  Stas Boukarev  <stassats@gmail.com>
@@ -3168,7 +3175,8 @@
 
 2009-10-06  Stas Boukarev  <stassats@gmail.com>
 
-	* swank-ccl.lisp (map-backtrace): Handle null end-frame-number argument.
+	* swank-ccl.lisp (map-backtrace): Handle null end-frame-number
+	argument.
 
 2009-09-28  Stas Boukarev  <stassats@gmail.com>
 
@@ -3344,8 +3352,8 @@
 
 2009-08-27  Stas Boukarev  <stassats@gmail.com>
 
-	* slime.el (slime-remove-old-overlays): delete notes at the very beginning
-	of the buffer too. Thanks to Nick Levine.
+	* slime.el (slime-remove-old-overlays): delete notes at the very
+	beginning of the buffer too. Thanks to Nick Levine.
 
 2009-08-22  Helmut Eller  <heller@common-lisp.net>
 
@@ -3860,8 +3868,8 @@
 
 2009-05-24  Tobias C. Rittweiler  <tcr@freebits.de>
 
-	* slime.el (slime-goto-location-position): Only go to match-beginning if
-	search succeeded.
+	* slime.el (slime-goto-location-position): Only go to
+	match-beginning if search succeeded.
 
 	Patch by Madhu.
 
@@ -5378,8 +5386,8 @@
 	(slime-cheat-sheet-table): Add slime-inspector-toggle-verbose.
 	* swank.lisp (*inspector-verbose*): New variable.
 	([defstruct] istate): New slot called verbose.
-	(istate>elisp): If the current istate is verbose, use untruncated result of
-	TO-STRING as the title.
+	(istate>elisp): If the current istate is verbose, use untruncated
+	result of TO-STRING as the title.
 	(inspect-nth-part): Use the verbosity of the current istate.
 	* doc/slime.texi: Document slime-inspector-toggle-verbose.
 
@@ -8317,7 +8325,8 @@
 	using slime-output-target-marker.
 	(slime-last-output-target-id, slime-output-target-to-marker)
 	(slime-output-target-marker)
-	(slime-redirect-trace-output): Move back here from slime-presentations.el.
+	(slime-redirect-trace-output): Move back here from
+	slime-presentations.el.
 
 2007-08-28  Tobias C. Rittweiler <tcr@freebits.de>
 
@@ -8717,7 +8726,8 @@
 	(parse-form-spec): New. Takes a ``raw form spec'' and returns a
 	``form spec'' for further processing in Swank. Docstring documents
 	these two terms.
-	(split-form-spec): New. Return relevant information from a form	spec.
+	(split-form-spec): New. Return relevant information from a form
+	spec.
 	(parse-first-valid-form-spec): Replaces `find-valid-operator-name'.
 	(find-valid-operator-name): Removed.
 	(operator-designator-to-form): Removed. Obsoleted by `parse-form-spec'.
@@ -10593,11 +10603,14 @@
 2006-10-20  Martin Simmons <martin@lispworks.com>
 
 	* swank-backend.lisp (initialize-multiprocessing): New API to
-	support lisps where initialize-multiprocessing may not return (lispworks).
+	support lisps where initialize-multiprocessing may not return
+	(lispworks).
 
-	* swank.lisp (start-server): initialize-multiprocessing's API has changed.
+	* swank.lisp (start-server): initialize-multiprocessing's API has
+	changed.
 
-	* swank-lispworks.lisp (initialize-multiprocessing): Update for new API.
+	* swank-lispworks.lisp (initialize-multiprocessing): Update for
+	new API.
 
 	* swank-cmucl.lisp (initialize-multiprocessing): Update for new API.
 
@@ -11800,8 +11813,8 @@
 	(slime-sexp-at-point-or-error): New function. Like
 	slime-sexp-at-point but signals an error when slime-sexp-at-point
 	would return nil.
-	* swank-openmcl.lisp (swank-mop:compute-applicable-methods-using-classes):
-	Implement.
+	* swank-openmcl.lisp
+	(swank-mop:compute-applicable-methods-using-classes): Implement.
 
 2006-02-16  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
@@ -12461,13 +12474,13 @@
 
 2005-09-14  Alan Ruttenberg <alanr-l@mumble.net>
 
-	* slime.el (slime-menu-choices-for-presentation), (slime-presentation-menu)
-	Fix loss after refactoring. xemacs can't handle lambda forms in
-	the menu spec given to x-popup-menu, only symbols, so save the
-	actions in a hash table keyed by a gensym, give x-popup-menu the
-	gensym and then call the gensym. Haven't checked that it actually
-	works in xemacs because my xemacs is hosed in os x Tiger. Could
-	someone let me know...
+	* slime.el (slime-menu-choices-for-presentation),
+	(slime-presentation-menu) Fix loss after refactoring. xemacs can't
+	handle lambda forms in the menu spec given to x-popup-menu, only
+	symbols, so save the actions in a hash table keyed by a gensym,
+	give x-popup-menu the gensym and then call the gensym. Haven't
+	checked that it actually works in xemacs because my xemacs is
+	hosed in os x Tiger. Could someone let me know...
 
 	* swank.lisp (inspect-factor-more-action)
 	rename (inspect-show-more-action) Prompt before reading how many
@@ -13326,8 +13339,8 @@
 2005-05-22  Alan Ruttenberg  <alanr-l@mumble.net>
 
 	* present.lisp. (slime-stream-p) check if a stream is destined for
-	output in a slime listener. (checks *connections* looks into pretty-print
-	streams in openmcl and cmucl)
+	output in a slime listener. (checks *connections* looks int
+	o pretty-print streams in openmcl and cmucl)
 	Don't present unless (slime-stream-p stream).
 
 	Variable *enable-presenting-readable-objects* The only readable object
@@ -15326,11 +15339,12 @@
 	nicely via intern)
 
 	 - changes to (find-definitions) (function-source-location),
-	 addition of (maybe-method-location) (remove-filename-quoting).  To support
-	editing definitions of methods. To fix bug with pathnames with
-	quoted characters (like "\\.swank.lisp"). To remove bogus source
-	recording of l1-boot-3 in functions that didn't have a source file
-	noted.
+	 addition of (maybe-method-location) (remove-filename-quoting).
+
+	To support editing definitions of methods. To fix bug with
+	pathnames with quoted characters (like "\\.swank.lisp"). To remove
+	bogus source recording of l1-boot-3 in functions that didn't have
+	a source file noted.
 
 	 - Implementation of xref functions: (xref-locations) uses xref
 	implementation added to openmcl recently. Note that you have to
@@ -19247,7 +19261,8 @@
 	acknowleged by Emacs.
 	(install-global-debugger-hook): Install a SLIME-DEBUGGER-FUNCTION
 	globally on *DEBUGGER-HOOK*.
-	(startup-multiprocessing-for-emacs): Called to initialize multiprocessing.
+	(startup-multiprocessing-for-emacs): Called to initialize
+	multiprocessing.
 	(eval-string): Dynamically set the *PROCESSING-RPC* flag.
 	(eval-string): Nasty hack with *DEBUGGER-HOOK-PASSBACK* to
 	install debugger hook. Temporary, I swear!
