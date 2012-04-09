@@ -1,3 +1,9 @@
+2012-04-09  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (def-slime-test utf-8-source): Remove literal Unicode
+	characters in the form of \xFFFF, it causes problems for some
+	people.
+
 2012-04-07  Helmut Eller  <heller@common-lisp.net>
 
 	Fix long lines.
