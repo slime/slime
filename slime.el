@@ -8022,9 +8022,9 @@ Confirm that SUBFORM is correctly located."
 (def-slime-test utf-8-source
     (input output)
     "Source code containing utf-8 should work"
-    `((,(format "(defun cl-user::foo () \"%c%c%c%c\")"
+  (list (list (format "(defun cl-user::foo () \"%c%c%c%c\")"
                 #x304a #x306f #x3088 #x3046)
-        ,(format "%c%c%c%c"
+               (format "%c%c%c%c"
                 #x304a #x306f #x3088 #x3046)))
   (slime-eval `(cl:eval (cl:read-from-string ,input)))
   (slime-test-expect "Eval result correct"

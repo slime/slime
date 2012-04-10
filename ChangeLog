@@ -1,3 +1,8 @@
+2012-04-10  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (def-slime-test utf-8-source): Another try at fixing
+	utf8 literals in code.
+
 2012-04-09  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (def-slime-test utf-8-source): Remove literal Unicode
