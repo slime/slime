@@ -1,5 +1,10 @@
 2012-04-10  Stas Boukarev  <stassats@gmail.com>
 
+	* slime.el (def-slime-test utf-8-source): Define only when
+	(and (featurep 'emacs) (>= emacs-major-version 23)).
+
+2012-04-10  Stas Boukarev  <stassats@gmail.com>
+
 	* slime.el (def-slime-test utf-8-source): Another try at fixing
 	utf8 literals in code.
 
