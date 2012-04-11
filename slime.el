@@ -8019,51 +8019,53 @@ Confirm that SUBFORM is correctly located."
         (slime-check "Compilation successfull" 
           (eq (slime-compilation-result.successp result) t))))))
 
-(when (and (featurep 'emacs)
-           (>= emacs-major-version 23))
-  (def-slime-test utf-8-source
-      (input output)
+(def-slime-test utf-8-source
+    (input output)
     "Source code containing utf-8 should work"
-    (list (list (format "(defun cl-user::foo () \"%c%c%c%c\")"
-                        #x304a #x306f #x3088 #x3046)
-                (format "%c%c%c%c"
-                        #x304a #x306f #x3088 #x3046)))
-    (slime-eval `(cl:eval (cl:read-from-string ,input)))
-    (slime-test-expect "Eval result correct"
-                       output (slime-eval '(cl-user::foo)))
-    (let ((cell (cons nil nil)))
-      (let ((hook (slime-curry (lambda (cell &rest _) (setcar cell t)) cell)))
+    (list (let*  ((bytes "\343\201\212\343\201\257\343\202\210\343\201\206")
+                  ;;(encode-coding-string (string #x304a #x306f #x3088 #x3046)
+                  ;;                      'utf-8)
+                  (string (decode-coding-string bytes 'utf-8-unix)))
+            (assert (equal bytes (encode-coding-string string 'utf-8-unix)))
+            (list (concat "(defun cl-user::foo () \"" string "\")")
+                  string)))
+  (slime-eval `(cl:eval (cl:read-from-string ,input)))
+  (slime-test-expect "Eval result correct"
+                     output (slime-eval '(cl-user::foo)))
+  (let ((cell (cons nil nil)))
+    (let ((hook (slime-curry (lambda (cell &rest _) (setcar cell t)) cell)))
+      (add-hook 'slime-compilation-finished-hook hook)
+      (unwind-protect 
+          (progn
+            (slime-compile-string input 0)
+            (slime-wait-condition "Compilation finished" 
+                                  (lambda () (car cell))
+                                  0.5)
+            (slime-test-expect "Compile-string result correct"
+                               output (slime-eval '(cl-user::foo))))
+        (remove-hook 'slime-compilation-finished-hook hook))
+      (let ((filename "/tmp/slime-tmp-file.lisp"))
+        (setcar cell nil)
         (add-hook 'slime-compilation-finished-hook hook)
-        (unwind-protect 
-             (progn
-               (slime-compile-string input 0)
-               (slime-wait-condition "Compilation finished" 
-                                     (lambda () (car cell))
-                                     0.5)
-               (slime-test-expect "Compile-string result correct"
-                                  output (slime-eval '(cl-user::foo))))
-          (remove-hook 'slime-compilation-finished-hook hook))
-        (let ((filename "/tmp/slime-tmp-file.lisp"))
-          (setcar cell nil)
-          (add-hook 'slime-compilation-finished-hook hook)
-          (unwind-protect
-               (with-temp-buffer
-                   (when (fboundp 'set-buffer-multibyte)
-                     (set-buffer-multibyte t))
-                 (setq buffer-file-coding-system 'utf-8-unix)
-                 (setq buffer-file-name filename)
-                 (insert ";; -*- coding: utf-8-unix -*- \n")
-                 (insert input)
-                 (write-region nil nil filename nil t)
-                 (let ((slime-load-failed-fasl 'always))
-                   (slime-compile-and-load-file)
-                   (slime-wait-condition "Compilation finished" 
-                                         (lambda () (car cell))
-                                         0.5))
-                 (slime-test-expect "Compile-file result correct"
-                                    output (slime-eval '(cl-user::foo))))
-            (remove-hook 'slime-compilation-finished-hook hook)
-            (ignore-errors (delete-file filename))))))))
+        (unwind-protect
+            (with-temp-buffer
+              (when (fboundp 'set-buffer-multibyte)
+                (set-buffer-multibyte t))
+              (setq buffer-file-coding-system 'utf-8-unix)
+              (setq buffer-file-name filename)
+              (insert ";; -*- coding: utf-8-unix -*- \n")
+              (insert input)
+              (let ((coding-system-for-write 'utf-8-unix))
+                (write-region nil nil filename nil t))
+              (let ((slime-load-failed-fasl 'always))
+                (slime-compile-and-load-file)
+                (slime-wait-condition "Compilation finished" 
+                                      (lambda () (car cell))
+                                      0.5))
+              (slime-test-expect "Compile-file result correct"
+                                 output (slime-eval '(cl-user::foo))))
+          (remove-hook 'slime-compilation-finished-hook hook)
+          (ignore-errors (delete-file filename)))))))
 
 (def-slime-test async-eval-debugging (depth)
   "Test recursive debugging of asynchronous evaluation requests."
