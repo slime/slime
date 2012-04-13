@@ -935,3 +935,15 @@
                                                :for 'foo)))))
   bar
   quux)
+
+;;; Test: 89
+
+(define-tentative-thing foo
+    (bar)
+  quux)
+
+;;; Test: 90
+
+(define-tentative-thing foo
+  bar
+  quux)

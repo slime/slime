@@ -1208,20 +1208,27 @@ environment\\|more\
                                 normal-indent
                               (list normal-indent containing-form-start))))
               ((eq tem '&lambda)
-               (if (common-lisp-lambda-list-initial-value-form-p indent-point)
-                   (throw 'exit (if (consp normal-indent)
-                                    normal-indent
-                                  (list normal-indent containing-form-start)))
-                 (throw 'exit
-                        (cond ((null p)
-                               (list (+ sexp-column 4) containing-form-start))
-                              (t
-                               ;; Indentation within a lambda-list. -- dvl
-                               (list (lisp-indent-lambda-list
-                                      indent-point
-                                      sexp-column
-                                      containing-form-start)
-                                     containing-form-start))))))
+               (throw 'exit
+                      (cond ((not (common-lisp-looking-back ")"))
+                             ;; If it's not a list at all, indent it
+                             ;; like body instead.
+                             (if (null p)
+                                 (+ sexp-column lisp-body-indent)
+                               normal-indent))
+                            ((common-lisp-lambda-list-initial-value-form-p
+                              indent-point)
+                             (if (consp normal-indent)
+                                 normal-indent
+                               (list normal-indent containing-form-start)))
+                            ((null p)
+                             (list (+ sexp-column 4) containing-form-start))
+                            (t
+                             ;; Indentation within a lambda-list. -- dvl
+                             (list (lisp-indent-lambda-list
+                                    indent-point
+                                    sexp-column
+                                    containing-form-start)
+                                   containing-form-start)))))
               ((integerp tem)
                (throw 'exit
                       (if (null p)         ;not in subforms

@@ -1,5 +1,12 @@
 2012-04-13  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* slime-cl-indent.el (lisp-indent-259): If we are expecting a
+	lambda-list, but don't have a list in the position, indent as if
+	it was &body instead.
+	* slime-cl-indent-test.txt (Test 89-90): Tests.
+
+2012-04-13  Nikodemus Siivola  <nikodemus@random-state.net>
+
 	* slime-cl-indent.el (common-lisp-lambda-list-initial-value-form-p):
 	Handle &AUX as well, and don't signal an error if the we don't
 	have a list where expected.
