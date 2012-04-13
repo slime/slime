@@ -736,7 +736,7 @@
         "STOPPED"))
 
   (defimplementation make-lock (&key name)
-    (mp:make-lock :name name))
+    (mp:make-lock :name name :recursive t))
 
   (defimplementation call-with-lock-held (lock function)
     (declare (type function function))
