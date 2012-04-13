@@ -926,3 +926,12 @@
                     &rest rest))
   (list foo opt1 opt2
         rest))
+
+;;; Test: 88
+
+(defstruct (foo
+            (:constructor make-foo
+                (bar &aux (quux (quux-from-bar bar
+                                               :for 'foo)))))
+  bar
+  quux)

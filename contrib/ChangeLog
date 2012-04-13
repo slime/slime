@@ -1,5 +1,13 @@
 2012-04-13  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* slime-cl-indent.el (common-lisp-lambda-list-initial-value-form-p):
+	Handle &AUX as well, and don't signal an error if the we don't
+	have a list where expected.
+	* slime-cl-indent-test.txt (Test 88): Test for indenting &AUX value
+	form.
+
+2012-04-13  Nikodemus Siivola  <nikodemus@random-state.net>
+
 	Wrap long lines.
 
 	* slime-cl-indent.el

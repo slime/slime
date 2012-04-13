@@ -1123,9 +1123,10 @@ environment\\|more\
                  (point))))
     (save-excursion
       (backward-sexp)
-      (down-list 1)
+      (ignore-errors (down-list 1))
       (while (and point (< (point) point))
-        (cond ((or (looking-at "&key") (looking-at "&optional"))
+        (cond ((or (looking-at "&key") (looking-at "&optional")
+                   (looking-at "&aux"))
                (setq state 'key))
               ((looking-at lisp-indent-lambda-list-keywords-regexp)
                (setq state 'x)))
