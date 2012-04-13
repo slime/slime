@@ -208,13 +208,14 @@ is set to `defun'.")
 (defun common-lisp-style-hook (style) (fifth style))
 (defun common-lisp-style-docstring (style) (sixth style))
 
-(defun common-lisp-make-style (stylename inherits variables indentation hook documentation)
+(defun common-lisp-make-style (stylename inherits variables indentation hook
+                               documentation)
   (list stylename inherits variables indentation hook documentation))
 
 (defvar common-lisp-style nil)
 
-;;; `define-common-lisp-style' updates the docstring of `common-lisp-style', using
-;;; this as the base.
+;;; `define-common-lisp-style' updates the docstring of
+;;; `common-lisp-style', using this as the base.
 (put 'common-lisp-style 'common-lisp-style-base-doc
      "Name of the Common Lisp indentation style used in the current buffer.
 Set this by giving eg.
@@ -240,7 +241,8 @@ style is used instead. Use `define-common-lisp-style' to define new styles.")
 (defun common-lisp-lisp-mode-hook ()
   (let ((style (or common-lisp-style common-lisp-style-default)))
     (when style
-      (set (make-local-variable 'lisp-indent-function) 'common-lisp-indent-function)
+      (set (make-local-variable 'lisp-indent-function)
+           'common-lisp-indent-function)
       (common-lisp-set-style style))))
 (add-hook 'lisp-mode-hook 'common-lisp-lisp-mode-hook)
 
@@ -258,7 +260,7 @@ style is used instead. Use `define-common-lisp-style' to define new styles.")
         (error "Unknown Common Lisp style: %s" name))))
 
 (defun common-lisp-safe-style-p (stylename)
-  "True for known Common Lisp style which doesn't have or inherit an :EVAL option.
+  "True for known Common Lisp style without an :EVAL option.
 Ie. styles that will not evaluate arbitrary code on activation."
   (let* ((style (ignore-errors (common-lisp-find-style stylename)))
          (base (common-lisp-style-inherits style)))
@@ -267,15 +269,16 @@ Ie. styles that will not evaluate arbitrary code on activation."
          (or (not base)
              (common-lisp-safe-style-p base)))))
 
-(defun common-lisp-add-style (stylename inherits variables indentation hooks documentation)
+(defun common-lisp-add-style (stylename inherits variables indentation hooks
+                              documentation)
   ;; Invalidate indentation methods cached in common-lisp-active-style.
   (maphash (lambda (k v)
              (puthash k (copy-list v) common-lisp-styles))
            common-lisp-styles)
   ;; Add/Redefine the specified style.
   (puthash stylename
-           (common-lisp-make-style stylename inherits variables indentation hooks
-                                   documentation)
+           (common-lisp-make-style stylename inherits variables indentation
+                                   hooks documentation)
            common-lisp-styles)
   ;; Frob `common-lisp-style' docstring.
   (let ((doc (get 'common-lisp-style 'common-lisp-style-base-doc))
@@ -365,7 +368,8 @@ activation."
            (completing-read prompt
                             (common-lisp-style-names) nil t nil
                             'common-lisp-set-style-history))))
-  (setq common-lisp-style (common-lisp-style-name (common-lisp-find-style stylename))
+  (setq common-lisp-style (common-lisp-style-name
+                           (common-lisp-find-style stylename))
         common-lisp-active-style nil)
   ;; Actually activates the style.
   (common-lisp-active-style-methods)
@@ -529,7 +533,8 @@ none has been specified."
           (re-search-forward "[ :\"]+")
           (let ((start (point)))
             (re-search-forward "[\":)]")
-            (setf pkg (upcase (buffer-substring-no-properties start (1- (point)))))))))
+            (setf pkg (upcase (buffer-substring-no-properties
+                               start (1- (point)))))))))
     pkg))
 
 (defun common-lisp-current-package-function 'common-lisp-guess-current-package
@@ -644,11 +649,14 @@ opening parenthesis of the loop."
                               (not (looking-at re)))
                     (setq indent (current-column)))
                   (when (and indent
-                             (looking-at common-lisp-indent-body-introducing-loop-macro-keyword))
+                             (looking-at
+                              common-lisp-body-introducing-loop-macro-keyword))
                     t)))
            (list indent loop-start))
           ;; Keyword-style or comment outside body
-          ((or lisp-loop-indent-forms-like-keywords (looking-at re) (looking-at ";"))
+          ((or lisp-loop-indent-forms-like-keywords
+               (looking-at re)
+               (looking-at ";"))
            (if (and (looking-at ";")
                     (let ((p (common-lisp-trailing-comment)))
                       (when p
@@ -743,26 +751,27 @@ For example, the function `case' has an indent property
       (unless (eql (elt string (- len i 1)) (char-before (- (point) i)))
         (return nil)))))
 
-(defvar common-lisp-feature-expression-regexp "#!?\\(+\\|-\\)")
+(defvar common-lisp-feature-expr-regexp "#!?\\(+\\|-\\)")
 
 ;;; Semi-feature-expression aware keyword check.
 (defun common-lisp-looking-at-keyword ()
   (or (looking-at ":")
-      (and (looking-at common-lisp-feature-expression-regexp)
+      (and (looking-at common-lisp-feature-expr-regexp)
            (save-excursion
              (forward-sexp)
              (skip-chars-forward " \t\n")
              (common-lisp-looking-at-keyword)))))
 
-;;; Semi-feature-expression aware backwards movement for keyword argument pairs.
+;;; Semi-feature-expression aware backwards movement for keyword
+;;; argument pairs.
 (defun common-lisp-backward-keyword-argument ()
   (ignore-errors
     (backward-sexp 2)
-    (when (looking-at common-lisp-feature-expression-regexp)
+    (when (looking-at common-lisp-feature-expr-regexp)
       (cond ((ignore-errors
                (save-excursion
                  (backward-sexp 2)
-                 (looking-at common-lisp-feature-expression-regexp)))
+                 (looking-at common-lisp-feature-expr-regexp)))
              (common-lisp-backward-keyword-argument))
             ((ignore-errors
                (save-excursion
@@ -822,7 +831,8 @@ For example, the function `case' has an indent property
                      ;; The pleblisp package feature
                      (setq function (substring function
                                                (1+ (match-beginning 0)))
-                           method (common-lisp-get-indentation (intern-soft function) full)))
+                           method (common-lisp-get-indentation
+                                   (intern-soft function) full)))
                     ((and (null method))
                      ;; backwards compatibility
                      (setq method (common-lisp-get-indentation tem)))))
@@ -862,17 +872,20 @@ For example, the function `case' has an indent property
               (goto-char indent-point)
               (backward-sexp)
               (let ((indent (current-column)))
-                (when (or (looking-at common-lisp-feature-expression-regexp)
+                (when (or (looking-at common-lisp-feature-expr-regexp)
                           (ignore-errors
                             (backward-sexp)
-                            (when (looking-at common-lisp-feature-expression-regexp)
+                            (when (looking-at
+                                   common-lisp-feature-expr-regexp)
                               (setq indent (current-column))
                               (let ((line (line-number-at-pos)))
-                                (while (ignore-errors
-                                         (backward-sexp 2)
-                                         (and
-                                          (= line (line-number-at-pos))
-                                          (looking-at common-lisp-feature-expression-regexp)))
+                                (while
+                                    (ignore-errors
+                                      (backward-sexp 2)
+                                      (and
+                                       (= line (line-number-at-pos))
+                                       (looking-at
+                                        common-lisp-feature-expr-regexp)))
                                   (setq indent (current-column))))
                               t)))
                   (setq calculated (list indent containing-form-start)))))
@@ -917,8 +930,9 @@ For example, the function `case' has an indent property
                          (when (common-lisp-looking-at-keyword)
                            (while (common-lisp-backward-keyword-argument)
                              (when (common-lisp-looking-at-keyword)
-                               (setq calculated (list (current-column)
-                                                      containing-form-start)))))))))
+                               (setq calculated
+                                     (list (current-column)
+                                           containing-form-start)))))))))
                   ((integerp method)
                    ;; convenient top-level hack.
                    ;;  (also compatible with lisp-indent-function)
@@ -954,8 +968,8 @@ For example, the function `case' has an indent property
       (or calculated tentative-calculated
           ;; Fallback.
           ;;
-          ;; Instead of punting directly to calculate-lisp-indent we handle a few
-          ;; of cases it doesn't deal with:
+          ;; Instead of punting directly to calculate-lisp-indent we
+          ;; handle a few of cases it doesn't deal with:
           ;;
           ;; A: (foo (
           ;;          bar zot
@@ -1029,7 +1043,8 @@ For example, the function `case' has an indent property
 
 (defvar lisp-indent-lambda-list-keywords-regexp
   "&\\(\
-optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\\|more\
+optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|\
+environment\\|more\
 \\)\\>"
   "Regular expression matching lambda-list keywords.")
 
@@ -1037,61 +1052,68 @@ optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\\|mo
     (indent-point sexp-column containing-form-start)
   (if (not lisp-lambda-list-indentation)
       (1+ sexp-column)
-    (let (limit)
-      (cond ((save-excursion
-               (goto-char indent-point)
-               (back-to-indentation)
-               (setq limit (point))
-               (looking-at lisp-indent-lambda-list-keywords-regexp))
-             ;; We're facing a lambda-list keyword.
-             (if lisp-lambda-list-keyword-alignment
-                 ;; Align to the first keyword if any, or to the beginning of
-                 ;; the lambda-list.
-                 (save-excursion
-                   (goto-char containing-form-start)
-                   (down-list)
-                   (let ((key-indent nil)
-                         (next t))
-                     (while (and next (< (point) indent-point))
-                       (if (looking-at lisp-indent-lambda-list-keywords-regexp)
-                           (setq key-indent (current-column)
-                                 next nil)
-                         (setq next (ignore-errors (forward-sexp) t))
-                         (if next
-                             (ignore-errors
-                               (forward-sexp)
-                               (backward-sexp)))))
-                     (or key-indent
-                         (1+ sexp-column))))
-               ;; Align to the beginning of the lambda-list.
-               (1+ sexp-column)))
-            (t
-             ;; Otherwise, align to the first argument of the last lambda-list
-             ;; keyword, the keyword itself, or the beginning of the
-             ;; lambda-list.
-             (save-excursion
-               (goto-char indent-point)
-               (let ((indent nil)
-                     (next t))
-                 (while (and next (> (point) containing-form-start))
-                   (setq next (ignore-errors (backward-sexp) t))
-                   (let* ((col (current-column))
-                          (pos
-                           (save-excursion
-                             (ignore-errors (forward-sexp))
-                             (skip-chars-forward " \t")
-                             (if (eolp)
-                                 (+ col lisp-lambda-list-keyword-parameter-indentation)
-                               col))))
-                     (if (looking-at lisp-indent-lambda-list-keywords-regexp)
-                         (setq indent (if lisp-lambda-list-keyword-parameter-alignment
-                                          (or indent pos)
-                                        (+ col
-                                           lisp-lambda-list-keyword-parameter-indentation))
-                               next nil)
-                       (progn
-                         (setq indent col)))))
-                 (or indent (1+ sexp-column)))))))))
+    (lisp-properly-indent-lambda-list
+     indent-point sexp-column containing-form-start)))
+
+(defun lisp-properly-indent-lambda-list
+    (indent-point sexp-column containing-form-start)
+  (let (limit)
+    (cond
+     ((save-excursion
+        (goto-char indent-point)
+        (back-to-indentation)
+        (setq limit (point))
+        (looking-at lisp-indent-lambda-list-keywords-regexp))
+      ;; We're facing a lambda-list keyword.
+      (if lisp-lambda-list-keyword-alignment
+          ;; Align to the first keyword if any, or to the beginning of
+          ;; the lambda-list.
+          (save-excursion
+            (goto-char containing-form-start)
+            (down-list)
+            (let ((key-indent nil)
+                  (next t))
+              (while (and next (< (point) indent-point))
+                (if (looking-at lisp-indent-lambda-list-keywords-regexp)
+                    (setq key-indent (current-column)
+                          next nil)
+                  (setq next (ignore-errors (forward-sexp) t))
+                  (if next
+                      (ignore-errors
+                        (forward-sexp)
+                        (backward-sexp)))))
+              (or key-indent
+                  (1+ sexp-column))))
+        ;; Align to the beginning of the lambda-list.
+        (1+ sexp-column)))
+     (t
+      ;; Otherwise, align to the first argument of the last lambda-list
+      ;; keyword, the keyword itself, or the beginning of the
+      ;; lambda-list.
+      (save-excursion
+        (goto-char indent-point)
+        (let ((indent nil)
+              (next t))
+          (while (and next (> (point) containing-form-start))
+            (setq next (ignore-errors (backward-sexp) t))
+            (let* ((col (current-column))
+                   (pos
+                    (save-excursion
+                      (ignore-errors (forward-sexp))
+                      (skip-chars-forward " \t")
+                      (if (eolp)
+                          (+ col
+                             lisp-lambda-list-keyword-parameter-indentation)
+                        col))))
+              (if (looking-at lisp-indent-lambda-list-keywords-regexp)
+                  (setq indent
+                        (if lisp-lambda-list-keyword-parameter-alignment
+                            (or indent pos)
+                          (+ col
+                             lisp-lambda-list-keyword-parameter-indentation))
+                        next nil)
+                (setq indent col))))
+          (or indent (1+ sexp-column))))))))
 
 (defun common-lisp-lambda-list-initial-value-form-p (point)
   (let ((state 'x)
@@ -1365,7 +1387,8 @@ optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\\|mo
       normal-indent
     (let* ((loop-start (elt state 1))
            (type (common-lisp-loop-type loop-start)))
-      (cond ((and lisp-loop-indent-subclauses (member type '(extended extended/split)))
+      (cond ((and lisp-loop-indent-subclauses
+                  (member type '(extended extended/split)))
              (list (common-lisp-indent-loop-macro-1 state indent-point)
                    (common-lisp-indent-parse-state-start state)))
             (t
@@ -1374,13 +1397,13 @@ optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\\|mo
 ;;;; LOOP indentation, the complex version -- handles subclause indentation
 
 ;; Regexps matching various varieties of loop macro keyword ...
-(defvar common-lisp-indent-body-introducing-loop-macro-keyword
+(defvar common-lisp-body-introducing-loop-macro-keyword
   "\\(#?:\\)?\\(do\\|finally\\|initially\\)"
   "Regexp matching loop macro keywords which introduce body-forms.")
 
 ;; This is so "and when" and "else when" get handled right
 ;; (not to mention "else do" !!!)
-(defvar common-lisp-indent-prefix-loop-macro-keyword
+(defvar common-lisp-prefix-loop-macro-keyword
   "\\(#?:\\)?\\(and\\|else\\)"
   "Regexp matching loop macro keywords which are prefixes.")
 
@@ -1391,16 +1414,18 @@ optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|environment\\|mo
 ;; This is handled right, but it's incomplete ...
 ;; (It could probably get arbitrarily long if I did *every* iteration-path)
 (defvar common-lisp-indent-indented-loop-macro-keyword
-  "\\(#?:\\)?\\(into\\|by\\|upto\\|downto\\|above\\|below\\|on\\|being\\|=\\|first\\|then\\|from\\|to\\)"
+  "\\(#?:\\)\
+?\\(into\\|by\\|upto\\|downto\\|above\\|below\\|on\\|being\\|=\\|first\\|\
+then\\|from\\|to\\)"
   "Regexp matching keywords introducing loop subclauses.
 Always indented two.")
 
-(defvar common-lisp-indent-indenting-loop-macro-keyword
+(defvar common-lisp-indenting-loop-macro-keyword
   "\\(#?:\\)?\\(when\\|unless\\|if\\)"
   "Regexp matching keywords introducing conditional clauses.
 Cause subsequent clauses to be indented.")
 
-(defvar common-lisp-indent-loop-macro-else-keyword "\\(#?:\\)?else")
+(defvar common-lisp-loop-macro-else-keyword "\\(#?:\\)?else")
 
 ;;; Attempt to indent the loop macro ...
 
@@ -1420,7 +1445,7 @@ Cause subsequent clauses to be indented.")
       ;; base column for indentation
       (goto-char (common-lisp-indent-parse-state-start parse-state))
       (let ((loop-start-column (current-column)))
-        (common-lisp-indent-loop-advance-past-keyword-on-line)
+        (common-lisp-loop-advance-past-keyword-on-line)
 
         (when (eolp)
           (forward-line 1)
@@ -1433,7 +1458,8 @@ Cause subsequent clauses to be indented.")
 
         (let* ((case-fold-search t)
                (loop-macro-first-clause (point))
-               (previous-expression-start (common-lisp-indent-parse-state-prev parse-state))
+               (previous-expression-start
+                (common-lisp-indent-parse-state-prev parse-state))
                (default-value (current-column))
                (loop-body-p nil)
                (loop-body-indentation nil)
@@ -1443,11 +1469,11 @@ Cause subsequent clauses to be indented.")
           (goto-char previous-expression-start)
 
           ;; Handle a body-introducing-clause which ends a line specially.
-          (if (looking-at common-lisp-indent-body-introducing-loop-macro-keyword)
+          (if (looking-at common-lisp-body-introducing-loop-macro-keyword)
               (let ((keyword-position (current-column)))
                 (setq loop-body-p t)
                 (setq loop-body-indentation
-                      (if (common-lisp-indent-loop-advance-past-keyword-on-line)
+                      (if (common-lisp-loop-advance-past-keyword-on-line)
                           (current-column)
                         (back-to-indentation)
                         (if (/= (current-column) keyword-position)
@@ -1462,36 +1488,36 @@ Cause subsequent clauses to be indented.")
             ;; as if there were a "when" and indent under it ...
             (let ((exit nil))
               (while (and (null exit)
-                          (looking-at common-lisp-indent-prefix-loop-macro-keyword))
-                (if (null (common-lisp-indent-loop-advance-past-keyword-on-line))
+                          (looking-at common-lisp-prefix-loop-macro-keyword))
+                (if (null (common-lisp-loop-advance-past-keyword-on-line))
                     (progn (setq exit t)
                            (back-to-indentation)))))
 
-            ;; Found start of loop clause preceding the one we're trying to indent.
-            ;; Glean context ...
+            ;; Found start of loop clause preceding the one we're
+            ;; trying to indent. Glean context ...
             (cond
              ((looking-at "(")
               ;; We're in the middle of a clause body ...
               (setq loop-body-p t)
               (setq loop-body-indentation (current-column)))
-             ((looking-at common-lisp-indent-body-introducing-loop-macro-keyword)
+             ((looking-at common-lisp-body-introducing-loop-macro-keyword)
               (setq loop-body-p t)
               ;; Know there's something else on the line (or would
               ;; have been caught above)
-              (common-lisp-indent-loop-advance-past-keyword-on-line)
+              (common-lisp-loop-advance-past-keyword-on-line)
               (setq loop-body-indentation (current-column)))
              (t
               (setq loop-body-p nil)
-              (if (or (looking-at common-lisp-indent-indenting-loop-macro-keyword)
-                      (looking-at common-lisp-indent-prefix-loop-macro-keyword))
+              (if (or (looking-at common-lisp-indenting-loop-macro-keyword)
+                      (looking-at common-lisp-prefix-loop-macro-keyword))
                   (setq default-value (+ 2 (current-column))))
               (setq indented-clause-indentation (+ 2 (current-column)))
               ;; We still need loop-body-indentation for "syntax errors" ...
               (goto-char previous-expression-start)
               (setq loop-body-indentation (current-column)))))
 
-          ;; Go to first non-blank character of the line we're trying to indent.
-          ;; (if none, wind up poised on the new-line ...)
+          ;; Go to first non-blank character of the line we're trying
+          ;; to indent. (if none, wind up poised on the new-line ...)
           (goto-char indent-point)
           (back-to-indentation)
           (cond
@@ -1516,8 +1542,8 @@ Cause subsequent clauses to be indented.")
                 (if (and (< (current-column) loop-body-indentation)
                          (looking-at "\\(#?:\\)?\\sw"))
                     (progn
-                      (if (looking-at common-lisp-indent-loop-macro-else-keyword)
-                          (common-lisp-indent-loop-advance-past-keyword-on-line))
+                      (if (looking-at common-lisp-loop-macro-else-keyword)
+                          (common-lisp-loop-advance-past-keyword-on-line))
                       (setq stolen-indent-column
                             (current-column)))
                   (forward-line -1)))
@@ -1526,7 +1552,7 @@ Cause subsequent clauses to be indented.")
                 default-value)))
            (t default-value)))))))
 
-(defun common-lisp-indent-loop-advance-past-keyword-on-line ()
+(defun common-lisp-loop-advance-past-keyword-on-line ()
   (forward-word 1)
   (while (and (looking-at "\\s-") (not (eolp)))
     (forward-char 1))
@@ -1568,8 +1594,8 @@ Cause subsequent clauses to be indented.")
 	  (back-to-indentation)
           (if (< (point) if*-first-clause)
               (goto-char if*-first-clause))
-          ;; Found start of if* clause preceding the one we're trying to indent.
-          ;; Glean context ...
+          ;; Found start of if* clause preceding the one we're trying
+          ;; to indent. Glean context ...
           (cond
            ((looking-at common-lisp-indent-if*-keyword)
             (setq if*-body-p t)
@@ -1587,8 +1613,8 @@ Cause subsequent clauses to be indented.")
             (goto-char previous-expression-start)
             (setq if*-body-indentation (current-column))))
 
-          ;; Go to first non-blank character of the line we're trying to indent.
-          ;; (if none, wind up poised on the new-line ...)
+          ;; Go to first non-blank character of the line we're trying
+          ;; to indent. (if none, wind up poised on the new-line ...)
           (goto-char indent-point)
           (back-to-indentation)
           (cond
@@ -1629,7 +1655,9 @@ Cause subsequent clauses to be indented.")
              ;; for DEFSTRUCT
              (:constructor (4 &lambda))
              (defvar      (4 2 2))
-             (defclass    (6 (&whole 4 &rest 1) (&whole 2 &rest 1) (&whole 2 &rest 1)))
+             (defclass    (6 (&whole 4 &rest 1)
+                             (&whole 2 &rest 1)
+                             (&whole 2 &rest 1)))
              (defconstant (as defvar))
              (defcustom   (4 2 2 2))
              (defparameter     (as defvar))
@@ -1712,7 +1740,8 @@ Cause subsequent clauses to be indented.")
                   (error "Malformed indentation specification: %s" el))
                 (car spec))))
         (unless (symbolp name)
-          (error "Cannot set Common Lisp indentation of a non-symbol: %s" name))
+          (error "Cannot set Common Lisp indentation of a non-symbol: %s"
+                 name))
         (put name 'common-lisp-indent-function indentation)))))
 (common-lisp-init-standard-indentation)
 
@@ -1799,7 +1828,8 @@ Cause subsequent clauses to be indented.")
                 (while (not (or (eobp) (looking-at test-mark)))
                   (forward-line 1))
                 (when (or (eq t run) (equal test-to-run test-name))
-                  (let ((test (buffer-substring-no-properties test-start (point))))
+                  (let ((test (buffer-substring-no-properties
+                               test-start (point))))
                     (common-lisp-indent-test test-name bindings test)
                     (incf n)))))
           (forward-line 1)))

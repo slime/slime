@@ -1,3 +1,9 @@
+2012-04-13  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	Wrap long lines.
+
+	* slime-cl-indent.el
+
 2012-04-06  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-fancy-inspector.lisp (format-iso8601-time): Add 1 to the
