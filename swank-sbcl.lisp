@@ -297,10 +297,7 @@
                          `(:external-format ,external-format))
                         (t '()))
                 :serve-events ,(eq :fd-handler
-                                   ;; KLUDGE: SWANK package isn't
-                                   ;; available when backend is loaded.
-                                   (symbol-value
-                                    (intern "*COMMUNICATION-STYLE*" :swank)))
+                                   (swank-value '*communication-style* t))
                   ;; SBCL < 1.0.42.43 doesn't support :SERVE-EVENTS
                   ;; argument.
                 :allow-other-keys t)))
@@ -401,6 +398,15 @@
           collect (cons (package-name p) readtable))))
 
 ;;; Utilities
+
+(defun swank-value (name &optional errorp)
+  ;; Easy way to refer to symbol values in SWANK, which doesn't yet exist when
+  ;; this is file is loaded.
+  (let ((symbol (find-symbol (string name) :swank)))
+    (if (and symbol (or errorp (boundp symbol)))
+        (symbol-value symbol)
+        (when errorp
+          (error "~S does not exist in SWANK." name)))))
 
 #+#.(swank-backend:with-symbol 'function-lambda-list 'sb-introspect)
 (defimplementation arglist (fname)
@@ -1142,12 +1148,11 @@ stack."
 (defun lisp-source-location (code-location)
   (let ((source (prin1-to-string
                  (sb-debug::code-location-source-form code-location 100)))
-        (condition (intern "*swank-debugger-condition*" :swank)))
-    (if (and (boundp condition)
-             (typep (symbol-value condition) 'sb-impl::step-form-condition)
-             (and (search "SB-IMPL::WITH-STEPPING-ENABLED" source 
-                          :test #'char-equal)
-                  (search "SB-IMPL::STEP-FINISHED" source :test #'char-equal)))
+        (condition (swank-value '*swank-debugger-condition*)))
+    (if (typep condition 'sb-impl::step-form-condition)
+        (and (search "SB-IMPL::WITH-STEPPING-ENABLED" source
+                     :test #'char-equal)
+             (search "SB-IMPL::STEP-FINISHED" source :test #'char-equal))
         ;; The initial form is utterly uninteresting -- and almost
         ;; certainly right there in the REPL.
         (make-error-location "Stepping...")
