@@ -1,5 +1,13 @@
 2012-04-20  Nikodemus Siivola  <nikodemus@random-state.net>
 
+	* swank-sbcl.lisp (stream-force-output :around): Workaroud for
+	deadlocks between auto-flush-thread buffer write lock and world
+	lock.
+	(slime-output-stream): Dummy forward definition for the benefit of
+	the defmethod.
+
+2012-04-20  Nikodemus Siivola  <nikodemus@random-state.net>
+
 	* swank-sbcl.lisp (swank-value): New function, makes it easy to
 	refer to variables in SWANK -- which doesn't exist when the
 	backend is loaded.

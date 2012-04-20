@@ -17,14 +17,13 @@
   (require 'sb-bsd-sockets)
   (require 'sb-introspect)
   (require 'sb-posix)
-  (require 'sb-cltl2))
+  (require 'sb-cltl2)
+  (import-from :sb-gray *gray-stream-symbols* :swank-backend))
 
 (declaim (optimize (debug 2) 
                    (sb-c::insert-step-conditions 0)
                    (sb-c::insert-debug-catch 0)
                    (sb-c::merge-tail-calls 2)))
-
-(import-from :sb-gray *gray-stream-symbols* :swank-backend)
 
 ;;; backwards compability tests
 
@@ -1633,6 +1632,26 @@ stack."
     (defimplementation find-registered (name)
       (sb-thread:with-mutex (mutex) 
         (cdr (assoc name alist)))))
+
+  ;; Workaround for deadlocks between the world-lock and auto-flush-thread
+  ;; buffer write lock.
+  ;;
+  ;; Another alternative would be to grab the world-lock here, but that's less
+  ;; future-proof, and could introduce other lock-ordering issues in the
+  ;; future.
+  ;;
+  ;; In an ideal world we would just have an :AROUND method on
+  ;; SLIME-OUTPUT-STREAM, and be done, but that class doesn't exist when this
+  ;; file is loaded -- so first we need a dummy definition that will be
+  ;; overridden by swank-gray.lisp.
+  (defclass slime-output-stream (fundamental-character-output-stream)
+    ())
+  (defmethod stream-force-output :around ((stream slime-output-stream))
+    (handler-case
+        (sb-sys:with-deadline (:seconds 0.1)
+          (call-next-method))
+      (sb-sys:deadline-timeout ()
+        nil)))
 
   )
 
