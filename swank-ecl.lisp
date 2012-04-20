@@ -40,11 +40,12 @@
   (import-from :gray *gray-stream-symbols* :swank-backend)
 
   (import-swank-mop-symbols :clos
-    '(:eql-specializer
+    `(:eql-specializer
       :eql-specializer-object
       :generic-function-declarations
       :specializer-direct-methods
-      :compute-applicable-methods-using-classes)))
+      ,@(unless (fboundp 'clos:compute-applicable-methods-using-classes)
+         '(:compute-applicable-methods-using-classes)))))
 
 
 ;;;; TCP Server
