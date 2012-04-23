@@ -3627,13 +3627,17 @@ more than one space."
 			  (when arglist
 			    (slime-message "%s" arglist)))))))
 
+(defvar slime-operator-before-point-function 'slime-lisp-operator-before-point)
+
 (defun slime-operator-before-point ()
+  (funcall slime-operator-before-point-function))
+
+(defun slime-lisp-operator-before-point ()
   (ignore-errors 
     (save-excursion
       (backward-up-list 1)
       (down-list 1)
       (slime-symbol-at-point))))
-
 
 ;;;; Completion
 
