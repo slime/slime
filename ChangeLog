@@ -1,3 +1,10 @@
+2012-04-24  Douglas Crosher <dcrosher@common-lisp.net>
+
+	* swank-scl.lisp (create-socket): correct variable name typo.
+
+	* swank.lisp, swank-rpc.lisp (file options): use #\; to separate the
+	file options.
+
 2012-04-23  Christophe Rhodes  <csr21@cantab.net>
 
 	* slime.el (slime-operator-before-point-function): new variable.

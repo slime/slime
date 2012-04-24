@@ -1,4 +1,4 @@
-;;; -*- outline-regexp:";;;;;*" indent-tabs-mode:nil coding:latin-1-unix -*-
+;;; -*- outline-regexp: ";;;;;*"; indent-tabs-mode: nil; coding: iso-8859-1 -*-
 ;;;
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
