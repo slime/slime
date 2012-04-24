@@ -29,7 +29,7 @@
 (defimplementation create-socket (host port &key backlog)
   (let ((addr (resolve-hostname host)))
     (ext:create-inet-listener port :stream :host addr :reuse-address t
-                              :backlog (or backend 5))))
+                              :backlog (or backlog 5))))
 
 (defimplementation local-port (socket)
   (nth-value 1 (ext::get-socket-host-and-port (socket-fd socket))))
