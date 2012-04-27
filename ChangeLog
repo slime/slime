@@ -1,3 +1,8 @@
+2012-04-27  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* swank-sbcl.lisp (lisp-source-location): How hard can it be to
+	get this right? (3-legged IF, FFS!)
+
 2012-04-24  Douglas Crosher <dcrosher@common-lisp.net>
 
 	* swank-scl.lisp (create-socket): correct variable name typo.

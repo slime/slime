@@ -1148,8 +1148,8 @@ stack."
   (let ((source (prin1-to-string
                  (sb-debug::code-location-source-form code-location 100)))
         (condition (swank-value '*swank-debugger-condition*)))
-    (if (typep condition 'sb-impl::step-form-condition)
-        (and (search "SB-IMPL::WITH-STEPPING-ENABLED" source
+    (if (and (typep condition 'sb-impl::step-form-condition)
+             (search "SB-IMPL::WITH-STEPPING-ENABLED" source
                      :test #'char-equal)
              (search "SB-IMPL::STEP-FINISHED" source :test #'char-equal))
         ;; The initial form is utterly uninteresting -- and almost
