@@ -1,3 +1,9 @@
+2012-05-01  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-xrefs-for-notes): Format location in a proper
+	way.
+	Reported by Max Mikhanosha.
+
 2012-04-27  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* swank-sbcl.lisp (lisp-source-location): How hard can it be to

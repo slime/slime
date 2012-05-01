@@ -2842,10 +2842,10 @@ Each newlines and following indentation is replaced by a single space."
              (fn (cadr (assq :file (cdr location))))
              (file (assoc fn xrefs))
              (node
-              (cons (format "%s: %s" 
-                            (getf note :severity)
-                            (slime-one-line-ify (getf note :message)))
-                    location)))
+               (list (format "%s: %s" 
+                             (getf note :severity)
+                             (slime-one-line-ify (getf note :message)))
+                     location)))
         (when fn
           (if file
               (push node (cdr file))
