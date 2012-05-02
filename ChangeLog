@@ -1,3 +1,11 @@
+2012-05-02  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (*find-definitions-right-trim*)
+	(*find-definitions-left-trim*): New variables. ",:." and "#:"
+	default values.
+	(find-definitions-for-emacs): Trim names with using the above
+	variables when a symbol is not found.
+
 2012-05-01  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-xrefs-for-notes): Format location in a proper

@@ -65,7 +65,9 @@
            #:quit-lisp
            #:eval-for-emacs
            #:eval-in-emacs
-           #:y-or-n-p-in-emacs))
+           #:y-or-n-p-in-emacs
+           #:*find-definitions-right-trim*
+           #:*find-definitions-left-trim*))
 
 (in-package :swank)
 
@@ -2918,12 +2920,29 @@ Include the nicknames if NICKNAMES is true."
      (inspector-nth-part part))
     ((:sldb frame var)
      (frame-var-value frame var))))
-  
+
+(defvar *find-definitions-right-trim* ",:.")
+(defvar *find-definitions-left-trim* "#:")
+
+(defun find-definitions-find-symbol (name)
+  (flet ((do-find (name)
+           (multiple-value-bind (symbol found)
+               (parse-symbol name)
+             (when found
+               (return-from find-definitions-find-symbol
+                 (values symbol found))))))
+    (do-find name)
+    (do-find (string-right-trim *find-definitions-right-trim* name))
+    (do-find (string-left-trim *find-definitions-left-trim* name))
+    (do-find (string-left-trim *find-definitions-left-trim*
+                               (string-right-trim
+                                *find-definitions-right-trim* name)))))
+
 (defslimefun find-definitions-for-emacs (name)
   "Return a list ((DSPEC LOCATION) ...) of definitions for NAME.
 DSPEC is a string and LOCATION a source location. NAME is a string."
-  (multiple-value-bind (symbol found) (with-buffer-syntax () 
-                                        (parse-symbol name))
+  (multiple-value-bind (symbol found)
+      (find-definitions-find-symbol name)
     (when found
       (mapcar #'xref>elisp (find-definitions symbol)))))
 
