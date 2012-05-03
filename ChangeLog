@@ -1,3 +1,8 @@
+2012-05-03  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (find-definitions-find-symbol): Put back accidentally
+	removed with-buffer-syntax.
+
 2012-05-02  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (*find-definitions-right-trim*)

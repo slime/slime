@@ -2927,7 +2927,8 @@ Include the nicknames if NICKNAMES is true."
 (defun find-definitions-find-symbol (name)
   (flet ((do-find (name)
            (multiple-value-bind (symbol found)
-               (parse-symbol name)
+               (with-buffer-syntax ()
+                 (parse-symbol name))
              (when found
                (return-from find-definitions-find-symbol
                  (values symbol found))))))
