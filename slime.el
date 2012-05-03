@@ -3446,18 +3446,14 @@ are supported:
              | (:source-path <list> <start-position>) 
              | (:method <name string> <specializers> . <qualifiers>)"
   (destructure-case location
-    ((:location buffer position hints)
-     (cond ((eql (car buffer) :buffer-and-file)
-            (slime-goto-source-location-buffer-and-file buffer position hints
-                                                        noerror))
-           (t
-            (slime-goto-location-buffer buffer)
-            (let ((pos (slime-location-offset location)))
-              (cond ((and (<= (point-min) pos) (<= pos (point-max))))
-                    (widen-automatically (widen))
-                    (t
-                     (error "Location is outside accessible part of buffer")))
-              (goto-char pos)))))
+    ((:location buffer _position _hints)
+     (slime-goto-location-buffer buffer)
+     (let ((pos (slime-location-offset location)))
+       (cond ((and (<= (point-min) pos) (<= pos (point-max))))
+             (widen-automatically (widen))
+             (t
+              (error "Location is outside accessible part of buffer")))
+       (goto-char pos)))
     ((:error message)
      (if noerror
          (slime-message "%s" message)

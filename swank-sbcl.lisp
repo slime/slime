@@ -845,36 +845,32 @@ QUALITIES is an alist with (quality . value)"
     (make-location (list :buffer-and-file
                          (cadr (location-buffer buffer))
                          (cadr (location-buffer file)))
-                   (list
-                    :buffer-position (location-position buffer)
-                    :file-position (location-position file))
-                   (list
-                    :buffer-hints (location-hints buffer)
-                    :file-hints (location-hints file)))))
+                   (location-position buffer)
+                   (location-hints buffer))))
 
 (defun definition-source-for-emacs (definition-source type name)
   (with-struct ("sb-introspect:definition-source-"
                 pathname form-path character-offset plist
                 file-write-date)
                definition-source
-    (ecase (categorize-definition-source definition-source)
-      (:buffer-and-file
-       (definition-source-buffer-and-file-location definition-source))
-      (:buffer
-       (definition-source-buffer-location definition-source))
-      (:file
-       (definition-source-file-location definition-source))
-      (:file-without-position
-       (make-location `(:file ,(namestring 
-                                (translate-logical-pathname pathname)))
-                      '(:position 1)
-                      (when (eql type :function)
-                        `(:snippet ,(format nil "(defun ~a " 
-                                            (symbol-name name))))))
-      (:invalid
-       (error "DEFINITION-SOURCE of ~(~A~) ~A did not contain ~
+    (:dbg (ecase (categorize-definition-source definition-source)
+       (:buffer-and-file
+        (definition-source-buffer-and-file-location definition-source))
+       (:buffer
+        (definition-source-buffer-location definition-source))
+       (:file
+        (definition-source-file-location definition-source))
+       (:file-without-position
+        (make-location `(:file ,(namestring 
+                                 (translate-logical-pathname pathname)))
+                       '(:position 1)
+                       (when (eql type :function)
+                         `(:snippet ,(format nil "(defun ~a " 
+                                             (symbol-name name))))))
+       (:invalid
+        (error "DEFINITION-SOURCE of ~(~A~) ~A did not contain ~
                meaningful information."
-              type name)))))
+               type name))))))
 
 (defun source-file-position (filename write-date form-path)
   (let ((source (get-source-code filename write-date))
