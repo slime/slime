@@ -3,6 +3,7 @@
 	* swank-sbcl.lisp (definition-source-for-emacs): Prefer :file over
 	:buffer, because the buffer can be killed in the mean time and the
 	silly "No buffer named x.lisp" would be displayed.
+	(quit-lisp): Use sb-ext:exit when it's present.
 
 2012-05-03  Stas Boukarev  <stassats@gmail.com>
 
