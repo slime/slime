@@ -239,19 +239,21 @@ EXCEPT is a list of symbol names which should be ignored."
 
 (defmacro with-struct ((conc-name &rest names) obj &body body)
   "Like with-slots but works only for structs."
-  (flet ((reader (slot) (intern (concatenate 'string
-					     (symbol-name conc-name)
-					     (symbol-name slot))
-				(symbol-package conc-name))))
+  (flet ((reader (slot)
+           ;; Use read-from-string instead of intern so that
+           ;; conc-name can be a string such as ext:struct- and not
+           ;; cause errors and not force interning ext::struct-
+           (read-from-string
+            (concatenate 'string (string conc-name) (string slot)))))
     (let ((tmp (gensym "OO-")))
-    ` (let ((,tmp ,obj))
-        (symbol-macrolet
-            ,(loop for name in names collect 
-                   (typecase name
-                     (symbol `(,name (,(reader name) ,tmp)))
-                     (cons `(,(first name) (,(reader (second name)) ,tmp)))
-                     (t (error "Malformed syntax in WITH-STRUCT: ~A" name))))
-          ,@body)))))
+      ` (let ((,tmp ,obj))
+          (symbol-macrolet
+              ,(loop for name in names collect 
+                     (typecase name
+                       (symbol `(,name (,(reader name) ,tmp)))
+                       (cons `(,(first name) (,(reader (second name)) ,tmp)))
+                       (t (error "Malformed syntax in WITH-STRUCT: ~A" name))))
+            ,@body)))))
 
 (defmacro when-let ((var value) &body body)
   `(let ((,var ,value))

@@ -1,5 +1,11 @@
 2012-05-03  Stas Boukarev  <stassats@gmail.com>
 
+	* swank-sbcl.lisp (definition-source-for-emacs): Prefer :file over
+	:buffer, because the buffer can be killed in the mean time and the
+	silly "No buffer named x.lisp" would be displayed.
+
+2012-05-03  Stas Boukarev  <stassats@gmail.com>
+
 	* swank.lisp (find-definitions-find-symbol): Put back accidentally
 	removed with-buffer-syntax.
 

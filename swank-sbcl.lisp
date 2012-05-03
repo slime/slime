@@ -789,49 +789,64 @@ QUALITIES is an alist with (quality . value)"
 
 
 (defun categorize-definition-source (definition-source)
-  (with-struct (sb-introspect::definition-source-
-                   pathname form-path character-offset plist)
-      definition-source
+  (with-struct ("sb-introspect:definition-source-"
+                pathname form-path character-offset plist)
+               definition-source
     (cond ((getf plist :emacs-buffer) :buffer)
-          ((and pathname (or form-path character-offset)) :file)
+          ((and pathname (or form-path character-offset)
+                (probe-file pathname)) :file)
           (pathname :file-without-position)
           (t :invalid))))
 
+(defun definition-source-buffer-location (definition-source)
+  (with-struct ("sb-introspect:definition-source-"
+                form-path character-offset plist)
+               definition-source
+    (destructuring-bind (&key emacs-buffer emacs-position emacs-directory
+                              emacs-string &allow-other-keys)
+        plist
+      (let ((*readtable* (guess-readtable-for-filename emacs-directory)))
+        (multiple-value-bind (start end)
+            (if form-path
+                (with-debootstrapping
+                  (source-path-string-position form-path
+                                               emacs-string))
+                (values character-offset
+                        most-positive-fixnum))
+          (make-location
+           `(:buffer ,emacs-buffer)
+           `(:offset ,emacs-position ,start)
+           `(:snippet
+             ,(subseq emacs-string
+                      start
+                      (min end (+ start *source-snippet-size*))))))))))
+
+(defun definition-source-file-location (definition-source)
+  (with-struct ("sb-introspect:definition-source-"
+                pathname form-path character-offset plist
+                file-write-date) definition-source
+    (let* ((namestring (namestring (translate-logical-pathname pathname)))
+           (pos (if form-path
+                    (source-file-position namestring file-write-date 
+                                          form-path)
+                    character-offset))
+           (snippet (source-hint-snippet namestring file-write-date pos)))
+      (make-location `(:file ,namestring)
+                     ;; /file positions/ in Common Lisp start from
+                     ;; 0, buffer positions in Emacs start from 1.
+                     `(:position ,(1+ pos))
+                     `(:snippet ,snippet)))))
+
 (defun definition-source-for-emacs (definition-source type name)
-  (with-struct (sb-introspect::definition-source-
-                   pathname form-path character-offset plist
-                   file-write-date)
-      definition-source
+  (with-struct ("sb-introspect:definition-source-"
+                pathname form-path character-offset plist
+                file-write-date)
+               definition-source
     (ecase (categorize-definition-source definition-source)
       (:buffer
-       (destructuring-bind (&key emacs-buffer emacs-position emacs-directory
-                                 emacs-string &allow-other-keys)
-           plist
-         (let ((*readtable* (guess-readtable-for-filename emacs-directory)))
-           (multiple-value-bind (start end)
-               (if form-path
-                   (with-debootstrapping
-                     (source-path-string-position form-path emacs-string))
-                   (values character-offset most-positive-fixnum))
-             (make-location
-              `(:buffer ,emacs-buffer)
-              `(:offset ,emacs-position ,start)
-              `(:snippet
-                ,(subseq emacs-string
-                         start
-                         (min end (+ start *source-snippet-size*)))))))))
+       (definition-source-buffer-location definition-source))
       (:file
-       (let* ((namestring (namestring (translate-logical-pathname pathname)))
-              (pos (if form-path
-                       (source-file-position namestring file-write-date 
-                                             form-path)
-                       character-offset))
-              (snippet (source-hint-snippet namestring file-write-date pos)))
-         (make-location `(:file ,namestring)
-                        ;; /file positions/ in Common Lisp start from
-                        ;; 0, buffer positions in Emacs start from 1.
-                        `(:position ,(1+ pos))
-                        `(:snippet ,snippet))))
+       (definition-source-file-location definition-source))
       (:file-without-position
        (make-location `(:file ,(namestring 
                                 (translate-logical-pathname pathname)))
@@ -840,9 +855,9 @@ QUALITIES is an alist with (quality . value)"
                         `(:snippet ,(format nil "(defun ~a " 
                                             (symbol-name name))))))
       (:invalid
-       (error "DEFINITION-SOURCE of ~A ~A did not contain ~
+       (error "DEFINITION-SOURCE of ~(~A~) ~A did not contain ~
                meaningful information."
-              (string-downcase type) name)))))
+              type name)))))
 
 (defun source-file-position (filename write-date form-path)
   (let ((source (get-source-code filename write-date))
