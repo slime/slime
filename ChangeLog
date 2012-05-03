@@ -1,8 +1,10 @@
 2012-05-03  Stas Boukarev  <stassats@gmail.com>
 
-	* swank-sbcl.lisp (definition-source-for-emacs): Prefer :file over
-	:buffer, because the buffer can be killed in the mean time and the
-	silly "No buffer named x.lisp" would be displayed.
+	* slime.el (slime-goto-source-location): Allow for
+	:buffer-and-file locations, prefer buffer if the buffer exists.
+
+	* swank-sbcl.lisp (definition-source-for-emacs): Send
+	:buffer-and-file when both are available.
 	(quit-lisp): Use sb-ext:exit when it's present.
 
 2012-05-03  Stas Boukarev  <stassats@gmail.com>

@@ -792,11 +792,13 @@ QUALITIES is an alist with (quality . value)"
   (with-struct ("sb-introspect:definition-source-"
                 pathname form-path character-offset plist)
                definition-source
-    (cond ((getf plist :emacs-buffer) :buffer)
-          ((and pathname (or form-path character-offset)
-                (probe-file pathname)) :file)
-          (pathname :file-without-position)
-          (t :invalid))))
+    (let ((file-p (and pathname (probe-file pathname)
+                       (or form-path character-offset))))
+      (cond ((and (getf plist :emacs-buffer) file-p) :buffer-and-file)
+            ((getf plist :emacs-buffer) :buffer)
+            (file-p :file)
+            (pathname :file-without-position)
+            (t :invalid)))))
 
 (defun definition-source-buffer-location (definition-source)
   (with-struct ("sb-introspect:definition-source-"
@@ -837,12 +839,27 @@ QUALITIES is an alist with (quality . value)"
                      `(:position ,(1+ pos))
                      `(:snippet ,snippet)))))
 
+(defun definition-source-buffer-and-file-location (definition-source)
+  (let ((buffer (definition-source-buffer-location definition-source))
+        (file (definition-source-file-location definition-source)))
+    (make-location (list :buffer-and-file
+                         (cadr (location-buffer buffer))
+                         (cadr (location-buffer file)))
+                   (list
+                    :buffer-position (location-position buffer)
+                    :file-position (location-position file))
+                   (list
+                    :buffer-hints (location-hints buffer)
+                    :file-hints (location-hints file)))))
+
 (defun definition-source-for-emacs (definition-source type name)
   (with-struct ("sb-introspect:definition-source-"
                 pathname form-path character-offset plist
                 file-write-date)
                definition-source
     (ecase (categorize-definition-source definition-source)
+      (:buffer-and-file
+       (definition-source-buffer-and-file-location definition-source))
       (:buffer
        (definition-source-buffer-location definition-source))
       (:file

@@ -3307,6 +3307,11 @@ you should check twice before modifying.")
     ((:buffer buffer-name)
      (slime-check-location-buffer-name-sanity buffer-name)
      (set-buffer buffer-name))
+    ((:buffer-and-file buffer filename)
+     (slime-goto-location-buffer
+      (if (get-buffer buffer)
+          (list :buffer buffer)
+          (list :file filename))))
     ((:source-form string)
      (set-buffer (get-buffer-create (slime-buffer-name :source)))
      (erase-buffer)
@@ -3430,6 +3435,7 @@ are supported:
 
 <buffer>   ::= (:file <filename>)
              | (:buffer <buffername>)
+             | (:buffer-and-file <buffername> <filename>)
              | (:source-form <string>)
              | (:zip <file> <entry>)
 
@@ -3440,17 +3446,37 @@ are supported:
              | (:source-path <list> <start-position>) 
              | (:method <name string> <specializers> . <qualifiers>)"
   (destructure-case location
-    ((:location buffer _position _hints)
-     (slime-goto-location-buffer buffer)
-     (let ((pos (slime-location-offset location)))
-       (cond ((and (<= (point-min) pos) (<= pos (point-max))))
-             (widen-automatically (widen))
-             (t (error "Location is outside accessible part of buffer")))
-       (goto-char pos)))
+    ((:location buffer position hints)
+     (cond ((eql (car buffer) :buffer-and-file)
+            (slime-goto-source-location-buffer-and-file buffer position hints
+                                                        noerror))
+           (t
+            (slime-goto-location-buffer buffer)
+            (let ((pos (slime-location-offset location)))
+              (cond ((and (<= (point-min) pos) (<= pos (point-max))))
+                    (widen-automatically (widen))
+                    (t
+                     (error "Location is outside accessible part of buffer")))
+              (goto-char pos)))))
     ((:error message)
      (if noerror
          (slime-message "%s" message)
        (error "%s" message)))))
+
+(defun slime-goto-source-location-buffer-and-file (buffer position hints
+                                                   noerror)
+  (destructuring-bind (type buffer file) buffer
+    (slime-goto-source-location
+     (if (get-buffer buffer)
+         (list :location
+               (list :buffer buffer)
+               (getf position :buffer-position)
+               (getf hints :buffer-hints))
+         (list :location
+               (list :file file)
+               (getf position :file-position)
+               (getf hints :file-hints)))
+     noerror)))
 
 (defun slime-location-offset (location)
   "Return the position, as character number, of LOCATION."
@@ -3964,6 +3990,7 @@ FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
               (if buffer 
                   (format "%S" buffer) ; "#<buffer foo.lisp>"
                 (format "%s (previously existing buffer)" bufname))))
+           ((:buffer-and-file buffer filename) filename)
            ((:source-form _) "(S-Exp)")
            ((:zip _zip entry) entry)))
         (t
