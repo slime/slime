@@ -1,3 +1,8 @@
+2012-05-04  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* swank-sbcl.lisp: Remove the SB-C::MERGE-TAIL-CALLS proclamation.
+	It does nothing, and never did, actually.
+
 2012-05-03  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-goto-source-location): Allow for

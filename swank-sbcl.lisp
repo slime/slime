@@ -22,8 +22,7 @@
 
 (declaim (optimize (debug 2) 
                    (sb-c::insert-step-conditions 0)
-                   (sb-c::insert-debug-catch 0)
-                   (sb-c::merge-tail-calls 2)))
+                   (sb-c::insert-debug-catch 0)))
 
 ;;; backwards compability tests
 
