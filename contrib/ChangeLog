@@ -1,3 +1,8 @@
+2012-05-04  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-fancy-inspector.lisp (emacs-inspect symbol): On SBCL,
+	show information about type specifiers.
+
 2012-04-20  John Smith <ohwoeowho@googlemail.com>
 
 	Prettier arglists.
