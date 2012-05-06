@@ -1624,11 +1624,14 @@ stack."
               (nconc (mailbox.queue mbox) (list message)))
         (sb-thread:condition-broadcast (mailbox.waitqueue mbox)))))
 
+
   (defun condition-timed-wait (waitqueue mutex timeout)
     (macrolet ((foo ()
-                 (cond ((> (length (sb-introspect:function-arglist
-                                    #'sb-thread:condition-wait))
-                           2)
+                 (cond ((and (> (length (sb-introspect:function-lambda-list
+                                         #'sb-thread:condition-wait))
+                                2)
+                             nil  ; FIXME: :timeout doesn't work. Why?
+                             )
                         '(sb-thread:condition-wait waitqueue mutex
                           :timeout timeout))
                        ((member :sb-lutex *features*) ; Darwin

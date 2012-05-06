@@ -1,7 +1,13 @@
 2012-05-06  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-sbcl.lisp (condition-timed-wait): Undo previous change.
+	The :timeout arg doesn't seem ready for production use.
+
+2012-05-06  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-sbcl.lisp (condition-timed-wait): Use the :timeout
 	argument of sb-thread:condition-wait if supported.
+
 
 2012-05-06  Helmut Eller  <heller@common-lisp.net>
 
