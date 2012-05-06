@@ -1,5 +1,10 @@
 2012-05-06  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-backend.lisp (with-struct): Undo damage.
+	* swank-sbcl.lisp (with-definition-source): New macro.
+
+2012-05-06  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp, swank-rpc.lisp: iso-8859-1 is not same as
 	latin-1-unix.
 

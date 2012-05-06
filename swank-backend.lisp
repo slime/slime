@@ -1,4 +1,4 @@
-;;; -*- Mode: lisp; indent-tabs-mode: nil; outline-regexp: ";;;;;*" -*-
+;;; -*- indent-tabs-mode: nil; outline-regexp: ";;;;;*" -*-
 ;;;
 ;;; slime-backend.lisp --- SLIME backend interface.
 ;;;
@@ -239,12 +239,12 @@ EXCEPT is a list of symbol names which should be ignored."
 
 (defmacro with-struct ((conc-name &rest names) obj &body body)
   "Like with-slots but works only for structs."
+  (check-type conc-name symbol)
   (flet ((reader (slot)
-           ;; Use read-from-string instead of intern so that
-           ;; conc-name can be a string such as ext:struct- and not
-           ;; cause errors and not force interning ext::struct-
-           (read-from-string
-            (concatenate 'string (string conc-name) (string slot)))))
+           (intern (concatenate 'string
+                                (symbol-name conc-name)
+                                (symbol-name slot))
+                   (symbol-package conc-name))))
     (let ((tmp (gensym "OO-")))
       ` (let ((,tmp ,obj))
           (symbol-macrolet
