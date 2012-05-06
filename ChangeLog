@@ -1,5 +1,10 @@
 2012-05-06  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-allegro.lisp (string-to-utf8): Set the :null-terminate
+	argument of excl:string-to-octets to nil.
+
+2012-05-06  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-backend.lisp (with-struct): Undo damage.
 	* swank-sbcl.lisp (with-definition-source): New macro.
 

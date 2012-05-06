@@ -35,7 +35,8 @@
      t))
 
 (defimplementation string-to-utf8 (s)
-  (excl:string-to-octets s :external-format utf8-ef))
+  (excl:string-to-octets s :external-format utf8-ef 
+                         :null-terminate nil))
 
 (defimplementation utf8-to-string (u)
   (excl:octets-to-string u :external-format utf8-ef))
