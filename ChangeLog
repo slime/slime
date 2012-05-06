@@ -1,3 +1,9 @@
+2012-05-06  Cyrus Harmon <ch-slime@bobobeach.com>
+	    Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-pprint-eval-region): New command. No keybinding
+	though.
+
 2012-05-04  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* swank-sbcl.lisp: Remove the SB-C::MERGE-TAIL-CALLS proclamation.

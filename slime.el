@@ -4297,6 +4297,13 @@ Use `slime-re-evaluate-defvar' if the from starts with '(defvar'"
    `(swank:interactive-eval-region 
      ,(buffer-substring-no-properties start end))))
 
+(defun slime-pprint-eval-region (start end)
+  "Evaluate region; pprint the value in a buffer."
+  (interactive "r")
+  (slime-eval-describe
+   `(swank:pprint-eval
+     ,(buffer-substring-no-properties start end))))
+
 (defun slime-eval-buffer ()
   "Evaluate the current buffer.
 The value is printed in the echo area."
@@ -7149,6 +7156,7 @@ is setup, unless the user already set one explicitly."
        [ "Eval Last Expression"    slime-eval-last-expression ,C ]
        [ "Eval And Pretty-Print"   slime-pprint-eval-last-expression ,C ]
        [ "Eval Region"             slime-eval-region ,C ]
+       [ "Eval Region And Pretty-Print" slime-pprint-eval-region ,C ]
        [ "Interactive Eval..."     slime-interactive-eval ,C ]
        [ "Edit Lisp Value..."      slime-edit-value ,C ]
        [ "Call Defun"              slime-call-defun ,C ])
