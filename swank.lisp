@@ -1,9 +1,7 @@
-;;; -*- outline-regexp: ";;;;;*"; indent-tabs-mode: nil; coding: iso-8859-1 -*-
+;;;; swank.lisp --- Server for SLIME commands.
 ;;;
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
-;;;
-;;;; swank.lisp
 ;;;
 ;;; This file defines the "Swank" TCP server for Emacs to talk to. The
 ;;; code in this file is purely portable Common Lisp. We do require a
@@ -3687,5 +3685,11 @@ Collisions are caused because package information is ignored."
 
 (defun init ()
   (run-hook *after-init-hook*))
+
+;; Local Variables:
+;; coding: latin-1-unix
+;; indent-tabs-mode: nil
+;; outline-regexp: ";;;;;*"
+;; End:
 
 ;;; swank.lisp ends here

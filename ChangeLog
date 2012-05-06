@@ -1,3 +1,8 @@
+2012-05-06  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp, swank-rpc.lisp: iso-8859-1 is not same as
+	latin-1-unix.
+
 2012-05-06  Cyrus Harmon <ch-slime@bobobeach.com>
 	    Helmut Eller  <heller@common-lisp.net>
 
