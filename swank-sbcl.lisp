@@ -1,4 +1,4 @@
-;;;;; -*- Mode: lisp; indent-tabs-mode: nil -*-
+;;;;; -*- indent-tabs-mode: nil -*-
 ;;;
 ;;; swank-sbcl.lisp --- SLIME backend for SBCL.
 ;;;
@@ -786,11 +786,28 @@ QUALITIES is an alist with (quality . value)"
                                      (general-type-of obj)
                                      (to-string obj))))))
 
+(defmacro with-definition-source ((&rest names) obj &body body)
+  "Like with-slots but works only for structs."
+  (flet ((reader (slot)
+           ;; Use read-from-string instead of intern so that
+           ;; conc-name can be a string such as ext:struct- and not
+           ;; cause errors and not force interning ext::struct-
+           (read-from-string
+            (concatenate 'string "sb-introspect:definition-source-" 
+                         (string slot)))))
+    (let ((tmp (gensym "OO-")))
+      ` (let ((,tmp ,obj))
+          (symbol-macrolet
+              ,(loop for name in names collect 
+                     (typecase name
+                       (symbol `(,name (,(reader name) ,tmp)))
+                       (cons `(,(first name) (,(reader (second name)) ,tmp)))
+                       (t (error "Malformed syntax in WITH-STRUCT: ~A" name))))
+            ,@body)))))
 
 (defun categorize-definition-source (definition-source)
-  (with-struct ("sb-introspect:definition-source-"
-                pathname form-path character-offset plist)
-               definition-source
+  (with-definition-source (pathname form-path character-offset plist)
+    definition-source
     (let ((file-p (and pathname (probe-file pathname)
                        (or form-path character-offset))))
       (cond ((and (getf plist :emacs-buffer) file-p) :buffer-and-file)
@@ -800,9 +817,7 @@ QUALITIES is an alist with (quality . value)"
             (t :invalid)))))
 
 (defun definition-source-buffer-location (definition-source)
-  (with-struct ("sb-introspect:definition-source-"
-                form-path character-offset plist)
-               definition-source
+  (with-definition-source (form-path character-offset plist) definition-source
     (destructuring-bind (&key emacs-buffer emacs-position emacs-directory
                               emacs-string &allow-other-keys)
         plist
@@ -823,9 +838,8 @@ QUALITIES is an alist with (quality . value)"
                       (min end (+ start *source-snippet-size*))))))))))
 
 (defun definition-source-file-location (definition-source)
-  (with-struct ("sb-introspect:definition-source-"
-                pathname form-path character-offset plist
-                file-write-date) definition-source
+  (with-definition-source (pathname form-path character-offset plist 
+                                    file-write-date) definition-source
     (let* ((namestring (namestring (translate-logical-pathname pathname)))
            (pos (if form-path
                     (source-file-position namestring file-write-date 
@@ -848,10 +862,9 @@ QUALITIES is an alist with (quality . value)"
                    (location-hints buffer))))
 
 (defun definition-source-for-emacs (definition-source type name)
-  (with-struct ("sb-introspect:definition-source-"
-                pathname form-path character-offset plist
-                file-write-date)
-               definition-source
+  (with-definition-source (pathname form-path character-offset plist
+                                    file-write-date)
+      definition-source
     (ecase (categorize-definition-source definition-source)
       (:buffer-and-file
        (definition-source-buffer-and-file-location definition-source))
@@ -1623,7 +1636,7 @@ stack."
   #+sb-lutex
   (defun condition-timed-wait (waitqueue mutex timeout)
     (declare (ignore timeout))
-    (sb-thread:condition-wait waitqueue mutex))
+    (sb-thread:condition-wait waitqueue mutex   ))
   
   (defimplementation receive-if (test &optional timeout)
     (let* ((mbox (mailbox (current-thread)))

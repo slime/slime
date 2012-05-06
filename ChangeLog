@@ -1,5 +1,8 @@
 2012-05-06  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-sbcl.lisp (with-definition-source): Forgot to commit this
+	one.
+
 	* swank-allegro.lisp (string-to-utf8): Set the :null-terminate
 	argument of excl:string-to-octets to nil.
 
