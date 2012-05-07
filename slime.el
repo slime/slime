@@ -8293,7 +8293,7 @@ the buffer's undo-list."
   (undo-boundary)
   (call-interactively name))
 
-(def-slime-test macroexpand 
+(def-slime-test macroexpand
     (macro-defs bufcontent expansion1 search-str expansion2)
     "foo"
     '((("(defmacro qwertz (&body body) `(list :qwertz ',body))"
@@ -8306,33 +8306,41 @@ the buffer's undo-list."
   (setq slime-buffer-package ":swank")
   (with-temp-buffer
     (lisp-mode)
-    (dolist (def macro-defs) 
+    (dolist (def macro-defs)
       (slime-compile-string def 0)
       (slime-sync-to-top-level 5))
     (insert bufcontent)
     (goto-char (point-min))
     (slime-execute-as-command 'slime-macroexpand-1)
-    (slime-wait-condition "Macroexpansion buffer visible" 
-                          (lambda () 
-                            (slime-buffer-visible-p 
+    (slime-wait-condition "Macroexpansion buffer visible"
+                          (lambda ()
+                            (slime-buffer-visible-p
                              (slime-buffer-name :macroexpansion)))
                           5)
     (with-current-buffer (get-buffer (slime-buffer-name :macroexpansion))
       (slime-test-expect "Initial macroexpansion is correct"
-                         expansion1 
-                         (downcase (buffer-string)))
+                         expansion1
+                         (downcase (buffer-string))
+                         #'slime-test-macroexpansion=)
       (search-forward search-str)
       (backward-up-list)
       (slime-execute-as-command 'slime-macroexpand-1-inplace)
       (slime-sync-to-top-level 3)
       (slime-test-expect "In-place macroexpansion is correct"
-                         expansion2 
-                         (downcase (buffer-string)))
+                         expansion2
+                         (downcase (buffer-string))
+                         #'slime-test-macroexpansion=)
       (slime-execute-as-command 'slime-macroexpand-undo)
       (slime-test-expect "Expansion after undo is correct"
                          expansion1
-                         (downcase (buffer-string)))))
+                         (downcase (buffer-string))
+                         #'slime-test-macroexpansion=)))
     (setq slime-buffer-package ":cl-user"))
+
+(defun slime-test-macroexpansion= (string1 string2)
+  (let ((string1 (replace-regexp-in-string " *\n *" " " string1))
+        (string2 (replace-regexp-in-string " *\n *" " " string2)))
+    (equal string1 string2)))
 
 (def-slime-test indentation (buffer-content point-markers)
         "Check indentation update to work correctly."

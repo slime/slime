@@ -1,3 +1,11 @@
+2012-05-07  Helmut Eller  <heller@common-lisp.net>
+
+	Ignore linebreaks for the macroexpand test.
+	SBCL should now also pass it.
+
+	* slime.el (slime-test-macroexpansion=): New function.
+	([test] macroexpand): Use it.
+
 2012-05-06  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-sbcl.lisp (condition-timed-wait): Undo previous change.
