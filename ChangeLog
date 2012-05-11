@@ -1,5 +1,11 @@
 2012-05-11  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-sbcl.lisp (stream-force-output): Don't use
+	with-deadline. Grab the world-lock instead.
+	(condition-timed-wait): Use the :timeout argument for real.
+
+2012-05-11  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-backend.lisp (call-with-io-timeout): Not used. Deleted.
 	* swank-sbcl.lisp (call-with-io-timeout): Deleted.
 

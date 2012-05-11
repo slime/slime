@@ -1627,11 +1627,9 @@ stack."
 
   (defun condition-timed-wait (waitqueue mutex timeout)
     (macrolet ((foo ()
-                 (cond ((and (> (length (sb-introspect:function-lambda-list
-                                         #'sb-thread:condition-wait))
-                                2)
-                             nil  ; FIXME: :timeout doesn't work. Why?
-                             )
+                 (cond ((> (length (sb-introspect:function-lambda-list
+                                    #'sb-thread:condition-wait))
+                           2)
                         '(sb-thread:condition-wait waitqueue mutex
                           :timeout timeout))
                        ((member :sb-lutex *features*) ; Darwin
@@ -1695,12 +1693,8 @@ stack."
   (defclass slime-output-stream (fundamental-character-output-stream)
     ())
   (defmethod stream-force-output :around ((stream slime-output-stream))
-    (handler-case
-        (sb-sys:with-deadline (:seconds 0.1)
-          (call-next-method))
-      (sb-sys:deadline-timeout ()
-        nil)))
-
+    (sb-thread:with-mutex (sb-c::**world-lock** :wait-p nil)
+      (call-next-method)))
   )
 
 (defimplementation quit-lisp ()
