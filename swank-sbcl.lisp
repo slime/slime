@@ -1838,13 +1838,6 @@ stack."
                          :dual-channel-p t                         
                          :external-format external-format))
 
-(defimplementation call-with-io-timeout (function &key seconds)
-  (handler-case
-      (sb-sys:with-deadline (:seconds seconds)
-        (funcall function))
-    (sb-sys:deadline-timeout ()
-      nil)))
-
 #-win32
 (defimplementation background-save-image (filename &key restart-function
                                                    completion-function)

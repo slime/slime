@@ -1425,12 +1425,6 @@ but that thread may hold it more than once."
             (type function function))
    (funcall function))
 
-;; Same here: don't use this outside of swank-gray.lisp.
-(definterface call-with-io-timeout (function &key seconds)
-  "Calls function with the specified IO timeout."
-  (declare (ignore seconds))
-  (funcall function))
-
 
 ;;;; Weak datastructures
 

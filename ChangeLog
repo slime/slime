@@ -1,3 +1,8 @@
+2012-05-11  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-backend.lisp (call-with-io-timeout): Not used. Deleted.
+	* swank-sbcl.lisp (call-with-io-timeout): Deleted.
+
 2012-05-07  Helmut Eller  <heller@common-lisp.net>
 
 	Ignore linebreaks for the macroexpand test.
