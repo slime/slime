@@ -8523,7 +8523,18 @@ CONTINUES  ... how often the continue restart should be invoked"
     (slime-check "Debugger closed" (slime-sldb-level= nil)))
   (slime-sync-to-top-level 8))
 
-;;; FIXME: reconnection is broken since the recent io-redirection changes.    
+(def-slime-test sbcl-world-lock
+    (n delay)
+    "Print something inside WITH-COMPILATION-UNIT.
+In SBCL, WITH-COMPILATION-UNIT grabs the world lock and this tests that
+we can grab it recursivly."
+    '((10 0.03))
+  (slime-test-expect "no error"
+                     t
+                     (slime-eval `(cl:with-compilation-unit ()
+                                    (swank:flow-control-test ,n ,delay)
+                                    t))))
+
 (def-slime-test (disconnect-one-connection (:style :spawn)) ()
     "`slime-disconnect' should disconnect only the current connection"
     '(())

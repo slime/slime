@@ -1693,7 +1693,7 @@ stack."
   (defclass slime-output-stream (fundamental-character-output-stream)
     ())
   (defmethod stream-force-output :around ((stream slime-output-stream))
-    (sb-thread:with-mutex (sb-c::**world-lock** :wait-p nil)
+    (sb-kernel:with-world-lock ()
       (call-next-method)))
   )
 
