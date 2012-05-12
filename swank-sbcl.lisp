@@ -1627,12 +1627,7 @@ stack."
 
   (defun condition-timed-wait (waitqueue mutex timeout)
     (macrolet ((foo ()
-                 (cond ((> (length (sb-introspect:function-lambda-list
-                                    #'sb-thread:condition-wait))
-                           2)
-                        '(sb-thread:condition-wait waitqueue mutex
-                          :timeout timeout))
-                       ((member :sb-lutex *features*) ; Darwin
+                 (cond ((member :sb-lutex *features*) ; Darwin
                         '(sb-thread:condition-wait waitqueue mutex))
                        (t
                         '(handler-case
@@ -1693,8 +1688,11 @@ stack."
   (defclass slime-output-stream (fundamental-character-output-stream)
     ())
   (defmethod stream-force-output :around ((stream slime-output-stream))
-    (sb-kernel:with-world-lock ()
-      (call-next-method)))
+    (handler-case
+        (sb-sys:with-deadline (:seconds 0.1)
+          (call-next-method))
+      (sb-sys:deadline-timeout ()
+        nil)))
   )
 
 (defimplementation quit-lisp ()
