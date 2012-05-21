@@ -1,3 +1,12 @@
+2012-05-21  Helmut Eller  <heller@common-lisp.net>
+
+	Reduce dependecy on pre-defined faces.
+
+	* slime.el (slime-apropos-symbol, slime-apropos-label): New faces.
+	(slime-print-apropos): Use them.
+
+	Reported by: Daimrod <daimrod@gmail.com>
+
 2012-05-12  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-sbcl.lisp (stream-force-output): Undo last few changes.

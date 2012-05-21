@@ -4561,6 +4561,16 @@ If PACKAGE is NIL, then search in all packages."
     (error "No symbol given"))
   (slime-eval-describe `(swank:describe-function ,symbol-name)))
 
+(defface slime-apropos-symbol
+  '((t (:inherit bold)))
+  "Face for the symbol name in Apropos output."
+  :group 'slime)
+
+(defface slime-apropos-label
+  '((t (:inherit italic)))
+  "Face for label (`Function', `Variable' ...) in Apropos output."
+  :group 'slime)
+
 (defun slime-apropos-summary (string case-sensitive-p package only-external-p)
   "Return a short description for the performed apropos search."
   (concat (if case-sensitive-p "Case-sensitive " "")
@@ -4621,7 +4631,7 @@ With prefix argument include internal symbols."
   (dolist (plist plists)
     (let ((designator (plist-get plist :designator)))
       (assert designator)
-      (slime-insert-propertized `(face ,apropos-symbol-face) designator))
+      (slime-insert-propertized `(face slime-apropos-symbol) designator))
     (terpri)
     (loop for (prop namespace)
           in '((:variable "Variable")
@@ -4642,7 +4652,7 @@ With prefix argument include internal symbols."
                 (start (point)))
             (when value
               (princ "  ")
-              (slime-insert-propertized `(face ,apropos-label-face) namespace)
+              (slime-insert-propertized `(face slime-apropos-label) namespace)
               (princ ": ")
               (princ (etypecase value
                        (string value)
