@@ -21,3 +21,5 @@
 ;; can only be defined if their specializers already exist; in R's S3
 ;; object system, methods are ordinary functions with a special naming
 ;; convention)
+
+(provide :swank-media)

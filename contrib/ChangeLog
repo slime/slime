@@ -1,3 +1,7 @@
+2012-05-23  Christophe Rhodes  <csr21@cantab.net>
+
+	* swank-media.lisp: add provide.
+
 2012-05-04  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-fancy-inspector.lisp (emacs-inspect symbol): On SBCL,
