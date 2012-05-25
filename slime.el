@@ -786,7 +786,7 @@ It should be used for \"background\" messages such as argument lists."
   "Return STRING truncated to fit in a single echo-area line."
   (substring string 0 (min (length string)
                            (or (position ?\n string) most-positive-fixnum)
-                           (1- (frame-width)))))
+                           (1- (window-width (minibuffer-window))))))
 
 ;; Interface
 (defun slime-set-truncate-lines ()

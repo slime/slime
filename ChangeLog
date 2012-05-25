@@ -1,3 +1,10 @@
+2012-05-25  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-oneliner): Use minibuffer width instead of the
+	width of the current frame, minibuffer can be in a separate frame
+	with a different width.
+	Patch by Greg Pfeil (lp#1004252).
+
 2012-05-21  Helmut Eller  <heller@common-lisp.net>
 
 	Reduce dependecy on pre-defined faces.
