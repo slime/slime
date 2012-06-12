@@ -1,3 +1,11 @@
+2012-06-12  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-changelog-date): Use
+	(expand-file-name "ChangeLog" slime-path) instead of
+	(concat slime-path "ChangeLog"), slime-path may not have a
+	trailing /.
+	Reported by Paul Sexton (lp#1011935).
+
 2012-05-25  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-oneliner): Use minibuffer width instead of the

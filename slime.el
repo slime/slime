@@ -119,7 +119,7 @@ CONTRIBS is a list of contrib packages to load."
     "Return the datestring of the latest entry in the ChangeLog file.
 Return nil if the ChangeLog file cannot be found."
     (interactive "p")
-    (let ((changelog (concat slime-path "ChangeLog"))
+    (let ((changelog (expand-file-name "ChangeLog" slime-path))
           (date nil))
       (when (file-exists-p changelog)
         (with-temp-buffer 
