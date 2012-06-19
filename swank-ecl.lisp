@@ -203,6 +203,17 @@
 
 ) ; #+serve-event (progn ...
 
+#-serve-event
+(defimplementation wait-for-input (streams &optional timeout)
+  (assert (member timeout '(nil t)))
+  (loop
+   (cond ((check-slime-interrupts) (return :interrupt))
+         (timeout (return (remove-if-not #'listen streams)))
+         (t
+          (let ((ready (remove-if-not #'listen streams)))
+            (if ready (return ready))
+            (sleep 0.1))))))
+
 
 ;;;; Compilation
 

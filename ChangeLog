@@ -1,3 +1,8 @@
+2012-06-19  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-ecl.lisp (wait-for-input): Provide implementation
+	that doesn't need serve-event.
+
 2012-06-12  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-changelog-date): Use
