@@ -1,3 +1,7 @@
+2012-07-13  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el: Don't compile functions that are now in other files.
+
 2012-06-19  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-ecl.lisp (wait-for-input): Provide implementation

@@ -9340,16 +9340,12 @@ If they are not, position point at the first syntax error found."
 
 (require 'bytecomp)
 (let ((byte-compile-warnings '()))
-  (mapc #'byte-compile
+  (mapc (lambda (sym)
+          (cond ((fboundp sym) (byte-compile sym))
+                (t (error "%S is not fbound." sym))))
         '(slime-alistify
           slime-log-event
           slime-events-buffer
-          ;;slime-write-string 
-          ;;slime-repl-emit
-          ;;slime-output-buffer
-          ;;slime-connection-output-buffer
-          ;;slime-output-filter
-          ;;slime-repl-show-maximum-output
           slime-process-available-input 
           slime-dispatch-event 
           slime-net-filter 
@@ -9358,8 +9354,6 @@ If they are not, position point at the first syntax error found."
           slime-net-read
           slime-print-apropos
           slime-insert-propertized
-          slime-tree-insert
-          slime-symbol-constituent-at
           slime-beginning-of-symbol
           slime-end-of-symbol
           slime-eval-feature-expression
