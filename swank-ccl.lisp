@@ -158,16 +158,15 @@
 
 (defun handle-compiler-warning (condition)
   "Resignal a ccl:compiler-warning as swank-backend:compiler-warning."
-  (signal (make-condition
-           'compiler-condition
-           :original-condition condition
-           :message (compiler-warning-short-message condition)
-           :source-context nil
-           :severity (compiler-warning-severity condition)
-           :location (source-note-to-source-location 
-                      (ccl:compiler-warning-source-note condition)
-                      (lambda () "Unknown source")
-                      (ccl:compiler-warning-function-name condition)))))
+  (signal 'compiler-condition
+          :original-condition condition
+          :message (compiler-warning-short-message condition)
+          :source-context nil
+          :severity (compiler-warning-severity condition)
+          :location (source-note-to-source-location 
+                     (ccl:compiler-warning-source-note condition)
+                     (lambda () "Unknown source")
+                     (ccl:compiler-warning-function-name condition))))
 
 (defgeneric compiler-warning-severity (condition))
 (defmethod compiler-warning-severity ((c ccl:compiler-warning)) :warning)

@@ -341,7 +341,7 @@
   `(satisfies redefinition-p))
 
 (defun signal-compiler-condition (&rest args)
-  (signal (apply #'make-condition 'compiler-condition args)))
+  (apply #'signal 'compiler-condition args))
 
 (defun handle-compiler-warning (condition)
   (declare (optimize (debug 3) (speed 0) (space 0)))

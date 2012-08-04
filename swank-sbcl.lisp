@@ -463,24 +463,23 @@ information."
                                (sb-c::find-error-context nil))))
 
 (defun signal-compiler-condition (condition context)
-  (signal (make-condition
-           'compiler-condition
-           :original-condition condition
-           :severity (etypecase condition
-                       (sb-ext:compiler-note :note)
-                       (sb-c:compiler-error  :error)
-                       (reader-error         :read-error)
-                       (error                :error)
-                       #+#.(swank-backend:with-symbol redefinition-warning 
-                             sb-kernel)
-                       (sb-kernel:redefinition-warning
-                                             :redefinition)
-                       (style-warning        :style-warning)
-                       (warning              :warning))
-           :references (condition-references condition)
-           :message (brief-compiler-message-for-emacs condition)
-           :source-context (compiler-error-context context)
-           :location (compiler-note-location condition context))))
+  (signal 'compiler-condition
+          :original-condition condition
+          :severity (etypecase condition
+                      (sb-ext:compiler-note :note)
+                      (sb-c:compiler-error  :error)
+                      (reader-error         :read-error)
+                      (error                :error)
+                      #+#.(swank-backend:with-symbol redefinition-warning 
+                            sb-kernel)
+                      (sb-kernel:redefinition-warning
+                       :redefinition)
+                      (style-warning        :style-warning)
+                      (warning              :warning))
+          :references (condition-references condition)
+          :message (brief-compiler-message-for-emacs condition)
+          :source-context (compiler-error-context context)
+          :location (compiler-note-location condition context)))
 
 (defun real-condition (condition)
   "Return the encapsulated condition or CONDITION itself."

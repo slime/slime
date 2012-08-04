@@ -373,7 +373,7 @@ specific functions.")
         (cond ((zerop (length string))
                (return-from sis/in
                  (if eof-errorp
-                     (error (make-condition 'end-of-file :stream stream))
+                     (error 'end-of-file :stream stream)
                      eof-value)))
               (t
                (setf buffer string)
@@ -475,15 +475,14 @@ NIL if we aren't compiling from a buffer.")
       (signal-compiler-condition condition context))))
 
 (defun signal-compiler-condition (condition context)
-  (signal (make-condition
-           'compiler-condition
-           :original-condition condition
-           :severity (severity-for-emacs condition)
-           :message (compiler-condition-message condition)
-           :source-context (compiler-error-context context)
-           :location (if (read-error-p condition)
-                         (read-error-location condition)
-                         (compiler-note-location context)))))
+  (signal 'compiler-condition
+          :original-condition condition
+          :severity (severity-for-emacs condition)
+          :message (compiler-condition-message condition)
+          :source-context (compiler-error-context context)
+          :location (if (read-error-p condition)
+                        (read-error-location condition)
+                        (compiler-note-location context))))
 
 (defun severity-for-emacs (condition)
   "Return the severity of CONDITION."
@@ -1586,9 +1585,8 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
          (kernel:*current-level* 0))
     (handler-bind ((di::unhandled-condition
 		    (lambda (condition)
-                      (error (make-condition
-                              'sldb-condition
-                              :original-condition condition)))))
+                      (error 'sldb-condition
+                             :original-condition condition))))
       (unwind-protect
            (progn
              #+(or)(sys:scrub-control-stack)

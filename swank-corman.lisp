@@ -347,22 +347,21 @@
 ;; FIXME
 (defimplementation call-with-compilation-hooks (FN)
   (handler-bind ((error (lambda (c)
-                          (signal (make-condition
-                                   'compiler-condition
-                                   :original-condition c
-                                   :severity :warning
-                                   :message (format nil "~A" c)
-                                   :location
-                                   (cond (*buffer-name*
-                                          (make-location
-                                           (list :buffer *buffer-name*)
-                                           (list :offset *buffer-position* 0)))
-                                         (*compile-filename*
-                                          (make-location
-                                           (list :file *compile-filename*)
-                                           (list :position 1)))
-                                         (t
-                                          (list :error "No location"))))))))
+                          (signal 'compiler-condition
+                                  :original-condition c
+                                  :severity :warning
+                                  :message (format nil "~A" c)
+                                  :location
+                                  (cond (*buffer-name*
+                                         (make-location
+                                          (list :buffer *buffer-name*)
+                                          (list :offset *buffer-position* 0)))
+                                        (*compile-filename*
+                                         (make-location
+                                          (list :file *compile-filename*)
+                                          (list :position 1)))
+                                        (t
+                                         (list :error "No location")))))))
     (funcall fn)))
 
 (defimplementation swank-compile-file (input-file output-file 

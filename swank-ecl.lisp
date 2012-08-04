@@ -221,7 +221,7 @@
 (defvar *buffer-start-position*)
 
 (defun signal-compiler-condition (&rest args)
-  (signal (apply #'make-condition 'compiler-condition args)))
+  (apply #'signal 'compiler-condition args))
 
 #-ecl-bytecmp
 (defun handle-compiler-message (condition)

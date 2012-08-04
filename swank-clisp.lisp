@@ -627,10 +627,10 @@ Execute BODY with NAME's function slot set to FUNCTION."
            (list :error "No error location available")))))
 
 (defun signal-compiler-warning (cstring args severity orig-fn)
-  (signal (make-condition 'compiler-condition
-                          :severity severity
-                          :message (apply #'format nil cstring args)
-                          :location (compiler-note-location)))
+  (signal 'compiler-condition
+          :severity severity
+          :message (apply #'format nil cstring args)
+          :location (compiler-note-location))
   (apply orig-fn cstring args))
 
 (defun c-warn (cstring &rest args)
@@ -641,13 +641,13 @@ Execute BODY with NAME's function slot set to FUNCTION."
     (signal-compiler-warning cstring args :style-warning *orig-c-style-warn*)))
 
 (defun c-error (&rest args)
-  (signal (make-condition 'compiler-condition
-                          :severity :error
-                          :message (apply #'format nil
-                                          (if (= (length args) 3)
-                                              (cdr args)
-                                              args))
-                          :location (compiler-note-location)))
+  (signal 'compiler-condition
+          :severity :error
+          :message (apply #'format nil
+                          (if (= (length args) 3)
+                              (cdr args)
+                              args))
+          :location (compiler-note-location))
   (apply *orig-c-error* args))
 
 (defimplementation call-with-compilation-hooks (function)
@@ -659,11 +659,11 @@ Execute BODY with NAME's function slot set to FUNCTION."
 
 (defun handle-notification-condition (condition)
   "Handle a condition caused by a compiler warning."
-  (signal (make-condition 'compiler-condition
-                          :original-condition condition
-                          :severity :warning
-                          :message (princ-to-string condition)
-                          :location (compiler-note-location))))
+  (signal 'compiler-condition
+          :original-condition condition
+          :severity :warning
+          :message (princ-to-string condition)
+          :location (compiler-note-location)))
 
 (defimplementation swank-compile-file (input-file output-file
                                        load-p external-format

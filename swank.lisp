@@ -291,8 +291,8 @@ Backend code should treat the connection structure as opaque.")
   (:report (lambda (c s) (princ (swank-error.condition c) s)))
   (:documentation "Condition which carries a backtrace."))
 
-(defun make-swank-error (condition &optional (backtrace (safe-backtrace)))
-  (make-condition 'swank-error :condition condition :backtrace backtrace))
+(defun signal-swank-error (condition &optional (backtrace (safe-backtrace)))
+  (error 'swank-error :condition condition :backtrace backtrace))
 
 (defvar *debug-on-swank-protocol-error* nil
   "When non-nil invoke the system debugger on errors that were
@@ -879,7 +879,7 @@ if the file doesn't exist; otherwise the first line of the file."
   "Read an S-expression from STREAM using the SLIME protocol."
   (log-event "decode-message~%")
   (without-slime-interrupts
-    (handler-bind ((error (lambda (c) (error (make-swank-error c)))))
+    (handler-bind ((error #'signal-swank-error))
       (handler-case (read-message stream *swank-io-package*)
         (swank-reader-error (c) 
           `(:reader-error ,(swank-reader-error.packet c)
@@ -889,7 +889,7 @@ if the file doesn't exist; otherwise the first line of the file."
   "Write an S-expression to STREAM using the SLIME protocol."
   (log-event "encode-message~%")
   (without-slime-interrupts
-    (handler-bind ((error (lambda (c) (error (make-swank-error c)))))
+    (handler-bind ((error #'signal-swank-error))
       (write-message message *swank-io-package* stream))))
 
 

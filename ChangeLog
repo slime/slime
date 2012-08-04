@@ -4,6 +4,7 @@
 	sb-debug::resolve-stack-top-hint instead of just
 	sb-debug:*stack-top-hint*, because now it can contain things other
 	than just frames.
+	* clean up: (signal (make-condition ...)) => (signal ...)
 
 2012-07-13  Helmut Eller  <heller@common-lisp.net>
 

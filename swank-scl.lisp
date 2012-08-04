@@ -498,15 +498,14 @@
       (signal-compiler-condition condition context))))
 
 (defun signal-compiler-condition (condition context)
-  (signal (make-condition
-           'compiler-condition
-           :original-condition condition
-           :severity (severity-for-emacs condition)
-           :message (brief-compiler-message-for-emacs condition)
-           :source-context (compiler-error-context context)
-           :location (if (read-error-p condition)
-                         (read-error-location condition)
-                         (compiler-note-location context)))))
+  (signal 'compiler-condition
+          :original-condition condition
+          :severity (severity-for-emacs condition)
+          :message (brief-compiler-message-for-emacs condition)
+          :source-context (compiler-error-context context)
+          :location (if (read-error-p condition)
+                        (read-error-location condition)
+                        (compiler-note-location context))))
 
 (defun severity-for-emacs (condition)
   "Return the severity of 'condition."
@@ -1354,9 +1353,8 @@ Signal an error if no constructor can be found."
          (kernel:*current-level* 0))
     (handler-bind ((di::unhandled-condition
 		    (lambda (condition)
-                      (error (make-condition
-                              'sldb-condition
-                              :original-condition condition)))))
+                      (error 'sldb-condition
+                             :original-condition condition))))
       (funcall debugger-loop-fn))))
 
 (defun frame-down (frame)
