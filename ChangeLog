@@ -1,3 +1,10 @@
+2012-08-04  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-sbcl.lisp (call-with-debugging-environment): Use
+	sb-debug::resolve-stack-top-hint instead of just
+	sb-debug:*stack-top-hint*, because now it can contain things other
+	than just frames.
+
 2012-07-13  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el: Don't compile functions that are now in other files.
