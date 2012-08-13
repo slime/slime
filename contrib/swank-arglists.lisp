@@ -743,13 +743,14 @@ forward keywords to OPERATOR."
           (values (swank-mop:class-slots class) nil)
           (values (swank-mop:class-direct-slots class) t))
     (let ((slot-init-keywords
-           (loop for slot in slots append
-                 (mapcar (lambda (initarg)
-                           (make-keyword-arg
-                            initarg
-                            (swank-mop:slot-definition-name slot)
-                            (swank-mop:slot-definition-initform slot)))
-                         (swank-mop:slot-definition-initargs slot)))))
+            (loop for slot in slots append
+                  (mapcar (lambda (initarg)
+                            (make-keyword-arg
+                             initarg
+                             (swank-mop:slot-definition-name slot)
+                             (and (swank-mop:slot-definition-initfunction slot)
+                                  (swank-mop:slot-definition-initform slot))))
+                          (swank-mop:slot-definition-initargs slot)))))
       (values slot-init-keywords allow-other-keys-p))))
 
 (defun extra-keywords/make-instance (operator &rest args)
