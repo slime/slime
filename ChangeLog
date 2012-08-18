@@ -1,3 +1,8 @@
+2012-08-18  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-abcl.lisp (find-definitions): Call ext:resolve before
+	finding definitions, for the symbol may be not autoloaded yet.
+
 2012-08-04  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sbcl.lisp (call-with-debugging-environment): Use

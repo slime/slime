@@ -594,6 +594,7 @@
                  if (try dir) return it)))))
 
 (defimplementation find-definitions (symbol)
+  (ext:resolve symbol)
   (let ((srcloc (source-location symbol)))
     (and srcloc `((,symbol ,srcloc)))))
 
