@@ -79,9 +79,10 @@
                  #+sb-thread nil
                  #-sb-thread t)
   #+lispworks (lisp-implementation-version)
-  #+allegro   (format nil "~A~A~A~A"
+  #+allegro   (format nil "~@{~a~}"
                       excl::*common-lisp-version-number*
                       (if (eq 'h 'H) "A" "M")     ; ANSI vs MoDeRn
+                      (if (member :smp *features*) "s" "")
                       (if (member :64bit *features*) "-64bit" "")
                       (excl:ics-target-case
                        (:-ics "")

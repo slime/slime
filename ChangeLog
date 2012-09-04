@@ -1,3 +1,9 @@
+2012-09-04  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-loader.lisp (lisp-version-string): Add "s" to Allegro with
+	SMP support.
+	Patch by Dave Cooper.
+
 2012-08-18  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-abcl.lisp (find-definitions): Call ext:resolve before
