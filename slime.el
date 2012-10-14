@@ -487,23 +487,24 @@ information."
   ;; Avoid a needless runtime funcall on GNU Emacs:
   (and (featurep 'xemacs) `(slime-xemacs-recompute-modelines)))
 
-(defun slime-xemacs-recompute-modelines ()
-  (let (redraw-modeline)
-    (walk-windows
-     (lambda (object)
-       (setq object (window-buffer object))
-       (when (or (symbol-value-in-buffer 'slime-mode object)
-                 (symbol-value-in-buffer 'slime-popup-buffer-mode object))
-         ;; Only do the unwind-protect of #'with-current-buffer if we're
-         ;; actually interested in this buffer
-         (with-current-buffer object
-           (setq redraw-modeline
-                 (or (not (equal slime-modeline-string
-                                 (setq slime-modeline-string
-                                       (slime-modeline-string))))
-                     redraw-modeline)))))
-     'never 'visible)
-    (and redraw-modeline (redraw-modeline t))))
+(when (featurep 'xemacs)
+  (defun slime-xemacs-recompute-modelines ()
+    (let (redraw-modeline)
+      (walk-windows
+       (lambda (object)
+         (setq object (window-buffer object))
+         (when (or (symbol-value-in-buffer 'slime-mode object)
+                   (symbol-value-in-buffer 'slime-popup-buffer-mode object))
+           ;; Only do the unwind-protect of #'with-current-buffer if we're
+           ;; actually interested in this buffer
+           (with-current-buffer object
+             (setq redraw-modeline
+                   (or (not (equal slime-modeline-string
+                                   (setq slime-modeline-string
+                                         (slime-modeline-string))))
+                       redraw-modeline)))))
+       'never 'visible)
+      (and redraw-modeline (redraw-modeline t)))))
 
 (and (featurep 'xemacs)
      (pushnew 'slime-xemacs-recompute-modelines pre-idle-hook))
@@ -3460,21 +3461,6 @@ are supported:
      (if noerror
          (slime-message "%s" message)
        (error "%s" message)))))
-
-(defun slime-goto-source-location-buffer-and-file (buffer position hints
-                                                   noerror)
-  (destructuring-bind (type buffer file) buffer
-    (slime-goto-source-location
-     (if (get-buffer buffer)
-         (list :location
-               (list :buffer buffer)
-               (getf position :buffer-position)
-               (getf hints :buffer-hints))
-         (list :location
-               (list :file file)
-               (getf position :file-position)
-               (getf hints :file-hints)))
-     noerror)))
 
 (defun slime-location-offset (location)
   "Return the position, as character number, of LOCATION."

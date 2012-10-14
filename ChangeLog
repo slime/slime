@@ -1,5 +1,9 @@
 2012-10-14  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-goto-source-location-buffer-and-file): Delete
+	unused function.
+
+2012-10-14  Helmut Eller  <heller@common-lisp.net>
 	Avoid flet.
 
 	* slime.el (with-struct, slime-compute-policy)
