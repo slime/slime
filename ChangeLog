@@ -1,3 +1,8 @@
+2012-10-14  Helmut Eller  <heller@common-lisp.net>
+	* swank.lisp (close-connection%): Let *debugger-hook* be nil
+	across the entire function to that we don't call our own debugger
+	if we ever get some error during CLOSE or somesuch.
+
 2012-09-04  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-loader.lisp (lisp-version-string): Add "s" to Allegro with

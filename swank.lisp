@@ -944,32 +944,34 @@ The processing is done in the extent of the toplevel restart."
 
 (defun close-connection% (c condition backtrace)
   (let ((*debugger-hook* nil))
-    (log-event "close-connection: ~a ...~%" condition))
-  (format *log-output* "~&;; swank:close-connection: ~A~%"
-          (escape-non-ascii (safe-condition-message condition)))
-  (stop-serving-requests c)
-  (close (connection.socket-io c))
-  (when (connection.dedicated-output c)
-    (close (connection.dedicated-output c)))
-  (setf *connections* (remove c *connections*))
-  (run-hook *connection-closed-hook* c)
-  (when (and condition (not (typep condition 'end-of-file)))
+    (log-event "close-connection: ~a ...~%" condition)
+    (format *log-output* "~&;; swank:close-connection: ~A~%"
+            (escape-non-ascii (safe-condition-message condition)))
+    (stop-serving-requests c)
+    (close (connection.socket-io c))
+    (when (connection.dedicated-output c)
+      (close (connection.dedicated-output c)))
+    (setf *connections* (remove c *connections*))
+    (run-hook *connection-closed-hook* c)
+    (when (and condition (not (typep condition 'end-of-file)))
+      (finish-output *log-output*)
+      (format *log-output* "~&;; Event history start:~%")
+      (dump-event-history *log-output*)
+      (format *log-output* "~
+;; Event history end.~%~
+;; Backtrace:~%~{~A~%~}~
+;; Connection to Emacs lost. [~%~
+;;  condition: ~A~%~
+;;  type: ~S~%~
+;;  style: ~S]~%"
+              (loop for (i f) in backtrace collect 
+                    (ignore-errors 
+                      (format nil "~d: ~a" i (escape-non-ascii f))))
+              (escape-non-ascii (safe-condition-message condition) )
+              (type-of condition)
+              (connection.communication-style c)))
     (finish-output *log-output*)
-    (format *log-output* "~&;; Event history start:~%")
-    (dump-event-history *log-output*)
-    (format *log-output* ";; Event history end.~%~
-                        ;; Backtrace:~%~{~A~%~}~
-                        ;; Connection to Emacs lost. [~%~
-                        ;;  condition: ~A~%~
-                        ;;  type: ~S~%~
-                        ;;  style: ~S]~%"
-            (loop for (i f) in backtrace collect 
-                  (ignore-errors (format nil "~d: ~a" i (escape-non-ascii f))))
-            (escape-non-ascii (safe-condition-message condition) )
-            (type-of condition)
-            (connection.communication-style c)))
-  (finish-output *log-output*)
-  (log-event "close-connection ~a ... done.~%" condition))
+    (log-event "close-connection ~a ... done.~%" condition)))
 
 ;;;;;; Thread based communication
 
@@ -3388,7 +3390,15 @@ a time.")
 (defslimefun list-threads ()
   "Return a list (LABELS (ID NAME STATUS ATTRS ...) ...).
 LABELS is a list of attribute names and the remaining lists are the
-corresponding attribute values per thread."
+corresponding attribute values per thread.  
+Example: 
+  ((:id :name :status :priority)
+   (6 \"swank-indentation-cache-thread\" \"Semaphore timed wait\" 0)
+   (5 \"reader-thread\" \"Active\" 0)
+   (4 \"control-thread\" \"Semaphore timed wait\" 0)
+   (2 \"Swank Sentinel\" \"Semaphore timed wait\" 0)
+   (1 \"listener\" \"Active\" 0)
+   (0 \"Initial\" \"Sleep\" 0))"
   (setq *thread-list* (all-threads))
   (when (and *emacs-connection*
              (use-threads-p)
