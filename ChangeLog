@@ -1,5 +1,15 @@
 2012-10-14  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-insert-threads): Some cleanups.
+	(slime-insert-table, slime-insert-table-row)
+	(slime-transpose-lists) New helpers.
+	(slime-threads-table-properties): Renamed from
+	*slime-threads-table-properties*
+	(slime-thread-index-to-id, slime-longest-lines)
+	(slime-format-threads-labels, slime-insert-thread): Deleted.
+
+2012-10-14  Helmut Eller  <heller@common-lisp.net>
+
 	Avoid some unused variable warnings.
 
 	* slime.el (slime-xref-group, slime-all-contribs, [selector] ??):

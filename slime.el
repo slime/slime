@@ -6234,25 +6234,10 @@ was called originally."
                'slime-update-threads-buffer)))
       (setq slime-popup-buffer-quit-function 'slime-quit-threads-buffer))))
 
-(defun slime-longest-lines (list-of-lines)
-  (let ((lengths (make-list (length (car list-of-lines)) 0)))
-    (flet ((process-line (line)
-             (loop for element in line
-                   for length on lengths
-                   do (setf (car length)
-                            (max (length (prin1-to-string element t))
-                                 (car length))))))
-      (mapc 'process-line list-of-lines)
-      lengths)))
-
-(defvar slime-thread-index-to-id nil)
-
 (defun slime-quit-threads-buffer ()
   (when slime-threads-buffer-timer
-    (cancel-timer slime-threads-buffer-timer)
-    (setq slime-threads-buffer-timer nil))
+    (cancel-timer slime-threads-buffer-timer))
   (slime-popup-buffer-quit t)
-  (setq slime-thread-index-to-id nil)
   (slime-eval-async `(swank:quit-thread-browser)))
 
 (defun slime-update-threads-buffer ()
@@ -6268,63 +6253,69 @@ was called originally."
     (when window
       (set-window-point window position))))
 
-;;; FIXME: the region selection is jumping
 (defun slime-display-threads (threads)
   (with-current-buffer slime-threads-buffer-name
     (let* ((inhibit-read-only t)
-           (index (get-text-property (point) 'thread-id))
-           (old-thread-id (and (numberp index)
-                               (elt slime-thread-index-to-id index)))
+           (old-thread-id (get-text-property (point) 'thread-id))
            (old-line (line-number-at-pos))
            (old-column (current-column)))
-      (setq slime-thread-index-to-id (mapcar 'car (cdr threads)))
       (erase-buffer)
       (slime-insert-threads threads)
-      (let ((new-position (position old-thread-id threads :key 'car)))
+      (let ((new-line (position old-thread-id (cdr threads)
+                                :key #'car :test #'equal)))
         (goto-char (point-min))
-        (forward-line (1- (or new-position old-line)))
+        (forward-line (or new-line old-line))
         (move-to-column old-column)
         (slime-move-point (point))))))
 
-(defvar *slime-threads-table-properties*
+(defun slime-transpose-lists (list-of-lists)
+  (let ((ncols (length (car list-of-lists))))
+    (loop for col-index below ncols
+          collect (loop for row in list-of-lists
+                        collect (elt row col-index)))))
+
+(defun slime-insert-table-row (line line-props col-props col-widths)
+  (slime-propertize-region line-props
+    (loop for string in line
+          for col-prop in col-props
+          for width in col-widths do
+          (slime-insert-propertized col-prop string)
+          (insert-char ?\ (- width (length string))))))
+
+(defun slime-insert-table (rows header row-properties column-properties)
+  "Insert a \"table\" so that the columns are nicely aligned."
+  (let* ((ncols (length header))
+         (lines (cons header rows))
+         (widths (loop for columns in (slime-transpose-lists lines)
+                       collect (1+ (loop for cell in columns
+                                         maximize (length cell)))))
+         (header-line (with-temp-buffer
+                        (slime-insert-table-row
+                         header nil (make-list ncols nil) widths)
+                        (buffer-string))))
+    (cond ((boundp 'header-line-format)
+           (setq header-line-format header-line))
+          (t (insert header-line "\n")))
+    (loop for line in rows  for line-props in row-properties do
+          (slime-insert-table-row line line-props column-properties widths)
+          (insert "\n"))))
+
+(defvar slime-threads-table-properties
   '(nil (face bold)))
 
-(defun slime-format-threads-labels (threads)
-  (let ((labels (mapcar (lambda (x)
-                          (capitalize (substring (symbol-name x) 1)))
-                        (car threads))))
-    (cons labels (cdr threads))))
-
-(defun slime-insert-thread (thread longest-lines)
-  (loop for i from 0
-        for align in longest-lines
-        for element in thread
-        for string = (prin1-to-string element t)
-        for property = (nth i *slime-threads-table-properties*)
-        do
-        (if property
-            (slime-insert-propertized property string)
-            (insert string))
-        (insert-char ?\  (- align (length string) -3))))
-
 (defun slime-insert-threads (threads)
-  (let* ((threads (slime-format-threads-labels threads))
-         (longest-lines (slime-longest-lines threads))
-         (labels (let (*slime-threads-table-properties*)
-                   (with-temp-buffer
-                     (slime-insert-thread (car threads) longest-lines)
-                     (buffer-string)))))
-    (if (boundp 'header-line-format)
-        (setq header-line-format
-              (concat (propertize " " 'display '((space :align-to 0)))
-                      labels))
-        (insert labels))
-    (loop for index from 0
-          for thread in (cdr threads)
-          do
-          (slime-propertize-region `(thread-id ,index)
-            (slime-insert-thread thread longest-lines)
-            (insert "\n")))))
+  (let* ((labels (car threads))
+         (threads (cdr threads))
+         (header (loop for label in labels collect
+                       (capitalize (substring (symbol-name label) 1))))
+         (rows (loop for thread in threads collect
+                     (loop for prop in thread collect
+                           (format "%s" prop))))
+         (line-props (loop for (id) in threads for i from 0
+                           collect `(thread-index ,i thread-id ,id)))
+         (col-props (loop for nil in labels for i from 0 collect
+                          (nth i slime-threads-table-properties))))
+    (slime-insert-table rows header line-props col-props)))
 
 
 ;;;;; Major mode
@@ -6348,7 +6339,7 @@ was called originally."
 (defun slime-thread-kill ()
   (interactive)
   (slime-eval `(cl:mapc 'swank:kill-nth-thread
-                        ',(slime-get-properties 'thread-id)))
+                        ',(slime-get-properties 'thread-index)))
   (call-interactively 'slime-update-threads-buffer))
 
 (defun slime-get-region-properties (prop start end)
@@ -6370,14 +6361,14 @@ was called originally."
 
 (defun slime-thread-attach ()
   (interactive)
-  (let ((id (get-text-property (point) 'thread-id))
+  (let ((id (get-text-property (point) 'thread-index))
         (file (slime-swank-port-file)))
     (slime-eval-async `(swank:start-swank-server-in-thread ,id ,file)))
   (slime-read-port-and-connect nil nil))
 
 (defun slime-thread-debug ()
   (interactive)
-  (let ((id (get-text-property (point) 'thread-id)))
+  (let ((id (get-text-property (point) 'thread-index)))
     (slime-eval-async `(swank:debug-nth-thread ,id))))
 
 
@@ -6451,7 +6442,7 @@ was called originally."
             (format fstring " " "--" "----" "----" "---" "----"))
     (dolist (p (reverse slime-net-processes))
       (when (eq default p) (setf default-pos (point)))
-      (slime-insert-propertized 
+      (slime-insert-propertized
        (list 'slime-connection p)
        (format fstring
                (if (eq default p) "*" " ")
@@ -6460,7 +6451,7 @@ was called originally."
                (or (process-id p) (process-contact p))
                (slime-pid p)
                (slime-lisp-implementation-type p))))
-    (when default 
+    (when default
       (goto-char default-pos))))
 
 
