@@ -1,5 +1,17 @@
 2012-10-14  Helmut Eller  <heller@common-lisp.net>
 
+	Avoid flet.
+
+	* slime.el (with-struct, slime-compute-policy)
+	(slime-create-note-overlay, slime-merge-note-into-overlay)
+	(slime-file-name-merge-source-root)
+	(slime-highlight-differences-in-dirname)
+	(slime-check-location-filename-sanity, slime-macroexpand-undo)
+	(slime-read-connection)
+	(slime-inspector-property-at-point): Use macrolet or a
+	comibination of let and funcall as replacement for flet.
+
+2012-10-14  Helmut Eller  <heller@common-lisp.net>
 	Avoid labels.
 
 	* hyperspec.el (hyperspec--get-one-line): New function.
