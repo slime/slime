@@ -1,4 +1,11 @@
 2012-10-14  Helmut Eller  <heller@common-lisp.net>
+
+	Avoid labels.
+
+	* hyperspec.el (hyperspec--get-one-line): New function.
+
+2012-10-14  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (close-connection%): Let *debugger-hook* be nil
 	across the entire function to that we don't call our own debugger
 	if we ever get some error during CLOSE or somesuch.

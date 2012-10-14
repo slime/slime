@@ -140,23 +140,22 @@ If you copy the HyperSpec to another location, customize the variable
 ;;;
 ;;; 20020213 Edi Weitz
 
+(defun hyperspec--get-one-line ()
+  (prog1 
+      (delete* ?\n (thing-at-point 'line))
+    (forward-line)))
+
 (if common-lisp-hyperspec-symbol-table
-    (let ((index-buffer (find-file-noselect 
-			 common-lisp-hyperspec-symbol-table)))
-      (labels ((get-one-line ()
-                 (prog1 
-                     (delete* ?\n (thing-at-point 'line))
-                   (forward-line))))
-        (save-excursion
-          (set-buffer index-buffer)
-          (goto-char (point-min))
-          (while (< (point) (point-max))
-            (let* ((symbol-name (downcase (get-one-line)))
-                   (relative-url (get-one-line)))
-              (intern-clhs-symbol symbol-name 
-                                  (subseq relative-url
-                                          (1+ (position ?\/ relative-url
-							:from-end t)))))))))
+    (with-current-buffer (find-file-noselect 
+			  common-lisp-hyperspec-symbol-table)
+      (goto-char (point-min))
+      (while (< (point) (point-max))
+	(let* ((symbol-name (downcase (hyperspec--get-one-line)))
+	       (relative-url (hyperspec--get-one-line)))
+	  (intern-clhs-symbol symbol-name 
+			      (subseq relative-url
+				      (1+ (position ?\/ relative-url
+						    :from-end t)))))))
   (mapc (lambda (entry) (intern-clhs-symbol (car entry) (cadr entry)))
         '(("&allow-other-keys" "03_da.htm")
           ("&aux" "03_da.htm")
@@ -1274,51 +1273,51 @@ If you copy the HyperSpec to another location, customize the variable
         (pushnew section (symbol-value symbol) :test 'equal)
         (set symbol (list section)))))
 
-(mapcar (lambda (entry)
-          (destructuring-bind (char section &optional summary) entry
-            (intern-clhs-format-directive char section summary)
-            (when (and (= 1 (length char))
-                       (not (string-equal char (upcase char))))
-              (intern-clhs-format-directive (upcase char) section summary))))
-	'(("c" (22 3 1 1) "Character")
-	  ("%" (22 3 1 2) "Newline")
-	  ("&" (22 3 1 3) "Fresh-line")
-	  ("|" (22 3 1 4) "Page")
-	  ("~" (22 3 1 5) "Tilde")
-	  ("r" (22 3 2 1) "Radix")
-	  ("d" (22 3 2 2) "Decimal")
-          ("b" (22 3 2 3) "Binary")
-          ("o" (22 3 2 4) "Octal")
-          ("x" (22 3 2 5) "Hexadecimal")
-          ("f" (22 3 3 1) "Fixed-Format Floating-Point")
-          ("e" (22 3 3 2) "Exponential Floating-Point")
-          ("g" (22 3 3 3) "General Floating-Point")
-          ("$" (22 3 3 4) "Monetary Floating-Point")
-          ("a" (22 3 4 1) "Aesthetic")
-          ("s" (22 3 4 2) "Standard")
-          ("w" (22 3 4 3) "Write")
-          ("_" (22 3 5 1) "Conditional Newline")
-          ("<" (22 3 5 2) "Logical Block")
-          ("i" (22 3 5 3) "Indent")
-          ("/" (22 3 5 4) "Call Function")
-          ("t" (22 3 6 1) "Tabulate")
-          ("<" (22 3 6 2) "Justification")
-          (">" (22 3 6 3) "End of Justification")
-          ("*" (22 3 7 1) "Go-To")
-          ("[" (22 3 7 2) "Conditional Expression")
-          ("]" (22 3 7 3) "End of Conditional Expression")
-          ("{" (22 3 7 4) "Iteration")
-          ("}" (22 3 7 5) "End of Iteration")
-          ("?" (22 3 7 6) "Recursive Processing")
-          ("(" (22 3 8 1) "Case Conversion")
-          (")" (22 3 8 2) "End of Case Conversion")
-          ("p" (22 3 8 3) "Plural")
-          (";" (22 3 9 1) "Clause Separator")
-          ("^" (22 3 9 2) "Escape Upward")
-          ("Newline: Ignored Newline" (22 3 9 3))
-          ("Nesting of FORMAT Operations" (22 3 10 1))
-          ("Missing and Additional FORMAT Arguments" (22 3 10 2))
-          ("Additional FORMAT Parameters" (22 3 10 3))))
+(mapc (lambda (entry)
+	(destructuring-bind (char section &optional summary) entry
+	  (intern-clhs-format-directive char section summary)
+	  (when (and (= 1 (length char))
+		     (not (string-equal char (upcase char))))
+	    (intern-clhs-format-directive (upcase char) section summary))))
+      '(("c" (22 3 1 1) "Character")
+	("%" (22 3 1 2) "Newline")
+	("&" (22 3 1 3) "Fresh-line")
+	("|" (22 3 1 4) "Page")
+	("~" (22 3 1 5) "Tilde")
+	("r" (22 3 2 1) "Radix")
+	("d" (22 3 2 2) "Decimal")
+	("b" (22 3 2 3) "Binary")
+	("o" (22 3 2 4) "Octal")
+	("x" (22 3 2 5) "Hexadecimal")
+	("f" (22 3 3 1) "Fixed-Format Floating-Point")
+	("e" (22 3 3 2) "Exponential Floating-Point")
+	("g" (22 3 3 3) "General Floating-Point")
+	("$" (22 3 3 4) "Monetary Floating-Point")
+	("a" (22 3 4 1) "Aesthetic")
+	("s" (22 3 4 2) "Standard")
+	("w" (22 3 4 3) "Write")
+	("_" (22 3 5 1) "Conditional Newline")
+	("<" (22 3 5 2) "Logical Block")
+	("i" (22 3 5 3) "Indent")
+	("/" (22 3 5 4) "Call Function")
+	("t" (22 3 6 1) "Tabulate")
+	("<" (22 3 6 2) "Justification")
+	(">" (22 3 6 3) "End of Justification")
+	("*" (22 3 7 1) "Go-To")
+	("[" (22 3 7 2) "Conditional Expression")
+	("]" (22 3 7 3) "End of Conditional Expression")
+	("{" (22 3 7 4) "Iteration")
+	("}" (22 3 7 5) "End of Iteration")
+	("?" (22 3 7 6) "Recursive Processing")
+	("(" (22 3 8 1) "Case Conversion")
+	(")" (22 3 8 2) "End of Case Conversion")
+	("p" (22 3 8 3) "Plural")
+	(";" (22 3 9 1) "Clause Separator")
+	("^" (22 3 9 2) "Escape Upward")
+	("Newline: Ignored Newline" (22 3 9 3))
+	("Nesting of FORMAT Operations" (22 3 10 1))
+	("Missing and Additional FORMAT Arguments" (22 3 10 2))
+	("Additional FORMAT Parameters" (22 3 10 3))))
 
 (defvar common-lisp-glossary-fun 'common-lisp-glossary-6.0)
 
@@ -1351,23 +1350,17 @@ cross-references table which is usually \"Map_IssX.txt\" or
 (defvar common-lisp-hyperspec-issuex-symbols (make-vector 67 0))
 
 (if common-lisp-hyperspec-issuex-table
-    (let ((index-buffer (find-file-noselect 
-			 common-lisp-hyperspec-issuex-table)))
-      (labels ((get-one-line ()
-			     (prog1 
-				 (delete* ?\n (thing-at-point 'line))
-			       (forward-line))))
-        (save-excursion
-          (set-buffer index-buffer)
-          (goto-char (point-min))
-          (while (< (point) (point-max))
-            (let* ((symbol (intern (downcase (get-one-line))
-                                   common-lisp-hyperspec-issuex-symbols))
-                   (relative-url (get-one-line)))
-              (set symbol (subseq relative-url
-				  (1+ (position ?\/ relative-url 
-						:from-end t)))))))))
-  (mapcar 
+    (with-current-buffer (find-file-noselect
+			  common-lisp-hyperspec-issuex-table)
+      (goto-char (point-min))
+      (while (< (point) (point-max))
+	(let* ((symbol (intern (downcase (hyperspec--get-one-line))
+			       common-lisp-hyperspec-issuex-symbols))
+	       (relative-url (hyperspec--get-one-line)))
+	  (set symbol (subseq relative-url
+			      (1+ (position ?\/ relative-url 
+					    :from-end t)))))))
+  (mapc
    (lambda (entry)
      (let ((symbol (intern (car entry) common-lisp-hyperspec-issuex-symbols)))
        (set symbol (cadr entry))))
