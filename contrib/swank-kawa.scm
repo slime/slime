@@ -43,8 +43,8 @@
  warn-undefined-variable: #t
  )
 
-;;(import (rnrs hashtables))
-(require 'hash-table)
+(import (rnrs hashtables))
+;;(require 'hash-table)
 (import (only (gnu kawa slib syntaxutils) expand))
 
 
@@ -323,13 +323,13 @@
 (define-alias <array-ref> <com.sun.jdi.ArrayReference>)
 (define-alias <str-ref> <com.sun.jdi.StringReference>)
 (define-alias <meth-ref> <com.sun.jdi.Method>)
-(define-alias <class-ref> <com.sun.jdi.ClassType>)
+(define-alias <class-type> <com.sun.jdi.ClassType>)
+(define-alias <ref-type> <com.sun.jdi.ReferenceType>)
 (define-alias <frame> <com.sun.jdi.StackFrame>)
 (define-alias <field> <com.sun.jdi.Field>)
 (define-alias <local-var> <com.sun.jdi.LocalVariable>)
 (define-alias <location> <com.sun.jdi.Location>)
 (define-alias <absent-exc> <com.sun.jdi.AbsentInformationException>)
-(define-alias <ref-type> <com.sun.jdi.ReferenceType>)
 (define-alias <event> <com.sun.jdi.event.Event>)
 (define-alias <exception-event> <com.sun.jdi.event.ExceptionEvent>)
 (define-alias <step-event> <com.sun.jdi.event.StepEvent>)
@@ -756,11 +756,11 @@
 (df error-loc>elisp ((e <source-error>))
   (cond ((nul? (@ filename e)) `(:error "No source location"))
         ((! starts-with (@ filename e) "(buffer ")
-         (mlet (('buffer b 'offset o 'str s) (read-from-string (@ filename e)))
-           `(:location (:buffer ,b)
-                       (:position ,(+ o (line>offset (1- (@ line e)) s)
-                                      (1- (@ column e))))
-                       nil)))
+         (mlet (('buffer b 'offset ('quote ((:position o) _)) 'str s)
+                (read-from-string (@ filename e)))
+           (let ((off (line>offset (1- (@ line e)) s))
+                 (col (1- (@ column e))))
+             `(:location (:buffer ,b) (:position ,(+ o off col)) nil))))
         (#t
          `(:location (:file ,(to-string (@ filename e)))
                      (:line ,(@ line e) ,(1- (@ column e)))
@@ -819,9 +819,9 @@
 
 ;;;; Dummy defs
 
-
 (defslimefun buffer-first-change (#!rest y) '())
 (defslimefun swank-require (#!rest y) '())
+(defslimefun frame-package-name (#!rest y) '())
 
 ;;;; arglist
 
@@ -935,18 +935,21 @@
     name))
 
 (df class>src-loc ((c <java.lang.Class>) => <location>)
-  (let* ((type (class>class-ref c))
+  (let* ((type (class>ref-type c))
          (locs (! all-line-locations type)))
     (cond ((not (! isEmpty locs)) (1st locs))
           (#t (<swank-location> (1st (! source-paths type "Java"))
                                 #f)))))
 
-(df class>class-ref ((class <java.lang.Class>) => <class-ref>)
+(df class>ref-type ((class <java.lang.Class>) => <ref-type>)
   (! reflectedType (as <com.sun.jdi.ClassObjectReference>
                        (vm-mirror *the-vm* class))))
 
+(df class>class-type ((class <java.lang.Class>) => <class-type>)
+  (class>ref-type class))
+
 (df bytemethod>src-loc ((m <gnu.bytecode.Method>) => <location>)
-  (let* ((cls (class>class-ref (! get-reflect-class (! get-declaring-class m))))
+  (let* ((cls (class>class-type (! get-reflect-class (! get-declaring-class m))))
          (name (! get-name m))
          (sig (! get-signature m))
          (meth (! concrete-method-by-name cls name sig)))
@@ -1442,7 +1445,7 @@
 
 ;; Enable breakpoints event on the breakpoint function.
 (df request-breakpoint ((vm <vm>))
-  (let* ((class :: <class-ref> (1st (! classesByName vm "swank$Mnkawa")))
+  (let* ((class :: <class-type> (1st (! classesByName vm "swank$Mnkawa")))
          (meth :: <meth-ref> (1st (! methodsByName class "breakpoint")))
          (erm (! eventRequestManager vm))
          (req (! createBreakpointRequest erm (! location meth))))
@@ -1715,7 +1718,7 @@
 (df eval-in-thread ((t <thread-ref>) sexp 
 		    #!optional (env :: <env> (<env>:current)))
   (let* ((vm (! virtualMachine t))
-	 (sc :: <class-ref>
+	 (sc :: <class-type>
 	     (1st (! classes-by-name vm "kawa.standard.Scheme")))
 	 (ev :: <meth-ref>
 	     (1st (! methods-by-name sc "eval" 
@@ -2029,15 +2032,15 @@
     (<java.util.List> (! size x))
     (<object[]> (@ length x))))
 
-(df put (tab key value) (hash-table-set! tab key value) tab)
-(df get (tab key default) (hash-table-ref/default tab key default))
-(df del (tab key) (hash-table-delete! tab key) tab)
-(df tab () (make-hash-table))
+;;(df put (tab key value) (hash-table-set! tab key value) tab)
+;;(df get (tab key default) (hash-table-ref/default tab key default))
+;;(df del (tab key) (hash-table-delete! tab key) tab)
+;;(df tab () (make-hash-table))
 
-;;(df put (tab key value) (hashtable-set! tab key value) tab)
-;;(df get (tab key default) (hashtable-ref tab key default))
-;;(df del (tab key) (hashtable-delete! tab key) tab)
-;;(df tab () (make-eqv-hashtable))
+(df put (tab key value) (hashtable-set! tab key value) tab)
+(df get (tab key default) (hashtable-ref tab key default))
+(df del (tab key) (hashtable-delete! tab key) tab)
+(df tab () (make-eqv-hashtable))
 
 (df equal (x y => <boolean>) (equal? x y))
 
@@ -2063,10 +2066,14 @@
 
 (df print-object (obj stream)
   (typecase obj
+    #;
     ((or (eql #!null) (eql #!eof)
          <list> <number> <character> <string> <vector> <procedure> <boolean>)
      (write obj stream))
-    (#t (print-unreadable-object obj stream))))
+    (#t 
+     #;(print-unreadable-object obj stream)
+     (write obj stream)
+     )))
 
 (df print-unreadable-object ((o <object>) stream)
   (let* ((string (! to-string o))
@@ -2247,11 +2254,11 @@
       ((:file s) (read-bytes (<java.io.FileInputStream> (as <str> s)))))))
 
 (df all-instances ((vm <vm>) (classname <str>))
-  (mappend (fun ((c <class-ref>)) (to-list (! instances c (as long 9999))))
+  (mappend (fun ((c <class-type>)) (to-list (! instances c (as long 9999))))
 	   (%all-subclasses vm classname)))
 
 (df %all-subclasses ((vm <vm>) (classname <str>))
-  (mappend (fun ((c <class-ref>)) (cons c (to-list (! subclasses c))))
+  (mappend (fun ((c <class-type>)) (cons c (to-list (! subclasses c))))
            (to-list (! classes-by-name vm classname))))
 
 (df with-output-to-string (thunk => <str>)
@@ -2327,5 +2334,8 @@
 
 ;; Local Variables:
 ;; mode: goo 
-;; compile-command:"kawa -e '(compile-file \"swank-kawa.scm\"\"swank-kawa.zip\")'" 
+;; compile-command: "\
+;;  rm -rf classes && \
+;;  JAVA_OPTS=-Xss450k kawa -d classes -C swank-kawa.scm && \
+;;  jar cf swank-kawa.jar -C classes ."
 ;; End:

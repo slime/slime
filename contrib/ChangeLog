@@ -1,3 +1,7 @@
+2012-10-14  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-kawa.scm: Various tweaks.
+
 2012-08-13  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-arglists.lisp (extra-keywords/slots): Check for
