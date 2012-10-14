@@ -1,5 +1,12 @@
 2012-10-14  Helmut Eller  <heller@common-lisp.net>
 
+	Avoid some unused variable warnings.
+
+	* slime.el (slime-xref-group, slime-all-contribs, [selector] ??):
+	Use _ as prefix or in loop-destructuring: (loop for (nil) in ...).
+
+2012-10-14  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-goto-source-location-buffer-and-file): Delete
 	unused function.
 

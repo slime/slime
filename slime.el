@@ -3974,7 +3974,7 @@ FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
               (if buffer 
                   (format "%S" buffer) ; "#<buffer foo.lisp>"
                 (format "%s (previously existing buffer)" bufname))))
-           ((:buffer-and-file buffer filename) filename)
+           ((:buffer-and-file _buffer filename) filename)
            ((:source-form _) "(S-Exp)")
            ((:zip _zip entry) entry)))
         (t
@@ -6943,7 +6943,7 @@ switch-to-buffer."
   (ignore-errors (kill-buffer "*Select Help*"))
   (with-current-buffer (get-buffer-create "*Select Help*")
     (insert "Select Methods:\n\n")
-    (loop for (key line _function) in slime-selector-methods
+    (loop for (key line nil) in slime-selector-methods
           do (insert (format "%c:\t%s\n" key line)))
     (goto-char (point-min))
     (help-mode)
@@ -7116,7 +7116,7 @@ is setup, unless the user already set one explicitly."
 (put 'slime-indulge-pretty-colors 'define-slime-contrib t)
 
 (defun slime-all-contribs ()
-  (loop for (_name val) on (symbol-plist 'slime-contribs) by #'cddr
+  (loop for (nil val) on (symbol-plist 'slime-contribs) by #'cddr
         when (slime-contrib-p val)
         collect val))
 
