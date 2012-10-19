@@ -1,3 +1,9 @@
+2012-10-19  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-fuzzy.el (slime-fuzzy-choices-buffer): Don't move position
+	in the current buffer, call (slime-fuzzy-next) after switching to
+	the completion buffer.
+
 2012-10-14  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-kawa.scm: Various tweaks.
