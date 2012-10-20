@@ -1,3 +1,9 @@
+2012-10-20  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-location-offset): When going to a position
+	causes an error, for example, trying to move beyond the end of the
+	buffer, move the point to 0 and then try to use the hints.
+
 2012-10-14  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-insert-threads): Some cleanups.

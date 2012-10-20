@@ -3434,7 +3434,7 @@ Don't move if there are multiple or no calls in the current defun."
 are supported:
 
 <location> ::= (:location <buffer> <position> <hints>)
-             | (:error <message>) 
+             | (:error <message>)
 
 <buffer>   ::= (:file <filename>)
              | (:buffer <buffername>)
@@ -3446,7 +3446,7 @@ are supported:
              | (:offset <start> <offset>) ; start+offset (for C-c C-c)
              | (:line <line> [<column>])
              | (:function-name <string>)
-             | (:source-path <list> <start-position>) 
+             | (:source-path <list> <start-position>)
              | (:method <name string> <specializers> . <qualifiers>)"
   (destructure-case location
     ((:location buffer _position _hints)
@@ -3465,19 +3465,22 @@ are supported:
 (defun slime-location-offset (location)
   "Return the position, as character number, of LOCATION."
   (save-restriction
-    (widen)
-    (slime-goto-location-position (slime-location.position location))
-    (let ((hints (slime-location.hints location)))
-      (when-let (snippet (getf hints :snippet))
-        (slime-isearch snippet))
-      (when-let (snippet (getf hints :edit-path))
-        (slime-search-edit-path snippet))
-      (when-let (fname (getf hints :call-site))
-        (slime-search-call-site fname))
-      (when (getf hints :align)
-        (slime-forward-sexp)
-        (beginning-of-sexp)))
-    (point)))
+   (widen)
+   (condition-case nil
+                   (slime-goto-location-position
+                    (slime-location.position location))
+                   (error (goto-char 0)))
+   (let ((hints (slime-location.hints location)))
+     (when-let (snippet (getf hints :snippet))
+       (slime-isearch snippet))
+     (when-let (snippet (getf hints :edit-path))
+       (slime-search-edit-path snippet))
+     (when-let (fname (getf hints :call-site))
+       (slime-search-call-site fname))
+     (when (getf hints :align)
+       (slime-forward-sexp)
+       (beginning-of-sexp)))
+   (point)))
 
 
 ;;;;; Incremental search
