@@ -1,3 +1,8 @@
+2012-10-27  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (report-condition-with-circular-list): New test.
+	* swank.lisp (safe-condition-message): Bind *print-length*.
+
 2012-10-20  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-location-offset): When going to a position

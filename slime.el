@@ -8214,7 +8214,26 @@ Confirm that SUBFORM is correctly located."
           (slime-check "Minibuffer contains: \"3\""
             (equal "=> 3 (2 bits, #x3, #o3, #b11)" message)))))))
 
-(def-slime-test interrupt-bubbling-idiot 
+(def-slime-test report-condition-with-circular-list
+    (format-control format-argument)
+    "Test conditions involving circular lists."
+    '(("~a" "(let ((x (cons nil nil))) (setf (cdr x) x))")
+      ("~a" "(let ((x (cons nil nil))) (setf (car x) x))"))
+  (slime-check-top-level)
+  (lexical-let ((done nil))
+    (let ((sldb-hook (lambda () (sldb-continue) (setq done t))))
+      (slime-interactive-eval
+       (format "(progn (cerror \"foo\" %S %s) (+ 1 2))"
+               format-control format-argument))
+      (while (not done) (slime-accept-process-output))
+      (slime-sync-to-top-level 5)
+      (slime-check-top-level)
+      (unless noninteractive
+        (let ((message (current-message)))
+          (slime-check "Minibuffer contains: \"3\""
+            (equal "=> 3 (2 bits, #x3, #o3, #b11)" message)))))))
+
+(def-slime-test interrupt-bubbling-idiot
     ()
     "Test interrupting a loop that sends a lot of output to Emacs."
     '(())
@@ -9352,7 +9371,7 @@ If they are not, position point at the first syntax error found."
 ;; outline-regexp: ";;;;+"
 ;; indent-tabs-mode: nil
 ;; coding: latin-1-unix
-;; compile-command: "emacs -batch -L . -f batch-byte-compile \"slime.el\"; \
+;; compile-command: "emacs -batch -L . -f batch-byte-compile slime.el; \
 ;;  rm -v slime.elc"
 ;; End:
 ;;; slime.el ends here

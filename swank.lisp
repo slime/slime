@@ -2164,7 +2164,8 @@ conditions are simply reported."
 (defun safe-condition-message (condition)
   "Safely print condition to a string, handling any errors during
 printing."
-  (let ((*print-pretty* t) (*print-right-margin* 65))
+  (let ((*print-pretty* t) (*print-right-margin* 65)
+        (*print-length* 1000) (*print-level* 200))
     (handler-case
         (funcall *sldb-condition-printer* condition)
       (error (cond)
