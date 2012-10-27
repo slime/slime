@@ -8218,7 +8218,9 @@ Confirm that SUBFORM is correctly located."
     (format-control format-argument)
     "Test conditions involving circular lists."
     '(("~a" "(let ((x (cons nil nil))) (setf (cdr x) x))")
-      ("~a" "(let ((x (cons nil nil))) (setf (car x) x))"))
+      ("~a" "(let ((x (cons nil nil))) (setf (car x) x))")
+      ("~a" "(let ((x (cons (make-string 100000 :initial-element #\\X) nil)))\
+                (setf (cdr x) x))"))
   (slime-check-top-level)
   (lexical-let ((done nil))
     (let ((sldb-hook (lambda () (sldb-continue) (setq done t))))
@@ -9366,7 +9368,7 @@ If they are not, position point at the first syntax error found."
 (provide 'slime)
 (run-hooks 'slime-load-hook)
 
-;; Local Variables: 
+;; Local Variables:
 ;; lexical-binding: t
 ;; outline-regexp: ";;;;+"
 ;; indent-tabs-mode: nil

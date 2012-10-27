@@ -1,7 +1,8 @@
 2012-10-27  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (report-condition-with-circular-list): New test.
-	* swank.lisp (safe-condition-message): Bind *print-length*.
+	* swank.lisp (safe-condition-message): Bind *print-length* and
+	truncate the string after 64KB.
 
 2012-10-20  Stas Boukarev  <stassats@gmail.com>
 
