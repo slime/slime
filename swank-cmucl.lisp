@@ -1036,18 +1036,23 @@ NAME can any valid function name (e.g, (setf car))."
 
 (defun dd-location (dd)
   "Return the location of a `defstruct'."
-  ;; Find the location in a constructor.
-  (function-location (struct-constructor dd)))
+  (let ((ctor (struct-constructor dd)))
+    (cond (ctor
+           (function-location (coerce ctor 'function)))
+          (t
+           (let ((name (kernel:dd-name dd)))
+             (multiple-value-bind (location foundp)
+                 (ext:info :source-location :defvar name)
+               (cond (foundp
+                      (resolve-source-location location))
+                     (t
+                      (error "No location for defstruct: ~S" name)))))))))
 
 (defun struct-constructor (dd)
-  "Return a constructor function from a defstruct definition.
-Signal an error if no constructor can be found."
+  "Return the name of the constructor from a defstruct definition."
   (let* ((constructor (or (kernel:dd-default-constructor dd)
-                          (car (kernel::dd-constructors dd))))
-         (sym (if (consp constructor) (car constructor) constructor)))
-    (unless sym
-      (error "Cannot find structure's constructor: ~S" (kernel::dd-name dd)))
-    (coerce sym 'function)))
+                          (car (kernel::dd-constructors dd)))))
+    (if (consp constructor) (car constructor) constructor)))
 
 ;;;;;; Generic functions and methods
 

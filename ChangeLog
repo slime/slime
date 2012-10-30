@@ -1,3 +1,8 @@
+2012-10-30  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-cmucl.lisp (dd-location): Use info db as fallback.
+	(struct-constructor): Return the name not the function.
+
 2012-10-27  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (report-condition-with-circular-list): New test.
