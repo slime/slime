@@ -85,12 +85,6 @@
             (excl:find-external-format (car e) 
                                        :try-variant t)))))
 
-(defimplementation format-sldb-condition (c)
-  (princ-to-string c))
-
-(defimplementation call-with-syntax-hooks (fn)
-  (funcall fn))
-
 ;;;; Unix signals
 
 (defimplementation getpid ()
@@ -214,11 +208,11 @@
   (let* ((frame (nth-frame index)))
     (multiple-value-bind (x fun xx xxx pc) (debugger::dyn-fd-analyze frame)
       (declare (ignore x xx xxx))
-      (cond (pc
-             #+(version>= 8 2)
-             (pc-source-location fun pc)
-             #-(version>= 8 2)
-             (function-source-location fun))
+      (cond ((and pc
+                  #+(version>= 8 2)
+                  (pc-source-location fun pc)
+                  #-(version>= 8 2)
+                  (function-source-location fun)))
             (t ; frames for unbound functions etc end up here
              (cadr (car (fspec-definition-locations
                          (car (debugger:frame-expression frame))))))))))
@@ -232,7 +226,7 @@
   (let* ((debug-info (excl::function-source-debug-info fun)))
     (cond ((not debug-info)
            (function-source-location fun))
-          (t 
+          (t
            (let* ((code-loc (find-if (lambda (c)
                                        (<= (- pc (sys::natural-width))
                                            (excl::ldb-code-pc c)
@@ -248,25 +242,27 @@
   (let* ((start (excl::ldb-code-start-char code))
          (func (excl::ldb-code-func code))
          (src-file (excl:source-file func)))
-    (cond (start 
+    (cond (start
            (buffer-or-file-location src-file start))
-          (t
+          (func
            (let* ((debug-info (excl::function-source-debug-info func))
                   (whole (aref debug-info 0))
                   (paths (source-paths-of (excl::ldb-code-source whole)
                                           (excl::ldb-code-source code)))
-                  (path (longest-common-prefix paths))
+                  (path (if paths (longest-common-prefix paths) '()))
                   (start (excl::ldb-code-start-char whole)))
-             (buffer-or-file 
-              src-file 
-              (lambda (file) 
-                (make-location `(:file ,file) 
+             (buffer-or-file
+              src-file
+              (lambda (file)
+                (make-location `(:file ,file)
                                `(:source-path (0 . ,path) ,start)))
               (lambda (buffer bstart)
                 (make-location `(:buffer ,buffer)
                                `(:source-path (0 . ,path)
-                                              ,(+ bstart start))))))))))
- 
+                                              ,(+ bstart start)))))))
+          (t
+           nil))))
+
 (defun longest-common-prefix (sequences)
   (assert sequences)
   (flet ((common-prefix (s1 s2)
@@ -295,6 +291,12 @@
       (debugger:eval-form-in-context 
        `(let* ,vars ,form)
        (debugger:environment-of-frame frame)))))
+
+(defimplementation frame-package (frame-number)
+  (let* ((frame (nth-frame frame-number))
+         (exp (debugger:frame-expression frame)))
+    (typecase exp
+      ((cons symbol) (symbol-package (car exp))))))
 
 (defimplementation return-from-frame (frame-number form)
   (let ((frame (nth-frame frame-number)))

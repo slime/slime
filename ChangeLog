@@ -1,5 +1,14 @@
 2012-11-02  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-allegro.lisp (frame-source-location, ldb-code-to-src-loc):
+	Use function-source-location for some cases that used to cause
+	errors.
+	(frame-package): New.
+	(format-sldb-condition, call-with-syntax-hooks): Deleted. Did just
+	the same as the default implementation.
+
+2012-11-02  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el ([test] find-definition): Test defstruct and defvar.
 	([test] find-definition.3): New.
 
