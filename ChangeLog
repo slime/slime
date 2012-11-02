@@ -1,5 +1,9 @@
 2012-11-02  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (find-definition.3): Fix syntax.
+
+2012-11-02  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (condition-message): New. Binds *print-cirlce.
 	(safe-condition-message): Move binding of printer vars to
 	condition-message.

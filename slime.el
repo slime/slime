@@ -7934,12 +7934,12 @@ confronted with nasty #.-fu."
 (def-slime-test (find-definition.3)
     (name source regexp)
     "Extra tests for defstruct."
-    '(("swank::foo-struct" 
+    '(("swank::foo-struct"
        "(progn
   (defun foo-fun ())
-  (defstruct foo-struct (:constructor nil) (:predicate nil))
+  (defstruct (foo-struct (:constructor nil) (:predicate nil)))
 )"
-       "(defstruct foo-struct"))
+       "(defstruct (foo-struct"))
   (switch-to-buffer "*scratch*")
     (with-temp-buffer
       (insert source)
