@@ -2158,24 +2158,28 @@ conditions are simply reported."
     (send-to-emacs `(:debug-condition ,(current-thread-id)
                                       ,(princ-to-string real-condition)))))
 
-(defvar *sldb-condition-printer* #'format-sldb-condition
+(defun condition-message (condition)
+  (let ((*print-pretty* t)
+        (*print-right-margin* 65)
+        (*print-circle* t))
+    (format-sldb-condition condition)))
+
+(defvar *sldb-condition-printer* #'condition-message
   "Function called to print a condition to an SLDB buffer.")
 
 (defun safe-condition-message (condition)
   "Safely print condition to a string, handling any errors during
 printing."
-  (let ((*print-pretty* t) (*print-right-margin* 65)
-        (*print-length* 1000) (*print-level* 200))
-    (truncate-string
-     (handler-case
-         (funcall *sldb-condition-printer* condition)
-       (error (cond)
-         ;; Beware of recursive errors in printing, so only use the condition
-         ;; if it is printable itself:
-         (format nil "Unable to display error condition~@[: ~A~]"
-                 (ignore-errors (princ-to-string cond)))))
-     (ash 1 16)
-     "...")))
+  (truncate-string
+   (handler-case
+       (funcall *sldb-condition-printer* condition)
+     (error (cond)
+       ;; Beware of recursive errors in printing, so only use the condition
+       ;; if it is printable itself:
+       (format nil "Unable to display error condition~@[: ~A~]"
+               (ignore-errors (princ-to-string cond)))))
+   (ash 1 16)
+   "..."))
 
 (defun debugger-condition-for-emacs ()
   (list (safe-condition-message *swank-debugger-condition*)

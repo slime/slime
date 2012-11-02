@@ -1,5 +1,12 @@
 2012-11-02  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (condition-message): New. Binds *print-cirlce.
+	(safe-condition-message): Move binding of printer vars to
+	condition-message.
+	(*sldb-condition-printer*): Set it to #'condition-message.
+
+2012-11-02  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-allegro.lisp (frame-source-location, ldb-code-to-src-loc):
 	Use function-source-location for some cases that used to cause
 	errors.
