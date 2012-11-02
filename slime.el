@@ -7878,7 +7878,10 @@ after quitting Slime's temp buffer."
     "Find the definition of a function or macro in swank.lisp."
     '(("start-server" "SWANK" "(defun start-server ")
       ("swank::start-server" "CL-USER" "(defun start-server ")
-      ("swank:start-server" "CL-USER" "(defun start-server "))
+      ("swank:start-server" "CL-USER" "(defun start-server ")
+      ("swank::connection" "CL-USER" "(defstruct (connection")
+      ("swank::*emacs-connection*" "CL-USER" "(defvar \\*emacs-connection\\*")
+      )
   (switch-to-buffer "*scratch*")        ; not buffer of definition
   (slime-check-top-level)
   (let ((orig-buffer (current-buffer))
@@ -7926,6 +7929,35 @@ confronted with nasty #.-fu."
         (slime-check ("Definition of `.foo.' is in buffer `%s'." bufname)
           (string= (buffer-name) bufname))
         (slime-check "Definition now at point." (looking-at snippet)))
+      )))
+
+(def-slime-test (find-definition.3)
+    (name source regexp)
+    "Extra tests for defstruct."
+    '(("swank::foo-struct" 
+       "(progn
+  (defun foo-fun ())
+  (defstruct foo-struct (:constructor nil) (:predicate nil))
+)"
+       "(defstruct foo-struct"))
+  (switch-to-buffer "*scratch*")
+    (with-temp-buffer
+      (insert source)
+      (let ((slime-buffer-package "SWANK"))
+        (slime-eval 
+         `(swank:compile-string-for-emacs
+           ,source
+           ,(buffer-name)
+           '((:position 0) (:line 1 1))
+           ,nil
+           ,nil)))
+      (let ((temp-buffer (current-buffer)))
+        (with-current-buffer "*scratch*"
+          (slime-edit-definition name)
+          (slime-check ("Definition of %S is in buffer `%s'." 
+                        name temp-buffer)
+            (eq (current-buffer) temp-buffer))
+          (slime-check "Definition now at point." (looking-at regexp)))
       )))
 
 (def-slime-test complete-symbol

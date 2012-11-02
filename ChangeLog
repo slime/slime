@@ -1,3 +1,8 @@
+2012-11-02  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el ([test] find-definition): Test defstruct and defvar.
+	([test] find-definition.3): New.
+
 2012-10-30  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-cmucl.lisp (dd-location): Use info db as fallback.
