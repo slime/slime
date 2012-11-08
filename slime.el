@@ -1414,7 +1414,7 @@ See `slime-start'."
                     #'slime-timer-call #'slime-attempt-connection 
                     process (and retries (1- retries)) 
                     (1+ attempt))))))))
-    
+
 (defun slime-timer-call (fun &rest args)
   "Call function FUN with ARGS, reporting all errors.
 
@@ -1422,7 +1422,8 @@ The default condition handler for timer functions (see
 `timer-event-handler') ignores errors."
   (condition-case data
       (apply fun args)
-    (error (debug nil (list "Error in timer" fun args data)))))
+    ((debug error)
+     (debug nil (list "Error in timer" fun args data)))))
 
 (defun slime-cancel-connect-retry-timer ()
   (when slime-connect-retry-timer

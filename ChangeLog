@@ -1,3 +1,8 @@
+2012-11-08  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-timer-call): Use debug marker in
+	condition-case.
+
 2012-11-02  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (find-definition.3): Fix syntax.
