@@ -252,7 +252,7 @@
         (make-error-location "No location found."))))
 
 (defimplementation call-with-compilation-hooks (function)
-  #-ecl-bytecmp
+  #+ecl-bytecmp
   (funcall function)
   #-ecl-bytecmp
   (handler-bind ((c:compiler-message #'handle-compiler-message))
