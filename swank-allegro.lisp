@@ -239,8 +239,13 @@
 
 #+(version>= 8 2)
 (defun ldb-code-to-src-loc (code)
-  (let* ((start (excl::ldb-code-start-char code))
-         (func (excl::ldb-code-func code))
+  (declare (optimize debug))
+  (let* ((func (excl::ldb-code-func code))
+         (debug-info (excl::function-source-debug-info func))
+         (start (loop for i downfrom (excl::ldb-code-index code) 
+                      for bpt = (aref debug-info i)
+                      for start = (excl::ldb-code-start-char bpt)
+                      when start return start))
          (src-file (excl:source-file func)))
     (cond (start
            (buffer-or-file-location src-file start))
@@ -250,7 +255,7 @@
                   (paths (source-paths-of (excl::ldb-code-source whole)
                                           (excl::ldb-code-source code)))
                   (path (if paths (longest-common-prefix paths) '()))
-                  (start (excl::ldb-code-start-char whole)))
+                  (start 0))
              (buffer-or-file
               src-file
               (lambda (file)
@@ -296,7 +301,9 @@
   (let* ((frame (nth-frame frame-number))
          (exp (debugger:frame-expression frame)))
     (typecase exp
-      ((cons symbol) (symbol-package (car exp))))))
+      ((cons symbol) (symbol-package (car exp)))
+      ((cons (cons (eql :internal) (cons symbol)))
+       (symbol-package (cadar exp))))))
 
 (defimplementation return-from-frame (frame-number form)
   (let ((frame (nth-frame frame-number)))
