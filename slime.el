@@ -7383,6 +7383,7 @@ If nil, execute them in definition order.")
 ;; dynamically bound during a single test
 (defvar slime-current-test)
 (defvar slime-unexpected-failures)
+(defvar slime-unexpected-passes)
 
 
 ;;;;; Execution engine
@@ -7403,8 +7404,9 @@ that succeeded initially folded away."
     (goto-char (point-min))
     (hide-body)
     ;; Expose failed tests
-    (dolist (o (overlays-in (point-min) (point-max)))
-      (when (overlay-get o 'slime-failed-test)
+    (dolist (o (reverse (overlays-in (point-min) (point-max))))
+      (when (or (overlay-get o 'slime-failed-test)
+                (overlay-get o 'slime-summary))
         (goto-char (overlay-start o))
         (show-subtree)))))
 
@@ -7412,7 +7414,7 @@ that succeeded initially folded away."
   "Ask for the name of a test and then execute the test."
   (interactive (list (slime-read-test-name)))
   (let ((test (find name slime-tests :key #'slime-test.name)))
-    (assert test)
+    (assert test () "No test named: %S" name)
     (let ((slime-tests (list test)))
       (slime-run-tests))))
 
@@ -7451,6 +7453,7 @@ Return the number of failed tests."
           (slime-skipped-tests 0)
           (slime-unexpected-failures 0)
           (slime-expected-failures 0)
+          (slime-unexpected-passes 0)
           (slime-lisp-under-test (slime-lisp-implementation-name)))
       (dolist (slime-current-test slime-tests)
         (with-struct (slime-test. name (function fname) inputs style) 
@@ -7467,31 +7470,54 @@ Return the number of failed tests."
                         (debug-on-quit t))
                     (catch 'skip
                       (apply function input)))
-                  (condition-case err
+                (condition-case err
+                    (progn 
                       (apply function input)
+                      (cond ((slime-test-should-fail-p)
+                             (incf slime-unexpected-passes)
+                             (slime-print-check-xpass (format "%s" name)))
+                            (t)))
                     (error
                      (cond ((slime-test-should-fail-p)
                             (incf slime-expected-failures)
-                            (slime-test-failure "ERROR (expected)"
-                                                (format "%S" err)))
+                            (slime-print-check-xerror err))
                            (t
                             (incf slime-unexpected-failures)
                             (slime-print-check-error err))))))))))
-      (let ((summary 
-             (concat (if (and (zerop slime-expected-failures)
-                              (zerop slime-unexpected-failures))
-                         (format "All %d tests completed successfully."
-                                 slime-total-tests)
-                         (format "Failed on %d (%d expected) of %d tests."
-                                 (+ slime-expected-failures
-                                    slime-unexpected-failures)
-                                 slime-expected-failures
-                                 slime-total-tests))
-                     (if (zerop slime-skipped-tests)
-                         ""
-                         (format " Skipped %d tests." slime-skipped-tests)))))
+      (let* ((tab
+              `(("tests               " ,slime-total-tests)
+                ("expected passes     " ,(- slime-total-tests
+                                            slime-unexpected-failures
+                                            slime-unexpected-passes
+                                            slime-skipped-tests))
+                ("expected failures   " ,slime-expected-failures)
+                ("unexpected failures " ,slime-unexpected-failures)
+                ("unexpected successes" ,slime-unexpected-passes)
+                ("tests skipped       " ,slime-skipped-tests)))
+            (stats
+             (loop for (fstring arg) in tab
+                   concat (format (concat "# of " fstring " : %d\n") arg)))
+            (summary
+             (cond ((and (zerop slime-expected-failures)
+                         (zerop slime-unexpected-failures))
+                    (format "All %d tests completed successfully."
+                            slime-total-tests))
+                   (t
+                    (format 
+                     "Failed on %d (%d expected, %d skipped) of %d tests."
+                     (+ slime-expected-failures
+                        slime-unexpected-failures)
+                     slime-expected-failures
+                     slime-skipped-tests
+                     slime-total-tests)))))
         (save-excursion
           (with-current-buffer slime-test-buffer-name
+            (goto-char (point-max))
+            (insert "* Summary\n")
+            (let ((start (point)))
+              (insert stats)
+              (let ((overlay (make-overlay start (point))))
+                (overlay-put overlay 'slime-summary t)))
             (goto-char (point-min))
             (insert summary "\n\n")))
         (message "%s" summary)
@@ -7620,30 +7646,42 @@ conditions (assertions)."
   "Check a condition (assertion.)
 TEST-NAME can be a symbol, a string, or a (FORMAT-STRING . ARGS) list.
 BODY returns true if the check succeeds."
-  (let ((check-name (gensym "check-name-")))
-    `(let ((,check-name ,(typecase test-name
-                           (symbol (symbol-name test-name))
-                           (string test-name)
-                           (cons `(format ,@test-name)))))
-       (if (progn ,@body)
-           (slime-print-check-ok ,check-name)
-         (cond ((slime-test-should-fail-p)
-                (incf slime-expected-failures)
-                (slime-test-failure "FAIL (expected)" ,check-name))
-               (t
-                (incf slime-unexpected-failures)
-                (slime-print-check-failed ,check-name)))
-         (when slime-test-debug-on-error
-           (debug (format "Check failed: %S" ,check-name)))))))
+  `(let ((ok (progn ,@body))
+         (check-name ,(typecase test-name
+                        (symbol (symbol-name test-name))
+                        (string test-name)
+                        (cons `(format ,@test-name)))))
+     (cond ((and ok (not (slime-test-should-fail-p)))
+            (slime-print-check-ok check-name))
+           ((and ok (slime-test-should-fail-p))
+            (slime-print-check-xpass check-name))
+           ((and (not ok) (not (slime-test-should-fail-p)))
+            (slime-print-check-failed check-name))
+           ((and (not ok) (slime-test-should-fail-p))
+            (slime-print-check-xfailed check-name))
+           (t (assert nil)))
+     (when (and (not ok) slime-test-debug-on-error)
+       (debug (format "Check failed: %S" check-name)))
+     (when (not ok)
+       (error "Check failed: %S" check-name))))
 
 (defun slime-print-check-ok (test-name)
   (slime-test-message (concat "OK: " test-name)))
 
+(defun slime-print-check-xpass (test-name)
+  (slime-test-message (concat "XPASS: " test-name)))
+
 (defun slime-print-check-failed (test-name)
   (slime-test-failure "FAILED" test-name))
 
+(defun slime-print-check-xfailed (test-name)
+  (slime-test-failure "XFAILED" test-name))
+
 (defun slime-print-check-error (reason)
   (slime-test-failure "ERROR" (format "%S" reason)))
+
+(defun slime-print-check-xerror (reason)
+  (slime-test-failure "XERROR" (format "%S" reason)))
 
 (put 'slime-check 'lisp-indent-function 1)
 
@@ -7932,7 +7970,9 @@ confronted with nasty #.-fu."
         (slime-check "Definition now at point." (looking-at snippet)))
       )))
 
-(def-slime-test (find-definition.3)
+(def-slime-test (find-definition.3
+                 (:fails-for "abcl" "allegro" "clisp" "lispworks" "sbcl" 
+                             "ecl"))
     (name source regexp)
     "Extra tests for defstruct."
     '(("swank::foo-struct"
@@ -7996,7 +8036,7 @@ Confirm that EXPECTED-ARGLIST is displayed."
 string buffer position filename policy)")
       ("swank::connection.socket-io"
        "(swank::connection.socket-io \
-\\(struct\\(ure\\)?\\|object\\|instance\\|x\\))")
+\\(struct\\(ure\\)?\\|object\\|instance\\|x\\|connection\\))")
       ("cl:lisp-implementation-type" "(cl:lisp-implementation-type)")
       ("cl:class-name" 
        "(cl:class-name \\(class\\|object\\|instance\\|structure\\))"))

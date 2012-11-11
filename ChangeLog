@@ -1,5 +1,14 @@
 2012-11-11  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el ([test] find-definition.3): Mark as expected to fail.
+	([test] arglist): Adjust regexp so that CCL passes.
+	(slime-execute-tests): Insert summary table at the the end.
+	(slime-check): Don't change counters here, as that would count
+	multiple times per test.  Instead to the counting in
+	slime-execute-tests.
+
+2012-11-11  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-allegro.lisp (ldb-code-to-src-loc): Scan backward to the
 	first code point with a non-nil start-char.
 	(frame-package): Also match for ((:internal foo ...)).
