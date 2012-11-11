@@ -997,23 +997,25 @@ The processing is done in the extent of the toplevel restart."
    (sleep *auto-flush-interval*)))
 
 ;; FIXME: drop dependency on find-repl-thread
-;; FIXME: and don't add and any more 
-(defun find-worker-thread (connection id)
+(defun thread-for-evaluation (connection id &key find-existing)
+  "Find or create a thread to evaluate the next request."
   (etypecase id
     ((member t)
      (etypecase connection
-       (multithreaded-connection (or (car (mconn.active-threads connection))
-                                     (find-repl-thread connection)))
+       (multithreaded-connection
+        (if find-existing
+            (or (car (mconn.active-threads connection))
+                (find-repl-thread connection))
+            (spawn-worker-thread connection)))
        (singlethreaded-connection (current-thread))))
-    ((member :repl-thread) 
+    ((member :repl-thread)
      (find-repl-thread connection))
     (fixnum
      (find-thread id))))
 
-;; FIXME: the else branch does look like it was written by someone who
-;; doesn't know what he is doeing.
 (defun interrupt-worker-thread (connection id)
-  (let ((thread (find-worker-thread connection id)))
+  (let ((thread (thread-for-evaluation connection id
+                                       :find-existing t)))
     (log-event "interrupt-worker-thread: ~a ~a~%" id thread)
     (if thread
         (etypecase connection
@@ -1024,22 +1026,10 @@ The processing is done in the extent of the toplevel restart."
                                (invoke-or-queue-interrupt #'simple-break))))
           (singlethreaded-connection
            (simple-break)))
-        (let ((*send-counter* 0)) ;; shouldn't be necessary, but it is
-          (send-to-emacs (list :debug-condition (current-thread-id)
-                               (format nil "Thread with id ~a not found" 
-                                       id)))))))
-
-(defun thread-for-evaluation (connection id)
-  "Find or create a thread to evaluate the next request."
-  (etypecase id
-    ((member t)
-     (etypecase connection
-       (multithreaded-connection (spawn-worker-thread connection))
-       (singlethreaded-connection (current-thread))))
-    ((member :repl-thread)
-     (find-repl-thread connection))
-    (fixnum
-     (find-thread id))))
+        (encode-message (list :debug-condition (current-thread-id)
+                              (format nil "Thread with id ~a not found" 
+                                      id))
+                        (current-socket-io)))))
 
 (defun spawn-worker-thread (connection)
   (spawn (lambda () 
