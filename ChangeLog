@@ -1,3 +1,9 @@
+2012-11-12  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (with-panic-handler): Abort the condition after
+	closing the connection, otherwise it ends up in the slime debugger
+	causing nested errors.
+
 2012-11-11  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (interrupt-worker-thread): Solve *send-counter*

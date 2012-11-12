@@ -317,11 +317,12 @@ to T unless you want to debug swank internals.")
 (defmacro with-panic-handler ((connection) &body body)
   "Close the connection on unhandled `serious-condition's."
   (let ((conn (gensym)))
-  `(let ((,conn ,connection))
-     (handler-bind ((serious-condition
-                     (lambda (condition)
-                       (close-connection ,conn condition (safe-backtrace)))))
-       . ,body))))
+    `(let ((,conn ,connection))
+       (handler-bind ((serious-condition
+                        (lambda (condition)
+                          (close-connection ,conn condition (safe-backtrace))
+                          (abort condition))))
+         . ,body))))
 
 (add-hook *new-connection-hook* 'notify-backend-of-connection)
 (defun notify-backend-of-connection (connection)
