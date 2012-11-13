@@ -1,3 +1,9 @@
+2012-11-13  Francois-Rene Rideau <tunes@google.com>
+
+	* swank.lisp (*compile-file-for-emacs-hook*): A hook for
+	compile-file-for-emacs, so that ASDF can hook its compilation
+	functions.
+
 2012-11-12  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (with-panic-handler): Abort the condition after

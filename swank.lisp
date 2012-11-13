@@ -2425,24 +2425,36 @@ The time is measured in seconds."
                                    :loadp (if loadp t)
                                    :faslfile faslfile))))))
 
-(defslimefun compile-file-for-emacs (filename load-p &rest options &key policy
-                                              &allow-other-keys)
+(defun compile-file-with-compile-file (pathname load-p &rest options
+                                       &key policy
+                                       &allow-other-keys)
+  (multiple-value-bind (output-pathname warnings? failure?)
+      (swank-compile-file pathname
+                          (fasl-pathname pathname options)
+                          nil
+                          (or (guess-external-format pathname)
+                              :default)
+                          :policy policy)
+    (declare (ignore warnings?))
+    (values t (not failure?) load-p output-pathname)))
+
+(defvar *compile-file-for-emacs-hook* '(compile-file-with-compile-file))
+
+(defslimefun compile-file-for-emacs (filename load-p &rest options)
   "Compile FILENAME and, when LOAD-P, load the result.
 Record compiler notes signalled as `compiler-condition's."
   (with-buffer-syntax ()
     (collect-notes
      (lambda ()
        (let ((pathname (filename-to-pathname filename))
-             (*compile-print* nil) (*compile-verbose* t))
-         (multiple-value-bind (output-pathname warnings? failure?)
-             (swank-compile-file pathname
-                                 (fasl-pathname pathname options)
-                                 nil
-                                 (or (guess-external-format pathname)
-                                     :default)
-                                 :policy policy)
-           (declare (ignore warnings?))
-           (values (not failure?) load-p output-pathname)))))))
+             (*compile-print* nil)
+             (*compile-verbose* t))
+         (loop for hook in *compile-file-for-emacs-hook*
+               do
+               (multiple-value-bind (tried success load? output-pathname)
+                   (apply hook pathname load-p options)
+                 (when tried
+                   (return (values success load? output-pathname))))))))))
 
 (defvar *fasl-pathname-function* nil
   "In non-nil, use this function to compute the name for fasl-files.")

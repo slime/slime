@@ -1,3 +1,7 @@
+2012-11-13  Francois-Rene Rideau <tunes@google.com>
+
+	* swank-asdf.lisp: Better ASDF support.
+
 2012-10-19  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-fuzzy.el (slime-fuzzy-choices-buffer): Don't move position
