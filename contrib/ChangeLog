@@ -1,3 +1,9 @@
+2012-11-22  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-package-fu.el (slime-determine-symbol-style): Fix the
+	default case when no :export symbols are present.
+	Because of (every anything nil) => T.
+
 2012-11-13  Francois-Rene Rideau <tunes@google.com>
 
 	* swank-asdf.lisp: Better ASDF support.
