@@ -1,6 +1,6 @@
 2012-11-23  Stas Boukarev  <stassats@gmail.com>
 
-	* slime-repl.el (slime-repl-print-right-margin-follows-window):
+	* slime-repl.el (slime-repl-auto-right-margin):
 	New variable, defaults to NIL.
 	(slime-repl-eval-string): Respect the above variable.
 	* swank-repl.lisp (listener-eval): New keyword parameter,

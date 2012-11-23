@@ -52,7 +52,7 @@ maintain."
   :type '(boolean)
   :group 'slime-repl)
 
-(defcustom slime-repl-print-right-margin-follows-window nil
+(defcustom slime-repl-auto-right-margin nil
   "When T we bind CL:*PRINT-RIGHT-MARGIN* to the width of the
 current repl's (as per slime-output-buffer) window."
   :type '(boolean)
@@ -530,7 +530,7 @@ joined together."))
 
 (defun slime-repl-eval-string (string)
   (slime-rex ()
-      ((if slime-repl-print-right-margin-follows-window
+      ((if slime-repl-auto-right-margin
            `(swank:listener-eval ,string
                                  :window-width
                                  ,(with-current-buffer (slime-output-buffer)
