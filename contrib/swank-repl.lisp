@@ -156,8 +156,11 @@ This is an optimized way for Lisp to deliver output to Emacs."
 
 (defvar *listener-eval-function* 'repl-eval)
 
-(defslimefun listener-eval (string)
-  (funcall *listener-eval-function* string))
+(defslimefun listener-eval (string &key (window-width nil window-width-p))
+  (if window-width-p
+      (let ((*print-right-margin* window-width))
+        (funcall *listener-eval-function* string))
+      (funcall *listener-eval-function* string)))
 
 (defvar *send-repl-results-function* 'send-repl-results-to-emacs)
 

@@ -1,3 +1,13 @@
+2012-11-23  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-repl-print-right-margin-follows-window):
+	New variable, defaults to NIL.
+	(slime-repl-eval-string): Respect the above variable.
+	* swank-repl.lisp (listener-eval): New keyword parameter,
+	window-width, if supplied binds *print-right-margin* to its
+	value.
+	Based on a patch by Marco Baringer.
+
 2012-11-22  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-package-fu.el (slime-determine-symbol-style): Fix the

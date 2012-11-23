@@ -52,6 +52,12 @@ maintain."
   :type '(boolean)
   :group 'slime-repl)
 
+(defcustom slime-repl-print-right-margin-follows-window nil
+  "When T we bind CL:*PRINT-RIGHT-MARGIN* to the width of the
+current repl's (as per slime-output-buffer) window."
+  :type '(boolean)
+  :group 'slime-repl)
+
 (defface slime-repl-prompt-face
   (if (slime-face-inheritance-possible-p)
       '((t (:inherit font-lock-keyword-face)))
@@ -524,7 +530,13 @@ joined together."))
 
 (defun slime-repl-eval-string (string)
   (slime-rex ()
-      ((list 'swank:listener-eval string) (slime-lisp-package))
+      ((if slime-repl-print-right-margin-follows-window
+           `(swank:listener-eval ,string
+                                 :window-width
+                                 ,(with-current-buffer (slime-output-buffer)
+                                    (window-width)))
+           `(swank:listener-eval ,string))
+       (slime-lisp-package))
     ((:ok result)
      (slime-repl-insert-result result))
     ((:abort condition)
@@ -550,7 +562,8 @@ joined together."))
       (slime-save-marker slime-output-start
         (slime-save-marker slime-output-end
           (goto-char slime-output-end)
-          (insert-before-markers (format "; Evaluation aborted on %s.\n" condition))
+          (insert-before-markers (format "; Evaluation aborted on %s.\n"
+                                         condition))
           (slime-repl-insert-prompt))))
     (slime-repl-show-maximum-output)))
 
@@ -574,7 +587,8 @@ If `slime-repl-suppress-prompt' is true, does nothing and returns nil."
               '(face slime-repl-prompt-face read-only t intangible t
                      slime-repl-prompt t
                      ;; emacs stuff
-                     rear-nonsticky (slime-repl-prompt read-only face intangible)
+                     rear-nonsticky (slime-repl-prompt read-only face
+                                     intangible)
                      ;; xemacs stuff
                      start-open t end-open t)
             (insert-before-markers prompt))
@@ -1511,7 +1525,8 @@ expansion will be added to the REPL's history.)"
                               name))
                   (qualified-symbol-name (slime-qualify-cl-symbol-name symbol))
                   (symbol-name (slime-cl-symbol-name qualified-symbol-name))
-                  (symbol-package (slime-cl-symbol-package qualified-symbol-name))
+                  (symbol-package (slime-cl-symbol-package
+                                   qualified-symbol-name))
                   (call (if (equalp (slime-lisp-package) symbol-package)
                             symbol-name
                             qualified-symbol-name)))
@@ -1585,7 +1600,8 @@ expansion will be added to the REPL's history.)"
   (interactive)
   (let* ((package (slime-current-package))
          (exists-p (or (null package)
-                       (slime-eval `(cl:packagep (swank::guess-package ,package)))))
+                       (slime-eval `(cl:packagep
+                                     (swank::guess-package ,package)))))
          (directory default-directory))
     (when (and package exists-p)
       (slime-repl-set-package package))
@@ -1717,12 +1733,14 @@ If the current buffer is not a REPL, don't do anything."
 (defun slime-repl-add-hooks ()
   (add-hook 'slime-event-hooks 'slime-repl-event-hook-function)
   (add-hook 'slime-connected-hook 'slime-repl-connected-hook-function)
-  (add-hook 'slime-cycle-connections-hook 'slime-change-repl-to-default-connection))
+  (add-hook 'slime-cycle-connections-hook
+            'slime-change-repl-to-default-connection))
 
 (defun slime-repl-remove-hooks ()
   (remove-hook 'slime-event-hooks 'slime-repl-event-hook-function)
   (remove-hook 'slime-connected-hook 'slime-repl-connected-hook-function)
-  (remove-hook 'slime-cycle-connections-hook 'slime-change-repl-to-default-connection))
+  (remove-hook 'slime-cycle-connections-hook
+               'slime-change-repl-to-default-connection))
 
 (let ((byte-compile-warnings '()))
   (mapc #'byte-compile
@@ -1989,7 +2007,8 @@ SWANK> [*foo]"))
     (slime-wait-condition "Debugger visible" 
                           (lambda () 
                             (and (slime-sldb-level= 1)
-                                 (get-buffer-window (sldb-get-default-buffer))))
+                                 (get-buffer-window
+                                  (sldb-get-default-buffer))))
                           5)
     (with-current-buffer (sldb-get-default-buffer)
       (sldb-continue))
