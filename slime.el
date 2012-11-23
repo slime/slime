@@ -6553,26 +6553,26 @@ KILL-BUFFER hooks for the inspector buffer."
     (setq slime-buffer-connection (slime-current-connection))
     (let ((inhibit-read-only t))
       (erase-buffer)
+      (pop-to-buffer (current-buffer))
       (destructuring-bind (&key id title content) inspected-parts
-        (macrolet ((fontify (face string) 
-                            `(slime-inspector-fontify ,face ,string)))
+        (macrolet ((fontify (face string)
+                     `(slime-inspector-fontify ,face ,string)))
           (slime-propertize-region
-              (list 'slime-part-number id 
+           (list 'slime-part-number id 
                  'mouse-face 'highlight
                  'face 'slime-inspector-value-face)
-            (insert title))
+           (insert title))
           (while (eq (char-before) ?\n)
             (backward-delete-char 1))
           (insert "\n" (fontify label "--------------------") "\n")
           (save-excursion
-            (slime-inspector-insert-content content))
-          (pop-to-buffer (current-buffer))
+           (slime-inspector-insert-content content))
           (when point
             (check-type point cons)
             (ignore-errors
-              (goto-char (point-min))
-              (forward-line (1- (car point)))
-              (move-to-column (cdr point)))))))))
+             (goto-char (point-min))
+             (forward-line (1- (car point)))
+             (move-to-column (cdr point)))))))))
 
 (defvar slime-inspector-limit 500)
 
