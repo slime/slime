@@ -1,3 +1,8 @@
+2012-11-23  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-edit-definition): Don't ask the user for a name
+	to search if it's missing before running slime-edit-definition-hooks
+
 2012-11-13  Francois-Rene Rideau <tunes@google.com>
 
 	* swank.lisp (*compile-file-for-emacs-hook*): A hook for

@@ -3909,15 +3909,27 @@ alist but ignores CDRs."
 ;;; `slime-edit-definition'.
 (defvar slime-edit-definition-hooks)
 
-(defun slime-edit-definition (name &optional where)
+(defun slime-edit-definition (&optional name where)
   "Lookup the definition of the name at point.  
 If there's no name at point, or a prefix argument is given, then the
 function name is prompted."
-  (interactive (list (slime-read-symbol-name "Edit Definition of: ")))
-  (or (run-hook-with-args-until-success 'slime-edit-definition-hooks 
-                                        name where)
-      (slime-edit-definition-cont (slime-find-definitions name)
-                                  name where)))
+  (interactive)
+  (let ((name (cond ((not (called-interactively-p))
+                     name)
+                    (current-prefix-arg
+                     (slime-read-symbol-name "Edit Definition of: "))
+                    (t
+                     (slime-symbol-at-point)))))
+    ;; The hooks might search for a name in a different manner, so don't
+    ;; ask the user if it's missing before the hooks are run
+    (or (run-hook-with-args-until-success 'slime-edit-definition-hooks
+                                          name where)
+        (let ((name (or name
+                        (if (called-interactively-p)
+                            (slime-read-symbol-name "Edit Definition of: ")
+                            name))))
+          (slime-edit-definition-cont (slime-find-definitions name)
+                                      name where)))))
 
 (defun slime-edit-definition-cont (xrefs name where)
   (destructuring-bind (1loc file-alist) (slime-analyze-xrefs xrefs)
