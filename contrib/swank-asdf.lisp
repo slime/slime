@@ -472,7 +472,7 @@ already knows."
        t))
 
 (defslimefun asdf-system-directory (name)
-  (asdf:system-source-directory name))
+  (namestring (asdf:system-source-directory name)))
 
 (defun pathname-system (pathname)
   (let ((component (pathname-component pathname)))
