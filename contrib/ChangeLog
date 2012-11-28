@@ -1,7 +1,7 @@
 2012-11-28  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-asdf.lisp (asdf-system-directory): Return a namestring,
-	not a namestring.
+	not a pathname.
 
 2012-11-23  Stas Boukarev  <stassats@gmail.com>
 
