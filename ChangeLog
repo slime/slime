@@ -1,3 +1,9 @@
+2012-12-03  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-allegro.lisp (macroexpand-all): USe walk-form, not walk
+	on >= 8.2.
+	Patch by Utz-Uwe Haus.
+
 2012-11-23  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-edit-definition): Don't ask the user for a name

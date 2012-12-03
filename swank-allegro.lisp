@@ -108,6 +108,9 @@
     (simple-error () :not-available)))
 
 (defimplementation macroexpand-all (form)
+  #+(version>= 8 0)
+  (excl::walk-form form)
+  #-(version>= 8 0)
   (excl::walk form))
 
 (defimplementation describe-symbol-for-emacs (symbol)
