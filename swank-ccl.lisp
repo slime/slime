@@ -797,3 +797,5 @@
 
 (defimplementation hash-table-weakness (hashtable)
   (ccl:hash-table-weak-p hashtable))
+
+(pushnew 'deinit-log-output ccl:*save-exit-functions*)

@@ -1498,3 +1498,8 @@ RESTART-FUNCTION, if non-nil, should be called when the image is loaded.")
   "Request saving a heap image to the file FILENAME.
 RESTART-FUNCTION, if non-nil, should be called when the image is loaded.
 COMPLETION-FUNCTION, if non-nil, should be called after saving the image.")
+
+(defun deinit-log-output ()
+  ;; Can't hang on to an fd-stream from a previous session.
+  (setf (symbol-value (find-symbol "*LOG-OUTPUT*" 'swank))
+        nil))
