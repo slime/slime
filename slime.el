@@ -1383,12 +1383,13 @@ See `slime-start'."
 (defun slime-attempt-connection (process retries attempt)
   ;; A small one-state machine to attempt a connection with
   ;; timer-based retries.
-  (let ((file (slime-swank-port-file))) 
+  (slime-cancel-connect-retry-timer)
+  (let ((file (slime-swank-port-file)))
     (unless (active-minibuffer-window)
-      (message "Polling %S.. (Abort with `M-x slime-abort-connection'.)" file))
+      (message "Polling %S .. %d (Abort with `M-x slime-abort-connection'.)"
+               file attempt))
     (cond ((and (file-exists-p file)
                 (> (nth 7 (file-attributes file)) 0)) ; file size
-           (slime-cancel-connect-retry-timer)
            (let ((port (slime-read-swank-port))
                  (args (slime-inferior-lisp-args process)))
              (slime-delete-swank-port-file 'message)
@@ -1396,24 +1397,22 @@ See `slime-start'."
                                      (plist-get args :coding-system))))
                (slime-set-inferior-process c process))))
           ((and retries (zerop retries))
-           (slime-cancel-connect-retry-timer)
            (message "Gave up connecting to Swank after %d attempts." attempt))
           ((eq (process-status process) 'exit)
-           (slime-cancel-connect-retry-timer)
            (message "Failed to connect to Swank: inferior process exited."))
           (t
-           (when (and (file-exists-p file) 
+           (when (and (file-exists-p file)
                       (zerop (nth 7 (file-attributes file))))
              (message "(Zero length port file)")
              ;; the file may be in the filesystem but not yet written
              (unless retries (setq retries 3)))
-           (unless slime-connect-retry-timer
-             (setq slime-connect-retry-timer
-                   (run-with-timer
-                    0.3 0.3
-                    #'slime-timer-call #'slime-attempt-connection 
-                    process (and retries (1- retries)) 
-                    (1+ attempt))))))))
+           (assert (not slime-connect-retry-timer))
+           (setq slime-connect-retry-timer
+                 (run-with-timer
+                  0.3 0.3
+                  #'slime-timer-call #'slime-attempt-connection
+                  process (and retries (1- retries))
+                  (1+ attempt)))))))
 
 (defun slime-timer-call (fun &rest args)
   "Call function FUN with ARGS, reporting all errors.
