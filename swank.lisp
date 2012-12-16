@@ -997,26 +997,21 @@ The processing is done in the extent of the toplevel restart."
    (force-output stream)
    (sleep *auto-flush-interval*)))
 
-;; FIXME: drop dependency on find-repl-thread
-(defun thread-for-evaluation (connection id &key find-existing)
-  "Find or create a thread to evaluate the next request."
-  (etypecase id
-    ((member t)
-     (etypecase connection
-       (multithreaded-connection
-        (if find-existing
-            (or (car (mconn.active-threads connection))
-                (find-repl-thread connection))
-            (spawn-worker-thread connection)))
-       (singlethreaded-connection (current-thread))))
-    ((member :repl-thread)
-     (find-repl-thread connection))
-    (fixnum
-     (find-thread id))))
+(defgeneric thread-for-evaluation (connection id)
+  (:documentation "Find or create a thread to evaluate the next request.")
+  (:method ((connection multithreaded-connection) (id (eql t)))
+    (spawn-worker-thread connection))
+  (:method ((connection multithreaded-connection) (id (eql :find-existing)))
+    (car (mconn.active-threads connection)))
+  (:method (connection (id fixnum))
+    (find-thread id))
+  (:method ((connection singlethreaded-connection) id)
+    (current-thread)))
 
 (defun interrupt-worker-thread (connection id)
-  (let ((thread (thread-for-evaluation connection id
-                                       :find-existing t)))
+  (let ((thread (thread-for-evaluation connection
+                                       (cond ((eq id t) :find-existing)
+                                             (t id)))))
     (log-event "interrupt-worker-thread: ~a ~a~%" id thread)
     (if thread
         (etypecase connection

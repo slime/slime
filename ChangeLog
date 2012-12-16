@@ -1,5 +1,10 @@
 2012-12-16  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (thread-for-evaluation): Make generic. Remove keyword
+	arg. Don't call find-repl-thread.
+
+2012-12-16  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-attempt-connection): Show the attempt counter.
 
 2012-12-03  Stas Boukarev  <stassats@gmail.com>
