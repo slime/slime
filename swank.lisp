@@ -1003,7 +1003,7 @@ The processing is done in the extent of the toplevel restart."
     (spawn-worker-thread connection))
   (:method ((connection multithreaded-connection) (id (eql :find-existing)))
     (car (mconn.active-threads connection)))
-  (:method (connection (id fixnum))
+  (:method (connection (id integer))
     (find-thread id))
   (:method ((connection singlethreaded-connection) id)
     (current-thread)))
