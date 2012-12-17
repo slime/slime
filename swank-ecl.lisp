@@ -10,14 +10,20 @@
 
 (in-package :swank-backend)
 
+
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (let ((version (find-symbol "+ECL-VERSION-NUMBER+" :EXT)))
-    (when (or (not version) (< (symbol-value version) 100301))
-      (error "~&IMPORTANT:~%  ~
+  (defun ecl-version ()
+    (let ((version (find-symbol "+ECL-VERSION-NUMBER+" :EXT)))
+      (if version
+          (symbol-value version)
+          0)))
+  (when (< (ecl-version) 100301)
+    (error "~&IMPORTANT:~%  ~
               The version of ECL you're using (~A) is too old.~%  ~
               Please upgrade to at least 10.3.1.~%  ~
               Sorry for the inconvenience.~%~%"
-             (lisp-implementation-version)))))
+           (lisp-implementation-version))))
 
 ;; Hard dependencies.
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -38,14 +44,15 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (import-from :gray *gray-stream-symbols* :swank-backend)
-
-  (import-swank-mop-symbols :clos
-    `(:eql-specializer
-      :eql-specializer-object
-      :generic-function-declarations
-      :specializer-direct-methods
-      ,@(unless (fboundp 'clos:compute-applicable-methods-using-classes)
-         '(:compute-applicable-methods-using-classes)))))
+  (import-swank-mop-symbols
+   :clos
+   (and (< (ecl-version) 121201)
+        `(:eql-specializer
+          :eql-specializer-object
+          :generic-function-declarations
+          :specializer-direct-methods
+          ,@(unless (fboundp 'clos:compute-applicable-methods-using-classes)
+              '(:compute-applicable-methods-using-classes))))))
 
 
 ;;;; TCP Server

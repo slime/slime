@@ -1,5 +1,8 @@
 2012-12-17  Stas Boukarev  <stassats@gmail.com>
 
+	* swank-ecl.lisp (swank-mop): MOP works well now on ECL, import
+	all symbols.
+
 	* swank.lisp (thread-for-evaluation): Use INTEGER, not FIXNUM, as
 	a specializer, FIXNUM is not a standard class.
 
