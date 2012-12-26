@@ -14,20 +14,28 @@
   (defvar *asdf-directory*
     (merge-pathnames #p"cl/asdf/" (user-homedir-pathname))
     "Directory in which your favorite and/or latest version
-     of the ASDF source code is located"))
+     of the ASDF source code is located")
+  (defvar *upgrade-asdf-p* nil
+    "Should we upgrade ASDF immediately upon startup?
+     This is recommended if you upgrade ASDF at all."))
 
 ;;; Doing our best to load ASDF
-;; First, try loading asdf from your implementation
+;; First, try loading asdf from your implementation.
+;; Use eval to not fail on old CLISP.
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (unless (member :asdf *features*)
-    (ignore-errors (require "asdf"))))
+    (ignore-errors (eval '(require "asdf")))))
 
 ;; If not found, load asdf from wherever the user specified it
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (unless (member :asdf *features*)
-    (handler-bind ((warning #'muffle-warning))
-      (ignore-errors (load (make-pathname :name "asdf" :type "lisp"
-                                          :defaults *asdf-directory*))))))
+    (ignore-errors
+     (handler-bind ((warning #'muffle-warning))
+       (let ((asdf-lisp (probe-file
+                         (make-pathname :name "asdf" :type "lisp"
+                                        :defaults *asdf-directory*))))
+         (when asdf-lisp (load asdf-lisp)))))))
+
 ;; If still not found, error out.
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (unless (member :asdf *features*)
@@ -36,10 +44,11 @@ Please install ASDF2 and in your ~~/.swank.lisp specify:
  (defparameter swank::*asdf-directory* #p\"/path/containing/asdf/\")")))
 
 ;;; If ASDF is found, try to upgrade it to the latest installed version.
-;; (eval-when (:compile-toplevel :load-toplevel :execute)
-;;   (handler-bind ((warning #'muffle-warning))
-;;     (pushnew *asdf-directory* asdf:*central-registry*)
-;;     (asdf:oos 'asdf:load-op :asdf)))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (when *upgrade-asdf-p*
+    (handler-bind ((warning #'muffle-warning))
+      (pushnew *asdf-directory* asdf:*central-registry*)
+      (ignore-errors (asdf:oos 'asdf:load-op :asdf)))))
 
 ;;; If ASDF is too old, punt.
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -73,6 +82,9 @@ Please upgrade to ASDF2 and in your ~~/.swank.lisp specify:
               (declaim (notinline ,name))
               (when (asdf-at-least ,version)
                 (setf (fdefinition ',name) (fdefinition ',aname)))))
+         (defmethod* (version aname rest)
+           `(unless (asdf-at-least ,version)
+              (defmethod ,aname ,@rest)))
          (defvar* (name aname rest)
            `(progn
               (define-symbol-macro ,name ,aname)
@@ -83,6 +95,7 @@ Please upgrade to ASDF2 and in your ~~/.swank.lisp specify:
                :collect
                (ecase def
                  ((defun) (defun* version name aname args))
+                 ((defmethod) (defmethod* version aname args))
                  ((defvar) (defvar* name aname args)))))))
 
 (asdefs "2.015"
@@ -179,7 +192,8 @@ Please upgrade to ASDF2 and in your ~~/.swank.lisp specify:
     (lambda (dir) (collect-asds-in-directory dir collect))))
 
  (defun system-source-directory (system-designator)
-   (pathname-directory-pathname (asdf::system-source-file system-designator)))
+   (asdf::pathname-directory-pathname
+    (asdf::system-source-file system-designator)))
 
  (defun filter-logical-directory-results (directory entries merger)
    (if (typep directory 'logical-pathname)
@@ -229,7 +243,7 @@ Please upgrade to ASDF2 and in your ~~/.swank.lisp specify:
          directory dirs
          (let ((prefix (or (normalize-pathname-directory-component
                             (pathname-directory directory))
-                           ;; because allegro returns NIL for #p"FOO:"
+                           ;; because allegro 8.x returns NIL for #p"FOO:"
                            '(:absolute)))) 
            (lambda (d)
              (let ((dir (normalize-pathname-directory-component
@@ -296,20 +310,22 @@ Please upgrade to ASDF2 and in your ~~/.swank.lisp specify:
                          :version (make-pathname-component-logical
                                    (pathname-version f)))))))))
 
+(asdefs "2.27"
+ (defmethod component-relative-pathname ((component asdf:component))
+   (asdf::coerce-pathname
+    (or (and (slot-boundp component 'asdf::relative-pathname)
+             (slot-value component 'asdf::relative-pathname))
+        (asdf::component-name component))
+    :type (asdf::source-file-type component (asdf::component-system component))
+    :defaults (asdf::component-parent-pathname component))))
+
 ;;; Taken from ASDF 1.628
 (defmacro while-collecting ((&rest collectors) &body body)
-  (let ((vars (mapcar (lambda (x) (gensym (symbol-name x))) collectors))
-        (initial-values (mapcar (constantly nil) collectors)))
-    `(let ,(mapcar #'list vars initial-values)
-       (flet ,(mapcar (lambda (c v) `(,c (x) (push x ,v) (values)))
-               collectors vars)
-         ,@body
-         (values ,@(mapcar (lambda (v) `(reverse ,v)) vars))))))
-
+  `(asdf::while-collecting ,collectors ,@body))
 
 ;;; Now for SLIME-specific stuff
 
-(defun find-operation (operation)
+(defun asdf-operation (operation)
   (or (find-symbol* operation :asdf)
       (error "Couldn't find ASDF operation ~S" operation)))
 
@@ -342,7 +358,8 @@ Please upgrade to ASDF2 and in your ~~/.swank.lisp specify:
 
 (defmethod asdf:component-pathname :around ((component asdf:component))
   (let ((p (call-next-method)))
-    (setf (gethash p *pathname-component*) component)
+    (when (pathnamep p)
+      (setf (gethash p *pathname-component*) component))
     p))
 
 (defun register-component-pathname (component)
@@ -392,7 +409,7 @@ Example:
 \(operate-on-system \"swank\" 'compile-op :force t)"
   (handler-case
       (with-compilation-hooks ()
-	(apply #'asdf:operate (find-operation operation-name)
+	(apply #'asdf:operate (asdf-operation operation-name)
                system-name keyword-args)
         t)
     (asdf:compile-error () nil)))
@@ -533,7 +550,8 @@ already knows."
     (when component
       ;;(format t "~&Compiling ASDF component ~S~%" component)
       (let ((op (make-instance 'asdf:compile-op)))
-        (asdf:perform op component)
+        (with-compilation-hooks ()
+          (asdf:perform op component))
         (when load-p
           (asdf:perform (make-instance 'asdf:load-op) component))
         (values t t nil (first (asdf:output-files op component)))))))
