@@ -1,3 +1,10 @@
+2012-12-27  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (find-definitions-find-symbol-or-package): Rename
+	from `find-definitions-find-symbol'. Packages are not named by
+	symbols and an uninterned string can refer to a package. In case
+	it finds a package, return a new uninterned symbol.
+
 2012-12-17  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-ecl.lisp (swank-mop): MOP works well now on ECL, import

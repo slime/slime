@@ -2927,17 +2927,22 @@ Include the nicknames if NICKNAMES is true."
     ((:sldb frame var)
      (frame-var-value frame var))))
 
-(defvar *find-definitions-right-trim* ",:.")
-(defvar *find-definitions-left-trim* "#:")
+(defvar *find-definitions-right-trim* ",:.>")
+(defvar *find-definitions-left-trim* "#:<")
 
-(defun find-definitions-find-symbol (name)
+(defun find-definitions-find-symbol-or-package (name)
   (flet ((do-find (name)
-           (multiple-value-bind (symbol found)
+           (multiple-value-bind (symbol found name)
                (with-buffer-syntax ()
                  (parse-symbol name))
-             (when found
-               (return-from find-definitions-find-symbol
-                 (values symbol found))))))
+             (cond (found
+                    (return-from find-definitions-find-symbol-or-package
+                      (values symbol found)))
+                   ;; Packages are not named by symbols, so
+                   ;; not-interned symbols can refer to packages
+                   ((find-package name)
+                    (return-from find-definitions-find-symbol-or-package
+                      (values (make-symbol name) t)))))))
     (do-find name)
     (do-find (string-right-trim *find-definitions-right-trim* name))
     (do-find (string-left-trim *find-definitions-left-trim* name))
@@ -2949,7 +2954,7 @@ Include the nicknames if NICKNAMES is true."
   "Return a list ((DSPEC LOCATION) ...) of definitions for NAME.
 DSPEC is a string and LOCATION a source location. NAME is a string."
   (multiple-value-bind (symbol found)
-      (find-definitions-find-symbol name)
+      (find-definitions-find-symbol-or-package name)
     (when found
       (mapcar #'xref>elisp (find-definitions symbol)))))
 
