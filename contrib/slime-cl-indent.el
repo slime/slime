@@ -438,8 +438,7 @@ OPTIONS are:
    (lisp-indent-defun-method (4 &lambda &body))
    ;; Without these (;;foo would get a space inserted between
    ;; ( and ; by indent-sexp.
-   (comment-indent-function (lambda () nil))
-   (comment-column nil)))
+   (comment-indent-function (lambda () nil))))
 
 (define-common-lisp-style "classic"
   "This style of indentation emulates the most striking features of 1995

@@ -1,3 +1,8 @@
+2013-01-03  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-cl-indent.el (define-common-lisp-style "basic"): Don't set
+	`comment-column' to NIL, it only can accept integers.
+
 2012-12-26  Francois-Rene Rideau <tunes@google.com>
 
 	* swank-asdf.lisp: Better support for different versions of ASDF.
