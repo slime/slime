@@ -1,3 +1,9 @@
+2013-01-04  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-fancy-inspector.el (slime-edit-inspector-part): New
+	function, tries to find a definition of the part at point. Hooks
+	into `slime-edit-definition-hooks'.
+
 2013-01-03  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-cl-indent.el (define-common-lisp-style "basic"): Don't set

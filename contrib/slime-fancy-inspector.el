@@ -4,7 +4,11 @@
   (:authors "Marco Baringer <mb@bese.it> and others")
   (:license "GPL")
   (:slime-dependencies slime-parse)
-  (:swank-dependencies swank-fancy-inspector))
+  (:swank-dependencies swank-fancy-inspector)
+  (:on-load
+   (add-hook 'slime-edit-definition-hooks 'slime-edit-inspector-part))
+  (:on-unload
+   (remove-hook 'slime-edit-definition-hooks 'slime-edit-inspector-part)))
 
 (defun slime-inspect-definition ()
   "Inspect definition at point"
@@ -16,5 +20,31 @@
   (interactive)
   (slime-eval-describe `(swank:disassemble-form
                          ,(slime-definition-at-point t))))
+
+(let* ((id (slime-presentation-id presentation))
+       (presentation-string (format "Presentation %s" id))
+       (location (slime-eval `(swank:find-definition-for-thing
+                               (swank:lookup-presented-object
+                                ',(slime-presentation-id presentation))))))
+  (slime-edit-definition-cont
+   (and location (list (make-slime-xref :dspec `(,presentation-string)
+                                        :location location)))
+   presentation-string
+   where))
+
+(defun slime-edit-inspector-part (name &optional where)
+  (destructuring-bind (&optional property value)
+      (slime-inspector-property-at-point)
+    (when (eq property 'slime-part-number)
+      (let ((location (slime-eval `(swank:find-definition-for-thing
+                                    (swank:inspector-nth-part ,value))))
+            (name (format "Inspector part %s" value)))
+        (when (and (consp location)
+                   (not (eq (car location) :error)))
+          (slime-edit-definition-cont
+           (list (make-slime-xref :dspec `(,name)
+                                  :location location))
+           name
+           where))))))
 
 (provide 'slime-fancy-inspector)
