@@ -21,17 +21,6 @@
   (slime-eval-describe `(swank:disassemble-form
                          ,(slime-definition-at-point t))))
 
-(let* ((id (slime-presentation-id presentation))
-       (presentation-string (format "Presentation %s" id))
-       (location (slime-eval `(swank:find-definition-for-thing
-                               (swank:lookup-presented-object
-                                ',(slime-presentation-id presentation))))))
-  (slime-edit-definition-cont
-   (and location (list (make-slime-xref :dspec `(,presentation-string)
-                                        :location location)))
-   presentation-string
-   where))
-
 (defun slime-edit-inspector-part (name &optional where)
   (destructuring-bind (&optional property value)
       (slime-inspector-property-at-point)
