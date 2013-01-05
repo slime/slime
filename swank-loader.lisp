@@ -156,7 +156,7 @@ Return nil if nothing appropriate is available."
     (ignore-errors (delete-file pathname)))
   (abort))
 
-(defun compile-files (files fasl-dir load)
+(defun compile-files (files fasl-dir load quiet)
   "Compile each file in FILES if the source is newer than its
 corresponding binary, or the file preceding it was recompiled.
 If LOAD is true, load the fasl file."
@@ -174,13 +174,14 @@ If LOAD is true, load the fasl file."
                 ;; everything after this too.
                 (setq needs-recompile t)
                 (setq state :compile)
-                (or (compile-file src :output-file dest :print nil :verbose t)
+                (or (compile-file src :output-file dest :print nil
+                                  :verbose (not quiet))
                     ;; An implementation may not necessarily signal a
                     ;; condition itself when COMPILE-FILE fails (e.g. ECL)
                     (error "COMPILE-FILE returned NIL.")))
               (when load
                 (setq state :load)
-                (load dest :verbose t)))
+                (load dest :verbose (not quiet))))
           ;; Fail as early as possible
           (serious-condition (c)
             (ecase state
@@ -189,13 +190,13 @@ If LOAD is true, load the fasl file."
               (:unknown (handle-swank-load-error c "???ing" src)))))))))
 
 #+(or cormanlisp)
-(defun compile-files (files fasl-dir load)
+(defun compile-files (files fasl-dir load quiet)
   "Corman Lisp has trouble with compiled files."
   (declare (ignore fasl-dir))
   (when load
     (dolist (file files)
-      (load file :verbose t)
-      (force-output))))
+      (load file :verbose (not quiet)
+      (force-output)))))
 
 (defun load-user-init-file ()
   "Load the user init file, return NIL if it does not exist."
@@ -239,8 +240,9 @@ If LOAD is true, load the fasl file."
   (append-dir base-dir "contrib"))
 
 (defun load-swank (&key (src-dir *source-directory*)
-                        (fasl-dir *fasl-directory*))
-  (compile-files (src-files *swank-files* src-dir) fasl-dir t)
+                     (fasl-dir *fasl-directory*)
+                     quiet)
+  (compile-files (src-files *swank-files* src-dir) fasl-dir t quiet)
   (funcall (q "swank::before-init")
            (slime-version-string)
            (list (contrib-dir fasl-dir)
@@ -257,12 +259,12 @@ If LOAD is true, load the fasl file."
 (defun compile-contribs (&key (src-dir (contrib-dir *source-directory*))
                            (fasl-dir (contrib-dir *fasl-directory*))
                            (swank-src-dir *source-directory*)
-                           load)
+                           load quiet)
   (let* ((swank-src-files (src-files *swank-files* swank-src-dir))
          (contrib-src-files (src-files *contribs* src-dir)))
     (delete-stale-contrib-fasl-files swank-src-files contrib-src-files 
                                      fasl-dir)
-    (compile-files contrib-src-files fasl-dir load)))
+    (compile-files contrib-src-files fasl-dir load quiet)))
 
 (defun loadup ()
   (load-swank)
@@ -277,7 +279,8 @@ If LOAD is true, load the fasl file."
     (eval `(pushnew 'compile-contribs ,(q "swank::*after-init-hook*"))))
   (funcall (q "swank::init")))
 
-(defun init (&key delete reload load-contribs (setup t))
+(defun init (&key delete reload load-contribs (setup t)
+               (quiet (not *load-verbose*)))
   "Load SWANK and initialize some global variables.
 If DELETE is true, delete any existing SWANK packages.
 If RELOAD is true, reload SWANK, even if the SWANK package already exists.
@@ -287,11 +290,11 @@ global variabes in SWANK."
   (when (and delete (find-package :swank))
     (mapc #'delete-package '(:swank :swank-io-package :swank-backend)))
   (cond ((or (not (find-package :swank)) reload)
-         (load-swank))
-        (t 
+         (load-swank :quiet quiet))
+        (t
          (warn "Not reloading SWANK.  Package already exists.")))
   (when load-contribs
-    (compile-contribs :load t))
+    (compile-contribs :load t :quiet quiet))
   (when setup
     (setup)))
 
