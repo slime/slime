@@ -1,5 +1,9 @@
 2013-01-05  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-ccl.lisp (frame-package): Implemented.
+
+2013-01-05  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-loader.lisp (init): Add a :quiet argument.
 
 2012-12-27  Stas Boukarev  <stassats@gmail.com>

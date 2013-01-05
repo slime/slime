@@ -407,6 +407,20 @@
         (pc-source-location lfun pc)
         (function-source-location lfun)))))
 
+(defimplementation frame-package (frame-number)
+  (with-frame (p context) frame-number
+    (let* ((lfun (ccl:frame-function p context))
+           (name (ccl:function-name lfun)))
+      (labels ((name-package (name)
+                 (etypecase name
+                   (null nil)
+                   (symbol (symbol-package name))
+                   ((cons (eql setf) symbol) (symbol-package (cadr name)))
+                   ((cons (eql :internal)) (name-package (car (last name))))
+                   ((cons (and symbol (not keyword)) (cons list null))
+                    (symbol-package (car name))))))
+        (name-package name)))))
+
 (defimplementation eval-in-frame (form index)
   (with-frame (p context) index
     (let ((vars (ccl:frame-named-variables p context)))
