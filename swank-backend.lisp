@@ -840,8 +840,9 @@ symbol. The recognised keys are:
   :TYPE :CLASS :ALIEN-TYPE :ALIEN-STRUCT :ALIEN-UNION :ALIEN-ENUM
 
 The value of each property is the corresponding documentation string,
-or :NOT-DOCUMENTED. It is legal to include keys not listed here (but
-slime-print-apropos in Emacs must know about them).
+or NIL (or the obsolete :NOT-DOCUMENTED). It is legal to include keys
+not listed here (but slime-print-apropos in Emacs must know about
+them).
 
 Properties should be included if and only if they are applicable to
 the symbol. For example, only (and all) fbound symbols should include

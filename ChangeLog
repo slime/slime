@@ -1,3 +1,14 @@
+2013-01-07  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-ecl.lisp (describe-symbol-for-emacs): Include bound
+	symbols even those without documentation.
+
+	* slime.el (slime-print-apropos): Do some input validation to
+	detect bugs on the Lisp side.
+
+	* swank-backend.lisp (describe-symbol-for-emacs): Allow NIL where
+	:NOT-DOCUMENTED was needed.
+
 2013-01-05  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-ccl.lisp (frame-package): Implemented.

@@ -329,9 +329,13 @@
 
 (defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))
-    (dolist (type '(:VARIABLE :FUNCTION :CLASS))
-      (when-let (doc (describe-definition symbol type))
-        (setf result (list* type doc result))))
+    (flet ((frob (type boundp)
+             (when (funcall boundp symbol)
+               (let ((doc (describe-definition symbol type)))
+                 (setf result (list* type doc result))))))
+      (frob :VARIABLE #'boundp)
+      (frob :FUNCTION #'fboundp)
+      (frob :CLASS (lambda (x) (find-class x nil))))
     result))
 
 (defimplementation describe-definition (name type)
