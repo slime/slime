@@ -1270,9 +1270,18 @@ stack."
     (code-location-source-location
      (sb-di:frame-code-location (nth-frame index)))))
 
+(defvar *keep-non-valid-locals* nil)
+
 (defun frame-debug-vars (frame)
   "Return a vector of debug-variables in frame."
-  (sb-di::debug-fun-debug-vars (sb-di:frame-debug-fun frame)))
+  (let ((all-vars (sb-di::debug-fun-debug-vars (sb-di:frame-debug-fun frame))))
+    (cond (*keep-non-valid-locals* all-vars)
+          (t (let ((loc (sb-di:frame-code-location frame)))
+               (remove-if (lambda (var)
+                            (ecase (sb-di:debug-var-validity var loc)
+                              (:valid nil)
+                              ((:invalid :unknown) t)))
+                          all-vars))))))
 
 (defun debug-var-value (var frame location)
   (ecase (sb-di:debug-var-validity var location)

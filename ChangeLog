@@ -1,3 +1,8 @@
+2013-01-09  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-sbcl.lisp (frame-debug-vars): Only include :valid locals.
+	(*keep-non-valid-locals*): New.
+
 2013-01-07  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-ccl.lisp (compiler-warning-short-message): Add a method
