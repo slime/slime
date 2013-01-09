@@ -2,6 +2,7 @@
 
 	* swank-sbcl.lisp (frame-debug-vars): Only include :valid locals.
 	(*keep-non-valid-locals*): New.
+	(frame-package): New.
 
 2013-01-07  Helmut Eller  <heller@common-lisp.net>
 

@@ -1360,6 +1360,16 @@ stack."
                                           (sb-di:frame-code-location frame)))
              frame)))
 
+(defimplementation frame-package (frame-number)
+  (let* ((frame (nth-frame frame-number))
+         (fun (sb-di:debug-fun-fun (sb-di:frame-debug-fun frame))))
+    (when fun
+      (let ((name (function-name fun)))
+        (typecase name
+          (null nil)
+          (symbol (symbol-package name))
+          ((cons (eql setf) (cons symbol)) (symbol-package (cadr name))))))))
+
 #+#.(swank-backend::sbcl-with-restart-frame)
 (progn
   (defimplementation return-from-frame (index form)
