@@ -2328,7 +2328,8 @@ TAGS has is a list of strings."
   (with-bindings *backtrace-printer-bindings*
     (loop for var in (frame-locals index) collect
           (destructuring-bind (&key name id value) var
-            (list :name (prin1-to-string name)
+            (list :name (let ((*package* (or (frame-package index) *package*)))
+                          (prin1-to-string name))
                   :id id
                   :value (to-line value *print-right-margin*))))))
 

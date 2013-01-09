@@ -1,5 +1,10 @@
 2013-01-09  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (frame-locals-for-emacs): Print variable names in
+	frame-package.
+
+2013-01-09  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-sbcl.lisp (frame-debug-vars): Only include :valid locals.
 	(*keep-non-valid-locals*): New.
 	(frame-package): New.
