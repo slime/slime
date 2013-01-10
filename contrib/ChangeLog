@@ -1,3 +1,9 @@
+2013-01-10  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-autodoc.el (slime-autodoc): Remove :gnu-emacs-only.
+	Suggested by Raymond Toy.
+	(slime-autodoc): Fix long lines.
+
 2013-01-04  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-fancy-inspector.el (slime-edit-inspector-part): New
