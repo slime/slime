@@ -499,14 +499,17 @@
   (third (elt *backtrace* frame-number)))
 
 (defimplementation frame-locals (frame-number)
-  (loop for (name . value) in (nth-value 2 (frame-decode-env 
+  (loop for (name . value) in (nth-value 2 (frame-decode-env
                                             (elt *backtrace* frame-number)))
-        with i = 0
-        collect (list :name name :id (prog1 i (incf i)) :value value)))
+        collect (list :name name :id 0 :value value)))
 
-(defimplementation frame-var-value (frame-number var-id)
-  (elt (nth-value 2 (frame-decode-env (elt *backtrace* frame-number)))
-       var-id))
+(defimplementation frame-var-value (frame-number var-number)
+  (destructuring-bind (name . value)
+      (elt
+       (nth-value 2 (frame-decode-env (elt *backtrace* frame-number)))
+       var-number)
+    (declare (ignore name))
+    value))
 
 (defimplementation disassemble-frame (frame-number)
   (let ((fun (frame-function (elt *backtrace* frame-number))))
