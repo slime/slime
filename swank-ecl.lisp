@@ -95,7 +95,7 @@
                                      :buffering (ecase buffering
                                                   ((t) :full)
                                                   ((nil) :none)
-                                                  (:line line))
+                                                  (:line :line))
                                      :element-type (if external-format
                                                        'character 
                                                        '(unsigned-byte 8))
