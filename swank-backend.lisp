@@ -1347,6 +1347,7 @@ Don't execute unwind-protected sections, don't raise conditions.
 
 (definterface send (thread object)
   "Send OBJECT to thread THREAD."
+  (declare (ignore thread))
   object)
 
 (definterface receive (&optional timeout)
@@ -1366,6 +1367,7 @@ If THREAD is nil delete the association."
 (definterface find-registered (name)
   "Find the thread that was registered for the symbol NAME.
 Return nil if the no thread was registred or if the tread is dead."
+  (declare (ignore name))
   nil)
 
 (definterface set-default-initial-binding (var form)

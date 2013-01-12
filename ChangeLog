@@ -1,3 +1,7 @@
+2013-01-12  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-backend.lisp: Add a couple of ignore declarations.
+
 2013-01-11  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-ecl.lisp (accept-connection): Fix a typo, line => :line.
