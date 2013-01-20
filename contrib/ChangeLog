@@ -1,3 +1,13 @@
+2013-01-20  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-asdf.lisp: Better compatibility with newer ASDF.
+	Patch by Francois-Rene Rideau and Stelian Ionescu.
+
+	Remove auto-upgrading.
+	Rename *asdf-directory* to *asdf-path*, to be a full path to
+	asdf.lisp.
+	Remove #+gcl and #+genera.
+
 2013-01-10  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-autodoc.el (slime-autodoc): Remove :gnu-emacs-only.
