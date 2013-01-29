@@ -46,9 +46,10 @@ install ASDF2 and in your ~~/.swank.lisp specify:
 ;; It's just not worth the hassle supporting something
 ;; that doesn't even have COERCE-PATHNAME.
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (unless (or #+asdf2
+  (unless (or #+asdf3 t #+asdf2
               (asdf:version-satisfies (asdf:asdf-version) "2.14.6"))
-    (error "ASDF is too old. The latest supported version is 2.14.6.")))
+    (error "Your ASDF is too old. ~
+            The oldest version supported by swank-asdf is 2.014.6.")))
 
 ;;; Import functionality from ASDF that isn't available in all ASDF versions.
 ;;; Please do NOT depend on any of the below as reference:
@@ -263,13 +264,17 @@ install ASDF2 and in your ~~/.swank.lisp specify:
                          :version (make-pathname-component-logical
                                    (pathname-version f)))))))))
 
-(asdefs "2.26.125"
+(asdefs "2.26.149"
  (defmethod component-relative-pathname ((system asdf:system))
    (asdf::coerce-pathname
     (and (slot-boundp system 'asdf::relative-pathname)
          (slot-value system 'asdf::relative-pathname))
     :type :directory
-    :defaults (system-source-directory system))))
+    :defaults (system-source-directory system)))
+ (defun load-asd (pathname &key name &allow-other-keys)
+   (asdf::load-sysdef (or name (string-downcase (pathname-name pathname)))
+                      pathname)))
+
 
 ;;; Taken from ASDF 1.628
 (defmacro while-collecting ((&rest collectors) &body body)
@@ -364,7 +369,8 @@ Example:
         (apply #'asdf:operate (asdf-operation operation-name)
                system-name keyword-args)
         t)
-    (asdf:compile-error () nil)))
+    ((or asdf:compile-error #+asdf3 asdf/lisp-build:compile-file-error)
+      () nil)))
 
 (defun unique-string-list (&rest lists)
   (sort (delete-duplicates (apply #'append lists) :test #'string=) #'string<))
@@ -380,17 +386,15 @@ AND in its source-registry. (legacy name)"
             for defaults = (eval dir)
             when defaults
             do (collect-asds-in-directory defaults #'c))
-      #+asdf2
-      (progn
-        (asdf:ensure-source-registry)
-        (if (asdf:version-satisfies (asdf:asdf-version) "2.15")
-            (loop :for k :being :the :hash-keys :of asdf::*source-registry*
-                  :do (c k))
-            (dolist (entry (asdf::flatten-source-registry))
-              (destructuring-bind (directory &key recurse exclude) entry
-                (register-asd-directory
-                 directory
-                 :recurse recurse :exclude exclude :collect #'c)))))))))
+      (asdf:ensure-source-registry)
+      (if (or #+asdf3 t (asdf:version-satisfies (asdf:asdf-version) "2.15"))
+          (loop :for k :being :the :hash-keys :of asdf::*source-registry*
+                :do (c k))
+          (dolist (entry (asdf::flatten-source-registry))
+            (destructuring-bind (directory &key recurse exclude) entry
+              (register-asd-directory
+               directory
+               :recurse recurse :exclude exclude :collect #'c))))))))
 
 (defslimefun list-all-systems-known-to-asdf ()
   "Returns a list of all systems ASDF knows already."
@@ -508,7 +512,7 @@ already knows."
 (defun try-compile-asd-file (pathname load-p &rest options)
   (declare (ignore load-p options))
   (when (equalp (pathname-type pathname) "asd")
-    (load-sysdef (string-downcase (pathname-name pathname)) pathname)
+    (load-asd pathname)
     (values t t nil pathname)))
 
 (pushnew 'try-compile-asd-file *compile-file-for-emacs-hook*)
