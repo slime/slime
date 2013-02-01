@@ -448,21 +448,26 @@ already knows."
 (defun pathname-system (pathname)
   (let ((component (pathname-component pathname)))
     (when component
-      (asdf:component-system component))))
+      (asdf:component-name (asdf:component-system component)))))
 
 (defslimefun asdf-determine-system (file buffer-package-name)
   (or
-   (pathname-system file)
-   (progn ; If not found, let's rebuild the table first
-     (recompute-pathname-component-table)
-     (pathname-system file))
+   (and file
+        (pathname-system file))
+   (and file
+        (progn
+          ;; If not found, let's rebuild the table first
+          (recompute-pathname-component-table)
+          (pathname-system file)))
    ;; If we couldn't find an already defined system,
    ;; try finding a system that's named like BUFFER-PACKAGE-NAME.
-   (loop :with package = (guess-buffer-package buffer-package-name)
-         :for name :in (package-names package)
-         :for system = (asdf:find-system (asdf::coerce-name name) nil)
-         :when system :do (register-system-pathnames system)
-         :thereis (pathname-system file))))
+   (loop with package = (guess-buffer-package buffer-package-name)
+         for name in (package-names package)
+         for system = (asdf:find-system (asdf::coerce-name name) nil)
+         when (and system
+                   (or (not file)
+                       (pathname-system file)))
+         return (asdf:component-name system))))
 
 (defslimefun delete-system-fasls (name)
   (let ((removed-count

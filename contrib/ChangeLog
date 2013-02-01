@@ -1,3 +1,9 @@
+2013-02-01  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-asdf.lisp (asdf-determine-system): Return the name of a
+	system.
+	Reported by Tamas Papp.
+
 2013-01-29  Francois-Rene Rideau <tunes@google.com>
 
 	* swank-asdf.lisp: Better upcoming ASDF3 support.
