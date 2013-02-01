@@ -1,5 +1,9 @@
 2013-02-01  Stas Boukarev  <stassats@gmail.com>
 
+	* slime-asdf.el (slime-determine-asdf-system): Don't call
+	slime-to-lisp-filename on NIL.
+	Reported by Tamas Papp.
+
 	* swank-asdf.lisp (asdf-determine-system): Return the name of a
 	system.
 	Reported by Tamas Papp.
