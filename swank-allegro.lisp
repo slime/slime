@@ -140,6 +140,11 @@
     (:class
      (describe (find-class symbol)))))
 
+(defimplementation type-specifier-p (symbol)
+  (or (ignore-errors
+       (subtypep nil symbol))
+      (not (eq (type-specifier-arglist symbol) :not-available))))
+
 ;;;; Debugger
 
 (defvar *sldb-topframe*)

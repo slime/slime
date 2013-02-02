@@ -345,6 +345,10 @@
     (:class (documentation name 'class))
     (t nil)))
 
+(defimplementation type-specifier-p (symbol)
+  (or (subtypep nil symbol)
+      (not (eq (type-specifier-arglist symbol) :not-available))))
+
 
 ;;; Debugging
 

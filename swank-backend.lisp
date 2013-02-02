@@ -781,6 +781,11 @@ additional information on the specifiers defined in ANSI Common Lisp.")
                   :not-available))
       (t :not-available))))
 
+(definterface type-specifier-p (symbol)
+  "Determine if SYMBOL is a type-specifier."
+  (or (documentation symbol 'type)
+      (not (eq (type-specifier-arglist symbol) :not-available))))
+
 (definterface function-name (function)
   "Return the name of the function object FUNCTION.
 

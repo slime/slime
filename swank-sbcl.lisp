@@ -438,6 +438,9 @@
       (sb-introspect:deftype-lambda-list typespec-operator)
     (if foundp arglist (call-next-method))))
 
+(defimplementation type-specifier-p (symbol)
+  (or (sb-ext:valid-type-specifier-p symbol)
+      (not (eq (type-specifier-arglist symbol) :not-available))))
 
 (defvar *buffer-name* nil)
 (defvar *buffer-tmpfile* nil)

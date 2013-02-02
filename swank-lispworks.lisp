@@ -297,6 +297,11 @@ Return NIL if the symbol is unbound."
   (when (fboundp sym)
     (describe-function sym)))
 
+(defimplementation type-specifier-p (symbol)
+  (or (ignore-errors
+       (subtypep nil symbol))
+      (not (eq (type-specifier-arglist symbol) :not-available))))
+
 ;;; Debugging
 
 (defclass slime-env (env:environment) 

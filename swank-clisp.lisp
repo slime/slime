@@ -308,6 +308,11 @@ Return NIL if the symbol is unbound."
     (:function (describe (symbol-function symbol)))
     (:class (describe (find-class symbol)))))
 
+(defimplementation type-specifier-p (symbol)
+  (or (ignore-errors
+       (subtypep nil symbol))
+      (not (eq (type-specifier-arglist symbol) :not-available))))
+
 (defun fspec-pathname (spec)
   (let ((path spec)
 	type

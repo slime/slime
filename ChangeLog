@@ -1,3 +1,8 @@
+2013-02-02  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-backend.lisp (type-specifier-p): New.
+	Implement it for ACL, ECL, CCL, Clisp, SBCL, LW.
+
 2013-01-12  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-backend.lisp: Add a couple of ignore declarations.

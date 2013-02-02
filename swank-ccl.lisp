@@ -694,6 +694,10 @@
     (loop for i below (ccl:uvsize object) append 
           (label-value-line (princ-to-string i) (ccl:uvref object i)))))
 
+(defimplementation type-specifier-p (symbol)
+  (or (ccl:type-specifier-p symbol)
+      (not (eq (type-specifier-arglist symbol) :not-available))))
+
 ;;; Multiprocessing
 
 (defvar *known-processes* 

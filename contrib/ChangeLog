@@ -1,5 +1,8 @@
 2013-02-02  Stas Boukarev  <stassats@gmail.com>
 
+	* swank-util.lisp (symbol-classification-string): Use
+	type-specifier-p.
+
 	* swank-fuzzy.lisp: Allow NIL to be completed, don't confuse with
 	it package:
 
