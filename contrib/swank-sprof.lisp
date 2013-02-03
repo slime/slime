@@ -17,18 +17,29 @@
 (defvar *node-numbers* nil)
 (defvar *number-nodes* nil)
 
+(defun frame-name (name)
+  (if (consp name)
+      (case (first name)
+        ((sb-c::xep sb-c::tl-xep
+                    sb-c::&more-processor
+                    sb-c::top-level-form
+                    sb-c::&optional-processor)
+         (second name))
+        (sb-pcl::fast-method
+         (cdr name))
+        ((flet labels lambda)
+         (let* ((in (member :in name)))
+           (if (stringp (cadr in))
+               (append (ldiff name in) (cddr in))
+               name)))
+        (t
+         name))
+      name))
+
 (defun pretty-name (name)
   (let ((*package* (find-package :common-lisp-user))
         (*print-right-margin* most-positive-fixnum))
-    (format nil "~S" (if (consp name)
-                         (let ((head (car name)))
-                           (if (or (eq head 'sb-c::tl-xep)
-                                   (eq head 'sb-c::hairy-arg-processor)
-                                   (eq head 'sb-c::top-level-form)
-                                   (eq head 'sb-c::xep))
-                               (cadr name)
-                               name))
-                         name))))
+    (format nil "~S" (frame-name name))))
 
 (defun samples-percent (count)
   (sb-sprof::samples-percent *call-graph* count))
@@ -95,12 +106,11 @@
                     (list (gethash node *node-numbers*)
                           name
                           (samples-percent count)))))))
-      (list :callers (let ((edges (sort (copy-list (sb-sprof::node-callers node))
-                                        #'>
-                                        :key #'caller-count)))
-                       (loop for node in edges
-                             collect (serialize-node node
-                                                     (caller-count node))))
+      (list :callers (loop for node in
+                           (sort (copy-list (sb-sprof::node-callers node)) #'>
+                                 :key #'caller-count)
+                           collect (serialize-node node
+                                                   (caller-count node)))
             :calls (let ((edges (sort (copy-list (sb-sprof::vertex-edges node))
                                       #'>
                                       :key #'sb-sprof::call-count)))

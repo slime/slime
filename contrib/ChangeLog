@@ -1,3 +1,7 @@
+2013-02-03  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-sprof.lisp (pretty-name): Better frame names.
+
 2013-02-02  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-util.lisp (symbol-classification-string): Use
