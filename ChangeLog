@@ -1,3 +1,11 @@
+2013-02-08  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-allegro.lisp (handle-compiler-warning): Ignore "Closure
+	will be stack allocated" notes.  Those are harmless and there are
+	too many of them.
+	(pc-source-location, ldb-code-to-src-loc): Handle case when
+	excl::ldb-code-pc returns nil.
+
 2013-02-02  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-backend.lisp (type-specifier-p): New.

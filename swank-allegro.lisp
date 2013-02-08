@@ -237,7 +237,8 @@
           (t
            (let* ((code-loc (find-if (lambda (c)
                                        (<= (- pc (sys::natural-width))
-                                           (excl::ldb-code-pc c)
+                                           (let ((x (excl::ldb-code-pc c)))
+                                             (or x -1))
                                            pc))
                                      debug-info)))
              (cond ((not code-loc)
@@ -250,7 +251,7 @@
   (declare (optimize debug))
   (let* ((func (excl::ldb-code-func code))
          (debug-info (excl::function-source-debug-info func))
-         (start (loop for i downfrom (excl::ldb-code-index code) 
+         (start (loop for i from (excl::ldb-code-index code) downto 0
                       for bpt = (aref debug-info i)
                       for start = (excl::ldb-code-start-char bpt)
                       when start return start))
@@ -362,9 +363,16 @@
 
 (defun handle-compiler-warning (condition)
   (declare (optimize (debug 3) (speed 0) (space 0)))
-  (cond ((and (not *buffer-name*) 
+  (cond ((and (not *buffer-name*)
               (compiler-undefined-functions-called-warning-p condition))
          (handle-undefined-functions-warning condition))
+        ((and (typep condition 'excl::compiler-note)
+              (let ((format (slot-value condition 'excl::format-control)))
+                (and (search "Closure" format)
+                     (search "will be stack allocated" format))))
+         ;; Ignore "Closure <foo> will be stack allocated" notes.
+         ;; That occurs often but is usually uninteresting.
+         )
         (t
          (signal-compiler-condition
           :original-condition condition
@@ -376,7 +384,7 @@
                       (reader-error  :read-error)
                       (error         :error))
           :message (format nil "~A" condition)
-          :location (if (typep condition 'reader-error) 
+          :location (if (typep condition 'reader-error)
                         (location-for-reader-error condition)
                         (location-for-warning condition))))))
 
