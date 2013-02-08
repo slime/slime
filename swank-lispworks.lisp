@@ -459,10 +459,26 @@ Return NIL if the symbol is unbound."
   (let ((frame (nth-frame frame-number)))
     (dbg::dbg-eval form frame)))
 
+(defun function-name-package (name)
+  (typecase name
+    (null nil)
+    (symbol (symbol-package name))
+    ((cons (eql hcl:subfunction))
+     (destructuring-bind (name parent) (cdr name)
+       (declare (ignore name))
+       (function-name-package parent)))
+    ((cons (eql lw:top-level-form)) nil)
+    (t nil)))
+
+(defimplementation frame-package (frame-number)
+  (let ((frame (nth-frame frame-number)))
+    (if (dbg::call-frame-p frame)
+        (function-name-package (dbg::call-frame-function-name frame)))))
+
 (defimplementation return-from-frame (frame-number form)
   (let* ((frame (nth-frame frame-number))
          (return-frame (dbg::find-frame-for-return frame)))
-    (dbg::dbg-return-from-call-frame frame form return-frame 
+    (dbg::dbg-return-from-call-frame frame form return-frame
                                      dbg::*debugger-stack*)))
 
 (defimplementation restart-frame (frame-number)

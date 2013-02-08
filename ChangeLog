@@ -1,5 +1,10 @@
 2013-02-08  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-lispworks.lisp (frame-package): Implemented.
+	(function-name-package): New.
+
+2013-02-08  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-allegro.lisp (handle-compiler-warning): Ignore "Closure
 	will be stack allocated" notes.  Those are harmless and there are
 	too many of them.
