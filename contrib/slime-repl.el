@@ -190,7 +190,8 @@ current repl's (as per slime-output-buffer) window."
   (let ((stream (open-network-stream "*lisp-output-stream*" 
                                      (slime-with-connection-buffer ()
                                        (current-buffer))
-				     slime-lisp-host port))
+				     (car (process-contact (slime-connection)))
+                                     port))
         (emacs-coding-system (car (find coding-system
                                         slime-net-valid-coding-systems
                                         :key #'third))))

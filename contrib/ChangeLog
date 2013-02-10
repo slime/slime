@@ -1,3 +1,8 @@
+2013-02-10  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-open-stream-to-lisp): Use current
+	connection host instead of slime-lisp-host.
+
 2013-02-03  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sprof.lisp (pretty-name): Better frame names.
