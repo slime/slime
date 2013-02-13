@@ -1,3 +1,12 @@
+2013-02-13  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-kawa.scm (listener-loop): Use close-port instead of
+	close-output-port.  close-output-port startet to signal errors in
+	recent versions.
+	(listener): Stop taking stack-snapshots on caught exceptions as
+	it's too slow. It was always expensive and in Java7 it's
+	unbearably slow.
+
 2013-02-10  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-open-stream-to-lisp): Use current

@@ -602,7 +602,8 @@
     (let ((vm (as <vm> (rpc c `(get-vm)))))
       (send c `(set-listener ,(vm-mirror vm (current-thread))))
       (request-uncaught-exception-events vm)
-      (request-caught-exception-events vm)
+      ;;stack snaphost are too expensive
+      ;;(request-caught-exception-events vm)
       )
     (rpc c `(get-vm))
     (listener-loop c env out)))
@@ -619,7 +620,7 @@
     ;;(log "listener-loop: ~s ~s\n" (current-thread) c)
     (mlet ((form id) (recv c))
       (let ((restart (fun ()
-                       (close-output-port port)
+                       (close-port port)
                        (reply-abort c id)
                        (send (car (spawn/chan
                                    (fun (cc) 
