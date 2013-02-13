@@ -5456,6 +5456,11 @@ FRAMES is a list (NUMBER DESCRIPTION &optional PLIST) describing the initial
 portion of the backtrace. Frames are numbered from 0.
 CONTS is a list of pending Emacs continuations."
   (with-current-buffer (sldb-get-buffer thread)
+    (assert (if (equal sldb-level level)
+                (equal sldb-condition condition)
+              t)
+            () "Bug: sldb-level is equal but condition differs\n%s\n%s"
+            sldb-condition condition)
     (unless (equal sldb-level level)
       (setq buffer-read-only nil)
       (slime-save-local-variables (slime-popup-restore-data)

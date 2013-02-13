@@ -300,9 +300,9 @@
     ;; let-bind lexical variables
     (let ((vars (loop for i below (debugger:frame-number-vars frame)
                       for name = (debugger:frame-var-name frame i)
-                      if (symbolp name)
+                      if (typep name '(and symbol (not null) (not keyword)))
                       collect `(,name ',(debugger:frame-var-value frame i)))))
-      (debugger:eval-form-in-context 
+      (debugger:eval-form-in-context
        `(let* ,vars ,form)
        (debugger:environment-of-frame frame)))))
 

@@ -1,3 +1,12 @@
+2013-02-13  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-allegro.lisp (eval-in-frame): debugger:frame-var-name can
+	return nil; ignore those vars.
+
+	* slime.el (sldb-setup): Allegro somehow managed to enter sldb at
+	the same level twice.  Add an assertion that checks that the
+	condition is the same if sldb-level is the same as last time.
+
 2013-02-08  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-lispworks.lisp (frame-package): Implemented.
