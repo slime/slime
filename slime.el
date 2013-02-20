@@ -1318,7 +1318,7 @@ Return the created process."
   "Start a Swank server in the inferior Lisp and connect."
   (slime-delete-swank-port-file 'quiet)
   (slime-start-swank-server process args)
-  (slime-read-port-and-connect process nil))
+  (slime-read-port-and-connect process))
 
 (defvar slime-inferior-lisp-args nil
   "A buffer local variable in the inferior proccess.
@@ -1376,9 +1376,8 @@ See `slime-start'."
        (message (message "Unable to delete swank port file %S"
                          (slime-swank-port-file)))))))
 
-(defun slime-read-port-and-connect (inferior-process retries)
-  (slime-cancel-connect-retry-timer)
-  (slime-attempt-connection inferior-process retries 1))
+(defun slime-read-port-and-connect (inferior-process)
+  (slime-attempt-connection inferior-process nil 1))
 
 (defun slime-attempt-connection (process retries attempt)
   ;; A small one-state machine to attempt a connection with
@@ -1409,7 +1408,7 @@ See `slime-start'."
            (assert (not slime-connect-retry-timer))
            (setq slime-connect-retry-timer
                  (run-with-timer
-                  0.3 0.3
+                  0.3 nil
                   #'slime-timer-call #'slime-attempt-connection
                   process (and retries (1- retries))
                   (1+ attempt)))))))
@@ -6385,7 +6384,7 @@ was called originally."
   (let ((id (get-text-property (point) 'thread-index))
         (file (slime-swank-port-file)))
     (slime-eval-async `(swank:start-swank-server-in-thread ,id ,file)))
-  (slime-read-port-and-connect nil nil))
+  (slime-read-port-and-connect nil))
 
 (defun slime-thread-debug ()
   (interactive)
