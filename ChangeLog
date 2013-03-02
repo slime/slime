@@ -1,3 +1,8 @@
+2013-03-02  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-autoloads.el: Don't load autoloads when slime is already
+	loaded, there's no sense in doing so.
+
 2013-02-20  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-attempt-connection): Don't run the timer with a
