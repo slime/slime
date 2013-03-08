@@ -91,6 +91,7 @@
    mop::class-direct-superclasses
    mop::eql-specializer
    mop::class-finalized-p 
+   mop:finalize-inheritance
    cl:class-name
    mop::class-precedence-list
    class-prototype ;;dummy

@@ -1,3 +1,8 @@
+2013-03-08  Mark Evenson  <evenson@tethys.local>
+
+	* swank-abcl.lisp: Allow SLIME inspector to perform class
+	finalization.
+
 2013-03-02  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-autoloads.el: Don't load autoloads when slime is already
