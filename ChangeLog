@@ -1,3 +1,8 @@
+2013-03-12  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-read-interactive-args): Use read-shell-command
+	to enable completion.  Patch by Daimrod/Greg.
+
 2013-03-08  Mark Evenson  <evenson@tethys.local>
 
 	* swank-abcl.lisp: Allow SLIME inspector to perform class

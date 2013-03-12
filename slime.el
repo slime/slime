@@ -1090,7 +1090,7 @@ See `slime-lisp-implementations'")
 
 (defvar slime-inferior-lisp-program-history '()
   "History list of command strings.  Used by `slime'.")
-                                                  
+
 (defun slime-read-interactive-args ()
   "Return the list of args which should be passed to `slime-start'.
 
@@ -1112,18 +1112,18 @@ The rules for selecting the arguments are rather complicated:
   (let ((table slime-lisp-implementations))
     (cond ((not current-prefix-arg) (slime-lisp-options))
           ((eq current-prefix-arg '-)
-           (let ((key (completing-read 
-                       "Lisp name: " (mapcar (lambda (x) 
-                                               (list (symbol-name (car x)))) 
+           (let ((key (completing-read
+                       "Lisp name: " (mapcar (lambda (x)
+                                               (list (symbol-name (car x))))
                                              table)
                        nil t)))
              (slime-lookup-lisp-implementation table (intern key))))
           (t
            (destructuring-bind (program &rest program-args)
-               (split-string (read-string 
+               (split-string (read-shell-command
                               "Run lisp: " inferior-lisp-program
                               'slime-inferior-lisp-program-history))
-             (let ((coding-system 
+             (let ((coding-system
                     (if (eq 16 (prefix-numeric-value current-prefix-arg))
                         (read-coding-system "set slime-coding-system: "
                                             slime-net-coding-system)
