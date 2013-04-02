@@ -1,3 +1,14 @@
+2013-04-02  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Hide SWANK debugger frames on Allegro also when the error is
+	signalled within threads different from the SLIME REPL's.
+	E.g. (mp:process-run-function nil (lambda () (error "foo"))).
+
+	* swank-allegro.lisp (find-topframe): look deeper than 11
+	frames. Still looking no deeper than 30 frames in the unlikely
+	event that this function is invoked out of context with a very
+	large stack.
+
 2013-03-12  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-read-interactive-args): Use read-shell-command

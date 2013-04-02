@@ -169,11 +169,11 @@
                               (find-package :swank)))
         (top-frame (excl::int-newest-frame (excl::current-thread))))
     (loop for frame = top-frame then (next-frame frame)
-          for name  = (debugger:frame-name frame)
           for i from 0
-          when (eq name magic-symbol)
+          while (and frame (< i 30))
+          when (eq (debugger:frame-name frame) magic-symbol)
             return (next-frame frame)
-          until (= i 10) finally (return top-frame))))
+          finally (return top-frame))))
 
 (defun next-frame (frame)
   (let ((next (excl::int-next-older-frame frame)))
