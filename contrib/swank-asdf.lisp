@@ -419,7 +419,7 @@ already knows."
 (defun asdf-component-output-files (component)
   (while-collecting (c)
     (labels ((f (x)
-               (typecase component
+               (typecase x
                  (asdf:source-file
                   (map () #'c
                        (asdf:output-files (make-instance 'asdf:compile-op) x)))
