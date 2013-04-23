@@ -6471,7 +6471,7 @@ was called originally."
                (or (process-id p) (process-contact p))
                (slime-pid p)
                (slime-lisp-implementation-type p))))
-    (when default
+    (when default-pos
       (goto-char default-pos))))
 
 
