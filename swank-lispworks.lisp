@@ -361,16 +361,20 @@ Return NIL if the symbol is unbound."
 
 (defun find-top-frame ()
   "Return the most suitable top-frame for the debugger."
-  (or (do ((frame (dbg::debugger-stack-current-frame dbg::*debugger-stack*)
-                  (nth-next-frame frame 1)))
-          ((or (null frame)             ; no frame found!
-               (and (dbg::call-frame-p frame)
-                    (eq (dbg::call-frame-function-name frame) 
-                        'invoke-debugger)))
-           (nth-next-frame frame 1)))
-      ;; if we can't find a invoke-debugger frame, take any old frame
-      ;; at the top
-      (dbg::debugger-stack-current-frame dbg::*debugger-stack*)))
+  (flet ((find-named-frame (name)
+           (do ((frame (dbg::debugger-stack-current-frame
+                        dbg::*debugger-stack*)
+                       (nth-next-frame frame 1)))
+               ((or (null frame)        ; no frame found!
+                    (and (dbg::call-frame-p frame)
+                         (eq (dbg::call-frame-function-name frame) 
+                             name)))
+                (nth-next-frame frame 1)))))
+    (or (find-named-frame 'invoke-debugger)
+        (find-named-frame (swank-sym :safe-backtrace))
+        ;; if we can't find a likely top frame, take any old frame
+        ;; at the top
+        (dbg::debugger-stack-current-frame dbg::*debugger-stack*))))
   
 (defimplementation call-with-debugging-environment (fn)
   (dbg::with-debugger-stack ()
@@ -587,6 +591,8 @@ Return NIL if the symbol is unbound."
 (defun lispworks-severity (condition)
   (cond ((not condition) :warning)
 	(t (etypecase condition
+             #-(or lispworks4 lispworks5)
+             (conditions:compiler-note :note)
 	     (error :error)
 	     (style-warning :warning)
 	     (warning :warning)))))
