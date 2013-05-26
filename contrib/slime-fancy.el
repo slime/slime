@@ -9,6 +9,7 @@
                        slime-c-p-c
                        slime-editing-commands
                        slime-fancy-inspector
+                       slime-fancy-trace
                        slime-fuzzy
                        slime-presentations
                        slime-scratch

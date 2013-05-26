@@ -124,24 +124,44 @@ that the character is not escaped."
 (def-slime-test form-up-to-point.1
     (buffer-sexpr result-form &optional skip-trailing-test-p)
     ""
-    '(("(char= #\\(*HERE*"               ("char=" "#\\(" swank::%cursor-marker%))
-      ("(char= #\\( *HERE*"              ("char=" "#\\(" "" swank::%cursor-marker%))
-      ("(char= #\\) *HERE*"              ("char=" "#\\)" "" swank::%cursor-marker%))
-      ("(char= #\\*HERE*"                ("char=" "#\\" swank::%cursor-marker%) t)
-      ("(defun*HERE*"                    ("defun" swank::%cursor-marker%))
-      ("(defun foo*HERE*"                ("defun" "foo" swank::%cursor-marker%))
-      ("(defun foo (x y)*HERE*"          ("defun" "foo" ("x" "y") swank::%cursor-marker%))
-      ("(defun foo (x y*HERE*"           ("defun" "foo" ("x" "y" swank::%cursor-marker%)))
-      ("(apply 'foo*HERE*"               ("apply" "'foo" swank::%cursor-marker%))
-      ("(apply #'foo*HERE*"              ("apply" "#'foo" swank::%cursor-marker%))
-      ("(declare ((vector bit *HERE*"    ("declare" (("vector" "bit" "" swank::%cursor-marker%))))
-      ("(with-open-file (*HERE*"         ("with-open-file" ("" swank::%cursor-marker%)))
-      ("(((*HERE*"                       ((("" swank::%cursor-marker%))))
-      ("(defun #| foo #| *HERE*"         ("defun" "" swank::%cursor-marker%))
-      ("(defun #-(and) (bar) f*HERE*"    ("defun" "f" swank::%cursor-marker%))
-      ("(remove-if #'(lambda (x)*HERE*"  ("remove-if" ("lambda" ("x") swank::%cursor-marker%)))
-      ("`(remove-if ,(lambda (x)*HERE*"  ("remove-if" ("lambda" ("x") swank::%cursor-marker%)))
-      ("`(remove-if ,@(lambda (x)*HERE*" ("remove-if" ("lambda" ("x") swank::%cursor-marker%))))
+    '(("(char= #\\(*HERE*"
+       ("char=" "#\\(" swank::%cursor-marker%))
+      ("(char= #\\( *HERE*"
+       ("char=" "#\\(" "" swank::%cursor-marker%))
+      ("(char= #\\) *HERE*"
+       ("char=" "#\\)" "" swank::%cursor-marker%))
+      ("(char= #\\*HERE*"
+       ("char=" "#\\" swank::%cursor-marker%) t)
+      ("(defun*HERE*"
+       ("defun" swank::%cursor-marker%))
+      ("(defun foo*HERE*"
+       ("defun" "foo" swank::%cursor-marker%))
+      ("(defun foo (x y)*HERE*"
+       ("defun" "foo"
+	("x" "y") swank::%cursor-marker%))
+      ("(defun foo (x y*HERE*"
+       ("defun" "foo"
+	e("x" "y" swank::%cursor-marker%)))
+      ("(apply 'foo*HERE*"
+       ("apply" "'foo" swank::%cursor-marker%))
+      ("(apply #'foo*HERE*"
+       ("apply" "#'foo" swank::%cursor-marker%))
+      ("(declare ((vector bit *HERE*"
+       ("declare" (("vector" "bit" "" swank::%cursor-marker%))))
+      ("(with-open-file (*HERE*"
+       e("with-open-file" ("" swank::%cursor-marker%)))
+      ("(((*HERE*"
+       ((("" swank::%cursor-marker%))))
+      ("(defun #| foo #| *HERE*"
+       ("defun" "" swank::%cursor-marker%))
+      ("(defun #-(and) (bar) f*HERE*"
+       ("defun" "f" swank::%cursor-marker%))
+      ("(remove-if #'(lambda (x)*HERE*"
+       ("remove-if" ("lambda" ("x") swank::%cursor-marker%)))
+      ("`(remove-if ,(lambda (x)*HERE*"
+       ("remove-if" ("lambda" ("x") swank::%cursor-marker%)))
+      ("`(remove-if ,@(lambda (x)*HERE*"
+       ("remove-if" ("lambda" ("x") swank::%cursor-marker%))))
   (slime-check-top-level)
   (with-temp-buffer
     (lisp-mode)
@@ -153,49 +173,6 @@ that the character is not escaped."
       (insert ")") (backward-char)
       (slime-check-buffer-form result-form))
     ))
-
-(defun slime-trace-query (spec)
-  "Ask the user which function to trace; SPEC is the default.
-The result is a string."
-  (cond ((null spec)
-         (slime-read-from-minibuffer "(Un)trace: "))
-        ((stringp spec)
-         (slime-read-from-minibuffer "(Un)trace: " spec))
-        ((symbolp spec)    ; `slime-extract-context' can return symbols.
-         (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string spec)))
-        (t
-         (destructure-case spec
-           ((setf n)
-            (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string spec)))
-           ((:defun n)
-            (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string n)))
-           ((:defgeneric n)
-            (let* ((name (prin1-to-string n))
-                   (answer (slime-read-from-minibuffer "(Un)trace: " name)))
-              (cond ((and (string= name answer)
-                          (y-or-n-p (concat "(Un)trace also all " 
-                                            "methods implementing " 
-                                            name "? ")))
-                     (prin1-to-string `(:defgeneric ,n)))
-                    (t
-                     answer))))
-           ((:defmethod &rest _)
-            (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string spec)))
-           ((:call caller callee)
-            (let* ((callerstr (prin1-to-string caller))
-                   (calleestr (prin1-to-string callee))
-                   (answer (slime-read-from-minibuffer "(Un)trace: " 
-                                                       calleestr)))
-              (cond ((and (string= calleestr answer)
-                          (y-or-n-p (concat "(Un)trace only when " calleestr
-                                            " is called by " callerstr "? ")))
-                     (prin1-to-string `(:call ,caller ,callee)))
-                    (t
-                     answer))))
-           (((:labels :flet) &rest _)
-            (slime-read-from-minibuffer "(Un)trace local function: "
-                                        (prin1-to-string spec)))
-           (t (error "Don't know how to trace the spec %S" spec))))))
 
 (defun slime-extract-context ()
   "Parse the context for the symbol at point.  
