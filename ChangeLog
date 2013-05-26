@@ -1,3 +1,24 @@
+2013-05-26  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* slime-fancy-trace.el: New contrib.
+	* slime-parse.el (slime-trace-query): moved to slime-fancy-trace.
+	* slime-fancy.el: load slime-fancy-trace.
+
+2013-05-14  Martin Simmons  <martin@lispworks.com>
+
+	* swank-lispworks.lisp (lispworks-severity): Fix error when using
+	the :explain declaration.
+
+2013-05-14  Martin Simmons  <martin@lispworks.com>
+
+	* swank-lispworks.lisp (find-top-frame): Improve backtraces from
+	swank::safe-backtrace.
+
+2013-04-23  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-draw-connection-list): Make sure not to call
+	goto-char on NIL.
+
 2013-04-02  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Hide SWANK debugger frames on Allegro also when the error is
