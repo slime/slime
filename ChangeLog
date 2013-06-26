@@ -1,3 +1,8 @@
+2013-06-26  evenson  <evenson@saturn>
+
+	* swank-abcl.lisp (specializer-direct-methods): Correct symbol
+	definition, allowing SLIME inspector to work again.
+
 2013-05-26  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* slime-fancy-trace.el: New contrib.
