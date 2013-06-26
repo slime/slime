@@ -55,7 +55,7 @@
   (mop::class-direct-methods spec))
 
 (defun slot-definition-name (slot)
-  (mop::%slot-definition-name slot))
+  (mop::slot-definition-name slot))
 
 (defun class-slots (class)
   (mop:class-slots class))
