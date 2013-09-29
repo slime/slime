@@ -1,5 +1,12 @@
 2013-09-29  Helmut Eller  <heller@common-lisp.net>
 
+	For CCL, also search definitions of p2 translators.
+
+	* swank-ccl.lisp (p2-definitions): New.
+	(find-definitions): Use it.
+
+2013-09-29  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-clisp.lisp (*frame-prefixes*): Update some of the patterns
 	for new layout.
 	(is-prefix-p): Use regexp matching.
