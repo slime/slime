@@ -1,5 +1,15 @@
 2013-09-29  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-clisp.lisp (*frame-prefixes*): Update some of the patterns
+	for new layout.
+	(is-prefix-p): Use regexp matching.
+	(boring-frame-p): Also make compiled-tagbody compiled-block
+	boring.
+	(sldb-backtrace, %parse-stack-values): Remove code for versions
+	before 2.44.
+
+2013-09-29  Helmut Eller  <heller@common-lisp.net>
+
 	For CCL, also search nx1-alphatizer definitions.
 
 	* swank-ccl.lisp (alphatizer-definitions): New
