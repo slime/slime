@@ -545,11 +545,17 @@
               (t `(:error ,(funcall if-nil-thunk))))
       (error (c) `(:error ,(princ-to-string c))))))
 
+(defun alphatizer-definitions (name)
+  (let ((alpha (gethash name ccl::*nx1-alphatizers*)))
+    (and alpha (ccl:find-definition-sources alpha))))
+
 (defimplementation find-definitions (name)
-  (let ((defs (or (ccl:find-definition-sources name)
-                  (and (symbolp name)
-                       (fboundp name)
-                       (ccl:find-definition-sources (symbol-function name))))))
+  (let ((defs (append (or (ccl:find-definition-sources name)
+                          (and (symbolp name)
+                               (fboundp name)
+                               (ccl:find-definition-sources
+                                (symbol-function name))))
+                      (alphatizer-definitions name))))
     (loop for ((type . name) . sources) in defs
           collect (list (definition-name type name)
                         (source-note-to-source-location

@@ -1,3 +1,10 @@
+2013-09-29  Helmut Eller  <heller@common-lisp.net>
+
+	For CCL, also search nx1-alphatizer definitions.
+
+	* swank-ccl.lisp (alphatizer-definitions): New
+	(find-definitions): Use it.
+
 2013-06-26  evenson  <evenson@saturn>
 
 	* swank-abcl.lisp (specializer-direct-methods): Correct symbol
