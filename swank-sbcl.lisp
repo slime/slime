@@ -679,19 +679,19 @@ QUALITIES is an alist with (quality . value)"
     (flet ((load-it (filename)
              (when filename (load filename)))
            (compile-it (cont)
-             (with-compilation-hooks ()
-               (with-compilation-unit
-                   (:source-plist (list :emacs-buffer buffer
-                                        :emacs-filename filename
-                                        :emacs-string string
-                                        :emacs-position position)
-                    :source-namestring filename
-                    :allow-other-keys t)
-                 (multiple-value-bind (output-file warningsp failurep)
-                     (compile-file *buffer-tmpfile* :external-format :utf-8)
-                   (declare (ignore warningsp))
-                   (unless failurep
-                     (funcall cont output-file)))))))
+             (multiple-value-bind (output-file warningsp failurep)
+                 (with-compilation-hooks ()
+                   (with-compilation-unit
+                       (:source-plist (list :emacs-buffer buffer
+                                            :emacs-filename filename
+                                            :emacs-string string
+                                            :emacs-position position)
+                        :source-namestring filename
+                        :allow-other-keys t)
+                     (compile-file *buffer-tmpfile* :external-format :utf-8)))
+               (declare (ignore warningsp))
+               (unless failurep
+                 (funcall cont output-file)))))
       (with-open-file (s *buffer-tmpfile* :direction :output :if-exists :error
                          :external-format :utf-8)
         (write-string string s))

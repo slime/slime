@@ -1,3 +1,8 @@
+2013-10-31  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-sbcl.lisp (swank-compile-string): Don't call LOAD inside
+	WITH-COMPILATION-UNIT.
+
 2013-09-29  Helmut Eller  <heller@common-lisp.net>
 
 	For CCL, also search definitions of p2 translators.
