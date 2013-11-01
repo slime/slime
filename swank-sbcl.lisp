@@ -607,9 +607,6 @@ compiler state."
        (warning                   #'handle-notification-condition))
     (funcall function)))
 
-
-(defvar *trap-load-time-warnings* t)
-
 (defun compiler-policy (qualities)
   "Return compiler policy qualities present in the QUALITIES alist.
 QUALITIES is an alist with (quality . value)"
@@ -633,7 +630,7 @@ QUALITIES is an alist with (quality . value)"
        (unwind-protect (progn ,@body)
          (setf (compiler-policy) ,current-policy)))))
 
-(defimplementation swank-compile-file (input-file output-file 
+(defimplementation swank-compile-file (input-file output-file
                                        load-p external-format
                                        &key policy)
   (multiple-value-bind (output-file warnings-p failure-p)
@@ -645,7 +642,7 @@ QUALITIES is an alist with (quality . value)"
             (or failure-p
                 (when load-p
                   ;; Cache the latest source file for definition-finding.
-                  (source-cache-get input-file 
+                  (source-cache-get input-file
                                     (file-write-date input-file))
                   (not (load output-file)))))))
 
@@ -670,36 +667,39 @@ QUALITIES is an alist with (quality . value)"
   "Return a temporary file name to compile strings into."
   (tempnam nil nil))
 
+(defvar *trap-load-time-warnings* t)
+
 (defimplementation swank-compile-string (string &key buffer position filename
                                          policy)
   (let ((*buffer-name* buffer)
         (*buffer-offset* position)
         (*buffer-substring* string)
         (*buffer-tmpfile* (temp-file-name)))
-    (flet ((load-it (filename)
-             (when filename (load filename)))
-           (compile-it (cont)
-             (multiple-value-bind (output-file warningsp failurep)
-                 (with-compilation-hooks ()
-                   (with-compilation-unit
-                       (:source-plist (list :emacs-buffer buffer
-                                            :emacs-filename filename
-                                            :emacs-string string
-                                            :emacs-position position)
-                        :source-namestring filename
-                        :allow-other-keys t)
-                     (compile-file *buffer-tmpfile* :external-format :utf-8)))
-               (declare (ignore warningsp))
-               (unless failurep
-                 (funcall cont output-file)))))
+    (labels ((load-it (filename)
+               (when filename (load filename)))
+             (cf ()
+               (with-compiler-policy policy
+                 (with-compilation-unit
+                     (:source-plist (list :emacs-buffer buffer
+                                          :emacs-filename filename
+                                          :emacs-string string
+                                          :emacs-position position)
+                      :source-namestring filename
+                      :allow-other-keys t)
+                   (compile-file *buffer-tmpfile* :external-format :utf-8))))
+             (compile-it (cont)
+               (with-compilation-hooks ()
+                 (multiple-value-bind (output-file warningsp failurep) (cf)
+                   (declare (ignore warningsp))
+                   (unless failurep
+                     (funcall cont output-file))))))
       (with-open-file (s *buffer-tmpfile* :direction :output :if-exists :error
                          :external-format :utf-8)
         (write-string string s))
       (unwind-protect
-           (with-compiler-policy policy
-            (if *trap-load-time-warnings*
-                (compile-it #'load-it)
-                (load-it (compile-it #'identity))))
+           (if *trap-load-time-warnings*
+               (compile-it #'load-it)
+               (load-it (compile-it #'identity)))
         (ignore-errors
           (delete-file *buffer-tmpfile*)
           (delete-file (compile-file-pathname *buffer-tmpfile*)))))))
