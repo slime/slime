@@ -1,5 +1,10 @@
 2013-11-01  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-ccl.lisp (p2-definitions): Check bounds before accessing
+	backend-p2-dispatch.
+
+2013-11-01  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-sbcl.lisp (swank-compile-string): Fix last commit.  Honor
 	*trap-load-time-warnings* but without calling LOAD inside
 	WITH-COMPILATION-UNIT.

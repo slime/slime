@@ -552,10 +552,11 @@
 (defun p2-definitions (name)
   (let ((nx1-op (gethash name ccl::*nx1-operators*)))
     (and nx1-op
-         (let ((p2 (aref (ccl::backend-p2-dispatch ccl::*target-backend*)
-                         nx1-op)))
-           (and p2
-                (ccl:find-definition-sources p2))))))
+         (let ((dispatch (ccl::backend-p2-dispatch ccl::*target-backend*)) )
+           (and (array-in-bounds-p dispatch nx1-op)
+                (let ((p2 (aref dispatch nx1-op)))
+                  (and p2
+                       (ccl:find-definition-sources p2))))))))
 
 (defimplementation find-definitions (name)
   (let ((defs (append (or (ccl:find-definition-sources name)
