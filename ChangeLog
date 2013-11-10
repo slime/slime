@@ -1,3 +1,9 @@
+2013-11-10  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (swank-profile-package): New wrapper for
+	profile-package that does some input validation.
+	* slime.el (slime-profile-package): Use it.
+
 2013-11-01  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-ccl.lisp (p2-definitions): Check bounds before accessing

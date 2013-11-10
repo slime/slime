@@ -13,7 +13,7 @@
 (defpackage :swank
   (:use :cl :swank-backend :swank-match :swank-rpc)
   (:export #:startup-multiprocessing
-           #:start-server 
+           #:start-server
            #:create-server
            #:stop-server
            #:restart-server
@@ -2909,6 +2909,13 @@ Include the nicknames if NICKNAMES is true."
           (do-all-symbols (symbol)
             (maybe-profile symbol))))
     (format nil "~a function~:p ~:*~[are~;is~:;are~] now profiled" count)))
+
+(defslimefun swank-profile-package (package-name callersp methodsp)
+  (let ((pkg (or (guess-package package-name)
+                 (error "Not a valid package name: ~s" package-name))))
+    (check-type callersp boolean)
+    (check-type methodsp boolean)
+    (profile-package pkg callersp methodsp)))
 
 
 ;;;; Source Locations

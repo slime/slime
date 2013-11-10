@@ -800,8 +800,8 @@ It should be used for \"background\" messages such as argument lists."
 (defun slime-read-package-name (prompt &optional initial-value)
   "Read a package name from the minibuffer, prompting with PROMPT."
   (let ((completion-ignore-case t))
-    (completing-read prompt (slime-bogus-completion-alist 
-                             (slime-eval 
+    (completing-read prompt (slime-bogus-completion-alist
+                             (slime-eval
                               `(swank:list-all-package-names t)))
 		     nil t initial-value)))
 
@@ -4490,15 +4490,15 @@ Return whatever swank:set-default-directory returns."
                     (lambda (r) (message "%s" r))))
 
 (defun slime-profile-package (package callers methods)
-  "Profile all functions in PACKAGE.  
+  "Profile all functions in PACKAGE.
 If CALLER is non-nil names have counts of the most common calling
-functions recorded. 
+functions recorded.
 If METHODS is non-nil, profile all methods of all generic function
 having names in the given package."
   (interactive (list (slime-read-package-name "Package: ")
                      (y-or-n-p "Record the most common callers? ")
                      (y-or-n-p "Profile methods? ")))
-  (slime-eval-async `(swank:profile-package ,package ,callers ,methods)
+  (slime-eval-async `(swank:swank-profile-package ,package ,callers ,methods)
                     (lambda (r) (message "%s" r))))
 
 (defun slime-profile-by-substring (substring &optional package)
