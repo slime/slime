@@ -4421,6 +4421,13 @@ in Lisp when committed with \\[slime-edit-value-commit]."
   (slime-eval-async `(swank:unintern-symbol ,symbol-name ,package)
                     (lambda (result) (message "%s" result))))
 
+(defun slime-delete-package (package-name)
+  "Delete the package with name PACKAGE-NAME."
+  (interactive (list (slime-read-package-name "Delete package: "
+                                              (slime-current-package))))
+  (slime-eval-async `(cl:delete-package
+                      (swank::guess-package ,package-name))))
+
 (defun slime-load-file (filename)
   "Load the Lisp file FILENAME."
   (interactive (list 

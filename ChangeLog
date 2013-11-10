@@ -1,5 +1,10 @@
 2013-11-10  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-delete-package): New command.
+	* swank.lisp (swank-delete-package): The corresponding Swank part.
+
+2013-11-10  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (swank-profile-package): New wrapper for
 	profile-package that does some input validation.
 	* slime.el (slime-profile-package): Use it.
