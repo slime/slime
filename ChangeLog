@@ -1,3 +1,8 @@
+2013-11-17  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-sbcl.lisp (swank-compile-string): Load the fasl file even
+	if there were warnings. Just like the other backends do.
+
 2013-11-10  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-delete-package): New command.

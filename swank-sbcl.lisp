@@ -676,7 +676,9 @@ QUALITIES is an alist with (quality . value)"
         (*buffer-substring* string)
         (*buffer-tmpfile* (temp-file-name)))
     (labels ((load-it (filename)
-               (when filename (load filename)))
+               (cond (*trap-load-time-warnings*
+                      (with-compilation-hooks () (load filename)))
+                     (t (load filename))))
              (cf ()
                (with-compiler-policy policy
                  (with-compilation-unit
@@ -686,20 +688,17 @@ QUALITIES is an alist with (quality . value)"
                                           :emacs-position position)
                       :source-namestring filename
                       :allow-other-keys t)
-                   (compile-file *buffer-tmpfile* :external-format :utf-8))))
-             (compile-it (cont)
-               (with-compilation-hooks ()
-                 (multiple-value-bind (output-file warningsp failurep) (cf)
-                   (declare (ignore warningsp))
-                   (unless failurep
-                     (funcall cont output-file))))))
+                   (compile-file *buffer-tmpfile* :external-format :utf-8)))))
       (with-open-file (s *buffer-tmpfile* :direction :output :if-exists :error
                          :external-format :utf-8)
         (write-string string s))
       (unwind-protect
-           (if *trap-load-time-warnings*
-               (compile-it #'load-it)
-               (load-it (compile-it #'identity)))
+           (multiple-value-bind (output-file warningsp failurep)
+               (with-compilation-hooks () (cf))
+             (declare (ignore warningsp))
+             (when output-file
+               (load-it output-file))
+             (not failurep))
         (ignore-errors
           (delete-file *buffer-tmpfile*)
           (delete-file (compile-file-pathname *buffer-tmpfile*)))))))
