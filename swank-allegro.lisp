@@ -969,3 +969,36 @@
   (loop for name being the hash-keys of excl::*name-to-char-table*
        when (funcall matchp prefix name)
        collect (string-capitalize name)))
+
+
+;;;; wrap interface implementation
+
+(defimplementation wrap (spec indicator &key before after replace)
+  (let ((allegro-spec (process-fspec-for-allegro spec)))
+    (excl:fwrap allegro-spec
+                indicator
+                (excl:def-fwrapper allegro-wrapper (&rest args)
+                  (let (retlist completed)
+                    (unwind-protect
+                         (progn
+                           (when before
+                             (funcall before args))
+                           (setq retlist (multiple-value-list
+                                          (if replace
+                                              (funcall replace args)
+                                              (excl:call-next-fwrapper))))
+                           (setq completed t)
+                           (values-list retlist))
+                      (when after
+                        (funcall after (if completed
+                                           retlist
+                                           :exited-non-locally)))))))
+    allegro-spec))
+
+(defimplementation unwrap (spec indicator)
+  (let ((allegro-spec (process-fspec-for-allegro spec)))
+    (excl:funwrap allegro-spec indicator)
+    allegro-spec))
+
+(defimplementation wrapped-p (spec indicator)
+  (getf (excl:fwrap-order (process-fspec-for-allegro spec)) indicator))

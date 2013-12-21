@@ -1,3 +1,14 @@
+2013-11-20  João Távora <joaotavora@gmail.com>
+
+	* swank-trace-dialog.lisp: New file, new :swank-trace-dialog
+	package, uses new wrapping interface in swank-backend.el to trace
+	fspecs. Report the trace tree to emacs.
+	* slime-trace-dialog.el: New file, collect and render a
+	interactive tree of traces collected from the Lisp
+	backend. Inspect trace arguments and return values.
+	* slime-fancy.el: Enable new contrib slime-trace-dialog. Call
+	slime-fancy trace init function.
+
 2013-05-11  Marco Baringer  <mb@bese.it>
 
 	* slime-repl.el (slime-repl-sexp-at-point): New function; similar

@@ -1,3 +1,14 @@
+2013-11-20  João Távora <joaotavora@gmail.com>
+
+	* swank-backend.lisp (wrap, unwrap, wrapped-p): new wrapping
+	interface with default implementation.
+	* swank-allegro.lisp (wrap,unwrap,wrapped-p): implement wrapping
+	interface.
+	* swank-sbcl.lisp (wrap,unwrap,wrapped-p): implement wrapping interface
+	* swank.lisp (*after-toggle-trace-hook*): new exported variable,
+	defaults to nil.
+	* swank-loader.lisp (*contribs*): add swank-trace-dialog contrib.
+
 2013-11-17  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-sbcl.lisp (swank-compile-string): Load the fasl file even

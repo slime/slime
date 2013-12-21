@@ -1511,3 +1511,72 @@ COMPLETION-FUNCTION, if non-nil, should be called after saving the image.")
   ;; Can't hang on to an fd-stream from a previous session.
   (setf (symbol-value (find-symbol "*LOG-OUTPUT*" 'swank))
         nil))
+
+
+;;;; Wrapping
+
+(definterface wrap (spec indicator &key before after replace)
+  "Intercept future calls to SPEC and surround them in callbacks.
+
+INDICATOR is a symbol identifying a particular wrapping, and is used
+to differentiate between multiple wrappings.
+
+Implementations intercept calls to SPEC and call, in this order:
+
+* the BEFORE callback, if it's provided, with a single argument set to
+  the list of arguments passed to the intercepted call;
+
+* the original definition of SPEC recursively honouring any wrappings
+  previously established under different values of INDICATOR. If the
+  compatible function REPLACE is provided, call that instead.
+
+* the AFTER callback, if it's provided, with a single set to the list
+  of values returned by the previous call, or, if that call exited
+  non-locally, a single descriptive symbol, like :EXITED-NON-LOCALLY."
+  (declare (ignore indicator))
+  (assert (symbolp spec) nil
+          "The default implementation for WRAP allows only simple names")
+  (assert (null (get spec 'slime-wrap)) nil
+          "The default implementation for WRAP allows a single wrapping")
+  (let* ((saved (symbol-function spec))
+         (replacement (lambda (&rest args)
+                        (let (retlist completed)
+                          (unwind-protect
+                               (progn
+                                 (when before
+                                   (funcall before args))
+                                 (setq retlist (multiple-value-list
+                                                (apply (or replace
+                                                           saved) args)))
+                                 (setq completed t)
+                                 (values-list retlist))
+                            (when after
+                              (funcall after (if completed
+                                                 retlist
+                                                 :exited-non-locally))))))))
+    (setf (get spec 'slime-wrap) (list saved replacement))
+    (setf (symbol-function spec) replacement))
+  spec)
+
+(definterface unwrap (spec indicator)
+  "Remove from SPEC any wrappings tagged with INDICATOR."
+  (if (wrapped-p spec indicator)
+      (setf (symbol-function spec) (first (get spec 'slime-wrap)))
+      (cerror "All right, so I did"
+              "Hmmm, ~a is not correctly wrapped, you probably redefined it"
+              spec))
+  (setf (get spec 'slime-wrap) nil)
+  spec)
+
+(definterface wrapped-p (spec indicator)
+  "Returns true if SPEC is wrapped with INDICATOR."
+  (declare (ignore indicator))
+  (and (symbolp spec)
+       (let ((prop-value (get spec 'slime-wrap)))
+         (cond ((and prop-value
+                     (not (eq (second prop-value)
+                              (symbol-function spec))))
+                (warn "~a appears to be incorrectly wrapped" spec)
+                nil)
+               (prop-value t)
+               (t nil)))))

@@ -1882,3 +1882,43 @@ stack."
                              (zerop (sb-posix:wexitstatus status))))))))))))
 
 (pushnew 'deinit-log-output sb-ext:*save-hooks*)
+
+
+;;;; wrap interface implementation
+
+(defimplementation wrap (spec indicator &key before after replace)
+  (when (wrapped-p spec indicator)
+    (warn "~a already wrapped with indicator ~a, unwrapping first"
+          spec indicator)
+    (sb-int:unencapsulate spec indicator))
+   (sb-int:encapsulate spec indicator `(sbcl-wrap ',spec
+                                                  ,before
+                                                  ,after
+                                                  ,replace)))
+
+(defimplementation unwrap (spec indicator)
+  (sb-int:unencapsulate spec indicator))
+
+(defimplementation wrapped-p (spec indicator)
+  (sb-int:encapsulated-p spec indicator))
+
+(in-package :sb-int)
+
+(defun swank-backend::sbcl-wrap (spec before after replace)
+  (declare (special sb-int:basic-definition sb-int:arg-list))
+  (let (retlist completed)
+    (unwind-protect
+         (progn
+           (when before
+             (funcall before sb-int:arg-list))
+           (setq retlist (multiple-value-list (if replace
+                                                  (funcall replace
+                                                           sb-int:arg-list)
+                                                  (apply sb-int:basic-definition
+                                                         sb-int:arg-list))))
+           (setq completed t)
+           (values-list retlist))
+      (when after
+        (funcall after (if completed retlist :exited-non-locally))))))
+
+(in-package :swank-backend)
