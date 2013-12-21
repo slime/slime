@@ -78,6 +78,22 @@ If nil, indent backquoted lists as data, i.e., like quoted lists."
   :type 'integer
   :group 'lisp-indent)
 
+(defcustom lisp-loop-clauses-indentation 2
+  "Indentation of loop clauses if `loop' is immediately followed by a newline."
+  :type 'integer
+  :group 'lisp-indent)
+
+(defcustom lisp-loop-indent-body-forms-relative-to-loop-start nil
+  "When true, indent loop body clauses relative to the open paren of the loop
+form, instead of the keyword position."
+  :type 'boolean
+  :group 'lisp-indent)
+
+(defcustom lisp-loop-body-forms-indentation 3
+  "Indentation of loop body clauses."
+  :type 'boolean
+  :group 'lisp-indent)
+
 (defcustom lisp-loop-indent-forms-like-keywords nil
   "Whether or not to indent loop subforms just like
 loop keywords. Only matters when `lisp-loop-indent-subclauses'
@@ -438,7 +454,10 @@ OPTIONS are:
    (lisp-indent-defun-method (4 &lambda &body))
    ;; Without these (;;foo would get a space inserted between
    ;; ( and ; by indent-sexp.
-   (comment-indent-function (lambda () nil))))
+   (comment-indent-function (lambda () nil))
+   (lisp-loop-clauses-indentation 2)
+   (lisp-loop-indent-body-forms-relative-to-loop-start nil)
+   (lisp-loop-body-forms-indentation 3)))
 
 (define-common-lisp-style "classic"
   "This style of indentation emulates the most striking features of 1995
@@ -1405,8 +1424,15 @@ environment\\|more\
 
 ;; Regexps matching various varieties of loop macro keyword ...
 (defvar common-lisp-body-introducing-loop-macro-keyword
-  "\\(#?:\\)?\\(do\\|finally\\|initially\\)"
-  "Regexp matching loop macro keywords which introduce body-forms.")
+  "\\(#?:\\)?\\(do\\(ing\\)?\\|finally\\|initially\\)"
+  "Regexp matching loop macro keywords which introduce body forms.")
+
+;; Not currenctly used
+(defvar common-lisp-accumlation-loop-macro-keyword
+  "\\(#?:\\)?\\(collect\\(ing\\)?\\|append\\(ing\\)?\\|nconc\\(ing\\)?\\|\
+count\\(ing\\)?\\|sum\\(ming\\)?\\|maximiz\\(e\\|ing\\)\\|\
+minimiz\\(e\\|ing\\)\\)"
+  "Regexp matching loop macro keywords which introduce accumulation clauses.")
 
 ;; This is so "and when" and "else when" get handled right
 ;; (not to mention "else do" !!!)
@@ -1418,12 +1444,10 @@ environment\\|more\
   "\\(#?:\\)?and"
   "Regexp matching 'and', and anything else there ever comes to be like it.")
 
-;; This is handled right, but it's incomplete ...
-;; (It could probably get arbitrarily long if I did *every* iteration-path)
 (defvar common-lisp-indent-indented-loop-macro-keyword
-  "\\(#?:\\)\
-?\\(into\\|by\\|upto\\|downto\\|above\\|below\\|on\\|being\\|=\\|first\\|\
-then\\|from\\|to\\)"
+  "\\(#?:\\)?\\(\\(up\\|down\\)?(from\\|to)\\|below\\|above\\|in\\(to\\)?\\|\
+on\\|=\\|then\\|across\\|being\\|each\\|the\\|of\\|using\\|\
+\\(present-\\|external-\\)?symbols?\\|fixnum\\|float\\|t\\|nil\\|of-type\\)"
   "Regexp matching keywords introducing loop subclauses.
 Always indented two.")
 
@@ -1460,7 +1484,8 @@ Cause subsequent clauses to be indented.")
           ;; If indenting first line after "(loop <newline>"
           ;; cop out ...
           (if (<= indent-point (point))
-              (throw 'return-indentation (+ 2 loop-start-column)))
+              (throw 'return-indentation (+ lisp-loop-clauses-indentation
+                                            loop-start-column)))
           (back-to-indentation))
 
         (let* ((case-fold-search t)
@@ -1485,7 +1510,10 @@ Cause subsequent clauses to be indented.")
                         (back-to-indentation)
                         (if (/= (current-column) keyword-position)
                             (+ 2 (current-column))
-                          (+ keyword-position 3)))))
+                          (+ lisp-loop-body-forms-indentation
+                             (if lisp-loop-indent-body-forms-relative-to-loop-start
+                                 loop-start-column
+                               keyword-position))))))
 
             (back-to-indentation)
             (if (< (point) loop-macro-first-clause)

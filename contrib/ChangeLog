@@ -1,3 +1,16 @@
+2013-12-21  Samuel Freilich <sfreilich@google.com>
+
+	* slime-cl-indent-test.txt: New tests 91-95.
+	* slime-cl-indent.el
+	(lisp-loop-clauses-indentation)
+	(lisp-loop-indent-body-forms-relative-to-loop-start)
+	(lisp-loop-body-forms-indentation): New.
+	("basic"): Bind new variables.
+	(common-lisp-body-introducing-loop-macro-keyword): Handle DOING.
+	(common-lisp-accumlation-loop-macro-keyword): New.
+	(common-lisp-indent-indented-loop-macro-keyword): More subclauses.
+	(common-lisp-indent-loop-macro-1): Use new variables.
+
 2013-11-20  João Távora <joaotavora@gmail.com>
 
 	* swank-trace-dialog.lisp: New file, new :swank-trace-dialog

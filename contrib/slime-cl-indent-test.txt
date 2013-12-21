@@ -947,3 +947,60 @@
 (define-tentative-thing foo
   bar
   quux)
+
+;;; Test: 91
+;;
+;; lisp-loop-indent-body-forms-relative-to-loop-start: t
+
+(loop for foo in bar
+      do
+   (progn foo
+          bar
+          baz))
+
+;;; Test: 92
+;;
+;; lisp-loop-indent-body-forms-relative-to-loop-start: t
+;; lisp-loop-clauses-indentation: 4
+
+(loop
+    for foo in bar
+    do
+   (progn foo
+          bar
+          baz))
+
+;;; Test: 93
+;;
+;; lisp-loop-clauses-indentation: 4
+
+(loop
+    for foo in bar
+    doing
+       (progn foo
+              bar
+              baz))
+
+;;; Test: 94
+;;
+;; lisp-loop-clauses-indentation: 4
+;; lisp-loop-body-forms-indentation: 1
+
+(loop
+    for foo in bar
+    doing
+     (list foo
+           bar
+           baz))
+
+;;; Test: 95
+;;
+;; lisp-loop-body-forms-indentation: 1
+;; lisp-loop-indent-body-forms-relative-to-loop-start: t
+
+(loop
+  for foo in bar
+  do
+ (list foo
+       bar
+       baz))
