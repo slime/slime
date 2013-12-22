@@ -401,11 +401,12 @@ Also return the start position, end position, and buffer of the presentation."
 	 (location (slime-eval `(swank:find-definition-for-thing
 				 (swank:lookup-presented-object
 				  ',(slime-presentation-id presentation))))))
-    (slime-edit-definition-cont
-     (and location (list (make-slime-xref :dspec `(,presentation-string)
-					  :location location)))
-     presentation-string
-     where)))
+    (unless (eq (car location) :error)
+      (slime-edit-definition-cont
+       (and location (list (make-slime-xref :dspec `(,presentation-string)
+                                            :location location)))
+       presentation-string
+       where))))
 
 (defun slime-M-.-presentation-at-mouse (event)
   (interactive "e")

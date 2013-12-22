@@ -1,5 +1,11 @@
 2013-12-21 João Távora <joaotavora@gmail.com>
 
+	* slime-presentations.el (slime-M-.-presentation): As in previous
+	patch, must return nil on failure so as not to break the
+	`run-hooks-until-success' logic of `slime-edit-definition-hooks'.
+
+2013-12-21 João Távora <joaotavora@gmail.com>
+
 	* slime-fancy-inspector.el (slime-edit-inspector-part):
 	Since this lives in `slime-edit-definition-hooks', return
 	nil when not in an inspector buffer.
