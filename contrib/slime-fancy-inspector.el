@@ -22,18 +22,19 @@
                          ,(slime-definition-at-point t))))
 
 (defun slime-edit-inspector-part (name &optional where)
-  (destructuring-bind (&optional property value)
-      (slime-inspector-property-at-point)
-    (when (eq property 'slime-part-number)
-      (let ((location (slime-eval `(swank:find-definition-for-thing
-                                    (swank:inspector-nth-part ,value))))
-            (name (format "Inspector part %s" value)))
-        (when (and (consp location)
-                   (not (eq (car location) :error)))
-          (slime-edit-definition-cont
-           (list (make-slime-xref :dspec `(,name)
-                                  :location location))
-           name
-           where))))))
+  (and (eq major-mode 'slime-inspector-mode)
+       (destructuring-bind (&optional property value)
+           (slime-inspector-property-at-point)
+         (when (eq property 'slime-part-number)
+           (let ((location (slime-eval `(swank:find-definition-for-thing
+                                         (swank:inspector-nth-part ,value))))
+                 (name (format "Inspector part %s" value)))
+             (when (and (consp location)
+                        (not (eq (car location) :error)))
+               (slime-edit-definition-cont
+                (list (make-slime-xref :dspec `(,name)
+                                       :location location))
+                name
+                where)))))))
 
 (provide 'slime-fancy-inspector)

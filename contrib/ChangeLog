@@ -1,3 +1,9 @@
+2013-12-21 João Távora <joaotavora@gmail.com>
+
+	* slime-fancy-inspector.el (slime-edit-inspector-part):
+	Since this lives in `slime-edit-definition-hooks', return
+	nil when not in an inspector buffer.
+
 2013-12-21  Samuel Freilich <sfreilich@google.com>
 
 	* slime-cl-indent-test.txt: New tests 91-95.
