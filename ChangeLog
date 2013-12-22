@@ -1,4 +1,9 @@
+2013-12-22  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* swank-loader.lisp: Don't load ASDF if it's too old.
+
 2013-12-21  João Távora <joaotavora@gmail.com>
+
 	* slime.el (slime-inspector-operate-on-point): allow
 	`slime-inspector-property-at-point' to return nil, which it does
 	when non-interactive parts are "clicked" via RET.

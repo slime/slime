@@ -45,6 +45,10 @@ install ASDF2 and in your ~~/.swank.lisp specify:
 ;; install an upgrade yourself and configure *asdf-path*
 ;; It's just not worth the hassle supporting something
 ;; that doesn't even have COERCE-PATHNAME.
+;;
+;; NB: this version check is duplicated in swank-loader.lisp so that we don't
+;; try to load this contrib when ASDF is too old since that will abort the SLIME
+;; connection.
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (unless (or #+asdf3 t #+asdf2
               (asdf:version-satisfies (asdf:asdf-version) "2.14.6"))
