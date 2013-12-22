@@ -1,3 +1,8 @@
+2013-12-21  João Távora <joaotavora@gmail.com>
+	* slime.el (slime-inspector-operate-on-point): allow
+	`slime-inspector-property-at-point' to return nil, which it does
+	when non-interactive parts are "clicked" via RET.
+
 2013-11-20  João Távora <joaotavora@gmail.com>
 
 	* swank-backend.lisp (wrap, unwrap, wrapped-p): new wrapping

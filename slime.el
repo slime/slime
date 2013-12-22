@@ -6659,7 +6659,7 @@ that value.
         (new-opener (lambda (parts)
                       (when parts
                         (slime-open-inspector parts)))))
-    (destructuring-bind (property value)
+    (destructuring-bind (&optional property value)
         (slime-inspector-property-at-point)
         (case property
           (slime-part-number
