@@ -21,7 +21,7 @@ Usage: $name [-bsRTS] [-n <name>] <emacs> <lisp>"
   -R  don't show results file
   -T  no temp directory (use slime in current directory)
   -S  don't execute tests in random order (use default ordering)
-  -n <name>  run only the test with name <name>
+  -n <name>  run only tests matching name <name>
 EOF
     exit 1
 }
@@ -30,14 +30,14 @@ name=$0
 batch_mode="" # command line arg for emacs
 dump_results=true
 use_temp_dir=true
-test_name=nil
+selector=t
 randomize=t
 
 while getopts bsRTSn: opt; do
     case $opt in
 	b) batch_mode="-batch";;
 	s) use_screen=true;;
-	n) test_name="'$OPTARG";;
+	n) selector="\"$OPTARG\"";;
 	S) randomize=nil;;
 	R) dump_results=false;;
 	T) use_temp_dir=false;;
@@ -65,25 +65,23 @@ statusfile=$tmpdir/status
 
 test -d $tmpdir && rm -r $tmpdir
 
-trap "rm -r $tmpdir" EXIT	# remove temporary directory on exit
-
 mkdir $tmpdir
-if [ $use_temp_dir == true ] ; then 
-    cp -r $slimedir/*.{el,lisp} ChangeLog $tmpdir 
-    # cp -r $slimedir/contrib $tmpdir 
+if [ $use_temp_dir == true ] ; then
+    cp -r $slimedir/*.{el,lisp} ChangeLog $tmpdir
+    # cp -r $slimedir/contrib $tmpdir
 fi
 
 cmd=($emacs -nw -q -no-site-file $batch_mode --no-site-file
        --eval "(setq debug-on-quit t)"
        --eval "(add-to-list 'load-path \"$testdir\")"
-       --eval "(require 'slime)"
+       --eval "(require 'slime-tests)"
        --eval "(setq inferior-lisp-program \"$lisp\")"
-       --eval "(slime-batch-test \"$results\" $test_name $randomize)")
+       --eval "(slime-batch-test \"$results\" $selector $randomize)")
 
 if [ "$use_screen" = "" ]; then
     "${cmd[@]}"
     echo $? > $statusfile
-else 
+else
     session=slime-screen.$$
     screen -S $session -m -D \
 	bash -c "\"\$@\"; echo \$? > $statusfile" "" "${cmd[@]}" &
@@ -95,11 +93,21 @@ fi
 if [ -f "$statusfile" ]; then
     [ "$dump_results" = true ] && cat $results
     status=$(cat $statusfile)
-    echo $status "test(s) failed."
+    echo -n $status "test(s) failed."
 else
     # Tests crashed
-    echo crashed
+    echo -n crashed
     status=255
 fi
+
+if [ $use_temp_dir == true ]; then
+    if [ $status -eq 0 ]; then
+        echo -n " Removing temp dir $tmpdir."
+        rm -rf $tmpdir
+    else
+        echo -n " Keeping temp dir $tmpdir."
+    fi
+fi
+echo
 
 exit $status

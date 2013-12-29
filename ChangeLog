@@ -1,3 +1,14 @@
+2013-12-30  João Távora  <joaotavora@gmail.com>
+
+	* test.sh (cmd): require 'slime-tests instead of 'slime. Allow
+	regexp selectors. Remove trailing whitespace. Don't remove temp
+	dir if tests fail.
+	* slime-tests.el: new file. Use ert.el framework.
+	* slime.el: move tests into slime-tests.el. Remove
+	trailing whitespace.
+	(sldb-get-default-buffer): Choose default connection's sldb buffer
+	if it exists.
+
 2013-12-22  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* swank-loader.lisp: Don't load ASDF if it's too old.
