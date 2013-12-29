@@ -1861,8 +1861,7 @@ the binding for `slime-connection'."
        ;; Setf
        (defsetf ,varname (&optional process) (store)
          `(slime-with-connection-buffer (,process)
-            (setq (\, (quote (\, real-var))) (\, store))
-            (\, store)))
+            (setq (\, (quote (\, real-var))) (\, store))))
        '(\, varname))))
 
 (put 'slime-def-connection-var 'lisp-indent-function 2)

@@ -1,3 +1,24 @@
+2013-12-30  João Távora  <joaotavora@gmail.com>
+
+	* slime-repl.el: Remove trailing whitespace.
+	(slime-repl-mode-map): Don't clobber C-a and home.
+	(slime-save-marker): Add edebug spec.
+	(slime-repl-insert-prompt): Use same text properties as
+	comint.el. `slime-repl-bol' is no longer needed. (Closes #43)
+	(slime-repl-bol): Remove it.
+	(slime-eval-last-expression-in-repl): Use `with-current-buffer'
+	instead of `save-excursion+set-buffer' combo
+	(slime-tests): Require it.
+	(with-canonicalized-slime-repl-buffer): Add edebug spec. Add
+	inline ident spec.
+	(repl-test): Conform (brittle) tests to latest "Evaluation aborted
+	on" output.
+	(repl-test-2): New test containing two tests that fail only
+	on allegro.
+	(repl-type-ahead): Also conform to latest "Evaluation aborted on"
+	output.
+	(move-around-and-be-nasty): New repl test.
+
 2013-12-21 João Távora <joaotavora@gmail.com>
 
 	* slime-presentations.el (slime-M-.-presentation): As in previous

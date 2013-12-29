@@ -8,6 +8,9 @@
 	trailing whitespace.
 	(sldb-get-default-buffer): Choose default connection's sldb buffer
 	if it exists.
+	(slime-def-connection-var): In defsetf spec, don't evaluate
+	`store' twice, since it may have side effects. This broke some
+	slime-repl.el tests.
 
 2013-12-22  Luís Oliveira  <loliveira@common-lisp.net>
 
