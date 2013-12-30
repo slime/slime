@@ -1,5 +1,12 @@
 2013-12-30  João Távora  <joaotavora@gmail.com>
 
+	* slime-autodoc.el (slime-check-autodoc-at-point): not needed
+	anymore.
+	(define-autodoc-tests): new macro for defining autodoc-specific
+	tests.
+	(top-level): fix tests based on swank functions and add some
+	:fails-for specifications for sbcl
+
 	* slime-repl.el: Remove trailing whitespace.
 	(slime-repl-mode-map): Don't clobber C-a and home.
 	(slime-save-marker): Add edebug spec.
@@ -18,6 +25,15 @@
 	(repl-type-ahead): Also conform to latest "Evaluation aborted on"
 	output.
 	(move-around-and-be-nasty): New repl test.
+
+	* slime-enclosing-context.el: require 'slime-tests. Remove
+	trailing whitespace.
+	* slime-fontifying-fu.el: require 'slime-tests. Remove trailing
+	whitespace.
+	* slime-mdot-fu.el: require 'slime-tests. Remove trailing
+	whitespace.
+	* slime-parse.el: require 'slime-tests. Remove trailing
+	whitespace.
 
 2013-12-21 João Távora <joaotavora@gmail.com>
 

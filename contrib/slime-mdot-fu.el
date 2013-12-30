@@ -20,13 +20,15 @@ in a local function binding near point."
 					(values binding-name point)))
 			   (slime-enclosing-bound-names))
     (when (and binding-name point)
-      (slime-edit-definition-cont 
+      (slime-edit-definition-cont
        `((,binding-name
 	  ,(make-slime-buffer-location (buffer-name (current-buffer)) point)))
        name
        where))))
 
 ;;; Tests
+(eval-and-compile
+  (require 'slime-tests))
 
 (def-slime-test find-local-definitions.1
     (buffer-sexpr definition target-regexp)
@@ -49,7 +51,7 @@ in a local function binding near point."
 	     (+ x foo *HERE*))))
        foo
        "(foo (- 1 x)")
-      
+
       ((defun zurp (x)
 	 (macrolet ((frob (x y) `(quux ,x ,y)))
 	   (frob x *HERE*)))
@@ -62,7 +64,7 @@ in a local function binding near point."
       (search-backward "*HERE*")
       (slime-edit-local-definition (prin1-to-string definition))
       (slime-sync)
-      (slime-check "Check that we didnt leave the temp buffer." 
+      (slime-check "Check that we didnt leave the temp buffer."
 	(eq (current-buffer) tmpbuf))
       (slime-check "Check that we are at the local definition."
 	(looking-at (regexp-quote target-regexp))))))

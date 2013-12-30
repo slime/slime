@@ -10,7 +10,7 @@
   '((let &bindings &body)))
 
 (defvar slime-function-binding-ops-alist
-  '((flet &bindings &body) 
+  '((flet &bindings &body)
     (labels &bindings &body)
     (macrolet &bindings &body)))
 
@@ -44,17 +44,17 @@ points where their bindings are established as second value."
       (loop for (op . nil) in ops
 	    for index in indices
 	    for point in points
-	    do (when (and (slime-binding-op-p op) 
+	    do (when (and (slime-binding-op-p op)
 			  ;; Are the bindings of OP in scope?
 			  (>= index (slime-binding-op-body-pos op)))
-		 (goto-char point) 
+		 (goto-char point)
 		 (forward-sexp (slime-binding-op-bindings-pos op))
 		 (down-list)
 		 (ignore-errors
-		   (loop 
-		    (down-list) 
+		   (loop
+		    (down-list)
 		    (push (slime-symbol-at-point) binding-names)
-		    (push (save-excursion (backward-up-list) (point)) 
+		    (push (save-excursion (backward-up-list) (point))
 			  binding-start-points)
 		    (up-list)))))
       (values (nreverse binding-names) (nreverse binding-start-points)))))
@@ -69,7 +69,7 @@ points where their bindings are established as second value."
       (loop for (op . nil) in ops
 	    for index in indices
 	    for point in points
-	    do (when (and (slime-binding-op-p op :function) 
+	    do (when (and (slime-binding-op-p op :function)
 			  ;; Are the bindings of OP in scope?
 			  (>= index (slime-binding-op-body-pos op)))
 		 (goto-char point)
@@ -77,19 +77,19 @@ points where their bindings are established as second value."
 		 (down-list)
                  ;; If we're at the end of the bindings, an error will
                  ;; be signalled by the `down-list' below.
-		 (ignore-errors 
+		 (ignore-errors
 		   (loop
-		    (down-list) 
-		    (destructuring-bind (name arglist) 
+		    (down-list)
+		    (destructuring-bind (name arglist)
                         (slime-parse-sexp-at-point 2)
 		      (assert (slime-has-symbol-syntax-p name)) (assert arglist)
 		      (push name names)
 		      (push arglist arglists)
-		      (push (save-excursion (backward-up-list) (point)) 
+		      (push (save-excursion (backward-up-list) (point))
 			    start-points))
 		    (up-list)))))
       (values (nreverse names)
-	      (nreverse arglists) 
+	      (nreverse arglists)
 	      (nreverse start-points)))))
 
 
@@ -102,6 +102,8 @@ points where their bindings are established as second value."
     (slime-find-bound-functions ops indices points)))
 
 ;;; Tests
+(eval-and-compile
+  (require 'slime-tests))
 
 (def-slime-test enclosing-context.1
     (buffer-sexpr wished-bound-names wished-bound-functions)
@@ -131,12 +133,12 @@ points where their bindings are established as second value."
       (lisp-mode)
       (insert buffer-sexpr)
       (search-backward "*HERE*")
-      (multiple-value-bind (bound-names points) 
+      (multiple-value-bind (bound-names points)
 	  (slime-enclosing-bound-names)
 	(slime-check "Check enclosing bound names"
 	  (loop for name in wished-bound-names
 		always (member name bound-names))))
-      (multiple-value-bind (fn-names fn-arglists points) 
+      (multiple-value-bind (fn-names fn-arglists points)
 	  (slime-enclosing-bound-functions)
 	(slime-check "Check enclosing bound functions"
 	  (loop for (name arglist) in wished-bound-functions

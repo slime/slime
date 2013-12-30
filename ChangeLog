@@ -1,11 +1,11 @@
 2013-12-30  João Távora  <joaotavora@gmail.com>
 
         * .travis.yml (script): new file. Travis CI integration, combines
-	emacs-23, emacs-snapshot and sbcl.
+	emacs-23, emacs-snapshot and sbcl. Skip slime-fancy tests for now.
 	* Changelog: Use utf-8 coding.
 	* test.sh (cmd): require 'slime-tests instead of 'slime. Allow
 	regexp selectors. Remove trailing whitespace. Don't remove temp
-	dir if tests fail.
+	dir if tests fail. Test slime-fancy by default, -C skips it.
 	* slime-tests.el: new file. Use ert.el framework.
 	* slime.el: move tests into slime-tests.el. Remove
 	trailing whitespace.

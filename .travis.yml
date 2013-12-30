@@ -16,9 +16,9 @@ install:
   - curl -o cl-lib.el http://elpa.gnu.org/packages/cl-lib-0.3.el
 before_script:
 script:
-  - ./test.sh -bS emacs sbcl
+  - ./test.sh -bSC emacs sbcl
   - rm ert.el; rm ert-x.el; rm cl-lib.el
-  - ./test.sh -bS emacs-snapshot sbcl
+  - ./test.sh -bSC emacs-snapshot sbcl
 notifications:
   email:
     - joaotavora@gmail.com

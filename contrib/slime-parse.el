@@ -114,9 +114,11 @@ that the character is not escaped."
           )))
 
 ;;;; Test cases
+(eval-and-compile
+  (require 'slime-tests))
 
 (defun slime-check-buffer-form (result-form)
-  (slime-test-expect 
+  (slime-test-expect
    (format "Buffer form correct in `%s' (at %d)" (buffer-string) (point))
    result-form
    (slime-parse-form-upto-point 10)))
@@ -175,7 +177,7 @@ that the character is not escaped."
     ))
 
 (defun slime-extract-context ()
-  "Parse the context for the symbol at point.  
+  "Parse the context for the symbol at point.
 Nil is returned if there's no symbol at point.  Otherwise we detect
 the following cases (the . shows the point position):
 
@@ -202,12 +204,12 @@ For other contexts we return the symbol at point."
   (let ((name (slime-symbol-at-point)))
     (if name
         (let ((symbol (read name)))
-          (or (progn ;;ignore-errors 
+          (or (progn ;;ignore-errors
                 (slime-parse-context symbol))
               symbol)))))
 
 (defun slime-parse-context (name)
-  (save-excursion 
+  (save-excursion
     (cond ((slime-in-expression-p '(defun *))          `(:defun ,name))
           ((slime-in-expression-p '(defmacro *))       `(:defmacro ,name))
           ((slime-in-expression-p '(defgeneric *))     `(:defgeneric ,name))
@@ -224,7 +226,7 @@ For other contexts we return the symbol at point."
                    finally (setq arglist e))
              `(:defmethod ,name ,@qualifiers
                           ,(slime-arglist-specializers arglist))))
-          ((and (symbolp name) 
+          ((and (symbolp name)
                 (slime-in-expression-p `(,name)))
            ;; looks like a regular call
            (let ((toplevel (ignore-errors (slime-parse-toplevel-form))))
@@ -257,7 +259,7 @@ For other contexts we return the symbol at point."
            `(:defstruct ,(if (consp name)
                              (car name)
                              name)))
-          (t 
+          (t
            name))))
 
 
@@ -273,9 +275,9 @@ The pattern can have the form:
   (save-excursion
     (let ((path (reverse (slime-pattern-path pattern))))
       (loop for p in path
-            always (ignore-errors 
+            always (ignore-errors
                      (etypecase p
-                       (symbol (slime-beginning-of-list) 
+                       (symbol (slime-beginning-of-list)
                                (eq (read (current-buffer)) p))
                        (number (backward-up-list p)
                                t)))))))
@@ -310,7 +312,7 @@ Point is placed before the first expression in the list."
       (down-list 1)
       (forward-sexp 1)
       (slime-parse-context (read (current-buffer))))))
-		 
+
 (defun slime-arglist-specializers (arglist)
   (cond ((or (null arglist)
 	     (member (first arglist) '(&optional &key &rest &aux)))
@@ -319,7 +321,7 @@ Point is placed before the first expression in the list."
 	 (cons (second (first arglist))
 	       (slime-arglist-specializers (rest arglist))))
 	(t
-	 (cons 't 
+	 (cons 't
 	       (slime-arglist-specializers (rest arglist))))))
 
 (defun slime-definition-at-point (&optional only-functional)
