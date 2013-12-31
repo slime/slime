@@ -11,6 +11,8 @@
 ;;   (add-to-list 'load-path "<directory-of-this-file>")
 ;;   (add-hook 'slime-load-hook (lambda () (require 'slime-scheme)))
 ;;
+(eval-and-compile
+  (require 'slime))
 
 (defun slime-scheme-mode-hook ()
   (slime-mode 1))

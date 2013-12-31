@@ -1,3 +1,5 @@
+(eval-and-compile
+  (require 'slime))
 
 (define-slime-contrib slime-xref-browser
   "Xref browsing with tree-widget"

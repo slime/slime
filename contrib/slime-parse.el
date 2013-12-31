@@ -1,3 +1,5 @@
+(eval-and-compile
+  (require 'slime))
 
 (define-slime-contrib slime-parse
   "Utility contrib containg functions to parse forms in a buffer."

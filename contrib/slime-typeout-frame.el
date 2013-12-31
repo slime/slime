@@ -1,3 +1,6 @@
+(eval-and-compile
+  (require 'slime))
+
 (defvar slime-typeout-frame-unbind-stack ())
 
 (define-slime-contrib slime-typeout-frame

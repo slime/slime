@@ -1,3 +1,6 @@
+(eval-and-compile
+  (require 'slime))
+
 (defvar slime-old-documentation-lookup-function 
   slime-documentation-lookup-function)
 

@@ -1,3 +1,5 @@
+(eval-and-compile
+  (require 'slime))
 
 (define-slime-contrib slime-autodoc
   "Show fancy arglist in echo area."

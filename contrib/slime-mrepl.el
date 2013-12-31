@@ -2,6 +2,8 @@
 ;; single Slime socket.  M-x slime-open-listener creates a new REPL
 ;; buffer.
 ;;
+(eval-and-compile
+  (require 'slime))
 
 (define-slime-contrib slime-mrepl
   "Multiple REPLs."

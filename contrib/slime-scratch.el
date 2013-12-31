@@ -1,3 +1,5 @@
+(eval-and-compile
+  (require 'slime))
 
 (define-slime-contrib slime-scratch
   "Imitate Emacs' *scratch* buffer"

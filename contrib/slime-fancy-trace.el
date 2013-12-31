@@ -1,3 +1,5 @@
+(eval-and-compile
+  (require 'slime))
 
 (define-slime-contrib slime-fancy-trace
   "Enhanced version of slime-trace capable of tracing local functions,

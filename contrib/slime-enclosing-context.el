@@ -1,3 +1,5 @@
+(eval-and-compile
+  (require 'slime))
 
 (define-slime-contrib slime-enclosing-context
   "Utilities on top of slime-parse."

@@ -6,6 +6,8 @@
 ;;; TODO: test with multiple connections
 ;;; TODO: backtrace printing is very slow
 ;;;
+(eval-and-compile
+  (require 'slime))
 
 (define-slime-contrib slime-trace-dialog
   "Provide an interfactive trace dialog buffer for managing and

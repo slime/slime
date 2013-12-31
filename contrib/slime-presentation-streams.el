@@ -1,3 +1,5 @@
+(eval-and-compile
+  (require 'slime))
 
 (define-slime-contrib slime-presentation-streams
   "Streams that allow attaching object identities to portions of

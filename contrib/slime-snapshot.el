@@ -1,3 +1,5 @@
+(eval-and-compile
+  (require 'slime))
 
 (define-slime-contrib slime-snapshot
   "Save&restore memory images without disconnecting"

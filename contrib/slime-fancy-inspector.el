@@ -1,3 +1,5 @@
+(eval-and-compile
+  (require 'slime))
 
 (define-slime-contrib slime-fancy-inspector
   "Fancy inspector for CLOS objects."

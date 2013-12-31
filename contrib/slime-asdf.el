@@ -1,3 +1,6 @@
+(eval-and-compile
+  (require 'slime))
+
 (define-slime-contrib slime-asdf
   "ASDF support."
   (:authors "Daniel Barlow       <dan@telent.net>"

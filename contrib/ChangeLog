@@ -1,3 +1,8 @@
+2013-12-31  João Távora  <joaotavora@gmail.com>
+
+	* *slime-*.el: require 'slime when loading and byte-compiling
+	(Closes #42).
+
 2013-12-30  João Távora  <joaotavora@gmail.com>
 
 	* slime-autodoc.el (slime-check-autodoc-at-point): not needed

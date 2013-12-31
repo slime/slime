@@ -1,3 +1,5 @@
+(eval-and-compile
+  (require 'slime))
 
 (define-slime-contrib slime-sprof
   "Integration with SBCL's sb-sprof."

@@ -1,3 +1,5 @@
+(eval-and-compile
+  (require 'slime))
 
 (define-slime-contrib slime-compiler-notes-tree
   "Display compiler messages in tree layout.
