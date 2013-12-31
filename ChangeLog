@@ -1,5 +1,31 @@
+2013-12-31  João Távora  <joaotavora@gmail.com>
+
+	* slime-tests.el (slime-test-buffer-name): remove it
+	(slime-batch-test): no longer output to results file. Use
+	`ert-run-test-batch' when in batch mode.
+	* slime.el: Fix most compilation warnings. All function-calls
+	calls to cl.el are now correctly prefixed with "cl-". Require
+	'cl-lib.
+	* test.sh: Always byte-compiles code, -L skips.it. No longer
+	supports screen. No longer supports results and status files.
+	(cmd): don't set `debug-on-quit'.
+
 2013-12-30  João Távora  <joaotavora@gmail.com>
 
+	* slime.el: move tests into slime-tests.el. Remove trailing
+	whitespace. `lexical-binding' must appear on first line. Now
+	attempts to work only from emacs 23 onwards. Adjust
+	indentation. Remove trailing whitespace.
+	(sldb-get-default-buffer): Choose default connection's sldb buffer
+	if it exists.
+	(slime-def-connection-var): In defsetf spec, don't evaluate
+	`store' twice, since it may have side effects. This broke some
+	slime-repl.el tests.
+	(slime-edit-definition): No longer use `called-interactively-p'
+	for known problems.
+	(hyperspec): non-erroring `require' instead of `find-library'.
+	(slime-next-line/not-add-newlines): Use `forward-line' instead of
+	`next-line'.
         * .travis.yml (script): new file. Travis CI integration, combines
 	emacs-23, emacs-snapshot and sbcl. Skip slime-fancy tests for now.
 	* Changelog: Use utf-8 coding.
@@ -7,13 +33,7 @@
 	regexp selectors. Remove trailing whitespace. Don't remove temp
 	dir if tests fail. Test slime-fancy by default, -C skips it.
 	* slime-tests.el: new file. Use ert.el framework.
-	* slime.el: move tests into slime-tests.el. Remove
-	trailing whitespace.
-	(sldb-get-default-buffer): Choose default connection's sldb buffer
-	if it exists.
-	(slime-def-connection-var): In defsetf spec, don't evaluate
-	`store' twice, since it may have side effects. This broke some
-	slime-repl.el tests.
+
 
 2013-12-22  Luís Oliveira  <loliveira@common-lisp.net>
 

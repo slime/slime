@@ -29,9 +29,6 @@
 (require 'ert nil t)
 (require 'cl-lib)
 
-(defvar slime-test-buffer-name "*Slime tests*"
-     "The name of the buffer used to display test results.")
-
 (defun slime-shuffle-list (list)
   (let* ((len (length list))
          (taken (make-vector len nil))
@@ -44,25 +41,23 @@
                         nil)))))
     (append result '())))
 
-(defun slime-batch-test (&optional results-file test-name randomize)
+(defun slime-batch-test (&optional test-name randomize)
   "Run the test suite in batch-mode.
 Exits Emacs when finished. The exit code is the number of failed tests."
   (interactive)
   (let ((ert-debug-on-error nil)
         (timeout 30)
-        (timed-out nil))
+        (slime-background-message-function #'ignore))
     (slime)
     ;; Block until we are up and running.
-    (run-with-timer timeout nil
-                    (lambda () (setq timed-out t)))
-    (while (not (slime-connected-p))
-      (sit-for 1)
-      (when timed-out
-        (when results-file
-          (with-temp-file results-file
-            (insert (format "TIMEOUT: Failed to connect within %s seconds."
-                            timeout))))
-        (kill-emacs 252)))
+    (lexical-let (timed-out)
+      (run-with-timer timeout nil
+                      (lambda () (setq timed-out t)))
+      (while (not (slime-connected-p))
+        (sit-for 1)
+        (when timed-out
+          (when noninteractive
+            (kill-emacs 252)))))
     (slime-sync-to-top-level 5)
     (let* ((selector (if randomize
                          `(member ,@(slime-shuffle-list
