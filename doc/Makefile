@@ -16,6 +16,15 @@ infofiles=slime.info
 
 TEXI = slime.texi contributors.texi
 
+help:
+	@echo -e "\
+Most important targets:\n\
+all               generate info, pdf, and html documents\n\
+slime.info        generate the slime.info file\n\
+slime.html        generate a single html file\n\
+html/index.html   generate on html file per node in html/ directory\n\
+html.tgz          create a tarball of all html files"
+
 all: slime.info slime.pdf html/index.html
 
 slime.dvi: $(TEXI)
