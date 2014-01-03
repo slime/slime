@@ -23,7 +23,8 @@ all               generate info, pdf, and html documents\n\
 slime.info        generate the slime.info file\n\
 slime.html        generate a single html file\n\
 html/index.html   generate on html file per node in html/ directory\n\
-html.tgz          create a tarball of all html files"
+html.tgz          create a tarball of all html files\n\
+clean             generated files"
 
 all: slime.info slime.pdf html/index.html
 
