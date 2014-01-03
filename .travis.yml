@@ -21,4 +21,4 @@ script:
   - ./test.sh -bSC emacs-snapshot sbcl
 notifications:
   email:
-    - joaotavora@gmail.com
+    - slime-devel@common-lisp.net
