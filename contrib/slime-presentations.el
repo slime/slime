@@ -767,10 +767,6 @@ output; otherwise the new input is appended."
 
 (defun slime-presentation-write-result (string)
   (with-current-buffer (slime-output-buffer)
-    (if (string= string "\n") (message "about to newline, string-before is |%s| and string-after is |%s|"
-                                       (buffer-substring-no-properties (point-min) (point))
-                                       (buffer-substring-no-properties (point) (point-max)))
-      (message "about to insert string |%s|" string))
     (let ((marker (slime-output-target-marker :repl-result))
           (saved-point (point-marker)))
       (goto-char marker)

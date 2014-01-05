@@ -1,3 +1,8 @@
+2014-01-05  João Távora  <joaotavora@gmail.com>
+
+	* slime-presentations.el (slime-presentation-write-result): Remove
+	spurious debug line.
+
 2014-01-01  João Távora  <joaotavora@gmail.com>
 
 	* slime-presentations.el Remove trailing whitespace.
