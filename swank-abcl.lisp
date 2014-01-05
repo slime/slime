@@ -575,7 +575,7 @@
 ;; (find-file-in-path "java/lang/String.java" *source-path*)
 ;; (find-file-in-path "Lisp.java" *source-path*)
 
-;; Try fo find FILENAME in PATH.  If found, return a file spec as
+;; Try to find FILENAME in PATH.  If found, return a file spec as
 ;; needed by Emacs.  We also look in zip files.
 (defun find-file-in-path (filename path)
   (labels ((try (dir)

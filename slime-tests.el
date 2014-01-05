@@ -339,7 +339,7 @@ conditions (assertions)."
                       random-buffer-name)
           (equal (buffer-name (current-buffer)) random-buffer-name)))
       (with-current-buffer random-buffer-name
-        ;; Notice that we cannot quit the buffer within the the extent
+        ;; Notice that we cannot quit the buffer within the extent
         ;; of slime-with-output-to-temp-buffer.
         (slime-popup-buffer-quit t))
       (slime-check ("Checking that we've got back from `%s'"
