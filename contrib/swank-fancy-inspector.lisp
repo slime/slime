@@ -126,7 +126,7 @@
                     (princ-to-string expansion))))))))))
 
 (defun docstring-ispec (label object kind)
-  "Return a inspector spec if OBJECT has a docstring of of kind KIND."
+  "Return a inspector spec if OBJECT has a docstring of kind KIND."
   (let ((docstring (documentation object kind)))
     (cond ((not docstring) nil)
           ((< (+ (length label) (length docstring))

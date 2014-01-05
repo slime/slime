@@ -1702,7 +1702,7 @@ Return nil if no package matches."
 
 (defun guess-buffer-package (string)
   "Return a package for STRING. 
-Fall back to the the current if no such package exists."
+Fall back to the current if no such package exists."
   (or (and string (guess-package string))
       *package*))
 

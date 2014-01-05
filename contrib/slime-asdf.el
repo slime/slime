@@ -163,7 +163,7 @@ buffer's working directory"
                   ((buffers-forward  (mapcar #'find-file-noselect files))
                    (buffers-backward (reverse buffers-forward)))
                 #'(lambda (current-buffer wrap)
-                    ;; Contrarily to the the docstring of
+                    ;; Contrarily to the docstring of
                     ;; `multi-isearch-next-buffer-function', the first
                     ;; arg is not necessarily a buffer. Report sent
                     ;; upstream. (2009-11-17)
