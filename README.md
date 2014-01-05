@@ -31,7 +31,7 @@ contributed packages. It includes a better REPL, and many more nice
 features. To load it, change the bare `(slime-setup)` form above to
 `(slime-setup '(slime-fancy))`.
 
-Use `M-x` slime to fire up and connect to an inferior Lisp.
+Use <kbd>M-x slime</kbd> to fire up and connect to an inferior Lisp.
 SLIME will now automatically be available in your Lisp source
 buffers.
 
