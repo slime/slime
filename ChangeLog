@@ -1,3 +1,7 @@
+2014-01-05  Syohei YOSHIDA <syohex@gmail.com>
+
+	* slime.el : Add package headers
+
 2013-12-31  João Távora  <joaotavora@gmail.com>
 
 	* slime-tests.el (slime-test-buffer-name): remove it
