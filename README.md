@@ -14,10 +14,12 @@ Quick setup instructions
 
 Add this to your ~/.emacs file and fill in the appropriate filenames:
 
-    (add-to-list 'load-path "~/hacking/lisp/slime/")  ; your SLIME directory
-    (setq inferior-lisp-program "/opt/sbcl/bin/sbcl") ; your Lisp system
-    (require 'slime)
-    (slime-setup)
+```el
+(add-to-list 'load-path "~/hacking/lisp/slime/")  ; your SLIME directory
+(setq inferior-lisp-program "/opt/sbcl/bin/sbcl") ; your Lisp system
+(require 'slime)
+(slime-setup)
+```
 
 Make sure your `inferior-lisp-program` is set to a compatible
 version of Lisp.
