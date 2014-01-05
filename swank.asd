@@ -19,21 +19,11 @@
 ;; This code has been placed in the Public Domain.  All warranties
 ;; are disclaimed.
 
-(defpackage :swank-loader
-  (:use :cl))
-
-(in-package :swank-loader)
-
-(defclass swank-loader-file (asdf:cl-source-file) ())
-
-;;;; after loading run init
-
-(defmethod asdf:perform ((o asdf:load-op) (f swank-loader-file))
-  (load (asdf::component-pathname f))
-  (funcall (read-from-string "swank-loader::init")
-           :reload (asdf::operation-forced o)
-           :delete (asdf::operation-forced o)))
+;; NB: This does NOT run init after loading.
+;; ASDF is not for system construction, not for initialization.
+;; Whoever calls (asdf:load-system :swank) is well-advised to afterwards call
+;; (funcall (read-from-string "swank-loader::init") ...)
+;; with proper flag (:delete :reload :load-contribs :setup :quiet)
 
 (asdf:defsystem :swank
-  :default-component-class swank-loader-file
   :components ((:file "swank-loader")))
