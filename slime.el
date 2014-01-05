@@ -1,5 +1,9 @@
 ;;; slime.el --- Superior Lisp Interaction Mode for Emacs -*- lexical-binding: t -*-
-;;
+
+;; URL: https://github.com/slime/slime
+;; Package-Requires: ((cl-lib "0.3"))
+;; Keywords: languages, lisp, slime
+
 ;;;; License
 ;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
 ;;     Copyright (C) 2004,2005,2006  Luke Gorrie, Helmut Eller
