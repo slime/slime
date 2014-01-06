@@ -19,6 +19,3 @@ script:
   - ./test.sh -bSC emacs sbcl
   - rm ert.el; rm ert-x.el; rm cl-lib.el
   - ./test.sh -bSC emacs-snapshot sbcl
-notifications:
-  email:
-    - slime-cvs@common-lisp.net
