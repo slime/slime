@@ -1,3 +1,11 @@
+2014-01-05  Francois-Rene Rideau <tunes@google.com>
+
+	* swank.asd : Drop the calling of init after loading swank.
+	It was using unsupported (and to-be-removed) operation-forced interface.
+	* contrib/slime-asdf.el : Tweak some docstrings.
+	* contrib/swank-asdf.el : Tweak some comments and docstrings,
+	remove an obsolete #+asdf2, since we don't support ASDF 1 anymore.
+
 2014-01-05  Syohei YOSHIDA <syohex@gmail.com>
 
 	* slime.el : Add package headers

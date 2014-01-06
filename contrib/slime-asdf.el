@@ -272,7 +272,7 @@ depending on it."
   (:handler (lambda ()
               (interactive)
               (slime-oos (slime-read-system-name) 'test-op :force t)))
-  (:one-liner "Compile (as needed) and force test an ASDF system."))
+  (:one-liner "Recompile and test an ASDF system."))
 
 (defslime-repl-shortcut slime-repl-test-system ("test-system")
   (:handler (lambda ()
@@ -291,7 +291,7 @@ depending on it."
   (:handler (lambda ()
               (interactive)
               (slime-oos (slime-read-system-name) 'compile-op :force t)))
-  (:one-liner "Recompile (but not load) an ASDF system."))
+  (:one-liner "Recompile (but not completely load) an ASDF system."))
 
 (defslime-repl-shortcut slime-repl-open-system ("open-system")
   (:handler 'slime-open-system)
