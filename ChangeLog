@@ -1,3 +1,7 @@
+2014-01-99  Francois-Rene Rideau <tunes@google.com>
+
+	* swank.asd : load the swank source code without calling swank-loader.
+
 2014-01-08  João Távora  <joaotavora@gmail.com>
 
 	* slime.el: Bump version to 2.3.1
