@@ -594,6 +594,7 @@ If `slime-repl-suppress-prompt' is true, does nothing and returns nil."
                      field output)
             (insert-before-markers prompt))
           (set-marker slime-repl-prompt-start-mark prompt-start)
+          (setq buffer-undo-list nil)
           prompt-start)))))
 
 (defun slime-repl-show-maximum-output ()

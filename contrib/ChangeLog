@@ -1,3 +1,10 @@
+2014-01-06  João Távora  <joaotavora@gmail.com>
+
+	* slime-repl.el (slime-repl-insert-prompt): Reset
+	`buffer-undo-list' after inserting a new prompt.
+
+        * Changelog: Use utf-8 coding.
+
 2014-01-05  João Távora  <joaotavora@gmail.com>
 
 	* slime-presentations.el (slime-presentation-write-result): Remove
@@ -2699,7 +2706,7 @@
 	(slime-parse-extended-operator/the): New.
 	(slime-extended-operator-name-parser-alist): Add entries for
 	CHECK-TYPE, TYPEP, and THE.
-	([tesŧ] enclosing-form-specs.1): Add tests for the new entries.
+	([test] enclosing-form-specs.1): Add tests for the new entries.
 
 	Adapted from patch by Stas Boukarev.
 
@@ -4168,3 +4175,7 @@
 
 	* swank-fuzzy.lisp: New file. Common Lisp code for fuzzy
 	completion.
+
+;; Local Variables:
+;; coding: utf-8
+;; End:
