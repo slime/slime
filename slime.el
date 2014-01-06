@@ -3915,9 +3915,11 @@ alist but ignores CDRs."
   "Lookup the definition of the name at point.
 If there's no name at point, or a prefix argument is given, then the
 function name is prompted."
-  (interactive (list (if current-prefix-arg
-                         (slime-read-symbol-name "Edit Definition of: ")
-                       (slime-symbol-at-point))))
+  (interactive (list (let (symbol)
+                       (if (or current-prefix-arg
+                               (null (setq symbol (slime-symbol-at-point))))
+                           (slime-read-symbol-name "Edit Definition of: ")
+                         symbol))))
   ;; The hooks might search for a name in a different manner, so don't
   ;; ask the user if it's missing before the hooks are run
   (or (run-hook-with-args-until-success 'slime-edit-definition-hooks
