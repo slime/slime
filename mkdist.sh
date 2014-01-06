@@ -8,8 +8,9 @@ dist="slime-$version"
 
 if [ -d $dist ]; then rm -rf $dist; fi
 
-mkdir $dist
+mkdir -p $dist/contrib
 cp NEWS README HACKING PROBLEMS ChangeLog *.el *.lisp $dist/
+cp -r contrib/* $dist/contrib
 
 mkdir $dist/doc
 cp doc/Makefile doc/slime.texi doc/texinfo-tabulate.awk $dist/doc
