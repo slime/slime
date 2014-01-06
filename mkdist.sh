@@ -9,7 +9,7 @@ dist="slime-$version"
 if [ -d $dist ]; then rm -rf $dist; fi
 
 mkdir -p $dist/contrib
-cp NEWS README HACKING PROBLEMS ChangeLog *.el *.lisp $dist/
+cp NEWS README.md HACKING PROBLEMS ChangeLog *.el *.lisp $dist/
 cp -r contrib/* $dist/contrib
 
 mkdir $dist/doc
