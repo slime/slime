@@ -70,6 +70,13 @@ Exits Emacs when finished. The exit code is the number of failed tests."
         (if noninteractive
             (kill-emacs (ert-stats-completed-unexpected stats)))))))
 
+(defun slime-skip-test (message)
+  ;; ERT for Emacs 23 and earlier doesn't have `ert-skip'
+  (if (fboundp 'ert-skip)
+      (ert-skip message)
+    (message (concat "SKIPPING: " message))
+    (ert-pass)))
+
 (defun slime-test-ert-test-for (name input i doc body fails-for style fname)
   `(ert-deftest ,(intern (format "%s-%d" name i)) ()
        ,(format "For input %s, %s" (truncate-string-to-width
@@ -93,10 +100,8 @@ Exits Emacs when finished. The exit code is the number of failed tests."
        ,@(when style
            `((let ((style (slime-communication-style)))
                (when (not (member style ',style))
-                 (if (fboundp 'ert-skip)
-                     (ert-skip (format "test not applicable for style %s"
-                                       style)))
-                 (ert-pass)))))
+                 (slime-skip-test (format "test not applicable for style %s"
+                                          style))))))
        (apply #',fname ',input)))
 
 (defmacro def-slime-test (name args doc inputs &rest body)
@@ -1052,6 +1057,7 @@ CONTINUES  ... how often the continue restart should be invoked"
     (n delay interrupts)
     "Let Lisp produce output faster than Emacs can consume it."
     `((400 0.03 3))
+  (slime-skip-test "test is currently unstable")
   (slime-check "No debugger" (not (sldb-get-default-buffer)))
   (slime-eval-async `(swank:flow-control-test ,n ,delay))
   (sleep-for 0.2)
