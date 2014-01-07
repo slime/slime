@@ -109,8 +109,7 @@ program.")
                ;; user cleared the tree in the meantime. no biggie,
                ;; don't do anything.
                ;;
-               (setf (retlist-of trace) (or retlist
-                                            'exited-non-locally)
+               (setf (retlist-of trace) retlist
                      (current-trace) (parent-of trace))))))
     (when (dialog-traced-p spec)
       (warn "~a is apparently already traced! Untracing and retracing." spec)

@@ -1,3 +1,25 @@
+2014-01-07  João Távora  <joaotavora@gmail.com>
+
+	* slime-trace-dialog.el
+	(slime-trace-dialog): Change advertised protocol, doesn't fetch
+	traces automatically, just specs and progress.
+	(slime-trace-dialog-fetch-specs): New interactive function.
+	(slime-trace-dialog-fetch-progress): New interactive function.
+	(slime-trace-dialog-fetch-status): Fetch local control, specs and
+	progress.
+	(slime-trace-dialog--clear-local-tree): Simplified.
+	(slime-trace-dialog--update-progress): "[refresh]" button degates
+	to `slime-trace-dialog-fetch-progress'.  "[clear]" button always
+	shows if there is something to clear. Simplified.
+	(slime-trace-dialog--on-new-results): Adapt to new
+	`slime-trace-dialog--update-progress'
+	(slime-trace-dialog--mode-map): Bind 'g' to
+	`slime-trace-dialog-fetch-status'.
+
+	* swank-trace-dialog.lisp (dialog-trace): Don't set RETLIST-OF to
+	a symbol here, backends are responsible for that.
+
+
 2014-01-06  João Távora  <joaotavora@gmail.com>
 
 	* slime-repl.el (slime-repl-insert-prompt): Reset

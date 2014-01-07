@@ -12,7 +12,7 @@
 (define-slime-contrib slime-trace-dialog
   "Provide an interfactive trace dialog buffer for managing and
 inspecting details of traced functions. Invoke this dialog with C-c T."
-  (:authors "JoÃ£o TÃ¡vora <joaotavora@gmail.com>")
+  (:authors "João Távora <joaotavora@gmail.com>")
   (:license "GPL")
   (:swank-dependencies swank-trace-dialog)
   (:on-load (define-key slime-prefix-map
@@ -83,6 +83,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
               do (substitute-key-definition old new map))
         (set-keymap-parent map slime-parent-map)
         (define-key map (kbd "G") 'slime-trace-dialog-fetch-traces)
+        (define-key map (kbd "g") 'slime-trace-dialog-fetch-status)
 
         map))
 
@@ -362,54 +363,49 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 
 (defvar slime-trace-dialog--stop-fetching nil)
 
-(defun slime-trace-dialog--update-progress (done remaining
-                                                 &optional show-stop-p)
+(defun slime-trace-dialog--update-progress (total &optional show-stop-p remaining-p)
+  ;; `remaining-p' indicates `total' is the number of remaining traces.
   (slime-trace-dialog--refresh
       ((slime-trace-dialog--get-buffer)
        :overlay slime-trace-dialog--progress-overlay
        :recover-point-p t)
-    (insert
-     (slime-trace-dialog--format "Trace collection status (%d/%s)"
-                                 done
-                                 (if remaining
-                                     (+ done remaining)
-                                   "?"))
-     (slime-trace-dialog--button "[refresh]"
-                                 #'(lambda (_button)
-                                     (slime-eval-async
-                                         '(swank-trace-dialog:report-total)
-                                       #'(lambda (total)
-                                           (slime-trace-dialog--update-progress
-                                            done
-                                            (- total done)))))))
+    (let* ((done (hash-table-count slime-trace-dialog--traces))
+           (total (if remaining-p (+ done total) total)))
+      (insert
+       (slime-trace-dialog--format "Trace collection status (%d/%s)"
+                                   done
+                                   (or total "?"))
+       (slime-trace-dialog--button "[refresh]"
+                                   #'(lambda (_button)
+                                       (slime-trace-dialog-fetch-progress))))
 
-    (when (and remaining (plusp remaining))
-      (insert "\n" (make-string 50 ? )
-              (slime-trace-dialog--button
-               "[fetch next batch]"
-               #'(lambda (_button)
-                   (slime-trace-dialog-fetch-traces nil)))
-              "\n" (make-string 50 ? )
-              (slime-trace-dialog--button
-               "[fetch all]"
-               #'(lambda (_button)
-                   (slime-trace-dialog-fetch-traces t)))))
-    (when (and done remaining (plusp done))
-      (insert "\n" (make-string 50 ? )
-              (slime-trace-dialog--button
-               "[clear]"
-               #'(lambda (_button)
-                   (slime-eval-async
-                       '(swank-trace-dialog:clear-trace-tree)
-                     #'(lambda (_ignored)
-                         (slime-trace-dialog--clear-local-tree 0)))))))
-    (when show-stop-p
-      (insert "\n" (make-string 50 ? )
-              (slime-trace-dialog--button
-               "[stop]"
-               #'(lambda (_button)
-                   (setq slime-trace-dialog--stop-fetching t)))))
-    (insert "\n\n")))
+      (when (and total (cl-plusp (- total done)))
+        (insert "\n" (make-string 50 ? )
+                (slime-trace-dialog--button
+                 "[fetch next batch]"
+                 #'(lambda (_button)
+                     (slime-trace-dialog-fetch-traces nil)))
+                "\n" (make-string 50 ? )
+                (slime-trace-dialog--button
+                 "[fetch all]"
+                 #'(lambda (_button)
+                     (slime-trace-dialog-fetch-traces t)))))
+      (when total
+        (insert "\n" (make-string 50 ? )
+                (slime-trace-dialog--button
+                 "[clear]"
+                 #'(lambda (_button)
+                     (slime-eval-async
+                         '(swank-trace-dialog:clear-trace-tree)
+                       #'(lambda (_ignored)
+                           (slime-trace-dialog--clear-local-tree)))))))
+      (when show-stop-p
+        (insert "\n" (make-string 50 ? )
+                (slime-trace-dialog--button
+                 "[stop]"
+                 #'(lambda (_button)
+                     (setq slime-trace-dialog--stop-fetching t)))))
+      (insert "\n\n"))))
 
 (defun slime-trace-dialog--open-detail (trace-tuple &optional no-pop)
   (slime-trace-dialog--refresh
@@ -655,7 +651,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                                   0))
             do (slime-trace-dialog--render-trace trace)))))
 
-(defun slime-trace-dialog--clear-local-tree (&optional remaining)
+(defun slime-trace-dialog--clear-local-tree ()
   (set (make-local-variable 'slime-trace-dialog--fetch-key)
        (cl-gensym "slime-trace-dialog-fetch-key-"))
   (set (make-local-variable 'slime-trace-dialog--traces)
@@ -663,7 +659,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   (slime-trace-dialog--refresh
       ((slime-trace-dialog--get-buffer)
        :overlay slime-trace-dialog--tree-overlay))
-  (slime-trace-dialog--update-progress 0 remaining))
+  (slime-trace-dialog--update-progress nil))
 
 (defun slime-trace-dialog--on-new-results (results &optional recurse)
   (destructuring-bind (tuples remaining reply-key)
@@ -673,10 +669,10 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                          (symbol-name reply-key)))
            (slime-trace-dialog--update-tree tuples)
            (slime-trace-dialog--update-progress
-            (hash-table-count slime-trace-dialog--traces)
             remaining
             (and recurse
-                 (plusp remaining)))
+                 (plusp remaining))
+            t)
            (when (and recurse
                       (not (prog1 slime-trace-dialog--stop-fetching
                              (setq slime-trace-dialog--stop-fetching nil)))
@@ -690,14 +686,28 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 
 ;;;; Interactive functions
 ;;;
+
+
+(defun slime-trace-dialog-fetch-specs ()
+  "Refresh just list of traced specs."
+  (interactive)
+  (slime-eval-async `(swank-trace-dialog:report-specs)
+    #'slime-trace-dialog--open-specs))
+
+(defun slime-trace-dialog-fetch-progress ()
+  (interactive)
+  (slime-eval-async
+      '(swank-trace-dialog:report-total)
+    #'(lambda (total)
+        (slime-trace-dialog--update-progress
+         total))))
+
 (defun slime-trace-dialog-fetch-status ()
   "Refresh just the status part of the trace dialog"
   (interactive)
-  (with-current-buffer
-      (pop-to-buffer (slime-trace-dialog--get-buffer))
-    (slime-trace-dialog--open-local-control)
-    (slime-eval-async `(swank-trace-dialog:report-specs)
-        #'slime-trace-dialog--open-specs)))
+  (slime-trace-dialog--open-local-control)
+  (slime-trace-dialog-fetch-specs)
+  (slime-trace-dialog-fetch-progress))
 
 (defun slime-trace-dialog-fetch-traces (&optional recurse)
   (interactive "P")
@@ -744,18 +754,19 @@ other complicated function specs."
     (message "%s" (slime-eval `(swank-trace-dialog:dialog-toggle-trace
                                 (swank::from-string ,spec-string))))))
 
-(defun slime-trace-dialog (&optional just-one-batch)
-  "Show trace dialog and fetch all traces from the beginning.
+(defun slime-trace-dialog (&optional clear-and-fetch)
+  "Show trace dialog and refresh trace collection status.
 
-With optional JUST-ONE-BATCH prefix arg, fetch just first batch of
-traces."
+With optional CLEAR-AND-FETCH prefix arg, clear the current tree
+and fetch a first batch of traces."
   (interactive "P")
   (with-current-buffer
       (pop-to-buffer (slime-trace-dialog--get-buffer))
     (slime-trace-dialog-fetch-status)
-    (overlay-put slime-trace-dialog--tree-overlay
-                 'slime-trace-dialog--collected nil)
-    (slime-trace-dialog--clear-local-tree)
-    (slime-trace-dialog-fetch-traces (not just-one-batch))))
+    (when (or clear-and-fetch
+              (null slime-trace-dialog--fetch-key))
+      (slime-trace-dialog--clear-local-tree))
+    (when clear-and-fetch
+      (slime-trace-dialog-fetch-traces nil))))
 
 (provide 'slime-trace-dialog)
