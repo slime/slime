@@ -1,61 +1,49 @@
-* The SLIME Hacker's Handbook                                   -*- outline -*-
+# The SLIME Hacker's Handbook
 
-* Lisp code file structure
+## Lisp code file structure
 
 The Lisp code is organised into these files:
 
-  swank-backend.lisp:
-    Definition of the interface to non-portable features.
-    Stand-alone.
+* `swank-backend.lisp`: Definition of the interface to non-portable
+features.  Stand-alone.
 
-  swank-<cmucl|...>.lisp:
-    Backend implementation for a specific Common Lisp system.
-    Uses swank-backend.lisp.
+* `swank-<cmucl|...>.lisp`: Backend implementation for a specific
+Common Lisp system.  Uses swank-backend.lisp.
 
-  swank.lisp:
-    The top-level server program, built from the other components.
-    Uses swank-backend.lisp as an interface to the actual backends.
+* `swank.lisp`: The top-level server program, built from the other
+components.  Uses swank-backend.lisp as an interface to the actual
+backends.
 
-  slime.el: 
-    The Superior Lisp Inferior Mode for Emacs, i.e. the Emacs frontend
-    that the user actually interacts with and that connects to the
-    SWANK server to send expressions to, and retrieve information from
-    the running Common Lisp system.
-    
-  contrib/*.lisp:
-    Lisp related code for add-ons to SLIME that are maintained by
-    their respective authors. Consult contrib/README for more
-    information.
+* `slime.el`: The Superior Lisp Inferior Mode for Emacs, i.e. the
+Emacs frontend that the user actually interacts with and that connects
+to the SWANK server to send expressions to, and retrieve information
+from the running Common Lisp system.
 
-* ChangeLog
+* `contrib/*.lisp`: Lisp related code for add-ons to SLIME that are
+maintained by their respective authors. Consult contrib/README for
+more information.
 
-For each change we make an entry in the ChangeLog file. This is
-typically done using the command `add-change-log-entry-other-window'
-(C-x 4 a). The message can be automatically extracted from the
-ChangeLog to use in a CVS commit message by pressing C-c C-a in a
-vc-mode or pcl-cvs commit buffer.
+## ChangeLog
+
+For each change we make an entry in the `ChangeLog` file. This is
+typically done using the command `add-change-log-entry-other-window`
+(`C-x 4 a`).
 
 ChangeLog diffs are automatically sent to the slime-devel mailing list
 each day as a sort of digest summary of the slime-cvs list.
 
-There are good tips on writing ChangeLog entries in the GNU Coding Standards:
-  http://www.gnu.org/prep/standards/html_node/Style-of-Change-Logs.html#Style-of-Change-Logs
+There are good tips on writing ChangeLog entries in the
+[GNU Coding Standards](http://www.gnu.org/prep/standards/html_node/Style-of-Change-Logs.html#Style-of-Change-Logs).
 
 For information about Emacs's ChangeLog support see the `Change Log'
 and `Change Logs and VC' nodes of the Emacs manual:
-  http://www.gnu.org/software/emacs/manual/html_node/emacs/Change-Log.html#Change-Log
-  http://www.gnu.org/software/emacs/manual/html_node/emacs/Change-Logs-and-VC.html#Change-Logs-and-VC
 
+* http://www.gnu.org/software/emacs/manual/html_node/emacs/Change-Log.html#Change-Log
+* http://www.gnu.org/software/emacs/manual/html_node/emacs/Change-Logs-and-VC.html#Change-Logs-and-VC
 
-* Sending Patches
+## Test Suite
 
-If you would like to send us improvements you can create a patch with
-C-x v = in the buffer or manually with 'cvs diff -u'.  It's helpful if
-you also include a ChangeLog entry describing your change.
-
-* Test Suite
-
-The Elisp code includes a command `slime-run-tests' to run a test
+The Elisp code includes a command `slime-run-tests` to run a test
 suite. This can give a pretty good sanity-check for your changes.
 
 Some backends do not pass the full test suite because of missing
@@ -68,19 +56,21 @@ Running the test suite, adding new cases, and increasing the number of
 cases that backends support are all very good for karma.
 
 
-* Source code layout
+## Source code layout
 
 We use a special source file layout to take advantage of some fancy
 Emacs features: outline-mode and "narrowing".
 
-** Outline structure
+### Outline structure
 
 Our source files have a hierarchical structure using comments like
 these:
 
-  ;;;; Heading
-  ;;;;; Subheading
-  ... etc
+```el
+;;;; Heading
+;;;;; Subheading
+... etc
+```
 
 We do this as a nice way to structure the program. We try to keep each
 (sub)section small enough to fit in your head: typically around 50-200
@@ -92,19 +82,18 @@ Of course the comments mean something to Emacs too. One handy usage is
 to bring up a hyperlinked "table of contents" for the source file
 using this command:
 
-  (defun show-outline-structure ()
-    "Show the outline-mode structure of the current buffer."
-    (interactive)
-    (occur (concat "^" outline-regexp)))
+```el
+(defun show-outline-structure ()
+  "Show the outline-mode structure of the current buffer."
+  (interactive)
+  (occur (concat "^" outline-regexp)))
+```
 
-Another is to use `outline-minor-mode' to fold away certain parts of
-the buffer. See the `Outline Mode' section of the Emacs manual for
+Another is to use `outline-minor-mode` to fold away certain parts of
+the buffer. See the `Outline Mode` section of the Emacs manual for
 details about that.
 
-(This file is also formatted for outline mode. If you're reading in
-Emacs you can play around e.g. by pressing `C-c C-d' right now.)
-
-** Pagebreak characters (^L)
+### Pagebreak characters (^L)
 
 We partition source files into chunks using pagebreak characters. Each
 chunk is a substantial piece of code that can be considered in
@@ -114,37 +103,37 @@ fanatical about small source files (rather than big ones!)
 The page breaks usually go in the same place as top-level outline-mode
 headings, but they don't have to. They're flexible.
 
-In the old days, when slime.el was less than 100 pages long, these
+In the old days, when `slime.el` was less than 100 pages long, these
 page breaks were helpful when printing it out to read. Now they're
 useful for something else: narrowing.
 
-You can use `C-x n p' (narrow-to-page) to "zoom in" on a
+You can use `C-x n p` (`narrow-to-page`) to "zoom in" on a
 pagebreak-delimited section of the file as if it were a separate
-buffer in itself. You can then use `C-x n w' (widen) to "zoom out" and
+buffer in itself. You can then use `C-x n w` (`widen`) to "zoom out" and
 see the whole file again. This is tremendously helpful for focusing
 your attention on one part of the program as if it were its own file.
 
 (This file contains some page break characters. If you're reading in
-Emacs you can press `C-x n p' to narrow to this page, and then later
-`C-x n w' to make the whole buffer visible again.)
+Emacs you can press `C-x n p` to narrow to this page, and then later
+`C-x n w` to make the whole buffer visible again.)
 
 
-* Coding style
+## Coding style
 
 We like the fact that each function in SLIME will fit on a single
 screen (80x20), and would like to preserve this property! Beyond that
 we're not dogmatic :-)
 
 In early discussions we all made happy noises about the advice in
-Norvig and Pitman's _Tutorial on Good Lisp Programming Style_:
-  http://www.norvig.com/luv-slides.ps
+Norvig and Pitman's
+[Tutorial on Good Lisp Programming Style](http://www.norvig.com/luv-slides.ps).
 
 For Emacs Lisp, we try to follow the _Tips and Conventions_ in
 Appendix D of the GNU Emacs Lisp Reference Manual (see Info file
-`elisp', node `Tips').  
+`elisp`, node `Tips`).
 
 We use Emacs conventions for docstrings: the first line should be a
-complete sentence to make the output of `apropos' look good.  We also
+complete sentence to make the output of `apropos` look good.  We also
 use imperative verbs.
 
 The biggest problem with SLIME's code base is feature creep.  Keep in
@@ -156,3 +145,15 @@ ignore rarely needed cases.
 Remember that to rewrite a program better is the sincerest form of
 code appreciation. When you can see a way to rewrite a part of SLIME
 better, please do so!
+
+## Pull requests
+
+* Read [how to properly contribute to open source projects on Github][1].
+* Use a topic branch to easily amend a pull request later, if necessary.
+* Write [good commit messages][2].
+* Open a [pull request][3] that relates to *only* one subject with a clear title
+  and description in grammatically correct, complete sentences.
+
+[1]: http://gun.io/blog/how-to-github-fork-branch-and-pull-request
+[2]: http://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html
+[3]: https://help.github.com/articles/using-pull-requests
