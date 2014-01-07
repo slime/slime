@@ -10,7 +10,7 @@
 
 ;; If you want customize the source- or fasl-directory you can set
 ;; swank-loader:*source-directory* resp. swank-loader:*fasl-directory*
-;; before loading this files. 
+;; before loading this files.
 ;; E.g.:
 ;;
 ;;   (load ".../swank-loader.lisp")
@@ -232,7 +232,7 @@ If LOAD is true, load the fasl file."
   "List of names for contrib modules.")
 
 (defun append-dir (absolute name)
-  (merge-pathnames 
+  (merge-pathnames
    (make-pathname :directory `(:relative ,name) :defaults absolute)
    absolute))
 
@@ -243,10 +243,10 @@ If LOAD is true, load the fasl file."
                      (fasl-dir *fasl-directory*)
                      quiet)
   (compile-files (src-files *swank-files* src-dir) fasl-dir t quiet)
+  (setq *load-path* (list (contrib-dir fasl-dir)
+                          (contrib-dir src-dir)))
   (funcall (q "swank::before-init")
-           (slime-version-string)
-           (list (contrib-dir fasl-dir)
-                 (contrib-dir src-dir))))
+           (slime-version-string)))
 
 (defun delete-stale-contrib-fasl-files (swank-files contrib-files fasl-dir)
   (let ((newest (reduce #'max (mapcar #'file-write-date swank-files))))
@@ -262,7 +262,7 @@ If LOAD is true, load the fasl file."
                            load quiet)
   (let* ((swank-src-files (src-files *swank-files* swank-src-dir))
          (contrib-src-files (src-files *contribs* src-dir)))
-    (delete-stale-contrib-fasl-files swank-src-files contrib-src-files 
+    (delete-stale-contrib-fasl-files swank-src-files contrib-src-files
                                      fasl-dir)
     (compile-files contrib-src-files fasl-dir load quiet)))
 
@@ -274,7 +274,7 @@ If LOAD is true, load the fasl file."
   (load-site-init-file *source-directory*)
   (load-user-init-file)
   (when (#-clisp probe-file
-         #+clisp ext:probe-directory        
+         #+clisp ext:probe-directory
          (contrib-dir *source-directory*))
     (eval `(pushnew 'compile-contribs ,(q "swank::*after-init-hook*"))))
   (funcall (q "swank::init")))
@@ -301,3 +301,25 @@ global variabes in SWANK."
 (defun dump-image (filename)
   (init :setup nil)
   (funcall (q "swank-backend:save-image") filename))
+
+
+;;;;;; Simple *require-module* function for asdf-loader.lisp.
+(defvar *load-path* '()
+  "A list of directories to search for modules.")
+
+(defun module-canditates (name dir)
+  (list (compile-file-pathname (make-pathname :name name :defaults dir))
+        (make-pathname :name name :type "lisp" :defaults dir)))
+
+(defun require-module (module &optional filename)
+  (unless (member (string module) *modules* :test #'string=)
+    (let* ((name (string-downcase module))
+           (filename (or filename
+                         (some (lambda (dir) (some #'probe-file (module-canditates name dir)))
+                               *load-path*))))
+      (if filename
+          (require module filename)
+          (error "Can't find module ~a" module)))
+    (assert (member (string module) *modules* :test #'string=)
+            nil
+            "Required module ~s was not provided" module)))

@@ -1,3 +1,30 @@
+2014-01-99  João Távora  <joaotavora@gmail.com>
+
+	* slime.el (slime-init-function): new defcustom
+	(slime-init-using-swank-loader): renamed from slime-init-command
+	(slime-init-using-asdf): new function
+
+	* swank.lisp (*require-module*): new user-customizable
+	var. Default value guesses loading method.
+	(swank-require): Remove optional arg. Simplify to call
+	*REQUIRE-MODULE*.
+	(*require-module*): New variable.
+	(*find-module*): Deleted variable.
+	(module-filename): Deleted.
+	(merged-directory): Deleted.
+	(module-canditates): Moved to swank-loader.lisp
+	(*load-path*): Moved to swank-loader.lisp
+	(before-init): removed second arg, no longer knows anything about
+	load-paths.
+
+	* swank-loader.lisp (*load-path*,module-canditates): moved from
+	swank.lisp.
+	(require-module): new function for plugging into
+	SWANK:*REQUIRE-MODULE*
+	(load-swank): set loader's load-path in loader.
+
+	* swank.asd: No loader depend on swank-loader.
+
 2014-01-99  Francois-Rene Rideau <tunes@google.com>
 
 	* swank.asd : load the swank source code without calling swank-loader.

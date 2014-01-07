@@ -177,10 +177,26 @@ This applies to the *inferior-lisp* buffer and the network connections."
   :prefix "slime-"
   :group 'slime)
 
-(defcustom slime-backend "swank-loader.lisp"
-  "The name of the Lisp file that loads the Swank server.
-This name is interpreted relative to the directory containing
-slime.el, but could also be set to an absolute filename."
+(defcustom slime-init-function 'slime-init-using-asdf
+  "Function bootstrapping swank on the remote.
+
+Value is a function of two arguments: SWANK-PORTFILE and an
+ingored argument for backward compatibility. Function should
+return a string issuing very first commands issued by Slime to
+the remote-connection process. Some time after this there should
+be a port number ready in SWANK-PORTFILE."
+  :type '(choice (const :tag "Use ASDF"
+                        slime-init-using-asdf)
+                 (const :tag "Use legacy swank-loader.lisp"
+                        slime-init-using-swank-loader))
+  :group 'slime-lisp)
+
+(defcustom slime-swank-loader-backend "swank-loader.lisp"
+  "The name of the swank-loader that loads the Swank server.
+Only applicable if `slime-init-function' is set to
+`slime-init-using-swank-loader'. This name is interpreted
+relative to the directory containing slime.el, but could also be
+set to an absolute filename."
   :type 'string
   :group 'slime-lisp)
 
@@ -1160,7 +1176,7 @@ The rules for selecting the arguments are rather complicated:
 (cl-defun slime-start (&key (program inferior-lisp-program) program-args
                           directory
                           (coding-system slime-net-coding-system)
-                          (init 'slime-init-command)
+                          (init slime-init-function)
                           name
                           (buffer "*inferior-lisp*")
                           init-function
@@ -1173,7 +1189,7 @@ PROGRAM and PROGRAM-ARGS are the filename and argument strings
   for the subprocess.
 INIT is a function that should return a string to load and start
   Swank. The function will be called with the PORT-FILENAME and ENCODING as
-  arguments.  INIT defaults to `slime-init-command'.
+  arguments.  INIT defaults to `slime-init-function'.
 CODING-SYSTEM a symbol for the coding system. The default is
   slime-net-coding-system
 ENV environment variables for the subprocess (see `process-environment').
@@ -1347,17 +1363,28 @@ See `slime-start'."
   (with-current-buffer (process-buffer process)
     slime-inferior-lisp-args))
 
-;; XXX load-server & start-server used to be separated. maybe that was  better.
-(defun slime-init-command (port-filename _coding-system)
+(defun slime-init-using-asdf (port-filename _coding-system)
   "Return a string to initialize Lisp."
-  (let ((loader (if (file-name-absolute-p slime-backend)
-                    slime-backend
-                  (concat slime-path slime-backend))))
+  (format "%S\n\n"
+          `(progn
+             ;; JT@14/01/07: FIXME: check for "good" asdf version and if not
+             ;; load our compiled version, compiling it if necessary.
+             (require :asdf)
+             (setf (symbol-value (intern "*CENTRAL-REGISTRY*" :asdf))
+                   (list (cl:probe-file ,slime-path)))
+             (funcall (read-from-string "asdf:load-system") :swank)
+             (setf (symbol-value (intern "*FIND-MODULE*" :swank))
+                   #'identity)
+             (funcall (read-from-string "swank:start-server") ,port-filename))))
+
+;; XXX load-server & start-server used to be separated. maybe that was  better.
+(defun slime-init-using-swank-loader (port-filename _coding-system)
+  "Return a string to initialize Lisp."
+  (let ((loader (expand-file-name slime-swank-loader-backend slime-path)))
     ;; Return a single form to avoid problems with buffered input.
     (format "%S\n\n"
             `(progn
-               (load ,(expand-file-name loader)
-                     :verbose t)
+               (load ,loader :verbose t)
                (funcall (read-from-string "swank-loader:init"))
                (funcall (read-from-string "swank:start-server")
                         ,port-filename)))))
