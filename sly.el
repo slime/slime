@@ -173,10 +173,26 @@ This applies to the *inferior-lisp* buffer and the network connections."
   :prefix "sly-"
   :group 'sly)
 
-(defcustom sly-backend "swank-loader.lisp"
-  "The name of the Lisp file that loads the Swank server.
-This name is interpreted relative to the directory containing
-sly.el, but could also be set to an absolute filename."
+(defcustom sly-init-function 'sly-init-using-asdf
+  "Function bootstrapping swank on the remote.
+
+Value is a function of two arguments: SWANK-PORTFILE and an
+ingored argument for backward compatibility. Function should
+return a string issuing very first commands issued by Sly to
+the remote-connection process. Some time after this there should
+be a port number ready in SWANK-PORTFILE."
+  :type '(choice (const :tag "Use ASDF"
+                        sly-init-using-asdf)
+                 (const :tag "Use legacy swank-loader.lisp"
+                        sly-init-using-swank-loader))
+  :group 'sly-lisp)
+
+(defcustom sly-swank-loader-backend "swank-loader.lisp"
+  "The name of the swank-loader that loads the Swank server.
+Only applicable if `sly-init-function' is set to
+`sly-init-using-swank-loader'. This name is interpreted
+relative to the directory containing sly.el, but could also be
+set to an absolute filename."
   :type 'string
   :group 'sly-lisp)
 
@@ -916,13 +932,13 @@ The rules for selecting the arguments are rather complicated:
       (cl-list* :name name :program prog :program-args args keys))))
 
 (cl-defun sly-start (&key (program inferior-lisp-program) program-args
-                            directory
-                            (coding-system sly-net-coding-system)
-                            (init 'sly-init-command)
-                            name
-                            (buffer "*inferior-lisp*")
-                            init-function
-                            env)
+                          directory
+                          (coding-system sly-net-coding-system)
+                          (init sly-init-function)
+                          name
+                          (buffer "*inferior-lisp*")
+                          init-function
+                          env)
   "Start a Lisp process and connect to it.
 This function is intended for programmatic use if `sly' is not
 flexible enough.
@@ -931,7 +947,7 @@ PROGRAM and PROGRAM-ARGS are the filename and argument strings
   for the subprocess.
 INIT is a function that should return a string to load and start
   Swank. The function will be called with the PORT-FILENAME and ENCODING as
-  arguments.  INIT defaults to `sly-init-command'.
+  arguments.  INIT defaults to `sly-init-function'.
 CODING-SYSTEM a symbol for the coding system. The default is
   sly-net-coding-system
 ENV environment variables for the subprocess (see `process-environment').
@@ -1099,17 +1115,29 @@ See `sly-start'."
   (with-current-buffer (process-buffer process)
     sly-inferior-lisp-args))
 
-;; XXX load-server & start-server used to be separated. maybe that was  better.
-(defun sly-init-command (port-filename _coding-system)
+(defun sly-init-using-asdf (port-filename _coding-system)
   "Return a string to initialize Lisp."
-  (let ((loader (if (file-name-absolute-p sly-backend)
-                    sly-backend
-                  (concat sly-path sly-backend))))
+  (format "%S\n\n"
+          `(progn
+             ;; JT@14/01/07: FIXME: check for "good" asdf version and if not
+             ;; load our compiled version, compiling it if necessary.
+             (require :asdf)
+             (setf (symbol-value (intern "*CENTRAL-REGISTRY*" :asdf))
+                   (list (cl:probe-file ,sly-path)))
+             (funcall (read-from-string "asdf:load-system") :swank)
+             (setf (symbol-value (intern "*FIND-MODULE*" :swank))
+                   #'identity)
+             (funcall (read-from-string "swank:start-server") ,port-filename))))
+
+;; XXX load-server & start-server used to be separated. maybe that was  better.
+(defun sly-init-using-swank-loader (port-filename _coding-system)
+  "Return a string to initialize Lisp."
+  (let ((loader (sly-to-lisp-filename
+                 (expand-file-name sly-swank-loader-backend sly-path))))
     ;; Return a single form to avoid problems with buffered input.
     (format "%S\n\n"
             `(progn
-               (load ,(sly-to-lisp-filename (expand-file-name loader))
-                     :verbose t)
+               (load ,loader :verbose t)
                (funcall (read-from-string "swank-loader:init"))
                (funcall (read-from-string "swank:start-server")
                         ,port-filename)))))

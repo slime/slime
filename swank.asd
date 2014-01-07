@@ -22,11 +22,7 @@
 ;; See https://github.com/slime/slime/pull/76 and related issues
 ;; for details on this defsystem.
 
-(asdf:defsystem :swank/loader
-  :components ((:file "swank-loader")))
-
 (asdf:defsystem :swank
-  :depends-on (:swank/loader)
   :components
   ((:file "swank-backend")
    ;; If/when we require ASDF3, we shall use :if-feature instead
@@ -67,19 +63,6 @@
 ;;; TODO: we should either use the convention that works of naming secondary systems swank/foo
 ;;; or have each contrib in its own .asd file, otherwise ASDF will not be able to find them
 ;;; by name unless swank has been loaded first.
-
-(asdf:defsystem :swank-contribs
-  :depends-on
-  (:swank
-   :swank-util :swank-repl
-   :swank-c-p-c :swank-arglists :swank-fuzzy
-   :swank-fancy-inspector
-   :swank-presentations :swank-presentation-streams
-   #+(or asdf2 asdf3 sbcl ecl) :swank-asdf
-   :swank-package-fu
-   :swank-hyperdoc
-   #+sbcl :swank-sbcl-exts
-   :swank-mrepl :swank-trace-dialog))
 
 (asdf:defsystem :swank-util
   :components ((:file "contrib/swank-util")))
@@ -143,3 +126,16 @@
 
 (asdf:defsystem :swank-sprof
   :components ((:file "contrib/swank-sprof")))
+
+(asdf:defsystem :swank-contribs
+    :depends-on
+  (:swank
+   :swank-util :swank-repl
+   :swank-c-p-c :swank-arglists :swank-fuzzy
+   :swank-fancy-inspector
+   :swank-presentations :swank-presentation-streams
+   #+(or asdf2 asdf3 sbcl ecl) :swank-asdf
+   :swank-package-fu
+   :swank-hyperdoc
+   #+sbcl :swank-sbcl-exts
+   :swank-mrepl :swank-trace-dialog))
