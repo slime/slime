@@ -17,5 +17,5 @@ install:
 before_script:
 script:
   - ./test.sh -bSC emacs sbcl
-  - rm ert.el; rm ert-x.el; rm cl-lib.el
+  - rm ert.*; rm ert-x.*; rm cl-lib.*
   - ./test.sh -bSC emacs-snapshot sbcl
