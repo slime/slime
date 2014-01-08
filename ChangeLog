@@ -1,3 +1,19 @@
+2014-01-08  João Távora  <joaotavora@gmail.com>
+
+	* slime.el: Bump version to 2.0.1
+
+	* slime-tests.el (slime-test-ert-for): Use `eval-and-compile' for
+	this function.
+
+	* Makefile: New file: top level makefile, replaces mkdir.sh and
+	test.sh. Some elpa targets available, still incomplete.
+
+	* .travis.yml (script): Use "make check".
+
+	* mkdir.sh: Removed file.
+
+	* test.sh: Removed file.
+
 2014-01-07  Bozhidar Batsov  <bozhidar@batsov.com>
 
 	* CONTRIBUTING.md: Renamed from HACKING and converted to markdown.

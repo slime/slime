@@ -19,7 +19,7 @@
                        slime-package-fu
                        slime-fontifying-fu
                        slime-trace-dialog)
-  (:on-load 
+  (:on-load
    (slime-trace-dialog-init)
    (slime-repl-init)
    (slime-autodoc-init)
