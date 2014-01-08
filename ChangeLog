@@ -1,6 +1,6 @@
 2014-01-08  João Távora  <joaotavora@gmail.com>
 
-	* slime.el: Bump version to 2.0.1
+	* slime.el: Bump version to 2.3.1
 
 	* slime-tests.el (slime-test-ert-for): Use `eval-and-compile' for
 	this function.
