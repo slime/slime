@@ -1,3 +1,9 @@
+2014-01-09  João Távora  <joaotavora@gmail.com>
+
+	* slime-repl.el (slime-repl-read-mode): Closes #17: ignore
+	slime completion `slime-repl-read-mode-map'.
+	(slime-repl-read-mode-map): Put keymap in its own var.
+
 2014-01-07  João Távora  <joaotavora@gmail.com>
 
 	* slime-trace-dialog.el
