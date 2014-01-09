@@ -1,4 +1,12 @@
-2014-01-99  João Távora  <joaotavora@gmail.com>
+2014-01-09  João Távora  <joaotavora@gmail.com>
+
+	* swank.lisp (before-init): don't take VERSION arg.
+	(slime-version-string): move it here.
+	(init): Call BEFORE-INIT.
+	(before-init): don't redo if :SWANK in *FEATURES*
+	(start-server): call INIT unless :SWANK in *FEATURES*
+
+	* swank-loader.lisp (slime-version-string): remove it.
 
 	* slime.el (slime-init-function): new defcustom
 	(slime-init-using-swank-loader): renamed from slime-init-command

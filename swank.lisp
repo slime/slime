@@ -758,6 +758,8 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
                                     (dont-close *dont-close*))
   "Start the server and write the listen port number to PORT-FILE.
 This is the entry point for Emacs."
+  (unless (member :swank *features*)
+    (init))
   (setup-server 0
                 (lambda (port) (announce-server-port port-file port))
                 style dont-close nil))
@@ -3704,12 +3706,21 @@ Collisions are caused because package information is ignored."
       (background-message "flow-control-test: ~d" i))))
 
 
-(defun before-init (version)
-  (pushnew :swank *features*)
-  (setq *swank-wire-protocol-version* version)
-  (swank-backend::warn-unimplemented-interfaces))
+(defun slime-version-string ()
+  "Return a string identifying the SLIME version.
+Return nil if nothing appropriate is available."
+  (with-open-file (s (merge-pathnames "ChangeLog" *source-directory*)
+                     :if-does-not-exist nil)
+    (and s (symbol-name (read s)))))
+
+(defun before-init ()
+  (unless (member :swank *features*)
+    (pushnew :swank *features*)
+    (setq *swank-wire-protocol-version* (slime-version-string))
+    (swank-backend::warn-unimplemented-interfaces)))
 
 (defun init ()
+  (before-init)
   (run-hook *after-init-hook*))
 
 ;; Local Variables:

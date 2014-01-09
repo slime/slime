@@ -1370,11 +1370,9 @@ See `slime-start'."
              ;; JT@14/01/07: FIXME: check for "good" asdf version and if not
              ;; load our compiled version, compiling it if necessary.
              (require :asdf)
-             (setf (symbol-value (intern "*CENTRAL-REGISTRY*" :asdf))
-                   (list (cl:probe-file ,slime-path)))
+             (set (read-from-string "asdf:*central-registry*")
+                  (list (cl:probe-file ,slime-path)))
              (funcall (read-from-string "asdf:load-system") :swank)
-             (setf (symbol-value (intern "*FIND-MODULE*" :swank))
-                   #'identity)
              (funcall (read-from-string "swank:start-server") ,port-filename))))
 
 ;; XXX load-server & start-server used to be separated. maybe that was  better.

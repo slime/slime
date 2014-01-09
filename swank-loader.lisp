@@ -120,13 +120,6 @@ operating system, and hardware architecture."
   "Returns true if NEW-FILE is newer than OLD-FILE."
   (> (file-write-date new-file) (file-write-date old-file)))
 
-(defun slime-version-string ()
-  "Return a string identifying the SLIME version.
-Return nil if nothing appropriate is available."
-  (with-open-file (s (merge-pathnames "ChangeLog" *source-directory*)
-                     :if-does-not-exist nil)
-    (and s (symbol-name (read s)))))
-
 (defun default-fasl-dir ()
   (merge-pathnames
    (make-pathname
@@ -245,8 +238,7 @@ If LOAD is true, load the fasl file."
   (compile-files (src-files *swank-files* src-dir) fasl-dir t quiet)
   (setq *load-path* (list (contrib-dir fasl-dir)
                           (contrib-dir src-dir)))
-  (funcall (q "swank::before-init")
-           (slime-version-string)))
+  (funcall (q "swank::before-init")))
 
 (defun delete-stale-contrib-fasl-files (swank-files contrib-files fasl-dir)
   (let ((newest (reduce #'max (mapcar #'file-write-date swank-files))))
