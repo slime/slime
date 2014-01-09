@@ -120,18 +120,6 @@ operating system, and hardware architecture."
   "Returns true if NEW-FILE is newer than OLD-FILE."
   (> (file-write-date new-file) (file-write-date old-file)))
 
-(defun sly-version-string ()
-  "Return a string identifying the SLY version.
-Return nil if nothing appropriate is available."
-  (ignore-errors
-   (with-open-file (s (merge-pathnames "sly.el" *source-directory*))
-     (let ((seq (make-array 200 :element-type 'character :initial-element #\null)))
-       (read-sequence seq s :end 200)
-       (let* ((beg (search ";; Version:" seq))
-              (end (position #\NewLine seq :start beg))
-              (middle (position #\Space seq :from-end t :end end)))
-         (subseq seq (1+ middle) end))))))
-
 (defun default-fasl-dir ()
   (merge-pathnames
    (make-pathname
@@ -249,8 +237,7 @@ If LOAD is true, load the fasl file."
   (compile-files (src-files *swank-files* src-dir) fasl-dir t quiet)
   (setq *load-path* (list (contrib-dir fasl-dir)
                           (contrib-dir src-dir)))
-  (funcall (q "swank::before-init")
-           (sly-version-string)))
+  (funcall (q "swank::before-init")))
 
 (defun delete-stale-contrib-fasl-files (swank-files contrib-files fasl-dir)
   (let ((newest (reduce #'max (mapcar #'file-write-date swank-files))))

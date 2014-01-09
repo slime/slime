@@ -765,6 +765,8 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
                                     (dont-close *dont-close*))
   "Start the server and write the listen port number to PORT-FILE.
 This is the entry point for Emacs."
+  (unless (member :swank *features*)
+    (init))
   (setup-server 0
                 (lambda (port) (announce-server-port port-file port))
                 style dont-close nil))
@@ -3739,12 +3741,26 @@ Collisions are caused because package information is ignored."
       (background-message "flow-control-test: ~d" i))))
 
 
-(defun before-init (version)
-  (pushnew :swank *features*)
-  (setq *swank-wire-protocol-version* version)
-  (swank-backend::warn-unimplemented-interfaces))
+(defun sly-version-string ()
+  "Return a string identifying the SLY version.
+Return nil if nothing appropriate is available."
+  (ignore-errors
+   (with-open-file (s (merge-pathnames "sly.el" *source-directory*))
+     (let ((seq (make-array 200 :element-type 'character :initial-element #\null)))
+       (read-sequence seq s :end 200)
+       (let* ((beg (search ";; Version:" seq))
+              (end (position #\NewLine seq :start beg))
+              (middle (position #\Space seq :from-end t :end end)))
+         (subseq seq (1+ middle) end))))))
+
+(defun before-init ()
+  (unless (member :swank *features*)
+    (pushnew :swank *features*)
+    (setq *swank-wire-protocol-version* (sly-version-string))
+    (swank-backend::warn-unimplemented-interfaces)))
 
 (defun init ()
+  (before-init)
   (run-hook *after-init-hook*))
 
 ;; Local Variables:
