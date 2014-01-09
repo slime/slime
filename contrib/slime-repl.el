@@ -449,6 +449,7 @@ joined together."))
   ("\t"   'slime-indent-and-complete-symbol)
   ("\M-\t" 'slime-complete-symbol)
   (" "    'slime-space)
+  ((string slime-repl-shortcut-dispatch-char) 'slime-handle-repl-shortcut)
   ("\C-c\C-o" 'slime-repl-clear-output)
   ("\C-c\M-o" 'slime-repl-clear-buffer)
   ("\C-c\C-u" 'slime-repl-kill-input)
@@ -1206,7 +1207,7 @@ The handler will use qeuery to ask the use if the error should be ingored."
     (define-key map "\C-c\C-b" 'slime-repl-read-break)
     (define-key map "\C-c\C-c" 'slime-repl-read-break)
     (define-key map [remap slime-indent-and-complete-symbol] 'ignore)
-    (define-key map (string slime-repl-shortcut-dispatch-char) 'slime-handle-repl-shortcut)
+    (define-key map [remap slime-handle-repl-shortcut] 'self-insert-command)
     map))
 
 (define-minor-mode slime-repl-read-mode
