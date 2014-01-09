@@ -1566,52 +1566,39 @@ stack."
 (progn
   (defvar *thread-id-counter* 0)
 
-  (defvar *thread-id-counter-lock*
-    (sb-thread:make-mutex :name "thread id counter lock"))
+  (defvar *thread-id-counter/lock*
+    (sb-thread:make-mutex :name "swank::*thread-id-counter/lock*"))
 
   (defun next-thread-id ()
-    (sb-thread:with-mutex (*thread-id-counter-lock*)
+    (sb-thread:with-mutex (*thread-id-counter/lock*)
       (incf *thread-id-counter*)))
 
-  (defparameter *thread-id-map* (make-hash-table))
+  (defparameter *thread-id->thread-map*
+    (make-hash-table :weakness :value))
 
-  ;; This should be a thread -> id map but as weak keys are not
-  ;; supported it is id -> map instead.
-  (defvar *thread-id-map-lock*
-    (sb-thread:make-mutex :name "thread id map lock"))
+  ;; We optimize for id -> thread lookup, but it's an uninformed decision.
+  (defvar *thread-id->thread-map/lock*
+    (sb-thread:make-mutex :name "swank::*thread-id->thread-map/lock*"))
 
   (defimplementation spawn (fn &key name)
-    (sb-thread:make-thread fn :name name))
+    (sb-thread:make-thread fn :name (or name "Anonymous (Swank)")))
 
   (defimplementation thread-id (thread)
     (block thread-id
-      (sb-thread:with-mutex (*thread-id-map-lock*)
-        (loop for id being the hash-key in *thread-id-map*
-              using (hash-value thread-pointer)
+      (sb-thread:with-mutex (*thread-id->thread-map/lock*)
+        (loop for id being the hash-key in *thread-id->thread-map*
+              using (hash-value hash-value)
               do
-              (let ((maybe-thread (sb-ext:weak-pointer-value thread-pointer)))
-                (cond ((null maybe-thread)
-                       ;; the value is gc'd, remove it manually
-                       (remhash id *thread-id-map*))
-                      ((eq thread maybe-thread)
-                       (return-from thread-id id)))))
+              (when (eq thread hash-value)
+                (return-from thread-id id)))
         ;; lazy numbering
         (let ((id (next-thread-id)))
-          (setf (gethash id *thread-id-map*) (sb-ext:make-weak-pointer thread))
+          (setf (gethash id *thread-id->thread-map*) thread)
           id))))
 
   (defimplementation find-thread (id)
-    (sb-thread:with-mutex (*thread-id-map-lock*)
-      (let ((thread-pointer (gethash id *thread-id-map*)))
-        (if thread-pointer
-            (let ((maybe-thread (sb-ext:weak-pointer-value thread-pointer)))
-              (if maybe-thread
-                  maybe-thread
-                  ;; the value is gc'd, remove it manually
-                  (progn
-                    (remhash id *thread-id-map*)
-                    nil)))
-            nil))))
+    (sb-thread:with-mutex (*thread-id->thread-map/lock*)
+      (gethash id *thread-id->thread-map*)))
 
   (defimplementation thread-name (thread)
     ;; sometimes the name is not a string (e.g. NIL)
