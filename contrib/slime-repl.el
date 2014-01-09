@@ -1,7 +1,7 @@
 ;;; slime-repl.el ---
 ;;
 ;; Original Author: Helmut Eller
-;; Contributors: to many to mention
+;; Contributors: too many to mention
 ;; License: GNU GPL (same license as Emacs)
 ;;
 ;;; Description:
@@ -445,10 +445,9 @@ joined together."))
   ("\M-r" 'slime-repl-previous-matching-input)
   ("\M-s" 'slime-repl-next-matching-input)
   ("\C-c\C-c" 'slime-interrupt)
-  ;("\t"   'slime-complete-symbol)
-  ("\t"   'slime-indent-and-complete-symbol)
+  ("\t" 'slime-indent-and-complete-symbol)
   ("\M-\t" 'slime-complete-symbol)
-  (" "    'slime-space)
+  (" " 'slime-space)
   ((string slime-repl-shortcut-dispatch-char) 'slime-handle-repl-shortcut)
   ("\C-c\C-o" 'slime-repl-clear-output)
   ("\C-c\M-o" 'slime-repl-clear-buffer)
