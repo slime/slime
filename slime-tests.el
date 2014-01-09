@@ -1135,4 +1135,75 @@ Reconnect afterwards."
                               (not (member hook slime-connected-hook)))
                             5))))
 
+(defun slime-test-recipe-test-for (recipe expected-contribs)
+  (let ((setup-recipe-file (make-temp-file "slime-setup-recipe-" nil ".el"))
+        (test-recipe-file (make-temp-file "slime-test-recipe-" nil ".el"))
+        (test-forms `((require 'cl)
+                      (add-hook 'slime-connected-hook
+                                #'(lambda ()
+                                    (condition-case err
+                                        (progn
+                                          (unless (cl-every #'featurep ',expected-contribs)
+                                            (kill-emacs 222))
+                                          (when (memq 'slime-repl ',expected-contribs)
+                                            (with-current-buffer (slime-repl-buffer)
+                                              (princ (buffer-string))))
+                                          (kill-emacs 0))
+                                      (error (kill-emacs 223))))
+                                t)
+                      (call-interactively 'slime)
+                      (with-timeout (20 (kill-emacs 224))
+                        (while t (sit-for 1))))))
+    (unwind-protect
+        (progn
+          (with-temp-buffer
+            (mapc #'insert (mapcar #'pp-to-string recipe))
+            (write-file setup-recipe-file))
+          (with-temp-buffer
+            (mapc #'insert (mapcar #'pp-to-string test-forms))
+            (write-file test-recipe-file))
+          ;; (with-temp-buffer
+          ;;   (let ((retval (call-process (concat invocation-directory invocation-name)
+          ;;                               nil (list t nil) nil
+          ;;                               "-Q"  "--batch"
+          ;;                               "-L" "."
+          ;;                               "-l" setup-recipe-file
+          ;;                               "-l" test-recipe-file)))
+          ;;     (cl-case retval
+          ;;       (222
+          ;;        (ert-fail (format "child emacs didn't setup all of %s!"
+          ;;                          expected-contribs)))
+          ;;       (223
+          ;;        (ert-fail "child emacs errored, but at slime connected !"))
+          ;;       (224
+          ;;        (ert-fail "child emacs errored, slime didn't connect in time!"))
+          ;;       (t
+          ;;        (should (= 0 retval))
+          ;;        (when (memq 'slime-repl expected-contribs)
+          ;;          (should (string-match "^; +SLIME" (buffer-string)))
+          ;;          (should (string-match "CL-USER> *$" (buffer-string))))))))
+          (list setup-recipe-file test-recipe-file))
+      ;; (delete-file test-recipe-file)
+      ;; (delete-file setup-recipe-file)
+      )))
+
+(defmacro slime-test-direct-ert (name &rest args)
+  (if (not (featurep 'ert))
+      (warn "No ert.el found: not defining test %s"
+            name)
+    `(ert-deftest ,name ,@args)))
+
+(slime-test-direct-ert readme-recipe ()
+  "Test the README.md's recipe."
+  (slime-test-recipe-test-for
+   `((add-to-list 'load-path ,
+                  (expand-file-name
+                   (or (and load-file-name
+                            (file-name-directory load-file-name))
+                       ".")))
+     (require 'slime-autoloads)
+     (setq inferior-lisp-program ,inferior-lisp-program)
+     (setq slime-contribs '(slime-fancy slime-repl)))
+   '(slime-fancy slime-repl)))
+
 (provide 'slime-tests)
