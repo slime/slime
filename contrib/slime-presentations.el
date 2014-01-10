@@ -207,7 +207,7 @@ Return buffer index and whether a start-tag was found."
   (let* ((this-presentation (get-text-property point presentation object)))
     (while (not (slime-presentation-start-p this-presentation))
       (let ((change-point (previous-single-property-change
-                           point presentation object)))
+                           point presentation object 1)))
         (unless change-point
           (return-from slime-presentation-start
             (values (etypecase object
