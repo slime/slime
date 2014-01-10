@@ -1187,13 +1187,14 @@ Reconnect afterwards."
       ;; (delete-file setup-recipe-file)
       )))
 
-(defmacro slime-test-direct-ert (name &rest args)
+(defmacro define-slime-ert-test (name &rest args)
+  "Like `ert-deftest', but don't error if `ert.el' is missing."
   (if (not (featurep 'ert))
       (warn "No ert.el found: not defining test %s"
             name)
     `(ert-deftest ,name ,@args)))
 
-(slime-test-direct-ert readme-recipe ()
+(define-slime-ert-test readme-recipe ()
   "Test the README.md's recipe."
   (slime-test-recipe-test-for
    `((add-to-list 'load-path ,

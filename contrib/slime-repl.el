@@ -727,7 +727,7 @@ balanced."
               (< (point) slime-repl-input-start-mark))
          (slime-repl-grab-old-input end-of-input)
          (slime-repl-recenter-if-needed))
-        ((run-hook-with-args-until-success 'slime-repl-return-hooks))
+        ((run-hook-with-args-until-success 'slime-repl-return-hooks end-of-input))
         ((slime-input-complete-p slime-repl-input-start-mark (point-max))
          (slime-repl-send-input t))
         (t
@@ -1091,10 +1091,10 @@ use it as an input.  This is useful to get rid of unwanted repl
 history entries while navigating the repl history."
   (interactive (list (slime-repl-current-input)))
   (let ((merged-history
-         (slime-repl-merge-histories slime-repl-input-history
-                                     (slime-repl-read-history nil t))))
+         (slime-repl-merge-histories (slime-repl-read-history nil t)
+                                     slime-repl-input-history)))
     (setq slime-repl-input-history
-          (delete* string merged-history :test #'string=))
+          (cl-delete string merged-history :test #'string=))
     (slime-repl-save-history))
   (slime-repl-delete-current-input))
 

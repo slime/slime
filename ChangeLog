@@ -1,8 +1,13 @@
 2014-01-10  João Távora  <joaotavora@gmail.com>
 
+	* slime.el (slime-inspector-insert-chunk): Use
+	`slime-inspector-insert-ispec-function'. Patch by Attila Lendvai.
+
 	* slime-tests.el (slime-test-recipe-test-for): new function for
 	testing setup recipes.
-	(readme-recipe): new test;
+	(readme-recipe): New test;
+	(define-slime-ert-test): New function for defining vanilla ERT
+	tests.
 
 	* slime.el: don't run `slime-load-hook'.
 	(slime--setup-contribs): Hide from user. Idempotent.
