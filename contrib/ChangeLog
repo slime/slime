@@ -1,5 +1,8 @@
 2014-01-10  João Távora  <joaotavora@gmail.com>
 
+	* slime-trace-dialog.el (slime-trace-dialog--open-specs): Use
+	cl-labels instead of cl-flet (safer on emacs 23).
+
 	* slime-repl.el (slime-repl-return): Pass `end-of-input' to hooks
 	run.
 

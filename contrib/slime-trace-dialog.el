@@ -303,15 +303,15 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 ;;;; Handlers for the *trace-dialog* and *trace-detail* buffers
 ;;;
 (defun slime-trace-dialog--open-specs (traced-specs)
-  (cl-flet ((make-report-spec-fn
-             (&optional form)
-             #'(lambda (_button)
-                 (slime-eval-async
-                     `(cl:progn
-                       ,form
-                       (swank-trace-dialog:report-specs))
-                   #'(lambda (results)
-                       (slime-trace-dialog--open-specs results))))))
+  (cl-labels ((make-report-spec-fn
+               (&optional form)
+               #'(lambda (_button)
+                   (slime-eval-async
+                       `(cl:progn
+                         ,form
+                         (swank-trace-dialog:report-specs))
+                     #'(lambda (results)
+                         (slime-trace-dialog--open-specs results))))))
     (slime-trace-dialog--refresh
         ((slime-trace-dialog--get-buffer)
          :overlay slime-trace-dialog--specs-overlay

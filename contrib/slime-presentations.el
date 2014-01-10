@@ -172,7 +172,7 @@ RESULT-P decides whether a face for a return value or output text is used."
   "Insert STRING in current buffer and mark it as a presentation
 corresponding to OUTPUT-ID.  If RECTANGLE is true, indent multi-line
 strings to line up below the current point."
-  (cl-flet ((insert-it ()
+  (cl-labels ((insert-it ()
                        (if rectangle
                            (slime-insert-indented string)
                          (insert string))))
@@ -302,10 +302,10 @@ presentation is complete."
   "Call `function' with arguments `presentation', `start', `end',
 `whole-p' for every presentation in the region `from'--`to' in the
 string or buffer `object'."
-  (cl-flet ((handle-presentation (presentation point)
-                                 (multiple-value-bind (start end whole-p)
-                                     (slime-presentation-bounds point presentation object)
-                                   (funcall function presentation start end whole-p))))
+  (cl-labels ((handle-presentation (presentation point)
+                                   (multiple-value-bind (start end whole-p)
+                                       (slime-presentation-bounds point presentation object)
+                                     (funcall function presentation start end whole-p))))
     ;; Handle presentations active at `from'.
     (dolist (presentation (slime-presentations-around-point from object))
       (handle-presentation presentation from))
@@ -439,7 +439,7 @@ Also return the start position, end position, and buffer of the presentation."
 	   (buffer-substring start end))))
     (unless (eql major-mode 'slime-repl-mode)
       (slime-switch-to-output-buffer))
-    (cl-flet ((do-insertion
+    (cl-labels ((do-insertion
                ()
                (unless (looking-back "\\s-" (- (point) 1))
                  (insert " "))
@@ -601,7 +601,7 @@ A negative argument means move backward instead."
          (choices (with-current-buffer buffer
                     (slime-eval
                      `(swank::menu-choices-for-presentation-id ',what)))))
-    (cl-flet ((savel (f) ;; IMPORTANT - xemacs can't handle lambdas in x-popup-menu. So give them a name
+    (cl-labels ((savel (f) ;; IMPORTANT - xemacs can't handle lambdas in x-popup-menu. So give them a name
                      (let ((sym (cl-gensym)))
                        (setf (gethash sym choice-to-lambda) f)
                        sym)))
@@ -862,7 +862,7 @@ even on Common Lisp implementations without weak hash tables."
 
 (define-slime-ert-test pick-up-presentation-at-point ()
   "Ensure presentations are found consistently."
-  (cl-flet ((assert-it (point &optional negate)
+  (cl-labels ((assert-it (point &optional negate)
                        (let ((result
                               (cl-first
                                (slime-presentation-around-or-before-point point))))
