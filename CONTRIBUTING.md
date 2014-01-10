@@ -43,8 +43,8 @@ and `Change Logs and VC' nodes of the Emacs manual:
 
 ## Test Suite
 
-The Elisp code includes a command `slime-run-tests` to run a test
-suite. This can give a pretty good sanity-check for your changes.
+The Makefile includes a `check` target to run the ERT-based test
+suite. This can give a pretty good sanity-check for your changes
 
 Some backends do not pass the full test suite because of missing
 features. In these cases the test suite is still useful to ensure that
@@ -142,10 +142,14 @@ find an elegant solution to a problem then you're probably solving the
 wrong problem.  It's often a good idea to simplify the problem and to
 ignore rarely needed cases.
 
-Remember that to rewrite a program better is the sincerest form of
+_Remember that to rewrite a program better is the sincerest form of
 code appreciation. When you can see a way to rewrite a part of SLIME
-better, please do so!
+better, please do so!_
 
+**Now that XEmacs support is gone, rewrites using packages in GNU Emacs's
+core get extra karma**
+
+
 ## Pull requests
 
 * Read [how to properly contribute to open source projects on Github][1].

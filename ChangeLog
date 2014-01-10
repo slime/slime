@@ -1,4 +1,4 @@
-2014-01-09  João Távora  <joaotavora@gmail.com>
+2014-01-99  João Távora  <joaotavora@gmail.com>
 
 	* swank.lisp (before-init): don't take VERSION arg.
 	(slime-version-string): move it here.
@@ -37,9 +37,32 @@
 
 	* swank.asd : load the swank source code without calling swank-loader.
 
-2014-01-08  João Távora  <joaotavora@gmail.com>
+2014-01-10  João Távora  <joaotavora@gmail.com>
 
-	* slime.el: Bump version to 2.3.1
+	* slime-tests.el (slime-test-recipe-test-for): new function for
+	testing setup recipes.
+	(readme-recipe): new test;
+
+	* slime.el: don't run `slime-load-hook'.
+	(slime--setup-contribs): Hide from user. Idempotent.
+	(slime-setup): Now a command.
+	(slime-contribs): New variable.
+	(slime-setup-contribs): Obsolete this variable to point to
+	`slime-contribs'.
+	(defun slime-setup-contribs): use `slime-contribs' var.
+
+	* README.md: show travis build status for master branch only.
+	(Quick setup instructions): mention `slime-autoloads' and suggest
+	adding contribs to load path. Suggest `eval-after-load'.
+	(Contribs): new section.
+	(Emacs 23 gotchas): new section.
+	(Contact): update mailing list info and link to CONTRIBUTING.md.
+
+	* slime-autoloads.el: simplify with a `eval-after-load'.
+
+	* slime.el: Bump version to 2.3.2
+
+2014-01-08  João Távora  <joaotavora@gmail.com>
 
 	* slime-tests.el (slime-test-ert-for): Use `eval-and-compile' for
 	this function.

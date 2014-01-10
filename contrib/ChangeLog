@@ -1,3 +1,20 @@
+2014-01-09  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Move "," binding back to slime-repl-mode-map and disable it when
+	in slime-repl-read-mode.
+
+	* slime-repl.el (slime-repl-read-mode-map): Don't bind ",".
+	(slime-repl-mode-map): Bind ",".
+
+2014-01-09  João Távora  <joaotavora@gmail.com>
+
+	* README: Renamed to README.md.
+	* README.md: New file. Don't mention setup technique.
+
+	* slime-repl.el (slime-repl-read-mode): Closes #17: ignore
+	slime completion `slime-repl-read-mode-map'.
+	(slime-repl-read-mode-map): Put keymap in its own var.
+
 2014-01-07  João Távora  <joaotavora@gmail.com>
 
 	* slime-trace-dialog.el

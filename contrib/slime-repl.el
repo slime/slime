@@ -1,7 +1,7 @@
 ;;; slime-repl.el ---
 ;;
 ;; Original Author: Helmut Eller
-;; Contributors: to many to mention
+;; Contributors: too many to mention
 ;; License: GNU GPL (same license as Emacs)
 ;;
 ;;; Description:
@@ -445,10 +445,10 @@ joined together."))
   ("\M-r" 'slime-repl-previous-matching-input)
   ("\M-s" 'slime-repl-next-matching-input)
   ("\C-c\C-c" 'slime-interrupt)
-  ;("\t"   'slime-complete-symbol)
-  ("\t"   'slime-indent-and-complete-symbol)
+  ("\t" 'slime-indent-and-complete-symbol)
   ("\M-\t" 'slime-complete-symbol)
-  (" "    'slime-space)
+  (" " 'slime-space)
+  ((string slime-repl-shortcut-dispatch-char) 'slime-handle-repl-shortcut)
   ("\C-c\C-o" 'slime-repl-clear-output)
   ("\C-c\M-o" 'slime-repl-clear-buffer)
   ("\C-c\C-u" 'slime-repl-kill-input)
@@ -1199,18 +1199,21 @@ The handler will use qeuery to ask the use if the error should be ingored."
 
 ;;;;; REPL Read Mode
 
-(define-key slime-repl-mode-map
-  (string slime-repl-shortcut-dispatch-char) 'slime-handle-repl-shortcut)
+(defvar slime-repl-read-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "\C-m" 'slime-repl-return)
+    (define-key map [return] 'slime-repl-return)
+    (define-key map "\C-c\C-b" 'slime-repl-read-break)
+    (define-key map "\C-c\C-c" 'slime-repl-read-break)
+    (define-key map [remap slime-indent-and-complete-symbol] 'ignore)
+    (define-key map [remap slime-handle-repl-shortcut] 'self-insert-command)
+    map))
 
 (define-minor-mode slime-repl-read-mode
-  "Mode the read input from Emacs
+  "Mode to read input from Emacs
 \\{slime-repl-read-mode-map}"
   nil
-  "[read]"
-  '(("\C-m" . slime-repl-return)
-    ([return] . slime-repl-return)
-    ("\C-c\C-b" . slime-repl-read-break)
-    ("\C-c\C-c" . slime-repl-read-break)))
+  "[read]")
 
 (make-variable-buffer-local
  (defvar slime-read-string-threads nil))
