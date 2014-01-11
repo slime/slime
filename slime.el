@@ -96,7 +96,7 @@ Emacs Lisp package."))
 
 (defvar slime-lisp-modes '(lisp-mode))
 (defvar slime-contribs nil
-  "A list of contrib packages to load with slime.")
+  "A list of contrib packages to load with SLIME.")
 (define-obsolete-variable-alias 'slime-setup-contribs
 'slime-contribs "2.3.2")
 
@@ -121,6 +121,7 @@ CONTRIBS is a list of contrib packages to load. If `nil', use
         (let ((init (intern (format "%s-init" c))))
           (when (fboundp init)
             (funcall init)))))))
+
 (defun slime-lisp-mode-hook ()
   (slime-mode 1)
   (set (make-local-variable 'lisp-indent-function)

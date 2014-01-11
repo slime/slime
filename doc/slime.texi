@@ -1,6 +1,6 @@
 \input texinfo
 @c %**start of header
-@setfilename slime.info 
+@setfilename slime.info
 @settitle The Superior Lisp Interaction Mode for Emacs
 
 @dircategory Emacs
@@ -37,7 +37,7 @@ This file has been placed in the public domain.
 
 @end titlepage
 
-@c Macros 
+@c Macros
 
 @macro SLIME
 @acronym{SLIME}
@@ -51,8 +51,8 @@ This file has been placed in the public domain.
 @acronym{REPL}
 @end macro
 
-@macro CVS
-@acronym{CVS}
+@macro Git
+@acronym{Git}
 @end macro
 
 @macro kbditem{key, command}
@@ -110,143 +110,143 @@ the manual for version @value{SLIMEVER}. (Last updated @value{UPDATED})
 @end ifnottex
 
 @menu
-* Introduction::                
-* Getting started::             
-* SLIME mode::                  
-* Debugger::                    
-* Misc::                        
-* Customization::               
-* Tips and Tricks::             
-* Contributed Packages::        
-* Credits::                     
-* Key Index::                   
-* Command Index::               
-* Variable Index::              
+* Introduction::
+* Getting started::
+* SLIME mode::
+* Debugger::
+* Misc::
+* Customization::
+* Tips and Tricks::
+* Contributed Packages::
+* Credits::
+* Key Index::
+* Command Index::
+* Variable Index::
 
 @detailmenu
  --- The Detailed Node Listing ---
 
 Getting started
 
-* Platforms::                   
-* Downloading::                 
-* Installation::                
-* Running::                     
-* Setup Tuning::                
+* Platforms::
+* Downloading::
+* Installation::
+* Running::
+* Setup Tuning::
 
 Downloading SLIME
 
-* CVS::                         
-* CVS Incantations::            
+* Git::
+* Git Incantations::
 
-Downloading from CVS
+Downloading from Git
 
-* CVS Incantations::            
+* Git Incantations::
 
 Setup Tuning
 
-* Autoloading::                 
-* Multiple Lisps::              
-* Loading Swank faster::        
+* Autoloading::
+* Multiple Lisps::
+* Loading Swank faster::
 
 Using Slime mode
 
-* User-interface conventions::  
-* Evaluation::                  
-* Compilation::                 
-* Completion::                  
-* Finding definitions::         
-* Documentation::               
-* Cross-reference::             
-* Macro-expansion::             
-* Disassembly::                 
-* Recovery::                    
-* Inspector::                   
-* Profiling::                   
-* Other::                       
-* Semantic indentation::        
-* Reader conditionals::         
+* User-interface conventions::
+* Evaluation::
+* Compilation::
+* Completion::
+* Finding definitions::
+* Documentation::
+* Cross-reference::
+* Macro-expansion::
+* Disassembly::
+* Recovery::
+* Inspector::
+* Profiling::
+* Other::
+* Semantic indentation::
+* Reader conditionals::
 
 User-interface conventions
 
-* Temporary buffers::           
-* Inferior-lisp::               
-* Multithreading::              
-* Key bindings::                
+* Temporary buffers::
+* Inferior-lisp::
+* Multithreading::
+* Key bindings::
 
 SLDB: the SLIME debugger
 
-* Examining frames::            
-* Restarts::                    
-* Frame Navigation::            
-* Stepping::                    
-* Miscellaneous::               
+* Examining frames::
+* Restarts::
+* Frame Navigation::
+* Stepping::
+* Miscellaneous::
 
 Misc
 
-* slime-selector::              
-* slime-macroexpansion-minor-mode::  
-* Multiple connections::        
+* slime-selector::
+* slime-macroexpansion-minor-mode::
+* Multiple connections::
 
 Customization
 
-* Emacs-side customization::    
-* Lisp-side::                   
+* Emacs-side customization::
+* Lisp-side::
 
 Emacs-side
 
-* Hooks::                       
+* Hooks::
 
 Lisp-side (Swank)
 
-* Communication style::         
-* Other configurables::         
+* Communication style::
+* Other configurables::
 
 Tips and Tricks
 
-* Connecting to a remote lisp::  
-* Global IO Redirection::       
-* Auto-SLIME::                  
+* Connecting to a remote lisp::
+* Global IO Redirection::
+* Auto-SLIME::
 
 Connecting to a remote lisp
 
-* Setting up the lisp image::   
-* Setting up Emacs::            
-* Setting up pathname translations::  
+* Setting up the lisp image::
+* Setting up Emacs::
+* Setting up pathname translations::
 
 Contributed Packages
 
-* Loading Contribs::            
-* REPL::                        
-* slime-mrepl::                 
-* inferior-slime-mode::         
-* Compound Completion::         
-* Fuzzy Completion::            
-* slime-autodoc-mode::          
-* ASDF::                        
-* Banner::                      
-* Editing Commands::            
-* Fancy Inspector::             
-* Presentations::               
-* Typeout frames::              
-* TRAMP::                       
-* Documentation Links::         
-* Xref and Class Browser::      
-* Highlight Edits::             
+* Loading Contribs::
+* REPL::
+* slime-mrepl::
+* inferior-slime-mode::
+* Compound Completion::
+* Fuzzy Completion::
+* slime-autodoc-mode::
+* ASDF::
+* Banner::
+* Editing Commands::
+* Fancy Inspector::
+* Presentations::
+* Typeout frames::
+* TRAMP::
+* Documentation Links::
+* Xref and Class Browser::
+* Highlight Edits::
 * Scratch Buffer::
 * slime-sprof::
-* slime-fancy::                 
+* slime-fancy::
 
 REPL: the ``top level''
 
-* REPL commands::               
-* Input Navigation::            
-* Shortcuts::                   
+* REPL commands::
+* Input Navigation::
+* Shortcuts::
 
 @end detailmenu
 @end menu
 
-@c ----------------------- 
+@c -----------------------
 @node Introduction
 @chapter Introduction
 
@@ -274,28 +274,28 @@ required implementation-specific functionality is specified by a
 well-defined interface and implemented separately for each Lisp
 implementation. This makes @SLIME{} readily portable.
 
-@c ----------------------- 
+@c -----------------------
 @node Getting started
 @chapter Getting started
 
 This chapter tells you how to get @SLIME{} up and running.
 
 @menu
-* Platforms::                   
-* Downloading::                 
-* Installation::                
-* Running::                     
-* Setup Tuning::                
+* Platforms::
+* Downloading::
+* Installation::
+* Running::
+* Setup Tuning::
 @end menu
 
-@c ----------------------- 
+@c -----------------------
 @node Platforms
 @section Supported Platforms
 
 @SLIME{} supports a wide range of operating systems and Lisp
 implementations. @SLIME{} runs on Unix systems, Mac OSX, and Microsoft
-Windows. GNU Emacs versions 21, 22, and 23 and XEmacs version 21 are
-supported.
+Windows. GNU Emacs versions 24 and 23.4 are supported. @emph{XEmacs is
+not supported anymore}.
 
 The supported Lisp implementations, roughly ordered from the
 best-supported, are:
@@ -329,31 +329,31 @@ prone to variation. These include the precision of placing
 compiler-note annotations, @acronym{XREF} support, and fancy debugger
 commands (like ``restart frame'').
 
-@c ----------------------- 
+@c -----------------------
 @node Downloading
 @section Downloading SLIME
 
 You can choose between using a released version of @SLIME{} or
-accessing our @CVS{} repository directly. You can download the latest
+accessing our @Git{} repository directly. You can download the latest
 released version from our website:
 
-@url{http://www.common-lisp.net/project/slime/}
+@url{http://github.com/slime/slime/}
 
 We recommend that users who participate in the @code{slime-devel}
-mailing list use the @CVS{} version of the code.
+mailing list use the @Git{} version of the code.
 
 @menu
-* CVS::                         
-* CVS Incantations::            
+* Git::
+* Git Incantations::
 @end menu
 
-@c ----------------------- 
-@node CVS
-@subsection Downloading from CVS
+@c -----------------------
+@node Git
+@subsection Downloading from Git
 
-@SLIME{} is available from the @CVS{} repository on
-@file{common-lisp.net}. You have the option to use either the very
-latest code or the tagged @code{FAIRLY-STABLE} snapshot.
+@SLIME{} is available from the @Git{} repository on
+@file{github.com}. You have the option to use either the very latest
+code or the tagged @code{FAIRLY-STABLE} snapshot.
 
 The latest version tends to have more features and fewer bugs than the
 @code{FAIRLY-STABLE} version, but it can be unstable during times of
@@ -364,36 +364,31 @@ hacking). If you don't follow the mailing list you won't know the
 status of the latest code, so tracking @code{FAIRLY-STABLE} or using a
 released version is the safe option.
 
-If you checkout from @CVS{} then remember to @code{cvs update}
+If you download from @Git{} then remember to @code{git pull}
 occasionally.  Improvements are continually being committed, and the
 @code{FAIRLY-STABLE} tag is moved forward from time to time.
 
 @menu
-* CVS Incantations::            
+* Git Incantations::
 @end menu
 
-@c ----------------------- 
-@node CVS Incantations
-@subsection CVS incantations
+@c -----------------------
+@node Git Incantations
+@subsection Git incantations
 
-To download @SLIME{} you first configure your @code{CVSROOT} and login
-to the repository.
+To download the very latest @SLIME{} you first configure
+your @code{GitROOT} and login to the repository.
 
 @example
-export CVSROOT=:pserver:anonymous@@common-lisp.net:/project/slime/cvsroot
-cvs login
-@end example
-@emph{(The password is @code{anonymous})}
-
-The latest version can then be checked out with:
-@example
-cvs checkout slime
+git clone https://github.com/slime/slime.git
 @end example
 
-Or the @code{FAIRLY-STABLE} version can be checked out with:
+You might substitute @code{https} for @code{http} if you're having
+problems with that protocol. Or the @code{FAIRLY-STABLE} version can
+be checked out with:
 
 @example
-cvs checkout -rFAIRLY-STABLE slime
+git clone -b FAIRLY-STABLE https://github.com/slime/slime.git
 @end example
 
 If you want to find out what's new since the version you're currently
@@ -401,10 +396,17 @@ running, you can diff the local @file{ChangeLog} against the
 repository version:
 
 @example
-cvs diff -rHEAD ChangeLog      # or: -rFAIRLY-STABLE
+git fetch origin
+git diff HEAD origin/master ChangeLo
 @end example
 
-@c ----------------------- 
+If you want to hack on slime, use Github's @emph{fork} functionality
+and submit a @emph{pull request}. Be sure to first read the
+CONTRIBUTING.md file first though
+(@url{https://github.com/slime/slime/blob/master/CONTRIBUTING.md}).
+
+
+@c -----------------------
 @node Installation
 @section Installation
 
@@ -414,15 +416,18 @@ installation just requires a few lines in your @file{.emacs}:
 @vindex inferior-lisp-program
 @vindex load-path
 @vindex slime-setup
-@example 
-(setq inferior-lisp-program "/opt/sbcl/bin/sbcl") ; @emph{your Lisp system}
-(add-to-list 'load-path "~/hacking/lisp/slime/")  ; @emph{your SLIME directory}
+@example
+;; @emph{Setup load-path and autoloads}
+(add-to-list 'load-path "~/dir/to/cloned/slime")
 (require 'slime)
+
+;; @emph{Set your lisp system and slime-mode for Lisp sources}
+(setq inferior-lisp-program "/opt/sbcl/bin/sbcl")
 (slime-setup)
 @end example
 
 @c @iftex
-The snippet above also appears in the @file{README} file. You can
+The snippet above also appears in the @file{README.md} file. You can
 copy&paste it from there, but remember to fill in the appropriate
 paths.
 @c @end iftex
@@ -436,8 +441,28 @@ intend to use @SLIME{}. Doing so will add a lot of extra bindings to
 the keymap for Lisp source files that may be confusing and may not
 work correctly for a Lisp process started by @SLIME{}.
 
+@subsection Emacs 23 gotchas
 
-@c ----------------------- 
+If you're still using Emacs 23 you'll need to download the
+required @file{cl-lib.el} library. It's a forward-compatibility
+library designed to smooth the transition from Emacs 23 to Emacs 24's
+changes to the @file{cl.el} library as well as its new @emph{lexical
+binding} feature.
+
+@example
+# @emph{fetch the latest cl-lib.el from Emacs's savannah repo}
+$ curl -O http://git.savannah.gnu.org/cgit/emacs/\
+          elpa.git/plain/packages/cl-lib/cl-lib.el
+@end example
+
+@emph{Before} SLIME's installation snippet, add this to your @file{~/.emacs}
+
+@example
+;; @emph{In your ~/.emacs, add it to the load path}
+(add-to-list 'load-path "/dir/to/cl-lib"
+@end example
+
+@c -----------------------
 @node Running
 @section Running SLIME
 
@@ -453,7 +478,7 @@ At this point @SLIME{} is up and running and you can start exploring.
 @section Setup Tuning
 
 This section explains ways to reduce @SLIME{}'s startup time and how
-to configure @SLIME{} for multiple Lisp systems.  
+to configure @SLIME{} for multiple Lisp systems.
 
 Please proceed with this section only if your basic setup works.  If
 you are happy with the basic setup, skip this section.
@@ -461,9 +486,9 @@ you are happy with the basic setup, skip this section.
 For contrib modules @pxref{Loading Contribs}.
 
 @menu
-* Autoloading::                 
-* Multiple Lisps::              
-* Loading Swank faster::        
+* Autoloading::
+* Multiple Lisps::
+* Loading Swank faster::
 @end menu
 
 @node Autoloading
@@ -475,16 +500,23 @@ demand.  To achieve that, you have to change your @file{~/.emacs}
 slightly:
 
 @example
-(setq inferior-lisp-program "@emph{the path to your Lisp system}")
-(add-to-list 'load-path "@emph{the path of your @file{slime} directory}")
+;; @emph{Setup load-path and autoloads}
+(add-to-list 'load-path "~/dir/to/cloned/slime")
 (require 'slime-autoloads)
-(slime-setup)
+
+;; @emph{Set your lisp system and, optionally, some contribs}
+(setq inferior-lisp-program "/opt/sbcl/bin/sbcl")
+(setq slime-contribs '(slime-fancy))
+
 @end example
 
-The only difference compared to the basic setup is the line
-@code{(require 'slime-autoloads)}.  It tells Emacs that the rest of
-@SLIME{} should be loaded automatically when one of the commands
+Compared to the basic setup, the line @code{(require
+'slime-autoloads)} tells Emacs that the rest of @SLIME{} should be
+loaded automatically when one of the commands
 @kbd{M-x slime} or @kbd{M-x slime-connect} is executed the first time.
+
+For the meaning of @code{(setq slime-contribs '(slime-fancy))}, see
+@pxref{Loading Contribs}.
 
 @node Multiple Lisps
 @subsection Multiple Lisps
@@ -522,7 +554,7 @@ is a symbol and is used to identify the program.
 is the filename of the program.  Note that the filename can contain
 spaces.
 @item PROGRAM-ARGS
-is a list of command line arguments.  
+is a list of command line arguments.
 @item CODING-SYSTEM
 the coding system for the connection.  (@pxref{slime-net-coding-system})x
 @item INIT
@@ -534,12 +566,12 @@ and sends the result of this function to Lisp's standard input.  As
 default, @code{slime-init-command} is used.  An example is shown in
 @ref{init-example,,Loading Swank faster}.
 @item INIT-FUNCTION
-should be a function which takes no arguments.  It is called after 
+should be a function which takes no arguments.  It is called after
 the connection is established. (See also @ref{slime-connected-hook}.)
 @item ENV
 specifies a list of environment variables for the subprocess. E.g.
 @lisp
-(sbcl-cvs ("/home/me/sbcl-cvs/src/runtime/sbcl" 
+(sbcl-cvs ("/home/me/sbcl-cvs/src/runtime/sbcl"
            "--core" "/home/me/sbcl-cvs/output/sbcl.core")
           :env ("SBCL_HOME=/home/me/sbcl-cvs/contrib/"))
 @end lisp
@@ -563,7 +595,7 @@ shell$ sbcl
 After that, add something like this to your @file{.emacs}:
 
 @lisp
-(setq slime-lisp-implementations 
+(setq slime-lisp-implementations
       '((sbcl ("sbcl" "--core" "sbcl.core-for-slime"))))
 @end lisp
 
@@ -583,7 +615,7 @@ Then add this to your @file{.emacs}:
 
 @anchor{init-example}
 @lisp
-(setq slime-lisp-implementations 
+(setq slime-lisp-implementations
       '((sbcl ("sbcl" "--core" "sbcl.core-with-swank")
               :init (lambda (port-file _)
                       (format "(swank:start-server %S)\n" port-file)))))
@@ -600,24 +632,24 @@ used in conjunction with Emacs's @code{lisp-mode}. This chapter
 describes the @code{slime-mode} and its relatives.
 
 @menu
-* User-interface conventions::  
-* Evaluation::                  
-* Compilation::                 
-* Completion::                  
-* Finding definitions::         
-* Documentation::               
-* Cross-reference::             
-* Macro-expansion::             
-* Disassembly::                 
-* Recovery::                    
-* Inspector::                   
-* Profiling::                   
-* Other::                       
-* Semantic indentation::        
-* Reader conditionals::         
+* User-interface conventions::
+* Evaluation::
+* Compilation::
+* Completion::
+* Finding definitions::
+* Documentation::
+* Cross-reference::
+* Macro-expansion::
+* Disassembly::
+* Recovery::
+* Inspector::
+* Profiling::
+* Other::
+* Semantic indentation::
+* Reader conditionals::
 @end menu
 
-@c ----------------------- 
+@c -----------------------
 @node User-interface conventions
 @section User-interface conventions
 
@@ -626,13 +658,13 @@ To use @SLIME{} comfortably it is important to understand a few
 principles are described in this section.
 
 @menu
-* Temporary buffers::           
-* Inferior-lisp::               
-* Multithreading::              
-* Key bindings::                
+* Temporary buffers::
+* Inferior-lisp::
+* Multithreading::
+* Key bindings::
 @end menu
 
-@c ----------------------- 
+@c -----------------------
 @node Temporary buffers
 @subsection Temporary buffers
 
@@ -664,7 +696,7 @@ Initial focus of those ``description'' buffers depends on the variable
 description buffers do not receive focus automatically, and vice
 versa.
 
-@c ----------------------- 
+@c -----------------------
 @node Inferior-lisp
 @subsection @code{*inferior-lisp*} buffer
 
@@ -681,7 +713,7 @@ inferior-slime-mode.  Many people load the better integrated @SLIME{}
 the @code{*inferior-lisp*} buffer.  (@pxref{Loading Contribs} for
 information on how to enable the REPL.)
 
-@c ----------------------- 
+@c -----------------------
 @node Multithreading
 @subsection Multithreading
 
@@ -739,22 +771,22 @@ are your most immediate, up-to-date and complete resource for keybinding
 information. They are your friends:
 
 @table @kbd
-@kbdanchorc{C-h k <key>, describe-key, ``What does this key do?''} 
-Describes current function bound to @kbd{<key>} for focus buffer. 
+@kbdanchorc{C-h k <key>, describe-key, ``What does this key do?''}
+Describes current function bound to @kbd{<key>} for focus buffer.
 
-@kbdanchorc{C-h b, describe-bindings, ``Exactly what bindings are available?''} 
-Lists the current key-bindings for the focus buffer. 
+@kbdanchorc{C-h b, describe-bindings, ``Exactly what bindings are available?''}
+Lists the current key-bindings for the focus buffer.
 
 @kbdanchorc{C-h m, describe-mode, ``Tell me all about this mode''}
 Shows all the available major mode keys, then the minor mode keys, for
 the modes of the focus buffer.
 
-@kbdanchorc{C-h l, view-lossage, ``Woah@comma{} what key chord did I just do?''} 
-Shows you the literal sequence of keys you've pressed in order. 
+@kbdanchorc{C-h l, view-lossage, ``Woah@comma{} what key chord did I just do?''}
+Shows you the literal sequence of keys you've pressed in order.
 
 @c <key> is breaks links PDF, despite that it's not l it's C-h
-@c @kbdanchorc{ <key> l, , ``What starts with?''} 
-@c Lists all keybindings that begin with @code{<key>} for the focus buffer mode. 
+@c @kbdanchorc{ <key> l, , ``What starts with?''}
+@c Lists all keybindings that begin with @code{<key>} for the focus buffer mode.
 
 
 @end table
@@ -769,7 +801,7 @@ whatever you have @code{help-command} bound to in your
 (global-set-key "\C-h" 'delete-backward-char)
 @end example
 
-@noindent In this situation everywhere you see @kbd{C-h} in the 
+@noindent In this situation everywhere you see @kbd{C-h} in the
 documentation you would substitute @kbd{F1}.
 
 You can assign or change default key bindings globally using the
@@ -784,14 +816,14 @@ Alternatively, if you want to assign or change a key binding in just a
 particular slime mode, you can use the @code{define-key} function
 in your @file{~/.emacs} file like this:
 @example
-(define-key slime-repl-mode-map (kbd "C-c ;") 
+(define-key slime-repl-mode-map (kbd "C-c ;")
             'slime-insert-balanced-comments)
 @end example
 @noindent
 which binds @kbd{C-c ;} to the function
 @code{slime-insert-balanced-comments} in the REPL buffer.
 
-@c ----------------------- 
+@c -----------------------
 @node Evaluation
 @section Evaluation commands
 
@@ -847,7 +879,7 @@ point.
 
 @end table
 
-@c ----------------------- 
+@c -----------------------
 @node Compilation
 @section Compilation commands
 
@@ -939,7 +971,7 @@ completion (@pxref{slime-complete-symbol-function}).
 
 @end table
 
-@c ----------------------- 
+@c -----------------------
 @node Finding definitions
 @section Finding definitions (``Meta-Point'' commands).
 
@@ -977,7 +1009,7 @@ Use an ETAGS table to find definition at point.
 
 @end table
 
-@c ----------------------- 
+@c -----------------------
 @node Documentation
 @section Documentation commands
 
@@ -1028,7 +1060,7 @@ Lookup a @emph{format character} in the @cite{Common Lisp Hyperspec}.
 Lookup a @emph{reader macro} in the @cite{Common Lisp Hyperspec}.
 @end table
 
-@c ----------------------- 
+@c -----------------------
 @node Cross-reference
 @section Cross-reference commands
 
@@ -1108,7 +1140,7 @@ Recompile all definitions.
 
 @end table
 
-@c ----------------------- 
+@c -----------------------
 @node Macro-expansion
 @section Macro-expansion commands
 
@@ -1134,7 +1166,7 @@ For additional minor-mode commands and discussion,
 @pxref{slime-macroexpansion-minor-mode}.
 
 
-@c ----------------------- 
+@c -----------------------
 @node Disassembly
 @section Disassembly commands
 
@@ -1153,7 +1185,7 @@ Untrace all functions.
 
 @end table
 
-@c ----------------------- 
+@c -----------------------
 @node Recovery
 @section Abort/Recovery commands
 
@@ -1180,7 +1212,7 @@ Print the current directory of the Lisp process.
 
 @end table
 
-@c ----------------------- 
+@c -----------------------
 @node Inspector
 @section Inspector commands
 
@@ -1204,7 +1236,7 @@ The standard commands available in the inspector are:
 
 @table @kbd
 
-@kbditem{RET, slime-inspector-operate-on-point} 
+@kbditem{RET, slime-inspector-operate-on-point}
 If point is on a value then recursively call the inspector on that
 value. If point is on an action then call that action.
 
@@ -1250,7 +1282,7 @@ Jump to the next and previous inspectable object respectively.
 
 @end table
 
-@c ----------------------- 
+@c -----------------------
 @node Profiling
 @section Profiling commands
 
@@ -1275,7 +1307,7 @@ Reset profiler data.
 Show list of currently profiled functions.
 @end table
 
-@c ----------------------- 
+@c -----------------------
 @node Other
 @section Shadowed Commands
 
@@ -1286,7 +1318,7 @@ This key-binding is shadowed from inf-lisp.
 
 @end table
 
-@c ----------------------- 
+@c -----------------------
 @node Semantic indentation
 @section Semantic indentation
 
@@ -1332,7 +1364,7 @@ of every symbol each time a new Lisp package is created between commands
 You can use @kbd{M-x slime-update-indentation} to force all symbols to
 be scanned for indentation information.
 
-@c ----------------------- 
+@c -----------------------
 @node Reader conditionals
 @section Reader conditional fontification
 
@@ -1340,7 +1372,7 @@ be scanned for indentation information.
 @code{#+linux}, in source buffers and ``grays out'' code that will be
 skipped for the current Lisp connection.
 
-@c ----------------------- 
+@c -----------------------
 @node Debugger
 @chapter SLDB: the SLIME debugger
 
@@ -1356,14 +1388,14 @@ backtrace. Commands are offered for invoking restarts, examining the
 backtrace, and poking around in stack frames.
 
 @menu
-* Examining frames::            
-* Restarts::                    
-* Frame Navigation::            
-* Stepping::                    
-* Miscellaneous::               
+* Examining frames::
+* Restarts::
+* Frame Navigation::
+* Stepping::
+* Miscellaneous::
 @end menu
 
-@c ----------------------- 
+@c -----------------------
 @node Examining frames
 @section Examining frames
 
@@ -1397,7 +1429,7 @@ Recompile frame. @kbd{C-u C-c C-c} for recompiling with maximum debug settings.
 
 @end table
 
-@c ----------------------- 
+@c -----------------------
 @node Restarts
 @section Invoking restarts
 
@@ -1421,7 +1453,7 @@ Invoke a restart by number.
 Restarts can also be invoked by pressing @kbd{RET} or @kbd{Mouse-2} on
 them in the buffer.
 
-@c ----------------------- 
+@c -----------------------
 @node Frame Navigation
 @section Navigating between frames
 
@@ -1495,17 +1527,17 @@ Attach debugger (e.g. gdb) to the current lisp process.
 @end table
 
 
-@c ----------------------- 
+@c -----------------------
 @node Misc
 @chapter Misc
 
 @menu
-* slime-selector::              
-* slime-macroexpansion-minor-mode::  
-* Multiple connections::        
+* slime-selector::
+* slime-macroexpansion-minor-mode::
+* Multiple connections::
 @end menu
 
-@c ----------------------- 
+@c -----------------------
 @node slime-selector
 @section @code{slime-selector}
 
@@ -1548,7 +1580,7 @@ r}.
 The macro @code{def-slime-selector-method} can be used to define new
 buffers for @code{slime-selector} to find.
 
-@c ----------------------- 
+@c -----------------------
 @node slime-macroexpansion-minor-mode
 @section slime-macroexpansion-minor-mode
 
@@ -1574,7 +1606,7 @@ Undo last macroexpansion operation.
 
 @end table
 
-@c ----------------------- 
+@c -----------------------
 @node Multiple connections
 @section Multiple connections
 
@@ -1652,16 +1684,16 @@ Abort the current attempt to connect.
 @end table
 
 
-@c ----------------------- 
+@c -----------------------
 @node Customization
 @chapter Customization
 
 @menu
-* Emacs-side customization::    
-* Lisp-side::                   
+* Emacs-side customization::
+* Lisp-side::
 @end menu
 
-@c ----------------------- 
+@c -----------------------
 @node Emacs-side customization
 @section Emacs-side
 
@@ -1683,7 +1715,7 @@ on. It can however cause information to spill off the screen.
 @item slime-complete-symbol-function
 The function to use for completion of Lisp symbols. Three completion
 styles are available: @code{slime-simple-complete-symbol},
-@code{slime-complete-symbol*} (@pxref{Compound Completion}), 
+@code{slime-complete-symbol*} (@pxref{Compound Completion}),
 and @code{slime-fuzzy-complete-symbol} (@pxref{Fuzzy Completion}).
 
 The default is @code{slime-simple-complete-symbol}, which completes in
@@ -1715,16 +1747,16 @@ To actually display Unicode characters you also need appropriate
 fonts, otherwise the characters will be rendered as hollow boxes.  If
 you are using Allegro CL and GNU Emacs, you can also
 use @code{emacs-mule-unix} as coding system.  GNU Emacs has often
-nicer fonts for the latter encoding.  (Different encodings can be used 
+nicer fonts for the latter encoding.  (Different encodings can be used
 for different Lisps, see @ref{Multiple Lisps}.)
 
 @end table
 
 @menu
-* Hooks::                       
+* Hooks::
 @end menu
 
-@c ----------------------- 
+@c -----------------------
 @node Hooks
 @subsection Hooks
 
@@ -1752,7 +1784,7 @@ conditions debugged with @SLDB{} be recorded in the @REPL{} buffer.
 
 @end table
 
-@c ----------------------- 
+@c -----------------------
 @node Lisp-side
 @section Lisp-side (Swank)
 
@@ -1762,11 +1794,11 @@ is automatically evaluated at startup and can be used to set these
 variables.
 
 @menu
-* Communication style::         
-* Other configurables::         
+* Communication style::
+* Other configurables::
 @end menu
 
-@c ----------------------- 
+@c -----------------------
 @node Communication style
 @subsection Communication style
 @vindex SWANK:*COMMUNICATION-STYLE*
@@ -1822,7 +1854,7 @@ calling @code{SWANK-BACKEND::PREFERRED-COMMUNICATION-STYLE}. You can
 also override the default by setting
 @code{SWANK:*COMMUNICATION-STYLE*} in your Swank init file.
 
-@c ----------------------- 
+@c -----------------------
 @node Other configurables
 @subsection Other configurables
 
@@ -1898,7 +1930,7 @@ after the corresponding REPL results.  Thus output and REPL results can
 end up in the wrong order, or even interleaved, in the REPL buffer.
 Using a dedicated output stream also makes it more difficult to
 communicate to a Lisp running on a remote host via SSH
-(@pxref{Connecting to a remote lisp}).  
+(@pxref{Connecting to a remote lisp}).
 
 @vindex SWANK:*DEDICATED-OUTPUT-STREAM-PORT*
 @item SWANK:*DEDICATED-OUTPUT-STREAM-PORT*
@@ -1917,17 +1949,17 @@ your Lisp system's own listener, usually in the buffer
 
 @end table
 
-@c ----------------------- 
+@c -----------------------
 @node Tips and Tricks
 @chapter Tips and Tricks
 
 @menu
-* Connecting to a remote lisp::  
-* Global IO Redirection::       
-* Auto-SLIME::                  
+* Connecting to a remote lisp::
+* Global IO Redirection::
+* Auto-SLIME::
 @end menu
 
-@c ----------------------- 
+@c -----------------------
 @node Connecting to a remote lisp
 @section Connecting to a remote lisp
 
@@ -1940,12 +1972,12 @@ remote machine. The details are a bit messier but the underlying idea
 is that simple.
 
 @menu
-* Setting up the lisp image::   
-* Setting up Emacs::            
-* Setting up pathname translations::  
+* Setting up the lisp image::
+* Setting up Emacs::
+* Setting up pathname translations::
 @end menu
 
-@c ----------------------- 
+@c -----------------------
 @node Setting up the lisp image
 @subsection Setting up the lisp image
 
@@ -1978,7 +2010,7 @@ output (this is actually the default in current SLIME):
 (setf swank:*use-dedicated-output-stream* nil)
 @end example
 
-@c ----------------------- 
+@c -----------------------
 If you need to do anything particular
 (like be able to reconnect to swank after you're done), look into
 @code{swank:create-server}'s other arguments. Some of these arguments
@@ -2025,7 +2057,7 @@ That ssh invocation creates an ssh tunnel between the port 4005 on our
 local machine and the port 4005 on the remote machine@footnote{By
 default swank listens for incoming connections on port 4005, had we
 passed a @code{:port} parameter to @code{swank:create-server} we'd be
-using that port number instead}. 
+using that port number instead}.
 
 Finally we can start @SLIME{}:
 
@@ -2038,7 +2070,7 @@ host (@code{127.0.0.1}) and the default port (@code{4005}). Even
 though we're connecting to a remote machine the ssh tunnel fools Emacs
 into thinking it's actually @code{127.0.0.1}.
 
-@c ----------------------- 
+@c -----------------------
 @node Setting up pathname translations
 @subsection Setting up pathname translations
 
@@ -2054,7 +2086,7 @@ file system in such a fashion that a filename like
 @file{/opt/project/source.lisp} refers to the same file on both
 machines. Unfortunately NFS is usually slow, often buggy, and not
 always feasible, fortunately we have an ssh connection and Emacs'
-@code{tramp-mode} can do the rest. 
+@code{tramp-mode} can do the rest.
 (See @inforef{Top, TRAMP User Manual,tramp}.)
 
 What we do is teach Emacs how to take a filename on the remote machine
@@ -2065,13 +2097,14 @@ and translate it into something that tramp can understand and access
 contrib to setup the proper translations by simply doing:
 
 @example
-(push (slime-create-filename-translator :machine-instance "remote"
-                                        :remote-host "remote.example.com"
-                                        :username "user")
-      slime-filename-translations)
+(add-to-list 'slime-filename-translations
+             (slime-create-filename-translator
+              :machine-instance "remote"
+              :remote-host "remote.example.com"
+              :username "user"))
 @end example
 
-@c ----------------------- 
+@c -----------------------
 @node Global IO Redirection
 @section Globally redirecting all IO to the REPL
 
@@ -2096,7 +2129,7 @@ accepts the connection so you should set it via
 @code{swank::globally-redirect-io-to-connection} yourself, but you
 shouldn't do that unless you know what you're doing.
 
-@c ----------------------- 
+@c -----------------------
 @node Auto-SLIME
 @section Connecting to SLIME automatically
 
@@ -2118,26 +2151,26 @@ chapter tells you how to load contrib modules and describes what the
 particular packages do.
 
 @menu
-* Loading Contribs::            
-* REPL::                        
-* slime-mrepl::                 
-* inferior-slime-mode::         
-* Compound Completion::         
-* Fuzzy Completion::            
-* slime-autodoc-mode::          
-* ASDF::                        
-* Banner::                      
-* Editing Commands::            
-* Fancy Inspector::             
-* Presentations::               
-* Typeout frames::              
-* TRAMP::                       
-* Documentation Links::         
-* Xref and Class Browser::      
-* Highlight Edits::             
+* Loading Contribs::
+* REPL::
+* slime-mrepl::
+* inferior-slime-mode::
+* Compound Completion::
+* Fuzzy Completion::
+* slime-autodoc-mode::
+* ASDF::
+* Banner::
+* Editing Commands::
+* Fancy Inspector::
+* Presentations::
+* Typeout frames::
+* TRAMP::
+* Documentation Links::
+* Xref and Class Browser::
+* Highlight Edits::
 * Scratch Buffer::
 * slime-sprof::
-* slime-fancy::                 
+* slime-fancy::
 @end menu
 
 @node Loading Contribs
@@ -2149,16 +2182,19 @@ particular packages do.
 
 Contrib packages aren't loaded by default.  You have to modify your
 setup a bit so that Emacs knows where to find them and which of them
-to load.  Generally, you should call @code{slime-setup} with the list
-of package-names that you want to use.  For example, a setup to load
-the @code{slime-scratch} and @code{slime-editing-commands} packages
-looks like:
+to load.  Generally, you set the variable @code{slime-contribs} with
+the list of package-names that you want to use.  For example, a setup
+to load the @code{slime-scratch} and @code{slime-editing-commands}
+packages looks like:
 
 @example
-(setq inferior-lisp-program "/opt/sbcl/bin/sbcl") ; @emph{your Lisp system}
-(add-to-list 'load-path "~/hacking/lisp/slime/")  ; @emph{your SLIME directory}
+;; @emph{Setup load-path and autoloads}
+(add-to-list 'load-path "~/dir/to/cloned/slime")
 (require 'slime-autoloads)
-(slime-setup '(slime-scratch slime-editing-commands))
+
+;; @emph{Set your lisp system and some contribs}
+(setq inferior-lisp-program "/opt/sbcl/bin/sbcl")
+(setq slime-contribs '(slime-scratch slime-editing-commands))
 @end example
 
 After starting SLIME, the commands of both packages should be
@@ -2171,16 +2207,40 @@ almost all of the popular contribs.  So, if you aren't sure what to
 choose start with:
 
 @example
-(slime-setup '(slime-repl)) ; repl only
+(setq slime-contribs '(slime-repl)) ; repl only
 @end example
 
 If you like what you see try this:
 
 @example
-(slime-setup '(slime-fancy)) ; almost everything
+(setq slime-contribs '(slime-fancy)) ; almost everything
 @end example
 
-@c ----------------------- 
+@subsection Loading and unloading ``on the fly''
+
+We recommend that you setup contribs @emph{before} starting SLIME via
+@kbd{M-x slime}, but if you want to enable more contribs @emph{after}
+you that, you can set the @code{slime-contribs} variable to another
+value and call @code{M-x slime-setup}. Note this though:
+
+@itemize @bullet
+@item
+If you've removed contribs from the list they won't be unloaded
+automatically.
+@item
+If you have more than one SLIME connection currently active, you must
+manually repeat the @code{slime-setup} step for each of them.
+@end itemize
+
+Short of restarting Emacs, a reasonable way of unloading contribs is
+by calling the Emacs Lisp function
+@code{slime-<contrib>-unload} for every contrib you wish
+to unload, remove them from @code{slime-contribs} and call
+@code{slime-setup}. Because the unload function will only, if ever,
+unload the Emacs Lisp side of the contrib, you may also need to
+restart your lisps.
+
+@c -----------------------
 @node REPL
 @section REPL: the ``top level''
 
@@ -2203,7 +2263,7 @@ output is inserted in the right place, and doesn't get mixed up with
 user input.
 @end itemize
 
-To load the REPL call @code{(slime-setup '(slime-repl))} in your
+To load the REPL use @code{(add-to-list 'slime-contribs 'slime-repl)} in your
 @code{.emacs}.
 
 @table @kbd
@@ -2222,12 +2282,12 @@ If used with a prefix argument, doesn't switch back afterwards.
 @end table
 
 @menu
-* REPL commands::               
-* Input Navigation::            
-* Shortcuts::                   
+* REPL commands::
+* Input Navigation::
+* Shortcuts::
 @end menu
 
-@c ----------------------- 
+@c -----------------------
 @node REPL commands
 @subsection REPL commands
 
@@ -2256,7 +2316,7 @@ Go to the beginning of the line, but stop at the @REPL{} prompt.
 Interrupt the Lisp process with @code{SIGINT}.
 
 @c @kbditem{C-c M-g, slime-quit}
-@c Quit slime. 
+@c Quit slime.
 
 @kbditem{C-c M-o, slime-repl-clear-buffer}
 Clear the entire buffer, leaving only a prompt.
@@ -2267,7 +2327,7 @@ buffer.
 
 @end table
 
-@c ----------------------- 
+@c -----------------------
 @node Input Navigation
 @subsection Input navigation
 
@@ -2300,8 +2360,8 @@ Search forward/reverse through command history with regex
 @c @code{slime-repl-@{next,previous@}-matching-input}@*
 @c @code{comint}-style input history commands.
 
-@kbditempair{C-c C-n, C-c C-p, 
-slime-repl-next-prompt, slime-repl-previous-prompt} 
+@kbditempair{C-c C-n, C-c C-p,
+slime-repl-next-prompt, slime-repl-previous-prompt}
 Move between the current and previous prompts in the @REPL{} buffer.
 Pressing RET on a line with old input copies that line to the newest
 prompt.
@@ -2312,7 +2372,7 @@ The variable @code{slime-repl-wrap-history} controls wrap around
 behaviour, i.e. whether cycling should restart at the beginning of the
 history if the end is reached.
 
-@c ----------------------- 
+@c -----------------------
 @comment  node-name,  next,  previous,  up
 @node Shortcuts
 @subsection Shortcuts
@@ -2396,7 +2456,7 @@ also tracks the current directory of the Lisp process.
 To install it, add something like this to user @file{.emacs}:
 
 @example
-(slime-setup '(inferior-slime))
+(add-to-list 'slime-contribs 'inferior-slime)
 @end example
 
 @table @kbd
@@ -2409,7 +2469,7 @@ The variable @code{inferior-slime-mode-map} contains the extra
 keybindings.
 
 @node Compound Completion
-@section Compound Completion 
+@section Compound Completion
 
 @anchor{slime-complete-symbol*}
 The package @code{slime-c-p-c} provides a different symbol completion
@@ -2458,18 +2518,18 @@ Spherical_Angle_Opening_Left       Spherical_Angle_Opening_Up
 @end example
 
 The package @code{slime-c-p-c} also provides context-sensitive completion for keywords.
-Example:  
+Example:
 
 @example
 CL-USER> (find 1 '(1 2 3) :s<TAB>
 @end example
 
 Here SLIME will complete @code{:start}, rather than suggesting all
-ever-interned keywords starting with @code{:s}. 
+ever-interned keywords starting with @code{:s}.
 
 
 @table @kbd
-@kbditem{C-c C-s, slime-complete-form} 
+@kbditem{C-c C-s, slime-complete-form}
 Looks up and inserts into the current buffer the argument list for the
 function at point, if there is one.  More generally, the command
 completes an incomplete form with a template for the missing arguments.
@@ -2482,11 +2542,11 @@ functions and for handling @code{make-instance},
   --inserts--> start [end])
 (find 17 <C-c C-s>
   --inserts--> sequence :from-end from-end :test test
-               :test-not test-not :start start :end end 
+               :test-not test-not :start start :end end
                :key key)
 (find 17 '(17 18 19) :test #'= <C-c C-s>
   --inserts--> :from-end from-end
-               :test-not test-not :start start :end end 
+               :test-not test-not :start start :end end
                :key key)
 (defclass foo () ((bar :initarg :bar)))
 (defmethod print-object <C-c C-s>
@@ -2543,13 +2603,12 @@ completion will also be used for @kbd{M-TAB}.
 
 Autodoc mode is an additional minor-mode for automatically showing
 information about symbols near the point. For function names the
-argument list is displayed, and for global variables, the value. 
+argument list is displayed, and for global variables, the value.
 Autodoc is implemented by means of @code{eldoc-mode} of Emacs.
 
-The mode can be enabled by default in the @code{slime-setup} call of your
-@code{~/.emacs}:
+The mode can be enabled by default in your @code{~/.emacs}:
 @example
-(slime-setup '(slime-autodoc))
+(add-to-list 'slime-contribs 'slime-autodoc)
 @end example
 
 @table @kbd
@@ -2561,7 +2620,7 @@ Toggles autodoc-mode on or off according to the argument, and
 toggles the mode when invoked without argument.
 @kbditem{C-c C-d a, slime-autodoc-manually}
 Like slime-autodoc, but when called twice,
-or after slime-autodoc was already automatically called, 
+or after slime-autodoc was already automatically called,
 display multiline arglist.
 @end table
 
@@ -2654,7 +2713,7 @@ an attempt will be made to fix it before reindenting.
 @kbditem{C-c C-], slime-close-all-parens-in-sexp}
 Balance parentheses of open s-expressions at point.
 Insert enough right parentheses to balance unmatched left parentheses.
-Delete extra left parentheses.  Reformat trailing parentheses 
+Delete extra left parentheses.  Reformat trailing parentheses
 Lisp-stylishly.
 
 If REGION is true, operate on the region. Otherwise operate on
@@ -2673,7 +2732,7 @@ set of balanced comments.
 @end table
 
 @node Fancy Inspector
-@section Fancy Inspector 
+@section Fancy Inspector
 
 @cindex Methods
 
@@ -2719,13 +2778,13 @@ CL-USER> (find-class 'standard-class)
 CL-USER>
 @end example
 
-Presentations appear in red color in the buffer.  
+Presentations appear in red color in the buffer.
 (In this manual, we indicate the presentations @emph{like this}.)
 Using standard Emacs
 commands, the presentation can be copied to a new input in the REPL:
 
 @example
-CL-USER> (eql '@emph{#<STANDARD-CLASS STANDARD-CLASS>} 
+CL-USER> (eql '@emph{#<STANDARD-CLASS STANDARD-CLASS>}
               '@emph{#<STANDARD-CLASS STANDARD-CLASS>})
 @emph{T}
 @end example
@@ -2762,7 +2821,7 @@ behavior.
 For some Lisp implementations you can also install the package
 @code{slime-presentation-streams}, which enables presentations on the
 Lisp @code{*standard-output*} stream and similar streams.  This means
-that not only results 
+that not only results
 of computations, but also some objects that are printed to the standard
 output (as a side-effect of the computation) are associated with
 presentations.  Currently, all unreadable objects
@@ -2821,7 +2880,7 @@ presentation.  Using @kbd{mouse-3} on a presentation, the context menu
 opens and offers various commands.  For some objects, specialized
 commands are also offered.  Users can define additional specialized
 commands by defining a method for
-@code{swank::menu-choices-for-presentation}. 
+@code{swank::menu-choices-for-presentation}.
 
 
 @strong{Warning:} On Lisp implementations without weak hash tables,
@@ -2846,7 +2905,7 @@ fresh cons cells are compared regarding object identity.
 However, in the example the presentation @code{@emph{(1 . 2)}} was copied twice
 to the REPL.  Thus @code{EQ} is really invoked with the same object,
 namely the cons cell that was returned by the first form entered in the
-REPL. 
+REPL.
 
 @node Typeout frames
 @section Typeout frames
@@ -2877,7 +2936,7 @@ height and possibly other properties of the frame.  Its value is
 passed to @code{make-frame}. (@inforef{Creating Frames, ,elisp}.)
 
 @node TRAMP
-@section TRAMP  
+@section TRAMP
 
 @cindex TRAMP
 
@@ -2973,7 +3032,7 @@ The following keys are defined in slime-sprof-browser mode:
 @kbditem{RET, slime-sprof-browser-toggle}
 Expand / collapse function details (callers, calls to)
 @kbditem{v, slime-sprof-browser-view-source}
-View function sources. 
+View function sources.
 @kbditem{d, slime-sprof-browser-disassemble-function}
 Disassemble function.
 @kbditem{s, slime-sprof-toggle-swank-exclusion}
@@ -2987,7 +3046,7 @@ Toggle exclusion of swank functions from the report.
 @code{slime-fancy} is a meta package which loads a combination of the
 most popular packages.
 
-@c ----------------------- 
+@c -----------------------
 @node Credits
 @chapter Credits
 
@@ -3024,7 +3083,7 @@ Rhodes of @acronym{SBCL}, Gary Byers of OpenMCL, and Martin Simmons of
 LispWorks. Thanks also to Alain Picard and Memetrics for funding
 Martin's initial work on the LispWorks backend!
 
-@ignore 
+@ignore
 This index is currently ignored, because texinfo's built-in indexing
 produces nicer results.  -- Helmut Eller
 
@@ -3032,7 +3091,7 @@ produces nicer results.  -- Helmut Eller
 @c@appendix Index to Functions
 
 These functions are all available (when relevant). To find the
-keybinding (if there is one) refer to the function description. 
+keybinding (if there is one) refer to the function description.
 
 @c Note to editors: @fcnindex{...} lines commented out below are place holders
 @c ----------------
@@ -3155,7 +3214,7 @@ keybinding (if there is one) refer to the function description.
 @c @fcnindex{slime-compiler-notes-show-details}
 @c @fcnindex{slime-complete-form}
 @fcnindex{slime-complete-symbol}
-@fcnindex{slime-connect} 
+@fcnindex{slime-connect}
 @fcnindex{slime-connection-list-make-default}
 @c @fcnindex{slime-connection-list-mode}
 @c @fcnindex{slime-copy-presentation-at-point}
@@ -3181,9 +3240,9 @@ keybinding (if there is one) refer to the function description.
 @fcnindex{slime-fuzzy-abort}
 @fcnindex{slime-fuzzy-complete-symbol}
 @fcnindex{slime-fuzzy-completions-mode}
-@c @fcnindex{slime-fuzzy-next}        
-@c @fcnindex{slime-fuzzy-prev}        
-@c @fcnindex{slime-fuzzy-select}      
+@c @fcnindex{slime-fuzzy-next}
+@c @fcnindex{slime-fuzzy-prev}
+@c @fcnindex{slime-fuzzy-select}
 @c @fcnindex{slime-fuzzy-select/mouse}
 @fcnindex{slime-goto-connection}
 @fcnindex{slime-goto-xref}
