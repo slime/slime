@@ -41,6 +41,8 @@
 (eval-after-load 'slime
   '(slime-setup))
 
+(add-hook 'lisp-mode-hook 'slime-lisp-mode-hook)
+
 (provide 'slime-autoloads)
 
 ;;; slime-autoloads.el ends here

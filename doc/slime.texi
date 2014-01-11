@@ -397,7 +397,7 @@ repository version:
 
 @example
 git fetch origin
-git diff HEAD origin/master ChangeLo
+git diff HEAD origin/master ChangeLog
 @end example
 
 If you want to hack on slime, use Github's @emph{fork} functionality

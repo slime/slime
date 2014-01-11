@@ -41,8 +41,8 @@ compile: ensure_cl_lib
 
 # Automated tests
 #
-SELECTOR=t
-OPTIONS=--batch
+SELECTOR ?= t
+OPTIONS ?=--batch
 
 $(CONTRIBS:%=check-%): TEST_CONTRIBS=$(patsubst check-%,slime-%,$@)
 $(CONTRIBS:%=check-%) check: ensure_ert compile

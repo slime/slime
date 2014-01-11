@@ -1,3 +1,17 @@
+2014-01-11  João Távora  <joaotavora@gmail.com>
+
+	* slime-autoloads.el (lisp-mode-hook): Add `slime-lisp-mode-hook'
+	to it.
+
+	* slime-tests.el (slime-test-recipe-test-for): More generic, takes
+	`test-forms' and `check-fn' args. Uncomment relevant parts.
+	(readme-recipe): Adapt to new `slime-test-recipe-test-for'.
+	(readme-recipe-autoload-on-lisp-visit): New test.
+
+	* doc/slime.texi (Git Incantations): Fix typo.
+
+	* Makefile (SELECTOR, OPTIONS): Respect previous value.
+
 2014-01-10  Nathan Trapuzzano  <nbtrap@nbtrap.com>
 
 	* Makefile: Build distribution under top-level directory prefix,
