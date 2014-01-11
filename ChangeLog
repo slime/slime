@@ -1,3 +1,8 @@
+2014-01-10  Nathan Trapuzzano  <nbtrap@nbtrap.com>
+
+	* Makefile: Build distribution under top-level directory prefix,
+	and give it a .tar.gz suffix.
+
 2014-01-10  João Távora  <joaotavora@gmail.com>
 
 	* slime.el (slime-inspector-insert-chunk): Use

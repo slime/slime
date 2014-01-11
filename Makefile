@@ -107,7 +107,7 @@ clean: clean-fasls
 #
 dist:
 	mkdir -p dist
-	git archive HEAD | gzip > dist/slime-dist-$(SLIME_VERSION).gz
+	git archive --prefix=slime-$(SLIME_VERSION)/ HEAD | gzip > dist/slime-$(SLIME_VERSION).tar.gz
 
 # Doc
 #
