@@ -441,27 +441,6 @@ intend to use @SLIME{}. Doing so will add a lot of extra bindings to
 the keymap for Lisp source files that may be confusing and may not
 work correctly for a Lisp process started by @SLIME{}.
 
-@subsection Emacs 23 gotchas
-
-If you're still using Emacs 23 you'll need to download the
-required @file{cl-lib.el} library. It's a forward-compatibility
-library designed to smooth the transition from Emacs 23 to Emacs 24's
-changes to the @file{cl.el} library as well as its new @emph{lexical
-binding} feature.
-
-@example
-# @emph{fetch the latest cl-lib.el from Emacs's savannah repo}
-$ curl -O http://git.savannah.gnu.org/cgit/emacs/\
-          elpa.git/plain/packages/cl-lib/cl-lib.el
-@end example
-
-@emph{Before} SLIME's installation snippet, add this to your @file{~/.emacs}
-
-@example
-;; @emph{In your ~/.emacs, add it to the load path}
-(add-to-list 'load-path "/dir/to/cl-lib"
-@end example
-
 @c -----------------------
 @node Running
 @section Running SLIME
@@ -2233,11 +2212,11 @@ manually repeat the @code{slime-setup} step for each of them.
 @end itemize
 
 Short of restarting Emacs, a reasonable way of unloading contribs is
-by calling the Emacs Lisp function
-@code{slime-<contrib>-unload} for every contrib you wish
-to unload, remove them from @code{slime-contribs} and call
-@code{slime-setup}. Because the unload function will only, if ever,
-unload the Emacs Lisp side of the contrib, you may also need to
+by calling an Emacs Lisp function whose name is obtained by
+adding @code{-unload} to the contrib's name, for every contrib you
+wish to unload. So, to remove @code{slime-repl}, you must call
+@code{slime-repl-unload}. Because the unload function will only, if
+ever, unload the Emacs Lisp side of the contrib, you may also need to
 restart your lisps.
 
 @c -----------------------

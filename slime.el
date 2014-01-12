@@ -48,7 +48,7 @@
 ;;   Trapping compiler messages and creating annotations in the source
 ;;   file on the appropriate forms.
 ;;
-;; SLIME should work with any recent emacsen (23+)
+;; SLIME should work with any recent GNU Emacsen (23+)
 ;;
 ;; In order to run SLIME, a supporting Lisp server called Swank is
 ;; required. Swank is distributed with slime.el and will automatically
@@ -57,7 +57,9 @@
 
 ;;;; Dependencies and setup
 (eval-and-compile
-  (require 'cl-lib))
+  (require 'cl-lib nil t)
+  ;; For emacs 23, look for bundled version
+  (require 'cl-lib "lib/cl-lib"))
 
 (eval-and-compile
   (if (< emacs-major-version 23)
@@ -66,7 +68,7 @@
 (eval-when-compile
   (require 'cl))
 
-(require 'hyperspec nil t)
+(require 'hyperspec "lib/hyperspec")
 (require 'thingatpt)
 (require 'comint)
 (require 'timer)

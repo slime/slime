@@ -1,3 +1,39 @@
+2014-01-12  João Távora  <joaotavora@gmail.com>
+
+	* .travis.yml (script): Make "check-fancy" to check contribs, not
+	just core.
+
+	* slime.el
+	(require 'cl-lib): fallback to version bundled under lib/.
+	(require 'hyperspec): look for version bundled under lib/.
+
+	* slime-tests.el (traditional-recipe): New test, respect
+	tradition.
+	(require 'ert): Fallback to version bundled under lib/.
+	(slime-test-recipe-connect-forms): New var refactored from
+	previous tests.
+	(slime-test-recipe-check-repl): New function refactored from
+	previous tests.
+	(readme-recipe): Refactored.
+
+	* doc/slime.texi (Installation): Remove subsection "Emacs 23
+	gotchas".
+	(Loading Contribs): Clarify function name to call for attempting
+	unload and give example.
+
+	* lib/hyperspec.el: Moved from top-level dir.
+	* lib/ert.el: New file.
+	* lib/ert-x.el: New file.
+	* lib/cllib.el: New file.
+
+	* Makefile (ensure_ert,ensure_cl_lib): Remove targets since these
+	are bundled.
+	(compile): Don't download cl-lib.
+	(check): Don't download ert.
+	(clean): Look for .elc files everywhere.
+
+	* .gitignore: Ignore texinfo files.
+
 2014-01-11  João Távora  <joaotavora@gmail.com>
 
 	* slime-autoloads.el (lisp-mode-hook): Add `slime-lisp-mode-hook'

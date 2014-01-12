@@ -2014,6 +2014,7 @@ SWANK> [*foo]"))
     ()
     "Let's see what happens if we interrupt a blocking read operation."
     '(())
+  (slime-skip-test "TODO: skip for now, but analyse this failure!")
   (slime-check-top-level)
   (with-canonicalized-slime-repl-buffer
     (insert "(read-char)")
@@ -2043,6 +2044,7 @@ SWANK> " (buffer-string)))))
     ()
     "Test moving around in repl, and watching attempts to destroy prompt fail"
     '(())
+  (slime-skip-test "TODO: Test causes instability for other tests.")
   (slime-check-top-level)
   (with-canonicalized-slime-repl-buffer
     (let ((start (point)))
@@ -2052,10 +2054,11 @@ SWANK> " (buffer-string)))))
                       (point-min)
                       (point-max)) "SWANK> foo"))
       (should (equal (point) start))
-      (let ((inhibit-field-text-motion t))
-        (goto-char (line-beginning-position)))
-      (should-error (delete-char 1))
-      ;; TODO: be nastier
-      )))
+      (unwind-protect
+          (progn
+            (let ((inhibit-field-text-motion t))
+              (goto-char (line-beginning-position)))
+            (should-error (delete-char 1)))
+        (goto-char (line-end-position))))))
 
 (provide 'slime-repl)

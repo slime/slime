@@ -6,9 +6,6 @@ SLIME_VERSION=$(shell grep "Version:" slime.el | grep -E -o "[0-9.]+$$")
 CONTRIBS = $(patsubst contrib/slime-%.el,%,$(wildcard contrib/slime-*.el))
 EMACS_23=$(shell $(EMACS_BIN) --version | grep -E 23)
 EMACS_24=$(shell $(EMACS_BIN) --version | grep -E 24)
-ERT=https://raw.github.com/ohler/ert/c619b56c5bc6a866e33787489545b87d79973205/lisp/emacs-lisp/ert.el
-ERTX=https://raw.github.com/ohler/ert/c619b56c5bc6a866e33787489545b87d79973205/lisp/emacs-lisp/ert-x.el
-CL_LIB=http://elpa.gnu.org/packages/cl-lib-0.3.el
 
 # emacs 24.4 allows us to add to the end of the load path using `:'
 # which is what we want in these version 24, especially since
@@ -21,21 +18,12 @@ else
 endif
 LOAD_PATH=-L $(COLON). -L $(COLON)./contrib
 
-# Dependencies
-#
-ensure_cl_lib:
-	[ -f cl-lib.el ] || curl -o cl-lib.el $(CL_LIB)
-
-ensure_ert:
-	[ -f ert.el ]    || curl -o ert.el $(ERT)
-	[ -f ert-x.el ]  || curl -o ert-x.el $(ERT)
-
 # Compilation
 #
 %.elc: %.el
 	${EMACS_BIN} -Q $(LOAD_PATH) --batch \
 		-f batch-byte-compile $<
-compile: ensure_cl_lib
+compile:
 	${EMACS_BIN} -Q $(LOAD_PATH) --batch \
 		--eval "(batch-byte-recompile-directory 0)" .
 
@@ -45,7 +33,7 @@ SELECTOR ?= t
 OPTIONS ?=--batch
 
 $(CONTRIBS:%=check-%): TEST_CONTRIBS=$(patsubst check-%,slime-%,$@)
-$(CONTRIBS:%=check-%) check: ensure_ert compile
+$(CONTRIBS:%=check-%) check: compile
 	${EMACS_BIN} -Q $(LOAD_PATH) $(OPTIONS)			\
 		--eval "(require 'slime-tests)"			\
 		--eval "(slime-setup '($(TEST_CONTRIBS)))"		\
@@ -99,9 +87,9 @@ elpa: elpa-slime elpa-contribs
 # Cleanup
 #
 clean-fasls:
-	rm -rf *.fasl contrib/*.fasl
+	find . -iname '*.fasl' -exec rm {} \;
 clean: clean-fasls
-	rm -rf *.elc contrib/*.elc
+	find . -iname '*.elc' -exec rm {} \;
 
 # Legacy dists
 #

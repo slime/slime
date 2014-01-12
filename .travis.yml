@@ -13,6 +13,7 @@ install:
   - sudo apt-get install emacs-snapshot-nox
 before_script:
 script:
-  - EMACS_BIN=emacs LISP_BIN=sbcl make check
-  - git clean -fdx
-  - EMACS_BIN=emacs-snapshot LISP_BIN=sbcl make check
+  - LISP_BIN=sbcl EMACS_BIN=emacs           make clean check
+  - LISP_BIN=sbcl EMACS_BIN=emacs-snapshot  make clean check
+  - LISP_BIN=sbcl EMACS_BIN=emacs           make clean check-fancy
+  - LISP_BIN=sbcl EMACS_BIN=emacs-snapshot  make clean check-fancy

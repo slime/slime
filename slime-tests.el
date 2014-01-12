@@ -27,6 +27,7 @@
 ;;;; Tests
 (require 'slime)
 (require 'ert nil t)
+(require 'ert "lib/ert" t) ;; look for bundled version for Emacs 23
 (require 'cl-lib)
 
 (defun slime-shuffle-list (list)
@@ -1165,6 +1166,36 @@ Reconnect afterwards."
             name)
     `(ert-deftest ,name ,@args)))
 
+(defvar slime-test-recipe-connect-forms
+  `((require 'cl)
+    (add-hook 'slime-connected-hook
+              #'(lambda ()
+                  (condition-case err
+                      (progn
+                        (unless (featurep 'slime-repl)
+                          (kill-emacs 222))
+                        (with-current-buffer (slime-repl-buffer)
+                          (princ (buffer-string)))
+                        (kill-emacs 0))
+                    (error (kill-emacs 223))))
+              t)
+    (call-interactively 'slime)
+    (with-timeout (20 (kill-emacs 224))
+      (while t (sit-for 1)))))
+
+(defun slime-test-recipe-check-repl (retval output)
+  (cl-case retval
+    (222
+     (ert-fail (format "child emacs didn't setup slime-repl")))
+    (223
+     (ert-fail "child emacs errored, but at SLIME connected !"))
+    (224
+     (ert-fail "child emacs errored, SLIME didn't connect in time!"))
+    (t
+     (should (= 0 retval))
+     (should (string-match "^; +SLIME" (buffer-string)))
+     (should (string-match "CL-USER> *$" (buffer-string))))))
+
 (define-slime-ert-test readme-recipe ()
   "Test the README.md's recipe."
   (slime-test-recipe-test-for
@@ -1176,33 +1207,8 @@ Reconnect afterwards."
      (require 'slime-autoloads)
      (setq inferior-lisp-program ,inferior-lisp-program)
      (setq slime-contribs '(slime-fancy slime-repl)))
-   `((require 'cl)
-     (add-hook 'slime-connected-hook
-               #'(lambda ()
-                   (condition-case err
-                       (progn
-                         (unless (featurep 'slime-repl)
-                           (kill-emacs 222))
-                         (with-current-buffer (slime-repl-buffer)
-                           (princ (buffer-string)))
-                         (kill-emacs 0))
-                     (error (kill-emacs 223))))
-               t)
-     (call-interactively 'slime)
-     (with-timeout (20 (kill-emacs 224))
-       (while t (sit-for 1))))
-   #'(lambda (retval output)
-       (cl-case retval
-         (222
-          (ert-fail (format "child emacs didn't setup slime-repl")))
-         (223
-          (ert-fail "child emacs errored, but at SLIME connected !"))
-         (224
-          (ert-fail "child emacs errored, SLIME didn't connect in time!"))
-         (t
-          (should (= 0 retval))
-          (should (string-match "^; +SLIME" (buffer-string)))
-          (should (string-match "CL-USER> *$" (buffer-string))))))))
+   slime-test-recipe-connect-forms
+   #'slime-test-recipe-check-repl))
 
 (define-slime-ert-test readme-recipe-autoload-on-lisp-visit ()
   "Test more autoload bits in README.md's installation recipe."
@@ -1224,5 +1230,19 @@ Reconnect afterwards."
          (254 (ert-fail "SLIME loaded too soon!"))
          (255 (ert-fail "SLIME didn't load after visiting a lisp file!"))
          (t (should (= 0 retval)))))))
+
+(define-slime-ert-test traditional-recipe ()
+  "Test the README.md's recipe."
+  (slime-test-recipe-test-for
+   `((add-to-list 'load-path
+                  ,(expand-file-name
+                    (or (and load-file-name
+                             (file-name-directory load-file-name))
+                        ".")))
+     (require 'slime)
+     (setq inferior-lisp-program ,inferior-lisp-program)
+     (slime-setup '(slime-fancy slime-repl)))
+   slime-test-recipe-connect-forms
+   #'slime-test-recipe-check-repl))
 
 (provide 'slime-tests)
