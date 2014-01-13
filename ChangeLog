@@ -1,5 +1,8 @@
 2014-01-13  João Távora  <joaotavora@gmail.com>
 
+	* .travis.yml: Cleaner, more LISP combinations, but test only emacs 23 and
+	emacs 24 on debian.
+
 	* slime.el (require 'arc-mode): Replace cl-eval-when with
 	eval-when-compile, broke in emacs 24.2. (Closes #17).
 
