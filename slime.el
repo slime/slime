@@ -79,7 +79,7 @@
   (unless (find-coding-system 'utf-8-unix)
     (require 'un-define)))
 (require 'easymenu)
-(cl-eval-when (compile)
+(eval-when-compile
   (require 'arc-mode)
   (require 'apropos)
   (require 'outline)
