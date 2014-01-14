@@ -13,7 +13,7 @@ env:
 #    - SOME_TOKEN=some_value
 
 install:
-  - curl https://raw2.github.com/luismbo/cl-travis/master/install.sh | sh
+  - curl https://raw2.github.com/luismbo/cl-travis/master/install.sh | bash
   - if [ "$EMACS" = "emacs23" ]; then
         sudo apt-get -qq update &&
         sudo apt-get -qq -f install &&
