@@ -1,3 +1,11 @@
+2014-01-16  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Raise Emacs when ED is invoked and when SLDB or the SLIME
+	inspector pop up.
+
+	* slime.el (slime-ed, sldb-setup, slime-open-inspector): raise
+	frame.
+
 2014-01-13  João Távora  <joaotavora@gmail.com>
 
 	* .travis.yml: Cleaner, more LISP combinations, but test only emacs 23 and
