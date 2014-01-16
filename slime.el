@@ -4187,7 +4187,8 @@ This is for use in the implementation of COMMON-LISP:ED."
                         (byte-to-position position)
                       position))))
       ((:function-name name)
-       (slime-edit-definition name)))))
+       (slime-edit-definition name))))
+  (raise-frame))
 
 (defun slime-goto-line (line-number)
   "Move to line LINE-NUMBER (1-based).
@@ -5502,7 +5503,8 @@ CONTS is a list of pending Emacs continuations."
                ;; (y-or-n-p "Enter recursive edit? ")
                )
       (message "Entering recursive edit..")
-      (recursive-edit))))
+      (recursive-edit))
+    (raise-frame))
 
 (defun sldb-activate (thread level select)
   "Display the debugger buffer for THREAD.
@@ -6589,7 +6591,8 @@ KILL-BUFFER hooks for the inspector buffer."
             (ignore-errors
               (goto-char (point-min))
               (forward-line (1- (car point)))
-              (move-to-column (cdr point)))))))))
+              (move-to-column (cdr point)))))))
+      (raise-frame)))
 
 (defvar slime-inspector-limit 500)
 
