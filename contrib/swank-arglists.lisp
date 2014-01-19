@@ -251,7 +251,7 @@ Otherwise NIL is returned."
         (do-decoded-arglist (remove-given-args arglist provided-args)
           (&provided (arg)
              (space)
-             (print-arg arg)
+             (print-arg arg :literal-strings t)
              (incf index))
           (&required (arg)
              (space)
@@ -316,11 +316,14 @@ Otherwise NIL is returned."
           ;; FIXME: add &UNKNOWN-JUNK?
           )))))
 
-(defun print-arg (arg)
+(defun print-arg (arg &key literal-strings)
   (let ((arg (if (arglist-dummy-p arg)
                  (arglist-dummy.string-representation arg)
                  arg)))
-    (if (keywordp arg)
+    (if (or
+         (and literal-strings
+              (stringp arg))
+         (keywordp arg))
         (prin1 arg)
         (princ arg))))
 
@@ -348,7 +351,7 @@ Otherwise NIL is returned."
           (&optional (arg)
             (space) (princ "[") (print-arg-or-pattern arg) (princ "]"))
           (&key (keyword arg)
-            (space) 
+            (space)
             (prin1 (if (keywordp keyword) keyword `',keyword))
             (space)
             (print-arg-or-pattern arg)
@@ -388,8 +391,8 @@ Otherwise NIL is returned."
   (with-output-to-string (*standard-output*)
     (with-arglist-io-syntax
       (let ((*print-right-margin* print-right-margin))
-        (print-decoded-arglist decoded-arglist 
-                               :operator operator 
+        (print-decoded-arglist decoded-arglist
+                               :operator operator
                                :highlight highlight)))))
 
 (defun decoded-arglist-to-template-string (decoded-arglist
@@ -579,9 +582,9 @@ Return an OPTIONAL-ARG structure."
     finally (nreversef (arglist.any-args result))
     finally (nreversef (arglist.known-junk result))
     finally (nreversef (arglist.unknown-junk result))
-    finally (assert (or (and (not (arglist.key-p result)) 
+    finally (assert (or (and (not (arglist.key-p result))
                              (not (arglist.any-p result)))
-                        (exactly-one-p (arglist.key-p result) 
+                        (exactly-one-p (arglist.key-p result)
                                        (arglist.any-p result))))
     finally (return result)))
 
@@ -885,7 +888,7 @@ ANY-ENRICHMENT, just like enrich-decoded-arglist-with-extra-keywords.
 If the arglist is not available, return :NOT-AVAILABLE."))
 
 (defmethod compute-enriched-decoded-arglist (operator-form argument-forms)
-  (with-available-arglist (decoded-arglist) 
+  (with-available-arglist (decoded-arglist)
       (decode-arglist (arglist operator-form))
     (enrich-decoded-arglist-with-extra-keywords decoded-arglist
                                                 (cons operator-form
@@ -1026,7 +1029,7 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 (defmethod arglist-dispatch ((operator (eql 'eval-when)) arguments)
   (declare (ignore arguments))
     (let ((eval-when-args '(:compile-toplevel :load-toplevel :execute)))
-    (make-arglist 
+    (make-arglist
      :required-args (list (make-arglist :any-p t :any-args eval-when-args))
      :rest '#:body :body-p t)))
 
@@ -1037,8 +1040,8 @@ If the arglist is not available, return :NOT-AVAILABLE."))
     (if (arglist-available-p typedecl-arglist)
         typedecl-arglist
         (match declaration
-          (('declare ((#'consp typespec) . decl-args)) 
-           (with-available-arglist (typespec-arglist) 
+          (('declare ((#'consp typespec) . decl-args))
+           (with-available-arglist (typespec-arglist)
                (decoded-arglist-for-type-specifier typespec)
              (make-arglist
               :required-args (list (make-arglist
@@ -1054,20 +1057,20 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 
 (defun arglist-for-type-declaration (declaration)
   (flet ((%arglist-for-type-declaration (identifier typespec rest-var-name)
-           (with-available-arglist (typespec-arglist) 
+           (with-available-arglist (typespec-arglist)
                (decoded-arglist-for-type-specifier typespec)
-             (make-arglist 
-              :required-args (list (make-arglist 
+             (make-arglist
+              :required-args (list (make-arglist
                                     :provided-args (list identifier)
                                     :required-args (list typespec-arglist)
                                     :rest rest-var-name))))))
     (match declaration
-      (('declare ('type (#'consp typespec) . decl-args)) 
+      (('declare ('type (#'consp typespec) . decl-args))
        (%arglist-for-type-declaration 'type typespec '#:variables))
-      (('declare ('ftype (#'consp typespec) . decl-args)) 
+      (('declare ('ftype (#'consp typespec) . decl-args))
        (%arglist-for-type-declaration 'ftype typespec '#:function-names))
-      (('declare ((#'consp typespec) . decl-args)) 
-       (with-available-arglist (typespec-arglist) 
+      (('declare ((#'consp typespec) . decl-args))
+       (with-available-arglist (typespec-arglist)
            (decoded-arglist-for-type-specifier typespec)
          (make-arglist
           :required-args (list (make-arglist
@@ -1116,7 +1119,7 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 ;;; considered.
 
 (defslimefun autodoc (raw-form &key print-right-margin)
-  "Return a list of two elements. 
+  "Return a list of two elements.
 First, a string representing the arglist for the deepest subform in
 RAW-FORM that does have an arglist. The highlighted parameter is
 wrapped in ===> X <===.
@@ -1263,7 +1266,7 @@ to the context provided by RAW-FORM."
                ;; Make sure to pick up the arglists of local
                ;; function/macro definitions.
                ((setq new-ops (extract-local-op-arglists operator args))
-                (multiple-value-or (grovel-form last-subform 
+                (multiple-value-or (grovel-form last-subform
                                                 (nconc new-ops local-ops))
                                    (yield-success form local-ops)))
                ;; Some typespecs clash with function names, so we make
@@ -1426,7 +1429,7 @@ to the argument (NTH `provided-argument-index' `provided-arguments')."
          nil)
         ((not key-p)                    ; rest + body
          (assert (arglist.rest arglist))
-         positional-args#) 
+         positional-args#)
         (t                              ; key
          ;; Find last provided &key parameter
          (let* ((argument      (nth arg-index provided-arguments))
@@ -1444,9 +1447,9 @@ represent key parameters."
   (flet ((ref-positional-arg (arglist index)
            (check-type index (integer 0 *))
            (with-struct (arglist. provided-args required-args
-                                  optional-args rest) 
+                                  optional-args rest)
                arglist
-             (loop for args in (list provided-args required-args 
+             (loop for args in (list provided-args required-args
                                      (mapcar #'optional-arg.arg-name
                                              optional-args))
                    for args# = (length args)
@@ -1499,7 +1502,7 @@ relative to ARGLIST."
 symbols if already interned. For strings not already interned, use
 ARGLIST-DUMMY."
   (unless (null raw-form)
-    (loop for element in raw-form 
+    (loop for element in raw-form
           collect (etypecase element
                     (string (read-conversatively element))
                     (list   (parse-raw-form element))
@@ -1547,7 +1550,7 @@ datum for subsequent logics to rely on."
                                      (subseq string 1 (1- length))
                                      string)))
 	  (make-arglist-dummy string)))))
-  
+
 (defun test-print-arglist ()
   (flet ((test (arglist string)
            (let* ((*package* (find-package :swank))

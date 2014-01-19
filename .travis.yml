@@ -1,14 +1,14 @@
 language: emacs
 env:
   matrix:
-    - "CHECK_TARGET=check LISP=sbcl EMACS=emacs23"
-    - "CHECK_TARGET=check LISP=sbcl EMACS=emacs24"
-    - "CHECK_TARGET=check LISP=cmucl EMACS=emacs23"
-    - "CHECK_TARGET=check LISP=cmucl EMACS=emacs24"
-    - "CHECK_TARGET=check-fancy LISP=sbcl EMACS=emacs23"
-    - "CHECK_TARGET=check-fancy LISP=sbcl EMACS=emacs24"
-    - "CHECK_TARGET=check-fancy LISP=cmucl EMACS=emacs23"
-    - "CHECK_TARGET=check-fancy LISP=cmucl EMACS=emacs24"
+    # we test emacs23 with sbcl32 only
+    - "CHECK_TARGET=check       LISP=sbcl32 EMACS=emacs23"
+    - "CHECK_TARGET=check-fancy LISP=sbcl32 EMACS=emacs23"
+    # for emacs24, use more combinations
+    - "CHECK_TARGET=check       LISP=sbcl32 EMACS=emacs24"
+    - "CHECK_TARGET=check       LISP=cmucl  EMACS=emacs24"
+    - "CHECK_TARGET=check-fancy LISP=sbcl32 EMACS=emacs24"
+    - "CHECK_TARGET=check-fancy LISP=cmucl  EMACS=emacs24"
   global:
 #    - SOME_TOKEN=some_value
 

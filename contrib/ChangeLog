@@ -1,3 +1,12 @@
+2014-01-19  João Távora  <joaotavora@gmail.com>
+
+	* slime-autodoc.el (cerror "Foo"): test no longer fails for sbcl.
+	(foo-inside-labels-2): test also fails on cmucl.
+
+	* swank-arglists.lisp (print-decoded-arglist): for already
+	provided args, print strings literally.
+	(print-arg): New keyword arg LITERAL-STRINGS
+
 2014-01-12  João Távora  <joaotavora@gmail.com>
 
 	* slime-parse.el (form-up-to-point.1): Skip for now, then analyse.
