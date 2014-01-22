@@ -607,7 +607,9 @@ A negative argument means move backward instead."
                        sym)))
       (etypecase choices
         (list
-         `(,(format "Presentation %s" what)
+         `(,(format "Presentation %s" (truncate-string-to-width
+                                       (slime-presentation-text presentation)
+                                       30 nil nil t))
            (""
             ("Find Definition" . ,(savel 'slime-M-.-presentation-at-mouse))
             ("Inspect" . ,(savel 'slime-inspect-presentation-at-mouse))

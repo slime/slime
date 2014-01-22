@@ -1,3 +1,12 @@
+2014-01-22  João Távora  <joaotavora@gmail.com>
+
+	* slime-presentations.el (slime-menu-choices-for-presentation):
+	slightly friendlier pop-up menu title, could be friendlier maybe
+	if object type were displayed instead.
+
+	* swank-presentations.lisp (lookup-presented-object): No longer
+	reference *inspectee-parts* removed a long time ago.
+
 2014-01-19  João Távora  <joaotavora@gmail.com>
 
 	* slime-autodoc.el (cerror "Foo"): test no longer fails for sbcl.
@@ -13,7 +22,7 @@
 
 	* slime-repl.el (move-around-and-be-nasty): Skip it. Causes other
 	tests to become unstable.
-	(interrupt-in-blocking-read): Skip for now, the analyse.
+	(interrupt-in-blocking-read): Skip for now, then analyse.
 
 2014-01-10  João Távora  <joaotavora@gmail.com>
 

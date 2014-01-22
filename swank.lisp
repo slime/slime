@@ -3208,7 +3208,12 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
     (lcons (llist-range list start end))))
 
 (defslimefun inspector-nth-part (index)
-  (aref (istate.parts *istate*) index))
+  "Return the current inspector's INDEXth part.
+The second value indicates if that part exists at all."
+  (let* ((parts (istate.parts *istate*))
+         (foundp (< index (length parts))))
+    (values (and foundp (aref parts index))
+            foundp)))
 
 (defslimefun inspect-nth-part (index)
   (with-buffer-syntax ()
