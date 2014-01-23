@@ -834,6 +834,7 @@ symbol at point, or if QUERY is non-nil."
   "Execute BODY and add PROPS to all the text it inserts.
 More precisely, PROPS are added to the region between the point's
 positions before and after executing BODY."
+  (declare (debug (sexp &rest form)))
   (let ((start (cl-gensym)))
     `(let ((,start (point)))
        (prog1 (progn ,@body)

@@ -9,6 +9,9 @@ env:
     - "CHECK_TARGET=check       LISP=cmucl  EMACS=emacs24"
     - "CHECK_TARGET=check-fancy LISP=sbcl32 EMACS=emacs24"
     - "CHECK_TARGET=check-fancy LISP=cmucl  EMACS=emacs24"
+    # also, for emacs24 and sbcl32 test the slime-repl only
+    # 
+    - "CHECK_TARGET=check-repl LISP=sbcl32  EMACS=emacs24"
   global:
 #    - SOME_TOKEN=some_value
 

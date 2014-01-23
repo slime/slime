@@ -1,5 +1,8 @@
 2014-01-23  João Távora  <joaotavora@gmail.com>
 
+	* slime-presentations.el (pretty-presentation-results): new tests,
+	should be more stable, except on allegro.
+
 	* slime-repl.el (slime-repl-emit): Propertize the output text with
 	a `slime-repl-output' boolean property.
 	(slime-repl-test-markers): More powerful macro for testing repl text. 
@@ -8,6 +11,12 @@
 	(repl-test): tests with no output don't expect these markers.
 	(repl-type-ahead): tests with no output don't expect these
 	markers.
+	(slime-repl-emit-result): Use `insert-before-markers-and-inherit', and 
+	do it before saving `slime-output-end'.
+	(slime-repl-write-string): Fix failing tests by passing `eol' as t
+	to `slime-repl-emit-result'.
+	(slime-repl-test-markers): Friendlier test assertions.
+	(repl-test-2): Skip for now, unstable without slime-presentations.
 
 2014-01-22  João Távora  <joaotavora@gmail.com>
 

@@ -885,4 +885,29 @@ even on Common Lisp implementations without weak hash tables."
       (assert-it 11)
       (assert-it 12 t))))
 
+(def-slime-test (pretty-presentation-results (:fails-for "allegro"))
+    (input result-contents)
+    "Test some more simple situations dealing with print-width and stuff.
+
+Very much like `repl-test-2', but should be more stable when
+presentations are enabled, except in allegro."
+    '(("(with-standard-io-syntax
+         (write (make-list 15 :initial-element '(1 . 2)) :pretty t) 0)"
+       "SWANK> (with-standard-io-syntax
+         (write (make-list 15 :initial-element '(1 . 2)) :pretty t) 0)
+{((1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2)
+ (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2))
+}0
+SWANK> *[]")
+      ;; Two times to test the effect of FRESH-LINE.
+      ("(with-standard-io-syntax
+         (write (make-list 15 :initial-element '(1 . 2)) :pretty t) 0)"
+       "SWANK> (with-standard-io-syntax
+         (write (make-list 15 :initial-element '(1 . 2)) :pretty t) 0)
+{((1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2)
+ (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2))
+}0
+SWANK> *[]"))
+  (slime-test-repl-test input result-contents))
+
 (provide 'slime-presentations)

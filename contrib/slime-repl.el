@@ -244,7 +244,7 @@ hashtable `slime-output-target-to-marker'; output is inserted at this marker."
 (defun slime-repl-write-string (string &optional target)
   (case target
     ((nil) (slime-repl-emit string))
-    (:repl-result (slime-repl-emit-result string))
+    (:repl-result (slime-repl-emit-result string t))
     (t (slime-emit-to-target string target))))
 
 (defvar slime-repl-popup-on-output nil
@@ -283,10 +283,11 @@ This is set to nil after displaying the buffer.")
   ;; insert STRING and mark it as evaluation result
   (with-current-buffer (slime-output-buffer)
     (save-excursion
+      (goto-char slime-repl-input-start-mark)
       (slime-save-marker slime-output-start
+	(goto-char slime-repl-input-start-mark)
+	(when (and bol (not (bolp))) (insert-before-markers-and-inherit "\n"))
         (slime-save-marker slime-output-end
-          (goto-char slime-repl-input-start-mark)
-          (when (and bol (not (bolp))) (insert-before-markers "\n"))
           (slime-propertize-region `(face slime-repl-result-face
                                           rear-nonsticky (face))
             (insert-before-markers string)))))
@@ -1784,22 +1785,28 @@ for the string sig SIG, the latter by evaling FORM in the test buffer."
            into expected-bindings
            collect `(,observed-sym ,observer-form)
            into observed-bindings
-           collect `(should (or (and (null ,observed-sym)
-                                     (null ,expected-sym))
-                                (and ,observed-sym
-                                     ,expected-sym
-                                     (= ,observed-sym ,expected-sym))))
+	   collect `(when (and ,observed-sym (not ,expected-sym))
+		      (ert-fail (format "Didn't expect to observe %s, but did and its %s"
+					',marker ,observed-sym)))
+	   into assertions
+	   collect `(when (and (not ,observed-sym) ,expected-sym)
+		      (ert-fail (format "Expected %s to be %s, bit didn't observe anything"
+					',marker ,expected-sym)))
+	   into assertions
+           collect `(when (and ,observed-sym ,expected-sym)
+		      (should (= ,observed-sym ,expected-sym)))
            into assertions
            finally (return
                     `(progn
                        (let (,@observed-bindings
-                             (observed-string (buffer-string)))
+                             (observed-string (buffer-substring-no-properties (point-min)
+									      (point-max))))
                          (with-current-buffer (get-buffer-create "*slime-repl test buffer*")
                            (erase-buffer)
                            (insert ,expected-string-spec)
                            (let (,@expected-bindings)
                              (should
-                              (string= observed-string (buffer-string)))
+                              (equal observed-string (buffer-string)))
                              ,@assertions)))))))
 
 (defun slime-check-buffer-contents (_msg expected-string-spec)
@@ -1904,7 +1911,7 @@ SWANK> *[]"))
     (slime-sync-to-top-level 5)
     (slime-check-buffer-contents "Buffer contains result" result-contents)))
 
-(def-slime-test (repl-test-2 (:fails-for "allegro"))
+(def-slime-test repl-test-2
     (input result-contents)
     "Test some more simple situations dealing with print-width and stuff"
     '(("(with-standard-io-syntax
@@ -1924,6 +1931,7 @@ SWANK> *[]")
  (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2))
 }0
 SWANK> *[]"))
+  (slime-skip-test "Repl test is unstable without the slime-presentations contrib.")
   (slime-test-repl-test input result-contents))
 
 (def-slime-test repl-return

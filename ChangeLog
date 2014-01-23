@@ -1,3 +1,10 @@
+2014-01-23  João Távora  <joaotavora@gmail.com>
+
+	* .travis.yml (env): Test the slime-repl independently from other
+	contribs like slime-presentations.
+
+	* slime.el (slime-propertize-region): Add edebug spec.
+
 2014-01-22  João Távora  <joaotavora@gmail.com>
 
 	* swank.lisp (inspector-nth-part): Don't break if index out of
