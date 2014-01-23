@@ -1,3 +1,14 @@
+2014-01-23  João Távora  <joaotavora@gmail.com>
+
+	* slime-repl.el (slime-repl-emit): Propertize the output text with
+	a `slime-repl-output' boolean property.
+	(slime-repl-test-markers): More powerful macro for testing repl text. 
+	(slime-check-buffer-contents): Simplified with
+	`slime-repl-test-markers'.
+	(repl-test): tests with no output don't expect these markers.
+	(repl-type-ahead): tests with no output don't expect these
+	markers.
+
 2014-01-22  João Távora  <joaotavora@gmail.com>
 
 	* slime-presentations.el (slime-menu-choices-for-presentation):

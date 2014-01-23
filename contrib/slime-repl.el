@@ -267,6 +267,7 @@ This is set to nil after displaying the buffer.")
       (goto-char slime-output-end)
       (slime-save-marker slime-output-start
         (slime-propertize-region '(face slime-repl-output-face
+                                        slime-repl-output t
                                         rear-nonsticky (face))
           (insert-before-markers string)
           (when (and (= (point) slime-repl-prompt-start-mark)
@@ -1765,6 +1766,53 @@ while ignoring the repl prompt text."
 (eval-and-compile
   (require 'slime-tests nil t))
 
+(defmacro slime-repl-test-markers (expected-string-spec &rest marker-specs)
+  "For (MARKER SIG FORM) in MARKER-SPECS, produce suitable `should' assertions.
+The assertions compare values in symbols `expected-MARKER' and
+`observed-MARKER'. The former is obtained by searching EXPECTED-STRING-SPEC
+for the string sig SIG, the latter by evaling FORM in the test buffer."
+  (declare (indent 1))
+  (cl-loop for (marker signature observer-form) in marker-specs
+           for expected-sym = (make-symbol (format "expected-%s" marker))
+           for observed-sym = (make-symbol (format "observed-%s" marker))
+
+           collect `(,expected-sym
+                     (progn (goto-char (point-min))
+                            (when (search-forward ,signature nil t)
+                              (replace-match "")
+                              (point-marker))))
+           into expected-bindings
+           collect `(,observed-sym ,observer-form)
+           into observed-bindings
+           collect `(should (or (and (null ,observed-sym)
+                                     (null ,expected-sym))
+                                (and ,observed-sym
+                                     ,expected-sym
+                                     (= ,observed-sym ,expected-sym))))
+           into assertions
+           finally (return
+                    `(progn
+                       (let (,@observed-bindings
+                             (observed-string (buffer-string)))
+                         (with-current-buffer (get-buffer-create "*slime-repl test buffer*")
+                           (erase-buffer)
+                           (insert ,expected-string-spec)
+                           (let (,@expected-bindings)
+                             (should
+                              (string= observed-string (buffer-string)))
+                             ,@assertions)))))))
+
+(defun slime-check-buffer-contents (_msg expected-string-spec)
+  (slime-repl-test-markers expected-string-spec
+    (point             "*" (point))
+    (output-start      "{" (next-single-property-change
+                            (point-min) 'slime-repl-output))
+    (output-end        "}" (previous-single-property-change
+                            (point-max) 'slime-repl-output))
+    (input-start       "[" slime-repl-input-start-mark)
+    (point-max         "]" (point-max))
+    (next-input-start  "^" nil)))
+
 (def-slime-test package-updating
     (package-name nicknames)
     "Test if slime-lisp-package is updated."
@@ -1802,7 +1850,7 @@ package, though."
     (input result-contents)
     "Test simple commands in the minibuffer."
     '(("(+ 1 2)" "SWANK> (+ 1 2)
-{}3
+3
 SWANK> *[]")
       ("(princ 10)" "SWANK> (princ 10)
 {10
@@ -1827,7 +1875,7 @@ SWANK> *[]")
 }77
 SWANK> *[]")
       ("(abort)" "SWANK> (abort)
-{}; Evaluation aborted on NIL.
+; Evaluation aborted on NIL.
 SWANK> *[]")
       ("(progn (princ 10) (force-output) (abort))"
        "SWANK> (progn (princ 10) (force-output) (abort))
@@ -1844,14 +1892,14 @@ SWANK> *[]")
 }1
 SWANK> *[]")
       ("(values 1 2 3)" "SWANK> (values 1 2 3)
-{}1
+1
 2
 3
 SWANK> *[]"))
   (with-canonicalized-slime-repl-buffer
     (insert input)
     (slime-check-buffer-contents "Buffer contains input"
-                                 (concat "{}SWANK> [" input "*]"))
+                                 (concat "SWANK> [" input "*]"))
     (call-interactively 'slime-repl-return)
     (slime-sync-to-top-level 5)
     (slime-check-buffer-contents "Buffer contains result" result-contents)))
@@ -1877,39 +1925,6 @@ SWANK> *[]")
 }0
 SWANK> *[]"))
   (slime-test-repl-test input result-contents))
-
-(defun slime-check-buffer-contents (msg expected)
-  (let* ((marks '((point . ?*)
-                  (slime-output-start . ?{) (slime-output-end . ?})
-                  (slime-repl-input-start-mark . ?\[) (point-max . ?\])))
-         (marks (remove-if-not (lambda (m) (position (cdr m) expected))
-                               marks))
-         (marks (sort (copy-sequence marks)
-                      (lambda (x y)
-                        (< (position (cdr x) expected)
-                           (position (cdr y) expected)))))
-         (content (remove-if (lambda (c) (member* c marks :key #'cdr))
-                             expected))
-         (marks (do ((result '() (acons (caar m) (1+ (position (cdar m) s))
-                                        result))
-                     (m marks (cdr m))
-                     (s expected (remove* (cdar m) s)))
-                    ((null m) (reverse result))))
-         (point (point))
-         (point-max (point-max)))
-    (slime-test-expect (concat msg " [content]") content (buffer-string))
-    (macrolet ((test-mark
-                (mark)
-                `(when (assoc ',mark marks)
-                   (slime-test-expect (format "%s [%s]" msg ',mark)
-                                      (cdr (assoc ',mark marks))
-                                      ,mark
-                                      #'=))))
-      (test-mark point)
-      (test-mark slime-output-end)
-      (test-mark slime-output-start)
-      (test-mark slime-repl-input-start-mark)
-      (test-mark point-max))))
 
 (def-slime-test repl-return
     (before after result-contents)
@@ -1993,13 +2008,13 @@ SWANK> "))
     "Ensure that user input is preserved correctly.
 In particular, input inserted while waiting for a result."
     '(("(sleep 0.1)" "foo*" "SWANK> (sleep 0.1)
-{}NIL
+NIL
 SWANK> [foo*]")
       ("(sleep 0.1)" "*foo" "SWANK> (sleep 0.1)
-{}NIL
+NIL
 SWANK> [*foo]")
       ("(progn (sleep 0.1) (abort))" "*foo" "SWANK> (progn (sleep 0.1) (abort))
-{}; Evaluation aborted on NIL.
+; Evaluation aborted on NIL.
 SWANK> [*foo]"))
   (with-canonicalized-slime-repl-buffer
     (insert command)
