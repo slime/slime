@@ -38,16 +38,6 @@ The most-often used contrib is `slime-fancy`, which primarily installs a
 popular set of other contributed packages. It includes a better REPL, and
 many more nice features.
 
-Emacs 23 gotchas
-----------------
-
-If you're still using emacs 23 you'll need to download [cl-lib][1] and put
-it somewhere in your load path. If you want to run the unit tests, you'll
-need to do the same with [ert][2].
-
-[1]: http://git.savannah.gnu.org/cgit/emacs/elpa.git/plain/packages/cl-lib/cl-lib.el
-[2]: https://raw2.github.com/ohler/ert/c619b56c5bc6a866e33787489545b87d79973205/lisp/emacs-lisp/ert.el
-
 Licence
 -------
 

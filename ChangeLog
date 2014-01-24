@@ -1,5 +1,7 @@
 2014-01-24  João Távora  <joaotavora@gmail.com>
 
+	* README.md (Emacs 23 gotchas): Remove section.
+
 	* slime-tests.el (slime-test-ert-test-for): Use
 	`define-slime-ert-test'.
 	(slime-tests-auto-tags): Set ert tags automatically.
