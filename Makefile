@@ -33,6 +33,7 @@ SELECTOR ?= t
 OPTIONS ?=--batch
 
 $(CONTRIBS:%=check-%): TEST_CONTRIBS=$(patsubst check-%,slime-%,$@)
+$(CONTRIBS:%=check-%): SELECTOR='(tag contrib)
 $(CONTRIBS:%=check-%) check: compile
 	${EMACS_BIN} -Q $(LOAD_PATH) $(OPTIONS)			\
 		--eval "(require 'slime-tests)"			\

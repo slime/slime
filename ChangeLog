@@ -1,3 +1,13 @@
+2014-01-24  João Távora  <joaotavora@gmail.com>
+
+	* slime-tests.el (slime-test-ert-test-for): Use
+	`define-slime-ert-test'.
+	(slime-tests-auto-tags): Set ert tags automatically.
+	(define-slime-ert-test): Use `slime-tests-auto-tags'.
+
+	* Makefile ($(CONTRIBS:%=check-%) check): Speed up target, set
+	SELECTOR for for these targets to '(tag contrib).
+
 2014-01-23  João Távora  <joaotavora@gmail.com>
 
 	* .travis.yml (env): Test the slime-repl independently from other

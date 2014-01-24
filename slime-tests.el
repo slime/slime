@@ -79,8 +79,34 @@ Exits Emacs when finished. The exit code is the number of failed tests."
     (ert-pass)))
 
 (eval-and-compile
+  (defun slime-tests-auto-tags ()
+    (append '(slime)
+            (let ((file-name (or load-file-name
+                                 byte-compile-current-file)))
+              (if (and file-name
+                       (string-match "contrib/slime-\\(.*\\)\.elc?$" file-name))
+                  (list 'contrib (intern (match-string 1 file-name)))
+                '(core)))))
+  
+  (defmacro define-slime-ert-test (name &rest args)
+    "Like `ert-deftest', but set tags automatically.
+Also don't error if `ert.el' is missing."
+    (if (not (featurep 'ert))
+        (warn "No ert.el found: not defining test %s"
+              name)
+      (let* ((docstring (and (stringp (second args))
+                             (second args)))
+             (args (if docstring
+                       (cddr args)
+                     (cdr args)))
+             (tags (slime-tests-auto-tags)))
+        `(ert-deftest ,name () ,(or docstring "No docstring for this test.")
+           :tags ',tags
+           ,@args))))
+
   (defun slime-test-ert-test-for (name input i doc body fails-for style fname)
-    `(ert-deftest ,(intern (format "%s-%d" name i)) ()
+    `(define-slime-ert-test
+       ,(intern (format "%s-%d" name i)) ()
        ,(format "For input %s, %s" (truncate-string-to-width
                                     (format "%s" input)
                                     15 nil nil 'ellipsis)
@@ -1158,13 +1184,6 @@ Reconnect afterwards."
           (list setup-recipe-file test-recipe-file))
       (delete-file test-recipe-file)
       (delete-file setup-recipe-file))))
-
-(defmacro define-slime-ert-test (name &rest args)
-  "Like `ert-deftest', but don't error if `ert.el' is missing."
-  (if (not (featurep 'ert))
-      (warn "No ert.el found: not defining test %s"
-            name)
-    `(ert-deftest ,name ,@args)))
 
 (defvar slime-test-recipe-connect-forms
   `((require 'cl)
