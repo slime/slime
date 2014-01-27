@@ -1,3 +1,14 @@
+2014-01-27  João Távora  <joaotavora@gmail.com>
+
+	* slime-repl.el (slime-repl-emit): Bind `inhibit-read-only' to t
+	when inserting output. Might clash with read-only parts left over
+	from previous REPL session. Reported by Paul Bowyer.
+	(slime-repl-history-pattern): Allow M-p in any part of the REPL
+	buffer. Reported by Attila Lendvai.
+	(slime-sync-package-and-default-directory): Use `buffer-live-p',
+	don't just check that `buffer' is non-nil. Fails when the slime
+	process buffer has already been killed but connection lives on.
+
 2014-01-23  João Távora  <joaotavora@gmail.com>
 
 	* slime-presentations.el (pretty-presentation-results): new tests,

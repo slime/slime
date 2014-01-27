@@ -269,11 +269,12 @@ This is set to nil after displaying the buffer.")
         (slime-propertize-region '(face slime-repl-output-face
                                         slime-repl-output t
                                         rear-nonsticky (face))
-          (insert-before-markers string)
-          (when (and (= (point) slime-repl-prompt-start-mark)
-                     (not (bolp)))
-            (insert-before-markers "\n")
-            (set-marker slime-output-end (1- (point)))))))
+          (let ((inhibit-read-only t))
+	    (insert-before-markers string)
+	    (when (and (= (point) slime-repl-prompt-start-mark)
+		       (not (bolp)))
+	      (insert-before-markers "\n")
+	      (set-marker slime-output-end (1- (point))))))))
     (when slime-repl-popup-on-output
       (setq slime-repl-popup-on-output nil)
       (display-buffer (current-buffer)))
@@ -1079,7 +1080,7 @@ See `slime-repl-previous-input'."
   (cond ((slime-repl-history-search-in-progress-p)
          slime-repl-history-pattern)
         (use-current-input
-         (assert (<= slime-repl-input-start-mark (point)))
+         (goto-char (max slime-repl-input-start-mark (point)))
          (let ((str (slime-repl-current-input t)))
            (cond ((string-match "^[ \t\n]*$" str) nil)
                  (t (concat "^" (regexp-quote str))))))
@@ -1606,7 +1607,7 @@ expansion will be added to the REPL's history.)"
     ;; Sync *inferior-lisp* dir
     (let* ((proc (slime-process))
            (buffer (and proc (process-buffer proc))))
-      (when buffer
+      (when (buffer-live-p buffer)
         (with-current-buffer buffer
           (setq default-directory directory))))
     (message "package: %s%s  directory: %s"
