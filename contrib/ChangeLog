@@ -1,3 +1,17 @@
+2014-01-30  João Távora  <joaotavora@gmail.com>
+
+	* slime-repl.el (slime-inspector-copy-down-to-repl): Use only 
+	first return value of SWANK:INSPECTOR-NTH-PART.
+
+	* slime-presentations.el (slime-copy-presentation-to-repl):
+	Unbreak. Use same `slime-repl-send-string' strategy as
+	slime-repl.el.
+
+	* slime-repl.el (sldb-mode-map): Bind M-RET to
+	`sldb-copy-down-to-repl' in `sldb-mode-map'.
+	(sldb-copy-down-to-repl): New function, much like
+	`slime-inspector-copy-down-to-repl'
+
 2014-01-27  João Távora  <joaotavora@gmail.com>
 
 	* slime-repl.el (slime-repl-emit): Bind `inhibit-read-only' to t

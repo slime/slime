@@ -464,7 +464,8 @@ joined together."))
   ((kbd "M-RET") 'slime-inspector-copy-down-to-repl))
 
 (slime-define-keys sldb-mode-map
-  ("\C-y" 'sldb-insert-frame-call-to-repl))
+  ("\C-y" 'sldb-insert-frame-call-to-repl)
+  ((kbd "M-RET") 'sldb-copy-down-to-repl))
 
 (def-slime-selector-method ?r
   "SLIME Read-Eval-Print-Loop."
@@ -1566,7 +1567,14 @@ expansion will be added to the REPL's history.)"
    "Evaluate the inspector slot at point via the REPL (to set `*')."
    (interactive (list (or (get-text-property (point) 'slime-part-number)
                           (error "No part at point"))))
-   (slime-repl-send-string (format "%s" `(swank:inspector-nth-part ,number)))
+   (slime-repl-send-string
+    (format "%s" `(cl:nth-value 0 (swank:inspector-nth-part ,number))))
+   (slime-repl))
+
+(defun sldb-copy-down-to-repl (frame-id var-id)
+   "Evaluate the frame var at point via the REPL (to set `*')."
+   (interactive (list (sldb-frame-number-at-point) (sldb-var-number-at-point)))
+   (slime-repl-send-string (format "%s" `(swank-backend:frame-var-value ,frame-id ,var-id)))
    (slime-repl))
 
 (defun sldb-insert-frame-call-to-repl ()
