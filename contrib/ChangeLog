@@ -1,5 +1,16 @@
 2014-01-30  João Távora  <joaotavora@gmail.com>
 
+	* swank-repl.lisp (*last-repl-form*, *last-repl-values*): new
+	variables.
+	(*repl-set-variables-function*): new variable.
+	(set-repl-variables): new function, extracted from REPL-EVAL,
+	switches to *REPL-SET-VARIABLES-FUNCTION* if that is non-nil.
+	(repl-eval): don't set auto variables here, defer that for later.
+
+	* slime-repl.el (slime-repl-eval-string): slime-eval
+	SWANK:SET-REPL-VARIABLES when SWANK acknowledges with OK.
+
+
 	* slime-repl.el (slime-inspector-copy-down-to-repl): Use only 
 	first return value of SWANK:INSPECTOR-NTH-PART.
 

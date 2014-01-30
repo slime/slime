@@ -171,6 +171,24 @@ This is an optimized way for Lisp to deliver output to Emacs."
         (funcall *listener-eval-function* string))
       (funcall *listener-eval-function* string)))
 
+(defvar *last-repl-form* nil)
+(defvar *last-repl-values* nil)
+(defvar *repl-set-variables-function* nil)
+
+(defslimefun set-repl-variables ()
+  (or (and *repl-set-variables-function*
+           (funcall *repl-set-variables-function*))
+      (setq *** **  ** *  * (car *last-repl-values*)
+            /// //  // /  / *last-repl-values*
+            +++ ++  ++ +  + *last-repl-form*)))
+
+(defslimefun clear-repl-variables ()
+  (let ((variables '(*** ** * /// // / +++ ++ +
+                     *last-repl-form*
+                     *last-repl-values*)))
+    (loop for variable in variables
+       do (setf (symbol-value variable) nil))))
+
 (defvar *send-repl-results-function* 'send-repl-results-to-emacs)
 
 (defun repl-eval (string)
@@ -180,16 +198,10 @@ This is an optimized way for Lisp to deliver output to Emacs."
       (track-package
        (lambda ()
          (multiple-value-bind (values last-form) (eval-region string)
-           (setq *** **  ** *  * (car values)
-                 /// //  // /  / values
-                 +++ ++  ++ +  + last-form)
+           (setq *last-repl-form* last-form
+                 *last-repl-values* values)
            (funcall *send-repl-results-function* values))))))
   nil)
-
-(defslimefun clear-repl-variables ()
-  (let ((variables '(*** ** * /// // / +++ ++ +)))
-    (loop for variable in variables
-          do (setf (symbol-value variable) nil))))
 
 (defun track-package (fun)
   (let ((p *package*))
