@@ -3,11 +3,11 @@
 ;;; slime-trace-dialog.el -- a navigable dialog of inspectable trace entries
 ;;;
 ;;; TODO: implement better wrap interface for sbcl method, labels and such
-;;; TODO: test with multiple connections
 ;;; TODO: backtrace printing is very slow
 ;;;
 (eval-and-compile
-  (require 'slime))
+  (require 'slime)
+  (require 'slime-parse))
 
 (define-slime-contrib slime-trace-dialog
   "Provide an interfactive trace dialog buffer for managing and
@@ -19,24 +19,20 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
               "T" 'slime-trace-dialog)
             (define-key slime-prefix-map
               "\M-t" 'slime-trace-dialog-toggle-trace))
-  (:on-unload (define-key slime-prefix-map "T" nil)))
+  (:on-unload (define-key slime-prefix-map "T" nil)
+              (define-key slime-prefix-map "\M-t" nil)))
 
 
 ;;;; Variables
 ;;;
-(defvar slime-trace-dialog-autofollow nil)
-
-(defvar slime-trace-dialog--brief-mode nil)
-
-(defvar slime-trace-dialog-flash       t)
+(defvar slime-trace-dialog-flash t
+  "Non-nil means flash the updated region of the SLIME Trace Dialog. ")
 
 (defvar slime-trace-dialog--specs-overlay nil)
 
 (defvar slime-trace-dialog--progress-overlay nil)
 
 (defvar slime-trace-dialog--tree-overlay nil)
-
-(defvar slime-trace-dialog--local-control-overlay nil)
 
 (defvar slime-trace-dialog--collapse-chars (cons "-" "+"))
 
@@ -65,10 +61,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 
 ;;;; Modes and mode maps
 ;;;
-(define-derived-mode slime-trace-dialog--mode slime-inspector-mode
-  "Slime-Trace-Dialog" "Mode for controlling slime's trace dialog")
-
-(setq slime-trace-dialog--mode-map
+(defvar slime-trace-dialog-mode-map
       (let ((map (make-sparse-keymap))
             (remaps '((slime-inspector-operate-on-point . nil)
                       (slime-inspector-operate-on-click . nil)
@@ -83,13 +76,19 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
               do (substitute-key-definition old new map))
         (set-keymap-parent map slime-parent-map)
         (define-key map (kbd "G") 'slime-trace-dialog-fetch-traces)
+        (define-key map (kbd "C-k") 'slime-trace-dialog-clear-fetched-traces)
         (define-key map (kbd "g") 'slime-trace-dialog-fetch-status)
-
+        (define-key map (kbd "q") 'quit-window)
         map))
 
+(define-derived-mode slime-trace-dialog-mode fundamental-mode
+  "SLIME Trace Dialog" "Mode for controlling SLIME's Trace Dialog"
+  (set-syntax-table lisp-mode-syntax-table)
+  (read-only-mode 1))
+
 (define-derived-mode slime-trace-dialog--detail-mode slime-inspector-mode
-  "Slime-Trace-Detail"
-  "Mode for viewing a particular trace from slime's trace dialog")
+  "SLIME Trace Detail"
+  "Mode for viewing a particular trace from SLIME's Trace Dialog")
 
 (setq slime-trace-dialog--detail-mode-map
       (let ((map (make-sparse-keymap))
@@ -97,7 +96,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                        . slime-trace-dialog-next-button)
                       (slime-inspector-previous-inspectable-object
                        . slime-trace-dialog-prev-button))))
-        (set-keymap-parent map slime-trace-dialog--mode-map)
+        (set-keymap-parent map slime-trace-dialog-mode-map)
         (loop for (old . new) in remaps
               do (substitute-key-definition old new map))
         map))
@@ -129,14 +128,16 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
           (slime-flash-region (point-min) (point-max)))))
     buffer))
 
-(cl-defmacro slime-trace-dialog--refresh ((buffer &key
-                                                  overlay
-                                                  dont-erase
-                                                  recover-point-p)
+(cl-defmacro slime-trace-dialog--refresh ((&key
+                                           overlay
+                                           dont-erase
+                                           recover-point-p
+                                           buffer)
                                           &rest body)
   (declare (indent 1)
            (debug (sexp &rest form)))
-  `(slime-trace-dialog--call-refreshing ,buffer
+  `(slime-trace-dialog--call-refreshing ,(or buffer
+                                             `(current-buffer))
                                         ,overlay
                                         ,dont-erase
                                         ,recover-point-p
@@ -147,37 +148,44 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
      (let ((inhibit-read-only t))
        (narrow-to-region (point) (point))
        (insert ,string "\n")
-       (setq ,overlay
-             (let ((overlay (make-overlay (point-min)
-                                          (point-max)
-                                          (current-buffer)
-                                          nil
-                                          t)))
-               (move-overlay overlay (overlay-start overlay)
-                             (1- (overlay-end overlay)))
-               ;; (overlay-put overlay 'face '(:background "darkslategrey"))
-               overlay)))))
+       (set (make-local-variable ',overlay)
+            (let ((overlay (make-overlay (point-min)
+                                         (point-max)
+                                         (current-buffer)
+                                         nil
+                                         t)))
+              (move-overlay overlay (overlay-start overlay)
+                            (1- (overlay-end overlay)))
+              ;; (overlay-put overlay 'face '(:background "darkslategrey"))
+              overlay)))))
 
 (defun slime-trace-dialog--get-buffer ()
-  (or
-   (get-buffer "*trace-dialog*")
-   (slime-with-popup-buffer ("*trace-dialog*" :mode 'slime-trace-dialog--mode)
-     (save-excursion
-       (buffer-disable-undo)
-       (slime-trace-dialog--insert-and-overlay
-        "local control"
-        slime-trace-dialog--local-control-overlay)
-       (slime-trace-dialog--insert-and-overlay
-        "[waiting for the traced specs to be available]"
-        slime-trace-dialog--specs-overlay)
-       (slime-trace-dialog--insert-and-overlay
-        "[waiting for some info on trace download progress ]"
-        slime-trace-dialog--progress-overlay)
-       (slime-trace-dialog--insert-and-overlay
-        "[waiting for the actual traces to be available]"
-        slime-trace-dialog--tree-overlay)
-       (setq slime-trace-dialog--brief-mode nil)
-       (current-buffer)))))
+  (let* ((name (format "*traces for %s*"
+                       (slime-connection-name slime-default-connection)))
+         (existing (get-buffer name)))
+    (cond ((and existing
+                (buffer-live-p existing)
+                (with-current-buffer existing
+                  (memq slime-buffer-connection slime-net-processes)))
+           existing)
+          (t
+           (if existing (kill-buffer existing))
+           (with-current-buffer (get-buffer-create name)
+             (slime-trace-dialog-mode)
+             (save-excursion
+               (buffer-disable-undo)
+               (slime-trace-dialog--insert-and-overlay
+                "[waiting for the traced specs to be available]"
+                slime-trace-dialog--specs-overlay)
+               (slime-trace-dialog--insert-and-overlay
+                "[waiting for some info on trace download progress ]"
+                slime-trace-dialog--progress-overlay)
+               (slime-trace-dialog--insert-and-overlay
+                "[waiting for the actual traces to be available]"
+                slime-trace-dialog--tree-overlay)
+               (current-buffer))
+             (setq slime-buffer-connection slime-default-connection)
+             (pop-to-buffer (current-buffer)))))))
 
 (defun slime-trace-dialog--make-autofollow-fn (id)
   (let ((requested nil))
@@ -185,7 +193,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
         (let ((inhibit-point-motion-hooks t)
               (id-after (get-text-property after 'slime-trace-dialog--id)))
           (when (and (= after (point))
-                     slime-trace-dialog-autofollow
+                     slime-trace-dialog-autofollow-mode
                      id-after
                      (= id-after id)
                      (not requested))
@@ -236,12 +244,12 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                                       (plusp hidden-level)))
         while (< next end-pos)))
 
-(defun slime-trace-dialog--set-brief-mode ()
+(defun slime-trace-dialog--set-hide-details-mode ()
   (loop for trace being the hash-values of slime-trace-dialog--traces
         do (slime-trace-dialog--hide-unhide
             (slime-trace-dialog--trace-summary-beg trace)
             (slime-trace-dialog--trace-end trace)
-            (if slime-trace-dialog--brief-mode 1 -1))))
+            (if slime-trace-dialog-hide-details-mode 1 -1))))
 
 (defun slime-trace-dialog--format-part (part-id part-text trace-id type)
   (slime-trace-dialog--button
@@ -313,8 +321,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                      #'(lambda (results)
                          (slime-trace-dialog--open-specs results))))))
     (slime-trace-dialog--refresh
-        ((slime-trace-dialog--get-buffer)
-         :overlay slime-trace-dialog--specs-overlay
+        (:overlay slime-trace-dialog--specs-overlay
          :recover-point-p t)
       (insert
        (slime-trace-dialog--format "Traced specs (%s)" (length traced-specs))
@@ -335,30 +342,6 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                 (format " %s" spec)
                 "\n")))))
 
-(defun slime-trace-dialog--open-local-control ()
-  (slime-trace-dialog--refresh
-      ((slime-trace-dialog--get-buffer)
-       :overlay slime-trace-dialog--local-control-overlay
-       :recover-point-p t)
-    (insert
-     (slime-trace-dialog--format "Autofollow is %s. "
-                                 (if slime-trace-dialog-autofollow "on" "off"))
-     (slime-trace-dialog--button "[toggle]"
-                                 #'(lambda (_button)
-                                     (setq slime-trace-dialog-autofollow
-                                           (not slime-trace-dialog-autofollow))
-                                     (slime-trace-dialog--open-local-control)))
-     "\n"
-     (slime-trace-dialog--format "Brief mode is %s. "
-                                 (if slime-trace-dialog--brief-mode "on" "off"))
-     (slime-trace-dialog--button "[toggle]"
-                                 #'(lambda (_button)
-                                     (setq slime-trace-dialog--brief-mode
-                                           (not slime-trace-dialog--brief-mode))
-                                     (slime-trace-dialog--set-brief-mode)
-                                     (slime-trace-dialog--open-local-control)))
-     "\n")))
-
 (defvar slime-trace-dialog--fetch-key nil)
 
 (defvar slime-trace-dialog--stop-fetching nil)
@@ -366,15 +349,14 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 (defun slime-trace-dialog--update-progress (total &optional show-stop-p remaining-p)
   ;; `remaining-p' indicates `total' is the number of remaining traces.
   (slime-trace-dialog--refresh
-      ((slime-trace-dialog--get-buffer)
-       :overlay slime-trace-dialog--progress-overlay
+      (:overlay slime-trace-dialog--progress-overlay
        :recover-point-p t)
     (let* ((done (hash-table-count slime-trace-dialog--traces))
            (total (if remaining-p (+ done total) total)))
       (insert
        (slime-trace-dialog--format "Trace collection status (%d/%s)"
                                    done
-                                   (or total "?"))
+                                   (or total "0"))
        (slime-trace-dialog--button "[refresh]"
                                    #'(lambda (_button)
                                        (slime-trace-dialog-fetch-progress))))
@@ -395,10 +377,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                 (slime-trace-dialog--button
                  "[clear]"
                  #'(lambda (_button)
-                     (slime-eval-async
-                         '(swank-trace-dialog:clear-trace-tree)
-                       #'(lambda (_ignored)
-                           (slime-trace-dialog--clear-local-tree)))))))
+                     (slime-trace-dialog-clear-fetched-traces)))))
       (when show-stop-p
         (insert "\n" (make-string 50 ? )
                 (slime-trace-dialog--button
@@ -409,7 +388,8 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 
 (defun slime-trace-dialog--open-detail (trace-tuple &optional no-pop)
   (slime-trace-dialog--refresh
-      ((or (get-buffer "*trace-detail*")
+      (:buffer
+       (or (get-buffer "*trace-detail*")
            (slime-with-popup-buffer ("*trace-detail*"
                                      :mode 'slime-trace-dialog--detail-mode))
            (get-buffer "*trace-detail*")))
@@ -444,7 +424,6 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 
 ;;;; Rendering traces
 ;;;
-
 (defun slime-trace-dialog--draw-tree-lines (start offset direction)
   (save-excursion
     (let ((inhibit-point-motion-hooks t))
@@ -535,7 +514,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                                'point-left autofollow-fn))
     ;; respect brief mode and collapsed state
     ;;
-    (loop for condition in (list slime-trace-dialog--brief-mode
+    (loop for condition in (list slime-trace-dialog-hide-details-mode
                                  (slime-trace-dialog--trace-collapsed-p trace))
           when condition
           do (slime-trace-dialog--hide-unhide
@@ -634,8 +613,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 (defun slime-trace-dialog--update-tree (tuples)
   (save-excursion
     (slime-trace-dialog--refresh
-        ((slime-trace-dialog--get-buffer)
-         :overlay slime-trace-dialog--tree-overlay
+        (:overlay slime-trace-dialog--tree-overlay
          :dont-erase t)
       (loop for tuple in tuples
             for parent = (slime-trace-dialog--find-trace (second tuple))
@@ -657,8 +635,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   (set (make-local-variable 'slime-trace-dialog--traces)
        (make-hash-table))
   (slime-trace-dialog--refresh
-      ((slime-trace-dialog--get-buffer)
-       :overlay slime-trace-dialog--tree-overlay))
+      (:overlay slime-trace-dialog--tree-overlay))
   (slime-trace-dialog--update-progress nil))
 
 (defun slime-trace-dialog--on-new-results (results &optional recurse)
@@ -686,8 +663,6 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 
 ;;;; Interactive functions
 ;;;
-
-
 (defun slime-trace-dialog-fetch-specs ()
   "Refresh just list of traced specs."
   (interactive)
@@ -703,21 +678,28 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
          total))))
 
 (defun slime-trace-dialog-fetch-status ()
-  "Refresh just the status part of the trace dialog"
+  "Refresh just the status part of the SLIME Trace Dialog"
   (interactive)
-  (slime-trace-dialog--open-local-control)
   (slime-trace-dialog-fetch-specs)
   (slime-trace-dialog-fetch-progress))
 
+(defun slime-trace-dialog-clear-fetched-traces (&optional interactive)
+  "Clear local and remote traces collected so far"
+  (interactive "p")
+  (when (or (not interactive)
+            (y-or-n-p "Clear all collected and fetched traces?"))
+    (slime-eval-async
+        '(swank-trace-dialog:clear-trace-tree)
+      #'(lambda (_ignored)
+          (slime-trace-dialog--clear-local-tree)))))
+
 (defun slime-trace-dialog-fetch-traces (&optional recurse)
   (interactive "P")
-  (with-current-buffer
-      (pop-to-buffer (slime-trace-dialog--get-buffer))
-    (setq slime-trace-dialog--stop-fetching nil)
-    (slime-eval-async `(swank-trace-dialog:report-partial-tree
-                                      ',slime-trace-dialog--fetch-key)
-        #'(lambda (results) (slime-trace-dialog--on-new-results results
-                                                                recurse)))))
+  (setq slime-trace-dialog--stop-fetching nil)
+  (slime-eval-async `(swank-trace-dialog:report-partial-tree
+                      ',slime-trace-dialog--fetch-key)
+    #'(lambda (results) (slime-trace-dialog--on-new-results results
+                                                            recurse))))
 
 (defun slime-trace-dialog-next-button (&optional goback)
   (interactive)
@@ -768,5 +750,36 @@ and fetch a first batch of traces."
       (slime-trace-dialog--clear-local-tree))
     (when clear-and-fetch
       (slime-trace-dialog-fetch-traces nil))))
+
+(define-minor-mode slime-trace-dialog-hide-details-mode
+  "Hide details in `slime-trace-dialog-mode'"
+  nil " Brief"    
+  :group 'slime-trace-dialog
+  (unless (derived-mode-p 'slime-trace-dialog-mode)
+    (error "Not a SLIME Trace Dialog buffer"))
+  (slime-trace-dialog--set-hide-details-mode))
+
+(define-minor-mode slime-trace-dialog-autofollow-mode
+  "Automatically open buffers with trace details from `slime-trace-dialog-mode'"
+  nil " Autofollow"
+  :group 'slime-trace-dialog
+  (unless (derived-mode-p 'slime-trace-dialog-mode)
+    (error "Not a SLIME Trace Dialog buffer")))
+
+
+;;;; Menu
+;;;
+(defvar slime-trace-dialog--easy-menu
+  (let ((condition '(memq slime-buffer-connection slime-net-processes)))
+    `("Trace"
+      [ "Refresh traces and progress" slime-trace-dialog-fetch-status ,condition]
+      [ "Clear all fetched traces" slime-trace-dialog-clear-fetched-traces ,condition]
+      [ "Fetch next batch" slime-trace-dialog-fetch-traces ,condition]
+      "--"
+      [ "Toggle details" slime-trace-dialog-hide-details-mode t]
+      [ "Toggle autofollow" slime-trace-dialog-autofollow-mode t])))
+
+(easy-menu-define my-menu slime-trace-dialog-mode-map "Trace"
+  slime-trace-dialog--easy-menu)
 
 (provide 'slime-trace-dialog)
