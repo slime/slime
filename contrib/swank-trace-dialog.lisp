@@ -19,7 +19,9 @@
            #:exited-non-locally
            #:*record-backtrace*
            #:*traces-per-report*
-           #:*dialog-trace-follows-trace*))
+           #:*dialog-trace-follows-trace*
+           #:find-trace-part
+           #:find-trace))
 
 (in-package :swank-trace-dialog)
 
@@ -76,6 +78,15 @@ program.")
 (defun find-trace (id)
   (when (<= 0 id (1- (length *traces*)))
     (aref *traces* id)))
+
+(defun find-trace-part (id part-id type)
+  (let* ((trace (find-trace id))
+         (l (and trace
+                 (ecase type
+                   (:arg (args-of trace))
+                   (:retval (swank::ensure-list (retlist-of trace)))))))
+    (values (nth part-id l)
+            (< part-id (length l)))))
 
 (defun useful-backtrace ()
   (swank-backend:call-with-debugging-environment
@@ -245,10 +256,10 @@ program.")
   (swank::reset-inspector))
 
 (defslimefun inspect-trace-part (trace-id part-id type)
-  (let* ((trace (find-trace trace-id))
-         (list (ecase type
-                 (:arg (args-of trace))
-                 (:retval (swank::ensure-list (retlist-of trace))))))
-    (swank::inspect-object (nth part-id list))))
+  (multiple-value-bind (obj found)
+      (find-trace-part trace-id part-id type)
+    (if found
+        (swank::inspect-object obj)
+        (error "No object found with ~a, ~a and ~a" trace-id part-id type))))
 
 (provide :swank-trace-dialog)

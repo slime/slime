@@ -78,6 +78,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
         (define-key map (kbd "G") 'slime-trace-dialog-fetch-traces)
         (define-key map (kbd "C-k") 'slime-trace-dialog-clear-fetched-traces)
         (define-key map (kbd "g") 'slime-trace-dialog-fetch-status)
+        (define-key map (kbd "M-RET") 'slime-trace-dialog-copy-down-to-repl)
         (define-key map (kbd "q") 'quit-window)
         map))
 
@@ -259,6 +260,8 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
            `(swank-trace-dialog:inspect-trace-part ,trace-id ,part-id ,type)
          #'slime-open-inspector))
    'mouse-face 'highlight
+   'slime-trace-dialog--part-id part-id
+   'slime-trace-dialog--type type
    'face 'slime-inspector-value-face))
 
 (defun slime-trace-dialog--format-trace-entry (id external)
@@ -765,6 +768,19 @@ and fetch a first batch of traces."
   :group 'slime-trace-dialog
   (unless (derived-mode-p 'slime-trace-dialog-mode)
     (error "Not a SLIME Trace Dialog buffer")))
+
+(defun slime-trace-dialog-copy-down-to-repl (id part-id type)
+  "Eval the Trace Dialog entry under point in the REPL (to set *)"
+  (interactive (cl-loop for prop in '(slime-trace-dialog--id
+                                      slime-trace-dialog--part-id
+                                      slime-trace-dialog--type)
+                        collect (get-text-property (point) prop)))
+  (unless (and id part-id type) (error "No trace part at point %s" (point)))
+  (slime-repl-send-string
+   (format "%s" `(nth-value 0
+                            (swank-trace-dialog::find-trace-part
+                             ,id ,part-id ,type))))
+  (slime-repl))
 
 
 ;;;; Menu

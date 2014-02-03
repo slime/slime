@@ -1,3 +1,16 @@
+2014-02-03  João Távora  <joaotavora@gmail.com>
+
+	* slime-trace-dialog.el (slime-trace-dialog-mode-map): Bind M-RET
+	to new `slime-trace-dialog-copy-down-to-repl'.
+	(slime-trace-dialog-copy-down-to-repl): New function, in-line with
+	slime-repl.el's functions.
+	(slime-trace-dialog--format-part): Two extra text properties to
+	find the trace part at point.
+
+	* swank-trace-dialog.lisp (find-trace-part): new exported
+	function.
+	(inspect-trace-part): rewrite in terms os FIND-TRACE-PART.
+
 2014-01-31  João Távora  <joaotavora@gmail.com>
 
 	* slime-trace-dialog.el: Reworked. Now works with multiple
