@@ -1,3 +1,14 @@
+2014-02-05  João Távora  <joaotavora@gmail.com>
+
+	* swank-repl.lisp (set-repl-variables): Deleted.
+	(*repl-set-variables-function*): Deleted, not needed for now.
+	(repl-eval): Set *, + and / variables saved from last call just
+	before the EVAL-REGION that might use them.
+
+	* slime-repl.el (slime-repl-eval-string): simplify change of
+	2014-01-30; don't remotely call SWANK:SET-REPL-VARIABLES on
+	acknowledgement.
+
 2014-02-03  João Távora  <joaotavora@gmail.com>
 
 	* slime-trace-dialog.el (slime-trace-dialog-mode-map): Bind M-RET
@@ -30,8 +41,7 @@
 	* slime-repl.el (slime-repl-eval-string): slime-eval
 	SWANK:SET-REPL-VARIABLES when SWANK acknowledges with OK.
 
-
-	* slime-repl.el (slime-inspector-copy-down-to-repl): Use only 
+	* slime-repl.el (slime-inspector-copy-down-to-repl): Use only
 	first return value of SWANK:INSPECTOR-NTH-PART.
 
 	* slime-presentations.el (slime-copy-presentation-to-repl):
@@ -61,13 +71,13 @@
 
 	* slime-repl.el (slime-repl-emit): Propertize the output text with
 	a `slime-repl-output' boolean property.
-	(slime-repl-test-markers): More powerful macro for testing repl text. 
+	(slime-repl-test-markers): More powerful macro for testing repl text.
 	(slime-check-buffer-contents): Simplified with
 	`slime-repl-test-markers'.
 	(repl-test): tests with no output don't expect these markers.
 	(repl-type-ahead): tests with no output don't expect these
 	markers.
-	(slime-repl-emit-result): Use `insert-before-markers-and-inherit', and 
+	(slime-repl-emit-result): Use `insert-before-markers-and-inherit', and
 	do it before saving `slime-output-end'.
 	(slime-repl-write-string): Fix failing tests by passing `eol' as t
 	to `slime-repl-emit-result'.
