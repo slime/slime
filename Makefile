@@ -7,16 +7,7 @@ CONTRIBS = $(patsubst contrib/slime-%.el,%,$(wildcard contrib/slime-*.el))
 EMACS_23=$(shell $(EMACS_BIN) --version | grep -E 23)
 EMACS_24=$(shell $(EMACS_BIN) --version | grep -E 24)
 
-# emacs 24.4 allows us to add to the end of the load path using `:'
-# which is what we want in these version 24, especially since
-# cl-lib.el might be in the dir to shadow emacs's own.
-#
-ifeq ($(shell $(EMACS_BIN) --version | grep -E 24.\(3.5\|4\)),)
-    COLON =
-else
-    COLON = :
-endif
-LOAD_PATH=-L $(COLON). -L $(COLON)./contrib
+LOAD_PATH=-L . -L ./contrib
 
 # Compilation
 #

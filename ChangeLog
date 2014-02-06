@@ -1,5 +1,8 @@
 2014-02-06  João Távora  <joaotavora@gmail.com>
 
+	* Makefile (LOAD_PATH): Closes #101: Don't use new : (colon)
+	feature of upcoming Emacs 24.4.
+
 	* swank.asd: revert previous change by 2014-01-05 Francois-Rene
 	Rideau until proper swank-loader-less ASDF support can be build
 	it. It exhibits problems on ABCL and SBCL.
