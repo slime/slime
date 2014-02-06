@@ -1,3 +1,7 @@
+2014-02-06  João Távora  <joaotavora@gmail.com>
+
+	* slime-repl.el: Prefix all cl-functions with "cl-"
+
 2014-02-05  João Távora  <joaotavora@gmail.com>
 
 	* swank-repl.lisp (set-repl-variables): Deleted.

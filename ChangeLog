@@ -1,5 +1,9 @@
 2014-02-06  João Távora  <joaotavora@gmail.com>
 
+	* slime.el: Prefix all cl-functions with "cl-".
+
+	* lib/cl-lib.el: Upgrade bundled version to 0.4.
+
 	* Makefile (LOAD_PATH): Closes #101: Don't use new : (colon)
 	feature of upcoming Emacs 24.4.
 

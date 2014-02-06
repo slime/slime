@@ -194,9 +194,9 @@ current repl's (as per slime-output-buffer) window."
                                        (current-buffer))
 				     (car (process-contact (slime-connection)))
                                      port))
-        (emacs-coding-system (car (find coding-system
-                                        slime-net-valid-coding-systems
-                                        :key #'third))))
+        (emacs-coding-system (car (cl-find coding-system
+                                           slime-net-valid-coding-systems
+                                           :key #'third))))
     (slime-set-query-on-exit-flag stream)
     (set-process-filter stream 'slime-output-filter)
     (set-process-coding-system stream emacs-coding-system emacs-coding-system)
@@ -253,7 +253,7 @@ This is set to nil after displaying the buffer.")
 
 (defmacro slime-save-marker (marker &rest body)
   (declare (debug (sexp &rest form)))
-  (let ((pos (gensym "pos")))
+  (let ((pos (cl-gensym "pos")))
   `(let ((,pos (marker-position ,marker)))
      (prog1 (progn . ,body)
        (set-marker ,marker ,pos)))))
@@ -834,7 +834,7 @@ used with a prefix argument (C-u), doesn't switch back afterwards."
     (with-current-buffer (slime-output-buffer)
       (unless (eq (current-buffer) (window-buffer))
         (pop-to-buffer (current-buffer) t))
-      (end-of-buffer)
+      (goto-char (point-max))
       ;; Kill pending input in the REPL
       (when (< (marker-position slime-repl-input-start-mark) (point))
         (kill-region slime-repl-input-start-mark (point))
@@ -953,14 +953,15 @@ used with a prefix argument (C-u), doesn't switch back afterwards."
    "History list of strings read from the REPL buffer."))
 
 (defun slime-string-trim (character-bag string)
-  (flet ((find-bound (&optional from-end)
-           (position-if-not (lambda (char) (memq char character-bag))
-                            string :from-end from-end)))
+  (cl-flet ((find-bound (&optional from-end)
+                        (cl-position-if-not (lambda (char)
+                                              (memq char character-bag))
+                                            string :from-end from-end)))
     (let ((start (find-bound))
           (end (find-bound t)))
       (if start
-          (subseq string start (1+ end))
-          ""))))
+          (cl-subseq string start (1+ end))
+        ""))))
 
 (defun slime-repl-add-to-input-history (string)
   "Add STRING to the input history.
@@ -1112,8 +1113,8 @@ history entries while navigating the repl history."
                  (or (gethash entry ht)
                      (progn (setf (gethash entry ht) t)
                             nil)))))
-    (append (remove-if test new-hist)
-            (remove-if test old-hist))))
+    (append (cl-remove-if test new-hist)
+            (cl-remove-if test old-hist))))
 
 (defun slime-repl-load-history (&optional filename)
   "Set the current SLIME REPL history.
@@ -1162,7 +1163,7 @@ truncated.  That part is untested, though!"
         (hist (or history slime-repl-input-history)))
     (unless (file-writable-p file)
       (error (format "History file not writable: %s" file)))
-    (let ((hist (subseq hist 0 (min (length hist) slime-repl-history-size))))
+    (let ((hist (cl-subseq hist 0 (min (length hist) slime-repl-history-size))))
       ;;(message "saving %s to %s\n" hist file)
       (with-temp-file file
         (let ((cs slime-repl-history-file-coding-system)
@@ -1286,8 +1287,8 @@ The handler will use qeuery to ask the use if the error should be ingored."
         append (slime-repl-shortcut.names shortcut)))
 
 (defun slime-lookup-shortcut (name)
-  (find-if (lambda (s) (member name (slime-repl-shortcut.names s)))
-           slime-repl-shortcut-table))
+  (cl-find-if (lambda (s) (member name (slime-repl-shortcut.names s)))
+              slime-repl-shortcut-table))
 
 (defmacro defslime-repl-shortcut (elisp-name names &rest options)
   "Define a new repl shortcut. ELISP-NAME is a symbol specifying
@@ -1308,8 +1309,8 @@ of the shortcut \(`:handler'\), and a help text \(`:one-liner'\)."
                           :names (list ,@names)
                           ,@(apply #'append options))))
        (setq slime-repl-shortcut-table
-             (remove-if (lambda (s)
-                          (member ',(car names) (slime-repl-shortcut.names s)))
+             (cl-remove-if (lambda (s)
+                             (member ',(car names) (slime-repl-shortcut.names s)))
                         slime-repl-shortcut-table))
        (push new-shortcut slime-repl-shortcut-table)
        ',elisp-name)))
@@ -1333,9 +1334,9 @@ expansion will be added to the REPL's history.)"
 (defun slime-list-repl-short-cuts ()
   (interactive)
   (slime-with-popup-buffer ((slime-buffer-name :repl-help))
-    (let ((table (sort* (copy-list slime-repl-shortcut-table) #'string<
-                        :key (lambda (x)
-                               (car (slime-repl-shortcut.names x))))))
+    (let ((table (cl-sort (cl-copy-list slime-repl-shortcut-table) #'string<
+                          :key (lambda (x)
+                                 (car (slime-repl-shortcut.names x))))))
       (save-excursion
         (dolist (shortcut table)
           (let ((names (slime-repl-shortcut.names shortcut)))
@@ -1513,55 +1514,56 @@ expansion will be added to the REPL's history.)"
 (defun slime-call-defun ()
   "Insert a call to the toplevel form defined around point into the REPL."
   (interactive)
-  (flet ((insert-call (name &key (function t)
-                            defclass)
-           (let* ((setf (and function
+  (cl-flet ((insert-call
+             (name &key (function t)
+                   defclass)
+             (let* ((setf (and function
                                (consp name)
                                (= (length name) 2)
                                (eql (car name) 'setf)))
-                  (symbol (if setf
-                              (cadr name)
+                    (symbol (if setf
+                                (cadr name)
                               name))
-                  (qualified-symbol-name (slime-qualify-cl-symbol-name symbol))
-                  (symbol-name (slime-cl-symbol-name qualified-symbol-name))
-                  (symbol-package (slime-cl-symbol-package
-                                   qualified-symbol-name))
-                  (call (if (equalp (slime-lisp-package) symbol-package)
-                            symbol-name
+                    (qualified-symbol-name (slime-qualify-cl-symbol-name symbol))
+                    (symbol-name (slime-cl-symbol-name qualified-symbol-name))
+                    (symbol-package (slime-cl-symbol-package
+                                     qualified-symbol-name))
+                    (call (if (cl-equalp (slime-lisp-package) symbol-package)
+                              symbol-name
                             qualified-symbol-name)))
-             (slime-switch-to-output-buffer)
-             (goto-char slime-repl-input-start-mark)
-             (insert (if function
-                         "("
+               (slime-switch-to-output-buffer)
+               (goto-char slime-repl-input-start-mark)
+               (insert (if function
+                           "("
                          " "))
-             (when setf
-               (insert "setf ("))
-             (if defclass
-                 (insert "make-instance '"))
-             (insert call)
-             (cond (setf
-                    (insert " ")
-                    (save-excursion (insert ") )")))
-                   (function
-                    (insert " ")
-                    (save-excursion (insert ")"))))
-             (unless function
-               (goto-char slime-repl-input-start-mark)))))
+               (when setf
+                 (insert "setf ("))
+               (if defclass
+                   (insert "make-instance '"))
+               (insert call)
+               (cond (setf
+                      (insert " ")
+                      (save-excursion (insert ") )")))
+                     (function
+                      (insert " ")
+                      (save-excursion (insert ")"))))
+               (unless function
+                 (goto-char slime-repl-input-start-mark)))))
     (let ((toplevel (slime-parse-toplevel-form)))
       (if (symbolp toplevel)
           (error "Not in a function definition")
-          (destructure-case toplevel
-            (((:defun :defgeneric :defmacro :define-compiler-macro) symbol)
-             (insert-call symbol))
-            ((:defmethod symbol &rest args)
-             (declare (ignore args))
-             (insert-call symbol))
-            (((:defparameter :defvar :defconstant) symbol)
-             (insert-call symbol :function nil))
-            (((:defclass) symbol)
-             (insert-call symbol :defclass t))
-            (t
-             (error "Not in a function definition")))))))
+        (destructure-case toplevel
+          (((:defun :defgeneric :defmacro :define-compiler-macro) symbol)
+           (insert-call symbol))
+          ((:defmethod symbol &rest args)
+           (declare (ignore args))
+           (insert-call symbol))
+          (((:defparameter :defvar :defconstant) symbol)
+           (insert-call symbol :function nil))
+          (((:defclass) symbol)
+           (insert-call symbol :defclass t))
+          (t
+           (error "Not in a function definition")))))))
 
 (defun slime-inspector-copy-down-to-repl (number)
    "Evaluate the inspector slot at point via the REPL (to set `*')."
@@ -1682,11 +1684,11 @@ expansion will be added to the REPL's history.)"
 
 (defun slime-repl-choose-coding-system ()
   (let ((candidates (slime-connection-coding-systems)))
-    (or (find (symbol-name (car default-process-coding-system))
-	      candidates
-	      :test (lambda (s1 s2)
-		      (if (fboundp 'coding-system-equal)
-			  (coding-system-equal (intern s1) (intern s2)))))
+    (or (cl-find (symbol-name (car default-process-coding-system))
+                 candidates
+                 :test (lambda (s1 s2)
+                         (if (fboundp 'coding-system-equal)
+                             (coding-system-equal (intern s1) (intern s2)))))
 	(car candidates)
 	(error "Can't find suitable coding-system"))))
 
@@ -2036,8 +2038,8 @@ SWANK> [*foo]"))
   (with-canonicalized-slime-repl-buffer
     (insert command)
     (call-interactively 'slime-repl-return)
-    (save-excursion (insert (delete* ?* input)))
-    (forward-char (position ?* input))
+    (save-excursion (insert (cl-delete ?* input)))
+    (forward-char (cl-position ?* input))
     (slime-sync-to-top-level 5)
     (slime-check-buffer-contents "Buffer contains result" final-contents)))
 

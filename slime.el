@@ -802,7 +802,7 @@ It should be used for \"background\" messages such as argument lists."
 (defun slime-oneliner (string)
   "Return STRING truncated to fit in a single echo-area line."
   (substring string 0 (min (length string)
-                           (or (position ?\n string) most-positive-fixnum)
+                           (or (cl-position ?\n string) most-positive-fixnum)
                            (1- (window-width (minibuffer-window))))))
 
 ;; Interface
@@ -3147,8 +3147,8 @@ Return nil if there's no useful source location."
 
 (defun slime-severity< (sev1 sev2)
   "Return true if SEV1 is less severe than SEV2."
-  (< (position sev1 slime-severity-order)
-     (position sev2 slime-severity-order)))
+  (< (cl-position sev1 slime-severity-order)
+     (cl-position sev2 slime-severity-order)))
 
 (defun slime-most-severe (sev1 sev2)
   "Return the most servere of two conditions."
@@ -3223,7 +3223,7 @@ E.g. (slime-file-name-merge-source-root
                                       (apply #'concat
                                              (mapcar #'file-name-as-directory
                                                      dirs))))
-                       (pos (position target-dir buffer-dirs* :test #'equal)))
+                       (pos (cl-position target-dir buffer-dirs* :test #'equal)))
                   (if (not pos)    ; TARGET-DIR not in BUFFER-FILENAME?
                       (push target-dir target-suffix-dirs)
                     (let* ((target-suffix
@@ -3254,7 +3254,7 @@ highlighting face."
       (with-temp-buffer
         (cl-loop initially (insert (slime-filesystem-toplevel-directory))
                  for base-dir in base-dirs do
-                 (let ((pos (position base-dir contrast-dirs :test #'equal)))
+                 (let ((pos (cl-position base-dir contrast-dirs :test #'equal)))
                    (if (not pos)
                        (insert-dir/propzd base-dir)
                      (progn (insert-dir base-dir)
@@ -6106,7 +6106,7 @@ restart to invoke, otherwise use the restart at point."
                        (completing-read "Restart: " sldb-restarts nil t
                                         ""
                                         'sldb-invoke-restart-by-name))))
-  (sldb-invoke-restart (position restart-name sldb-restarts
+  (sldb-invoke-restart (cl-position restart-name sldb-restarts
                                     :test 'string= :key 'first)))
 
 (defun sldb-break-with-default-debugger (&optional dont-unwind)
@@ -6295,7 +6295,7 @@ was called originally."
            (old-column (current-column)))
       (erase-buffer)
       (slime-insert-threads threads)
-      (let ((new-line (position old-thread-id (cdr threads)
+      (let ((new-line (cl-position old-thread-id (cdr threads)
                                    :key #'car :test #'equal)))
         (goto-char (point-min))
         (forward-line (or new-line old-line))
