@@ -22,12 +22,18 @@
    (add-hook 'slime-open-stream-hooks 'slime-presentation-on-stream-open)
    (add-hook 'slime-repl-clear-buffer-hook 'slime-clear-presentations)
    (add-hook 'slime-edit-definition-hooks 'slime-edit-presentation)
-   (setq slime-inspector-insert-ispec-function 'slime-presentation-inspector-insert-ispec)
    (setq sldb-insert-frame-variable-value-function
          'slime-presentation-sldb-insert-frame-variable-value)
    (slime-presentation-init-keymaps)
    (slime-presentation-add-easy-menu)))
 
+;; To get presentations in the inspector as well, add this to your
+;; init file.
+;;
+;; (eval-after-load 'slime-presentations
+;;    '(setq slime-inspector-insert-ispec-function
+;;           'slime-presentation-inspector-insert-ispec))
+;;
 (defface slime-repl-output-mouseover-face
   (if (featurep 'xemacs)
       '((t (:bold t)))
