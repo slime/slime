@@ -106,8 +106,7 @@ TARGET can be nil (regular process output) or :repl-result."
     table)
   "Syntax table for presentations.")
 
-(defun slime-add-presentation-properties (start end id result-p
-                                          &optional face mouse-face)
+(defun slime-add-presentation-properties (start end id result-p)
   "Make the text between START and END a presentation with ID.
 RESULT-P decides whether a face for a return value or output text is used."
   (let* ((text (buffer-substring-no-properties start end))
@@ -141,23 +140,20 @@ RESULT-P decides whether a face for a return value or output text is used."
       ;; when we copy a presentation; their removal is also not undoable.
       ;; In these cases the mouse-face text properties need to take over ---
       ;; but they do not give nested highlighting.
-      (slime-ensure-presentation-overlay start end presentation
-                                         face mouse-face))))
+      (slime-ensure-presentation-overlay start end presentation))))
 
-(defun slime-ensure-presentation-overlay (start end presentation
-                                          &optional face mouse-face)
+(defun slime-ensure-presentation-overlay (start end presentation)
   (unless (cl-find presentation (overlays-at start)
                    :key (lambda (overlay)
                           (overlay-get overlay 'slime-repl-presentation)))
     (let ((overlay (make-overlay start end (current-buffer) t nil)))
       (overlay-put overlay 'slime-repl-presentation presentation)
-      (overlay-put overlay 'mouse-face (or mouse-face
-                                           'slime-repl-output-mouseover-face))
+      (overlay-put overlay 'mouse-face 'slime-repl-output-mouseover-face)
       (overlay-put overlay 'help-echo
                    (if (eq major-mode 'slime-repl-mode)
                        "mouse-2: copy to input; mouse-3: menu"
                      "mouse-2: inspect; mouse-3: menu"))
-      (overlay-put overlay 'face (or face 'slime-repl-inputed-output-face))
+      (overlay-put overlay 'face 'slime-repl-inputed-output-face)
       (overlay-put overlay 'keymap slime-presentation-map))))
 
 (defun slime-remove-presentation-properties (from to presentation)
@@ -172,8 +168,7 @@ RESULT-P decides whether a face for a return value or output text is used."
       (when (eq (overlay-get overlay 'slime-repl-presentation) presentation)
         (delete-overlay overlay)))))
 
-(defun slime-insert-presentation (string output-id
-                                  &optional rectangle face mouse-face)
+(defun slime-insert-presentation (string output-id &optional rectangle)
   "Insert STRING in current buffer and mark it as a presentation
 corresponding to OUTPUT-ID.  If RECTANGLE is true, indent multi-line
 strings to line up below the current point."
@@ -183,8 +178,7 @@ strings to line up below the current point."
                          (insert string))))
     (let ((start (point)))
       (insert-it)
-      (slime-add-presentation-properties start (point) output-id t
-                                         face mouse-face))))
+      (slime-add-presentation-properties start (point) output-id t))))
 
 (defun slime-presentation-whole-p (presentation start end &optional object)
   (let ((object (or object (current-buffer))))
@@ -838,10 +832,9 @@ even on Common Lisp implementations without weak hash tables."
       ((:value string id)
        (slime-propertize-region
            (list 'slime-part-number id
-                 'mouse-face 'highlight)
-           (slime-insert-presentation string `(:inspected-part ,id) t
-                                      'slime-inspector-value-face
-                                      'highligt)))
+                 'mouse-face 'highlight
+                 'face 'slime-inspector-value-face)
+         (slime-insert-presentation string `(:inspected-part ,id) t)))
       ((:label string)
        (insert (slime-inspector-fontify label string)))
       ((:action string id)
