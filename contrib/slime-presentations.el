@@ -837,11 +837,10 @@ even on Common Lisp implementations without weak hash tables."
     (destructure-case ispec
       ((:value string id)
        (slime-propertize-region
-           (list 'slime-part-number id
-                 'mouse-face 'highlight)
+           (list 'slime-part-number id)
            (slime-insert-presentation string `(:inspected-part ,id) t
                                       'slime-inspector-value-face
-                                      'highligt)))
+                                      'highlight)))
       ((:label string)
        (insert (slime-inspector-fontify label string)))
       ((:action string id)
