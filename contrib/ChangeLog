@@ -1,3 +1,9 @@
+2014-02-07  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-presentations.el
+	(slime-presentation-inspector-insert-ispec): Make inspector values
+	use `slime-inspector-value-face' like it did in the past.
+
 2014-02-06  João Távora  <joaotavora@gmail.com>
 
 	* slime-repl.el: Prefix all cl-functions with "cl-"
