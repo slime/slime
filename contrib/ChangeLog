@@ -1,3 +1,144 @@
+2014-02-07  João Távora  <joaotavora@gmail.com>
+
+	* slime-presentations.el: Don't set
+	`slime-inspector-insert-ispec-function' by default, it makes the
+	blue slots in the inspector go away which some users were used to.
+
+2014-02-06  João Távora  <joaotavora@gmail.com>
+
+	* slime-repl.el: Prefix all cl-functions with "cl-"
+
+2014-02-05  João Távora  <joaotavora@gmail.com>
+
+	* swank-repl.lisp (set-repl-variables): Deleted.
+	(*repl-set-variables-function*): Deleted, not needed for now.
+	(repl-eval): Set *, + and / variables saved from last call just
+	before the EVAL-REGION that might use them.
+
+	* slime-repl.el (slime-repl-eval-string): simplify change of
+	2014-01-30; don't remotely call SWANK:SET-REPL-VARIABLES on
+	acknowledgement.
+
+2014-02-03  João Távora  <joaotavora@gmail.com>
+
+	* slime-trace-dialog.el (slime-trace-dialog-mode-map): Bind M-RET
+	to new `slime-trace-dialog-copy-down-to-repl'.
+	(slime-trace-dialog-copy-down-to-repl): New function, in-line with
+	slime-repl.el's functions.
+	(slime-trace-dialog--format-part): Two extra text properties to
+	find the trace part at point.
+
+	* swank-trace-dialog.lisp (find-trace-part): new exported
+	function.
+	(inspect-trace-part): rewrite in terms os FIND-TRACE-PART.
+
+2014-01-31  João Távora  <joaotavora@gmail.com>
+
+	* slime-trace-dialog.el: Reworked. Now works with multiple
+	connections. Use `slime-trace-dialog-hide-details-mode' and
+	`slime-trace-dialog-autofollow-mode' instead of buttons. New
+	menu.
+
+2014-01-30  João Távora  <joaotavora@gmail.com>
+
+	* swank-repl.lisp (*last-repl-form*, *last-repl-values*): new
+	variables.
+	(*repl-set-variables-function*): new variable.
+	(set-repl-variables): new function, extracted from REPL-EVAL,
+	switches to *REPL-SET-VARIABLES-FUNCTION* if that is non-nil.
+	(repl-eval): don't set auto variables here, defer that for later.
+
+	* slime-repl.el (slime-repl-eval-string): slime-eval
+	SWANK:SET-REPL-VARIABLES when SWANK acknowledges with OK.
+
+	* slime-repl.el (slime-inspector-copy-down-to-repl): Use only
+	first return value of SWANK:INSPECTOR-NTH-PART.
+
+	* slime-presentations.el (slime-copy-presentation-to-repl):
+	Unbreak. Use same `slime-repl-send-string' strategy as
+	slime-repl.el.
+
+	* slime-repl.el (sldb-mode-map): Bind M-RET to
+	`sldb-copy-down-to-repl' in `sldb-mode-map'.
+	(sldb-copy-down-to-repl): New function, much like
+	`slime-inspector-copy-down-to-repl'
+
+2014-01-27  João Távora  <joaotavora@gmail.com>
+
+	* slime-repl.el (slime-repl-emit): Bind `inhibit-read-only' to t
+	when inserting output. Might clash with read-only parts left over
+	from previous REPL session. Reported by Paul Bowyer.
+	(slime-repl-history-pattern): Allow M-p in any part of the REPL
+	buffer. Reported by Attila Lendvai.
+	(slime-sync-package-and-default-directory): Use `buffer-live-p',
+	don't just check that `buffer' is non-nil. Fails when the slime
+	process buffer has already been killed but connection lives on.
+
+2014-01-23  João Távora  <joaotavora@gmail.com>
+
+	* slime-presentations.el (pretty-presentation-results): new tests,
+	should be more stable, except on allegro.
+
+	* slime-repl.el (slime-repl-emit): Propertize the output text with
+	a `slime-repl-output' boolean property.
+	(slime-repl-test-markers): More powerful macro for testing repl text.
+	(slime-check-buffer-contents): Simplified with
+	`slime-repl-test-markers'.
+	(repl-test): tests with no output don't expect these markers.
+	(repl-type-ahead): tests with no output don't expect these
+	markers.
+	(slime-repl-emit-result): Use `insert-before-markers-and-inherit', and
+	do it before saving `slime-output-end'.
+	(slime-repl-write-string): Fix failing tests by passing `eol' as t
+	to `slime-repl-emit-result'.
+	(slime-repl-test-markers): Friendlier test assertions.
+	(repl-test-2): Skip for now, unstable without slime-presentations.
+
+2014-01-22  João Távora  <joaotavora@gmail.com>
+
+	* slime-presentations.el (slime-menu-choices-for-presentation):
+	slightly friendlier pop-up menu title, could be friendlier maybe
+	if object type were displayed instead.
+
+	* swank-presentations.lisp (lookup-presented-object): No longer
+	reference *inspectee-parts* removed a long time ago.
+
+2014-01-19  João Távora  <joaotavora@gmail.com>
+
+	* slime-autodoc.el (cerror "Foo"): test no longer fails for sbcl.
+	(foo-inside-labels-2): test also fails on cmucl.
+
+	* swank-arglists.lisp (print-decoded-arglist): for already
+	provided args, print strings literally.
+	(print-arg): New keyword arg LITERAL-STRINGS
+
+2014-01-12  João Távora  <joaotavora@gmail.com>
+
+	* slime-parse.el (form-up-to-point.1): Skip for now, then analyse.
+
+	* slime-repl.el (move-around-and-be-nasty): Skip it. Causes other
+	tests to become unstable.
+	(interrupt-in-blocking-read): Skip for now, then analyse.
+
+2014-01-10  João Távora  <joaotavora@gmail.com>
+
+	* slime-trace-dialog.el (slime-trace-dialog--open-specs): Use
+	cl-labels instead of cl-flet (safer on emacs 23).
+
+	* slime-repl.el (slime-repl-return): Pass `end-of-input' to hooks
+	run.
+
+	* slime-presentations.el (pick-up-presentation-at-point): New test
+	by Attila Lendvai.
+	(slime-presentation-start): Don't go beyond (point-min) when
+	looking for presentation. Adapted from patch by Attila Lendvai.
+	(slime-presentation-on-return-pressed): Use `end-of-input'.
+
+	* slime-presentations.el: cleanup compilation warnings.
+
+	* slime-repl.el (slime-repl-delete-from-input-history): Correctly
+	calculate merged history. Patch by Attila Lendvai.
+
 2014-01-09  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Move "," binding back to slime-repl-mode-map and disable it when

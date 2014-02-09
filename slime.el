@@ -48,7 +48,7 @@
 ;;   Trapping compiler messages and creating annotations in the source
 ;;   file on the appropriate forms.
 ;;
-;; SLIME should work with any recent emacsen (23+)
+;; SLIME should work with any recent GNU Emacsen (23+)
 ;;
 ;; In order to run SLIME, a supporting Lisp server called Swank is
 ;; required. Swank is distributed with slime.el and will automatically
@@ -57,7 +57,9 @@
 
 ;;;; Dependencies and setup
 (eval-and-compile
-  (require 'cl-lib))
+  (require 'cl-lib nil t)
+  ;; For emacs 23, look for bundled version
+  (require 'cl-lib "lib/cl-lib"))
 
 (eval-and-compile
   (if (< emacs-major-version 23)
@@ -66,7 +68,7 @@
 (eval-when-compile
   (require 'cl))
 
-(require 'hyperspec nil t)
+(require 'hyperspec "lib/hyperspec")
 (require 'thingatpt)
 (require 'comint)
 (require 'timer)
@@ -77,7 +79,7 @@
   (unless (find-coding-system 'utf-8-unix)
     (require 'un-define)))
 (require 'easymenu)
-(cl-eval-when (compile)
+(eval-when-compile
   (require 'arc-mode)
   (require 'apropos)
   (require 'outline)
@@ -96,7 +98,7 @@ Emacs Lisp package."))
 
 (defvar slime-lisp-modes '(lisp-mode))
 (defvar slime-contribs nil
-  "A list of contrib packages to load with slime.")
+  "A list of contrib packages to load with SLIME.")
 (define-obsolete-variable-alias 'slime-setup-contribs
 'slime-contribs "2.3.2")
 
@@ -121,6 +123,7 @@ CONTRIBS is a list of contrib packages to load. If `nil', use
         (let ((init (intern (format "%s-init" c))))
           (when (fboundp init)
             (funcall init)))))))
+
 (defun slime-lisp-mode-hook ()
   (slime-mode 1)
   (set (make-local-variable 'lisp-indent-function)
@@ -815,7 +818,7 @@ It should be used for \"background\" messages such as argument lists."
 (defun slime-oneliner (string)
   "Return STRING truncated to fit in a single echo-area line."
   (substring string 0 (min (length string)
-                           (or (position ?\n string) most-positive-fixnum)
+                           (or (cl-position ?\n string) most-positive-fixnum)
                            (1- (window-width (minibuffer-window))))))
 
 ;; Interface
@@ -847,6 +850,7 @@ symbol at point, or if QUERY is non-nil."
   "Execute BODY and add PROPS to all the text it inserts.
 More precisely, PROPS are added to the region between the point's
 positions before and after executing BODY."
+  (declare (debug (sexp &rest form)))
   (let ((start (cl-gensym)))
     `(let ((,start (point)))
        (prog1 (progn ,@body)
@@ -3168,8 +3172,8 @@ Return nil if there's no useful source location."
 
 (defun slime-severity< (sev1 sev2)
   "Return true if SEV1 is less severe than SEV2."
-  (< (position sev1 slime-severity-order)
-     (position sev2 slime-severity-order)))
+  (< (cl-position sev1 slime-severity-order)
+     (cl-position sev2 slime-severity-order)))
 
 (defun slime-most-severe (sev1 sev2)
   "Return the most servere of two conditions."
@@ -3244,7 +3248,7 @@ E.g. (slime-file-name-merge-source-root
                                       (apply #'concat
                                              (mapcar #'file-name-as-directory
                                                      dirs))))
-                       (pos (position target-dir buffer-dirs* :test #'equal)))
+                       (pos (cl-position target-dir buffer-dirs* :test #'equal)))
                   (if (not pos)    ; TARGET-DIR not in BUFFER-FILENAME?
                       (push target-dir target-suffix-dirs)
                     (let* ((target-suffix
@@ -3275,7 +3279,7 @@ highlighting face."
       (with-temp-buffer
         (cl-loop initially (insert (slime-filesystem-toplevel-directory))
                  for base-dir in base-dirs do
-                 (let ((pos (position base-dir contrast-dirs :test #'equal)))
+                 (let ((pos (cl-position base-dir contrast-dirs :test #'equal)))
                    (if (not pos)
                        (insert-dir/propzd base-dir)
                      (progn (insert-dir base-dir)
@@ -6127,7 +6131,7 @@ restart to invoke, otherwise use the restart at point."
                        (completing-read "Restart: " sldb-restarts nil t
                                         ""
                                         'sldb-invoke-restart-by-name))))
-  (sldb-invoke-restart (position restart-name sldb-restarts
+  (sldb-invoke-restart (cl-position restart-name sldb-restarts
                                     :test 'string= :key 'first)))
 
 (defun sldb-break-with-default-debugger (&optional dont-unwind)
@@ -6316,7 +6320,7 @@ was called originally."
            (old-column (current-column)))
       (erase-buffer)
       (slime-insert-threads threads)
-      (let ((new-line (position old-thread-id (cdr threads)
+      (let ((new-line (cl-position old-thread-id (cdr threads)
                                    :key #'car :test #'equal)))
         (goto-char (point-min))
         (forward-line (or new-line old-line))
@@ -6628,7 +6632,7 @@ If PREV resp. NEXT are true insert more-buttons as needed."
   (cl-destructuring-bind (ispecs len start end) chunk
     (when (and prev (> start 0))
       (slime-inspector-insert-more-button start t))
-    (mapc #'slime-inspector-insert-ispec ispecs)
+    (mapc slime-inspector-insert-ispec-function ispecs)
     (when (and next (< end len))
       (slime-inspector-insert-more-button end nil))))
 

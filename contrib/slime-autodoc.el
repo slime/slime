@@ -358,7 +358,7 @@ display multiline arglist"
   ("(cerror \"Foo\" 'simple-condition*HERE*"
    "(cerror \"Foo\" 'simple-condition\
  &rest arguments &key format-arguments format-control)"
-   :fails-for ("sbcl" "allegro"))
+   :fails-for ("allegro"))
 
   ;; Test &KEY and nested arglists
   ("(swank::with-retry-restart (:msg *HERE*"
@@ -388,6 +388,6 @@ display multiline arglist"
   ("(labels ((foo (x y) (+ x y))) (foo *HERE*" "(foo ===> x <=== y)")
   ("(labels ((foo (x y) (+ x y))
                  (bar (y) (foo *HERE*"
-   "(foo ===> x <=== y)" :fails-for ("sbcl" "allegro")))
+   "(foo ===> x <=== y)" :fails-for ("cmucl" "sbcl" "allegro")))
 
 (provide 'slime-autodoc)

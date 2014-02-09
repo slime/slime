@@ -1,18 +1,32 @@
 language: emacs
-before_install:
-  - echo -e "\ndeb http://us.archive.ubuntu.com/ubuntu raring universe multiverse main" | sudo tee -a /etc/apt/sources.list
-  - echo -e "\ndeb http://emacs.naquadah.org/ stable/" | sudo tee -a /etc/apt/sources.list
-  - echo -e "\ndeb-src http://emacs.naquadah.org/ stable/" | sudo tee -a /etc/apt/sources.list
-  - cat /etc/apt/sources.list
-  - wget -q -O - http://emacs.naquadah.org/key.gpg | sudo apt-key add -
-  - sudo apt-get update
+env:
+  matrix:
+    # we test emacs23 with sbcl32 only
+    - "CHECK_TARGET=check       LISP=sbcl32 EMACS=emacs23"
+    - "CHECK_TARGET=check-fancy LISP=sbcl32 EMACS=emacs23"
+    # for emacs24, use more combinations
+    - "CHECK_TARGET=check       LISP=sbcl32 EMACS=emacs24"
+    - "CHECK_TARGET=check       LISP=cmucl  EMACS=emacs24"
+    - "CHECK_TARGET=check-fancy LISP=sbcl32 EMACS=emacs24"
+    - "CHECK_TARGET=check-fancy LISP=cmucl  EMACS=emacs24"
+    # also, for emacs24 and sbcl32 test the slime-repl only
+    # 
+    - "CHECK_TARGET=check-repl LISP=sbcl32  EMACS=emacs24"
+  global:
+#    - SOME_TOKEN=some_value
+
 install:
-  - sudo apt-get install sbcl
-  - sudo apt-get install emacs
-  - sudo apt-get -t raring install libgnutls26
-  - sudo apt-get install emacs-snapshot-nox
-before_script:
+  - curl https://raw2.github.com/luismbo/cl-travis/master/install.sh | bash
+  - if [ "$EMACS" = "emacs23" ]; then
+        sudo apt-get -qq update &&
+        sudo apt-get -qq -f install &&
+        sudo apt-get -qq install emacs23-nox;
+    fi
+  - if [ "$EMACS" = "emacs24" ]; then
+        sudo add-apt-repository -y ppa:cassou/emacs &&
+        sudo apt-get -qq update &&
+        sudo apt-get -qq -f install &&
+        sudo apt-get -qq install emacs24-nox;
+    fi
 script:
-  - EMACS_BIN=emacs LISP_BIN=sbcl make check
-  - git clean -fdx
-  - EMACS_BIN=emacs-snapshot LISP_BIN=sbcl make check
+  - LISP_BIN=$LISP EMACS_BIN=$EMACS make $CHECK_TARGET

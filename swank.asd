@@ -10,8 +10,7 @@
 ;; Usage:
 ;;
 ;;   (require :swank)
-;;   (swank-loader:init)
-;;   (swank:create-server PORT) => ACTUAL-PORT
+;;   (swank:create-swank-server PORT) => ACTUAL-PORT
 ;;
 ;; (PORT can be zero to mean "any available port".)
 ;; Then the Swank server is running on localhost:ACTUAL-PORT. You can
