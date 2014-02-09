@@ -1374,16 +1374,26 @@ See `slime-start'."
     slime-inferior-lisp-args))
 
 (defun slime-init-using-asdf (port-filename _coding-system)
-  "Return a string to initialize Lisp."
-  (format "%S\n\n"
-          `(progn
-             ;; JT@14/01/07: FIXME: check for "good" asdf version and if not
-             ;; load our compiled version, compiling it if necessary.
-             (require :asdf)
-             (set (read-from-string "asdf:*central-registry*")
-                  (list (cl:probe-file ,slime-path)))
-             (funcall (read-from-string "asdf:load-system") :swank)
-             (funcall (read-from-string "swank:start-server") ,port-filename))))
+  "Return a string to initialize Lisp using ASDF.
+
+Fall back to `slime-init-using-swank-loader' if ASDF fails."
+  (pp-to-string
+   `(cond ((ignore-errors
+             (funcall 'require "asdf")
+             (funcall (read-from-string "asdf:version-satisfies")
+                      (funcall (read-from-string "asdf:asdf-version"))
+                      "2.019"))
+           (push (pathname ,slime-path)
+                 (symbol-value
+                  (read-from-string "asdf:*central-registry*")))
+           (funcall
+            (read-from-string "asdf:load-system")
+            :swank)
+           (funcall
+            (read-from-string "swank:start-server")
+            ,port-filename))
+          (t
+           ,(read (slime-init-using-swank-loader port-filename _coding-system))))))
 
 ;; XXX load-server & start-server used to be separated. maybe that was  better.
 (defun slime-init-using-swank-loader (port-filename _coding-system)

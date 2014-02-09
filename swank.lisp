@@ -1450,7 +1450,17 @@ converted to lower case."
                ((:error kind . data) (error "~a: ~{~a~}" kind data))
 	       ((:abort) (abort))))))))
 
-(defvar *swank-wire-protocol-version* nil
+;;; duplicate in swank-loader.lisp, who uses it for a different
+;;; purpose, namely finding where to put its fasls.
+(defun slime-version-string ()
+  "Return a string identifying the SLIME version.
+Return nil if nothing appropriate is available."
+  (with-open-file (s (make-pathname :name "ChangeLog" :type nil
+                                    :defaults (pathname #.(or *compile-file-pathname* *load-pathname*)))
+                     :if-does-not-exist nil)
+    (and s (symbol-name (read s)))))
+
+(defvar *swank-wire-protocol-version* (slime-version-string)
   "The version of the swank/slime communication protocol.")
 
 (defslimefun connection-info ()
@@ -2535,9 +2545,9 @@ Record compiler notes signalled as `compiler-condition's."
 
 ;;;;; swank-require
 (defvar *require-module* (cond ((find-package :swank-loader)
-                                (intern 'require-module :swank-loader))
+                                (intern "REQUIRE-MODULE" :swank-loader))
                                ((find-package :asdf)
-                                (intern 'load-system :asdf)))
+                                (intern "LOAD-SYSTEM" :asdf)))
   "Pluggable function to load modules.
 The function receives a module name as argument and should return
 non-nil if it managed to load it.")
@@ -3711,21 +3721,12 @@ Collisions are caused because package information is ignored."
       (background-message "flow-control-test: ~d" i))))
 
 
-(defun slime-version-string ()
-  "Return a string identifying the SLIME version.
-Return nil if nothing appropriate is available."
-  (with-open-file (s (merge-pathnames "ChangeLog" *source-directory*)
-                     :if-does-not-exist nil)
-    (and s (symbol-name (read s)))))
-
 (defun before-init ()
   (unless (member :swank *features*)
     (pushnew :swank *features*)
-    (setq *swank-wire-protocol-version* (slime-version-string))
     (swank-backend::warn-unimplemented-interfaces)))
 
 (defun init ()
-  (before-init)
   (run-hook *after-init-hook*))
 
 ;; Local Variables:

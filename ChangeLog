@@ -1,5 +1,13 @@
 2014-99-99  João Távora  <joaotavora@gmail.com>
 
+	* slime.el (slime-init-using-asdf): Fall back gracefully to
+	swank-loader.lisp.
+
+	* swank.asd (:swank): Simplify with tips from Fare.
+
+	* swank.lisp (*require-module*): INTERN takes strings, not
+	symbols.
+
 	* swank.lisp (before-init): don't take VERSION arg.
 	(slime-version-string): move it here.
 	(init): Call BEFORE-INIT.
