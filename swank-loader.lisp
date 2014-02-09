@@ -120,6 +120,20 @@ operating system, and hardware architecture."
   "Returns true if NEW-FILE is newer than OLD-FILE."
   (> (file-write-date new-file) (file-write-date old-file)))
 
+(defun sly-version-string ()
+  ;; Duplicate in swank.lisp, who uses it to negotiate versions
+  ;; between sly/swank. We use it to figure out where to put fasls.
+  "Return a string identifying the SLY version.
+Return nil if nothing appropriate is available."
+  (ignore-errors
+   (with-open-file (s (merge-pathnames "sly.el" *source-directory*))
+     (let ((seq (make-array 200 :element-type 'character :initial-element #\null)))
+       (read-sequence seq s :end 200)
+       (let* ((beg (search ";; Version:" seq))
+              (end (position #\NewLine seq :start beg))
+              (middle (position #\Space seq :from-end t :end end)))
+         (subseq seq (1+ middle) end))))))
+
 (defun default-fasl-dir ()
   (merge-pathnames
    (make-pathname

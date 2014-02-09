@@ -1471,7 +1471,19 @@ converted to lower case."
                ((:error kind . data) (error "~a: ~{~a~}" kind data))
 	       ((:abort) (abort))))))))
 
-(defvar *swank-wire-protocol-version* nil
+(defun sly-version-string ()
+  "Return a string identifying the SLY version.
+Return nil if nothing appropriate is available."
+  (ignore-errors
+   (with-open-file (s (merge-pathnames "sly.el" *source-directory*))
+     (let ((seq (make-array 200 :element-type 'character :initial-element #\null)))
+       (read-sequence seq s :end 200)
+       (let* ((beg (search ";; Version:" seq))
+              (end (position #\NewLine seq :start beg))
+              (middle (position #\Space seq :from-end t :end end)))
+         (subseq seq (1+ middle) end))))))
+
+(defvar *swank-wire-protocol-version* (sly-version-string)
   "The version of the swank/sly communication protocol.")
 
 (defslyfun connection-info ()
@@ -2564,9 +2576,9 @@ Record compiler notes signalled as `compiler-condition's."
 
 ;;;;; swank-require
 (defvar *require-module* (cond ((find-package :swank-loader)
-                                (intern 'require-module :swank-loader))
+                                (intern "REQUIRE-MODULE" :swank-loader))
                                ((find-package :asdf)
-                                (intern 'load-system :asdf)))
+                                (intern "LOAD-SYSTEM" :asdf)))
   "Pluggable function to load modules.
 The function receives a module name as argument and should return
 non-nil if it managed to load it.")
@@ -3741,26 +3753,13 @@ Collisions are caused because package information is ignored."
       (background-message "flow-control-test: ~d" i))))
 
 
-(defun sly-version-string ()
-  "Return a string identifying the SLY version.
-Return nil if nothing appropriate is available."
-  (ignore-errors
-   (with-open-file (s (merge-pathnames "sly.el" *source-directory*))
-     (let ((seq (make-array 200 :element-type 'character :initial-element #\null)))
-       (read-sequence seq s :end 200)
-       (let* ((beg (search ";; Version:" seq))
-              (end (position #\NewLine seq :start beg))
-              (middle (position #\Space seq :from-end t :end end)))
-         (subseq seq (1+ middle) end))))))
 
 (defun before-init ()
   (unless (member :swank *features*)
     (pushnew :swank *features*)
-    (setq *swank-wire-protocol-version* (sly-version-string))
     (swank-backend::warn-unimplemented-interfaces)))
 
 (defun init ()
-  (before-init)
   (run-hook *after-init-hook*))
 
 ;; Local Variables:

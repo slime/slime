@@ -9,8 +9,8 @@
 
 ;; Usage:
 ;;
-;;   (require :swank)
-;;   (swank:create-swank-server PORT) => ACTUAL-PORT
+;;   (asdf:load-system :swank)
+;;   (swank:create-server PORT) => ACTUAL-PORT
 ;;
 ;; (PORT can be zero to mean "any available port".)
 ;; Then the Swank server is running on localhost:ACTUAL-PORT. You can
@@ -22,109 +22,112 @@
 ;; See https://github.com/slime/slime/pull/76 and related issues
 ;; for details on this defsystem.
 
-(asdf:defsystem :swank
+(defsystem :swank
+  :serial t
   :components
   ((:file "swank-backend")
    ;; If/when we require ASDF3, we shall use :if-feature instead
    #+(or cmu sbcl scl)
-   (:file "swank-source-path-parser" :depends-on ("swank-backend"))
+   (:file "swank-source-path-parser")
    #+(or cmu ecl sbcl scl)
-   (:file "swank-source-file-cache" :depends-on ("swank-backend"))
+   (:file "swank-source-file-cache")
    #+clisp
-   (:file "xref" :depends-on ("swank-backend"))
+   (:file "xref")
    #+(or clisp clozure)
-   (:file "metering" :depends-on ("swank-backend"))
+   (:file "metering")
    #+allegro
-   (:file "swank-allegro" :depends-on ("swank-backend"))
+   (:file "swank-allegro")
    #+armedbear
-   (:file "swank-abcl" :depends-on ("swank-backend"))
+   (:file "swank-abcl")
    #+clisp
-   (:file "swank-clisp" :depends-on ("swank-backend" "xref" "metering"))
+   (:file "swank-clisp")
    #+clozure
-   (:file "swank-ccl" :depends-on ("swank-backend"))
+   (:file "swank-ccl")
    #+cmu
-   (:file "swank-cmucl" :depends-on ("swank-backend"))
+   (:file "swank-cmucl")
    #+cormanlisp
-   (:file "swank-corman" :depends-on ("swank-backend"))
+   (:file "swank-corman")
    #+ecl
-   (:file "swank-ecl" :depends-on ("swank-backend"))
+   (:file "swank-ecl")
    #+lispworks
-   (:file "swank-lispworks" :depends-on ("swank-backend"))
+   (:file "swank-lispworks")
    #+sbcl
-   (:file "swank-sbcl" :depends-on ("swank-backend"))
+   (:file "swank-sbcl")
    #+scl
-   (:file "swank-scl" :depends-on ("swank-backend"))
+   (:file "swank-scl")
    #+(or allegro clisp clozure cormanlisp ecl lispworks)
-   (:file "swank-gray" :depends-on ("swank-backend"))
+   (:file "swank-gray")
    (:file "swank-match")
-   (:file "swank-rpc" :depends-on ("swank-backend"))
-   (:file "swank" :depends-on ("swank-backend" "swank-match" "swank-rpc"))))
+   (:file "swank-rpc")
+   (:file "swank")))
 
-;;; TODO: we should either use the convention that works of naming secondary systems swank/foo
-;;; or have each contrib in its own .asd file, otherwise ASDF will not be able to find them
-;;; by name unless swank has been loaded first.
-
-(asdf:defsystem :swank-util
+(defsystem :swank-util
   :components ((:file "contrib/swank-util")))
 
-(asdf:defsystem :swank-repl
+(defsystem :swank-repl
   :components ((:file "contrib/swank-repl")))
 
-(asdf:defsystem :swank-c-p-c
+(defsystem :swank-c-p-c
   :components ((:file "contrib/swank-c-p-c")))
 
-(asdf:defsystem :swank-arglists
+(defsystem :swank-arglists
   :components ((:file "contrib/swank-arglists")))
 
-(asdf:defsystem :swank-fuzzy
+(defsystem :swank-fuzzy
   :components ((:file "contrib/swank-fuzzy")))
 
-(asdf:defsystem :swank-fancy-inspector
+(defsystem :swank-fancy-inspector
   :components ((:file "contrib/swank-fancy-inspector")))
 
-(asdf:defsystem :swank-presentations
+(defsystem :swank-presentations
   :components ((:file "contrib/swank-presentations")))
 
-(asdf:defsystem :swank-presentation-streams
+#+sbcl
+(defsystem :swank/sbcl-pprint-patch
+  :depends-on (:swank)
+  :components ((:file "sbcl-pprint-patch")))
+
+(defsystem :swank-presentation-streams
+  :depends-on (#+sbcl :swank/sbcl-pprint-patch)
   :components ((:file "contrib/swank-presentation-streams")))
 
-(asdf:defsystem :swank-asdf
+(defsystem :swank-asdf
   :components ((:file "contrib/swank-asdf")))
 
-(asdf:defsystem :swank-package-fu
+(defsystem :swank-package-fu
   :components ((:file "contrib/swank-package-fu")))
 
-(asdf:defsystem :swank-hyperdoc
+(defsystem :swank-hyperdoc
   :components ((:file "contrib/swank-hyperdoc")))
 
-(asdf:defsystem :swank-swank-sbcl-exts
-  :components ((:file "contrib/swank-swank-sbcl-exts")))
+(defsystem :swank-sbcl-exts
+  :components ((:file "contrib/swank-sbcl-exts")))
 
-(asdf:defsystem :swank-mrepl
+(defsystem :swank-mrepl
   :components ((:file "contrib/swank-mrepl")))
 
-(asdf:defsystem :swank-trace-dialog
+(defsystem :swank-trace-dialog
   :components ((:file "contrib/swank-trace-dialog")))
 
-(asdf:defsystem :swank-clipboard
+(defsystem :swank-clipboard
   :components ((:file "contrib/swank-clipboard")))
 
-(asdf:defsystem :swank-indentation
+(defsystem :swank-indentation
   :components ((:file "contrib/swank-indentation")))
 
-(asdf:defsystem :swank-listener-hooks
+(defsystem :swank-listener-hooks
   :components ((:file "contrib/swank-listener-hooks")))
 
-(asdf:defsystem :swank-media
+(defsystem :swank-media
   :components ((:file "contrib/swank-media")))
 
-(asdf:defsystem :swank-motd
+(defsystem :swank-motd
   :components ((:file "contrib/swank-motd")))
 
-(asdf:defsystem :swank-snapshot
+(defsystem :swank-snapshot
   :components ((:file "contrib/swank-snapshot")))
 
-(asdf:defsystem :swank-sprof
+(defsystem :swank-sprof
   :components ((:file "contrib/swank-sprof")))
 
 (asdf:defsystem :swank-contribs
@@ -139,3 +142,4 @@
    :swank-hyperdoc
    #+sbcl :swank-sbcl-exts
    :swank-mrepl :swank-trace-dialog))
+
