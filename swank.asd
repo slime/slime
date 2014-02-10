@@ -3,10 +3,6 @@
 ;; ASDF system definition for loading the Swank server independently
 ;; of Emacs.
 ;;
-;; This is only useful if you want to start a Swank server in a Lisp
-;; processes that doesn't run under Emacs. Lisp processes created by
-;; `M-x sly' automatically start the server.
-
 ;; Usage:
 ;;
 ;;   (asdf:load-system :swank)
@@ -18,9 +14,6 @@
 ;;
 ;; This code has been placed in the Public Domain.  All warranties
 ;; are disclaimed.
-
-;; See https://github.com/slime/slime/pull/76 and related issues
-;; for details on this defsystem.
 
 (defsystem :swank
   :serial t
