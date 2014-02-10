@@ -344,7 +344,10 @@
   (output-buffer-with-annotations stream 
 				  (pretty-stream-buffer-fill-pointer stream)))
 
+); handler-bind to avoid redefinition errors and warnings
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (loop for p in '("SB-PRETTY" "SB-KERNEL" "SB-IMPL") do
     (rename-package p p ())
     (sb-ext:lock-package p)))
+

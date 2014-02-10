@@ -1,5 +1,8 @@
 2014-99-99  João Távora  <joaotavora@gmail.com>
 
+	* swank-presentation-streams.lisp [sbcl]: Don't rely on
+	swank-loader.lisp.
+
 	* swank-presentation-streams.lisp [sbcl]: Simplify loading of
 	sbcl-pprint-patch when using swank-loader.lisp.
 

@@ -64,10 +64,13 @@ be sensitive and remember what object it is in the repl if predicate is true"
 	(funcall ,continue)))))
 
 #+sbcl
-(unless (find-symbol "ENQUEUE-ANNOTATION" "SB-PRETTY")
+(when (and (not (find-symbol "ENQUEUE-ANNOTATION" "SB-PRETTY"))
+           (find-package :swank-loader))
   (let ((file (make-pathname :name "sbcl-pprint-patch" :type "lisp"
-                             :defaults swank-loader:*source-directory*)))
+                             :defaults (symbol-value
+                                        (read-from-string "swank-loader:*source-directory*")))))
     (when (probe-file file) (load file))))
+
 
 (let ((last-stream nil)
       (last-answer nil))

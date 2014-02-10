@@ -31,6 +31,9 @@
                  :defaults (or *load-pathname* *default-pathname-defaults*))
   "The directory where to look for the source.")
 
+(defvar *load-path* '()
+  "A list of directories to search for modules.")
+
 (defparameter *sysdep-files*
   #+cmu '(swank-source-path-parser swank-source-file-cache swank-cmucl)
   #+scl '(swank-source-path-parser swank-source-file-cache swank-scl)
@@ -303,8 +306,6 @@ global variabes in SWANK."
 
 
 ;;;;;; Simple *require-module* function for asdf-loader.lisp.
-(defvar *load-path* '()
-  "A list of directories to search for modules.")
 
 (defun module-canditates (name dir)
   (list (compile-file-pathname (make-pathname :name name :defaults dir))
