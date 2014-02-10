@@ -1,5 +1,8 @@
 2014-99-99  João Távora  <joaotavora@gmail.com>
 
+	* swank-loader.lisp (slime-version-string): Don't remove it, it's
+	needed for knowing where to place the fasls.
+
 	* swank.asd (:swank): swank-gray.lisp must be loaded for sbcl too.
 
 	* sbcl-pprint-patch.lisp: Handle package-unlocking and error

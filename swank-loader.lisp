@@ -120,6 +120,13 @@ operating system, and hardware architecture."
   "Returns true if NEW-FILE is newer than OLD-FILE."
   (> (file-write-date new-file) (file-write-date old-file)))
 
+(defun slime-version-string ()
+  "Return a string identifying the SLIME version.
+Return nil if nothing appropriate is available."
+  (with-open-file (s (merge-pathnames "ChangeLog" *source-directory*)
+                     :if-does-not-exist nil)
+    (and s (symbol-name (read s)))))
+
 (defun default-fasl-dir ()
   (merge-pathnames
    (make-pathname
