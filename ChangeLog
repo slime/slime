@@ -1,3 +1,9 @@
+2014-02-10  João Távora  <joaotavora@gmail.com>
+
+	* slime.el (slime--setup-contribs): Init contribs if they've been
+	required somewhere else and not inserted into
+	`slime-required-modules'.
+
 2014-02-06  João Távora  <joaotavora@gmail.com>
 
 	* slime.el: Prefix all cl-functions with "cl-".
