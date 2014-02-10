@@ -1,3 +1,12 @@
+2014-02-10  João Távora  <joaotavora@gmail.com>
+
+	* sbcl-pprint-patch.lisp: Handle package-unlocking and error
+	clobbering in patch file itself, not its users.
+
+	* swank-sbcl.lisp (swank-backend::sbcl-wrap): Remove a warning.
+
+	* swank.asd: Cleanup some comments.
+
 2014-99-99  João Távora  <joaotavora@gmail.com>
 
 	* slime.el (slime-init-using-asdf): Fall back gracefully to

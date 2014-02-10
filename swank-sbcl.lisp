@@ -1905,7 +1905,8 @@ stack."
 (in-package :sb-int)
 
 (defun swank-backend::sbcl-wrap (spec before after replace)
-  (declare (special sb-int:basic-definition sb-int:arg-list))
+  (declare (special sb-int:basic-definition sb-int:arg-list)
+           (ignore spec))
   (let (retlist completed)
     (unwind-protect
          (progn
