@@ -7,7 +7,8 @@
 ;;; For additional swank-side configurations see
 ;;; 6.2 section of the Slime user manual.
 
-(load (merge-pathnames "swank-loader.lisp" *load-truename*))
+(load (make-pathname :name "swank-loader" :type "lisp"
+                     :defaults *load-truename*))
 
 (swank-loader:init
  :delete nil         ; delete any existing SWANK packages

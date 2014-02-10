@@ -142,7 +142,7 @@
 ;;; executing the SIGINT handler. We do not want to BREAK into that
 ;;; helper but into the main thread, though. This is coupled with the
 ;;; current choice of NIL as communication-style in so far as ECL's
-;;; main-thread is also the Slime's REPL thread.
+;;; main-thread is also the Sly's REPL thread.
 
 (defimplementation call-with-user-break-handler (real-handler function)
   (let ((old-handler #'si:terminal-interrupt))
@@ -394,6 +394,9 @@
 ;;; particular because it makes errors stemming from this file harder
 ;;; to debug, and given the "young" age of ECL's swank backend, that's
 ;;; a bad idea.
+;;;
+;;; Also before thinking whether to uncomment this consider that SLY
+;;; might not be loaded with swank-loader.lisp at all.
 
 ;; (defun in-swank-package-p (x)
 ;;   (and
