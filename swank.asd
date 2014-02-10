@@ -48,7 +48,7 @@
    (:file "swank-sbcl")
    #+scl
    (:file "swank-scl")
-   #+(or allegro clisp clozure cormanlisp ecl lispworks)
+   #+(or sbcl allegro clisp clozure cormanlisp ecl lispworks)
    (:file "swank-gray")
    (:file "swank-match")
    (:file "swank-rpc")

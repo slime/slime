@@ -1,4 +1,4 @@
-2014-02-10  João Távora  <joaotavora@gmail.com>
+2014-99-99  João Távora  <joaotavora@gmail.com>
 
 	* swank-presentation-streams.lisp [sbcl]: Simplify loading of
 	sbcl-pprint-patch when using swank-loader.lisp.
