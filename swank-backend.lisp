@@ -115,6 +115,20 @@ magic but really show every frame including SWANK related ones.")
   "List of interface functions that are not implemented.
 DEFINTERFACE adds to this list and DEFIMPLEMENTATION removes.")
 
+(define-method-combination interface ()
+  ((impl (implementation))
+   (dflt (default)))
+  (:generic-function gf)
+  (cond (impl
+	 (assert (= (length impl) 1) ()
+		 "More than one implementation method")
+	 `(call-method ,(car impl)))
+	(dflt
+	 (assert (= (length dflt) 1) ()
+		 "More than one default method")
+	 `(call-method ,(car dflt)))
+	(t (error "No implementation and no default method: ~s" gf))))
+
 (defmacro definterface (name args documentation &rest default-body)
   "Define an interface function for the backend to implement.
 A function is defined with NAME, ARGS, and DOCUMENTATION.  This
@@ -131,46 +145,22 @@ Backends implement these functions using DEFIMPLEMENTATION."
   (check-type documentation string "a documentation string")
   (assert (every #'symbolp args) ()
           "Complex lambda-list not supported: ~S ~S" name args)
-  (labels ((gen-default-impl ()
-             `(setf (get ',name 'default) (lambda ,args ,@default-body)))
-           (args-as-list (args)
-             (destructuring-bind (req opt key rest) (parse-lambda-list args)
-               `(,@req ,@opt 
-                       ,@(loop for k in key append `(,(kw k) ,k)) 
-                       ,@(or rest '(())))))
-           (parse-lambda-list (args)
-             (parse args '(&optional &key &rest) 
-                    (make-array 4 :initial-element nil)))
-           (parse (args keywords vars)
-             (cond ((null args) 
-                    (reverse (map 'list #'reverse vars)))
-                   ((member (car args) keywords)
-                    (parse (cdr args) (cdr (member (car args) keywords)) vars))
-                   (t (push (car args) (aref vars (length keywords)))
-                      (parse (cdr args) keywords vars))))
-           (kw (s) (intern (string s) :keyword)))
-    `(progn 
-       (defun ,name ,args
-         ,documentation
-         (let ((f (or (get ',name 'implementation)
-                      (get ',name 'default))))
-           (cond (f (apply f ,@(args-as-list args)))
-                 (t (error "~S not implemented" ',name)))))
-       (pushnew ',name *interface-functions*)
-       ,(if (null default-body)
-            `(pushnew ',name *unimplemented-interfaces*)
-            (gen-default-impl))
-       (eval-when (:compile-toplevel :load-toplevel :execute)
-         (export ',name :swank-backend))
-       ',name)))
+  `(progn
+     (defgeneric ,name ,args
+       (:method-combination interface)
+       ,@(if default-body
+             `((:method default ,args . ,default-body))))
+     (pushnew ',name *interface-functions*)
+     ,@(if (null default-body)
+           `((pushnew ',name *unimplemented-interfaces*)))
+     (export ',name :swank-backend)
+     ',name))
 
 (defmacro defimplementation (name args &body body)
   (assert (every #'symbolp args) ()
           "Complex lambda-list not supported: ~S ~S" name args)
   `(progn
-     (setf (get ',name 'implementation)
-           ;; For implicit BLOCK. FLET because of interplay w/ decls.
-           (flet ((,name ,args ,@body)) #',name))
+     (defmethod ,name implementation ,args . ,body)
      (if (member ',name *interface-functions*)
          (setq *unimplemented-interfaces*
                (remove ',name *unimplemented-interfaces*))
