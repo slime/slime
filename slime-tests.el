@@ -1162,106 +1162,119 @@ Reconnect afterwards."
                               (not (member hook slime-connected-hook)))
                             5))))
 
-(defun slime-test-recipe-test-for (recipe test-forms check-fn)
-  (let ((setup-recipe-file (make-temp-file "slime-setup-recipe-" nil ".el"))
-        (test-recipe-file (make-temp-file "slime-test-recipe-" nil ".el")))
-    (unwind-protect
-        (progn
-          (with-temp-buffer
-            (mapc #'insert (mapcar #'pp-to-string recipe))
-            (write-file setup-recipe-file))
-          (with-temp-buffer
-            (mapc #'insert (mapcar #'pp-to-string test-forms))
-            (write-file test-recipe-file))
-          (with-temp-buffer
-            (let ((retval (call-process (concat invocation-directory invocation-name)
-                                        nil (list t nil) nil
-                                        "-Q"  "--batch"
-                                        "-L" "."
-                                        "-l" setup-recipe-file
-                                        "-l" test-recipe-file)))
-              (funcall check-fn retval (buffer-string))))
-          (list setup-recipe-file test-recipe-file))
-      (delete-file test-recipe-file)
-      (delete-file setup-recipe-file))))
-
-(defvar slime-test-recipe-connect-forms
-  `((require 'cl)
-    (add-hook 'slime-connected-hook
+
+;;;; SLIME-loading tests that launch separate Emacsen
+;;;;
+(cl-defun slime-test-recipe-test-for (&key preflight
+                                           takeoff
+                                           landing)
+  
+  (let ((success nil)
+        (test-file (make-temp-file "slime-recipe-" nil ".el"))
+        (test-forms
+         `((require 'cl)
+           (labels
+               ((die
+                 (reason &optional more)
+                 (princ reason)
+                 (terpri)
+                 (and more (pp more))
+                 (kill-emacs 254)))
+             (condition-case err
+                 (progn ,@preflight)
+               (error
+                (die "Unexpected error running preflight forms"
+                     err)))
+             (add-hook
+              'slime-connected-hook
               #'(lambda ()
                   (condition-case err
                       (progn
-                        (unless (featurep 'slime-repl)
-                          (kill-emacs 222))
-                        (with-current-buffer (slime-repl-buffer)
-                          (princ (buffer-string)))
+                        ,@landing
                         (kill-emacs 0))
-                    (error (kill-emacs 223))))
+                    (error
+                     (die "Unexpected error running landing forms"
+                          err))))
               t)
-    (call-interactively 'slime)
-    (with-timeout (20 (kill-emacs 224))
-      (while t (sit-for 1)))))
-
-(defun slime-test-recipe-check-repl (retval output)
-  (cl-case retval
-    (222
-     (ert-fail (format "child emacs didn't setup slime-repl")))
-    (223
-     (ert-fail "child emacs errored, but at SLIME connected !"))
-    (224
-     (ert-fail "child emacs errored, SLIME didn't connect in time!"))
-    (t
-     (should (= 0 retval))
-     (should (string-match "^; +SLIME" (buffer-string)))
-     (should (string-match "CL-USER> *$" (buffer-string))))))
+             (condition-case err
+                 (progn
+                   ,@takeoff
+                   ,(when (null landing) '(kill-emacs 0)))
+               (error
+                (die "Unexpected error running takeoff forms"
+                     err)))
+             (with-timeout
+                 (20
+                  (die "Timeout waiting for recipe test to finish."
+                       takeoff))
+               (while t (sit-for 1)))))))
+    (unwind-protect
+        (progn
+          (with-temp-buffer
+            (mapc #'insert (mapcar #'pp-to-string test-forms))
+            (write-file test-file))
+          (with-temp-buffer
+            (let ((retval
+                   (call-process (concat invocation-directory invocation-name)
+                                 nil (list t nil) nil
+                                 "-Q" "--batch"
+                                 "-l" test-file)))
+              (unless (= 0 retval)
+                (ert-fail (buffer-substring
+                           (+ (goto-char (point-min)) (skip-chars-forward " \t\n"))
+                           (+ (goto-char (point-max)) (skip-chars-backward " \t\n")))))))
+          (setq success t))
+      (if success (delete-file test-file)
+        (message "Test failed: keeping %s for inspection" test-file)))))
 
 (define-slime-ert-test readme-recipe ()
-  "Test the README.md's recipe."
+  "Test the README.md's autoload recipe."
   (slime-test-recipe-test-for
-   `((add-to-list 'load-path
-                  ,(expand-file-name
-                    (or (and load-file-name
-                             (file-name-directory load-file-name))
-                        ".")))
-     (require 'slime-autoloads)
-     (setq inferior-lisp-program ,inferior-lisp-program)
-     (setq slime-contribs '(slime-fancy slime-repl)))
-   slime-test-recipe-connect-forms
-   #'slime-test-recipe-check-repl))
+   :preflight `((add-to-list 'load-path ,slime-path)
+                (require 'slime-autoloads)
+                (setq inferior-lisp-program ,inferior-lisp-program)
+                (setq slime-contribs '(slime-fancy)))
+   
+   :takeoff `((call-interactively 'slime))
+   
+   :landing `((should (and (featurep 'slime-repl)
+                           (find 'swank-repl slime-required-modules)))
+              (with-current-buffer (slime-repl-buffer)
+                (unless (and (string-match "^; +SLIME" (buffer-string))
+                             (string-match "CL-USER> *$" (buffer-string)))
+                  (die "REPL prompt not properly setup"
+                       (buffer-substring-no-properties (point-min) (point-max))))))))
+
+(define-slime-ert-test traditional-recipe ()
+  "Test the README.md's traditional recipe."
+  (slime-test-recipe-test-for
+   :preflight `((add-to-list 'load-path ,slime-path)
+                (require 'slime)
+                (setq inferior-lisp-program ,inferior-lisp-program)
+                (slime-setup '(slime-fancy)))
+   
+   :takeoff `((call-interactively 'slime))
+   
+   :landing `((should (and (featurep 'slime-repl)
+                           (find 'swank-repl slime-required-modules)))
+              (with-current-buffer (slime-repl-buffer)
+                (unless (and (string-match "^; +SLIME" (buffer-string))
+                             (string-match "CL-USER> *$" (buffer-string)))
+                  (die "REPL prompt not properly setup"
+                       (buffer-substring-no-properties (point-min) (point-max))))))))
 
 (define-slime-ert-test readme-recipe-autoload-on-lisp-visit ()
   "Test more autoload bits in README.md's installation recipe."
   (slime-test-recipe-test-for
-   `((add-to-list 'load-path
-                  ,(expand-file-name
-                    (or (and load-file-name
-                             (file-name-directory load-file-name))
-                        ".")))
-     (require 'slime-autoloads))
-   `((if (featurep 'slime)
-         (kill-emacs 254))
-     (find-file ,(make-temp-file "slime-lisp-source-file" nil ".lisp"))
-     (if (featurep 'slime)
-         (kill-emacs 0)
-       (kill-emacs 255)))
-   #'(lambda (retval output)
-       (cl-case retval
-         (254 (ert-fail "SLIME loaded too soon!"))
-         (255 (ert-fail "SLIME didn't load after visiting a lisp file!"))
-         (t (should (= 0 retval)))))))
+   :preflight `((add-to-list 'load-path ,slime-path)
+                (require 'slime-autoloads))
+   
+   :takeoff `((if (featurep 'slime)
+                  (die "Didn't expect SLIME to be loaded so early!"))
+              (find-file ,(make-temp-file "slime-lisp-source-file" nil ".lisp"))
+              (unless (featurep 'slime)
+                (die "Expected SLIME to be fully loaded by now")))))
 
-(define-slime-ert-test traditional-recipe ()
-  "Test the README.md's recipe."
-  (slime-test-recipe-test-for
-   `((add-to-list 'load-path
-                  ,(expand-file-name
-                    (or (and load-file-name
-                             (file-name-directory load-file-name))
-                        ".")))
-     (require 'slime)
-     (setq inferior-lisp-program ,inferior-lisp-program)
-     (slime-setup '(slime-fancy slime-repl)))
-   slime-test-recipe-connect-forms
-   #'slime-test-recipe-check-repl))
+
 
 (provide 'slime-tests)

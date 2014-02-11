@@ -67,6 +67,21 @@
 
 	* swank.asd : load the swank source code without calling swank-loader.
 
+2014-02-11  João Távora  <joaotavora@gmail.com>
+
+	* slime-tests.el (slime-test-recipe-test-for): Simplify and make
+	more powerful.
+	(slime-test-recipe-check-repl): Removed it
+	(readme-recipe-autoload-on-lisp-visit): Adapt to new
+	`slime-test-recipe-test-for'. More readable.
+	(readme-recipe, traditional-recipe): Idem.
+
+2014-02-10  João Távora  <joaotavora@gmail.com>
+
+	* slime.el (slime--setup-contribs): Init contribs if they've been
+	required somewhere else and not inserted into
+	`slime-required-modules'.
+
 2014-02-06  João Távora  <joaotavora@gmail.com>
 
 	* slime.el: Prefix all cl-functions with "cl-".

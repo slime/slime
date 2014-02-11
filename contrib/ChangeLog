@@ -6,6 +6,12 @@
 	* swank-presentation-streams.lisp [sbcl]: Simplify loading of
 	sbcl-pprint-patch when using swank-loader.lisp.
 
+2014-02-10  João Távora  <joaotavora@gmail.com>
+
+	* slime-autodoc.el (define-autodoc-tests): Use
+	`define-slime-ert-test' to automatically set the correct test
+	tags.
+
 2014-02-07  João Távora  <joaotavora@gmail.com>
 
 	* slime-presentations.el: Don't set

@@ -251,7 +251,7 @@ display multiline arglist"
         for skip-trailing-test-p = (cl-getf options :skip-trailing-test-p)
         for i from 1
         when (featurep 'ert)
-        collect `(ert-deftest ,(intern (format "autodoc-tests-%d" i))
+        collect `(define-slime-ert-test ,(intern (format "autodoc-tests-%d" i))
                      ()
                    ,(format "Check autodoc works ok for %s" buffer-sexpr)
                    ,@(if fails-for
@@ -264,7 +264,6 @@ display multiline arglist"
                                             ',fails-for)
                                     :failed
                                   :passed))))))
-                   :tags '(slime)
                    (slime-sync-to-top-level 0.3)
                    (slime-check-top-level)
                    (with-temp-buffer
