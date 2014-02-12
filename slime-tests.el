@@ -1165,48 +1165,55 @@ Reconnect afterwards."
 
 ;;;; SLIME-loading tests that launch separate Emacsen
 ;;;;
-(cl-defun slime-test-recipe-test-for (&key preflight
-                                           takeoff
-                                           landing)
-  
+(defvar slime-test-check-repl-forms
+  `((unless (and (featurep 'slime-repl)
+                 (find 'swank-repl slime-required-modules))
+      (die "`slime-repl' contrib not properly setup"))
+    (with-current-buffer (slime-repl-buffer)
+      (unless (and (string-match "^; +SLIME" (buffer-string))
+                   (string-match "CL-USER> *$" (buffer-string)))
+        (die "REPL prompt not properly setup"
+             (buffer-substring-no-properties (point-min) (point-max)))))))
+
+(defvar slime-test-check-asdf-loader-forms
+  `((when (slime-eval '(cl:and (cl:find-package :swank-loader) t))
+      (die "Didn't expect SLIME to be loaded with swank-loader.lisp"))))
+
+(cl-defun slime-test-recipe-test-for
+    (&key preflight
+          (takeoff   `((call-interactively 'slime)))
+          (landing   (append slime-test-check-repl-forms
+                             slime-test-check-asdf-loader-forms)))
   (let ((success nil)
         (test-file (make-temp-file "slime-recipe-" nil ".el"))
         (test-forms
          `((require 'cl)
            (labels
-               ((die
-                 (reason &optional more)
-                 (princ reason)
-                 (terpri)
-                 (and more (pp more))
-                 (kill-emacs 254)))
+               ((die (reason &optional more)
+                     (princ reason)
+                     (terpri)
+                     (and more (pp more))
+                     (kill-emacs 254)))
              (condition-case err
-                 (progn ,@preflight)
+                 (progn ,@preflight
+                        ,@takeoff
+                        ,(when (null landing) '(kill-emacs 0))
+                        (add-hook
+                         'slime-connected-hook
+                         #'(lambda ()
+                             (condition-case err
+                                 (progn
+                                   ,@landing
+                                   (kill-emacs 0))
+                               (error
+                                (die "Unexpected error running landing forms"
+                                     err))))
+                         t))
                (error
-                (die "Unexpected error running preflight forms"
-                     err)))
-             (add-hook
-              'slime-connected-hook
-              #'(lambda ()
-                  (condition-case err
-                      (progn
-                        ,@landing
-                        (kill-emacs 0))
-                    (error
-                     (die "Unexpected error running landing forms"
-                          err))))
-              t)
-             (condition-case err
-                 (progn
-                   ,@takeoff
-                   ,(when (null landing) '(kill-emacs 0)))
-               (error
-                (die "Unexpected error running takeoff forms"
-                     err)))
+                (die "Unexpected error running preflight/takeoff forms" err)))
              (with-timeout
                  (20
-                  (die "Timeout waiting for recipe test to finish."
-                       takeoff))
+                  (die "Timeout waiting for recipe test to finish."))
                (while t (sit-for 1)))))))
     (unwind-protect
         (progn
@@ -1220,61 +1227,63 @@ Reconnect afterwards."
                                  "-Q" "--batch"
                                  "-l" test-file)))
               (unless (= 0 retval)
-                (ert-fail (buffer-substring
-                           (+ (goto-char (point-min)) (skip-chars-forward " \t\n"))
-                           (+ (goto-char (point-max)) (skip-chars-backward " \t\n")))))))
+                (ert-fail (buffer-string)))))
           (setq success t))
-      (if success (delete-file test-file)
-        (message "Test failed: keeping %s for inspection" test-file)))))
-
-(define-slime-ert-test readme-recipe ()
-  "Test the README.md's autoload recipe."
-  (slime-test-recipe-test-for
-   :preflight `((add-to-list 'load-path ,slime-path)
-                (require 'slime-autoloads)
-                (setq inferior-lisp-program ,inferior-lisp-program)
-                (setq slime-contribs '(slime-fancy)))
-   
-   :takeoff `((call-interactively 'slime))
-   
-   :landing `((should (and (featurep 'slime-repl)
-                           (find 'swank-repl slime-required-modules)))
-              (with-current-buffer (slime-repl-buffer)
-                (unless (and (string-match "^; +SLIME" (buffer-string))
-                             (string-match "CL-USER> *$" (buffer-string)))
-                  (die "REPL prompt not properly setup"
-                       (buffer-substring-no-properties (point-min) (point-max))))))))
-
-(define-slime-ert-test traditional-recipe ()
-  "Test the README.md's traditional recipe."
-  (slime-test-recipe-test-for
-   :preflight `((add-to-list 'load-path ,slime-path)
-                (require 'slime)
-                (setq inferior-lisp-program ,inferior-lisp-program)
-                (slime-setup '(slime-fancy)))
-   
-   :takeoff `((call-interactively 'slime))
-   
-   :landing `((should (and (featurep 'slime-repl)
-                           (find 'swank-repl slime-required-modules)))
-              (with-current-buffer (slime-repl-buffer)
-                (unless (and (string-match "^; +SLIME" (buffer-string))
-                             (string-match "CL-USER> *$" (buffer-string)))
-                  (die "REPL prompt not properly setup"
-                       (buffer-substring-no-properties (point-min) (point-max))))))))
+    (if success (delete-file test-file)
+      (message "Test failed: keeping %s for inspection" test-file)))))
 
 (define-slime-ert-test readme-recipe-autoload-on-lisp-visit ()
   "Test more autoload bits in README.md's installation recipe."
   (slime-test-recipe-test-for
    :preflight `((add-to-list 'load-path ,slime-path)
                 (require 'slime-autoloads))
-   
+   :landing nil
    :takeoff `((if (featurep 'slime)
                   (die "Didn't expect SLIME to be loaded so early!"))
               (find-file ,(make-temp-file "slime-lisp-source-file" nil ".lisp"))
               (unless (featurep 'slime)
                 (die "Expected SLIME to be fully loaded by now")))))
 
+(define-slime-ert-test readme-recipe ()
+  "Test the README.md's autoload recipe."
+  (slime-test-recipe-test-for
+   :preflight `((add-to-list 'load-path ,slime-path)
+                (setq inferior-lisp-program ,inferior-lisp-program)
+                (require 'slime-autoloads)
+                (setq slime-contribs '(slime-fancy)))))
 
+(define-slime-ert-test traditional-recipe ()
+  "Test the README.md's traditional recipe."
+  (slime-test-recipe-test-for
+   :preflight `((add-to-list 'load-path ,slime-path)
+                (setq inferior-lisp-program ,inferior-lisp-program)
+                (require 'slime)
+                (slime-setup '(slime-fancy)))))
+
+(define-slime-ert-test swank-loader-fallback ()
+  "Test the `slime-init-using-asdf's fallback to swank-loader.lisp."
+  (slime-test-recipe-test-for
+   :preflight `((add-to-list 'load-path ,slime-path)
+                (setq inferior-lisp-program ,inferior-lisp-program)
+                (require 'slime-autoloads)
+                (setq slime-contribs '(slime-fancy))
+                (setq slime-init-function
+                      #'(lambda (&rest args)
+                          (pp-to-string
+                           `(progn
+                              ;; these two lines should render asdf
+                              ;; useless if the package already exist,
+                              ;; thus forcing slime to fallback to
+                              ;; swank-loader.lisp
+                              ;; 
+                              (defpackage :asdf)
+                              (eval (read-from-string
+                                     "(defun asdf::version-satisfies())"))
+                              (provide "asdf")
+                              ,(read (apply #'slime-init-using-asdf args))))))
+                (slime-setup '(slime-fancy)))
+   :landing `((unless (slime-eval '(cl:and (cl:find-package :swank-loader) t))
+                (die "Expected SLIME to be loaded with swank-loader.lisp"))
+              ,@slime-test-check-repl-forms)))
 
 (provide 'slime-tests)

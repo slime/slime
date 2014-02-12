@@ -1,5 +1,10 @@
 2014-99-99  João Távora  <joaotavora@gmail.com>
 
+	* slime-tests.el (slime-test-default-landing-forms): new var.
+	(slime-test-recipe-test-for): Simplify a little more.
+	(*-recipe-*): simplify
+	(swank-loader-fallback): new test.
+
 	* swank-loader.lisp (*load-path*): Moved up to avoid forward
 	reference.
 
