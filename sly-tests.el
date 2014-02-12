@@ -1236,48 +1236,55 @@ Reconnect afterwards."
 
 ;;;; SLY-loading tests that launch separate Emacsen
 ;;;;
-(cl-defun sly-test-recipe-test-for (&key preflight
-                                           takeoff
-                                           landing)
-  
+(defvar sly-test-check-repl-forms
+  `((unless (and (featurep 'sly-mrepl)
+                 (find 'swank-mrepl sly-required-modules))
+      (die "`sly-mrepl' contrib not properly setup"))
+    (with-current-buffer (sly-mrepl)
+      (unless (and (string-match "^; +SLY" (buffer-string))
+                   (string-match "CL-USER> *$" (buffer-string)))
+        (die "REPL prompt not properly setup"
+             (buffer-substring-no-properties (point-min) (point-max)))))))
+
+(defvar sly-test-check-asdf-loader-forms
+  `((when (sly-eval '(cl:and (cl:find-package :swank-loader) t))
+      (die "Didn't expect SLY to be loaded with swank-loader.lisp"))))
+
+(cl-defun sly-test-recipe-test-for
+    (&key preflight
+          (takeoff   `((call-interactively 'sly)))
+          (landing   (append sly-test-check-repl-forms
+                             sly-test-check-asdf-loader-forms)))
   (let ((success nil)
         (test-file (make-temp-file "sly-recipe-" nil ".el"))
         (test-forms
          `((require 'cl)
            (labels
-               ((die
-                 (reason &optional more)
-                 (princ reason)
-                 (terpri)
-                 (and more (pp more))
-                 (kill-emacs 254)))
+               ((die (reason &optional more)
+                     (princ reason)
+                     (terpri)
+                     (and more (pp more))
+                     (kill-emacs 254)))
              (condition-case err
-                 (progn ,@preflight)
+                 (progn ,@preflight
+                        ,@takeoff
+                        ,(when (null landing) '(kill-emacs 0))
+                        (add-hook
+                         'sly-connected-hook
+                         #'(lambda ()
+                             (condition-case err
+                                 (progn
+                                   ,@landing
+                                   (kill-emacs 0))
+                               (error
+                                (die "Unexpected error running landing forms"
+                                     err))))
+                         t))
                (error
-                (die "Unexpected error running preflight forms"
-                     err)))
-             (add-hook
-              'sly-connected-hook
-              #'(lambda ()
-                  (condition-case err
-                      (progn
-                        ,@landing
-                        (kill-emacs 0))
-                    (error
-                     (die "Unexpected error running landing forms"
-                          err))))
-              t)
-             (condition-case err
-                 (progn
-                   ,@takeoff
-                   ,(when (null landing) '(kill-emacs 0)))
-               (error
-                (die "Unexpected error running takeoff forms"
-                     err)))
+                (die "Unexpected error running preflight/takeoff forms" err)))
              (with-timeout
                  (20
-                  (die "Timeout waiting for recipe test to finish."
-                       takeoff))
+                  (die "Timeout waiting for recipe test to finish."))
                (while t (sit-for 1)))))))
     (unwind-protect
         (progn
@@ -1291,67 +1298,63 @@ Reconnect afterwards."
                                  "-Q" "--batch"
                                  "-l" test-file)))
               (unless (= 0 retval)
-                (ert-fail (buffer-substring
-                           (+ (goto-char (point-min))
-                              (skip-chars-forward " \t\n"))
-                           (+ (goto-char (point-max))
-                              (skip-chars-backward " \t\n")))))))
+                (ert-fail (buffer-string)))))
           (setq success t))
-      (if success (delete-file test-file)
-        (message "Test failed: keeping %s for inspection" test-file)))))
-
-(define-sly-ert-test readme-recipe ()
-  "Test the README.md's autoload recipe."
-  (sly-test-recipe-test-for
-   :preflight `((add-to-list 'load-path ,sly-path)
-                (require 'sly-autoloads)
-                (setq inferior-lisp-program ,inferior-lisp-program)
-                (setq sly-contribs '(sly-fancy)))
-   
-   :takeoff `((call-interactively 'sly))
-   
-   :landing `((unless (and (featurep 'sly-repl)
-                           (find 'swank-repl sly-required-modules))
-                (die "sly-repl not loaded properly"))
-              (with-current-buffer (sly-repl-buffer)
-                (unless (and (string-match "^; +SLY" (buffer-string))
-                             (string-match "CL-USER> *$" (buffer-string)))
-                  (die "REPL prompt not properly setup"
-                       (buffer-substring-no-properties (point-min)
-                                                       (point-max))))))))
-
-(define-sly-ert-test traditional-recipe ()
-  "Test the README.md's traditional recipe."
-  (sly-test-recipe-test-for
-   :preflight `((add-to-list 'load-path ,sly-path)
-                (require 'sly)
-                (setq inferior-lisp-program ,inferior-lisp-program)
-                (sly-setup '(sly-fancy)))
-   
-   :takeoff `((call-interactively 'sly))
-   
-   :landing `((unless (and (featurep 'sly-repl)
-                           (find 'swank-repl sly-required-modules))
-                (die "sly-repl not loaded properly"))
-              (with-current-buffer (sly-repl-buffer)
-                (unless (and (string-match "^; +SLY" (buffer-string))
-                             (string-match "CL-USER> *$" (buffer-string)))
-                  (die "REPL prompt not properly setup"
-                       (buffer-substring-no-properties (point-min)
-                                                       (point-max))))))))
+    (if success (delete-file test-file)
+      (message "Test failed: keeping %s for inspection" test-file)))))
 
 (define-sly-ert-test readme-recipe-autoload-on-lisp-visit ()
   "Test more autoload bits in README.md's installation recipe."
   (sly-test-recipe-test-for
    :preflight `((add-to-list 'load-path ,sly-path)
                 (require 'sly-autoloads))
-   
+   :landing nil
    :takeoff `((if (featurep 'sly)
                   (die "Didn't expect SLY to be loaded so early!"))
               (find-file ,(make-temp-file "sly-lisp-source-file" nil ".lisp"))
               (unless (featurep 'sly)
                 (die "Expected SLY to be fully loaded by now")))))
 
+(define-sly-ert-test readme-recipe ()
+  "Test the README.md's autoload recipe."
+  (sly-test-recipe-test-for
+   :preflight `((add-to-list 'load-path ,sly-path)
+                (setq inferior-lisp-program ,inferior-lisp-program)
+                (require 'sly-autoloads)
+                (setq sly-contribs '(sly-fancy)))))
 
+(define-sly-ert-test traditional-recipe ()
+  "Test the README.md's traditional recipe."
+  (sly-test-recipe-test-for
+   :preflight `((add-to-list 'load-path ,sly-path)
+                (setq inferior-lisp-program ,inferior-lisp-program)
+                (require 'sly)
+                (sly-setup '(sly-fancy)))))
+
+(define-sly-ert-test swank-loader-fallback ()
+  "Test the `sly-init-using-asdf's fallback to swank-loader.lisp."
+  (sly-test-recipe-test-for
+   :preflight `((add-to-list 'load-path ,sly-path)
+                (setq inferior-lisp-program ,inferior-lisp-program)
+                (require 'sly-autoloads)
+                (setq sly-contribs '(sly-fancy))
+                (setq sly-init-function
+                      #'(lambda (&rest args)
+                          (pp-to-string
+                           `(progn
+                              ;; these two lines should render asdf
+                              ;; useless if the package already exist,
+                              ;; thus forcing sly to fallback to
+                              ;; swank-loader.lisp
+                              ;; 
+                              (defpackage :asdf)
+                              (eval (read-from-string
+                                     "(defun asdf::version-satisfies())"))
+                              (provide "asdf")
+                              ,(read (apply #'sly-init-using-asdf args))))))
+                (sly-setup '(sly-fancy)))
+   :landing `((unless (sly-eval '(cl:and (cl:find-package :swank-loader) t))
+                (die "Expected SLY to be loaded with swank-loader.lisp"))
+              ,@sly-test-check-repl-forms)))
 
 (provide 'sly-tests)
