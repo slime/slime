@@ -1,3 +1,13 @@
+2014-02-18  Helmut Eller  <heller@common-lisp.net>
+
+	Use a custom method-combination for definterface.
+
+	This should give better M-. support.
+
+	* swank-backend.lisp ([method-combinations] interface): New
+	(definterface, defimplementation): Use it.
+	* swank-backend.lisp: Whitespace cleanup.
+
 2014-02-17  Mark Evenson  <evenson@panix.com>
 
 	* swank-abcl.lisp (describe-definition): Describe macros.
