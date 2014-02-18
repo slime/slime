@@ -1,5 +1,22 @@
 2014-02-18  Helmut Eller  <heller@common-lisp.net>
 
+	Create separate Makefile for contribs.
+
+	* .travis.yml (env): Use contrib-% targets.
+	(script): Use make variables instead of env vars.
+
+	* Makefile (EMACS): Renamed from EMACS_BIN.
+	(LISP): Renamed from LISP_BIN.
+	(ELFILES, ELCFILES): New vars.
+	(default, all, help, help-vars): New targets.
+	(compile): Don't compile contribs.
+	(check): Don't put contrib/ into load-path.
+	(contrib-check-%): Renamed from check-%.
+	(contrib-elpa-%): Renamed from elpa-%.
+	(contrib-compile): New.
+
+2014-02-18  Helmut Eller  <heller@common-lisp.net>
+
 	Use a custom method-combination for definterface.
 
 	This should give better M-. support.

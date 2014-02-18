@@ -1,3 +1,8 @@
+2014-02-18  Helmut Eller  <heller@common-lisp.net>
+
+	* Makefile: New file
+	(elpa-%, check-%): Moved to here from core.
+
 2014-02-10  João Távora  <joaotavora@gmail.com>
 
 	* slime-autodoc.el (define-autodoc-tests): Use
