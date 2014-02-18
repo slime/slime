@@ -1,5 +1,12 @@
 2014-02-18  Helmut Eller  <heller@common-lisp.net>
 
+	Use prin1-to-string instead of with-temp-buffer.
+
+	* slime.el (slime-prin1-to-string): It's simpler and avoids some
+	of the deactivate-mark issues.
+
+2014-02-18  Helmut Eller  <heller@common-lisp.net>
+
 	Create separate Makefile for contribs.
 
 	* .travis.yml (env): Use contrib-% targets.

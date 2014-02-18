@@ -1698,13 +1698,11 @@ EVAL'd by Lisp."
 (defun slime-prin1-to-string (sexp)
   "Like `prin1-to-string' but don't octal-escape non-ascii characters.
 This is more compatible with the CL reader."
-  (with-temp-buffer
-    (let (print-escape-nonascii
-          print-escape-newlines
-          print-length
-          print-level)
-      (prin1 sexp (current-buffer))
-      (buffer-string))))
+  (let (print-escape-nonascii
+        print-escape-newlines
+        print-length
+        print-level)
+    (prin1-to-string sexp)))
 
 
 ;;;; Connections
