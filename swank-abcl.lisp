@@ -299,7 +299,7 @@
 
 (defimplementation describe-definition (symbol namespace)
   (ecase namespace
-    (:variable 
+    ((:variable :macro)
      (describe symbol))
     ((:function :generic-function)
      (describe (symbol-function symbol)))
