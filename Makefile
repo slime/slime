@@ -17,7 +17,7 @@ default: compile contrib-compile
 all: compile
 
 help:
-	@echo -e "\
+	@printf "\
 Main targets\n\
 all        -- see compile\n\
 compile    -- compile .el files\n\
@@ -25,14 +25,14 @@ check      -- run tests in batch mode\n\
 clean      -- delete generated files\n\
 doc-help   -- print help about doc targets\n\
 help-vars  -- print info about variables\n\
-help       -- print this message"
+help       -- print this message\n"
 
 help-vars:
-	@echo -e "\
+	@printf "\
 Main make variables:\n\
 EMACS     -- program to start Emacs ($(EMACS))\n\
 LISP      -- program to start Lisp ($(LISP))\n\
-SELECTOR  -- selector for ERT tests ($(SELECTOR))"
+SELECTOR  -- selector for ERT tests ($(SELECTOR))\n"
 
 # Compilation
 #
