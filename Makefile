@@ -30,8 +30,9 @@ help       -- print this message"
 help-vars:
 	@echo -e "\
 Main make variables:\n\
-EMACS  -- program to start Emacs ($(EMACS))\n\
-LISP   -- program to start Lisp ($(LISP))"
+EMACS     -- program to start Emacs ($(EMACS))\n\
+LISP      -- program to start Lisp ($(LISP))\n\
+SELECTOR  -- selector for ERT tests ($(SELECTOR))"
 
 # Compilation
 #
