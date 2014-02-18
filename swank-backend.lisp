@@ -148,6 +148,7 @@ Backends implement these functions using DEFIMPLEMENTATION."
   `(progn
      (defgeneric ,name ,args
        (:method-combination interface)
+       (:documentation ,documentation)
        ,@(if default-body
              `((:method default ,args . ,default-body))))
      (pushnew ',name *interface-functions*)
