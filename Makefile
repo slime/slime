@@ -53,7 +53,7 @@ check: compile
 		--eval "(require 'slime-tests)"				\
 		--eval "(slime-setup)"					\
 		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
-		--eval "(slime-batch-test $(SELECTOR))"		\
+		--eval "(slime-batch-test $(SELECTOR))"
 
 elpa-slime:
 	echo "Not implemented yet: elpa-slime target" && exit 255
