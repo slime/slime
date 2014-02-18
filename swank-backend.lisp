@@ -120,13 +120,13 @@ DEFINTERFACE adds to this list and DEFIMPLEMENTATION removes.")
    (dflt (default)))
   (:generic-function gf)
   (cond (impl
-	 (assert (= (length impl) 1) ()
-		 "More than one implementation method")
-	 `(call-method ,(car impl)))
+         (assert (= (length impl) 1) ()
+                 "More than one implementation method")
+         `(call-method ,(car impl)))
 	(dflt
-	 (assert (= (length dflt) 1) ()
-		 "More than one default method")
-	 `(call-method ,(car dflt)))
+         (assert (= (length dflt) 1) ()
+                 "More than one default method")
+         `(call-method ,(car dflt)))
 	(t (error "No implementation and no default method: ~s" gf))))
 
 (defmacro definterface (name args documentation &rest default-body)
@@ -239,7 +239,7 @@ EXCEPT is a list of symbol names which should be ignored."
     (let ((tmp (gensym "OO-")))
       ` (let ((,tmp ,obj))
           (symbol-macrolet
-              ,(loop for name in names collect 
+              ,(loop for name in names collect
                      (typecase name
                        (symbol `(,name (,(reader name) ,tmp)))
                        (cons `(,(first name) (,(reader (second name)) ,tmp)))
@@ -279,18 +279,18 @@ EXCEPT is a list of symbol names which should be ignored."
            (values (cond ((<= code #xff) (code-char code))
                          ((<= #xd800 code #xdfff)
                           (error "Invalid Unicode code point: #x~x" code))
-                         ((and (< code char-code-limit) 
+                         ((and (< code char-code-limit)
                                (code-char code)))
                          (t
                           (error
                            "Can't represent code point: #x~x ~
-                            (char-code-limit is #x~x)" 
+                            (char-code-limit is #x~x)"
                            code char-code-limit)))
                    (+ index n))))))
 
 ;; Decode one character in BUFFER starting at INDEX.
 ;; Return 2 values: the character and the new index.
-;; If there aren't enough bytes between INDEX and LIMIT return nil. 
+;; If there aren't enough bytes between INDEX and LIMIT return nil.
 (defun utf8-decode (buffer index limit)
   (declare (type octets buffer) (fixnum index limit))
   (if (= index limit)
@@ -447,7 +447,7 @@ BACKLOG queue length for incoming connections.")
 
 (definterface accept-connection (socket &key external-format
                                         buffering timeout)
-   "Accept a client connection on the listening socket SOCKET.  
+   "Accept a client connection on the listening socket SOCKET.
 Return a stream for the new connection.
 If EXTERNAL-FORMAT is nil return a binary stream
 otherwise create a character stream.
@@ -611,7 +611,7 @@ value.
 Should return T on successful compilation, NIL otherwise.
 ")
 
-(definterface swank-compile-file (input-file output-file load-p 
+(definterface swank-compile-file (input-file output-file load-p
                                              external-format
                                              &key policy)
    "Compile INPUT-FILE signalling COMPILE-CONDITIONs.
@@ -626,7 +626,7 @@ value.
 Should return OUTPUT-TRUENAME, WARNINGS-P and FAILURE-p
 like `compile-file'")
 
-(deftype severity () 
+(deftype severity ()
   '(member :error :read-error :warning :style-warning :note :redefinition))
 
 ;; Base condition type for compiler errors, warnings and notes.
@@ -674,7 +674,7 @@ Return nil if the file contains no special markers."
   (with-open-file (s pathname :if-does-not-exist nil
                      :external-format (or (find-external-format "latin-1-unix")
                                           :default))
-    (if s 
+    (if s
         (or (let* ((line (read-line s nil))
                    (p (search "-*-" line)))
               (when p
@@ -743,15 +743,15 @@ additional information on the specifiers defined in ANSI Common Lisp.")
       (inline         '(&rest function-names))
       (notinline      '(&rest function-names))
       (declaration    '(&rest names))
-      (optimize       '(&any compilation-speed debug safety space speed))  
+      (optimize       '(&any compilation-speed debug safety space speed))
       (type           '(type-specifier &rest args))
       (ftype          '(type-specifier &rest function-names))
       (otherwise
-       (flet ((typespec-p (symbol) 
+       (flet ((typespec-p (symbol)
                 (member :type (describe-symbol-for-emacs symbol))))
          (cond ((and (symbolp decl-identifier) (typespec-p decl-identifier))
                 '(&rest variables))
-               ((and (listp decl-identifier) 
+               ((and (listp decl-identifier)
                      (typespec-p (first decl-identifier)))
                 '(&rest variables))
                (t :not-available)))))))
@@ -804,7 +804,7 @@ If FORM is a function call for which a compiler-macro has been
 defined, invoke the expander function using *macroexpand-hook* and
 return the results and T.  Otherwise, return the original form and
 NIL."
-  (let ((fun (and (consp form) 
+  (let ((fun (and (consp form)
                   (valid-function-name-p (car form))
                   (compiler-macro-function (car form)))))
     (if fun
@@ -815,11 +815,11 @@ NIL."
 (definterface compiler-macroexpand (form &optional env)
   "Repetitively call `compiler-macroexpand-1'."
   (labels ((frob (form expanded)
-	     (multiple-value-bind (new-form newly-expanded)
-		 (compiler-macroexpand-1 form env)
-	       (if newly-expanded
-		   (frob new-form t)
-		   (values new-form expanded)))))
+             (multiple-value-bind (new-form newly-expanded)
+                 (compiler-macroexpand-1 form env)
+               (if newly-expanded
+                   (frob new-form t)
+                   (values new-form expanded)))))
     (frob form env)))
 
 (definterface format-string-expand (control-string)
@@ -887,7 +887,7 @@ HOOK should be called for both BREAK and INVOKE-DEBUGGER."
     :initarg :original-condition
     :accessor original-condition))
   (:report (lambda (condition stream)
-             (format stream "Condition in debugger code~@[: ~A~]" 
+             (format stream "Condition in debugger code~@[: ~A~]"
                      (original-condition condition))))
   (:documentation
    "Wrapper for conditions that should not be debugged.
@@ -1010,7 +1010,7 @@ The allowed elements are of the form:
 
 (definterface sldb-break-at-start (symbol)
   "Set a breakpoint on the beginning of the function for SYMBOL.")
-  
+
 (definterface sldb-stepper-condition-p (condition)
   "Return true if SLDB was invoked due to a single-stepping condition,
 false otherwise. "
@@ -1067,7 +1067,7 @@ returns.")
   (cond ((typep datum 'condition)
          `(:error ,(format nil "Error: ~A" datum)))
         ((symbolp datum)
-         `(:error ,(format nil "Error: ~A" 
+         `(:error ,(format nil "Error: ~A"
                            (apply #'make-condition datum args))))
         (t
          (assert (stringp datum))
@@ -1213,7 +1213,7 @@ SPEC can be:
  (:defmethod NAME QUALIFIER... (SPECIALIZER...)) ; a specific method
  (:defgeneric NAME)                     ; a generic function with all methods
  (:call CALLER CALLEE)                  ; trace calls from CALLER to CALLEE.
- (:labels TOPLEVEL LOCAL) 
+ (:labels TOPLEVEL LOCAL)
  (:flet TOPLEVEL LOCAL) ")
 
 
@@ -1256,7 +1256,7 @@ output of CL:DESCRIBE."
   '())
 
 ;;; Utilities for inspector methods.
-;;; 
+;;;
 
 (defun label-value-line (label value &key (newline t))
   "Create a control list which prints \"LABEL: VALUE\" in the inspector.
@@ -1374,7 +1374,7 @@ created thread.  This function sets the form which is used to produce
 the initial value."
   (set var (eval form)))
 
-;; List of delayed interrupts.  
+;; List of delayed interrupts.
 ;; This should only have thread-local bindings, so no init form.
 (defvar *pending-slime-interrupts*)
 
@@ -1406,7 +1406,7 @@ return nil.
 Return :interrupt if an interrupt occurs while waiting.")
 
 
-;;;;  Locks 
+;;;;  Locks
 
 ;; Please use locks only in swank-gray.lisp.  Locks are too low-level
 ;; for our taste.
