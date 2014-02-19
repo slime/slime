@@ -37,12 +37,10 @@ SELECTOR  -- selector for ERT tests ($(SELECTOR))\n"
 # Compilation
 #
 %.elc: %.el
-	$(EMACS) -Q $(LOAD_PATH) --batch \
-		-f batch-byte-compile $<
+	$(EMACS) -Q $(LOAD_PATH) --batch -f batch-byte-compile $<
 
 compile: $(ELCFILES)
-	$(EMACS) -Q --batch \
-		--eval "(batch-byte-recompile-directory 0)" ./lib
+	$(EMACS) -Q --batch --eval "(batch-byte-recompile-directory 0)" ./lib
 
 # Automated tests
 #
@@ -53,7 +51,7 @@ check: compile
 		--eval "(require 'slime-tests)"				\
 		--eval "(slime-setup)"					\
 		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
-		--eval "(slime-batch-test $(SELECTOR))"
+		--eval "(slime-batch-test (quote $(SELECTOR)))"
 
 elpa-slime:
 	echo "Not implemented yet: elpa-slime target" && exit 255
