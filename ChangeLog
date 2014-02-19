@@ -1,5 +1,11 @@
 2014-02-19  Helmut Eller  <heller@common-lisp.net>
 
+	Don't bind byte-compile-warnings while autoloading 'bytecomp.
+
+	* slime.el (slime--byte-compile): New function.
+	(slime--compile-hotspots): Use it.
+
+2014-02-19  Helmut Eller  <heller@common-lisp.net>
 	* Makefile (check): Quote selector.
 
 2014-02-19  Helmut Eller  <heller@common-lisp.net>

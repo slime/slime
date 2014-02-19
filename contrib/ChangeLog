@@ -1,5 +1,6 @@
 2014-02-19  Helmut Eller  <heller@common-lisp.net>
 
+	* slime-repl.el: Load 'bytecomp before binding byte-compile-warnings.
 	* slime-scratch.el: eval-and-compile is redundant around require.
 	* inferior-slime.el: Whitespace cleanup.
 

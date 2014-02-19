@@ -1765,6 +1765,8 @@ while ignoring the repl prompt text."
                                      (slime-repl-sexp-at-point))))
   (slime-inspect string))
 
+(require 'bytecomp)
+(cl-assert (boundp 'byte-compile-warnings))
 (let ((byte-compile-warnings '()))
   (mapc #'byte-compile
 	'(slime-repl-event-hook-function

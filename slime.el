@@ -65,9 +65,6 @@
   (if (< emacs-major-version 23)
       (error "Slime requires an Emacs version of 23, or above")))
 
-;;(eval-when-compile
-;;  (require 'cl))
-
 (require 'hyperspec "lib/hyperspec")
 (require 'thingatpt)
 (require 'comint)
@@ -8117,30 +8114,37 @@ If they are not, position point at the first syntax error found."
 
 ;;;; Finishing up
 
-(defun slime--compile-hotspots ()
+(eval-when-compile
+  (require 'bytecomp))
+
+(defun slime--byte-compile (symbol)
+  (require 'bytecomp) ;; tricky interaction between autoload and let.
   (let ((byte-compile-warnings '()))
-    (mapc (lambda (sym)
-            (cond ((fboundp sym)
-                   (unless (byte-code-function-p (symbol-function sym))
-                     (byte-compile sym)))
-                  (t (error "%S is not fbound." sym))))
-          '(slime-alistify
-            slime-log-event
-            slime-events-buffer
-            slime-process-available-input
-            slime-dispatch-event
-            slime-net-filter
-            slime-net-have-input-p
-            slime-net-decode-length
-            slime-net-read
-            slime-print-apropos
-            slime-insert-propertized
-            slime-beginning-of-symbol
-            slime-end-of-symbol
-            slime-eval-feature-expression
-            slime-forward-sexp
-            slime-forward-cruft
-            slime-forward-reader-conditional))))
+    (byte-compile symbol)))
+
+(defun slime--compile-hotspots ()
+  (mapc (lambda (sym)
+          (cond ((fboundp sym)
+                 (unless (byte-code-function-p (symbol-function sym))
+                   (slime--byte-compile sym)))
+                (t (error "%S is not fbound" sym))))
+        '(slime-alistify
+          slime-log-event
+          slime-events-buffer
+          slime-process-available-input
+          slime-dispatch-event
+          slime-net-filter
+          slime-net-have-input-p
+          slime-net-decode-length
+          slime-net-read
+          slime-print-apropos
+          slime-insert-propertized
+          slime-beginning-of-symbol
+          slime-end-of-symbol
+          slime-eval-feature-expression
+          slime-forward-sexp
+          slime-forward-cruft
+          slime-forward-reader-conditional)))
 
 (slime--compile-hotspots)
 
