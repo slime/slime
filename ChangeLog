@@ -1,3 +1,9 @@
+2014-02-19  Helmut Eller  <heller@common-lisp.net>
+
+	Don't try to compile already compile functions.
+
+	* slime.el (slime--compile-hotspots): New function.
+
 2014-02-18  Helmut Eller  <heller@common-lisp.net>
 
 	Use prin1-to-string instead of with-temp-buffer.

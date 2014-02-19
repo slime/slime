@@ -8117,29 +8117,35 @@ If they are not, position point at the first syntax error found."
 
 ;;;; Finishing up
 
-(require 'bytecomp)
-(let ((byte-compile-warnings '()))
-  (mapc (lambda (sym)
-          (cond ((fboundp sym) (byte-compile sym))
-                (t (error "%S is not fbound." sym))))
-        '(slime-alistify
-          slime-log-event
-          slime-events-buffer
-          slime-process-available-input
-          slime-dispatch-event
-          slime-net-filter
-          slime-net-have-input-p
-          slime-net-decode-length
-          slime-net-read
-          slime-print-apropos
-          slime-insert-propertized
-          slime-beginning-of-symbol
-          slime-end-of-symbol
-          slime-eval-feature-expression
-          slime-forward-sexp
-          slime-forward-cruft
-          slime-forward-reader-conditional
-          )))
+(eval-when-compile
+  (require 'bytecomp))
+
+(defun slime--compile-hotspots ()
+  (let ((byte-compile-warnings '()))
+    (mapc (lambda (sym)
+            (cond ((fboundp sym)
+                   (unless (byte-code-function-p (symbol-function sym))
+                     (byte-compile sym)))
+                  (t (error "%S is not fbound." sym))))
+          '(slime-alistify
+            slime-log-event
+            slime-events-buffer
+            slime-process-available-input
+            slime-dispatch-event
+            slime-net-filter
+            slime-net-have-input-p
+            slime-net-decode-length
+            slime-net-read
+            slime-print-apropos
+            slime-insert-propertized
+            slime-beginning-of-symbol
+            slime-end-of-symbol
+            slime-eval-feature-expression
+            slime-forward-sexp
+            slime-forward-cruft
+            slime-forward-reader-conditional))))
+
+(slime--compile-hotspots)
 
 (provide 'slime)
 
