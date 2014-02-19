@@ -1,5 +1,6 @@
 2014-02-19  Helmut Eller  <heller@common-lisp.net>
 
+	* slime-scratch.el: eval-and-compile is redundant around require.
 	* inferior-slime.el: Whitespace cleanup.
 
 2014-02-19  Helmut Eller  <heller@common-lisp.net>
