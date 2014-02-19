@@ -11,6 +11,8 @@
 ;;   (add-hook 'slime-load-hook (lambda () (require 'inferior-slime)))
 ;;   (add-hook 'inferior-lisp-mode-hook (lambda () (inferior-slime-mode 1)))
 
+(require 'slime)
+
 (define-minor-mode inferior-slime-mode
   "\\<slime-mode-map>\
 Inferior SLIME mode: The Inferior Superior Lisp Mode for Emacs.
