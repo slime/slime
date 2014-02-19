@@ -1,5 +1,9 @@
 2014-02-19  Helmut Eller  <heller@common-lisp.net>
 
+	* inferior-slime.el: Whitespace cleanup.
+
+2014-02-19  Helmut Eller  <heller@common-lisp.net>
+
 	* inferior-slime.el: Require 'slime for macros at compile time.
 
 2014-02-18  Helmut Eller  <heller@common-lisp.net>
