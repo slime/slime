@@ -135,21 +135,21 @@ Backends implement these functions using DEFIMPLEMENTATION."
              `(setf (get ',name 'default) (lambda ,args ,@default-body)))
            (args-as-list (args)
              (destructuring-bind (req opt key rest) (parse-lambda-list args)
-               `(,@req ,@opt 
-                       ,@(loop for k in key append `(,(kw k) ,k)) 
+               `(,@req ,@opt
+                       ,@(loop for k in key append `(,(kw k) ,k))
                        ,@(or rest '(())))))
            (parse-lambda-list (args)
-             (parse args '(&optional &key &rest) 
+             (parse args '(&optional &key &rest)
                     (make-array 4 :initial-element nil)))
            (parse (args keywords vars)
-             (cond ((null args) 
+             (cond ((null args)
                     (reverse (map 'list #'reverse vars)))
                    ((member (car args) keywords)
                     (parse (cdr args) (cdr (member (car args) keywords)) vars))
                    (t (push (car args) (aref vars (length keywords)))
                       (parse (cdr args) keywords vars))))
            (kw (s) (intern (string s) :keyword)))
-    `(progn 
+    `(progn
        (defun ,name ,args
          ,documentation
          (let ((f (or (get ',name 'implementation)
