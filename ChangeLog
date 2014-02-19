@@ -1,5 +1,15 @@
 2014-02-19  Helmut Eller  <heller@common-lisp.net>
 
+	The method-combination idea doesn't fly.
+
+	Can't call generic functions from SBCL compiler because of
+	deadlocks.
+
+	* swank-backend.lisp ([method-combination] interface): Deleted.
+	(definterface, defimplementation): Restore old implementation.
+
+2014-02-19  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el: Break long lines.
 
 2014-02-19  Helmut Eller  <heller@common-lisp.net>
