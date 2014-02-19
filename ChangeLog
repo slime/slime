@@ -1,5 +1,9 @@
 2014-02-19  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-load-hook): Run load-hook the end.
+
+2014-02-19  Helmut Eller  <heller@common-lisp.net>
+
 	Don't try to compile already compile functions.
 
 	* slime.el (slime--compile-hotspots): New function.

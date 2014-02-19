@@ -65,8 +65,8 @@
   (if (< emacs-major-version 23)
       (error "Slime requires an Emacs version of 23, or above")))
 
-(eval-when-compile
-  (require 'cl))
+;;(eval-when-compile
+;;  (require 'cl))
 
 (require 'hyperspec "lib/hyperspec")
 (require 'thingatpt)
@@ -8117,9 +8117,6 @@ If they are not, position point at the first syntax error found."
 
 ;;;; Finishing up
 
-(eval-when-compile
-  (require 'bytecomp))
-
 (defun slime--compile-hotspots ()
   (let ((byte-compile-warnings '()))
     (mapc (lambda (sym)
@@ -8147,6 +8144,7 @@ If they are not, position point at the first syntax error found."
 
 (slime--compile-hotspots)
 
+(run-hooks 'slime-load-hook)
 (provide 'slime)
 
 ;; Local Variables:
