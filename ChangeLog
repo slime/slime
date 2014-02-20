@@ -1,3 +1,12 @@
+2014-02-20  Helmut Eller  <heller@common-lisp.net>
+
+	Use *macroexpand-hook* in sbcl-world-lock test.
+
+	This deadlocks when executed with cold dispatch caches, e.g. with:
+	make SELECTOR=sbcl-world-lock-1 LISP=sbcl check
+
+	* slime-tests.el (sbcl-world-lock): Use *macroexpand-hook*.
+
 2014-02-19  Helmut Eller  <heller@common-lisp.net>
 
 	The method-combination idea doesn't fly.

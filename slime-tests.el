@@ -1101,15 +1101,22 @@ CONTINUES  ... how often the continue restart should be invoked"
 
 (def-slime-test sbcl-world-lock
     (n delay)
-    "Print something inside WITH-COMPILATION-UNIT.
-In SBCL, WITH-COMPILATION-UNIT grabs the world lock and this tests that
-we can grab it recursivly."
-    '((10 0.03))
+    "Print something from *MACROEXPAND-HOOK*.
+In SBCL, the compiler grabs a lock which can be problematic because
+no method dispatch code can be generated for other threads.
+This test will more likely fail before dispatch caches are warmed up."
+    '((10 0.03)
+      ;;((cl:+ swank::send-counter-limit 10) 0.03)
+      )
   (slime-test-expect "no error"
-                     t
-                     (slime-eval `(cl:with-compilation-unit ()
-                                    (swank:flow-control-test ,n ,delay)
-                                    t))))
+		     123
+		     (slime-eval
+		      `(cl:let ((cl:*macroexpand-hook*
+				 (cl:lambda (fun form env)
+					    (swank:flow-control-test ,n ,delay)
+					    (cl:funcall fun form env))))
+			       (cl:eval '(cl:macrolet ((foo () 123))
+					   (foo)))))))
 
 (def-slime-test (disconnect-one-connection (:style :spawn)) ()
     "`slime-disconnect' should disconnect only the current connection"
