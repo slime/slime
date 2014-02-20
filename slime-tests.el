@@ -1104,7 +1104,7 @@ CONTINUES  ... how often the continue restart should be invoked"
     "Print something from *MACROEXPAND-HOOK*.
 In SBCL, the compiler grabs a lock which can be problematic because
 no method dispatch code can be generated for other threads.
-This test will more likely fail before dispatch caches are warmed up."
+This test will fail more likely before dispatch caches are warmed up."
     '((10 0.03)
       ;;((cl:+ swank::send-counter-limit 10) 0.03)
       )
