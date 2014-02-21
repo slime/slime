@@ -201,6 +201,9 @@ set to an absolute filename."
   :type 'string
   :group 'sly-lisp)
 
+(define-obsolete-variable-alias 'sly-backend
+'sly-swank-loader-backend "3.0")
+
 (defcustom sly-connected-hook nil
   "List of functions to call when SLY connects to Lisp."
   :type 'hook
