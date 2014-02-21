@@ -211,6 +211,9 @@ set to an absolute filename."
   :type 'string
   :group 'slime-lisp)
 
+(define-obsolete-variable-alias 'slime-backend
+'slime-swank-loader-backend "3.0")
+
 (defcustom slime-connected-hook nil
   "List of functions to call when SLIME connects to Lisp."
   :type 'hook

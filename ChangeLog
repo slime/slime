@@ -35,6 +35,9 @@
 	(*-recipe-*): simplify
 	(swank-loader-fallback): new test.
 
+	* slime.el (slime-backend, slime-swank-loader-backend): The former
+	is an obsoletion alias to the latter.
+
 	* swank-loader.lisp (*load-path*): Moved up to avoid forward
 	reference.
 
