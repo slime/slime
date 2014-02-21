@@ -5,12 +5,11 @@
 ;;
 ;;; Installation:
 ;;
-;; Add something like this to your .emacs:
+;; Add something like this to your .emacs: 
 ;;
 ;;   (add-to-list 'load-path "<directory-of-this-file>")
 ;;   (add-hook 'slime-load-hook (lambda () (require 'inferior-slime)))
 ;;   (add-hook 'inferior-lisp-mode-hook (lambda () (inferior-slime-mode 1)))
-
 (require 'slime)
 
 (define-minor-mode inferior-slime-mode
@@ -75,7 +74,7 @@ A prefix argument disables this behaviour."
   "Set default-directory in the *inferior-lisp* buffer to DIRECTORY."
   (let* ((proc (slime-process))
 	 (buffer (and proc (process-buffer proc))))
-    (when buffer
+    (when buffer 
       (with-current-buffer buffer
 	(cd-absolute directory)))))
 
@@ -108,7 +107,7 @@ A prefix argument disables this behaviour."
   (let ((proc (slime-inferior-process)))
     (when proc
       (with-current-buffer (process-buffer proc)
-	(add-hook 'comint-output-filter-functions
+	(add-hook 'comint-output-filter-functions 
 		  'inferior-slime-show-transcript
 		  nil t)))))
 
@@ -116,8 +115,8 @@ A prefix argument disables this behaviour."
   (let ((proc (slime-inferior-process)))
     (when proc
       (with-current-buffer (process-buffer (slime-inferior-process))
-	(run-with-timer 0.2 nil
-			(lambda (buffer)
+	(run-with-timer 0.2 nil 
+			(lambda (buffer) 
 			  (with-current-buffer buffer
 			    (remove-hook 'comint-output-filter-functions
 					 'inferior-slime-show-transcript t)))

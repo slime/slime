@@ -7151,6 +7151,13 @@ is setup, unless the user already set one explicitly."
            when (slime-contrib-p val)
            collect val))
 
+(defun slime-contrib-dependencies (contrib)
+  "List all contribs needed by CONTRIB, including self."
+  (cons contrib
+        (cl-mapcan #'slime-contrib-dependencies
+                   (slime-contrib-slime-dependencies
+                    (get 'slime-contribs contrib)))))
+
 (defun slime-find-contrib (name)
   (get 'slime-contribs name))
 

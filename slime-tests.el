@@ -84,7 +84,7 @@ Exits Emacs when finished. The exit code is the number of failed tests."
             (let ((file-name (or load-file-name
                                  byte-compile-current-file)))
               (if (and file-name
-                       (string-match "contrib/slime-\\(.*\\)\.elc?$" file-name))
+                       (string-match "contrib/test/slime-\\(.*\\)\.elc?$" file-name))
                   (list 'contrib (intern (match-string 1 file-name)))
                 '(core)))))
   
@@ -1244,8 +1244,9 @@ Reconnect afterwards."
    
    :takeoff `((call-interactively 'slime))
    
-   :landing `((should (and (featurep 'slime-repl)
-                           (find 'swank-repl slime-required-modules)))
+   :landing `((unless (and (featurep 'slime-repl)
+                           (find 'swank-repl slime-required-modules))
+                (die "slime-repl not loaded properly"))
               (with-current-buffer (slime-repl-buffer)
                 (unless (and (string-match "^; +SLIME" (buffer-string))
                              (string-match "CL-USER> *$" (buffer-string)))
@@ -1262,8 +1263,9 @@ Reconnect afterwards."
    
    :takeoff `((call-interactively 'slime))
    
-   :landing `((should (and (featurep 'slime-repl)
-                           (find 'swank-repl slime-required-modules)))
+   :landing `((unless (and (featurep 'slime-repl)
+                           (find 'swank-repl slime-required-modules))
+                (die "slime-repl not loaded properly"))
               (with-current-buffer (slime-repl-buffer)
                 (unless (and (string-match "^; +SLIME" (buffer-string))
                              (string-match "CL-USER> *$" (buffer-string)))

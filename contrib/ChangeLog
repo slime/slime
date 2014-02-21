@@ -1,3 +1,28 @@
+2014-02-21  João Távora  <joaotavora@gmail.com>
+
+	* test/slime-presentations-tests.el: New file.
+	* test/slime-parse-tests.el: New file.
+	* test/slime-mdot-fu-tests.el: New file.
+	* test/slime-fontifying-fu-tests.el: New file.
+	* test/slime-enclosing-context-tests.el: New file.
+	* test/slime-c-p-c-tests.el: New file.
+	* test/slime-autodoc-tests.el: New file.
+
+	* slime-repl.el: Split off tests. Don't use `eval-and-compile'
+	* slime-presentations.el: Idem.
+	* slime-parse.el: Idem.
+	* slime-mdot-fu.el: Idem.
+	* slime-fontifying-fu.el: Idem.
+	* slime-enclosing-context.el: Idem.
+	* slime-c-p-c.el: Idem.
+	* slime-autodoc.el: Idem.
+
+	* inferior-slime.el: cleanup whitespace.
+
+	* Makefile: Fix whitespace.
+	(check-%): Look for tests under /contrib/tests. Explicitly require
+	all needed test libs.
+
 2014-02-19  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-repl.el: Load 'bytecomp before binding byte-compile-warnings.

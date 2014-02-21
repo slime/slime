@@ -2,13 +2,15 @@ language: emacs
 env:
   matrix:
     # we test emacs23 with sbcl32 only
+    #
     - "CHECK_TARGET=check       LISP=sbcl32 EMACS=emacs23"
-    - "CHECK_TARGET=contrib-check-fancy LISP=sbcl32 EMACS=emacs23"
+    - "CHECK_TARGET=check-fancy LISP=sbcl32 EMACS=emacs23"
     # for emacs24, use more combinations
+    # 
     - "CHECK_TARGET=check       LISP=sbcl32 EMACS=emacs24"
     - "CHECK_TARGET=check       LISP=cmucl  EMACS=emacs24"
-    - "CHECK_TARGET=contrib-check-fancy LISP=sbcl32 EMACS=emacs24"
-    - "CHECK_TARGET=contrib-check-fancy LISP=cmucl  EMACS=emacs24"
+    - "CHECK_TARGET=check-fancy LISP=sbcl32 EMACS=emacs24"
+    - "CHECK_TARGET=check-fancy LISP=cmucl  EMACS=emacs24"
     # also, for emacs24 and sbcl32 test the slime-repl only
     # 
     - "CHECK_TARGET=contrib-check-repl LISP=sbcl32  EMACS=emacs24"

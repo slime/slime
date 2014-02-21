@@ -1,3 +1,18 @@
+2014-02-21  João Távora  <joaotavora@gmail.com>
+
+	Closes #103: loading contribs does not require slime-tests or ERT.
+	Tests are stored separately.
+
+	* slime-tests.el (defun): Adapt to new contrib-tests location.
+	(readme-recipe, traditional-recipe): Don't use ert macros in
+	recipe tests, since ert might not be loaded.
+
+	* slime.el (slime-contrib-dependencies): New function.
+
+	* Makefile (contrib-check-% check-%): Restore the check-<contrib>
+	target.
+	* .travis.yml (env): Use it.
+
 2014-02-20  Helmut Eller  <heller@common-lisp.net>
 
 	Use *macroexpand-hook* in sbcl-world-lock test.

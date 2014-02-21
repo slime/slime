@@ -67,8 +67,9 @@ clean: clean-fasls
 
 
 # Contrib stuff. Should probably also go to contrib/
+# 
 MAKECONTRIB=$(MAKE) -C contrib EMACS="$(EMACS)" LISP="$(LISP)"
-contrib-check-%:
+contrib-check-% check-%:
 	$(MAKECONTRIB) $(@:contrib-%=%)
 contrib-elpa:
 	$(MAKECONTRIB) elpa-all
