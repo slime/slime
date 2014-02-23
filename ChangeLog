@@ -1,5 +1,8 @@
 2014-02-23  Helmut Eller  <heller@common-lisp.net>
 
+	* Makefile (slime.elc): Rebuild .elc if ChangeLog changes.
+
+2014-02-23  Helmut Eller  <heller@common-lisp.net>
 	Make safe-condition-message a bit safer.
 	CCL ignores *print-cirlce* when *print-pretty* is t
 	so it's easy to run into endless recursions.
