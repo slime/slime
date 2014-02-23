@@ -65,9 +65,8 @@ $(CONTRIBS:%=check-%): compile
 	                         (require                               \
 	                           (intern (format \"%s-tests\" sym))   \
 	                           nil t))                              \
-	                      (slime-contrib-dependencies               \
+	                      (slime-contrib-all-dependencies           \
 	                        (quote $(CONTRIB_NAME))))"              \
-	        --eval "(slime-setup (quote ($(CONTRIB_NAME))))"        \
 	        --eval "(setq inferior-lisp-program \"$(LISP)\")"       \
 	        --eval "(slime-batch-test $(SELECTOR))"
 

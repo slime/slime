@@ -1,5 +1,8 @@
 2014-02-23  João Távora  <joaotavora@gmail.com>
 
+	* Makefile (check-%): Remove redundant `slime-setup' call and call
+	`slime-contrib-all-dependencies'.
+
 	Closes #9: New output respects existing REPL results or presentations.
 
 	* slime-repl.el (slime-repl-emit-result): After emitting a result,

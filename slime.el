@@ -7122,8 +7122,9 @@ is setup, unless the user already set one explicitly."
                                authors
                                license)
       (cl-loop for (key . value) in clauses append `(,key ,value))
-    (let ((enable (intern (concat (symbol-name name) "-init")))
-          (disable (intern (concat (symbol-name name) "-unload"))))
+    (cl-labels
+        ((enable-fn (c) (intern (concat (symbol-name c) "-init")))
+         (disable-fn (c) (intern (concat (symbol-name c) "-unload"))))
       `(progn
          ,(when gnu-emacs-only
             `(eval-and-compile
@@ -7131,17 +7132,23 @@ is setup, unless the user already set one explicitly."
                           ,(concat (symbol-name name)
                                    " does not work with XEmacs."))))
          ,@(mapcar (lambda (d) `(require ',d)) slime-dependencies)
-         (defun ,enable ()
-           ,@(mapcar (lambda (d) `(slime-require ',d)) swank-dependencies)
+         (defun ,(enable-fn name) ()
+           (mapc #'funcall ',(mapcar
+                              #'enable-fn
+                              slime-dependencies))
+           (mapc #'slime-require ',swank-dependencies)
            ,@on-load)
-         (defun ,disable ()
-           ,@on-unload)
+         (defun ,(disable-fn name) ()
+           ,@on-unload
+           (mapc #'funcall ',(mapcar
+                              #'disable-fn
+                              slime-dependencies)))
          (put 'slime-contribs ',name
               (make-slime-contrib
                :name ',name :authors ',authors :license ',license
                :slime-dependencies ',slime-dependencies
                :swank-dependencies ',swank-dependencies
-               :enable ',enable :disable ',disable))))))
+               :enable ',(enable-fn name) :disable ',(disable-fn name)))))))
 
 (put 'define-slime-contrib 'lisp-indent-function 1)
 (put 'slime-indulge-pretty-colors 'define-slime-contrib t)
@@ -7151,12 +7158,12 @@ is setup, unless the user already set one explicitly."
            when (slime-contrib-p val)
            collect val))
 
-(defun slime-contrib-dependencies (contrib)
-  "List all contribs needed by CONTRIB, including self."
+(defun slime-contrib-all-dependencies (contrib)
+  "List all contribs recursively needed by CONTRIB, including self."
   (cons contrib
-        (cl-mapcan #'slime-contrib-dependencies
+        (cl-mapcan #'slime-contrib-all-dependencies
                    (slime-contrib-slime-dependencies
-                    (get 'slime-contribs contrib)))))
+                    (slime-find-contrib contrib)))))
 
 (defun slime-find-contrib (name)
   (get 'slime-contribs name))

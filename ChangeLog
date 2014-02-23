@@ -1,3 +1,14 @@
+2014-02-23  João Távora  <joaotavora@gmail.com>
+
+	When enabling a contrib, dependencies are also enabled
+	recursively. Without this, setting up or testing a contrib
+	dependending on others often fails. Assumes enable functions are
+	quick and idempotent.
+
+	* slime.el (define-slime-contrib): Call enable functions for
+	dependencies recursively. (slime-contrib-all-dependencies):
+	Renamed from `slime-contrib-all-dependencies'
+
 2014-02-23  Helmut Eller  <heller@common-lisp.net>
 
 	* Makefile (slime.elc): Rebuild .elc if ChangeLog changes.
