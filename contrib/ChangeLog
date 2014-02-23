@@ -1,3 +1,15 @@
+2014-02-23  João Távora  <joaotavora@gmail.com>
+
+	Closes #9: New output respects existing REPL results or presentations.
+
+	* slime-repl.el (slime-repl-emit-result): After emitting a result,
+ 	update `slime-output-end' marker.
+
+	* slime-presentations.el (slime-presentation-write-result): Idem,
+	but for presentation results.
+
+	* test/slime-repl-tests.el (mixed-output-and-results): New test.
+
 2014-02-23  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Canonicalize 'nil to nil when displaying default optional and

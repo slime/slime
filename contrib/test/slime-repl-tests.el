@@ -322,4 +322,21 @@ SWANK> " (buffer-string)))))
             (should-error (delete-char 1)))
         (goto-char (line-end-position))))))
 
+(def-slime-test mixed-output-and-results
+    (prompt eval-input result-contents)
+    "Test that output goes to the correct places."
+    '(("(princ 123)" (cl:loop repeat 2 do (cl:princ 456)) "SWANK> (princ 123)
+123
+123
+456456
+SWANK> "))
+  (with-canonicalized-slime-repl-buffer
+    (insert prompt)
+    (call-interactively 'slime-repl-return)
+    (slime-sync-to-top-level 5)
+    (slime-eval eval-input)
+    (slime-sync-to-top-level 5)
+    (slime-test-expect "Buffer contains result"
+                       result-contents (buffer-string))))
+
 (provide 'slime-repl-tests)

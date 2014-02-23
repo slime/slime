@@ -776,6 +776,7 @@ output; otherwise the new input is appended."
         (insert string))
       ;; Move the input-start marker after the REPL result.
       (set-marker marker (point))
+      (set-marker slime-output-end (point))
       ;; Restore point before insertion but only it if was farther
       ;; than `marker'. Omitting this breaks REPL test
       ;; `repl-type-ahead'.

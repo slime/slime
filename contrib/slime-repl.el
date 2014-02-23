@@ -290,7 +290,8 @@ This is set to nil after displaying the buffer.")
         (slime-save-marker slime-output-end
           (slime-propertize-region `(face slime-repl-result-face
                                           rear-nonsticky (face))
-            (insert-before-markers string)))))
+            (insert-before-markers string)))
+        (set-marker slime-output-end (point))))
     (slime-repl-show-maximum-output)))
 
 (defvar slime-last-output-target-id 0
