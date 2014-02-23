@@ -479,9 +479,6 @@ Return NIL if the symbol is unbound."
   (let* ((match (nth-value n (regexp:match pattern string))))
     (if match (regexp:match-string string match))))
 
-(defimplementation format-sldb-condition (condition)
-  (trim-whitespace (princ-to-string condition)))
-
 (defimplementation eval-in-frame (form frame-number)
   (sys::eval-at (nth-frame frame-number) form))
 

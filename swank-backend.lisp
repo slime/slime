@@ -993,9 +993,9 @@ from the frame.")
   "Restart execution of the frame FRAME-NUMBER with the same arguments
 as it was called originally.")
 
-(definterface format-sldb-condition (condition)
-  "Format a condition for display in SLDB."
-  (princ-to-string condition))
+(definterface print-condition (condition stream)
+  "Print a condition for display in SLDB."
+  (princ condition stream))
 
 (definterface condition-extras (condition)
   "Return a list of extra for the debugger.

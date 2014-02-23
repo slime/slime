@@ -1424,9 +1424,9 @@ stack."
 
 ;;;;; reference-conditions
 
-(defimplementation format-sldb-condition (condition)
+(defimplementation print-condition (condition stream)
   (let ((sb-int:*print-condition-references* nil))
-    (princ-to-string condition)))
+    (princ condition stream)))
 
 
 ;;;; Profiling

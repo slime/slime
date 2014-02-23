@@ -786,7 +786,7 @@ Confirm that SUBFORM is correctly located."
   (lexical-let ((done nil))
     (let ((sldb-hook (lambda () (sldb-continue) (setq done t))))
       (slime-interactive-eval
-       (format "(progn (cerror \"foo\" %S %s) (+ 1 2))"
+       (format "(with-standard-io-syntax (cerror \"foo\" \"%s\" %s) (+ 1 2))"
                format-control format-argument))
       (while (not done) (slime-accept-process-output))
       (slime-sync-to-top-level 5)
