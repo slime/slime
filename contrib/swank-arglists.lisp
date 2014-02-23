@@ -419,10 +419,20 @@ Otherwise NIL is returned."
 
 (defstruct (keyword-arg
             (:conc-name keyword-arg.)
-            (:constructor make-keyword-arg (keyword arg-name default-arg)))
+            (:constructor %make-keyword-arg))
   keyword
   arg-name
   default-arg)
+
+(defun canonicalize-default-arg (form)
+  (if (equalp ''nil form)
+      nil
+      form))
+
+(defun make-keyword-arg (keyword arg-name default-arg)
+  (%make-keyword-arg :keyword keyword
+                     :arg-name arg-name
+                     :default-arg (canonicalize-default-arg default-arg)))
 
 (defun decode-keyword-arg (arg)
   "Decode a keyword item of formal argument list.
@@ -484,9 +494,13 @@ Return three values: keyword, argument name, default arg."
 ;;; FIXME suppliedp?
 (defstruct (optional-arg
             (:conc-name optional-arg.)
-            (:constructor make-optional-arg (arg-name default-arg)))
+            (:constructor %make-optional-arg))
   arg-name
   default-arg)
+
+(defun make-optional-arg (arg-name default-arg)
+  (%make-optional-arg :arg-name arg-name
+                      :default-arg (canonicalize-default-arg default-arg)))
 
 (defun decode-optional-arg (arg)
   "Decode an optional item of a formal argument list.

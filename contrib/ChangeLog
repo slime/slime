@@ -1,3 +1,20 @@
+2014-02-23  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Canonicalize 'nil to nil when displaying default optional and
+	keyword arguments via slime-autodoc. On SBCL this turns
+	  (error 'simple-condition
+	         &rest arguments
+	         &key (format-arguments 'nil) (format-control 'nil))
+	into
+	  (error 'simple-condition
+	         &rest arguments
+	         &key format-arguments format-control)
+	which should be more readable.
+
+	* swank-arglists.lisp (canonicalize-default-arg): New function for
+	canonicalizing optional and keyword arguments.
+	(make-optional-arg, make-keyword-arg): Use it.
+
 2014-02-21  João Távora  <joaotavora@gmail.com>
 
 	* test/slime-presentations-tests.el: New file.
