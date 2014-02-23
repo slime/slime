@@ -2152,10 +2152,9 @@ conditions are simply reported."
           (let ((*print-pretty* t)
                 (*print-right-margin* 65)
                 (*print-circle* t)
-                ;;(*print-length* (or *print-length* limit))
-                ;;(*print-level* (or *print-level* limit))
-                ;;(*print-lines* (or *print-lines* limit))
-                )
+                (*print-length* (or *print-length* limit))
+                (*print-level* (or *print-level* limit))
+                (*print-lines* (or *print-lines* limit)))
             (print-condition condition stream))
         (serious-condition (c)
           (ignore-errors

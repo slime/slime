@@ -1,3 +1,32 @@
+2014-02-23  Helmut Eller  <heller@common-lisp.net>
+
+	Make safe-condition-message a bit safer.
+	CCL ignores *print-cirlce* when *print-pretty* is t
+	so it's easy to run into endless recursions.
+
+	* swank.lisp (%condition-message): Renamed from
+	condition-message. Trim whitespace from the result.
+	(%%condition-message): New function. Use with-string-stream.
+	Since the length of the string is limited we can also limit
+	*print-length* without losing anything. Also handle
+	SERIOUS-CONDITIONs instead of ERRORs, which would have handled
+	CCL's VECTOR-SIZE-LIMITATION condition during printing.
+	(safe-condition-message): Just call
+	*sldb-condition-printer*. People who set that will know what
+	they're doing.
+
+	* swank-backend.lisp (print-condition): Replaces
+	format-sldb-condition.  Take a stream as argument so that we can
+	pass in our stream with limited output length.  No guarantee of
+	course that this stream will be used in a reasonable way.
+	* swank-clisp.lisp (format-sldb-condition): Deleted. Whitespace is
+	now removed anyway.
+	* swank-sbcl.lisp (print-condition): Use the stream argument.
+
+	* slime-tests.el (report-condition-with-circular-list): Use
+	with-standard-io-syntax to override settings from init files that
+	any reasonable person would have.
+
 2014-02-21  João Távora  <joaotavora@gmail.com>
 
 	Closes #103: loading contribs does not require slime-tests or ERT.
