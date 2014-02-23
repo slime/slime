@@ -4,9 +4,9 @@
 
 (define-slime-contrib slime-indentation
   "Contrib interfacing `slime-cl-indent' and SLIME."
-  (:swank-dependencies swank-indentation))
-
-(setq common-lisp-current-package-function 'slime-current-package)
+  (:swank-dependencies swank-indentation)
+  (:on-load
+   (setq common-lisp-current-package-function 'slime-current-package)))
 
 (defun slime-update-system-indentation (symbol indent packages)
   (let ((list (gethash symbol common-lisp-system-indentation))

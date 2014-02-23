@@ -1,4 +1,4 @@
- ;;; cl-indent.el --- enhanced lisp-indent mode
+;;; slime-cl-indent.el --- enhanced lisp-indent mode
 
 ;; Copyright (C) 1987, 2000-2011 Free Software Foundation, Inc.
 
@@ -8,7 +8,7 @@
 ;; Keywords: lisp, tools
 ;; Package: emacs
 
-;; This file is part of GNU Emacs.
+;; This file is forked from cl-indent.el, which is part of GNU Emacs.
 
 ;; GNU Emacs is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -30,6 +30,14 @@
 ;; To enable it:
 ;;
 ;; (setq lisp-indent-function 'common-lisp-indent-function)
+;;
+;; This file is substantially patched from original cl-indent.el,
+;; which is in Emacs proper. It does not require SLIME, but is instead
+;; required by one of it's contribs, `slime-indentation'.
+;;
+;; Before making modifications to this file, consider adding them to
+;; Emacs's own `cl-indent' and refactoring this file to be an
+;; extension of Emacs's.
 
 ;;; Code:
 
@@ -1784,98 +1792,7 @@ Cause subsequent clauses to be indented.")
         (put name 'common-lisp-indent-function indentation)))))
 (common-lisp-init-standard-indentation)
 
-(defun common-lisp-indent-test (name bindings test)
-  (with-temp-buffer
-    (lisp-mode)
-    (setq indent-tabs-mode nil)
-    (common-lisp-set-style "common-lisp-indent-test")
-    (dolist (bind bindings)
-      (set (make-local-variable (car bind)) (cdr bind)))
-    (insert test)
-    (goto-char 0)
-    ;; Find the first line with content.
-    (skip-chars-forward " \t\n\r")
-    ;; Mess up the indentation so we know reindentation works
-    (save-excursion
-      (while (not (eobp))
-        (forward-line 1)
-        (unless (looking-at "^$")
-          (case (random 2)
-            (0
-             ;; Delete all leading whitespace -- except for comment lines.
-             (while (and (looking-at " ") (not (looking-at " ;")))
-               (delete-char 1)))
-            (1
-             ;; Insert whitespace random.
-             (let ((n (1+ (random 24))))
-               (while (> n 0) (decf n) (insert " "))))))))
-    (let ((mess (buffer-string)))
-      (when (equal mess test)
-        (error "Could not mess up indentation?"))
-      (indent-sexp)
-      (if (equal (buffer-string) test)
-          t
-        ;; (let ((test-buffer (current-buffer)))
-        ;;   (with-temp-buffer
-        ;;     (insert test)
-        ;;     (ediff-buffers (current-buffer) test-buffer)))
-        (error "Bad indentation in test %s.\nMess: %s\nWanted: %s\nGot: %s"
-               name
-               mess
-               test
-               (buffer-string))))))
-
-(defun common-lisp-run-indentation-tests (run)
-  (define-common-lisp-style "common-lisp-indent-test"
-    ;; Used to specify a few complex indentation specs for testing.
-    (:inherit "basic")
-    (:indentation
-     (complex-indent.1 ((&whole 4 (&whole 1 1 1 1 (&whole 1 1) &rest 1)
-                                &body) &body))
-     (complex-indent.2 (4 (&whole 4 &rest 1) &body))
-     (complex-indent.3 (4 &body))))
-  (with-temp-buffer
-    (insert-file-contents "slime-cl-indent-test.txt")
-    (goto-char 0)
-    (let ((test-mark ";;; Test: ")
-          (n 0)
-          (test-to-run (or (eq t run) (format "%s" run))))
-      (while (not (eobp))
-        (if (looking-at test-mark)
-            (let* ((name-start (progn (search-forward ": ") (point)))
-                   (name-end (progn (end-of-line) (point)))
-                   (test-name
-                    (buffer-substring-no-properties name-start name-end))
-                   (bindings nil))
-              (forward-line 1)
-              (while (looking-at ";")
-                (when (looking-at ";; ")
-                  (skip-chars-forward "; ")
-                  (unless (eolp)
-                    (let* ((var-start (point))
-                           (val-start (progn (search-forward ": ") (point)))
-                           (var
-                            (intern (buffer-substring-no-properties
-                                     var-start (- val-start 2))))
-                           (val
-                            (car (read-from-string
-                                  (buffer-substring-no-properties
-                                   val-start (progn (end-of-line) (point)))))))
-                      (push (cons var val) bindings))))
-                (forward-line 1))
-              (let ((test-start (point)))
-                (while (not (or (eobp) (looking-at test-mark)))
-                  (forward-line 1))
-                (when (or (eq t run) (equal test-to-run test-name))
-                  (let ((test (buffer-substring-no-properties
-                               test-start (point))))
-                    (common-lisp-indent-test test-name bindings test)
-                    (incf n)))))
-          (forward-line 1)))
-      (common-lisp-delete-style "common-lisp-indent-test")
-      (message "%s tests OK." n))))
-
-(provide 'slime-cl-indent)
 (provide 'cl-indent)
+(provide 'slime-cl-indent)
 
-;;; cl-indent.el ends here
+;;; slime-cl-indent.el ends here

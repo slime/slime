@@ -1,3 +1,18 @@
+2014-03-03  João Távora  <joaotavora@gmail.com>
+
+	* test/slime-indentation-tests.el: New file. Defines ERT
+	indentation tests from specs in `slime-cl-indent-test.txt'.
+
+	* slime-indentation.el (slime-cl-indet): `require' instead of
+	`load'.
+
+	* test/slime-cl-indent-test.txt: Moved to from previous file and
+	changed test names from numbers to symbols.
+
+	* slime-cl-indent.el: Moved tests to
+	test/slime-indentation-tests.el. In file comments, explain the
+	legacy cl-indent.el situation. Provide `slime-cl-indent'.
+
 2014-03-02  João Távora  <joaotavora@gmail.com>
 
 	The contrib's Makefile now works as the top-level Makefile,
