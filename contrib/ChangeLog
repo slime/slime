@@ -1,3 +1,10 @@
+2014-02-24  Marco Baringer  <mb@bese.it>
+
+	* slime-hyperdoc.el (slime-hyperdoc): Remove :slime-dependencies
+	on emacs libraries, these should be loaded via a simple require.
+
+	* slime-tramp.el (slime-tramp): idem for tramp.
+
 2014-02-23  João Távora  <joaotavora@gmail.com>
 
 	* Makefile (check-%): Remove redundant `slime-setup' call and call

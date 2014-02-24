@@ -1,11 +1,11 @@
 (eval-and-compile
-  (require 'slime))
+  (require 'slime)
+  (require 'tramp))
 
 (define-slime-contrib slime-tramp
   "Filename translations for tramp"
   (:authors "Marco Baringer <mb@bese.it>")
   (:license "GPL")
-  (:slime-dependencies tramp)
   (:on-load 
    (setq slime-to-lisp-filename-function #'slime-tramp-to-lisp-filename)
    (setq slime-from-lisp-filename-function #'slime-tramp-from-lisp-filename)))
