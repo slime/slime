@@ -8179,6 +8179,8 @@ If they are not, position point at the first syntax error found."
 (run-hooks 'slime-load-hook)
 (provide 'slime)
 
+(slime-setup)
+
 ;; Local Variables:
 ;; outline-regexp: ";;;;+"
 ;; indent-tabs-mode: nil

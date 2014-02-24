@@ -1,3 +1,14 @@
+2014-02-24  João Távora  <joaotavora@gmail.com>
+
+	* slime.el: Call `slime-setup' at the end.
+
+	* slime-autoloads.el (slime): Don't use `eval-after-load'.
+
+	* doc/slime.texi (Installation): Make the autoload recipe the
+	default recipe.
+	(Basic customization): New subsection. Mention `slime-load-hook`
+	and techniques for customizing keymaps.
+
 2014-02-23  João Távora  <joaotavora@gmail.com>
 
 	When enabling a contrib, dependencies are also enabled

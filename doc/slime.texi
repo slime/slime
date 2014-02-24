@@ -145,7 +145,7 @@ Downloading from Git
 
 Setup Tuning
 
-* Autoloading::
+* Basic customization::
 * Multiple Lisps::
 * Loading Swank faster::
 
@@ -415,15 +415,11 @@ installation just requires a few lines in your @file{.emacs}:
 
 @vindex inferior-lisp-program
 @vindex load-path
-@vindex slime-setup
 @example
-;; @emph{Setup load-path and autoloads}
+;; @emph{Setup load-path, autoloads and your lisp system}
 (add-to-list 'load-path "~/dir/to/cloned/slime")
-(require 'slime)
-
-;; @emph{Set your lisp system and slime-mode for Lisp sources}
+(require 'slime-autoloads)
 (setq inferior-lisp-program "/opt/sbcl/bin/sbcl")
-(slime-setup)
 @end example
 
 @c @iftex
@@ -456,8 +452,9 @@ At this point @SLIME{} is up and running and you can start exploring.
 @node Setup Tuning
 @section Setup Tuning
 
-This section explains ways to reduce @SLIME{}'s startup time and how
-to configure @SLIME{} for multiple Lisp systems.
+This section explains ways to perform basic extensions to SLIME, and
+how to configure @SLIME{} for multiple Lisp systems and how to reduce
+@SLIME{}'s startup time.
 
 Please proceed with this section only if your basic setup works.  If
 you are happy with the basic setup, skip this section.
@@ -465,37 +462,48 @@ you are happy with the basic setup, skip this section.
 For contrib modules @pxref{Loading Contribs}.
 
 @menu
-* Autoloading::
+* Basic customization::
 * Multiple Lisps::
 * Loading Swank faster::
 @end menu
 
-@node Autoloading
-@subsection Autoloading
+@node Basic customization
+@subsection Basic customization
 
-The basic setup loads @SLIME{} always, even if you don't use @SLIME{}.
-Emacs will start up a little faster if we load @SLIME{} only on
-demand.  To achieve that, you have to change your @file{~/.emacs}
-slightly:
+Once you have the basic no-frills setup working, you can enhance your
+@SLIME{} installation with bundled extensions:
 
 @example
-;; @emph{Setup load-path and autoloads}
+;; @emph{Setup load-path, autoloads and your lisp system}
 (add-to-list 'load-path "~/dir/to/cloned/slime")
 (require 'slime-autoloads)
-
-;; @emph{Set your lisp system and, optionally, some contribs}
-(setq inferior-lisp-program "/opt/sbcl/bin/sbcl")
-(setq slime-contribs '(slime-fancy))
-
+;; @emph{Also setup the slime-fancy contrib}
+(add-to-list 'slime-contribs 'slime-fancy)
 @end example
 
-Compared to the basic setup, the line @code{(require
-'slime-autoloads)} tells Emacs that the rest of @SLIME{} should be
-loaded automatically when one of the commands
-@kbd{M-x slime} or @kbd{M-x slime-connect} is executed the first time.
+See @pxref{Loading Contribs} for more information on @SLIME{}'s
+contrib system.
 
-For the meaning of @code{(setq slime-contribs '(slime-fancy))}, see
-@pxref{Loading Contribs}.
+To customize a particular binding in one of @SLIME{}'s keymaps, you
+can add one of the following to your init file:
+
+@example
+(add-hook 'slime-load-hook
+   #'(lambda ()
+       (define-key slime-prefix-map (kbd "M-h") 'slime-documentation-lookup)))
+@end example
+
+Or just:
+
+@example
+(eval-after-load 'slime
+  `(define-key slime-prefix-map (kbd "M-h") 'slime-documentation-lookup))
+@end example
+
+The former technique works only for @SLIME{}'s core keymaps, not it's
+contribs'. For those you can use the latter form which works for any
+Emacs library. See also @pxref{Customization} for more advanced
+configuration options.
 
 @node Multiple Lisps
 @subsection Multiple Lisps
