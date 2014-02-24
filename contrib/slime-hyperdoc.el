@@ -1,5 +1,7 @@
 (eval-and-compile
-  (require 'slime))
+  (require 'slime)
+  (require 'url-http)
+  (require 'browse-url))
 
 (defvar slime-old-documentation-lookup-function 
   slime-documentation-lookup-function)
@@ -8,7 +10,6 @@
   "Extensible C-c C-d h."
   (:authors "Tobias C Rittweiler <tcr@freebits.de>")
   (:license "GPL")
-  (:slime-dependencies url-http browse-url)
   (:swank-dependencies swank-hyperdoc)
   (:on-load
    (setq slime-documentation-lookup-function 'slime-hyperdoc-lookup))
