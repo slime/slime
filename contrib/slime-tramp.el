@@ -1,5 +1,6 @@
 (eval-and-compile
-  (require 'slime))
+  (require 'slime)
+  (require 'tramp))
 
 (define-slime-contrib slime-tramp
   "Filename translations for tramp"
