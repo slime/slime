@@ -1,3 +1,19 @@
+2014-02-24  João Távora  <joaotavora@gmail.com>
+
+	* slime-trace-dialog.el (slime-trace-dialog): simplify contrib
+	definition.
+	(slime-trace-dialog-mode): Also activate
+	`slime-trace-dialog-minor-mode'.
+	(slime-trace-dialog-minor-mode): New minor mode.
+	(slime-trace-dialog--menubar): New single top-level menu for
+	`slime-trace-dialog-minor-mode'.
+	(slime-trace-dialog-after-toggle-hook): New hook.
+	(slime-trace-dialog-toggle-trace): Run hooks.
+	(slime-trace-dialog-toggle-complex-trace): New interactive
+	function for calling from the menu.
+	(slime-trace-dialog--easy-menu): Delete it.
+	(my-menu): Delete it.
+
 2014-02-24  Marco Baringer  <mb@bese.it>
 
 	* slime-hyperdoc.el (slime-hyperdoc): Remove :slime-dependencies

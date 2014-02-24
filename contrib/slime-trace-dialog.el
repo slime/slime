@@ -15,12 +15,10 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   (:authors "João Távora <joaotavora@gmail.com>")
   (:license "GPL")
   (:swank-dependencies swank-trace-dialog)
-  (:on-load (define-key slime-prefix-map
-              "T" 'slime-trace-dialog)
-            (define-key slime-prefix-map
-              "\M-t" 'slime-trace-dialog-toggle-trace))
-  (:on-unload (define-key slime-prefix-map "T" nil)
-              (define-key slime-prefix-map "\M-t" nil)))
+  (:on-load (add-hook 'slime-mode-hook 'slime-trace-dialog-enable)
+            (add-hook 'slime-repl-mode-hook 'slime-trace-dialog-enable))
+  (:on-unload (remove-hook 'slime-mode-hook 'slime-trace-dialog-enable)
+              (remove-hook 'slime-repl-mode-hook 'slime-trace-dialog-enable)))
 
 
 ;;;; Variables
@@ -85,7 +83,10 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 (define-derived-mode slime-trace-dialog-mode fundamental-mode
   "SLIME Trace Dialog" "Mode for controlling SLIME's Trace Dialog"
   (set-syntax-table lisp-mode-syntax-table)
-  (read-only-mode 1))
+  (read-only-mode 1)
+  (slime-trace-dialog-minor-mode)
+  (add-to-list (make-local-variable 'slime-trace-dialog-after-toggle-hook)
+               'slime-trace-dialog-fetch-status))
 
 (define-derived-mode slime-trace-dialog--detail-mode slime-inspector-mode
   "SLIME Trace Detail"
@@ -101,6 +102,36 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
         (loop for (old . new) in remaps
               do (substitute-key-definition old new map))
         map))
+
+(defvar slime-trace-dialog-minor-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c T") 'slime-trace-dialog)
+    (define-key map (kbd "C-c M-t") 'slime-trace-dialog-toggle-trace)
+    map))
+
+(define-minor-mode slime-trace-dialog-minor-mode
+  "Add keybindings for accessing SLIME's Trace Dialog.")
+
+(defun slime-trace-dialog-enable ()
+  (slime-trace-dialog-minor-mode 1))
+
+(easy-menu-define slime-trace-dialog--menubar slime-trace-dialog-minor-mode-map
+  "A menu for accessing some features of SLIME's Trace Dialog"
+  (let* ((in-dialog '(eq major-mode 'slime-trace-dialog-mode))
+         (dialog-live `(and ,in-dialog
+                            (memq slime-buffer-connection slime-net-processes)))
+         (connected '(slime-connected-p)))
+    `("Trace"
+      ["Toggle trace" slime-trace-dialog-toggle-trace ,connected]
+      ["Trace complex spec" slime-trace-dialog-toggle-complex-trace ,connected]
+      ["Open Trace dialog" slime-trace-dialog (and ,connected (not ,in-dialog))]
+      "--"
+      [ "Refresh traces and progress" slime-trace-dialog-fetch-status ,dialog-live]
+      [ "Fetch next batch" slime-trace-dialog-fetch-traces ,dialog-live]
+      [ "Clear all fetched traces" slime-trace-dialog-clear-fetched-traces ,dialog-live]
+      [ "Toggle details" slime-trace-dialog-hide-details-mode ,in-dialog]
+      [ "Toggle autofollow" slime-trace-dialog-autofollow-mode ,in-dialog])))
+
 
 
 ;;;; Helper functions
@@ -718,6 +749,9 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   (interactive)
   (slime-trace-dialog-next-button 'goback))
 
+(defvar slime-trace-dialog-after-toggle-hook nil
+  "Hooks run after toggling a dialog-trace")
+
 (defun slime-trace-dialog-toggle-trace (&optional using-context-p)
   "Toggle the dialog-trace of the spec at point.
 
@@ -737,7 +771,15 @@ other complicated function specs."
                           (slime-trace-query spec-string)
                         spec-string)))
     (message "%s" (slime-eval `(swank-trace-dialog:dialog-toggle-trace
-                                (swank::from-string ,spec-string))))))
+                                (swank::from-string ,spec-string))))
+    (run-hooks 'slime-trace-dialog-after-toggle-hook)))
+
+(defun slime-trace-dialog-toggle-complex-trace ()
+  "Toggle the dialog-trace of the complex spec at point.
+
+See `slime-trace-dialog-toggle-trace'."
+  (interactive)
+  (slime-trace-dialog-toggle-trace t))
 
 (defun slime-trace-dialog (&optional clear-and-fetch)
   "Show trace dialog and refresh trace collection status.
@@ -781,21 +823,5 @@ and fetch a first batch of traces."
                             (swank-trace-dialog::find-trace-part
                              ,id ,part-id ,type))))
   (slime-repl))
-
-
-;;;; Menu
-;;;
-(defvar slime-trace-dialog--easy-menu
-  (let ((condition '(memq slime-buffer-connection slime-net-processes)))
-    `("Trace"
-      [ "Refresh traces and progress" slime-trace-dialog-fetch-status ,condition]
-      [ "Clear all fetched traces" slime-trace-dialog-clear-fetched-traces ,condition]
-      [ "Fetch next batch" slime-trace-dialog-fetch-traces ,condition]
-      "--"
-      [ "Toggle details" slime-trace-dialog-hide-details-mode t]
-      [ "Toggle autofollow" slime-trace-dialog-autofollow-mode t])))
-
-(easy-menu-define my-menu slime-trace-dialog-mode-map "Trace"
-  slime-trace-dialog--easy-menu)
 
 (provide 'slime-trace-dialog)
