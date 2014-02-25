@@ -1,5 +1,8 @@
 2014-02-25  João Távora  <joaotavora@gmail.com>
 
+	* README.md: Add link to manual in github pages (hosted under
+	capitaomorte.github.io for now).
+
 	* doc/Makefile (slime.html): Use --css-include=slime.css
 
 	* doc/slime.css: New file. Simple stylesheet adapted from the one

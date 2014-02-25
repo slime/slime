@@ -7,7 +7,8 @@ SLIME is the Superior Lisp Interaction Mode for Emacs. It is implemented
 in two main parts: the Emacs Lisp side (`slime.el`), and the support
 library for the Common Lisp (`swank.lisp` and `swank-*.lisp`)
 
-For a real description, see the manual in `doc/`
+For a real description, see the manual in `doc/` or browse an online
+version [here](http://capitaomorte.github.io/slime/).
 
 Quick setup instructions
 ------------------------
