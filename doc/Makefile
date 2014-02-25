@@ -87,7 +87,7 @@ contributors.texi: ../ChangeLog Makefile texinfo-tabulate.awk
 #.INTERMEDIATE: contributors.texi
 
 # Debian's install-info wants a --section argument.
-section := $(shell grep INFO-DIR-SECTION $(infofiles) | sed 's/INFO-DIR-SECTION //')
+install-info: section=$(shell grep INFO-DIR-SECTION $(infofiles) | sed 's/INFO-DIR-SECTION //')
 install-info: slime.info
 	mkdir -p $(infodir)
 	$(INSTALL_CMD) $(infofiles) $(infodir)/$(infofiles)

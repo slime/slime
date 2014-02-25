@@ -1,5 +1,8 @@
 2014-02-25  João Távora  <joaotavora@gmail.com>
 
+	* doc/Makefile (install-info): only set $section when making
+	"install-info".
+
 	* doc/slime.texi (SLIME Trace Dialog): New section.
 
 2014-02-25  Helmut Eller  <heller@common-lisp.net>
