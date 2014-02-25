@@ -1,3 +1,7 @@
+2014-02-25  João Távora  <joaotavora@gmail.com>
+
+	* doc/slime.texi (SLIME Trace Dialog): New section.
+
 2014-02-25  Helmut Eller  <heller@common-lisp.net>
 
 	* lib/.nosearch: New file.  (github issue#115)
