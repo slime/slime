@@ -5,9 +5,8 @@
 ;;; TODO: implement better wrap interface for sbcl method, labels and such
 ;;; TODO: backtrace printing is very slow
 ;;;
-(eval-and-compile
-  (require 'slime)
-  (require 'slime-parse))
+(require 'slime)
+(require 'slime-parse)
 
 (define-slime-contrib slime-trace-dialog
   "Provide an interfactive trace dialog buffer for managing and
@@ -84,7 +83,6 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   "SLIME Trace Dialog" "Mode for controlling SLIME's Trace Dialog"
   (set-syntax-table lisp-mode-syntax-table)
   (read-only-mode 1)
-  (slime-trace-dialog-minor-mode)
   (add-to-list (make-local-variable 'slime-trace-dialog-after-toggle-hook)
                'slime-trace-dialog-fetch-status))
 
@@ -115,7 +113,8 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 (defun slime-trace-dialog-enable ()
   (slime-trace-dialog-minor-mode 1))
 
-(easy-menu-define slime-trace-dialog--menubar slime-trace-dialog-minor-mode-map
+(easy-menu-define slime-trace-dialog--menubar (list slime-trace-dialog-minor-mode-map
+                                                    slime-trace-dialog-mode-map)
   "A menu for accessing some features of SLIME's Trace Dialog"
   (let* ((in-dialog '(eq major-mode 'slime-trace-dialog-mode))
          (dialog-live `(and ,in-dialog

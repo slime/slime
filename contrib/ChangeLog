@@ -1,3 +1,12 @@
+2014-02-25  João Távora  <joaotavora@gmail.com>
+
+	* slime-trace-dialog.el (slime): Remove redundant
+	`eval-and-compile'
+	(slime-trace-dialog-mode): Don't also activate
+	`slime-trace-dialog-minor-mode'.
+	(slime-trace-dialog--menubar): Define same menu for both minor and
+	major modes.
+
 2014-02-24  João Távora  <joaotavora@gmail.com>
 
 	* slime-trace-dialog.el (slime-trace-dialog): simplify contrib
