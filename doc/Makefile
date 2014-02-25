@@ -38,7 +38,7 @@ slime.info: $(TEXI)
 	makeinfo $<
 
 slime.html: $(TEXI)
-	texi2html $<
+	texi2html --css-include=slime.css $<
 
 html/index.html: $(TEXI)
 	makeinfo -o html --html $<

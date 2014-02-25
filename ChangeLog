@@ -1,5 +1,10 @@
 2014-02-25  João Távora  <joaotavora@gmail.com>
 
+	* doc/Makefile (slime.html): Use --css-include=slime.css
+
+	* doc/slime.css: New file. Simple stylesheet adapted from the one
+	used by Maxima (http://maxima.sourceforge.net/).
+
 	* doc/Makefile (install-info): only set $section when making
 	"install-info".
 
