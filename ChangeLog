@@ -1,3 +1,7 @@
+2014-02-25  Helmut Eller  <heller@common-lisp.net>
+
+	* lib/.nosearch: New file.  (github issue#115)
+
 2014-02-24  João Távora  <joaotavora@gmail.com>
 
 	* slime.el: Call `slime-setup' at the end.
@@ -25,6 +29,7 @@
 	* Makefile (slime.elc): Rebuild .elc if ChangeLog changes.
 
 2014-02-23  Helmut Eller  <heller@common-lisp.net>
+
 	Make safe-condition-message a bit safer.
 	CCL ignores *print-cirlce* when *print-pretty* is t
 	so it's easy to run into endless recursions.
