@@ -1,3 +1,9 @@
+2014-02-26  João Távora  <joaotavora@gmail.com>
+
+	* slime.el (slime-read-interactive-args): Use
+	`split-string-and-unquote' (closes #116). Spotted by Mirko
+	Vukovic.
+
 2014-02-25  João Távora  <joaotavora@gmail.com>
 
 	* README.md: Add link to manual in github pages (hosted under
