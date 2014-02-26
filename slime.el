@@ -1137,9 +1137,9 @@ The rules for selecting the arguments are rather complicated:
              (slime-lookup-lisp-implementation table (intern key))))
           (t
            (cl-destructuring-bind (program &rest program-args)
-               (split-string (read-shell-command
-                              "Run lisp: " inferior-lisp-program
-                              'slime-inferior-lisp-program-history))
+               (split-string-and-unquote
+                (read-shell-command "Run lisp: " inferior-lisp-program
+                                    'slime-inferior-lisp-program-history))
              (let ((coding-system
                     (if (eq 16 (prefix-numeric-value current-prefix-arg))
                         (read-coding-system "set slime-coding-system: "

@@ -1,3 +1,9 @@
+2014-03-02  João Távora  <joaotavora@gmail.com>
+
+	* slime.el (slime-read-interactive-args): Use
+	`split-string-and-unquote' (closes #116). Spotted by Mirko
+	Vukovic.
+
 2014-03-02  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Make sure the SWANK port file is an absolute path and free of
