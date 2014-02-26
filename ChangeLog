@@ -1,3 +1,8 @@
+2014-03-01  João Távora  <joaotavora@gmail.com>
+
+	* NEWS: Update NEWS for upcoming 2.4 release.
+	* doc/slime.texi: Don't mention inexistent 3.0 release yet.
+
 2014-03-01  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sbcl.lisp (wrap): Adapt to newer SBCL.
