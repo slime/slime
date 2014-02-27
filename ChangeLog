@@ -1,5 +1,13 @@
 2014-03-02  Luís Oliveira  <loliveira@common-lisp.net>
 
+	Make sure the SWANK port file is an absolute path and free of
+	shell-isms like ~ that not all Lisps know how to parse. Bug
+	reported by Mirko Vukovic.
+
+	* slime.el (slime-swank-port-file): Use expand-file-name.
+
+2014-03-02  Luís Oliveira  <loliveira@common-lisp.net>
+
 	* doc/slime.texi: don't use $Date$.
 
 	* doc/Makefile (publish): Also publish slime.pdf.

@@ -1376,8 +1376,7 @@ See `slime-start'."
 
 (defun slime-swank-port-file ()
   "Filename where the SWANK server writes its TCP port number."
-  (concat (file-name-as-directory (slime-temp-directory))
-          (format "slime.%S" (emacs-pid))))
+  (expand-file-name (format "slime.%S" (emacs-pid)) (slime-temp-directory)))
 
 (defun slime-temp-directory ()
   (cond ((fboundp 'temp-directory) (temp-directory))
