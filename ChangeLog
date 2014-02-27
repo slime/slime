@@ -1,3 +1,7 @@
+2014-02-27  João Távora  <joaotavora@gmail.com>
+
+	* Makefile (SELECTOR): Same default, but allow regexp selectors.
+
 2014-02-25  João Távora  <joaotavora@gmail.com>
 
 	* README.md: Add link to manual in github pages (hosted under

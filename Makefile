@@ -46,14 +46,14 @@ compile: $(ELCFILES)
 
 # Automated tests
 #
-SELECTOR=t
+SELECTOR=(quote t)
 
 check: compile
 	${EMACS} -Q --batch $(LOAD_PATH)				\
 		--eval "(require 'slime-tests)"				\
 		--eval "(slime-setup)"					\
 		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
-		--eval "(slime-batch-test (quote $(SELECTOR)))"
+		--eval "(slime-batch-test $(SELECTOR))"
 
 elpa-slime:
 	echo "Not implemented yet: elpa-slime target" && exit 255
