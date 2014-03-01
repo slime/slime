@@ -9,17 +9,15 @@
 @end direntry
 @c %**end of header
 
-@set EDITION 3.0-alpha
-@set SLIMEVER 3.0-alpha
+@set EDITION 2.4
+@set SLIMEVER 2.4
 @c @set UPDATED @today{}
 @set UPDATED @code{$Date$}
 @set TITLE SLIME User Manual
 @settitle @value{TITLE}, version @value{EDITION}
 
 @copying
-Written by Luke Gorrie.
-
-Additional contributions: Jeff Cunningham,
+Written by Luke Gorrie and others.
 
 This file has been placed in the public domain.
 @end copying

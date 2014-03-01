@@ -1,11 +1,54 @@
-* SLIME News                                         -*- outline -*-
+* SLIME News                                -*- mode: outline; coding: utf-8 -*-
 
-* (since 2.3)
+* 2.4 (March 2014)
 
 ** UTF8 encoding
 SLIME now uses only UTF8 to encode strings on the wire.  Customization
 variables like slime-net-coding-system or swank:*coding-system* are
 now useless.
+
+** New contrib: slime-trace-dialog
+João Távora added a new contrib that implements a tracing facility,
+similar to Common Lisp's trace, but interactive rather than purely
+textual.
+
+** Backend Improvements
+*** ABCL
+`slime-describe-function' now works for macros as well as functions.
+
+** XEmacs is no longer supported
+Appologies to our last XEmacs user. :-)
+
+** Setup recipe
+In preparation for a more decentralized approach to SLIME contribs,
+the setup recipe has been slightly changed, hopefully in a backwards
+compatible way. Calling `slime-setup' is no longer required. Instead,
+the `slime-contribs' variable can be customized with a list of
+contribs to be loaded when `M-x slime' is first executed. See section
+`8.1 Loading Contrib Packages' of the SLIME Manual for more details.
+
+** Various bugfixes
+- Byte compiling SLIME and contribs now works. (issues #42, #34)
+*** slime-presentations
+- Presentations are properly recognized when at the very beginning of
+  a buffer. (Atilla Lendvai)
+*** slime-repl
+- `slime-repl-delete-from-input-history' no longer corrupts the
+  history order. (Attila Lendvai)
+- Pressing RET on non-interactive regions of the inspector no longer
+  yields an error message.
+- `just-one-space' now interacts properly with slime-repl's
+  prompt. (issue #43)
+- cl:read-line no longer freezes slime-repl. (issue #17)
+- New output now goes after presentations returned from prior
+  commands rather than before. (issue #9)
+*** slime-autodoc
+- Multiline argument lists no longer imply a newline after the
+  function/macro name. (issue #7)
+
+** And much, much more
+The last release has a very long beard, so many more things were
+improved, too many to list here.
 
 * 2.3 (October 2011)
 
