@@ -1,10 +1,19 @@
+2014-03-01  João Távora  <joaotavora@gmail.com>
+
+	* NEWS: Update NEWS
+
+	* doc/slime.texi: Don't mention inexistent 3.0 release yet.
+
+	* doc/slime.texi (SLIME Trace Dialog): Small tweak to section
+	intro..
+
 2014-03-01  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sbcl.lisp (wrap): Adapt to newer SBCL.
 
 2014-02-28  Helmut Eller  <heller@common-lisp.net>
 
-	* lib/cl-lib.el: Upgarde to cl-lib 0.5.
+	* lib/cl-lib.el: Upgrade to cl-lib 0.5.
 
 2014-02-27  João Távora  <joaotavora@gmail.com>
 
@@ -16108,7 +16117,7 @@
 	* slime.el (define-slime-dialect): New macro to make starting
 	Lisps with different command line options easier.
 
-2004-09-27 Rui PatrocÃ­nio <rui.patrocinio@netvisao.pt>
+2004-09-27 Rui Patrocínio <rui.patrocinio@netvisao.pt>
 
 	* swank.lisp (mop, mop-helper): Support functions for the class
 	browser.
