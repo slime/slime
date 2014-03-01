@@ -1,6 +1,6 @@
-* SLIME News                                         -*- outline -*-
+* SLIME News                                -*- mode: outline; coding: utf-8 -*-
 
-* (since 2.3)
+* 2.4 (March 2014)
 
 ** New contrib SLIME Trace Dialog included in `slime-fancy'
 Interactive interface to tracing functions and methods. See manual for
@@ -52,11 +52,11 @@ contribs to be loaded when `M-x slime' is first executed. See section
 *** Fix undo behavior in the REPL (git:af354d7)
 Previously, undo would obliterate previous prompts.
 
-*** Fix type-ahead behaviour in REPL when `slime-presentations' is also active (git:38a1826)
+*** Fix REPL type-ahead behaviour when presentations active (git:38a1826)
 Input typed before your lisp responds is appended to the result when it arrives.
 
-*** Fix synch'ing package and default directory when no process buffer (git:dc88935)
-When process buffer has been killed, but connection is still active.
+*** Fix package and dir synch when no process buffer (git:dc88935)
+Sometimes process buffer has been killed, but connection is still active.
 
 *** M-p on any part of the REPL buffer no longer errors (git:dc88935)
 
@@ -73,10 +73,13 @@ This happened with the `slime-fancy-inspector.el' contrib.
 
 *** RET on no part in *inspector* buffer no longer errors
 
+*** slime-repsentations properly recognized when at very beginning of buffer
+Fix by Attila Lendvai
+
 *** Avoid loading `swank-asdf.lisp' if there's a good chance it will break SWANK
 `swank-asdf.lisp' aborts the connection if it finds an old ASDF version.
 
-*** In ABCL, `slime-describe-function' now works for macros as well as functions.
+*** In ABCL, `slime-describe-function' now works for both macros and functions.
 
 ** SLIME builds on Travis CI
 See https://travis-ci.org/slime/slime for the build status and history.

@@ -1,7 +1,11 @@
 2014-03-01  João Távora  <joaotavora@gmail.com>
 
-	* NEWS: Update NEWS for upcoming 2.4 release.
+	* NEWS: Update NEWS
+
 	* doc/slime.texi: Don't mention inexistent 3.0 release yet.
+
+	* doc/slime.texi (SLIME Trace Dialog): Small tweak to section
+	intro..
 
 2014-03-01  Stas Boukarev  <stassats@gmail.com>
 
