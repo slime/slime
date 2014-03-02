@@ -41,7 +41,7 @@ slime.html: $(TEXI)
 	texi2html --css-include=slime.css $<
 
 html/index.html: $(TEXI)
-	makeinfo -o html --html $<
+	makeinfo -o html --css-include=slime.css --html $<
 
 html.tgz: html/index.html
 	tar -czf $@ html

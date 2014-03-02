@@ -1,3 +1,9 @@
+2014-03-02  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* doc/slime.css: make it slimier.
+
+	* doc/Makefile (html/index.html): use slime.css.
+
 2014-03-01  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sbcl.lisp (wrap): Adapt to newer SBCL.
