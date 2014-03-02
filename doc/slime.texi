@@ -11,8 +11,7 @@
 
 @set EDITION 2.4
 @set SLIMEVER 2.4
-@c @set UPDATED @today{}
-@set UPDATED @code{$Date$}
+@set UPDATED @today{}
 @set TITLE SLIME User Manual
 @settitle @value{TITLE}, version @value{EDITION}
 

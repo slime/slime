@@ -1,5 +1,11 @@
 2014-03-02  Luís Oliveira  <loliveira@common-lisp.net>
 
+	* doc/slime.texi: don't use $Date$.
+
+	* doc/Makefile (publish): Also publish slime.pdf.
+
+2014-03-02  Luís Oliveira  <loliveira@common-lisp.net>
+
 	* doc/slime.css: make it slimier.
 
 	* doc/Makefile (html/index.html): use slime.css.
