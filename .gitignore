@@ -32,4 +32,5 @@ doc/*.op
 doc/*.ops
 doc/*.pgs
 doc/*.vrs
+doc/*.tgz
 /dist/
