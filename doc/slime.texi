@@ -1,7 +1,8 @@
 \input texinfo
 @c %**start of header
 @setfilename slime.info
-@settitle The Superior Lisp Interaction Mode for Emacs
+
+@documentencoding UTF-8
 
 @dircategory Emacs
 @direntry
@@ -134,10 +135,6 @@ Getting started
 Downloading @SLIME{}
 
 * Git::
-* Git Incantations::
-
-Downloading from Git
-
 * Git Incantations::
 
 Setup Tuning
@@ -365,10 +362,6 @@ released version is the safe option.
 If you download from @Git{} then remember to @code{git pull}
 occasionally.  Improvements are continually being committed, and the
 @code{FAIRLY-STABLE} tag is moved forward from time to time.
-
-@menu
-* Git Incantations::
-@end menu
 
 @c -----------------------
 @node Git Incantations

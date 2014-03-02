@@ -1,9 +1,14 @@
 2014-03-02  Luís Oliveira  <loliveira@common-lisp.net>
 
-	* doc/slime.texi: Use @SLIME{} throughout.
+	* doc/slime.texi: Use @SLIME{} throughout. Use UTF-8 coding to
+	match the ChangeLog encoding via contributors.texi; requires
+	texinfo >= 4.13.
 	(Git Incantations): remove reference to the FAIRLY-STABLE tag
 	which is hopefully replaced by release management. Tweak the link
-	to CONTRIBUTING.md.
+	to CONTRIBUTING.md. Fixed the node sectioning.
+
+	* doc/Makefile (contributors.texi): Removed ad-hoc TeX-escaping of
+	non-ascii characters.
 
 	* .gitignore: ignore the temporary output of doc/Makefile's
 	publish target.
