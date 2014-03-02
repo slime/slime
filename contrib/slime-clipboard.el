@@ -1,5 +1,5 @@
-(eval-and-compile
-  (require 'slime))
+(require 'slime)
+(require 'slime-repl)
 
 (define-slime-contrib slime-clipboard
   "This add a few commands to put objects into a clipboard and to
@@ -63,8 +63,8 @@ debugger to add the object at point to the clipboard."
 		    #'slime-clipboard-display-entries))
 
 (defun slime-clipboard-display-entries (entries)
-  (slime-with-popup-buffer ((slime-buffer-name :clipboard)
-                            :mode 'slime-clipboard-mode)
+  (slime-with-popup-buffer ((slime-buffer-name :clipboard))
+    (slime-clipboard-mode)
     (slime-clipboard-insert-entries entries)))
 
 (defun slime-clipboard-insert-entries (entries)
@@ -80,13 +80,15 @@ debugger to add the object at point to the clipboard."
 (defun slime-clipboard-redisplay ()
   "Update the clipboard buffer."
   (interactive)
-  (slime-eval-async 
-   `(swank-clipboard:entries) 
-   (lambda (entries) 
-     (let ((inhibit-read-only t))
-       (slime-save-coordinates (point)
-	 (erase-buffer)
-	 (slime-clipboard-insert-entries entries))))))
+  (lexical-let ((saved (point)))
+    (slime-eval-async 
+        `(swank-clipboard:entries) 
+      (lambda (entries) 
+        (let ((inhibit-read-only t))
+          (erase-buffer)
+          (slime-clipboard-insert-entries entries)
+          (when (< saved (point-max))
+            (goto-char saved)))))))
 
 (defun slime-clipboard-entry-at-point ()
   (or (get-text-property (point) 'slime-clipboard-entry)

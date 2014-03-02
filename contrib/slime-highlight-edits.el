@@ -1,5 +1,5 @@
-(eval-and-compile
-  (require 'slime))
+(require 'slime)
+(require 'slime-parse)
 
 (define-slime-contrib slime-highlight-edits
   "Highlight edited, i.e. not yet compiled, code."

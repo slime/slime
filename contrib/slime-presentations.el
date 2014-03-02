@@ -1,4 +1,6 @@
 (require 'slime)
+(require 'bridge)
+(require 'cl-lib)
 
 (define-slime-contrib slime-presentations
   "Imitate LispM presentations."
@@ -12,8 +14,8 @@
              (lambda ()
                ;; Respect the syntax text properties of presentation.
                (set (make-local-variable 'parse-sexp-lookup-properties) t)
-               (slime-add-local-hook 'after-change-functions
-                                     'slime-after-change-function)))
+               (add-hook 'after-change-functions
+                         'slime-after-change-function 'append t)))
    (add-hook 'slime-event-hooks 'slime-dispatch-presentation-event)
    (setq slime-write-string-function 'slime-presentation-write)
    (add-hook 'slime-repl-return-hooks 'slime-presentation-on-return-pressed)
@@ -97,7 +99,7 @@ TARGET can be nil (regular process output) or :repl-result."
              (id (car (read-from-string match))))
         (slime-mark-presentation-end id))))
 
-(defstruct slime-presentation text id)
+(cl-defstruct slime-presentation text id)
 
 (defvar slime-presentation-syntax-table
   (let ((table (copy-syntax-table lisp-mode-syntax-table)))
@@ -146,6 +148,8 @@ RESULT-P decides whether a face for a return value or output text is used."
       ;; In these cases the mouse-face text properties need to take over ---
       ;; but they do not give nested highlighting.
       (slime-ensure-presentation-overlay start end presentation))))
+
+(defvar slime-presentation-map (make-sparse-keymap))
 
 (defun slime-ensure-presentation-overlay (start end presentation)
   (unless (cl-find presentation (overlays-at start)
@@ -576,8 +580,6 @@ A negative argument means move backward instead."
 	    (slime-presentation-around-or-before-point-or-error p)
 	  (goto-char start)))))))
 
-(defvar slime-presentation-map (make-sparse-keymap))
-
 (define-key  slime-presentation-map [mouse-2] 'slime-copy-or-inspect-presentation-at-mouse)
 (define-key  slime-presentation-map [mouse-3] 'slime-presentation-menu)
 
@@ -806,11 +808,12 @@ buffer. Presentations of old results are expanded into code."
     (slime-repl-recenter-if-needed)
     t))
 
+(defun slime-presentation-bridge-insert (process output)
+  (slime-output-filter process (or output "")))
+
 (defun slime-presentation-on-stream-open (stream)
-  (require 'bridge)
-  (defun bridge-insert (process output)
-    (slime-output-filter process (or output "")))
   (install-bridge)
+  (setq bridge-insert-function #'slime-presentation-bridge-insert)
   (setq bridge-destination-insert nil)
   (setq bridge-source-insert nil)
   (setq bridge-handlers
@@ -851,7 +854,7 @@ even on Common Lisp implementations without weak hash tables."
 
 (defun slime-presentation-sldb-insert-frame-variable-value (value frame index)
   (slime-insert-presentation
-   (in-sldb-face local-value value)
+   (sldb-in-face local-value value)
    `(:frame-var ,slime-current-thread ,(car frame) ,index) t))
 
 (provide 'slime-presentations)

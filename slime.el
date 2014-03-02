@@ -61,6 +61,8 @@
   ;; For emacs 23, look for bundled version
   (require 'cl-lib "lib/cl-lib"))
 
+(eval-when-compile (require 'cl)) ; defsetf, lexical-let
+
 (eval-and-compile
   (if (< emacs-major-version 23)
       (error "Slime requires an Emacs version of 23, or above")))
@@ -107,12 +109,14 @@ CONTRIBS is a list of contrib packages to load. If `nil', use
   (when (member 'lisp-mode slime-lisp-modes)
     (add-hook 'lisp-mode-hook 'slime-lisp-mode-hook))
   (when contribs
-    (setq slime-setup-contribs contribs))
+    (setq slime-contribs contribs))
   (slime--setup-contribs))
+
+(defvar slime-required-modules '())
 
 (defun slime--setup-contribs ()
   "Load and initialize contribs."
-  (when slime-setup-contribs
+  (when slime-contribs
     (add-to-list 'load-path (expand-file-name "contrib" slime-path))
     (dolist (c slime-contribs)
       (unless (and (featurep c)
@@ -5295,8 +5299,7 @@ argument is given, with CL:MACROEXPAND."
 
 ;; some macros that we need to define before the first use
 
-;; FIXME: rename
-(defmacro in-sldb-face (name string)
+(defmacro sldb-in-face (name string)
   "Return STRING propertised with face sldb-NAME-face."
   (let ((facename (intern (format "sldb-%s-face" (symbol-name name))))
 	(var (cl-gensym "string")))
@@ -5304,7 +5307,7 @@ argument is given, with CL:MACROEXPAND."
        (slime-add-face ',facename ,var)
        ,var)))
 
-(put 'in-sldb-face 'lisp-indent-function 1)
+(put 'sldb-in-face 'lisp-indent-function 1)
 
 
 ;;;;; sldb-mode
@@ -5486,10 +5489,10 @@ CONTS is a list of pending Emacs continuations."
       (setq sldb-restarts restarts)
       (setq sldb-continuations conts)
       (sldb-insert-condition condition)
-      (insert "\n\n" (in-sldb-face section "Restarts:") "\n")
+      (insert "\n\n" (sldb-in-face section "Restarts:") "\n")
       (setq sldb-restart-list-start-marker (point-marker))
       (sldb-insert-restarts restarts 0 sldb-initial-restart-limit)
-      (insert "\n" (in-sldb-face section "Backtrace:") "\n")
+      (insert "\n" (sldb-in-face section "Backtrace:") "\n")
       (setq sldb-backtrace-start-marker (point-marker))
       (save-excursion
         (if frames
@@ -5549,9 +5552,9 @@ CONDITION should be a list (MESSAGE TYPE EXTRAS).
 EXTRAS is currently used for the stepper."
   (cl-destructuring-bind (message type extras) condition
     (slime-insert-propertized '(sldb-default-action sldb-inspect-condition)
-                              (in-sldb-face topline message)
+                              (sldb-in-face topline message)
                               "\n"
-                              (in-sldb-face condition type))
+                              (sldb-in-face condition type))
     (sldb-dispatch-extras extras)))
 
 (defvar sldb-extras-hooks)
@@ -5578,9 +5581,9 @@ RESTARTS should be a list ((NAME DESCRIPTION) ...)."
                  `(,@nil restart ,number
                          sldb-default-action sldb-invoke-restart
                          mouse-face highlight)
-                 " " (in-sldb-face restart-number (number-to-string number))
-                 ": ["  (in-sldb-face restart-type name) "] "
-                 (in-sldb-face restart string))
+                 " " (sldb-in-face restart-number (number-to-string number))
+                 ": ["  (sldb-in-face restart-type name) "] "
+                 (sldb-in-face restart string))
              (insert "\n"))
     (when (< end len)
       (let ((pos (point)))
@@ -5647,7 +5650,7 @@ If FACE is nil, `sldb-compute-frame-face' is used to determine the face."
         (props `(frame ,frame sldb-default-action sldb-toggle-details)))
     (slime-propertize-region props
       (slime-propertize-region '(mouse-face highlight)
-        (insert " " (in-sldb-face frame-label (format "%2d:" number)) " ")
+        (insert " " (sldb-in-face frame-label (format "%2d:" number)) " ")
         (slime-insert-indented
          (slime-add-face face string)))
       (insert "\n"))))
@@ -5921,14 +5924,14 @@ The details include local variable bindings and CATCH-tags."
                                    'sldb-detailed-frame-line-face))
         (let ((indent1 "      ")
               (indent2 "        "))
-          (insert indent1 (in-sldb-face section
+          (insert indent1 (sldb-in-face section
                             (if locals "Locals:" "[No Locals]")) "\n")
           (sldb-insert-locals locals indent2 frame)
           (when catches
-            (insert indent1 (in-sldb-face section "Catch-tags:") "\n")
+            (insert indent1 (sldb-in-face section "Catch-tags:") "\n")
             (dolist (tag catches)
               (slime-propertize-region `(catch-tag ,tag)
-                (insert indent2 (in-sldb-face catch-tag (format "%s" tag))
+                (insert indent2 (sldb-in-face catch-tag (format "%s" tag))
                         "\n"))))
           (setq end (point)))))
     (sldb-recenter-region start end)))
@@ -5953,7 +5956,7 @@ VAR should be a plist with the keys :name, :id, and :value."
              (slime-propertize-region
                  (list 'sldb-default-action 'sldb-inspect-var 'var i)
                (insert prefix
-                       (in-sldb-face local-name
+                       (sldb-in-face local-name
                          (concat name (if (zerop id) "" (format "#%d" id))))
                        " = ")
                (funcall sldb-insert-frame-variable-value-function
@@ -5961,7 +5964,7 @@ VAR should be a plist with the keys :name, :id, and :value."
                (insert "\n")))))
 
 (defun sldb-insert-frame-variable-value (value _frame _index)
-  (insert (in-sldb-face local-value value)))
+  (insert (sldb-in-face local-value value)))
 
 (defun sldb-hide-frame-details ()
   ;; delete locals and catch tags, but keep the function name and args.
@@ -7082,8 +7085,6 @@ is setup, unless the user already set one explicitly."
 
 
 ;;;; Contrib modules
-
-(defvar slime-required-modules '())
 
 (defun slime-require (module)
   (cl-pushnew module slime-required-modules)

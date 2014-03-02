@@ -7,6 +7,8 @@
 ;;;
 (require 'slime)
 (require 'slime-parse)
+(require 'slime-repl)
+(require 'cl-lib)
 
 (define-slime-contrib slime-trace-dialog
   "Provide an interfactive trace dialog buffer for managing and
@@ -59,25 +61,25 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 ;;;; Modes and mode maps
 ;;;
 (defvar slime-trace-dialog-mode-map
-      (let ((map (make-sparse-keymap))
-            (remaps '((slime-inspector-operate-on-point . nil)
-                      (slime-inspector-operate-on-click . nil)
-                      (slime-inspector-reinspect
-                       . slime-trace-dialog-fetch-status)
-                      (slime-inspector-next-inspectable-object
-                       . slime-trace-dialog-next-button)
-                      (slime-inspector-previous-inspectable-object
-                       . slime-trace-dialog-prev-button))))
-        (set-keymap-parent map slime-inspector-mode-map)
-        (loop for (old . new) in remaps
-              do (substitute-key-definition old new map))
-        (set-keymap-parent map slime-parent-map)
-        (define-key map (kbd "G") 'slime-trace-dialog-fetch-traces)
-        (define-key map (kbd "C-k") 'slime-trace-dialog-clear-fetched-traces)
-        (define-key map (kbd "g") 'slime-trace-dialog-fetch-status)
-        (define-key map (kbd "M-RET") 'slime-trace-dialog-copy-down-to-repl)
-        (define-key map (kbd "q") 'quit-window)
-        map))
+  (let ((map (make-sparse-keymap))
+        (remaps '((slime-inspector-operate-on-point . nil)
+                  (slime-inspector-operate-on-click . nil)
+                  (slime-inspector-reinspect
+                   . slime-trace-dialog-fetch-status)
+                  (slime-inspector-next-inspectable-object
+                   . slime-trace-dialog-next-button)
+                  (slime-inspector-previous-inspectable-object
+                   . slime-trace-dialog-prev-button))))
+    (set-keymap-parent map slime-inspector-mode-map)
+    (cl-loop for (old . new) in remaps
+             do (substitute-key-definition old new map))
+    (set-keymap-parent map slime-parent-map)
+    (define-key map (kbd "G") 'slime-trace-dialog-fetch-traces)
+    (define-key map (kbd "C-k") 'slime-trace-dialog-clear-fetched-traces)
+    (define-key map (kbd "g") 'slime-trace-dialog-fetch-status)
+    (define-key map (kbd "M-RET") 'slime-trace-dialog-copy-down-to-repl)
+    (define-key map (kbd "q") 'quit-window)
+    map))
 
 (define-derived-mode slime-trace-dialog-mode fundamental-mode
   "SLIME Trace Dialog" "Mode for controlling SLIME's Trace Dialog"
@@ -97,8 +99,8 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                       (slime-inspector-previous-inspectable-object
                        . slime-trace-dialog-prev-button))))
         (set-keymap-parent map slime-trace-dialog-mode-map)
-        (loop for (old . new) in remaps
-              do (substitute-key-definition old new map))
+        (cl-loop for (old . new) in remaps
+                 do (substitute-key-definition old new map))
         map))
 
 (defvar slime-trace-dialog-minor-mode-map
@@ -131,6 +133,20 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
       [ "Toggle details" slime-trace-dialog-hide-details-mode ,in-dialog]
       [ "Toggle autofollow" slime-trace-dialog-autofollow-mode ,in-dialog])))
 
+(define-minor-mode slime-trace-dialog-hide-details-mode
+  "Hide details in `slime-trace-dialog-mode'"
+  nil " Brief"    
+  :group 'slime-trace-dialog
+  (unless (derived-mode-p 'slime-trace-dialog-mode)
+    (error "Not a SLIME Trace Dialog buffer"))
+  (slime-trace-dialog--set-hide-details-mode))
+
+(define-minor-mode slime-trace-dialog-autofollow-mode
+  "Automatically open buffers with trace details from `slime-trace-dialog-mode'"
+  nil " Autofollow"
+  :group 'slime-trace-dialog
+  (unless (derived-mode-p 'slime-trace-dialog-mode)
+    (error "Not a SLIME Trace Dialog buffer")))
 
 
 ;;;; Helper functions
@@ -231,12 +247,12 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
             (setq requested t)
             (slime-eval-async `(swank-trace-dialog:report-trace-detail
                                 ,id-after)
-                #'(lambda (detail)
-                    (setq requested nil)
-                    (when detail
-                      (let ((inhibit-point-motion-hooks t))
-                        (slime-trace-dialog--open-detail detail
-                                                         'no-pop))))))))))
+              #'(lambda (detail)
+                  (setq requested nil)
+                  (when detail
+                    (let ((inhibit-point-motion-hooks t))
+                      (slime-trace-dialog--open-detail detail
+                                                       'no-pop))))))))))
 
 (defun slime-trace-dialog--set-collapsed (collapsed-p trace button)
   (save-excursion
@@ -256,31 +272,31 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
      (if collapsed-p 1 -1))))
 
 (defun slime-trace-dialog--hide-unhide (start-pos end-pos delta)
-  (loop with inhibit-read-only = t
-        for pos = start-pos then next
-        for next = (next-single-property-change
-                    pos
-                    'slime-trace-dialog--hidden-level
-                    nil
-                    end-pos)
-        for hidden-level = (+ (or (get-text-property
-                                   pos
-                                   'slime-trace-dialog--hidden-level)
-                                  0)
-                              delta)
-        do (add-text-properties pos next
-                                (list 'slime-trace-dialog--hidden-level
-                                      hidden-level
-                                      'invisible
-                                      (plusp hidden-level)))
-        while (< next end-pos)))
+  (cl-loop with inhibit-read-only = t
+           for pos = start-pos then next
+           for next = (next-single-property-change
+                       pos
+                       'slime-trace-dialog--hidden-level
+                       nil
+                       end-pos)
+           for hidden-level = (+ (or (get-text-property
+                                      pos
+                                      'slime-trace-dialog--hidden-level)
+                                     0)
+                                 delta)
+           do (add-text-properties pos next
+                                   (list 'slime-trace-dialog--hidden-level
+                                         hidden-level
+                                         'invisible
+                                         (cl-plusp hidden-level)))
+           while (< next end-pos)))
 
 (defun slime-trace-dialog--set-hide-details-mode ()
-  (loop for trace being the hash-values of slime-trace-dialog--traces
-        do (slime-trace-dialog--hide-unhide
-            (slime-trace-dialog--trace-summary-beg trace)
-            (slime-trace-dialog--trace-end trace)
-            (if slime-trace-dialog-hide-details-mode 1 -1))))
+  (cl-loop for trace being the hash-values of slime-trace-dialog--traces
+           do (slime-trace-dialog--hide-unhide
+               (slime-trace-dialog--trace-summary-beg trace)
+               (slime-trace-dialog--trace-end trace)
+               (if slime-trace-dialog-hide-details-mode 1 -1))))
 
 (defun slime-trace-dialog--format-part (part-id part-text trace-id type)
   (slime-trace-dialog--button
@@ -355,7 +371,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                          (slime-trace-dialog--open-specs results))))))
     (slime-trace-dialog--refresh
         (:overlay slime-trace-dialog--specs-overlay
-         :recover-point-p t)
+                  :recover-point-p t)
       (insert
        (slime-trace-dialog--format "Traced specs (%s)" (length traced-specs))
        (slime-trace-dialog--button "[refresh]"
@@ -365,15 +381,15 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
         "[untrace all]"
         (make-report-spec-fn `(swank-trace-dialog:dialog-untrace-all)))
        "\n\n")
-      (loop for spec in traced-specs
-            do (insert
-                "  "
-                (slime-trace-dialog--button
-                 "[untrace]"
-                 (make-report-spec-fn
-                  `(swank-trace-dialog:dialog-untrace ',spec)))
-                (format " %s" spec)
-                "\n")))))
+      (cl-loop for spec in traced-specs
+               do (insert
+                   "  "
+                   (slime-trace-dialog--button
+                    "[untrace]"
+                    (make-report-spec-fn
+                     `(swank-trace-dialog:dialog-untrace ',spec)))
+                   (format " %s" spec)
+                   "\n")))))
 
 (defvar slime-trace-dialog--fetch-key nil)
 
@@ -383,7 +399,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   ;; `remaining-p' indicates `total' is the number of remaining traces.
   (slime-trace-dialog--refresh
       (:overlay slime-trace-dialog--progress-overlay
-       :recover-point-p t)
+                :recover-point-p t)
     (let* ((done (hash-table-count slime-trace-dialog--traces))
            (total (if remaining-p (+ done total) total)))
       (insert
@@ -420,38 +436,31 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
       (insert "\n\n"))))
 
 (defun slime-trace-dialog--open-detail (trace-tuple &optional no-pop)
-  (slime-trace-dialog--refresh
-      (:buffer
-       (or (get-buffer "*trace-detail*")
-           (slime-with-popup-buffer ("*trace-detail*"
-                                     :mode 'slime-trace-dialog--detail-mode))
-           (get-buffer "*trace-detail*")))
-    (if no-pop
-        (display-buffer (current-buffer))
-      (pop-to-buffer (current-buffer)))
-    (destructuring-bind (id _parent-id _spec args retlist backtrace external)
+  (slime-with-popup-buffer ("*trace-detail*" :select (not no-pop))
+    (slime-trace-dialog--detail-mode)
+    (cl-destructuring-bind (id _parent-id _spec args retlist backtrace external)
         trace-tuple
       (let ((headline (slime-trace-dialog--format-trace-entry id external)))
         (setq headline (format "%s\n%s\n"
                                headline
                                (make-string (length headline) ?-)))
         (insert headline))
-      (loop for (type objects label)
-            in `((:arg ,args   "Called with args:")
-                 (:retval ,retlist "Returned values:"))
-            do (insert (format "\n%s\n" label))
-            (insert (loop for object in objects
-                          for i from 0
-                          concat (format "   %s: %s\n" i
-                                         (slime-trace-dialog--format-part
-                                          (first object)
-                                          (second object)
-                                          id
-                                          type)))))
+      (cl-loop for (type objects label)
+               in `((:arg ,args   "Called with args:")
+                    (:retval ,retlist "Returned values:"))
+               do (insert (format "\n%s\n" label))
+               (insert (cl-loop for object in objects
+                                for i from 0
+                                concat (format "   %s: %s\n" i
+                                               (slime-trace-dialog--format-part
+                                                (cl-first object)
+                                                (cl-second object)
+                                                id
+                                                type)))))
       (when backtrace
         (insert "\nBacktrace:\n"
-                (loop for (i spec) in backtrace
-                      concat (format "   %s: %s\n" i spec))))
+                (cl-loop for (i spec) in backtrace
+                         concat (format "   %s: %s\n" i spec))))
       )))
 
 
@@ -461,23 +470,23 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   (save-excursion
     (let ((inhibit-point-motion-hooks t))
       (goto-char start)
-      (loop with replace-set = (if (eq direction 'down)
-                                   '(? )
-                                 '(?  ?`))
-            for line-beginning = (line-beginning-position
-                                  (if (eq direction 'down)
-                                      2 0))
-            for pos = (+ line-beginning offset)
-            while (and (< (point-min) line-beginning)
-                       (< line-beginning (point-max))
-                       (memq (char-after pos) replace-set))
-            do
-            (slime-trace-dialog--go-replace-char-at pos "|")
-            (goto-char pos)))))
+      (cl-loop with replace-set = (if (eq direction 'down)
+                                      '(? )
+                                    '(?  ?`))
+               for line-beginning = (line-beginning-position
+                                     (if (eq direction 'down)
+                                         2 0))
+               for pos = (+ line-beginning offset)
+               while (and (< (point-min) line-beginning)
+                          (< line-beginning (point-max))
+                          (memq (char-after pos) replace-set))
+               do
+               (slime-trace-dialog--go-replace-char-at pos "|")
+               (goto-char pos)))))
 
 (defun slime-trace-dialog--make-indent (depth suffix)
   (concat (make-string (* 3 (max 0 (1- depth))) ? )
-          (if (plusp depth) suffix)))
+          (if (cl-plusp depth) suffix)))
 
 (defun slime-trace-dialog--make-collapse-button (trace)
   (slime-trace-dialog--button (if (slime-trace-dialog--trace-collapsed-p trace)
@@ -510,21 +519,21 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                                ,id)
                            #'slime-trace-dialog--open-detail))))
          (spec (slime-trace-dialog--trace-spec trace))
-         (summary (loop for (type objects marker) in
-                        `((:arg    ,(slime-trace-dialog--trace-args trace)
-                                   " > ")
-                          (:retval ,(slime-trace-dialog--trace-retlist trace)
-                                   " < "))
-                        concat (loop for object in objects
-                                     concat "      "
-                                     concat indent-summary
-                                     concat marker
-                                     concat (slime-trace-dialog--format-part
-                                             (first object)
-                                             (second object)
-                                             id
-                                             type)
-                                     concat "\n"))))
+         (summary (cl-loop for (type objects marker) in
+                           `((:arg    ,(slime-trace-dialog--trace-args trace)
+                                      " > ")
+                             (:retval ,(slime-trace-dialog--trace-retlist trace)
+                                      " < "))
+                           concat (cl-loop for object in objects
+                                           concat "      "
+                                           concat indent-summary
+                                           concat marker
+                                           concat (slime-trace-dialog--format-part
+                                                   (cl-first object)
+                                                   (cl-second object)
+                                                   id
+                                                   type)
+                                           concat "\n"))))
     (puthash id trace slime-trace-dialog--traces)
     ;; insert and propertize the text
     ;;
@@ -547,26 +556,26 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                                'point-left autofollow-fn))
     ;; respect brief mode and collapsed state
     ;;
-    (loop for condition in (list slime-trace-dialog-hide-details-mode
-                                 (slime-trace-dialog--trace-collapsed-p trace))
-          when condition
-          do (slime-trace-dialog--hide-unhide
-              (slime-trace-dialog--trace-summary-beg
-               trace)
-              (slime-trace-dialog--trace-end trace)
-              1))
-    (loop for tr = trace then parent
-          for parent = (slime-trace-dialog--trace-parent tr)
-          while parent
-          when (slime-trace-dialog--trace-collapsed-p parent)
-          do (slime-trace-dialog--hide-unhide
-              (slime-trace-dialog--trace-beg trace)
-              (slime-trace-dialog--trace-end trace)
-              (+ 1
-                 (or (get-text-property (slime-trace-dialog--trace-beg parent)
-                                        'slime-trace-dialog--hidden-level)
-                     0)))
-          (return))
+    (cl-loop for condition in (list slime-trace-dialog-hide-details-mode
+                                    (slime-trace-dialog--trace-collapsed-p trace))
+             when condition
+             do (slime-trace-dialog--hide-unhide
+                 (slime-trace-dialog--trace-summary-beg
+                  trace)
+                 (slime-trace-dialog--trace-end trace)
+                 1))
+    (cl-loop for tr = trace then parent
+             for parent = (slime-trace-dialog--trace-parent tr)
+             while parent
+             when (slime-trace-dialog--trace-collapsed-p parent)
+             do (slime-trace-dialog--hide-unhide
+                 (slime-trace-dialog--trace-beg trace)
+                 (slime-trace-dialog--trace-end trace)
+                 (+ 1
+                    (or (get-text-property (slime-trace-dialog--trace-beg parent)
+                                           'slime-trace-dialog--hidden-level)
+                        0)))
+             (cl-return))
     ;; maybe add the collapse-button to the parent in case it didn't
     ;; have one already
     ;;
@@ -590,12 +599,12 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
     ;; set the "children-end" slot
     ;;
     (unless (slime-trace-dialog--trace-children-end trace)
-      (loop for parent = trace
-            then (slime-trace-dialog--trace-parent parent)
-            while parent
-            do
-            (setf (slime-trace-dialog--trace-children-end parent)
-                  (slime-trace-dialog--trace-end trace))))))
+      (cl-loop for parent = trace
+               then (slime-trace-dialog--trace-parent parent)
+               while parent
+               do
+               (setf (slime-trace-dialog--trace-children-end parent)
+                     (slime-trace-dialog--trace-end trace))))))
 
 (defun slime-trace-dialog--render-trace (trace)
   ;; Render the trace entry in the appropriate place.
@@ -647,20 +656,20 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   (save-excursion
     (slime-trace-dialog--refresh
         (:overlay slime-trace-dialog--tree-overlay
-         :dont-erase t)
-      (loop for tuple in tuples
-            for parent = (slime-trace-dialog--find-trace (second tuple))
-            for trace = (slime-trace-dialog--make-trace
-                         :id (first tuple)
-                         :parent parent
-                         :spec (third tuple)
-                         :args (fourth tuple)
-                         :retlist (fifth tuple)
-                         :depth (if parent
-                                    (1+ (slime-trace-dialog--trace-depth
-                                         parent))
-                                  0))
-            do (slime-trace-dialog--render-trace trace)))))
+                  :dont-erase t)
+      (cl-loop for tuple in tuples
+               for parent = (slime-trace-dialog--find-trace (cl-second tuple))
+               for trace = (slime-trace-dialog--make-trace
+                            :id (cl-first tuple)
+                            :parent parent
+                            :spec (cl-third tuple)
+                            :args (cl-fourth tuple)
+                            :retlist (cl-fifth tuple)
+                            :depth (if parent
+                                       (1+ (slime-trace-dialog--trace-depth
+                                            parent))
+                                     0))
+               do (slime-trace-dialog--render-trace trace)))))
 
 (defun slime-trace-dialog--clear-local-tree ()
   (set (make-local-variable 'slime-trace-dialog--fetch-key)
@@ -672,7 +681,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   (slime-trace-dialog--update-progress nil))
 
 (defun slime-trace-dialog--on-new-results (results &optional recurse)
-  (destructuring-bind (tuples remaining reply-key)
+  (cl-destructuring-bind (tuples remaining reply-key)
       results
     (cond ((and slime-trace-dialog--fetch-key
                 (string= (symbol-name slime-trace-dialog--fetch-key)
@@ -681,12 +690,12 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
            (slime-trace-dialog--update-progress
             remaining
             (and recurse
-                 (plusp remaining))
+                 (cl-plusp remaining))
             t)
            (when (and recurse
                       (not (prog1 slime-trace-dialog--stop-fetching
                              (setq slime-trace-dialog--stop-fetching nil)))
-                      (plusp remaining))
+                      (cl-plusp remaining))
              (slime-eval-async `(swank-trace-dialog:report-partial-tree
                                  ',reply-key)
                #'(lambda (results) (slime-trace-dialog--on-new-results
@@ -739,10 +748,10 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   (let ((finder (if goback
                     #'previous-single-property-change
                   #'next-single-property-change)))
-    (loop for pos = (funcall finder (point) 'action)
-          while pos
-          do (goto-char pos)
-          until (get-text-property pos 'action))))
+    (cl-loop for pos = (funcall finder (point) 'action)
+             while pos
+             do (goto-char pos)
+             until (get-text-property pos 'action))))
 
 (defun slime-trace-dialog-prev-button ()
   (interactive)
@@ -794,21 +803,6 @@ and fetch a first batch of traces."
       (slime-trace-dialog--clear-local-tree))
     (when clear-and-fetch
       (slime-trace-dialog-fetch-traces nil))))
-
-(define-minor-mode slime-trace-dialog-hide-details-mode
-  "Hide details in `slime-trace-dialog-mode'"
-  nil " Brief"    
-  :group 'slime-trace-dialog
-  (unless (derived-mode-p 'slime-trace-dialog-mode)
-    (error "Not a SLIME Trace Dialog buffer"))
-  (slime-trace-dialog--set-hide-details-mode))
-
-(define-minor-mode slime-trace-dialog-autofollow-mode
-  "Automatically open buffers with trace details from `slime-trace-dialog-mode'"
-  nil " Autofollow"
-  :group 'slime-trace-dialog
-  (unless (derived-mode-p 'slime-trace-dialog-mode)
-    (error "Not a SLIME Trace Dialog buffer")))
 
 (defun slime-trace-dialog-copy-down-to-repl (id part-id type)
   "Eval the Trace Dialog entry under point in the REPL (to set *)"

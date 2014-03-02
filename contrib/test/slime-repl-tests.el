@@ -1,5 +1,6 @@
 (require 'slime-repl)
 (require 'slime-tests)
+(require 'cl-lib)
 
 (defmacro slime-repl-test-markers (expected-string-spec &rest marker-specs)
   "For (MARKER SIG FORM) in MARKER-SPECS, produce suitable `should' assertions.

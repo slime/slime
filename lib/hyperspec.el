@@ -33,7 +33,7 @@
 
 ;;; Code:
 
-(require 'cl)
+(require 'cl-lib)
 (require 'browse-url)                   ;you need the Emacs 20 version
 (require 'thingatpt)
 
@@ -99,26 +99,26 @@ If you copy the HyperSpec to another location, customize the variable
                           common-lisp-hyperspec-symbols #'boundp
                           t stripped-symbol
                           'common-lisp-hyperspec-history)))))
-  (maplist (lambda (entry)
-             (browse-url (concat common-lisp-hyperspec-root "Body/"
-				 (car entry)))
-             (if (cdr entry)
-                 (sleep-for 1.5)))
-           (let ((symbol (intern-soft 
-			  (common-lisp-hyperspec-strip-cl-package 
-			   (downcase symbol-name))
-			  common-lisp-hyperspec-symbols)))
-             (if (and symbol (boundp symbol))
-                 (symbol-value symbol)
-               (error "The symbol `%s' is not defined in Common Lisp"
-                      symbol-name)))))
+  (cl-maplist (lambda (entry)
+                (browse-url (concat common-lisp-hyperspec-root "Body/"
+                                    (car entry)))
+                (if (cdr entry)
+                    (sleep-for 1.5)))
+              (let ((symbol (intern-soft 
+                             (common-lisp-hyperspec-strip-cl-package 
+                              (downcase symbol-name))
+                             common-lisp-hyperspec-symbols)))
+                (if (and symbol (boundp symbol))
+                    (symbol-value symbol)
+                  (error "The symbol `%s' is not defined in Common Lisp"
+                         symbol-name)))))
 
 ;;; Added the following just to provide a common entry point according
 ;;; to the various 'hyperspec' implementations.
 ;;;
 ;;; 19990820 Marco Antoniotti
 
-(eval-when (load eval)
+(cl-eval-when (load eval)
   (defalias 'hyperspec-lookup 'common-lisp-hyperspec))
 
 ;;; Refactored out from the below.
@@ -142,7 +142,7 @@ If you copy the HyperSpec to another location, customize the variable
 
 (defun hyperspec--get-one-line ()
   (prog1 
-      (delete* ?\n (thing-at-point 'line))
+      (cl-delete ?\n (thing-at-point 'line))
     (forward-line)))
 
 (if common-lisp-hyperspec-symbol-table
@@ -153,9 +153,9 @@ If you copy the HyperSpec to another location, customize the variable
 	(let* ((symbol-name (downcase (hyperspec--get-one-line)))
 	       (relative-url (hyperspec--get-one-line)))
 	  (intern-clhs-symbol symbol-name 
-			      (subseq relative-url
-				      (1+ (position ?\/ relative-url
-						    :from-end t)))))))
+			      (cl-subseq relative-url
+                                         (1+ (cl-position ?\/ relative-url
+                                                          :from-end t)))))))
   (mapc (lambda (entry) (intern-clhs-symbol (car entry) (cadr entry)))
         '(("&allow-other-keys" "03_da.htm")
           ("&aux" "03_da.htm")
@@ -1236,28 +1236,28 @@ If you copy the HyperSpec to another location, customize the variable
   (funcall common-lisp-hyperspec-section-fun indices))
 
 (defun common-lisp-hyperspec-format (character-name)
-   (interactive 
-    (list (let ((char-at-point
-                 (ignore-errors (char-to-string (char-after (point))))))
-	    (if (and char-at-point
-		     (intern-soft (upcase char-at-point)
-				  common-lisp-hyperspec-format-characters))
+  (interactive 
+   (list (let ((char-at-point
+                (ignore-errors (char-to-string (char-after (point))))))
+           (if (and char-at-point
+                    (intern-soft (upcase char-at-point)
+                                 common-lisp-hyperspec-format-characters))
  	       char-at-point
- 	       (completing-read
- 		"Look up format control character in Common Lisp HyperSpec: "
- 		common-lisp-hyperspec-format-characters nil #'boundp
- 		nil nil 'common-lisp-hyperspec-format-history)))))
-   (maplist (lambda (entry)
-	      (browse-url (common-lisp-hyperspec-section (car entry))))
-	    (let ((symbol (intern-soft 
-			   character-name
-			   common-lisp-hyperspec-format-characters)))
-	      (if (and symbol (boundp symbol))
-		  (symbol-value symbol)
+             (completing-read
+              "Look up format control character in Common Lisp HyperSpec: "
+              common-lisp-hyperspec-format-characters nil #'boundp
+              nil nil 'common-lisp-hyperspec-format-history)))))
+  (cl-maplist (lambda (entry)
+                (browse-url (common-lisp-hyperspec-section (car entry))))
+              (let ((symbol (intern-soft 
+                             character-name
+                             common-lisp-hyperspec-format-characters)))
+                (if (and symbol (boundp symbol))
+                    (symbol-value symbol)
 		  (error "The symbol `%s' is not defined in Common Lisp"
 			 character-name)))))
 
-(eval-when (load eval)
+(cl-eval-when (load eval)
   (defalias 'hyperspec-lookup-format 'common-lisp-hyperspec-format))
 
 ;;; Previously there were entries for "C" and "C: Character",
@@ -1270,11 +1270,11 @@ If you copy the HyperSpec to another location, customize the variable
   (let* ((designator (if summary (format "%s - %s" char summary) char))
          (symbol (intern designator common-lisp-hyperspec-format-characters)))
     (if (boundp symbol)
-        (pushnew section (symbol-value symbol) :test 'equal)
+        (cl-pushnew section (symbol-value symbol) :test 'equal)
         (set symbol (list section)))))
 
 (mapc (lambda (entry)
-	(destructuring-bind (char section &optional summary) entry
+	(cl-destructuring-bind (char section &optional summary) entry
 	  (intern-clhs-format-directive char section summary)
 	  (when (and (= 1 (length char))
 		     (not (string-equal char (upcase char))))
@@ -1357,9 +1357,9 @@ cross-references table which is usually \"Map_IssX.txt\" or
 	(let* ((symbol (intern (downcase (hyperspec--get-one-line))
 			       common-lisp-hyperspec-issuex-symbols))
 	       (relative-url (hyperspec--get-one-line)))
-	  (set symbol (subseq relative-url
-			      (1+ (position ?\/ relative-url 
-					    :from-end t)))))))
+	  (set symbol (cl-subseq relative-url
+                                 (1+ (cl-position ?\/ relative-url 
+                                                  :from-end t)))))))
   (mapc
    (lambda (entry)
      (let ((symbol (intern (car entry) common-lisp-hyperspec-issuex-symbols)))

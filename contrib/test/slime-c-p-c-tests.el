@@ -1,3 +1,4 @@
+(require 'slime-c-p-c)
 (require 'slime-tests)
 
 (def-slime-test complete-symbol*

@@ -9,7 +9,13 @@ LOAD_PATH=-L . -L ..
 CONTRIBS = $(patsubst slime-%.el,%,$(wildcard slime-*.el))
 SLIME_VERSION=$(shell grep "Version:" ../slime.el | grep -E -o "[0-9.]+$$")
 
-compile:
+ELFILES := $(shell find . -type f -iname "*.el")
+ELCFILES := $(patsubst %.el,%.elc,$(ELFILES))
+
+%.elc: %.el
+	$(EMACS) -Q $(LOAD_PATH) --batch -f batch-byte-compile $<
+
+compile: $(ELCFILES)
 	$(EMACS) -Q --batch $(LOAD_PATH) \
 	        --eval "(batch-byte-recompile-directory 0)" .
 

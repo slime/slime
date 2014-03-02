@@ -1,6 +1,6 @@
-(eval-and-compile
-  (require 'slime)
-  (require 'tramp))
+(require 'slime)
+(require 'tramp)
+(eval-when-compile (require 'cl)) ; lexical-let
 
 (define-slime-contrib slime-tramp
   "Filename translations for tramp"
@@ -50,8 +50,8 @@ See also `slime-create-filename-translator'."
   :group 'slime-lisp)
 
 (defun slime-find-filename-translators (hostname)
-  (cond ((cdr (assoc-if (lambda (regexp) (string-match regexp hostname))
-                            slime-filename-translations)))
+  (cond ((cdr (cl-assoc-if (lambda (regexp) (string-match regexp hostname))
+                           slime-filename-translations)))
         (t (list #'identity #'identity))))
 
 (defun slime-make-tramp-file-name (username remote-host lisp-filename)
@@ -66,9 +66,9 @@ See also `slime-create-filename-translator'."
                                   remote-host
                                   lisp-filename)))
 
-(defun* slime-create-filename-translator (&key machine-instance
-                                         remote-host
-                                         username)
+(cl-defun slime-create-filename-translator (&key machine-instance
+                                                 remote-host
+                                                 username)
   "Creates a three element list suitable for push'ing onto
 slime-filename-translations which uses Tramp to load files on
 hostname using username. MACHINE-INSTANCE is a required
@@ -89,10 +89,10 @@ The functions created here expect your tramp-default-method or
             (tramp-file-name-localname
              (tramp-dissect-file-name emacs-filename)))
           `(lambda (lisp-filename)
-            (slime-make-tramp-file-name
-             ,username
-             ,remote-host
-             lisp-filename)))))
+             (slime-make-tramp-file-name
+              ,username
+              ,remote-host
+              lisp-filename)))))
 
 (defun slime-tramp-to-lisp-filename (filename)
   (funcall (if (slime-connected-p)

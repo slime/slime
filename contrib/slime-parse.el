@@ -1,4 +1,5 @@
 (require 'slime)
+(require 'cl-lib)
 
 (define-slime-contrib slime-parse
   "Utility contrib containg functions to parse forms in a buffer."
@@ -14,7 +15,7 @@
         (cursexp)
         (curpos)
         (depth 1))            ; This function must be called from the
-                              ; start of the sexp to be parsed.
+                                        ; start of the sexp to be parsed.
     (while (and (setq curpos (pop todo))
                 (progn
                   (goto-char curpos)
@@ -25,37 +26,37 @@
                   (< (point) limit)))
       (setq cursexp (pop sexps))
       (cond
-        ;; End of an sexp?
-        ((or (looking-at "\\s)") (eolp))
-         (decf depth)
-         (push (nreverse cursexp) (car sexps)))
-        ;; Start of a new sexp?
-        ((looking-at "\\s'*\\s(")
-         (let ((subpt (match-end 0)))
-           (ignore-errors
-             (forward-sexp)
-             ;; (In case of error, we're at an incomplete sexp, and
-             ;; nothing's left todo after it.)
-             (push (point) todo))
-           (push cursexp sexps)
-           (push subpt todo)            ; to descend into new sexp
-           (push nil sexps)
-           (incf depth)))
-        ;; In mid of an sexp..
-        (t
-         (let ((pt1 (point))
-               (pt2 (condition-case e
-                        (progn (forward-sexp) (point))
-                      (scan-error
-                       (fourth e)))))   ; end of sexp
-           (push (buffer-substring-no-properties pt1 pt2) cursexp)
-           (push pt2 todo)
-           (push cursexp sexps)))))
+       ;; End of an sexp?
+       ((or (looking-at "\\s)") (eolp))
+        (cl-decf depth)
+        (push (nreverse cursexp) (car sexps)))
+       ;; Start of a new sexp?
+       ((looking-at "\\s'*\\s(")
+        (let ((subpt (match-end 0)))
+          (ignore-errors
+            (forward-sexp)
+            ;; (In case of error, we're at an incomplete sexp, and
+            ;; nothing's left todo after it.)
+            (push (point) todo))
+          (push cursexp sexps)
+          (push subpt todo)            ; to descend into new sexp
+          (push nil sexps)
+          (cl-incf depth)))
+       ;; In mid of an sexp..
+       (t
+        (let ((pt1 (point))
+              (pt2 (condition-case e
+                       (progn (forward-sexp) (point))
+                     (scan-error
+                      (cl-fourth e)))))   ; end of sexp
+          (push (buffer-substring-no-properties pt1 pt2) cursexp)
+          (push pt2 todo)
+          (push cursexp sexps)))))
     (when sexps
-      (setf (car sexps) (nreconc form-suffix (car sexps)))
+      (setf (car sexps) (cl-nreconc form-suffix (car sexps)))
       (while (> depth 1)
         (push (nreverse (pop sexps)) (car sexps))
-        (decf depth))
+        (cl-decf depth))
       (nreverse (car sexps)))))
 
 (defun slime-compare-char-syntax (get-char-fn syntax &optional unescaped)
@@ -68,8 +69,8 @@ that the character is not escaped."
 	(if unescaped
 	    (or (null char-before)
 		(not (eq (char-syntax char-before) ?\\)))
-	    t)
-        nil)))
+          t)
+      nil)))
 
 (defconst slime-cursor-marker 'swank::%cursor-marker%)
 
@@ -107,12 +108,16 @@ that the character is not escaped."
           (ignore-errors (down-list))
           (slime-parse-form-until pt suffix))))))
 
-(let ((byte-compile-warnings '()))
-  (mapc #'byte-compile
-        '(slime-parse-form-upto-point
-          slime-parse-form-until
-          slime-compare-char-syntax
-          )))
+(require 'bytecomp)
+
+(mapc (lambda (sym)
+        (cond ((fboundp sym)
+               (unless (byte-code-function-p (symbol-function sym))
+                 (byte-compile sym)))
+              (t (error "%S is not fbound" sym))))
+      '(slime-parse-form-upto-point
+        slime-parse-form-until
+        slime-compare-char-syntax))
 
 ;;;; Test cases
 (defun slime-extract-context ()
@@ -160,9 +165,9 @@ For other contexts we return the symbol at point."
            (unless (looking-at "\\s ")
              (forward-sexp 1)) ; skip over the methodname
            (let (qualifiers arglist)
-             (loop for e = (read (current-buffer))
-                   until (listp e) do (push e qualifiers)
-                   finally (setq arglist e))
+             (cl-loop for e = (read (current-buffer))
+                      until (listp e) do (push e qualifiers)
+                      finally (setq arglist e))
              `(:defmethod ,name ,@qualifiers
                           ,(slime-arglist-specializers arglist))))
           ((and (symbolp name)
@@ -197,7 +202,7 @@ For other contexts we return the symbol at point."
           ((slime-in-expression-p '(defstruct *))
            `(:defstruct ,(if (consp name)
                              (car name)
-                             name)))
+                           name)))
           (t
            name))))
 
@@ -213,13 +218,13 @@ The pattern can have the form:
            | ((<pattern>))          ;matches if we are in a nested list."
   (save-excursion
     (let ((path (reverse (slime-pattern-path pattern))))
-      (loop for p in path
-            always (ignore-errors
-                     (etypecase p
-                       (symbol (slime-beginning-of-list)
-                               (eq (read (current-buffer)) p))
-                       (number (backward-up-list p)
-                               t)))))))
+      (cl-loop for p in path
+               always (ignore-errors
+                        (cl-etypecase p
+                          (symbol (slime-beginning-of-list)
+                                  (eq (read (current-buffer)) p))
+                          (number (backward-up-list p)
+                                  t)))))))
 
 (defun slime-pattern-path (pattern)
   ;; Compute the path to the * in the pattern to make matching
@@ -227,7 +232,7 @@ The pattern can have the form:
   ;; means "(down-list <n>)" and a symbol "(look-at <sym>)")
   (if (null pattern)
       '()
-    (etypecase (car pattern)
+    (cl-etypecase (car pattern)
       ((member *) '())
       (symbol (cons (car pattern) (slime-pattern-path (cdr pattern))))
       (cons (cons 1 (slime-pattern-path (car pattern)))))))
@@ -254,14 +259,14 @@ Point is placed before the first expression in the list."
 
 (defun slime-arglist-specializers (arglist)
   (cond ((or (null arglist)
-	     (member (first arglist) '(&optional &key &rest &aux)))
+	     (member (cl-first arglist) '(&optional &key &rest &aux)))
 	 (list))
-	((consp (first arglist))
-	 (cons (second (first arglist))
-	       (slime-arglist-specializers (rest arglist))))
+	((consp (cl-first arglist))
+	 (cons (cl-second (cl-first arglist))
+	       (slime-arglist-specializers (cl-rest arglist))))
 	(t
 	 (cons 't
-	       (slime-arglist-specializers (rest arglist))))))
+	       (slime-arglist-specializers (cl-rest arglist))))))
 
 (defun slime-definition-at-point (&optional only-functional)
   "Return object corresponding to the definition at point."
@@ -270,42 +275,34 @@ Point is placed before the first expression in the list."
             (and only-functional
                  (not (member (car toplevel)
                               '(:defun :defgeneric :defmethod
-                                :defmacro :define-compiler-macro)))))
+                                       :defmacro :define-compiler-macro)))))
         (error "Not in a definition")
-        (destructure-case toplevel
-          (((:defun :defgeneric) symbol)
-           (format "#'%s" symbol))
-          (((:defmacro :define-modify-macro) symbol)
-           (format "(macro-function '%s)" symbol))
-          ((:define-compiler-macro symbol)
-           (format "(compiler-macro-function '%s)" symbol))
-          ((:defmethod symbol &rest args)
-           (declare (ignore args))
-           (format "#'%s" symbol))
-          (((:defparameter :defvar :defconstant) symbol)
-           (format "'%s" symbol))
-          (((:defclass :defstruct) symbol)
-           (format "(find-class '%s)" symbol))
-          ((:defpackage symbol)
-           (format "(or (find-package '%s) (error \"Package %s not found\"))"
-                   symbol symbol))
-          (t
-           (error "Not in a definition"))))))
+      (destructure-case toplevel
+        (((:defun :defgeneric) symbol)
+         (format "#'%s" symbol))
+        (((:defmacro :define-modify-macro) symbol)
+         (format "(macro-function '%s)" symbol))
+        ((:define-compiler-macro symbol)
+         (format "(compiler-macro-function '%s)" symbol))
+        ((:defmethod symbol &rest args)
+         (declare (ignore args))
+         (format "#'%s" symbol))
+        (((:defparameter :defvar :defconstant) symbol)
+         (format "'%s" symbol))
+        (((:defclass :defstruct) symbol)
+         (format "(find-class '%s)" symbol))
+        ((:defpackage symbol)
+         (format "(or (find-package '%s) (error \"Package %s not found\"))"
+                 symbol symbol))
+        (t
+         (error "Not in a definition"))))))
 
-;; FIXME: not used here; move it away
-(if (and (featurep 'emacs) (>= emacs-major-version 22))
-    ;;  N.B. The 2nd, and 6th return value cannot be relied upon.
-    (defsubst slime-current-parser-state ()
-      ;; `syntax-ppss' does not save match data as it invokes
-      ;; `beginning-of-defun' implicitly which does not save match
-      ;; data. This issue has been reported to the Emacs maintainer on
-      ;; Feb27.
-      (syntax-ppss))
-    (defsubst slime-current-parser-state ()
-      (let ((original-pos (point)))
-        (save-excursion
-          (beginning-of-defun)
-          (parse-partial-sexp (point) original-pos)))))
+(defsubst slime-current-parser-state ()
+  ;; `syntax-ppss' does not save match data as it invokes
+  ;; `beginning-of-defun' implicitly which does not save match
+  ;; data. This issue has been reported to the Emacs maintainer on
+  ;; Feb27.
+  (syntax-ppss))
 
 (defun slime-inside-string-p ()
   (nth 3 (slime-current-parser-state)))
@@ -331,7 +328,7 @@ Point is placed before the first expression in the list."
       (goto-char (point-min))
       (while (progn (slime-forward-sexp)
                     (< (point) original-pos))
-        (incf n)))
+        (cl-incf n)))
     n))
 
 ;;; This is similiar to `slime-enclosing-form-paths' in the
@@ -344,18 +341,18 @@ form to the atom at point, or nil if we're in front of a tlf."
   (let ((source-path nil))
     (save-excursion
       ;; Moving forward to get reader conditionals right.
-      (loop for inner-pos = (point)
-            for outer-pos = (nth-value 1 (slime-current-parser-state))
-            while outer-pos do
-            (goto-char outer-pos)
-            (unless (eq (char-before) ?#) ; when at #(...) continue.
-              (forward-char)
-              (let ((n 0))
-                (while (progn (slime-forward-sexp)
-                              (< (point) inner-pos))
-                  (incf n))
-                (push n source-path)
-                (goto-char outer-pos)))))
+      (cl-loop for inner-pos = (point)
+               for outer-pos = (cl-nth-value 1 (slime-current-parser-state))
+               while outer-pos do
+               (goto-char outer-pos)
+               (unless (eq (char-before) ?#) ; when at #(...) continue.
+                 (forward-char)
+                 (let ((n 0))
+                   (while (progn (slime-forward-sexp)
+                                 (< (point) inner-pos))
+                     (cl-incf n))
+                   (push n source-path)
+                   (goto-char outer-pos)))))
     source-path))
 
 (provide 'slime-parse)

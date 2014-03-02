@@ -1,5 +1,6 @@
-(eval-and-compile
-  (require 'slime))
+(require 'slime)
+(require 'cl-lib)
+(require 'grep)
 
 (define-slime-contrib slime-asdf
   "ASDF support."
@@ -63,7 +64,7 @@ in the directory of the current buffer."
          (directory-files (file-name-directory directory) nil "\.asd$")))
     (loop for system in asd-files
           for candidate = (file-name-sans-extension system)
-          when (find candidate system-names :test #'string-equal)
+          when (cl-find candidate system-names :test #'string-equal)
             do (return candidate))))
 
 (defun slime-determine-asdf-system (filename buffer-package)
@@ -114,11 +115,11 @@ buffer's working directory"
   (interactive (list (slime-read-system-name)))
   (slime-oos system 'load-op))
 
-(defun slime-open-system (name &optional load)
+(defun slime-open-system (name &optional load interactive)
   "Open all files in an ASDF system."
-  (interactive (list (slime-read-system-name)))
+  (interactive (list (slime-read-system-name) nil t))
   (when (or load
-            (and (called-interactively-p)
+            (and interactive
                  (not (slime-eval `(swank:asdf-system-loaded-p ,name)))
                  (y-or-n-p "Load it? ")))
     (slime-load-system name))

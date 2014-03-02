@@ -1,5 +1,5 @@
-(eval-and-compile
-  (require 'slime))
+(require 'slime)
+(require 'cl-lib)
 
 (define-slime-contrib slime-sbcl-exts
   "Misc extensions for SBCL"

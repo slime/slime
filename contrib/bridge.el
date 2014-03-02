@@ -128,10 +128,15 @@ function can use this variable also.")
 (eval'able); last item is error condition which resulted.  This is provided
 to help handler-writers in their debugging.")
 
+(defvar bridge-insert-function nil
+  "If non-nil use this instead of `bridge-insert'")
+
 ;;;%Utilities
-(defun bridge-insert (output)
+(defun bridge-insert (output &optional _dummy)
   "Insert process OUTPUT into the current buffer."
-  (if output
+  (if bridge-insert-function
+      (funcall bridge-insert-function output)
+    (if output
       (let* ((buffer (current-buffer))
 	     (process (get-buffer-process buffer))
 	     (mark (process-mark process))
@@ -152,7 +157,7 @@ to help handler-writers in their debugging.")
 		    (save-excursion
 		      (select-window window)
 		      (recenter '(center))
-		      (select-window original)))))))))
+		      (select-window original))))))))))
 
 ;;;
 ;(defun bridge-send-string (process string)

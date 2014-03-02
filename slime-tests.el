@@ -29,6 +29,9 @@
 (require 'ert nil t)
 (require 'ert "lib/ert" t) ;; look for bundled version for Emacs 23
 (require 'cl-lib)
+(require 'bytecomp) ; byte-compile-current-file
+(eval-when-compile
+  (require 'cl)) ; lexical-let
 
 (defun slime-shuffle-list (list)
   (let* ((len (length list))
@@ -146,29 +149,30 @@ conditions (assertions)."
       (warn "No ert.el found: not defining test %s"
             name)
     `(progn
-     ,@(cl-destructuring-bind (name &rest options)
-           (if (listp name) name (list name))
-         (let ((fname (intern (format "slime-test-%s" name))))
-           (cons `(defun ,fname ,args
-                    (slime-sync-to-top-level 0.3)
-                    ,@body
-                    (slime-sync-to-top-level 0.3))
-                 (loop for input in (eval inputs)
-                       for i from 1
-                       with fails-for = (cdr (assoc :fails-for options))
-                       with style = (cdr (assoc :style options))
-                       collect (slime-test-ert-test-for name
-                                                        input
-                                                        i
-                                                        doc
-                                                        body
-                                                        fails-for
-                                                        style
-                                                        fname))))))))
+       ,@(cl-destructuring-bind (name &rest options)
+             (if (listp name) name (list name))
+           (let ((fname (intern (format "slime-test-%s" name))))
+             (cons `(defun ,fname ,args
+                      (slime-sync-to-top-level 0.3)
+                      ,@body
+                      (slime-sync-to-top-level 0.3))
+                   (cl-loop for input in (eval inputs)
+                            for i from 1
+                            with fails-for = (cdr (assoc :fails-for options))
+                            with style = (cdr (assoc :style options))
+                            collect (slime-test-ert-test-for name
+                                                             input
+                                                             i
+                                                             doc
+                                                             body
+                                                             fails-for
+                                                             style
+                                                             fname))))))))
 
 (put 'def-slime-test 'lisp-indent-function 4)
 
 (defmacro slime-check (check &rest body)
+  (declare (indent defun))
   `(unless (progn ,@body)
      (ert-fail ,(cl-etypecase check
                   (cons `(concat "Ooops, " ,(cons 'format check)))
@@ -177,11 +181,8 @@ conditions (assertions)."
 
 
 ;;;;; Test case definitions
-;; Clear out old tests.
-(setq slime-tests nil)
-
 (defun slime-check-top-level () ;(&optional _test-name)
-  (slime-accept-process-output nil 0.001)
+  (accept-process-output nil 0.001)
   (slime-check "At the top level (no debugging or pending RPCs)"
     (slime-at-top-level-p)))
 
@@ -200,7 +201,7 @@ conditions (assertions)."
             (t
              ;; XXX if a process-filter enters a recursive-edit, we
              ;; hang forever
-             (slime-accept-process-output nil 0.1))))))
+             (accept-process-output nil 0.1))))))
 
 (defun slime-sync-to-top-level (timeout)
   (slime-wait-condition "top-level" #'slime-at-top-level-p timeout))
@@ -229,11 +230,11 @@ conditions (assertions)."
   (equal level (sldb-level)))
 
 (eval-when-compile
-  (defvar slime-test-symbols
-  '(("foobar") ("foo@bar") ("@foobar") ("foobar@") ("\\@foobar")
-    ("|asdf||foo||bar|")
-    ("\\#<Foo@Bar>")
-    ("\\(setf\\ car\\)"))))
+ (defvar slime-test-symbols
+   '(("foobar") ("foo@bar") ("@foobar") ("foobar@") ("\\@foobar")
+     ("|asdf||foo||bar|")
+     ("\\#<Foo@Bar>")
+     ("\\(setf\\ car\\)"))))
 
 (defun slime-check-symbol-at-point (prefix symbol suffix)
   ;; We test that `slime-symbol-at-point' works at every
@@ -419,7 +420,7 @@ after quitting Slime's temp buffer."
     ;; Postconditions
     (slime-check ("Definition of `%S' is in swank.lisp." name)
       (string= (file-name-nondirectory (buffer-file-name)) "swank.lisp"))
-    (slime-check "Definition now at point." (looking-at snippet))
+    (slime-check ("Looking at '%s'." snippet) (looking-at snippet))
     (slime-pop-find-definition-stack)
     (slime-check "Returning from definition restores original buffer/position."
       (and (eq orig-buffer (current-buffer))
@@ -724,7 +725,7 @@ Confirm that SUBFORM is correctly located."
     '(())
   (slime-check-top-level)
   (slime-eval-async '(cl:loop) (lambda (_) ) "CL-USER")
-  (slime-accept-process-output nil 1)
+  (accept-process-output nil 1)
   (slime-check "In eval state." (slime-busy-p))
   (slime-interrupt)
   (slime-wait-condition "First interrupt" (lambda () (slime-sldb-level= 1)) 5)
@@ -767,7 +768,7 @@ Confirm that SUBFORM is correctly located."
  (cerror \"foo\" \"restart\")\
  (cerror \"bar\" \"restart\")\
  (+ 1 2))")
-      (while (not done) (slime-accept-process-output))
+      (while (not done) (accept-process-output))
       (slime-sync-to-top-level 5)
       (slime-check-top-level)
       (unless noninteractive
@@ -788,7 +789,7 @@ Confirm that SUBFORM is correctly located."
       (slime-interactive-eval
        (format "(with-standard-io-syntax (cerror \"foo\" \"%s\" %s) (+ 1 2))"
                format-control format-argument))
-      (while (not done) (slime-accept-process-output))
+      (while (not done) (accept-process-output))
       (slime-sync-to-top-level 5)
       (slime-check-top-level)
       (unless noninteractive
@@ -800,7 +801,7 @@ Confirm that SUBFORM is correctly located."
     ()
     "Test interrupting a loop that sends a lot of output to Emacs."
     '(())
-  (slime-accept-process-output nil 1)
+  (accept-process-output nil 1)
   (slime-check-top-level)
   (slime-eval-async '(cl:loop :for i :from 0 :do (cl:progn (cl:print i)
                                                            (cl:finish-output)))
@@ -845,7 +846,7 @@ Confirm that SUBFORM is correctly located."
       ('cons)
       (#'cons))
   (slime-inspect (prin1-to-string exp))
-  (assert (not (slime-inspector-visible-p)))
+  (cl-assert (not (slime-inspector-visible-p)))
   (slime-wait-condition "Inspector visible" #'slime-inspector-visible-p 5)
   (with-current-buffer (window-buffer (selected-window))
     (slime-inspector-quit))
@@ -960,7 +961,7 @@ the buffer's undo-list."
     "Test whether BREAK invokes SLDB."
     (let ((exp1 '(break)))
       `((1 ,exp1) (2 ,exp1) (3 ,exp1)))
-  (slime-accept-process-output nil 0.2)
+  (accept-process-output nil 0.2)
   (slime-check-top-level)
   (slime-eval-async
    `(cl:eval (cl:read-from-string
@@ -997,7 +998,7 @@ on *DEBUGGER-HOOK*."
     ()
     "Test that binding *DEBUGGER-HOOK* locally works properly."
     '(())
-  (slime-accept-process-output nil 1)
+  (accept-process-output nil 1)
   (slime-check-top-level)
   (slime-compile-string
    (prin1-to-string `(defun cl-user::quux ()
@@ -1153,7 +1154,7 @@ Reconnect afterwards."
       (erase-buffer))
     (delete-process c)
     (assert (equal (process-status c) 'closed) nil "Connection not closed")
-    (slime-accept-process-output nil 0.1)
+    (accept-process-output nil 0.1)
     (assert (equal (process-status p) 'run) nil "Subprocess not running")
     (with-current-buffer (process-buffer p)
       (assert (< (buffer-size) 500) nil "Unusual output"))
@@ -1228,8 +1229,10 @@ Reconnect afterwards."
                                  "-l" test-file)))
               (unless (= 0 retval)
                 (ert-fail (buffer-substring
-                           (+ (goto-char (point-min)) (skip-chars-forward " \t\n"))
-                           (+ (goto-char (point-max)) (skip-chars-backward " \t\n")))))))
+                           (+ (goto-char (point-min))
+                              (skip-chars-forward " \t\n"))
+                           (+ (goto-char (point-max))
+                              (skip-chars-backward " \t\n")))))))
           (setq success t))
       (if success (delete-file test-file)
         (message "Test failed: keeping %s for inspection" test-file)))))
@@ -1251,7 +1254,8 @@ Reconnect afterwards."
                 (unless (and (string-match "^; +SLIME" (buffer-string))
                              (string-match "CL-USER> *$" (buffer-string)))
                   (die "REPL prompt not properly setup"
-                       (buffer-substring-no-properties (point-min) (point-max))))))))
+                       (buffer-substring-no-properties (point-min)
+                                                       (point-max))))))))
 
 (define-slime-ert-test traditional-recipe ()
   "Test the README.md's traditional recipe."
@@ -1270,7 +1274,8 @@ Reconnect afterwards."
                 (unless (and (string-match "^; +SLIME" (buffer-string))
                              (string-match "CL-USER> *$" (buffer-string)))
                   (die "REPL prompt not properly setup"
-                       (buffer-substring-no-properties (point-min) (point-max))))))))
+                       (buffer-substring-no-properties (point-min)
+                                                       (point-max))))))))
 
 (define-slime-ert-test readme-recipe-autoload-on-lisp-visit ()
   "Test more autoload bits in README.md's installation recipe."

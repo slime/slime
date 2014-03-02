@@ -7,8 +7,8 @@
 ;;; Installation
 ;;
 ;; Add slime-motd to your slime-setup call.
-(eval-and-compile
-  (require 'slime))
+(require 'slime)
+(require 'slime-repl)
 
 (define-slime-contrib slime-motd
   "Message Of The Day in a slime repl"

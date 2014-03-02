@@ -1,9 +1,11 @@
 (require 'slime-autodoc)
 (require 'slime-tests)
+(require 'cl-lib)
 
 (defun slime-autodoc-to-string ()
   "Retrieve and return autodoc for form at point."
-  (let ((autodoc (car (slime-eval (second (slime-make-autodoc-rpc-form))))))
+  (let ((autodoc (car (slime-eval
+                       (cl-second (slime-make-autodoc-rpc-form))))))
     (if (eq autodoc :not-available)
         :not-available
         (slime-canonicalize-whitespace autodoc))))
@@ -16,7 +18,7 @@
 
 (defmacro define-autodoc-tests (&rest specs)
   `(progn
-     ,@(loop
+     ,@(cl-loop
         for (buffer-sexpr wished-arglist . options)
         in specs
         for fails-for = (cl-getf options :fails-for)
@@ -24,7 +26,7 @@
         for i from 1
         when (featurep 'ert)
         collect `(define-slime-ert-test ,(intern (format "autodoc-tests-%d" i))
-                     ()
+                   ()
                    ,(format "Check autodoc works ok for %s" buffer-sexpr)
                    ,@(if fails-for
                          `(:expected-result

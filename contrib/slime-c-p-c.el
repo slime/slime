@@ -1,4 +1,5 @@
 (require 'slime)
+(require 'cl-lib)
 
 (defvar slime-c-p-c-init-undo-stack nil)
 
@@ -82,7 +83,7 @@ If false, move point to the end of the inserted text."
 	     (when slime-c-p-c-unambiguous-prefix-p
 	       (let ((unambiguous-completion-length
 		      (loop for c in completion-set
-			    minimizing (or (mismatch completed-prefix c)
+			    minimizing (or (cl-mismatch completed-prefix c)
 					   (length completed-prefix)))))
 		 (goto-char (+ beg unambiguous-completion-length))))
              (slime-display-or-scroll-completions completion-set 
@@ -128,7 +129,7 @@ current buffer."
         ;; completion.
         ))
      ((and (>= (length token) 2)
-           (string= (subseq token 0 2) "#\\"))
+           (string= (cl-subseq token 0 2) "#\\"))
       ;; Character name completion
       (return-from slime-contextual-completions
         (slime-completions-for-character token))))
@@ -142,9 +143,9 @@ current buffer."
   (slime-eval `(swank:completions-for-keyword ,prefix ',buffer-form)))
 
 (defun slime-completions-for-character (prefix)
-  (flet ((append-char-syntax (string) (concat "#\\" string)))
+  (cl-labels ((append-char-syntax (string) (concat "#\\" string)))
     (let ((result (slime-eval `(swank:completions-for-character
-                                ,(subseq prefix 2)))))
+                                ,(cl-subseq prefix 2)))))
       (when (car result)
         (list (mapcar 'append-char-syntax (car result))
               (append-char-syntax (cadr result)))))))

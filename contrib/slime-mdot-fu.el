@@ -1,4 +1,5 @@
 (require 'slime)
+(require 'cl-lib)
 
 (define-slime-contrib slime-mdot-fu
   "Making M-. work on local functions."
@@ -15,11 +16,11 @@
   "Like `slime-edit-definition', but tries to find the definition
 in a local function binding near point."
   (interactive (list (slime-read-symbol-name "Name: ")))
-  (multiple-value-bind (binding-name point)
-      (multiple-value-call #'some #'(lambda (binding-name point)
-				      (when (equalp binding-name name)
-					(values binding-name point)))
-			   (slime-enclosing-bound-names))
+  (cl-multiple-value-bind (binding-name point)
+      (cl-multiple-value-call #'cl-some #'(lambda (binding-name point)
+                                            (when (cl-equalp binding-name name)
+                                              (cl-values binding-name point)))
+                              (slime-enclosing-bound-names))
     (when (and binding-name point)
       (slime-edit-definition-cont
        `((,binding-name

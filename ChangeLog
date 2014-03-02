@@ -1,3 +1,17 @@
+2014-03-02  João Távora  <joaotavora@gmail.com>
+
+	Fix remaining byte-compilation warnings.
+
+	* lib/hyperspec.el: Require `cl-lib' instead of `cl'.
+
+	* slime-tests.el (require): Add necessary require statements to
+	avoid warnings. Don't use xemacs compatibility layer.
+
+	* slime.el (slime-require): Move up to avoid byte-compiler warning.
+	(slime-setup, slime--setup-contribs): Use `slime-contribs'
+	directly.
+	(sldb-in-face): Renamed from `in-sldb-face'. Rename in users.
+
 2014-03-02  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* doc/slime.texi: Use @SLIME{} throughout. Use UTF-8 coding to

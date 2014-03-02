@@ -1,3 +1,64 @@
+2014-03-02  João Távora  <joaotavora@gmail.com>
+
+	The contrib's Makefile now works as the top-level Makefile,
+	byte-compiling files separately, uncovering errors when trying to
+	byte-compile files in isolation. Fixed almost all such problems in
+	contrib's el files and remove uses of the "xemacs compability
+	layer", in preparation of its removal.
+
+	For most files this amounted to moving some definitions around,
+	requiring the needed libs at the top, and prefixing cl-lib
+	functions with "cl". `cl' is required at compile-time only for
+	macros which aren't found in cl-lib.
+
+	All (minor) exceptions are listed below.o
+
+	* Makefile (%.elc): Do as in root-makefile and compile each el
+	file separately. This reveals more warnings.
+
+	* slime-typeout-frame.el (slime-typeout-autodoc-message): Don't
+	set inexistent `slime-autodoc-last-message' var.
+
+	* slime-compiler-notes-tree.el (slime-list-compiler-notes): Don't
+	pass :mode to `slime-with-popup-buffer'
+
+	* slime-clipboard.el (slime-clipboard-display-entries): Don't use
+	:mode arg to `slime-with-popup-buffer'.
+	(slime-clipboard-redisplay): Don't use `slime-save-coordinates' as
+	that's probably going away, use simpler approach.
+
+	* slime-indentation.el (slime-indentation): Correct description.
+
+	* slime-fontifying-fu.el (slime-beginning-of-tlf): Simplify,
+	conditional definition not needed.
+
+	* slime-enclosing-context.el (slime-enclosing-context): Explain
+	why contrib doesn't work.
+
+	* slime-cl-indent.el (require): Require needed libraries,
+	including `slime'.
+	(common-lisp-active-style): use proper defvar.
+	(common-lisp-current-package-function): Make it a variable, which
+	is how it's used.
+	(common-lisp-run-indentation-tests): Use `insert-file-contents'.
+	(slime-cl-indent): provide `slime-cl-indent' as well as `cl-indent'
+
+	* slime-autodoc.el (slime-autodoc-maybe-enable): move to solve
+	compilation warnings.
+	(slime-autodoc-mode): Replace `interactive-p' call with new
+	`interactive' arg.
+
+	* slime-asdf.el
+	(slime-open-system): Don't use `called-interactive-p'.
+
+	* slime-presentations.el (slime-presentation-on-stream-open): Use
+	`bridge-insert-function'.
+
+	* bridge.el (bridge-insert-function): new variable to solve
+	redefinition hack in slime-presentations.el
+	(bridge-insert): use it.
+
+
 2014-02-25  João Távora  <joaotavora@gmail.com>
 
 	* slime-trace-dialog.el (slime): Remove redundant
