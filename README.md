@@ -8,7 +8,7 @@ in two main parts: the Emacs Lisp side (`slime.el`), and the support
 library for the Common Lisp (`swank.lisp` and `swank-*.lisp`)
 
 For a real description, see the manual in `doc/` or browse an online
-version [here](http://capitaomorte.github.io/slime/).
+version [here](http://common-lisp.net/project/slime/doc/html/).
 
 Quick setup instructions
 ------------------------
