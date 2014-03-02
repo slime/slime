@@ -9,17 +9,15 @@
 @end direntry
 @c %**end of header
 
-@set EDITION 3.0-alpha
-@set SLIMEVER 3.0-alpha
+@set EDITION 2.4
+@set SLIMEVER 2.4
 @c @set UPDATED @today{}
 @set UPDATED @code{$Date$}
 @set TITLE SLIME User Manual
 @settitle @value{TITLE}, version @value{EDITION}
 
 @copying
-Written by Luke Gorrie.
-
-Additional contributions: Jeff Cunningham,
+Written by Luke Gorrie and others.
 
 This file has been placed in the public domain.
 @end copying
@@ -2134,7 +2132,7 @@ just add this to your @file{.emacs}:
 @node Contributed Packages
 @chapter Contributed Packages
 
-In version 3.0 we moved some functionality to separate packages.  This
+In version 2.1 we moved some functionality to separate packages.  This
 chapter tells you how to load contrib modules and describes what the
 particular packages do.
 
@@ -2999,9 +2997,10 @@ buffer you can enter Lisp expressions and evaluate them with
 @node SLIME Trace Dialog
 @section SLIME Trace Dialog
 
-The @SLIME{} Trace Dialog, in package @code{slime-trace-dialog},
-functions as an interactive interface to Common Lisp's
-@code{trace}. It is an Emacs 24-only contrib.
+The @SLIME{} Trace Dialog, in package @code{slime-trace-dialog}, is a
+tracing facility, similar to Common Lisp's @code{trace}, but
+interactive rather than purely textual. It is an Emacs 24-only
+contrib.
 
 You use it just like you would regular @code{trace}: after tracing a
 function, calling it causes interesting information about that

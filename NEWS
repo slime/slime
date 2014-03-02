@@ -1,11 +1,107 @@
-* SLIME News                                         -*- outline -*-
+* SLIME News                                -*- mode: outline; coding: utf-8 -*-
 
-* (since 2.3)
+* 2.4 (March 2014)
+
+** New contrib SLIME Trace Dialog included in `slime-fancy'
+Interactive interface to tracing functions and methods. See manual for
+details.
+
+** New contrib `slime-fancy-trace', included in `slime-fancy'
+If your implementation allows it, trace complex method signatures,
+labels, etc...
+
+** New options in `slime-cl-indent.el' used by the `slime-indentation' contrib
+New variables are `lisp-loop-body-forms-indentation' and
+`lisp-loop-body-forms-indentation'.
+
+** New command `sldb-copy-down-to-repl' bound to M-RET in debugger
+Copies the frame variable under point to the REPL, much as
+`slime-inspector-copy-down-to-repl' does.
+
+** New command `slime-delete-package'
 
 ** UTF8 encoding
 SLIME now uses only UTF8 to encode strings on the wire.  Customization
-variables like slime-net-coding-system or swank:*coding-system* are
+variables like `slime-net-coding-system' or `swank:*coding-system*' are
 now useless.
+
+** Setup recipe
+In preparation for a more decentralized approach to SLIME contribs,
+the setup recipe has been slightly changed, hopefully in a backwards
+compatible way. Calling `slime-setup' is no longer required. Instead,
+the `slime-contribs' variable can be customized with a list of
+contribs to be loaded when `M-x slime' is first executed. See section
+`8.1 Loading Contrib Packages' of the SLIME Manual for more details.
+
+** Bugfixes and stability improvements since the move to Github
+
+*** Issue #7: Multiline arglists in `slime-autodoc' no longer imply a newline
+
+*** Issue #9: new REPL output respectes existing REPL results or presentations.
+
+*** Issue #17: TAB no longer freezes the REPL in "read-mode"
+
+*** Issue #42: compiles on Emacs 24
+
+*** Issue #43: `just-one-space' no longer breaks REPL
+
+*** Issue #34: "Error in timer" error when starting slime on emacs24
+
+*** Printing conditions is now a bit safer in the debugger (git:bafeb86)
+
+*** Fix undo behavior in the REPL (git:af354d7)
+Previously, undo would obliterate previous prompts.
+
+*** Fix REPL type-ahead behaviour when presentations active (git:38a1826)
+Input typed before your lisp responds is appended to the result when it arrives.
+
+*** Fix package and dir synch when no process buffer (git:dc88935)
+Sometimes process buffer has been killed, but connection is still active.
+
+*** M-p on any part of the REPL buffer no longer errors (git:dc88935)
+
+*** slime-presentations can be enabled in inspector (git:647c3c3, 2f57b34)
+Set `slime-inspector-insert-ispec-function' to
+`slime-presentation-inspector-insert-ispec' to use them.
+
+*** M-. on a presentation on the REPL now longer errors
+This happened when `slime-presentations' was enabled, either by itself
+or by `slime-fancy'.
+
+*** M-. on the first position of a *slime-apropos* buffer no longer fails.
+This happened with the `slime-fancy-inspector.el' contrib.
+
+*** RET on no part in *inspector* buffer no longer errors
+
+*** slime-repsentations properly recognized when at very beginning of buffer
+Fix by Attila Lendvai
+
+*** Avoid loading `swank-asdf.lisp' if there's a good chance it will break SWANK
+`swank-asdf.lisp' aborts the connection if it finds an old ASDF version.
+
+*** In ABCL, `slime-describe-function' now works for both macros and functions.
+
+** SLIME builds on Travis CI
+See https://travis-ci.org/slime/slime for the build status and history.
+
+** Testing framework refactored to use ERT
+`def-slime-test' creates regular ERT tests. `define-slime-ert-test' is
+a lighter convenience macro which automatically sets some tags for the
+new tests.
+
+** Top-level Makefile
+For hackers or users using the latest version, there is now a
+top-level Makefile. Use "make help" to learn about targets.
+
+** Moved to Github
+SLIME now lives in Github. The documentation and the README.md file
+were updated. HACKING was renamed to CONTRIBUTING.md and updated with
+Github specific instructions.
+
+** Bugfixes and stability improvements
+Since the last release and before move to Github, many bugfixes and
+other changes were commited, too many to list here. See Changelog for
+details.
 
 * 2.3 (October 2011)
 
