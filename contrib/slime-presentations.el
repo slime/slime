@@ -1,6 +1,8 @@
 (require 'slime)
 (require 'bridge)
 (require 'cl-lib)
+(eval-when-compile
+  (require 'cl))
 
 (define-slime-contrib slime-presentations
   "Imitate LispM presentations."
