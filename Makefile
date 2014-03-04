@@ -9,8 +9,8 @@ LISP=sbcl
 
 LOAD_PATH=-L .
 
-ELFILES := slime.el slime-autoloads.el slime-tests.el
-ELCFILES := $(patsubst %.el,%.elc,$(ELFILES))
+ELFILES := slime.el slime-autoloads.el slime-tests.el $(wildcard lib/*.el)
+ELCFILES := $(ELFILES:.el=.elc)
 
 default: compile contrib-compile
 
@@ -42,7 +42,6 @@ slime.elc: slime.el ChangeLog
 	$(EMACS) -Q $(LOAD_PATH) --batch -f batch-byte-compile $<
 
 compile: $(ELCFILES)
-	$(EMACS) -Q --batch --eval "(batch-byte-recompile-directory 0)" ./lib
 
 # Automated tests
 #
