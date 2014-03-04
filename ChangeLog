@@ -1,3 +1,7 @@
+2014-03-04  João Távora  <joaotavora@gmail.com>
+
+	* slime.el (require): Move some libs out of `eval-when-compile'.
+
 2014-03-03  João Távora  <joaotavora@gmail.com>
 
 	* .travis.yml: Check slime-indentation contrib in travis. Notice

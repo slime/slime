@@ -78,11 +78,12 @@
   (unless (find-coding-system 'utf-8-unix)
     (require 'un-define)))
 (require 'easymenu)
+(require 'outline)
+(require 'arc-mode)
+(require 'etags)
+
 (eval-when-compile
-  (require 'arc-mode)
   (require 'apropos)
-  (require 'outline)
-  (require 'etags)
   (require 'compile)
   (require 'gud))
 
