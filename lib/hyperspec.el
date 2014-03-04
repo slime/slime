@@ -56,11 +56,19 @@ or \"Symbol-Table.text\".")
 (defvar common-lisp-hyperspec-history nil
   "History of symbols looked up in the Common Lisp HyperSpec.")
 
-;;if only we had had packages or hash tables..., but let's fake it.
+(defvar common-lisp-hyperspec--symbols (make-hash-table :test 'equal)
+  "Map a symbol-name to it's list or relative URLs.")
 
-(defvar common-lisp-hyperspec-symbols (make-vector 67 0))
+;; Lookup NAME in 'common-lisp-hyperspec--symbols´
+(defun common-lisp-hyperspec--find (name)
+  (gethash name common-lisp-hyperspec--symbols))
 
-(defun common-lisp-hyperspec-strip-cl-package (name)
+(defun common-lisp-hyperspec--insert (name relative-url)
+  (cl-pushnew relative-url
+	      (gethash name common-lisp-hyperspec--symbols)
+	      :test #'equal))
+
+(defun common-lisp-hyperspec--strip-cl-package (name)
   (if (string-match "^\\([^:]*\\)::?\\([^:]*\\)$" name)
       (let ((package-name (match-string 1 name))
 	    (symbol-name (match-string 2 name)))
@@ -70,6 +78,22 @@ or \"Symbol-Table.text\".")
 	  name))
     name))
 
+;; Choose the symbol at point or read symbol-name from the minibuffer.
+(defun common-lisp-hyperspec-read-symbol-name (&optional symbol-at-point)
+  (let* ((symbol-at-point (or symbol-at-point (thing-at-point 'symbol)))
+	 (stripped-symbol (and symbol-at-point
+			       (common-lisp-hyperspec--strip-cl-package
+				(downcase symbol-at-point)))))
+    (cond ((and stripped-symbol
+		(common-lisp-hyperspec--find stripped-symbol))
+	   stripped-symbol)
+	  (t
+	   (completing-read "Look up symbol in Common Lisp HyperSpec: "
+			    common-lisp-hyperspec--symbols nil t
+			    stripped-symbol
+			    'common-lisp-hyperspec-history)))))
+
+;; FIXME: is the (sleep-for 1.5) a actually needed?
 (defun common-lisp-hyperspec (symbol-name)
   "View the documentation on SYMBOL-NAME from the Common Lisp HyperSpec.
 If SYMBOL-NAME has more than one definition, all of them are displayed with
@@ -83,53 +107,17 @@ the entire Common Lisp HyperSpec to your own site under certain conditions.
 Visit http://www.lispworks.com/reference/HyperSpec/ for more information.
 If you copy the HyperSpec to another location, customize the variable
 `common-lisp-hyperspec-root' to point to that location."
-  (interactive (list (let* ((symbol-at-point (thing-at-point 'symbol))
-			    (stripped-symbol
-			     (and symbol-at-point
-				  (substring-no-properties
-				   (downcase
-				    (common-lisp-hyperspec-strip-cl-package
-				     symbol-at-point))))))
-                       (if (and stripped-symbol
-                                (intern-soft stripped-symbol
-                                             common-lisp-hyperspec-symbols))
-                           stripped-symbol
-                         (completing-read
-                          "Look up symbol in Common Lisp HyperSpec: "
-                          common-lisp-hyperspec-symbols #'boundp
-                          t stripped-symbol
-                          'common-lisp-hyperspec-history)))))
-  (cl-maplist (lambda (entry)
-                (browse-url (concat common-lisp-hyperspec-root "Body/"
-                                    (car entry)))
-                (if (cdr entry)
-                    (sleep-for 1.5)))
-              (let ((symbol (intern-soft
-                             (common-lisp-hyperspec-strip-cl-package
-                              (downcase symbol-name))
-                             common-lisp-hyperspec-symbols)))
-                (if (and symbol (boundp symbol))
-                    (symbol-value symbol)
-                  (error "The symbol `%s' is not defined in Common Lisp"
-                         symbol-name)))))
-
-;;; Added the following just to provide a common entry point according
-;;; to the various 'hyperspec' implementations.
-;;;
-;;; 19990820 Marco Antoniotti
-
-(cl-eval-when (load eval)
-  (defalias 'hyperspec-lookup 'common-lisp-hyperspec))
-
-;;; Refactored out from the below.
-;;;
-;;; 20090302 Tobias C Rittweiler
-
-(defun intern-clhs-symbol (string relative-url)
-  (let ((symbol (intern string common-lisp-hyperspec-symbols)))
-    (if (boundp symbol)
-        (push relative-url (symbol-value symbol))
-        (set symbol (list relative-url)))))
+  (interactive (list (common-lisp-hyperspec-read-symbol-name)))
+  (let ((name (common-lisp-hyperspec--strip-cl-package
+	       (downcase symbol-name))))
+    (cl-maplist (lambda (entry)
+		  (browse-url (concat common-lisp-hyperspec-root "Body/"
+				      (car entry)))
+		  (when (cdr entry)
+		    (sleep-for 1.5)))
+		(or (common-lisp-hyperspec--find name)
+		    (error "The symbol `%s' is not defined in Common Lisp"
+			   symbol-name)))))
 
 ;;; Added dynamic lookup of symbol in CLHS symbol table
 ;;;
@@ -140,23 +128,28 @@ If you copy the HyperSpec to another location, customize the variable
 ;;;
 ;;; 20020213 Edi Weitz
 
-(defun hyperspec--get-one-line ()
+(defun common-lisp-hyperspec--get-one-line ()
   (prog1
       (cl-delete ?\n (thing-at-point 'line))
     (forward-line)))
 
-(if common-lisp-hyperspec-symbol-table
-    (with-current-buffer (find-file-noselect
-			  common-lisp-hyperspec-symbol-table)
-      (goto-char (point-min))
+(defun common-lisp-hyperspec--parse-map-file (file)
+  (with-current-buffer (find-file-noselect file)
+    (goto-char (point-min))
+    (let ((result '()))
       (while (< (point) (point-max))
-	(let* ((symbol-name (downcase (hyperspec--get-one-line)))
-	       (relative-url (hyperspec--get-one-line)))
-	  (intern-clhs-symbol symbol-name
-			      (cl-subseq relative-url
-                                         (1+ (cl-position ?\/ relative-url
-                                                          :from-end t)))))))
-  (mapc (lambda (entry) (intern-clhs-symbol (car entry) (cadr entry)))
+	(let* ((symbol-name (downcase (common-lisp-hyperspec--get-one-line)))
+	       (relative-url (common-lisp-hyperspec--get-one-line))
+	       (file (file-name-nondirectory relative-url)))
+	  (push (list symbol-name file)
+		result)))
+      (reverse result))))
+
+(mapc (lambda (entry)
+	(common-lisp-hyperspec--insert (car entry) (cadr entry)))
+      (if common-lisp-hyperspec-symbol-table
+	  (common-lisp-hyperspec--parse-map-file
+	   common-lisp-hyperspec-symbol-table)
         '(("&allow-other-keys" "03_da.htm")
           ("&aux" "03_da.htm")
           ("&body" "03_dd.htm")
@@ -1140,13 +1133,13 @@ If you copy the HyperSpec to another location, customize the variable
 ;;;
 ;;; 20090302 Tobias C Rittweiler, and Stas Boukarev
 
-(defvar common-lisp-hyperspec-reader-macros (make-hash-table :test #'equal))
+(defvar common-lisp-hyperspec--reader-macros (make-hash-table :test #'equal))
 
 ;;; Data/Map_Sym.txt in does not contain entries for the reader
 ;;; macros. So we have to enumerate these explicitly.
 (mapc (lambda (entry)
 	(puthash (car entry) (cadr entry)
-		 common-lisp-hyperspec-reader-macros))
+		 common-lisp-hyperspec--reader-macros))
       '(("#" "02_dh.htm")
         ("##" "02_dhp.htm")
         ("#'" "02_dhb.htm")
@@ -1182,14 +1175,11 @@ If you copy the HyperSpec to another location, customize the variable
    (list
     (let ((completion-ignore-case t))
       (completing-read "Look up reader-macro: "
-		       common-lisp-hyperspec-reader-macros nil t
+		       common-lisp-hyperspec--reader-macros nil t
 		       (common-lisp-hyperspec-reader-macro-at-point)))))
   (browse-url
    (concat common-lisp-hyperspec-root "Body/"
-	   (gethash macro common-lisp-hyperspec-reader-macros))))
-
-(defalias 'hyperspec-lookup-reader-macro
-  'common-lisp-hyperspec-lookup-reader-macro)
+	   (gethash macro common-lisp-hyperspec--reader-macros))))
 
 (defun common-lisp-hyperspec-reader-macro-at-point ()
   (let ((regexp "\\(#.?\\)\\|\\([\"',`';()]\\)"))
@@ -1202,9 +1192,6 @@ If you copy the HyperSpec to another location, customize the variable
 
 (defvar common-lisp-hyperspec-format-history nil
   "History of format characters looked up in the Common Lisp HyperSpec.")
-
-(defvar common-lisp-hyperspec-format-characters (make-vector 67 0))
-
 
 (defun common-lisp-hyperspec-section-6.0 (indices)
   (let ((string (format "%sBody/%s_"
@@ -1235,30 +1222,29 @@ If you copy the HyperSpec to another location, customize the variable
 (defun common-lisp-hyperspec-section (indices)
   (funcall common-lisp-hyperspec-section-fun indices))
 
+(defvar common-lisp-hyperspec--format-characters
+  (make-hash-table :test 'equal))
+
+(defun common-lisp-hyperspec--read-format-character ()
+  (let ((char-at-point
+	 (ignore-errors (char-to-string (char-after (point))))))
+    (if (and char-at-point
+	     (gethash (upcase char-at-point)
+		      common-lisp-hyperspec--format-characters))
+	char-at-point
+      (completing-read
+       "Look up format control character in Common Lisp HyperSpec: "
+       common-lisp-hyperspec--format-characters nil #'boundp
+       nil nil 'common-lisp-hyperspec-format-history))))
+
 (defun common-lisp-hyperspec-format (character-name)
-  (interactive
-   (list (let ((char-at-point
-                (ignore-errors (char-to-string (char-after (point))))))
-           (if (and char-at-point
-                    (intern-soft (upcase char-at-point)
-                                 common-lisp-hyperspec-format-characters))
-	       char-at-point
-             (completing-read
-              "Look up format control character in Common Lisp HyperSpec: "
-              common-lisp-hyperspec-format-characters nil #'boundp
-              nil nil 'common-lisp-hyperspec-format-history)))))
+  (interactive (list (common-lisp-hyperspec--read-format-character)))
   (cl-maplist (lambda (entry)
                 (browse-url (common-lisp-hyperspec-section (car entry))))
-              (let ((symbol (intern-soft
-                             character-name
-                             common-lisp-hyperspec-format-characters)))
-                (if (and symbol (boundp symbol))
-                    (symbol-value symbol)
+              (or (gethash character-name
+			   common-lisp-hyperspec--format-characters)
 		  (error "The symbol `%s' is not defined in Common Lisp"
-			 character-name)))))
-
-(cl-eval-when (load eval)
-  (defalias 'hyperspec-lookup-format 'common-lisp-hyperspec-format))
+			 character-name))))
 
 ;;; Previously there were entries for "C" and "C: Character",
 ;;; which unpleasingly crowded the completion buffer, so I made
@@ -1266,19 +1252,20 @@ If you copy the HyperSpec to another location, customize the variable
 ;;;
 ;;; 20100131 Tobias C Rittweiler
 
-(defun intern-clhs-format-directive (char section &optional summary)
-  (let* ((designator (if summary (format "%s - %s" char summary) char))
-         (symbol (intern designator common-lisp-hyperspec-format-characters)))
-    (if (boundp symbol)
-        (cl-pushnew section (symbol-value symbol) :test 'equal)
-        (set symbol (list section)))))
+(defun common-lisp-hyperspec--insert-format-directive (char section
+							    &optional summary)
+  (let* ((designator (if summary (format "%s - %s" char summary) char)))
+    (cl-pushnew section (gethash designator
+				 common-lisp-hyperspec--format-characters)
+		:test #'equal)))
 
 (mapc (lambda (entry)
 	(cl-destructuring-bind (char section &optional summary) entry
-	  (intern-clhs-format-directive char section summary)
+	  (common-lisp-hyperspec--insert-format-directive char section summary)
 	  (when (and (= 1 (length char))
 		     (not (string-equal char (upcase char))))
-	    (intern-clhs-format-directive (upcase char) section summary))))
+	    (common-lisp-hyperspec--insert-format-directive
+	     (upcase char) section summary))))
       '(("c" (22 3 1 1) "Character")
 	("%" (22 3 1 2) "Newline")
 	("&" (22 3 1 3) "Fresh-line")
@@ -1319,6 +1306,7 @@ If you copy the HyperSpec to another location, customize the variable
 	("Missing and Additional FORMAT Arguments" (22 3 10 2))
 	("Additional FORMAT Parameters" (22 3 10 3))))
 
+;; FIXME: the glossary stuff is not used
 (defvar common-lisp-glossary-fun 'common-lisp-glossary-6.0)
 
 (defun common-lisp-glossary-6.0 (string)
@@ -1341,29 +1329,22 @@ If you copy the HyperSpec to another location, customize the variable
 	      "9"))
 	  (subst-char-in-string ?\  ?_ string)))
 
+;; FIXME: the issuex stuff is not used
 (defvar common-lisp-hyperspec-issuex-table nil
   "The HyperSpec IssueX table file.  If you copy the HyperSpec to your
 local system, set this variable to the location of the Issue
 cross-references table which is usually \"Map_IssX.txt\" or
 \"Issue-Cross-Refs.text\".")
 
-(defvar common-lisp-hyperspec-issuex-symbols (make-vector 67 0))
+(defvar common-lisp-hyperspec--issuex-symbols
+  (make-hash-table :test 'equal))
 
-(if common-lisp-hyperspec-issuex-table
-    (with-current-buffer (find-file-noselect
-			  common-lisp-hyperspec-issuex-table)
-      (goto-char (point-min))
-      (while (< (point) (point-max))
-	(let* ((symbol (intern (downcase (hyperspec--get-one-line))
-			       common-lisp-hyperspec-issuex-symbols))
-	       (relative-url (hyperspec--get-one-line)))
-	  (set symbol (cl-subseq relative-url
-                                 (1+ (cl-position ?\/ relative-url
-                                                  :from-end t)))))))
-  (mapc
-   (lambda (entry)
-     (let ((symbol (intern (car entry) common-lisp-hyperspec-issuex-symbols)))
-       (set symbol (cadr entry))))
+(mapc
+ (lambda (entry)
+   (puthash (car entry) (cadr entry) common-lisp-hyperspec--issuex-symbols))
+ (if common-lisp-hyperspec-issuex-table
+     (common-lisp-hyperspec--parse-map-file
+      common-lisp-hyperspec-issuex-table)
    '(("&environment-binding-order:first" "iss001.htm")
      ("access-error-name" "iss002.htm")
      ("adjust-array-displacement" "iss003.htm")
@@ -1734,9 +1715,19 @@ incompatibly-more-like-defclass+emphasize-read-only" "iss102.htm")
      ("with-standard-io-syntax-readtable:x3j13-mar-91" "iss366.htm"))))
 
 (defun common-lisp-issuex (issue-name)
-  (let ((symbol
-	 (intern (downcase issue-name) common-lisp-hyperspec-issuex-symbols)))
-    (concat common-lisp-hyperspec-root "Issues/" (symbol-value symbol))))
+  (let ((entry (gethash (downcase issue-name)
+			common-lisp-hyperspec--issuex-symbols)))
+    (concat common-lisp-hyperspec-root "Issues/" entry)))
+
+;;; Added the following just to provide a common entry point according
+;;; to the various 'hyperspec' implementations.
+;;;
+;;; 19990820 Marco Antoniotti
+
+(defalias 'hyperspec-lookup 'common-lisp-hyperspec)
+(defalias 'hyperspec-lookup-reader-macro
+  'common-lisp-hyperspec-lookup-reader-macro)
+(defalias 'hyperspec-lookup-format 'common-lisp-hyperspec-format)
 
 (provide 'hyperspec)
 
