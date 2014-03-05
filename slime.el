@@ -4542,21 +4542,8 @@ If PACKAGE is NIL, then search in all packages."
 
 (defun slime-hyperspec-lookup (symbol-name)
   "A wrapper for `hyperspec-lookup'"
-  (interactive (list (let* ((symbol-at-point (slime-symbol-at-point))
-                            (stripped-symbol
-                             (and symbol-at-point
-                                  (downcase
-                                   (common-lisp-hyperspec-strip-cl-package
-                                    symbol-at-point)))))
-                       (if (and stripped-symbol
-                                (intern-soft stripped-symbol
-                                             common-lisp-hyperspec-symbols))
-                           stripped-symbol
-                         (completing-read
-                          "Look up symbol in Common Lisp HyperSpec: "
-                          common-lisp-hyperspec-symbols #'boundp
-                          t stripped-symbol
-                          'common-lisp-hyperspec-history)))))
+  (interactive (list (common-lisp-hyperspec-read-symbol-name
+                      (slime-symbol-at-point))))
   (hyperspec-lookup symbol-name))
 
 (defun slime-describe-symbol (symbol-name)
