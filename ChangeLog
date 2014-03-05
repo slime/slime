@@ -1,3 +1,43 @@
+2014-03-05  Helmut Eller  <heller@common-lisp.net>
+
+	Use hashtables instead of obarrays; that's less confusing.
+
+	* lib/hyperspec.el: (common-lisp-hyperspec--symbols): Renamed from
+	common-lisp-hyperspec-symbols. It's now a hashtable.
+	(common-lisp-hyperspec--insert): Renamed from intern-clhs-symbol.
+	(common-lisp-hyperspec--strip-cl-package): Renamed
+	from common-lisp-hyperspec-strip-cl-package.
+	(common-lisp-hyperspec-read-symbol-name): New helper.  This one
+	can used by SLIME.
+	(common-lisp-hyperspec): Use helpers and hashtable.
+	(common-lisp-hyperspec--get-one-line): Renamed from
+	hyperspec--get-one-line.
+	(common-lisp-hyperspec--parse-map-file): New helper.
+	(common-lisp-hyperspec--reader-macros): Renamed from
+	common-lisp-hyperspec-reader-macros.
+	(common-lisp-hyperspec--format-characters): Renamed from
+	common-lisp-hyperspec-format-characters. It's also hashtable now.
+	(common-lisp-hyperspec--read-format-character): New helper.
+	(common-lisp-hyperspec-format): Use it,
+	(common-lisp-hyperspec--insert-format-directive): Renamed
+	from intern-clhs-format-directive.
+	(common-lisp-hyperspec--issuex-symbols): Renamed from
+	common-lisp-hyperspec-issuex-symbols event though issue index is
+	not actually used.
+	(hyperspec-lookup, hyperspec-lookup-reader-macro)
+	(hyperspec-lookup-format): Moved to end of file and remove
+	odd-looking (eval-when (load eval) ...)
+	(cl-lib): Load cl-lib from lib/ if needed.
+
+	* slime.el (slime-hyperspec-lookup): Use
+	common-lisp-hyperspec-read-symbol-name.
+
+	* Makefile (compile): Seems prudent not to use
+	batch-byte-recompile-directory as it may pollute the compile-time
+	environment.
+	(ELFILES): Include lib/*.el
+	(slime.elc): Compile lib/hyperspec.el first.
+
 2014-03-04  João Távora  <joaotavora@gmail.com>
 
 	* slime.el (require): Move some libs out of `eval-when-compile'.
