@@ -1,5 +1,11 @@
 2014-03-05  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-ccl.lisp: Cleanup whitespace.
+	(set-default-directory): Call ccl:cwd which calls chdir so that
+	subprocess pick it up.
+
+2014-03-05  Helmut Eller  <heller@common-lisp.net>
+
 	Use hashtables instead of obarrays; that's less confusing.
 
 	* lib/hyperspec.el: (common-lisp-hyperspec--symbols): Renamed from

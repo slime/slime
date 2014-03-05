@@ -828,6 +828,12 @@
 (defimplementation quit-lisp ()
   (ccl:quit))
 
+(defimplementation set-default-directory (directory)
+  (let ((dir (truename (merge-pathnames directory))))
+    (setf *default-pathname-defaults* (truename (merge-pathnames directory)))
+    (ccl:cwd dir)
+    (default-directory)))
+
 ;;; Weak datastructures
 
 (defimplementation make-weak-key-hash-table (&rest args)
