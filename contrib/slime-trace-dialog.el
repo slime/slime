@@ -15,6 +15,7 @@
 inspecting details of traced functions. Invoke this dialog with C-c T."
   (:authors "João Távora <joaotavora@gmail.com>")
   (:license "GPL")
+  (:minimum-emacs-version "24")
   (:swank-dependencies swank-trace-dialog)
   (:on-load (add-hook 'slime-mode-hook 'slime-trace-dialog-enable)
             (add-hook 'slime-repl-mode-hook 'slime-trace-dialog-enable))

@@ -7108,7 +7108,8 @@ is setup, unless the user already set one explicitly."
                                on-unload
                                gnu-emacs-only
                                authors
-                               license)
+                               license
+                               minimum-emacs-version)
       (cl-loop for (key . value) in clauses append `(,key ,value))
     (cl-labels
         ((enable-fn (c) (intern (concat (symbol-name c) "-init")))
@@ -7119,6 +7120,13 @@ is setup, unless the user already set one explicitly."
                (cl-assert (not (featurep 'xemacs)) ()
                           ,(concat (symbol-name name)
                                    " does not work with XEmacs."))))
+         ,(when minimum-emacs-version
+            `(eval-and-compile
+               (cl-assert (not (version< emacs-version ,(car minimum-emacs-version)))
+                          ,(concat (symbol-name name)
+                                   " requires at least Emacs "
+                                   (car minimum-emacs-version)
+                                   "."))))
          ,@(mapcar (lambda (d) `(require ',d)) slime-dependencies)
          (defun ,(enable-fn name) ()
            (let ((contrib (slime-find-contrib ',name)))
