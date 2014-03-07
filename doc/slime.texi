@@ -2991,15 +2991,15 @@ contrib.
 
 You use it just like you would regular @code{trace}: after tracing a
 function, calling it causes interesting information about that
-particular call to be reported to the user.
+particular call to be reported.
 
 However, instead of printing the trace results to the
 the @code{*trace-output*} stream (usually the REPL), the @SLIME{}
-Trace Dialog collects and stores them in your lisp environent until,
-on user's request, they are fetched into Emacs and displayed in an
+Trace Dialog collects and stores them in your lisp environment until,
+on user's request, they are fetched into Emacs and displayed in a
 dialog-like interactive view.
 
-You this contrib by adding it to @code{slime-contribs} in your
+To use this contrib, add it to @code{slime-contribs} in your
 @code{~/.emacs}, either directly by setting up @code{slime-fancy}
 (@pxref{slime-fancy}).
 
@@ -3010,16 +3010,16 @@ You this contrib by adding it to @code{slime-contribs} in your
 
 After starting up @SLIME{}, @SLIME{}'s Trace Dialog installs
 a @emph{Trace} menu in the menu-bar of any @code{slime-mode} buffer and
-adds two new commands and respective keybindings:
+adds two new commands, with respective key-bindings:
 
 @table @kbd
 @kbditem{C-c M-t, slime-trace-dialog-toggle-trace}
-If point is on a symbol name, toggle its association function tracing
-status function. If point is not on a symbol, prompt user.
+If point is on a symbol name, toggle tracing of its function
+definition. If point is not on a symbol, prompt user for a function.
 
 With a @kbd{C-u} prefix argument, and if your lisp implementation
-allows it, attempt attempt to decipher decipher lambdas, methods and
-other complicated function signatures.
+allows it, attempt to decipher lambdas, methods and other complicated
+function signatures.
 
 The function is traced for the @SLIME{} Trace Dialog only, i.e. it is
 not found in the list returned by Common Lisp's @code{trace}.
@@ -3061,9 +3061,9 @@ Trace collection status (3/3)                     [refresh]
              < 1
 @end example
 
-The dialog is divided into sections displaying the specs already
+The dialog is divided into sections displaying the functions already
 traced, the trace collection progress and the actual trace tree that
-follow your program's logic. The most important keybindings in this
+follow your program's logic. The most important key-bindings in this
 buffer are:
 
 @table @kbd
@@ -3087,7 +3087,7 @@ differ from display order in case multiple threads call the same
 traced function.
 
 @code{slime-trace-dialog-hide-details-mode} hides arguments and return
-values so you can concentrate on the calling logic. Adittionally,
+values so you can concentrate on the calling logic. Additionally,
 @code{slime-trace-dialog-autofollow-mode} will automatically
 display additional detail about an entry when the cursor moves over
 it.

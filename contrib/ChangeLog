@@ -1,3 +1,17 @@
+2014-03-07  João Távora  <joaotavora@gmail.com>
+
+	When toggling trace on a definition, automatically update the
+	trace dialog if it is open already. Idea by Luís Oliveira.
+
+	* slime-trace-dialog.el (slime-trace-dialog--get-buffer): split
+	into reusable functions.
+	(slime-trace-dialog--buffer-name): new function
+	(slime-trace-dialog--live-dialog): new function
+	(slime-trace-dialog--ensure-buffer): new function
+	(slime-trace-dialog--update-existing-dialog): new function for
+	added to `slime-trace-dialog-after-toggle-hook' by default.
+	(slime-trace-dialog): Use `slime-trace-dialog--ensure-buffer'.
+
 2014-03-03  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-presentations.el: Require 'cl for case, return-from etc.
