@@ -1,5 +1,10 @@
 2014-03-07  João Távora  <joaotavora@gmail.com>
 
+	* slime-trace-dialog.el (slime-trace-dialog--open-detail): Fix
+	"read-only" error when navigating to the trace details.
+	(slime-trace-dialog--insert-trace): Nudge non-parent trace entries
+	one "-" to the right to line up with others at the same level.
+
 	When toggling trace on a definition, automatically update the
 	trace dialog if it is open already. Idea by Luís Oliveira.
 

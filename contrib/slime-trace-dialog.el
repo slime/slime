@@ -443,7 +443,6 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 
 (defun slime-trace-dialog--open-detail (trace-tuple &optional no-pop)
   (slime-with-popup-buffer ("*trace-detail*" :select (not no-pop))
-    (slime-trace-dialog--detail-mode)
     (cl-destructuring-bind (id _parent-id _spec args retlist backtrace external)
         trace-tuple
       (let ((headline (slime-trace-dialog--format-trace-entry id external)))
@@ -467,7 +466,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
         (insert "\nBacktrace:\n"
                 (cl-loop for (i spec) in backtrace
                          concat (format "   %s: %s\n" i spec))))
-      )))
+      (slime-trace-dialog--detail-mode))))
 
 
 ;;;; Rendering traces
@@ -549,7 +548,8 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
     (if has-children-p
         (insert (slime-trace-dialog--make-collapse-button trace))
       (setf (slime-trace-dialog--trace-collapse-button-marker trace)
-            (point-marker)))
+            (point-marker))
+      (insert "-"))
     (insert (format " %s\n" spec))
     (setf (slime-trace-dialog--trace-summary-beg trace) (point-marker))
     (insert summary)
@@ -589,6 +589,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                (slime-trace-dialog--trace-collapse-button-marker parent))
       (slime-trace-dialog--maintaining-properties
           (slime-trace-dialog--trace-collapse-button-marker parent)
+        (delete-char 1)
         (insert (slime-trace-dialog--make-collapse-button parent))
         (setf (slime-trace-dialog--trace-collapse-button-marker parent)
               nil)))
