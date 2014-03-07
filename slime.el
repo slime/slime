@@ -848,26 +848,12 @@ This idiom is preferred over `lexical-let'."
 
 ;;;;; Temporary popup buffers
 
-(defvar slime-popup-restore-data nil
-  "Data needed when closing popup windows.
-This is used as buffer local variable.
-The format is (POPUP-WINDOW SELECTED-WINDOW OLD-BUFFER).
-POPUP-WINDOW is the window used to display the temp buffer.
-That window may have been reused or freshly created.
-SELECTED-WINDOW is the window that was selected before displaying
-the popup buffer.
-OLD-BUFFER is the buffer that was previously displayed in POPUP-WINDOW.
-OLD-BUFFER is nil if POPUP-WINDOW was newly created.
-
-See `view-return-to-alist' for a similar idea.")
-
 ;; keep compiler quiet
 (defvar slime-buffer-package)
 (defvar slime-buffer-connection)
 
 ;; Interface
-(cl-defmacro slime-with-popup-buffer ((name &key package connection select
-                                            mode)
+(cl-defmacro slime-with-popup-buffer ((name &key package connection select)
                                       &body body)
   "Similar to `with-output-to-temp-buffer'.
 Bind standard-output and initialize some buffer-local variables.
@@ -880,107 +866,41 @@ CONNECTION is the value for `slime-buffer-connection',
  the buffer.  If t, the current connection is taken.
 MODE is the name of a major mode which will be enabled.
 "
-  `(let* ((vars% (list ,(if (eq package t) '(slime-current-package) package)
-                       ,(if (eq connection t) '(slime-connection) connection)))
-          (standard-output (slime-make-popup-buffer ,name vars% ,mode)))
-     (with-current-buffer standard-output
-       (prog1 (progn ,@body)
-         (cl-assert (eq (current-buffer) standard-output))
-         (setq buffer-read-only t)
-         (set-window-point (slime-display-popup-buffer ,(or select nil))
-                           (point))))))
+  (declare (indent 1))
+  `(with-current-buffer (get-buffer-create ,name)
+     (let ((inhibit-read-only t)
+           (standard-output (current-buffer)))
+       (erase-buffer)
+       ,@body
+       (set-syntax-table lisp-mode-syntax-table)
+       (setq slime-buffer-package (if (eq ,package t)
+                                      (slime-current-package)
+                                    ,package)
+             slime-buffer-connection (if (eq ,connection t)
+                                         (slime-current-connection)
+                                       ,connection))
+       (slime-popup-buffer-mode 1)
+       (if ,select (pop-to-buffer (current-buffer))
+         (display-buffer (current-buffer)))
+       (current-buffer))))
 
-(put 'slime-with-popup-buffer 'lisp-indent-function 1)
-
-(defun slime-make-popup-buffer (name buffer-vars mode)
-  "Return a temporary buffer called NAME.
-The buffer also uses the minor-mode `slime-popup-buffer-mode'."
-  (with-current-buffer (get-buffer-create name)
-    (kill-all-local-variables)
-    (when mode
-      (funcall mode))
-    (setq buffer-read-only nil)
-    (erase-buffer)
-    (set-syntax-table lisp-mode-syntax-table)
-    (slime-init-popup-buffer buffer-vars)
-    (current-buffer)))
-
-(defun slime-init-popup-buffer (buffer-vars)
-  (slime-popup-buffer-mode 1)
-  (setf slime-buffer-package (car buffer-vars)
-        slime-buffer-connection (cadr buffer-vars)))
-
-(defun slime-display-popup-buffer (select)
-  "Display the current buffer.
-Save the selected-window in a buffer-local variable, so that we
-can restore it later."
-  (let ((selected-window (selected-window))
-        (old-windows))
-    (walk-windows (lambda (w) (push (cons w (window-buffer w)) old-windows))
-                  nil t)
-    (let ((new-window (display-buffer (current-buffer))))
-      (unless slime-popup-restore-data
-        (set (make-local-variable 'slime-popup-restore-data)
-             (list new-window
-                   selected-window
-                   (cdr (cl-find new-window old-windows :key #'car)))))
-      (when select
-        (select-window new-window))
-      new-window)))
-
-(defun slime-close-popup-window ()
-  (when slime-popup-restore-data
-    (cl-destructuring-bind (popup-window selected-window old-buffer)
-        slime-popup-restore-data
-      (kill-local-variable 'slime-popup-restore-data)
-      (bury-buffer)
-      (when (eq popup-window (selected-window))
-        (cond ((and (not old-buffer) (not (one-window-p)))
-               (delete-window popup-window))
-              ((and old-buffer (buffer-live-p old-buffer))
-               (set-window-buffer popup-window old-buffer))))
-      (when (window-live-p selected-window)
-        (select-window selected-window)))))
-
-(defmacro slime-save-local-variables (vars &rest body)
-  (let ((vals (make-symbol "vals")))
-    `(let ((,vals (mapcar (lambda (var)
-                            (if (slime-local-variable-p var)
-                                (cons var (eval var))))
-                          ',vars)))
-       (prog1 (progn . ,body)
-         (mapc (lambda (var+val)
-                 (when (consp var+val)
-                   (set (make-local-variable (car var+val)) (cdr var+val))))
-               ,vals)))))
-
-(put 'slime-save-local-variables 'lisp-indent-function 1)
+(defvar slime-popup-buffer-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "q") 'slime-popup-buffer-quit)
+    ;;("\C-c\C-z" . slime-switch-to-output-buffer)
+    (define-key map (kbd "M-.") 'slime-edit-definition)
+    map))
 
 (define-minor-mode slime-popup-buffer-mode
   "Mode for displaying read only stuff"
-  nil
-  nil
-  '(("q" . slime-popup-buffer-quit-function)
-    ;;("\C-c\C-z" . slime-switch-to-output-buffer)
-    ("\M-." . slime-edit-definition)))
+  nil nil)
 
 (add-to-list 'minor-mode-alist
              `(slime-popup-buffer-mode
-               ,(if (featurep 'xemacs)
-                    'slime-modeline-string
-                  '(:eval (unless slime-mode
-                            (slime-modeline-string))))))
+               (:eval (unless slime-mode
+                        (slime-modeline-string)))))
 
 (set-keymap-parent slime-popup-buffer-mode-map slime-parent-map)
-
-(make-variable-buffer-local
- (defvar slime-popup-buffer-quit-function 'slime-popup-buffer-quit
-   "The function that is used to quit a temporary popup buffer."))
-
-(defun slime-popup-buffer-quit-function ()
-  "Wrapper to invoke the value of `slime-popup-buffer-quit-function'."
-  (interactive)
-  (funcall slime-popup-buffer-quit-function))
 
 ;; Interface
 (defun slime-popup-buffer-quit (&optional kill-buffer-p)
@@ -988,10 +908,7 @@ can restore it later."
 Restore the window configuration unless it was changed since we
 last activated the buffer."
   (interactive)
-  (let ((buffer (current-buffer)))
-    (slime-close-popup-window)
-    (when kill-buffer-p
-      (kill-buffer buffer))))
+  (quit-window kill-buffer-p))
 
 ;;;;; Filename translation
 ;;;
@@ -2822,8 +2739,8 @@ Each newlines and following indentation is replaced by a single space."
 (defun slime-show-compilation-log (notes)
   "Create and display the compilation log buffer."
   (interactive (list (slime-compiler-notes)))
-  (slime-with-popup-buffer ((slime-buffer-name :compilation)
-                            :mode 'compilation-mode)
+  (slime-with-popup-buffer ((slime-buffer-name :compilation))
+    (compilation-mode)
     (slime-insert-compilation-log notes)))
 
 (defun slime-insert-compilation-log (notes)
@@ -2893,18 +2810,15 @@ This is quite an expensive operation so use carefully."
 (defun slime-goto-note-in-compilation-log (note)
   "Find `note' in the compilation log and display it."
   (with-current-buffer (get-buffer (slime-buffer-name :compilation))
-    (let ((origin (point))
-          (foundp nil))
-      (goto-char (point-min))
-      (let ((overlay))
-        (while (and (setq overlay (slime-find-next-note))
-                    (not foundp))
-          (let ((other-note (overlay-get overlay 'slime-note)))
-            (when (slime-notes-in-same-location-p note other-note)
-              (slime-show-buffer-position (overlay-start overlay) 'top)
-              (setq foundp t)))))
-      (unless foundp
-        (goto-char origin)))))
+    (let ((pos
+           (cl-loop for overlay = (slime-find-next-note)
+                    for other-note = (overlay-get overlay 'slime-note)
+                    when (slime-notes-in-same-location-p note other-note)
+                    return (overlay-start overlay))))
+      (when pos
+        (with-selected-window (display-buffer (current-buffer))
+          (goto-char pos)
+          (recenter 1))))))
 
 (defun slime-group-and-sort-notes (notes)
   "First sort, then group NOTES according to their canonicalized locs."
@@ -4282,8 +4196,8 @@ in Lisp when committed with \\[slime-edit-value-commit]."
   (let* ((name (generate-new-buffer-name (format "*Edit %s*" form-string)))
          (buffer (slime-with-popup-buffer (name :package package
                                                 :connection t
-                                                :select t
-                                                :mode 'lisp-mode)
+                                                :select t)
+                   (lisp-mode)
                    (slime-popup-buffer-mode -1) ; don't want binding of 'q'
                    (slime-mode 1)
                    (slime-edit-value-mode 1)
@@ -4534,8 +4448,8 @@ With prefix argument include internal symbols."
   (if (null plists)
       (message "No apropos matches for %S" string)
     (slime-with-popup-buffer ((slime-buffer-name :apropos)
-                              :package package :connection t
-                              :mode 'apropos-mode)
+                              :package package :connection t)
+      (apropos-mode)
       (if (boundp 'header-line-format)
           (setq header-line-format summary)
         (insert summary "\n\n"))
@@ -4613,6 +4527,7 @@ The most important commands:
 \\{slime-xref-mode-map}
 \\{slime-popup-buffer-mode-map}
 "
+  (slime-popup-buffer-mode)
   (setq font-lock-defaults nil)
   (setq delayed-mode-hooks nil)
   (slime-mode -1))
@@ -4639,18 +4554,16 @@ The most important commands:
 ;;;;; XREF results buffer and window management
 
 (cl-defmacro slime-with-xref-buffer ((_xref-type _symbol &optional package)
-                                   &body body)
+                                     &body body)
   "Execute BODY in a xref buffer, then show that buffer."
-  `(let ((xref-buffer-name% (slime-buffer-name :xref)))
-     (slime-with-popup-buffer (xref-buffer-name%
-                               :package ,package
-                               :connection t
-                               :select t
-                               :mode 'slime-xref-mode)
-       (slime-set-truncate-lines)
-       ,@body)))
-
-(put 'slime-with-xref-buffer 'lisp-indent-function 1)
+  (declare (indent 1))
+  `(slime-with-popup-buffer ((slime-buffer-name :xref)
+                             :package ,package
+                             :connection t
+                             :select t)
+     (slime-xref-mode)
+     (slime-set-truncate-lines)
+     ,@body))
 
 (defun slime-insert-xrefs (xref-alist)
   "Insert XREF-ALIST in the current-buffer.
@@ -4844,7 +4757,7 @@ This is used by `slime-goto-next-xref'")
              ;; We do this here because changing the location can take
              ;; a while when Emacs needs to read a file from disk.
              (with-current-buffer slime-xref-last-buffer
-               (slime-show-buffer-position pos)
+               (goto-char pos)
                (slime-highlight-line 0.35)))
             ((null location)
              (message (if backward "No previous xref" "No next xref.")))
@@ -5019,8 +4932,8 @@ This variable specifies both what was expanded and how.")
 
 (defun slime-create-macroexpansion-buffer ()
   (let ((name (slime-buffer-name :macroexpansion)))
-    (slime-with-popup-buffer (name :package t :connection t
-                                   :mode 'lisp-mode)
+    (slime-with-popup-buffer (name :package t :connection t)
+      (lisp-mode)
       (slime-mode 1)
       (slime-macroexpansion-minor-mode 1)
       (setq font-lock-keywords-case-fold-search t)
@@ -5371,8 +5284,7 @@ CONTS is a list of pending Emacs continuations."
                sldb-condition condition)
     (unless (equal sldb-level level)
       (setq buffer-read-only nil)
-      (slime-save-local-variables (slime-popup-restore-data)
-        (sldb-mode))
+      (sldb-mode)
       (setq slime-current-thread thread)
       (setq sldb-level level)
       (setq mode-name (format "sldb[%d]" sldb-level))
@@ -5391,8 +5303,7 @@ CONTS is a list of pending Emacs continuations."
           (insert "[No backtrace]")))
       (run-hooks 'sldb-hook)
       (set-syntax-table lisp-mode-syntax-table))
-    (slime-display-popup-buffer t)
-    (sldb-recenter-region (point-min) (point))
+    (pop-to-buffer (current-buffer))
     (setq buffer-read-only t)
     (when (and slime-stack-eval-tags
                ;; (y-or-n-p "Enter recursive edit? ")
@@ -5620,50 +5531,11 @@ Called on the `point-entered' text-property hook."
 
 
 ;;;;;; SLDB recenter & redisplay
-
-;; FIXME: these functions need factorization
-
-(defun slime-show-buffer-position (position &optional recenter)
-  "Ensure sure that the POSITION in the current buffer is visible."
-  (let ((window (display-buffer (current-buffer) t)))
-    (save-selected-window
-      (select-window window)
-      (goto-char position)
-      (cl-ecase recenter
-        (top    (recenter 0))
-        (center (recenter))
-        ((nil)
-         (unless (pos-visible-in-window-p)
-           (cond ((= (current-column) 0) (recenter 1))
-                 (t (recenter)))))))))
-
-(defun sldb-recenter-region (start end &optional center)
-  "Make the region from START to END visible.
-Avoid point motions, if possible.
-Minimize scrolling, if CENTER is nil.
-If CENTER is true, scroll enough to center the region in the window."
-  (let ((pos (point))  (lines (count-screen-lines start end t)))
-    (cl-assert (and (<= start pos) (<= pos end)))
-    ;;(sit-for 0)
-    (cond ((and (pos-visible-in-window-p start)
-                (pos-visible-in-window-p end)))
-          ((< lines (window-height))
-           (cond (center (recenter (+ (/ (- (window-height) 1 lines)
-                                         2)
-                                      (slime-count-lines start pos))))
-                 (t (recenter (+ (- (window-height) 1 lines)
-                                 (slime-count-lines start pos))))))
-          (t
-           (goto-char start)
-           (recenter 0)
-           (cond ((pos-visible-in-window-p pos)
-                  (goto-char pos))
-                 (t
-                  (goto-char start)
-                  (unless noninteractive ; for running the test suite
-                    (forward-line (- (window-height) 2)))))))))
-
 ;; not sure yet, whether this is a good idea.
+;;
+;; jt: seconded. Only `sldb-show-frame-details' and
+;; `sldb-hide-frame-details' use this. They could avoid it by not
+;; removing and reinserting the frame's name line.
 (defmacro slime-save-coordinates (origin &rest body)
   "Restore line and column relative to ORIGIN, after executing BODY.
 
@@ -5773,10 +5645,12 @@ This is 0 if START and END at the same line."
          (slime-show-source-location source-location))))))
 
 (defun slime-show-source-location (source-location &optional no-highlight-p)
-  (save-selected-window   ; show the location, but don't hijack focus.
+  (save-selected-window
+                                        ; show the location, but don't hijack focus.
     (slime-goto-source-location source-location)
-    (unless no-highlight-p (slime-highlight-sexp))
-    (slime-show-buffer-position (point))))
+    (select-window (display-buffer (current-buffer)))
+    (recenter (if (= (current-column) 0) 1))
+    (unless no-highlight-p (slime-highlight-sexp))))
 
 (defun slime-highlight-sexp (&optional start end)
   "Highlight the first sexp after point."
@@ -6150,8 +6024,8 @@ was called originally."
   "Display a list of threads."
   (interactive)
   (let ((name slime-threads-buffer-name))
-    (slime-with-popup-buffer (name :connection t
-                                   :mode 'slime-thread-control-mode)
+    (slime-with-popup-buffer (name :connection t)
+      (slime-thread-control-mode)
       (slime-update-threads-buffer)
       (goto-char (point-min))
       (when slime-threads-update-interval
@@ -6162,7 +6036,7 @@ was called originally."
                slime-threads-update-interval
                slime-threads-update-interval
                'slime-update-threads-buffer)))
-      (setq slime-popup-buffer-quit-function 'slime-quit-threads-buffer))))
+      (local-set-key (kbd "q") 'slime-quit-threads-buffer))))
 
 (defun slime-quit-threads-buffer ()
   (when slime-threads-buffer-timer
@@ -6351,8 +6225,8 @@ was called originally."
 (defun slime-list-connections ()
   "Display a list of all connections."
   (interactive)
-  (slime-with-popup-buffer (slime-connections-buffer-name
-                            :mode 'slime-connection-list-mode)
+  (slime-with-popup-buffer (slime-connections-buffer-name)
+    (slime-connection-list-mode)
     (slime-draw-connection-list)))
 
 (defun slime-update-connection-list ()
@@ -6423,7 +6297,6 @@ was called originally."
   :group 'slime-inspector)
 
 (defvar slime-inspector-mark-stack '())
-(defvar slime-saved-window-config)
 
 (defun slime-inspect (string)
   "Eval an expression and inspect the result."
@@ -6434,22 +6307,18 @@ was called originally."
 
 (define-derived-mode slime-inspector-mode fundamental-mode
   "Slime-Inspector"
-  "
-\\{slime-inspector-mode-map}
-\\{slime-popup-buffer-mode-map}"
+  "A major mode for the SLIME inspector."
+  (slime-popup-buffer-mode)
   (set-syntax-table lisp-mode-syntax-table)
   (slime-set-truncate-lines)
   (setq buffer-read-only t))
 
 (defun slime-inspector-buffer ()
   (or (get-buffer (slime-buffer-name :inspector))
-      (slime-with-popup-buffer ((slime-buffer-name :inspector)
-                                :mode 'slime-inspector-mode)
+      (slime-with-popup-buffer ((slime-buffer-name :inspector))
+        (slime-inspector-mode)
         (setq slime-inspector-mark-stack '())
         (buffer-disable-undo)
-        (make-local-variable 'slime-saved-window-config)
-        (setq slime-popup-buffer-quit-function 'slime-inspector-quit)
-        (setq slime-saved-window-config (current-window-configuration))
         (current-buffer))))
 
 (defmacro slime-inspector-fontify (face string)
@@ -6615,7 +6484,6 @@ that value.
   "Quit the inspector and kill the buffer."
   (interactive)
   (slime-eval-async `(swank:quit-inspector))
-  (set-window-configuration slime-saved-window-config)
   (slime-popup-buffer-quit t))
 
 ;; FIXME: first return value is just point.
@@ -6797,7 +6665,8 @@ If ARG is negative, move forwards."
    'slime-inspector-previous-inspectable-object) ; Emacs translates S-TAB
   ([backtab] 'slime-inspector-previous-inspectable-object) ; to BACKTAB on X.
   ("." 'slime-inspector-show-source)
-  (">" 'slime-inspector-fetch-all))
+  (">" 'slime-inspector-fetch-all)
+  ("q" 'slime-inspector-quit))
 
 
 ;;;; Buffer selector
@@ -7649,7 +7518,6 @@ The returned bounds are either nil or non-empty."
 ;; outline-regexp: ";;;;+"
 ;; indent-tabs-mode: nil
 ;; coding: latin-1-unix
-;; compile-command: "emacs -batch -L . -f batch-byte-compile slime.el; \
-;;  rm -v slime.elc"
+;; byte-compile-warnings: (not cl-functions)
 ;; End:
 ;;; slime.el ends here

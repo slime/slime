@@ -1,5 +1,36 @@
 2014-03-07  João Távora  <joaotavora@gmail.com>
 
+	* slime.el (slime-popup-restore-data): Delete it.
+	(slime-with-popup-buffer): Remove `mode' arg. Redesign.
+	(slime-make-popup-buffer,slime-init-popup-buffer)
+	(slime-display-popup-buffer, slime-close-popup-window)
+	(slime-save-local-variables): Remove these functions.
+	(slime-popup-buffer-mode-map): Define this existing map
+	separately.
+	(slime-popup-buffer-mode): Don't use :keymap arg.
+	(minor-mode-alist): Remove XEmacs hack
+	(slime-popup-buffer-quit-function): Remove it
+	(slime-popup-buffer-quit): Use `quit-window'
+	(slime-show-compilation-log, slime-edit-value-callback)
+	(slime-show-apropos, slime-with-xref-buffer)
+	(slime-create-macroexpansion-buffer, slime-list-threads)
+	(slime-list-connections, slime-inspector-buffer): Don't pass :mode
+	arg to `slime-with-popup-buffer'.
+	(slime-goto-note-in-compilation-log): Redesign and use `recenter'
+	instead of `slime-show-buffer-position'.
+	(slime-goto-next-xref): Don't use `slime-show-buffer-position'
+	(sldb-setup): Use just `pop-to-buffer'
+	(slime-show-buffer-position): Remove it.
+	(sldb-recenter-region): Remove it.
+	(slime-show-source-location): Use `select-window' and `recenter'.
+	(slime-saved-window-config): Removed.
+	(slime-inspector-quit): Don't use `slime-saved-window-config'
+	(slime-inspector-mode): Enters `slime-popup-buffer-mode' minor
+	mode.
+	(slime-inspector-mode-map): Bind `q' to `slime-inspector-quit'.
+
+2014-03-07  João Távora  <joaotavora@gmail.com>
+
 	Removed XEmacs portability layer, fix some FIXME's, simplify
 	indentation specs.
 
@@ -13,7 +44,7 @@
 	in one place.
 	(slime-rex, slime-start, sldb-in-face): Fix indentation.
 	(slime-recompute-modelines, slime-xemacs-recompute-modelines)
-	(slime-run-when-idle, minor-mode-alist)
+	(slime-run-when-idle)
 	(slime-minibuffer-respecting-message)
 	(slime-push-definition-stack, slime-pop-find-definition-stack):
 	(slime-recompile-bytecode, slime-safe-encoding-p)
