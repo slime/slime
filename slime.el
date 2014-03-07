@@ -7121,16 +7121,14 @@ is setup, unless the user already set one explicitly."
                                    " does not work with XEmacs."))))
          ,@(mapcar (lambda (d) `(require ',d)) slime-dependencies)
          (defun ,(enable-fn name) ()
-           (mapc #'funcall ',(mapcar
-                              #'enable-fn
-                              slime-dependencies))
-           (mapc #'slime-require ',swank-dependencies)
+           (let ((contrib (slime-find-contrib ',name)))
+             (mapc #'funcall (mapcar ,#'enable-fn (slime-contrib-slime-dependencies contrib)))
+             (mapc #'slime-require (slime-contrib-swank-dependencies contrib)))
            ,@on-load)
          (defun ,(disable-fn name) ()
            ,@on-unload
-           (mapc #'funcall ',(mapcar
-                              #'disable-fn
-                              slime-dependencies)))
+           (let ((contrib (slime-find-contrib ',name)))
+             (mapc #'funcall (mapcar ,#'disable-fn (slime-contrib-slime-dependencies contrib)))))
          (put 'slime-contribs ',name
               (make-slime-contrib
                :name ',name :authors ',authors :license ',license
