@@ -1,3 +1,11 @@
+2014-03-08  Luís Oliveira  <loliveira@common-lisp.net>
+
+	slime-autodoc: avoid adding a newline after things like
+	with-open-file when doing multiline display.
+
+	* swank-arglists.lisp (print-decoded-arglist): Don't
+	pprint-newline when adding a space after the operator.
+
 2014-03-07  João Távora  <joaotavora@gmail.com>
 
 	* slime-trace-dialog.el (slime-trace-dialog--open-detail): Fix
