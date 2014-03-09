@@ -1,3 +1,14 @@
+2014-03-09  João Távora  <joaotavora@gmail.com>
+
+	* slime-trace-dialog.el (slime-trace-dialog--open-detail): Restore
+	`:mode' argument to `slime-with-popup-buffer'.
+
+	* slime-sprof.el (slime-sprof-report): idem
+
+	* slime-compiler-notes-tree.el (slime-list-compiler-notes): idem
+
+	* slime-clipboard.el (slime-clipboard-display-entries): idem
+
 2014-03-07  João Távora  <joaotavora@gmail.com>
 
 	* slime-trace-dialog.el (slime-trace-dialog--open-detail): Fix

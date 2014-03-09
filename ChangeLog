@@ -1,3 +1,29 @@
+2014-03-09  João Távora  <joaotavora@gmail.com>
+
+	Corrections after comments from Helmut.
+
+	* slime.el (slime-with-popup-buffer): Restore `mode' keyword arg,
+	defaults to `fundamental-mode'. Compute package and connection in
+	calling buffer.
+	(slime-with-popup-buffer): Bind q to `quit-window'
+	(slime-popup-buffer-quit): Remove it.
+	(slime-show-compilation-log, slime-edit-value-callback)
+	(slime-show-apropos, slime-with-xref-buffer)
+	(slime-create-macroexpansion-buffer, slime-list-threads)
+	(slime-list-connections, slime-inspector-buffer): Restore mode
+	arg.
+	(slime-goto-note-in-compilation-log): Fix search and recenter
+	(slime-edit-value-commit, slime-goto-xref, sldb-exit)
+	(sldb-close-step-buffer, slime-quit-threads-buffer)
+	(slime-inspector-quit): Use `quit-window'
+	(slime-show-source-location): Fix it.
+	(sldb-show-frame-details): Fix it (sldb-recenter-region was gone).
+	(slime-list-threads): Don't `local-set-key'.
+	(slime-thread-control-mode-map): Bind `q' here.
+	(slime-inspector-mode): Restore docstring.
+
+	* slime-tests.el (narrowing): Use `quit-window'.
+
 2014-03-07  João Távora  <joaotavora@gmail.com>
 
 	* slime.el (slime-popup-restore-data): Delete it.
@@ -46,7 +72,7 @@
 	(slime-recompute-modelines, slime-xemacs-recompute-modelines)
 	(slime-run-when-idle)
 	(slime-minibuffer-respecting-message)
-	(slime-push-definition-stack, slime-pop-find-definition-stack):
+	(slime-push-definition-stack, slime-pop-find-definition-stack)
 	(slime-recompile-bytecode, slime-safe-encoding-p)
 	(slime-connection-port, slime-xref-mode-map)
 	(define-slime-contrib): Remove XEmacs hacks.

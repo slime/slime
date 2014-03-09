@@ -442,7 +442,8 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
       (insert "\n\n"))))
 
 (defun slime-trace-dialog--open-detail (trace-tuple &optional no-pop)
-  (slime-with-popup-buffer ("*trace-detail*" :select (not no-pop))
+  (slime-with-popup-buffer ("*trace-detail*" :select (not no-pop)
+                            :mode 'slime-trace-dialog--detail-mode)
     (cl-destructuring-bind (id _parent-id _spec args retlist backtrace external)
         trace-tuple
       (let ((headline (slime-trace-dialog--format-trace-entry id external)))
@@ -465,8 +466,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
       (when backtrace
         (insert "\nBacktrace:\n"
                 (cl-loop for (i spec) in backtrace
-                         concat (format "   %s: %s\n" i spec))))
-      (slime-trace-dialog--detail-mode))))
+                         concat (format "   %s: %s\n" i spec)))))))
 
 
 ;;;; Rendering traces

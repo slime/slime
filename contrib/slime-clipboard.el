@@ -63,8 +63,8 @@ debugger to add the object at point to the clipboard."
 		    #'slime-clipboard-display-entries))
 
 (defun slime-clipboard-display-entries (entries)
-  (slime-with-popup-buffer ((slime-buffer-name :clipboard))
-    (slime-clipboard-mode)
+  (slime-with-popup-buffer ((slime-buffer-name :clipboard)
+                            :mode 'slime-clipboard-mode)
     (slime-clipboard-insert-entries entries)))
 
 (defun slime-clipboard-insert-entries (entries)

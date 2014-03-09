@@ -375,7 +375,7 @@ conditions (assertions)."
       (with-current-buffer random-buffer-name
         ;; Notice that we cannot quit the buffer within the extent
         ;; of slime-with-output-to-temp-buffer.
-        (slime-popup-buffer-quit t))
+        (quit-window t))
       (slime-check ("Checking that we've got back from `%s'"
                     random-buffer-name)
         (and (eq (current-buffer) tmpbuffer)
