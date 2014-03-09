@@ -5304,7 +5304,10 @@ CONTS is a list of pending Emacs continuations."
           (insert "[No backtrace]")))
       (run-hooks 'sldb-hook)
       (set-syntax-table lisp-mode-syntax-table))
-    (pop-to-buffer (current-buffer))
+    ;; FIXME: remove when dropping Emacs23 support
+    (let ((saved (selected-window)))    
+      (pop-to-buffer (current-buffer))
+      (set-window-parameter (selected-window) 'sldb-restore saved))
     (setq buffer-read-only t)
     (when (and slime-stack-eval-tags
                ;; (y-or-n-p "Enter recursive edit? ")
@@ -5338,7 +5341,13 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
              (setq sldb-level nil)
              (run-with-timer 0.4 nil 'sldb-close-step-buffer sldb))
             (t
-             (quit-window t))))))
+             ;; FIXME: remove when dropping Emacs23 support
+             (let ((previous-window (window-parameter (selected-window)
+                                                      'sldb-restore)))
+               (quit-window t)
+               (if (and (not (>= emacs-major-version 24))
+                        (window-live-p previous-window))
+                   (select-window previous-window))))))))
 
 (defun sldb-close-step-buffer (buffer)
   (when (buffer-live-p buffer)

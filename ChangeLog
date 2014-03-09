@@ -1,5 +1,10 @@
 2014-03-09  João Távora  <joaotavora@gmail.com>
 
+	Save and restore windows that popped debugger windows.
+
+	* slime.el (sldb-setup): Save previous window.
+	(sldb-exit): Restore.
+
 	Corrections after comments from Helmut.
 
 	* slime.el (slime-with-popup-buffer): Restore `mode' keyword arg,
