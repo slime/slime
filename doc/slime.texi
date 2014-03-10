@@ -289,8 +289,8 @@ This chapter tells you how to get @SLY{} up and running.
 
 @SLY{} supports a wide range of operating systems and Lisp
 implementations. @SLY{} runs on Unix systems, Mac OSX, and Microsoft
-Windows. GNU Emacs versions 24 and 23.4 are supported. @emph{XEmacs is
-not supported anymore}.
+Windows. GNU Emacs versions 24.3 and above are supported. @emph{XEmacs
+or Emacs 23 are not supported anymore}.
 
 The supported Lisp implementations, roughly ordered from the
 best-supported, are:

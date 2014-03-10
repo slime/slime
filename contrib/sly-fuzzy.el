@@ -258,8 +258,7 @@ most recently enclosed macro or function."
       (let ((comint-completion-addsuffix '("/" . "")))
         (if sly-when-complete-filename-expand
             (comint-replace-by-expanded-filename)
-          ;; FIXME: use `coming-filename-completion' when dropping emacs23 
-          (comint-dynamic-complete-as-filename)))))
+          (comint-filename-completion)))))
   (let* ((end (move-marker (make-marker) (sly-symbol-end-pos)))
          (beg (move-marker (make-marker) (sly-symbol-start-pos)))
          (prefix (buffer-substring-no-properties beg end)))

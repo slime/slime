@@ -140,45 +140,37 @@ buffer's working directory"
      (when directory
        (dired (sly-from-lisp-filename directory))))))
 
-(if (fboundp 'rgrep)
-    (defun sly-rgrep-system (sys-name regexp)
-      "Run `rgrep' on the base directory of an ASDF system."
-      (interactive (progn (grep-compute-defaults)
-                          (list (sly-read-system-name nil nil t)
-                                (grep-read-regexp))))
-      (rgrep regexp "*.lisp"
-             (sly-from-lisp-filename
-              (sly-eval `(swank:asdf-system-directory ,sys-name)))))
-    (defun sly-rgrep-system ()
-      (interactive)
-      (error "This command is only supported on GNU Emacs >21.x.")))
+(defun sly-rgrep-system (sys-name regexp)
+  "Run `rgrep' on the base directory of an ASDF system."
+  (interactive (progn (grep-compute-defaults)
+                      (list (sly-read-system-name nil nil t)
+                            (grep-read-regexp))))
+  (rgrep regexp "*.lisp"
+         (sly-from-lisp-filename
+          (sly-eval `(swank:asdf-system-directory ,sys-name)))))
 
-(if (boundp 'multi-isearch-next-buffer-function)
-    (defun sly-isearch-system (sys-name)
-      "Run `isearch-forward' on the files of an ASDF system."
-      (interactive (list (sly-read-system-name nil nil t)))
-      (let* ((files (mapcar 'sly-from-lisp-filename
-                            (sly-eval `(swank:asdf-system-files ,sys-name))))
-             (multi-isearch-next-buffer-function
-              (lexical-let* 
-                  ((buffers-forward  (mapcar #'find-file-noselect files))
-                   (buffers-backward (reverse buffers-forward)))
-                #'(lambda (current-buffer wrap)
-                    ;; Contrarily to the docstring of
-                    ;; `multi-isearch-next-buffer-function', the first
-                    ;; arg is not necessarily a buffer. Report sent
-                    ;; upstream. (2009-11-17)
-                    (setq current-buffer (or current-buffer (current-buffer)))
-                    (let* ((buffers (if isearch-forward
-                                        buffers-forward
-                                        buffers-backward)))
-                      (if wrap
-                          (car buffers)
-                          (second (memq current-buffer buffers))))))))
-        (isearch-forward)))
-    (defun sly-isearch-system ()
-      (interactive)
-      (error "This command is only supported on GNU Emacs >23.1.x.")))
+(defun sly-isearch-system (sys-name)
+  "Run `isearch-forward' on the files of an ASDF system."
+  (interactive (list (sly-read-system-name nil nil t)))
+  (let* ((files (mapcar 'sly-from-lisp-filename
+                        (sly-eval `(swank:asdf-system-files ,sys-name))))
+         (multi-isearch-next-buffer-function
+          (lexical-let* 
+              ((buffers-forward  (mapcar #'find-file-noselect files))
+               (buffers-backward (reverse buffers-forward)))
+            #'(lambda (current-buffer wrap)
+                ;; Contrarily to the docstring of
+                ;; `multi-isearch-next-buffer-function', the first
+                ;; arg is not necessarily a buffer. Report sent
+                ;; upstream. (2009-11-17)
+                (setq current-buffer (or current-buffer (current-buffer)))
+                (let* ((buffers (if isearch-forward
+                                    buffers-forward
+                                  buffers-backward)))
+                  (if wrap
+                      (car buffers)
+                    (second (memq current-buffer buffers))))))))
+    (isearch-forward)))
 
 (defun sly-read-query-replace-args (format-string &rest format-args)
   (let* ((minibuffer-setup-hook (sly-minibuffer-setup-hook))

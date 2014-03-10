@@ -57,16 +57,13 @@
 
 
 ;;;; Dependencies and setup
-(eval-and-compile
-  (require 'cl-lib nil t)
-  ;; For emacs 23, look for bundled version
-  (require 'cl-lib "lib/cl-lib"))
+(require 'cl-lib)
 
 (eval-when-compile (require 'cl)) ; defsetf, lexical-let
 
 (eval-and-compile
-  (if (< emacs-major-version 23)
-      (error "Slime requires an Emacs version of 23, or above")))
+  (if (version< emacs-version "24.3")
+      (error "Sly requires at least Emacs 24.3")))
 
 (require 'hyperspec "lib/hyperspec")
 (require 'thingatpt)
@@ -86,7 +83,7 @@
   (defvar sly-path
     (let ((path (or (locate-library "sly") load-file-name)))
       (and path (file-name-directory path)))
-    "Directory containing the Slime package.
+    "Directory containing the SLY package.
 This is used to load the supporting Common Lisp library, Swank.
 The default value is automatically computed from the location of the
 Emacs Lisp package."))
@@ -444,14 +441,14 @@ Full set of commands:
 
 (defun sly-modeline-string ()
   "Return the string to display in the modeline.
-\"Slime\" only appears if we aren't connected.  If connected,
+\"SLY\" only appears if we aren't connected.  If connected,
 include package-name, connection-name, and possibly some state
 information."
   (let ((conn (sly-current-connection)))
     ;; Bail out early in case there's no connection, so we won't
     ;; implicitly invoke `sly-connection' which may query the user.
     (if (not conn)
-        (and sly-mode " Slime")
+        (and sly-mode " SLY")
       (let ((local (eq conn sly-buffer-connection))
             (pkg   (sly-current-package)))
         (concat " "
@@ -485,7 +482,7 @@ information."
 ;;;;; Key bindings
 
 (defvar sly-parent-map nil
-  "Parent keymap for shared between all Slime related modes.")
+  "Parent keymap for shared between all SLY related modes.")
 
 (defvar sly-parent-bindings
   '(("\M-."      sly-edit-definition)
@@ -1644,7 +1641,7 @@ Signal an error if there's no connection."
 'sly-auto-start "2.5")
 (defcustom sly-auto-start 'never
   "Controls auto connection when information from lisp process is needed.
-This doesn't mean it will connect right after Slime is loaded."
+This doesn't mean it will connect right after SLY is loaded."
   :group 'sly-mode
   :type '(choice (const never)
                  (const always)
@@ -1653,7 +1650,7 @@ This doesn't mean it will connect right after Slime is loaded."
 (defun sly-auto-start ()
   (cond ((or (eq sly-auto-start 'always)
              (and (eq sly-auto-start 'ask)
-                  (y-or-n-p "No connection.  Start Slime? ")))
+                  (y-or-n-p "No connection.  Start SLY? ")))
          (save-window-excursion
            (sly)
            (while (not (sly-current-connection))
@@ -3840,7 +3837,7 @@ FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
 
 (defun sly-postprocess-xref (original-xref)
   "Process (for normalization purposes) an Xref comming directly
-from SWANK before the rest of Slime sees it. In particular,
+from SWANK before the rest of SLY sees it. In particular,
 convert ETAGS based xrefs to actual file+position based
 locations."
   (if (not (sly-xref-has-location-p original-xref))
@@ -4045,7 +4042,7 @@ the display stuff that we neither need nor want."
 
 Note: If a prefix argument is in effect then the result will be
 inserted in the current buffer."
-  (interactive (list (sly-read-from-minibuffer "Slime Eval: ")))
+  (interactive (list (sly-read-from-minibuffer "SLY Eval: ")))
   (cl-case current-prefix-arg
     ((nil)
      (sly-eval-with-transcript `(swank:interactive-eval ,string)))
@@ -4505,7 +4502,7 @@ With prefix argument include internal symbols."
     (sly-eval-describe `(swank:describe-definition-for-emacs ,item ,type))))
 
 (defun sly-info ()
-  "Open Slime manual"
+  "Open SLY manual"
   (interactive)
   (let ((file (expand-file-name "doc/sly.info" sly-path)))
     (if (file-exists-p file)
@@ -6197,7 +6194,7 @@ was called originally."
 ;;;;; Connection listing
 
 (define-derived-mode sly-connection-list-mode fundamental-mode
-  "Slime-Connections"
+  "SLY-Connections"
   "SLY Connection List Mode.
 
 \\{sly-connection-list-mode-map}
@@ -6324,7 +6321,7 @@ was called originally."
   (sly-eval-async `(swank:init-inspector ,string) 'sly-open-inspector))
 
 (define-derived-mode sly-inspector-mode fundamental-mode
-  "Slime-Inspector"
+  "SLY-Inspector"
   "
 \\{sly-inspector-mode-map}
 \\{sly-popup-buffer-mode-map}"
