@@ -123,9 +123,14 @@ operating system, and hardware architecture."
 (defun sly-version-string ()
   "Return a string identifying the SLY version.
 Return nil if nothing appropriate is available."
-  (with-open-file (s (merge-pathnames "ChangeLog" *source-directory*)
-                     :if-does-not-exist nil)
-    (and s (symbol-name (read s)))))
+  (ignore-errors
+   (with-open-file (s (merge-pathnames "sly.el" *source-directory*))
+     (let ((seq (make-array 200 :element-type 'character :initial-element #\null)))
+       (read-sequence seq s :end 200)
+       (let* ((beg (search ";; Version:" seq))
+              (end (position #\NewLine seq :start beg))
+              (middle (position #\Space seq :from-end t :end end)))
+         (subseq seq (1+ middle) end))))))
 
 (defun default-fasl-dir ()
   (merge-pathnames

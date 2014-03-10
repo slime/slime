@@ -1,9 +1,10 @@
 ;;; sly.el ---Superior Lisp Interaction Mode for Emacs-*-lexical-binding:t-*-
-
+;;; 
+;; Version: 1.0
 ;; URL: https://github.com/sly/sly
 ;; Package-Requires: ((cl-lib "0.5"))
 ;; Keywords: languages, lisp, sly
-;; Version: 2.4
+
 
 ;;;; License
 ;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
@@ -127,24 +128,24 @@ CONTRIBS is a list of contrib packages to load. If `nil', use
        'common-lisp-indent-function))
 
 (eval-and-compile
-  (defun sly-changelog-date (&optional interactivep)
-    "Return the datestring of the latest entry in the ChangeLog file.
-Return nil if the ChangeLog file cannot be found."
+  (defun sly-version (&optional interactive)
+    "Read SLY's version of its own sly.el file."
     (interactive "p")
-    (let ((changelog (expand-file-name "ChangeLog" sly-path))
-          (date nil))
-      (when (file-exists-p changelog)
-        (with-temp-buffer
-          (insert-file-contents-literally changelog nil 0 100)
-          (goto-char (point-min))
-          (setq date (symbol-name (read (current-buffer))))))
-      (when interactivep
-        (message "Slime ChangeLog dates %s." date))
-      date)))
+    (let ((version
+           (with-temp-buffer
+             (insert-file-contents-literally
+              (expand-file-name "sly.el" sly-path)
+              nil 0 200)
+             (and (search-forward-regexp
+                   ";;[[:space:]]*Version:[[:space:]]*\\(.*\\)$" nil t)
+                  (match-string 1)))))
+      (if interactive
+          (message "SLY %s" version)
+        version))))
 
 (defvar sly-protocol-version nil)
 (setq sly-protocol-version
-      (eval-when-compile (sly-changelog-date)))
+      (eval-when-compile (sly-version)))
 
 
 ;;;; Customize groups
