@@ -48,7 +48,7 @@
 ;;   Trapping compiler messages and creating annotations in the source
 ;;   file on the appropriate forms.
 ;;
-;; SLY should work with any recent GNU Emacsen (23+)
+;; SLY works with Emacs >= 24.3+
 ;;
 ;; In order to run SLY, a supporting Lisp server called Swank is
 ;; required. Swank is distributed with sly.el and will automatically
@@ -5304,16 +5304,25 @@ CONTS is a list of pending Emacs continuations."
           (insert "[No backtrace]")))
       (run-hooks 'sldb-hook)
       (set-syntax-table lisp-mode-syntax-table))
-    ;; FIXME: remove when dropping Emacs23 support
-    (let ((saved (selected-window)))    
-      (pop-to-buffer (current-buffer))
-      (set-window-parameter (selected-window) 'sldb-restore saved))
+    (pop-to-buffer (current-buffer) '(sldb--display-in-prev-sldb-window))
+    (set-window-parameter (selected-window) 'sldb (current-buffer))
     (setq buffer-read-only t)
     (when (and sly-stack-eval-tags
                ;; (y-or-n-p "Enter recursive edit? ")
                )
       (message "Entering recursive edit..")
       (recursive-edit))))
+
+(defun sldb--display-in-prev-sldb-window (buffer _alist)
+  (let ((window
+         (get-window-with-predicate
+          #'(lambda (w)
+              (let ((value (window-parameter w 'sldb)))
+                (and value
+                     (not (buffer-live-p value))))))))
+    (when window
+      (set-window-buffer window buffer)
+      window)))
 
 (defun sldb-activate (thread level select)
   "Display the debugger buffer for THREAD.
@@ -5341,13 +5350,7 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
              (setq sldb-level nil)
              (run-with-timer 0.4 nil 'sldb-close-step-buffer sldb))
             (t
-             ;; FIXME: remove when dropping Emacs23 support
-             (let ((previous-window (window-parameter (selected-window)
-                                                      'sldb-restore)))
-               (quit-window t)
-               (if (and (not (>= emacs-major-version 24))
-                        (window-live-p previous-window))
-                   (select-window previous-window))))))))
+             (quit-window t))))))
 
 (defun sldb-close-step-buffer (buffer)
   (when (buffer-live-p buffer)
