@@ -30,7 +30,7 @@
 ;;; a "SOCKET" package, in particular on GNU/Linux or Unix-like
 ;;; systems, but also on Win32.  This backend uses the portable xref
 ;;; from the CMU AI repository and metering.lisp from CLOCC [1], which
-;;; are conveniently included in SLIME.
+;;; are conveniently included in SLY.
 
 ;;; [1] http://cvs.sourceforge.net/viewcvs.py/clocc/clocc/src/tools/metering/
 
@@ -179,7 +179,7 @@
   (assert (member timeout '(nil t)))
   (let ((streams (mapcar (lambda (s) (list* s :input nil)) streams)))
     (loop
-     (cond ((check-slime-interrupts) (return :interrupt))
+     (cond ((check-sly-interrupts) (return :interrupt))
            (timeout 
             (socket:socket-status streams 0 0)
             (return (loop for (s _ . x) in streams
@@ -195,7 +195,7 @@
 (defimplementation wait-for-input (streams &optional timeout)
   (assert (member timeout '(nil t)))
   (loop
-   (cond ((check-slime-interrupts) (return :interrupt))
+   (cond ((check-sly-interrupts) (return :interrupt))
          (t 
           (let ((ready (remove-if-not #'input-available-p streams)))
             (when ready (return ready)))
@@ -892,7 +892,7 @@ Execute BODY with NAME's function slot set to FUNCTION."
            (lock (mailbox.lock mbox)))
       (assert (or (not timeout) (eq timeout t)))
       (loop
-       (check-slime-interrupts)
+       (check-sly-interrupts)
        (mp:with-mutex-lock (lock)
          (let* ((q (mailbox.queue mbox))
                 (tail (member-if test q)))

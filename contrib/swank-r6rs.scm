@@ -166,7 +166,7 @@
 
  )
 
-;; Entry points for SLIME commands.
+;; Entry points for SLY commands.
 (library (swank rpc)
     (export connection-info interactive-eval
 	    ;;compile-string-for-emacs 
@@ -285,7 +285,7 @@
      (case (car event)
        ((:emacs-rex) 
 	(with-simple-restart 
-	 'toplevel "Return to SLIME's toplevel"
+	 'toplevel "Return to SLY's toplevel"
 	 (lambda ()
 	   (apply emacs-rex conn #f (cdr event)))))
        (else (error "Unhandled event: ~s" event))))

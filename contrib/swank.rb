@@ -6,7 +6,7 @@
 #
 # Only a few things work.  
 # 1. Start the server with something like: ruby -r swank -e swank
-# 2. Use M-x slime-connect to establish a connection
+# 2. Use M-x sly-connect to establish a connection
 
 require "socket"
 
@@ -117,7 +117,7 @@ class Connection
   end
 
   def sldb_restarts(exc) 
-    [["Quit", "SLIME top-level."]]
+    [["Quit", "SLY top-level."]]
   end
 
   def sldb_backtrace(exc, start, _end)

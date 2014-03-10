@@ -120,8 +120,8 @@ operating system, and hardware architecture."
   "Returns true if NEW-FILE is newer than OLD-FILE."
   (> (file-write-date new-file) (file-write-date old-file)))
 
-(defun slime-version-string ()
-  "Return a string identifying the SLIME version.
+(defun sly-version-string ()
+  "Return a string identifying the SLY version.
 Return nil if nothing appropriate is available."
   (with-open-file (s (merge-pathnames "ChangeLog" *source-directory*)
                      :if-does-not-exist nil)
@@ -130,8 +130,8 @@ Return nil if nothing appropriate is available."
 (defun default-fasl-dir ()
   (merge-pathnames
    (make-pathname
-    :directory `(:relative ".slime" "fasl"
-                 ,@(if (slime-version-string) (list (slime-version-string)))
+    :directory `(:relative ".sly" "fasl"
+                 ,@(if (sly-version-string) (list (sly-version-string)))
                  ,(unique-dir-name)))
    (user-homedir-pathname)))
 
@@ -244,7 +244,7 @@ If LOAD is true, load the fasl file."
                      quiet)
   (compile-files (src-files *swank-files* src-dir) fasl-dir t quiet)
   (funcall (q "swank::before-init")
-           (slime-version-string)
+           (sly-version-string)
            (list (contrib-dir fasl-dir)
                  (contrib-dir src-dir))))
 

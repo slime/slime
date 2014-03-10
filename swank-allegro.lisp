@@ -1,6 +1,6 @@
 ;;;;                  -*- indent-tabs-mode: nil; outline-regexp: ";;;;;* "; -*-
 ;;;
-;;; swank-allegro.lisp --- Allegro CL specific code for SLIME. 
+;;; swank-allegro.lisp --- Allegro CL specific code for SLY. 
 ;;;
 ;;; Created 2003
 ;;;
@@ -851,7 +851,7 @@
   (let ((mbox (mailbox mp:*current-process*)))
     (assert (or (not timeout) (eq timeout t)))
     (loop
-     (check-slime-interrupts)
+     (check-sly-interrupts)
      (mp:with-process-lock ((mailbox.lock mbox))
        (let* ((q (mailbox.queue mbox))
               (tail (member-if test q)))

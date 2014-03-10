@@ -6,7 +6,7 @@
 ;;;    Augusta, Georgia 30909
 ;;;
 ;;; This program was released into the public domain on 2005-08-31.
-;;; (See the slime-devel mailing list archive for details.)
+;;; (See the sly-devel mailing list archive for details.)
 ;;;
 ;;; nregex.lisp - My 4/8/92 attempt at a Lisp based regular expression
 ;;;               parser. 
@@ -25,11 +25,11 @@
 
 (in-package :cl-user)
 
-;; Renamed to slime-nregex avoid name clashes with other versions of
+;; Renamed to sly-nregex avoid name clashes with other versions of
 ;; this file. -- he
 
 ;;;; CND - 6/3/2001
-(defpackage slime-nregex
+(defpackage sly-nregex
   (:use #:common-lisp)
   (:export 
    #:regex
@@ -37,7 +37,7 @@
   ))
 
 ;;;; CND - 6/3/2001
-(in-package :slime-nregex)
+(in-package :sly-nregex)
 
 ;;;
 ;;; First we create a copy of macros to help debug the beast

@@ -5,7 +5,7 @@
 ;;
 ;; This is only useful if you want to start a Swank server in a Lisp
 ;; processes that doesn't run under Emacs. Lisp processes created by
-;; `M-x slime' automatically start the server.
+;; `M-x sly' automatically start the server.
 
 ;; Usage:
 ;;
@@ -14,7 +14,7 @@
 ;;
 ;; (PORT can be zero to mean "any available port".)
 ;; Then the Swank server is running on localhost:ACTUAL-PORT. You can
-;; use `M-x slime-connect' to connect Emacs to it.
+;; use `M-x sly-connect' to connect Emacs to it.
 ;;
 ;; This code has been placed in the Public Domain.  All warranties
 ;; are disclaimed.

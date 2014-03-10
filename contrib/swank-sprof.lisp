@@ -84,11 +84,11 @@
                       (return (append list
                                       `((nil "Elsewhere" ,rest nil nil)))))))))
 
-(defslimefun swank-sprof-get-call-graph (&key exclude-swank)
+(defslyfun swank-sprof-get-call-graph (&key exclude-swank)
   (when (setf *call-graph* (sb-sprof:report :type nil))
     (serialize-call-graph :exclude-swank exclude-swank)))
 
-(defslimefun swank-sprof-expand-node (index)
+(defslyfun swank-sprof-expand-node (index)
   (let* ((node (gethash index *number-nodes*)))
     (labels ((caller-count (v)
                (loop for e in (sb-sprof::vertex-edges v) do
@@ -119,7 +119,7 @@
                            (serialize-node (sb-sprof::edge-vertex edge)
                                            (sb-sprof::call-count edge))))))))
 
-(defslimefun swank-sprof-disassemble (index)
+(defslyfun swank-sprof-disassemble (index)
   (let* ((node (gethash index *number-nodes*))
          (debug-info (sb-sprof::node-debug-info node)))
     (with-output-to-string (s)
@@ -133,7 +133,7 @@
            (sb-disassem::disassemble-code-component component :stream s)))
         (t `(:error "No disassembly available"))))))
 
-(defslimefun swank-sprof-source-location (index)
+(defslyfun swank-sprof-source-location (index)
   (let* ((node (gethash index *number-nodes*))
          (debug-info (sb-sprof::node-debug-info node)))
     (or (when (typep debug-info 'sb-di::compiled-debug-fun)
@@ -143,10 +143,10 @@
               (find-source-location function))))
         `(:error "No source location available"))))
 
-(defslimefun swank-sprof-start (&key (mode :cpu))
+(defslyfun swank-sprof-start (&key (mode :cpu))
   (sb-sprof:start-profiling :mode mode))
 
-(defslimefun swank-sprof-stop ()
+(defslyfun swank-sprof-stop ()
   (sb-sprof:stop-profiling))
 
 )

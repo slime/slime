@@ -9,17 +9,17 @@
 ;;
 ;; 1. Add something like this to your .emacs:
 ;;
-;; (setq slime-lisp-implementations
-;;       '((goo ("g2c") :init goo-slime-init)))
+;; (setq sly-lisp-implementations
+;;       '((goo ("g2c") :init goo-sly-init)))
 ;; 
-;; (defun goo-slime-init (file _)
+;; (defun goo-sly-init (file _)
 ;;   (format "%S\n%S\n"
 ;; 	  `(set goo/system:*module-search-path*
-;; 		(cat '(".../slime/contrib/")
+;; 		(cat '(".../sly/contrib/")
 ;; 		     goo/system:*module-search-path*))
 ;; 	  `(swank-goo:start-swank ,file)))
 ;;
-;; 2. Start everything with  M-- M-x slime goo
+;; 2. Start everything with  M-- M-x sly goo
 ;;
 
 ;;;; Code
@@ -65,7 +65,7 @@
   (with-port (file (open <file-out-port> filename))
     (msg file "%d\n" port-number)))
 
-(dc <slime-toplevel> (<restart>))
+(dc <sly-toplevel> (<restart>))
 
 (dc <connection> (<any>))
 (dp @socket (<connection> => <port>))
@@ -77,13 +77,13 @@
 (df serve-requests (socket)
   (dlet ((emacs-connection (new <connection> 
                              @socket socket
-                             @out (new <slime-out-port> @socket socket)
-                             @in (new <slime-in-port> @socket socket))))
+                             @out (new <sly-out-port> @socket socket)
+                             @in (new <sly-in-port> @socket socket))))
     (dlet ((out (@out emacs-connection))
            (in (@in emacs-connection)))
       (while #t
         (simple-restart 
-         <slime-toplevel> "SLIME top-level"
+         <sly-toplevel> "SLY top-level"
          (fun () (process-next-event socket)))))))
 
 (d. <nil> (t= 'nil))
@@ -147,23 +147,23 @@
 
 (dv default-module|<module> (runtime-module 'goo/user))
 
-(d. slimefuns (fab <tab> 100))
+(d. slyfuns (fab <tab> 100))
 
-(ds defslimefun (,name ,args ,@body)
-  `(set (elt slimefuns ',name) 
+(ds defslyfun (,name ,args ,@body)
+  `(set (elt slyfuns ',name) 
         (df ,(cat-sym 'swank@ name) ,args ,@body)))
 
-(df slimefun (name) 
-  (or (elt-or slimefuns name #f)
-      (error "Undefined slimefun: %=" name)))
+(df slyfun (name) 
+  (or (elt-or slyfuns name #f)
+      (error "Undefined slyfun: %=" name)))
 
-;; rewrite (swank:foo ...) to ((slimefun 'foo) ...)
+;; rewrite (swank:foo ...) to ((slyfun 'foo) ...)
 (df frob-form-for-eval (form)
   (match form
     ((,op ,@args)
      (match (map as-sym (split (sym-name op) #\:))
        ((swank ,name)
-        `((slimefun ',name) ,@args))))))
+        `((slyfun ',name) ,@args))))))
 
 
 ;;;; debugger 
@@ -198,7 +198,7 @@
   (post "Maximum debug level reached aborting...\n")
   (post "%s\n" (describe-condition c))
   (do-stack-frames (fun (f args) (msg out " %= %=\n" f args)))
-  (invoke-handler-interactively (find-restart <slime-toplevel>) in out))
+  (invoke-handler-interactively (find-restart <sly-toplevel>) in out))
 
 (df sldb-loop (level port)
   (fin (while #t
@@ -208,27 +208,27 @@
           (fun () (process-next-event port))))
     (dispatch-event `(:debug-return 0 ,level nil) port)))
 
-(defslimefun backtrace (start|<int> end|(t+ <int> <nil>)) 
+(defslyfun backtrace (start|<int> end|(t+ <int> <nil>)) 
   (backtrace-for-emacs 
    (compute-backtrace (@top-frame sldb-context) 
                       start 
                       (if (isa? end <int>) end #f))))
 
-(defslimefun throw-to-toplevel ()
-  (invoke-handler-interactively (find-restart <slime-toplevel>) in out))
+(defslyfun throw-to-toplevel ()
+  (invoke-handler-interactively (find-restart <sly-toplevel>) in out))
 
-(defslimefun invoke-nth-restart-for-emacs (sldb-level|<int> n|<int>)
+(defslyfun invoke-nth-restart-for-emacs (sldb-level|<int> n|<int>)
   (when (= (@level sldb-context) sldb-level)
     (invoke-handler-interactively (elt (@restarts sldb-context) n) in out)))
 
-(defslimefun debugger-info-for-emacs (start end)
+(defslyfun debugger-info-for-emacs (start end)
   (debugger-info (@condition sldb-context) 
                  (@restarts sldb-context)
                  (compute-backtrace (@top-frame sldb-context)
                                     start
                                     (if (isa? end <int>) end #f))))
 
-(defslimefun frame-locals-and-catch-tags (frame-idx)
+(defslyfun frame-locals-and-catch-tags (frame-idx)
   (def frame (nth-frame frame-idx))
   (list
    (map-keyed (fun (i name) 
@@ -237,21 +237,21 @@
               (frame-var-names frame))
    '()))
 
-(defslimefun inspect-frame-var (frame-idx var-idx)
+(defslyfun inspect-frame-var (frame-idx var-idx)
   (reset-inspector)
   (inspect-object (frame-var-value (nth-frame frame-idx) var-idx)))
 
-(defslimefun inspect-current-condition ()
+(defslyfun inspect-current-condition ()
   (reset-inspector)
   (inspect-object (@condition sldb-context)))
 
-(defslimefun frame-source-location (frame-idx)
+(defslyfun frame-source-location (frame-idx)
   (match (nth-frame frame-idx)
     ((,f ,@_)
      (or (emacs-src-loc f)
          `(:error ,(msg-to-str "No src-loc available for: %s" f))))))
 
-(defslimefun eval-string-in-frame (string frame-idx)
+(defslyfun eval-string-in-frame (string frame-idx)
   (def frame (nth-frame frame-idx))
   (let ((names (frame-var-names frame))
         (values (frame-var-values frame)))
@@ -393,16 +393,16 @@
 
 (dv inspector #f)
 
-(defslimefun init-inspector (form|<str>)
+(defslyfun init-inspector (form|<str>)
   (reset-inspector)
   (inspect-object (str-eval form (buffer-module))))
 
-(defslimefun quit-inspector () (reset-inspector) 'nil)
+(defslyfun quit-inspector () (reset-inspector) 'nil)
 
-(defslimefun inspect-nth-part (n|<int>)
+(defslyfun inspect-nth-part (n|<int>)
   (inspect-object (elt (@parts inspector) n)))
 
-(defslimefun inspector-pop ()
+(defslyfun inspector-pop ()
   (cond ((<= 2 (len (@stack inspector)))
          (popf (@stack inspector))
          (inspect-object (popf (@stack inspector))))
@@ -481,7 +481,7 @@
 
 ;;;; init 
 
-(defslimefun connection-info ()
+(defslyfun connection-info ()
   `(:pid 
     ,(process-id) :style nil
     :lisp-implementation (:type "GOO" :name "goo" 
@@ -490,24 +490,24 @@
     :features () 
     :package (:name "goo/user" :prompt "goo/user")))
 
-(defslimefun quit-lisp () #ei{ exit (0),0 })
+(defslyfun quit-lisp () #ei{ exit (0),0 })
 
-(defslimefun set-default-directory (dir|<str>) #ei{ chdir(@dir) } dir)
+(defslyfun set-default-directory (dir|<str>) #ei{ chdir(@dir) } dir)
 
 
 ;;;; eval
 
-(defslimefun ping () "PONG")
+(defslyfun ping () "PONG")
 
-(defslimefun create-repl (_)
+(defslyfun create-repl (_)
   (let ((name (sym-name (module-name (buffer-module)))))
     `(,name ,name)))
 
-(defslimefun listener-eval (string)
+(defslyfun listener-eval (string)
   (clear-input in)
   `(:values ,(write-to-string (str-eval string (buffer-module)))))
 
-(defslimefun interactive-eval (string)
+(defslyfun interactive-eval (string)
   (cat "=> " (write-to-string (str-eval string (buffer-module)))))
 
 (df str-eval (s|<str> m|<module>) 
@@ -517,28 +517,28 @@
 
 (dc <break> (<restart>))
 
-(defslimefun simple-break ()
+(defslyfun simple-break ()
   (simple-restart 
    <break> "Continue from break"
    (fun () (sig (new <simple-condition> 
                   condition-message "Interrupt from Emacs"))))
   'nil)
 
-(defslimefun clear-repl-results () 'nil)
+(defslyfun clear-repl-results () 'nil)
 
 
 ;;;; compile
 
-(defslimefun compile-string-for-emacs (string buffer position directory)
+(defslyfun compile-string-for-emacs (string buffer position directory)
   (def start (current-time))
   (def r (g2c-eval (read-from-string string) 
                    (module-target-environment (buffer-module))))
   (lst (write-to-string r)
        (/ (as <flo> (- (current-time) start)) 1000000.0)))
 
-(defslimefun compiler-notes-for-emacs () 'nil)
+(defslyfun compiler-notes-for-emacs () 'nil)
 
-(defslimefun filename-to-modulename (filename|<str> => (t+ <str> <nil>))
+(defslyfun filename-to-modulename (filename|<str> => (t+ <str> <nil>))
   (try-or (fun () (sym-name (filename-to-modulename filename))) 'nil))
 
 (df filename-to-modulename (filename|<str> => <sym>)
@@ -558,7 +558,7 @@
 
 ;;;; Load
 
-(defslimefun load-file (filename)
+(defslyfun load-file (filename)
   (let ((file (cond ((= (sub (rev filename) 0 4) "oog.") filename)
                     (#t (cat filename ".goo")))))
     (safe-write-to-string (load-file file (filename-to-modulename file)))))
@@ -566,7 +566,7 @@
 
 ;;;; background activities
 
-(defslimefun operator-arglist (op _)
+(defslyfun operator-arglist (op _)
   (try-or (fun ()
             (let ((value (str-eval op (buffer-module))))
               (if (isa? value <fun>)
@@ -577,7 +577,7 @@
 
 ;;;; M-.
 
-(defslimefun find-definitions-for-emacs (name|<str>)
+(defslyfun find-definitions-for-emacs (name|<str>)
   (match (parse-symbol name)
     ((,sym ,modname)
      (def env (module-target-environment (runtime-module modname)))
@@ -631,12 +631,12 @@
         (fun-info-names (fun-info f))
         (sig-specs (fun-sig f))))
 
-(defslimefun buffer-first-change (filename) 'nil)
+(defslyfun buffer-first-change (filename) 'nil)
 
 
 ;;;; apropos
 
-(defslimefun apropos-list-for-emacs 
+(defslyfun apropos-list-for-emacs 
     (pattern only-external? case-sensitive? package)
   (def matches (fab <tab> 100))
   (do-all-bindings 
@@ -678,7 +678,7 @@
 
 ;;;; completion
 
-(defslimefun simple-completions (pattern|<str> package)
+(defslyfun simple-completions (pattern|<str> package)
   (def matches (lst))
   (for ((b (environment-bindings (module-target-environment (buffer-module)))))
     (when (prefix? (binding-name-str b) pattern)
@@ -695,7 +695,7 @@
              (sub s1 0 i))
             (#t (loop (1+ i)))))))
 
-(defslimefun list-all-package-names (_|...)
+(defslyfun list-all-package-names (_|...)
   (map sym-name (keys (all-modules))))
 
 (df all-modules () (%module-loader-modules (runtime-module-loader)))
@@ -703,7 +703,7 @@
 
 ;;;; Macroexpand
 
-(defslimefun swank-macroexpand-1 (str|<str>)
+(defslyfun swank-macroexpand-1 (str|<str>)
   (write-to-string
    (%ast-macro-expand (read-from-string str) 
                       (module-target-environment (buffer-module))
@@ -712,31 +712,31 @@
 
 ;;;; streams
 
-(dc <slime-out-port> (<out-port>))
-(dp @socket (<slime-out-port> => <port>))
-(dp! @buf-len (<slime-out-port> => <int>) 0)
-(dp @buf (<slime-out-port> => <vec>) (new <vec>))
-(dp! @timestamp (<slime-out-port> => <int>) 0)
+(dc <sly-out-port> (<out-port>))
+(dp @socket (<sly-out-port> => <port>))
+(dp! @buf-len (<sly-out-port> => <int>) 0)
+(dp @buf (<sly-out-port> => <vec>) (new <vec>))
+(dp! @timestamp (<sly-out-port> => <int>) 0)
 
-(dm recurring-write (port|<out-port> x|<slime-out-port> d|<int> recur|<fun>)
+(dm recurring-write (port|<out-port> x|<sly-out-port> d|<int> recur|<fun>)
   (msg port "#{%s buf-len: %s}" (class-name-str x) (@buf-len x)))
 
-(dm put (p|<slime-out-port> c|<chr>)
+(dm put (p|<sly-out-port> c|<chr>)
   (add! (@buf p) c)
   (incf (@buf-len p))
   (maybe-flush p (= c #\newline)))
 
-(dm puts (p|<slime-out-port> s|<str>)
+(dm puts (p|<sly-out-port> s|<str>)
   (add! (@buf p) s)
   (incf (@buf-len p) (len s))
   (maybe-flush p (mem? s #\newline)))
 
-(df maybe-flush (p|<slime-out-port> newline?|<log>)
+(df maybe-flush (p|<sly-out-port> newline?|<log>)
   (and (or (> (@buf-len p) 4000) newline?)
        (> (- (current-time) (@timestamp p)) 100000)
        (force-out p)))
 
-(dm force-out (p|<slime-out-port>)
+(dm force-out (p|<sly-out-port>)
   (unless (zero? (@buf-len p))
     (dispatch-event `(:write-string ,(%buf-to-str (@buf p))) (@socket p))
     (set (@buf-len p) 0)
@@ -749,15 +749,15 @@
       (cond ((isa? i <str>) (for ((c i)) (pack c)))
             (#t (pack i))))))
 
-(dc <slime-in-port> (<in-port>))
-(dp @socket (<slime-in-port> => <port>))
-(dp! @idx (<slime-in-port> => <int>) 0)
-(dp! @buf (<slime-in-port> => <str>) "")
+(dc <sly-in-port> (<in-port>))
+(dp @socket (<sly-in-port> => <port>))
+(dp! @idx (<sly-in-port> => <int>) 0)
+(dp! @buf (<sly-in-port> => <str>) "")
 
-(df receive-input (p|<slime-in-port>)
+(df receive-input (p|<sly-in-port>)
   (dispatch-event `(:read-string ,0) (@socket p)))
 
-(dm get (p|<slime-in-port> => <chr>)
+(dm get (p|<sly-in-port> => <chr>)
   (cond ((< (@idx p) (len (@buf p)))
          (def c (elt (@buf p) (@idx p)))
          (incf (@idx p))
@@ -769,9 +769,9 @@
                    (set (@idx p) 0)
                    (get p))))))
 
-(dm ready? (p|<slime-in-port> => <log>) (< (@idx p) (len (@buf p))))
+(dm ready? (p|<sly-in-port> => <log>) (< (@idx p) (len (@buf p))))
 
-(dm peek (p|<slime-in-port> => <chr>)
+(dm peek (p|<sly-in-port> => <chr>)
   (let ((c (get p)))
     (unless (eof-object? c)
       (decf (@idx p)))

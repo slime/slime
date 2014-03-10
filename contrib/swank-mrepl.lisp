@@ -9,7 +9,7 @@
 	       channel 
 	       channel-id
 	       define-channel-method
-	       defslimefun 
+	       defslyfun 
 	       destructure-case
 	       log-event
 	       process-requests
@@ -19,7 +19,7 @@
 	       with-bindings
 	       with-connection
 	       with-top-level-restart
-	       with-slime-interrupts
+	       with-sly-interrupts
 	       )))
     (eval `(defpackage #:swank-api
 	     (:use)
@@ -42,7 +42,7 @@
   (reduce (lambda (x y) (if (<= (length x) (length y)) x y))
 	  (cons (package-name package) (package-nicknames package))))
 
-(defslimefun create-mrepl (remote)
+(defslyfun create-mrepl (remote)
   (let* ((pkg *package*)
          (conn *emacs-connection*)
 	 (thread (if (use-threads-p)
@@ -95,7 +95,7 @@
     (let ((aborted t))
       (with-bindings env
 	(unwind-protect 
-	     (let ((result (with-slime-interrupts (read-eval-print string))))
+	     (let ((result (with-sly-interrupts (read-eval-print string))))
 	       (send-to-remote-channel remote `(:write-result ,result))
 	       (setq aborted nil))
 	  (setf env (loop for (sym) in env

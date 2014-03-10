@@ -15,21 +15,21 @@
 #|
 ;; Kawa and the debugger classes (tools.jar) must be in the classpath.
 ;; You also need to start the debug agent.
-(setq slime-lisp-implementations
+(setq sly-lisp-implementations
       '((kawa ("java"
                "-Xss450k" ; compiler needs more stack
 	       "-cp" "/opt/kawa/kawa-svn:/opt/java/jdk1.6.0/lib/tools.jar"
 	       "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n"
 	       "kawa.repl" "-s")
-              :init kawa-slime-init)))
+              :init kawa-sly-init)))
 
-(defun kawa-slime-init (file _)
-  (setq slime-protocol-version 'ignore)
-  (let ((swank ".../slime/contrib/swank-kawa.scm")) ; <-- insert the right path
+(defun kawa-sly-init (file _)
+  (setq sly-protocol-version 'ignore)
+  (let ((swank ".../sly/contrib/swank-kawa.scm")) ; <-- insert the right path
     (format "%S\n"
             `(begin (require ,(expand-file-name swank)) (start-swank ,file)))))
 |#
-;; 4. Start everything with  M-- M-x slime kawa
+;; 4. Start everything with  M-- M-x sly kawa
 ;;
 ;;
 
@@ -551,34 +551,34 @@
                      (#t (++ " . ") (print-for-emacs cdr out) (++ ")"))))))
           (#t (error "Unprintable object" obj)))))
 
-;;;; SLIME-EVAL
+;;;; SLY-EVAL
 
 (df eval-for-emacs ((form <list>) env (id <int>) (c <chan>))
   ;;(! set-uncaught-exception-handler (current-thread)
   ;;   (<ucex-handler> (fun (t e) (reply-abort c id))))
   (reply c (%eval form env) id))
 
-(define-variable *slime-funs*)
-(set *slime-funs* (tab))
+(define-variable *sly-funs*)
+(set *sly-funs* (tab))
 
 (df %eval (form env)
-  (apply (lookup-slimefun (car form) *slime-funs*) env (cdr form)))
+  (apply (lookup-slyfun (car form) *sly-funs*) env (cdr form)))
 
-(df lookup-slimefun ((name <symbol>) tab)
+(df lookup-slyfun ((name <symbol>) tab)
   ;; name looks like '|swank:connection-info|
   (let* ((str (symbol->string name))
          (sub (substring str 6 (string-length str))))
     (or (get tab (string->symbol sub) #f)
         (ferror "~a not implemented" sub))))
                          
-(define-syntax defslimefun 
+(define-syntax defslyfun 
   (syntax-rules ()
-    ((defslimefun name (args ...) body ...)
+    ((defslyfun name (args ...) body ...)
      (seq
        (df name (args ...) body ...)
-       (put *slime-funs* 'name name)))))
+       (put *sly-funs* 'name name)))))
 
-(defslimefun connection-info ((env <env>))
+(defslyfun connection-info ((env <env>))
   (let ((prop java.lang.System:getProperty))
   `(:pid 
     0 
@@ -647,13 +647,13 @@
    (break condition)
    (ex <listener-abort> (seq))))
 
-(defslimefun create-repl (env #!rest _)
+(defslyfun create-repl (env #!rest _)
   (list "user" "user"))
 
-(defslimefun interactive-eval (env str)
+(defslyfun interactive-eval (env str)
   (values-for-echo-area (eval (read-from-string str) env)))
 
-(defslimefun interactive-eval-region (env (s <string>))
+(defslyfun interactive-eval-region (env (s <string>))
   (with (port (call-with-input-string s))
     (values-for-echo-area
      (let next ((result (values)))
@@ -661,12 +661,12 @@
          (cond ((== form #!eof) result)
                (#t (next (eval form env)))))))))
 
-(defslimefun listener-eval (env string)
+(defslyfun listener-eval (env string)
   (let* ((form (read-from-string string))
          (list (values-to-list (eval form env))))
   `(:values ,@(map pprint-to-string list))))
 
-(defslimefun pprint-eval (env string)
+(defslyfun pprint-eval (env string)
   (let* ((form (read-from-string string))
          (l (values-to-list (eval form env))))
     (apply cat (map pprint-to-string l))))
@@ -688,7 +688,7 @@
 
 ;;;; Compilation
 
-(defslimefun compile-file-for-emacs (env (filename <str>) load? 
+(defslyfun compile-file-for-emacs (env (filename <str>) load? 
                                          #!optional options)
   (let ((jar (cat (path-sans-extension (filepath filename)) ".jar")))
     (wrap-compilation 
@@ -721,7 +721,7 @@
               (if success? 't 'nil)
               (/ (- end-time start-time) 1000.0))))))
 
-(defslimefun compile-string-for-emacs (env string buffer offset dir)
+(defslyfun compile-string-for-emacs (env string buffer offset dir)
   (wrap-compilation
    (fun ((m <gnu.text.SourceMessages>))
      (let ((c (as <gnu.expr.Compilation>
@@ -776,12 +776,12 @@
     (log "line=~a offset=~a\n" line offset)
     offset))
 
-(defslimefun load-file (env filename)
+(defslyfun load-file (env filename)
   (format "Loaded: ~a => ~s" filename (eval `(load ,filename) env)))
 
 ;;;; Completion
 
-(defslimefun simple-completions (env (pattern <str>) _)
+(defslyfun simple-completions (env (pattern <str>) _)
   (let* ((env (as <gnu.mapping.InheritingEnvironment> env))
          (matches (packing (pack)
                     (let ((iter (! enumerate-all-locations env)))
@@ -812,21 +812,21 @@
 
 ;;; Quit
 
-(defslimefun quit-lisp (env)
+(defslyfun quit-lisp (env)
   (exit))
 
-;;(defslimefun set-default-directory (env newdir))
+;;(defslyfun set-default-directory (env newdir))
 
 
 ;;;; Dummy defs
 
-(defslimefun buffer-first-change (#!rest y) '())
-(defslimefun swank-require (#!rest y) '())
-(defslimefun frame-package-name (#!rest y) '())
+(defslyfun buffer-first-change (#!rest y) '())
+(defslyfun swank-require (#!rest y) '())
+(defslyfun frame-package-name (#!rest y) '())
 
 ;;;; arglist
 
-(defslimefun operator-arglist (env name #!rest _)
+(defslyfun operator-arglist (env name #!rest _)
   (mcase (try-catch `(ok ,(eval (read-from-string name) env))
                     (ex <throwable> 'nil))
     (('ok obj)
@@ -854,7 +854,7 @@
 
 ;;;; M-.
 
-(defslimefun find-definitions-for-emacs (env name)
+(defslyfun find-definitions-for-emacs (env name)
   (mcase (try-catch `(ok ,(eval (read-from-string name) env))
                     (ex <throwable> `(error ,(exception-message ex))))
     (('ok obj) (mapi (all-definitions obj)
@@ -1040,7 +1040,7 @@
 
 ;;;; Disassemble 
 
-(defslimefun disassemble-form (env form)
+(defslyfun disassemble-form (env form)
   (mcase (read-from-string form)
     (('quote name)
      (let ((f (eval name env)))
@@ -1112,9 +1112,9 @@
 
 ;;;; Macroexpansion
 
-(defslimefun swank-expand-1 (env s) (%swank-macroexpand s env))
-(defslimefun swank-expand (env s) (%swank-macroexpand s env))
-(defslimefun swank-expand-all (env s) (%swank-macroexpand s env))
+(defslyfun swank-expand-1 (env s) (%swank-macroexpand s env))
+(defslyfun swank-expand (env s) (%swank-macroexpand s env))
+(defslyfun swank-expand-all (env s) (%swank-macroexpand s env))
 
 (df %swank-macroexpand (string env)
   (pprint-to-string (%macroexpand (read-from-string string) env)))

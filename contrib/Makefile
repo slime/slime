@@ -6,8 +6,8 @@ EMACS=emacs
 LISP=sbcl
 
 LOAD_PATH=-L . -L ..
-CONTRIBS = $(patsubst slime-%.el,%,$(wildcard slime-*.el))
-SLIME_VERSION=$(shell grep "Version:" ../slime.el | grep -E -o "[0-9.]+$$")
+CONTRIBS = $(patsubst sly-%.el,%,$(wildcard sly-*.el))
+SLY_VERSION=$(shell grep "Version:" ../sly.el | grep -E -o "[0-9.]+$$")
 
 ELFILES := $(shell find . -type f -iname "*.el")
 ELCFILES := $(patsubst %.el,%.elc,$(ELFILES))
@@ -22,34 +22,34 @@ compile: $(ELCFILES)
 # ELPA builds for contribs
 #
 $(CONTRIBS:%=elpa-%): CONTRIB=$(@:elpa-%=%)
-$(CONTRIBS:%=elpa-%): CONTRIB_EL=$(CONTRIB:%=slime-%.el)
+$(CONTRIBS:%=elpa-%): CONTRIB_EL=$(CONTRIB:%=sly-%.el)
 $(CONTRIBS:%=elpa-%): CONTRIB_CL=$(CONTRIB:%=swank-%.lisp)
 $(CONTRIBS:%=elpa-%): CONTRIB_VERSION=$(shell (                          \
 	                                  grep "Version:" $(CONTRIB_EL)  \
-	                                  || echo $(SLIME_VERSION)       \
+	                                  || echo $(SLY_VERSION)       \
 	                                ) | grep -E -o "[0-9.]+$$" )
-$(CONTRIBS:%=elpa-%): PACKAGE=$(CONTRIB:%=slime-%-$(CONTRIB_VERSION))
-$(CONTRIBS:%=elpa-%): PACKAGE_EL=$(CONTRIB:%=slime-%-pkg.el)
+$(CONTRIBS:%=elpa-%): PACKAGE=$(CONTRIB:%=sly-%-$(CONTRIB_VERSION))
+$(CONTRIBS:%=elpa-%): PACKAGE_EL=$(CONTRIB:%=sly-%-pkg.el)
 $(CONTRIBS:%=elpa-%): ELPA_DIR=elpa/$(PACKAGE)
 $(CONTRIBS:%=elpa-%): compile
 	elpa_dir=$(ELPA_DIR)
 	mkdir -p $$elpa_dir;                                             \
 	emacs --batch $(CONTRIB_EL)                                      \
 	--eval "(require 'cl-lib)"                                       \
-	--eval "(search-forward \"define-slime-contrib\")"               \
+	--eval "(search-forward \"define-sly-contrib\")"               \
 	--eval "(up-list -1)"                                            \
 	--eval "(pp                                                      \
 	        (pcase (read (point-marker))                             \
-	          (\`(define-slime-contrib ,name ,docstring . ,rest)     \
+	          (\`(define-sly-contrib ,name ,docstring . ,rest)     \
 	           \`(define-package ,name \"$(CONTRIB_VERSION)\"        \
 	        ,docstring                                               \
-	        ,(cons '(slime \"$(SLIME_VERSION)\")                     \
+	        ,(cons '(sly \"$(SLY_VERSION)\")                     \
 	         (cl-loop for form in rest                               \
-	             when (eq :slime-dependencies (car form))            \
+	             when (eq :sly-dependencies (car form))            \
 	             append (cl-loop for contrib in (cdr form)           \
 	                             if (atom contrib)                   \
 	                             collect                             \
-	                               \`(,contrib \"$(SLIME_VERSION)\") \
+	                               \`(,contrib \"$(SLY_VERSION)\") \
 	                             else                                \
 	                             collect contrib))))))))"   >        \
 	$$elpa_dir/$(PACKAGE_EL);                                        \
@@ -61,19 +61,19 @@ $(CONTRIBS:%=elpa-%): compile
 
 elpa-all: $(CONTRIBS:%=elpa-%)
 
-$(CONTRIBS:%=check-%): CONTRIB_NAME=$(patsubst check-%,slime-%,$@)
+$(CONTRIBS:%=check-%): CONTRIB_NAME=$(patsubst check-%,sly-%,$@)
 $(CONTRIBS:%=check-%): SELECTOR=(quote (tag contrib))
 $(CONTRIBS:%=check-%): compile
 	$(EMACS) -Q --batch $(LOAD_PATH) -L test                        \
-	        --eval "(require (quote slime))"                        \
-	        --eval "(slime-setup (quote ($(CONTRIB_NAME))))"        \
+	        --eval "(require (quote sly))"                        \
+	        --eval "(sly-setup (quote ($(CONTRIB_NAME))))"        \
 	        --eval "(mapc (lambda (sym)                             \
 	                         (require                               \
 	                           (intern (format \"%s-tests\" sym))   \
 	                           nil t))                              \
-	                      (slime-contrib-all-dependencies           \
+	                      (sly-contrib-all-dependencies           \
 	                        (quote $(CONTRIB_NAME))))"              \
 	        --eval "(setq inferior-lisp-program \"$(LISP)\")"       \
-	        --eval "(slime-batch-test $(SELECTOR))"
+	        --eval "(sly-batch-test $(SELECTOR))"
 
 check-all: $(CONTRIBS:%=check-%)

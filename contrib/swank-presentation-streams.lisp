@@ -12,7 +12,7 @@
 
 (swank-require :swank-presentations)
 
-;; This file contains a mechanism for printing to the slime repl so
+;; This file contains a mechanism for printing to the sly repl so
 ;; that the printed result remembers what object it is associated
 ;; with.  This extends the recording of REPL results.
 ;;
@@ -28,11 +28,11 @@
 ;; 2. Use separate protocol messages :presentation-start and
 ;;    :presentation-end for sending presentations.
 ;;
-;; We only do this if we know we are printing to a slime stream,
-;; checked with the method slime-stream-p. Initially this checks for
-;; the knows slime streams looking at *connections*. In cmucl, sbcl, and
+;; We only do this if we know we are printing to a sly stream,
+;; checked with the method sly-stream-p. Initially this checks for
+;; the knows sly streams looking at *connections*. In cmucl, sbcl, and
 ;; openmcl it also checks if it is a pretty-printing stream which
-;; ultimately prints to a slime stream.
+;; ultimately prints to a sly stream.
 ;;
 ;; Method 1 seems to be faster, but the printed escape sequences can 
 ;; disturb the column counting, and thus the layout in pretty-printing.
@@ -80,8 +80,8 @@ be sensitive and remember what object it is in the repl if predicate is true"
 
 (let ((last-stream nil)
       (last-answer nil))
-  (defun slime-stream-p (stream)
-    "Check if stream is one of the slime streams, since if it isn't we
+  (defun sly-stream-p (stream)
+    "Check if stream is one of the sly streams, since if it isn't we
 don't want to present anything.
 Two special return values: 
 :DEDICATED -- Output ends up on a dedicated output stream
@@ -96,15 +96,15 @@ Two special return values:
 	  (setq last-answer 
 		(or #+openmcl 
 		    (and (typep stream 'ccl::xp-stream) 
-					;(slime-stream-p (ccl::xp-base-stream (slot-value stream 'ccl::xp-structure)))
-			 (slime-stream-p (ccl::%svref (slot-value stream 'ccl::xp-structure) 1)))
+					;(sly-stream-p (ccl::xp-base-stream (slot-value stream 'ccl::xp-structure)))
+			 (sly-stream-p (ccl::%svref (slot-value stream 'ccl::xp-structure) 1)))
 		    #+cmu
 		    (or (and (typep stream 'lisp::indenting-stream)
-			     (slime-stream-p (lisp::indenting-stream-stream stream)))
+			     (sly-stream-p (lisp::indenting-stream-stream stream)))
 			(and (typep stream 'pretty-print::pretty-stream)
 			     (fboundp 'pretty-print::enqueue-annotation)
-			     (let ((slime-stream-p
-				    (slime-stream-p (pretty-print::pretty-stream-target stream))))
+			     (let ((sly-stream-p
+				    (sly-stream-p (pretty-print::pretty-stream-target stream))))
 			       (and ;; Printing through CMUCL pretty
 				    ;; streams is only cleanly
 				    ;; possible if we are using the
@@ -112,22 +112,22 @@ Two special return values:
 				    ;; annotations, because the bridge
 				    ;; escape sequences disturb the
 				    ;; pretty printer layout.
-				    (not (eql slime-stream-p :dedicated-output))
+				    (not (eql sly-stream-p :dedicated-output))
 				    ;; If OK, return the return value
-				    ;; we got from slime-stream-p on
+				    ;; we got from sly-stream-p on
 				    ;; the target stream (could be
 				    ;; :repl-result):
-				    slime-stream-p))))
+				    sly-stream-p))))
 		    #+sbcl
 		    (let ()
 		      (declare (notinline sb-pretty::pretty-stream-target))
 		      (and (typep stream (find-symbol "PRETTY-STREAM" 'sb-pretty))
                            (find-symbol "ENQUEUE-ANNOTATION" 'sb-pretty)
                            (not *use-dedicated-output-stream*)
-                           (slime-stream-p (sb-pretty::pretty-stream-target stream))))
+                           (sly-stream-p (sb-pretty::pretty-stream-target stream))))
 		    #+allegro
 		    (and (typep stream 'excl:xp-simple-stream)
-			 (slime-stream-p (excl::stream-output-handle stream)))
+			 (sly-stream-p (excl::stream-output-handle stream)))
 		    (loop for connection in *connections*
 			  thereis (or (and (eq stream (connection.dedicated-output connection))
 					   :dedicated)
@@ -211,12 +211,12 @@ says that I am starting to print an object with this id. The second says I am fi
   ;; this declare special is to let the compiler know that *record-repl-results* will eventually be
   ;; a global special, even if it isn't when this file is compiled/loaded.
   (declare (special *record-repl-results*))
-  (let ((slime-stream-p 
-	 (and *record-repl-results* (slime-stream-p stream))))
-    (if slime-stream-p
+  (let ((sly-stream-p 
+	 (and *record-repl-results* (sly-stream-p stream))))
+    (if sly-stream-p
 	(let* ((pid (swank::save-presented-object object))
 	       (record (make-presentation-record :id pid :printed-p nil
-						 :target (if (eq slime-stream-p :repl-result)
+						 :target (if (eq sly-stream-p :repl-result)
 							     :repl-result
 							     nil))))
 	  (write-annotation stream #'presentation-start record)

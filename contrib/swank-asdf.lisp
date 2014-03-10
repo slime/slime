@@ -42,7 +42,7 @@ install a recent release of ASDF and in your ~~/.swank.lisp specify:
 ;;; If ASDF is too old, punt.
 ;; As of January 2014, Quicklisp has been providing 2.26 for a year
 ;; (and previously had 2.014.6 for over a year), whereas
-;; all SLIME-supported implementations provide ASDF3 (i.e. 2.27 or later)
+;; all SLY-supported implementations provide ASDF3 (i.e. 2.27 or later)
 ;; except LispWorks (stuck with 2.019) and SCL (which hasn't been released
 ;; in years and doesn't provide ASDF at all, but is fully supported by ASDF).
 ;; If your implementation doesn't provide ASDF, or provides an old one,
@@ -51,7 +51,7 @@ install a recent release of ASDF and in your ~~/.swank.lisp specify:
 ;; that doesn't even have COERCE-PATHNAME.
 ;;
 ;; NB: this version check is duplicated in swank-loader.lisp so that we don't
-;; try to load this contrib when ASDF is too old since that will abort the SLIME
+;; try to load this contrib when ASDF is too old since that will abort the SLY
 ;; connection.
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (unless (or #+asdf3 t #+asdf2
@@ -287,7 +287,7 @@ install a recent release of ASDF and in your ~~/.swank.lisp specify:
 (defmacro while-collecting ((&rest collectors) &body body)
   `(asdf::while-collecting ,collectors ,@body))
 
-;;; Now for SLIME-specific stuff
+;;; Now for SLY-specific stuff
 
 (defun asdf-operation (operation)
   (or (asdf::find-symbol* operation :asdf)
@@ -332,7 +332,7 @@ install a recent release of ASDF and in your ~~/.swank.lisp specify:
 (recompute-pathname-component-table)
 
 ;;; This is a crude hack, see ASDF's LP #481187.
-(defslimefun who-depends-on (system)
+(defslyfun who-depends-on (system)
   (flet ((system-dependencies (op system)
            (mapcar (lambda (dep)
                      (asdf::coerce-name (if (consp dep) (second dep) dep)))
@@ -359,7 +359,7 @@ install a recent release of ASDF and in your ~~/.swank.lisp specify:
                          `(:snippet ,(format nil "(defsystem :~A" dependency)
                            :align t))))))
 
-(defslimefun operate-on-system-for-emacs (system-name operation &rest keywords)
+(defslyfun operate-on-system-for-emacs (system-name operation &rest keywords)
   "Compile and load SYSTEM using ASDF.
 Record compiler notes signalled as `compiler-condition's."
   (collect-notes
@@ -382,7 +382,7 @@ Example:
 (defun unique-string-list (&rest lists)
   (sort (delete-duplicates (apply #'append lists) :test #'string=) #'string<))
 
-(defslimefun list-all-systems-in-central-registry ()
+(defslyfun list-all-systems-in-central-registry ()
   "Returns a list of all systems in ASDF's central registry
 AND in its source-registry. (legacy name)"
   (unique-string-list
@@ -403,12 +403,12 @@ AND in its source-registry. (legacy name)"
                directory
                :recurse recurse :exclude exclude :collect #'c))))))))
 
-(defslimefun list-all-systems-known-to-asdf ()
+(defslyfun list-all-systems-known-to-asdf ()
   "Returns a list of all systems ASDF knows already."
   (while-collecting (c)
     (asdf::map-systems (lambda (system) (c (asdf:component-name system))))))
 
-(defslimefun list-asdf-systems ()
+(defslyfun list-asdf-systems ()
   "Returns the systems in ASDF's central registry and those which ASDF
 already knows."
   (unique-string-list
@@ -433,7 +433,7 @@ already knows."
                  (asdf:module (map () #'f (asdf:module-components x))))))
       (f component))))
 
-(defslimefun asdf-system-files (name)
+(defslyfun asdf-system-files (name)
   (let* ((system (asdf:find-system name))
          (files (mapcar #'namestring
                         (cons
@@ -446,10 +446,10 @@ already knows."
                                 :test #'equal :count 1))
         files)))
 
-(defslimefun asdf-system-loaded-p (name)
+(defslyfun asdf-system-loaded-p (name)
   (component-loaded-p name))
 
-(defslimefun asdf-system-directory (name)
+(defslyfun asdf-system-directory (name)
   (namestring (asdf:system-source-directory name)))
 
 (defun pathname-system (pathname)
@@ -457,7 +457,7 @@ already knows."
     (when component
       (asdf:component-name (asdf:component-system component)))))
 
-(defslimefun asdf-determine-system (file buffer-package-name)
+(defslyfun asdf-determine-system (file buffer-package-name)
   (or
    (and file
         (pathname-system file))
@@ -476,7 +476,7 @@ already knows."
                        (pathname-system file)))
          return (asdf:component-name system))))
 
-(defslimefun delete-system-fasls (name)
+(defslyfun delete-system-fasls (name)
   (let ((removed-count
          (loop for file in (asdf-component-output-files
                             (asdf:find-system name))
@@ -495,7 +495,7 @@ already knows."
                  (asdf:component-system component))
       (call-next-method)))
 
-(defslimefun reload-system (name)
+(defslyfun reload-system (name)
   (let ((*recompile-system* (asdf:find-system name)))
     (operate-on-system-for-emacs name 'asdf:load-op)))
 

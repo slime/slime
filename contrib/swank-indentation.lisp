@@ -3,7 +3,7 @@
 (defvar *application-hints-tables* '()
   "A list of hash tables mapping symbols to indentation hints (lists 
 of symbols and numbers as per cl-indent.el). Applications can add hash 
-tables to the list to change the auto indentation slime sends to 
+tables to the list to change the auto indentation sly sends to 
 emacs.")
 
 (defun has-application-indentation-hint-p (symbol)

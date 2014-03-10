@@ -1,4 +1,4 @@
-;;; swank-mit-scheme.scm --- SLIME server for MIT Scheme
+;;; swank-mit-scheme.scm --- SLY server for MIT Scheme
 ;;
 ;; Copyright (C) 2008  Helmut Eller
 ;;
@@ -18,7 +18,7 @@
 3. The Emacs side needs some fiddling.  I have the following in
    my .emacs:
 
-(setq slime-lisp-implementations
+(setq sly-lisp-implementations
       '((mit-scheme ("mit-scheme") :init mit-scheme-init)))
 
 (defun mit-scheme-init (file encoding)
@@ -33,13 +33,13 @@
 	     (->environment '(package)))
 	    (load ,(expand-file-name 
 		    ".../contrib/swank-mit-scheme.scm" ; <-- insert your path
-		    slime-path)
+		    sly-path)
 		  (->environment '(swank)))
 	    (eval '(start-swank ,file) (->environment '(swank))))))
 
 (defun mit-scheme ()
   (interactive)
-  (slime 'mit-scheme))
+  (sly 'mit-scheme))
 
 (defun find-mit-scheme-package ()
   (save-excursion
@@ -47,8 +47,8 @@
       (and (re-search-backward "^[;]+ package: \\((.+)\\).*$" nil t)
 	   (match-string-no-properties 1)))))
 
-(setq slime-find-buffer-package-function 'find-mit-scheme-package)
-(add-hook 'scheme-mode-hook (lambda () (slime-mode 1)))
+(setq sly-find-buffer-package-function 'find-mit-scheme-package)
+(add-hook 'scheme-mode-hook (lambda () (sly-mode 1)))
 
    The `mit-scheme-init' function first loads the SOS and FORMAT
    libraries, then creates a package "(swank)", and loads this file
@@ -58,7 +58,7 @@
    buffer belongs to, assuming that ";;; package: (FOO)" appears
    somewhere in the file.  Luckily, this assumption is true for many of
    MIT Scheme's own files.  Alternatively, you could add Emacs style
-   -*- slime-buffer-package: "(FOO)" -*- file variables.
+   -*- sly-buffer-package: "(FOO)" -*- file variables.
 
 4. Start everything with `M-x mit-scheme'.
 
@@ -137,7 +137,7 @@
 (define (main-loop socket)
   (do () (#f)
     (with-simple-restart 
-	'abort "Return to SLIME top-level."
+	'abort "Return to SLY top-level."
 	(lambda () 
 	  (fluid-let ((*top-level-restart* (find-restart 'abort)))
 	    (dispatch (read-packet socket) socket 0))))))
@@ -158,10 +158,10 @@
 	(set-^G-handler '^G-interrupt-handler))))
 
 
-;;;; Reading/Writing of SLIME packets
+;;;; Reading/Writing of SLY packets
 
 (define (read-packet in)
-  "Read an S-expression from STREAM using the SLIME protocol."
+  "Read an S-expression from STREAM using the SLY protocol."
   (let* ((len (read-length in))
 	 (buffer (make-string len)))
     (fill-buffer! in buffer)

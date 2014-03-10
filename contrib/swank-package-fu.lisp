@@ -1,18 +1,18 @@
 
 (in-package :swank)
 
-(defslimefun package= (string1 string2)
+(defslyfun package= (string1 string2)
   (let* ((pkg1 (guess-package string1))
 	 (pkg2 (guess-package string2)))
     (and pkg1 pkg2 (eq pkg1 pkg2))))
 
-(defslimefun export-symbol-for-emacs (symbol-str package-str)
+(defslyfun export-symbol-for-emacs (symbol-str package-str)
   (let ((package (guess-package package-str)))
     (when package
       (let ((*buffer-package* package))
 	(export `(,(from-string symbol-str)) package)))))
 
-(defslimefun unexport-symbol-for-emacs (symbol-str package-str)
+(defslyfun unexport-symbol-for-emacs (symbol-str package-str)
   (let ((package (guess-package package-str)))
     (when package
       (let ((*buffer-package* package))
@@ -49,7 +49,7 @@
       (list* (class-name class)
              (mapcan #'slot-accessors slots)))))
 
-(defslimefun export-structure (name package)
+(defslyfun export-structure (name package)
   (let ((*package* (guess-package package)))
     (when *package*
       (let* ((name (from-string name))

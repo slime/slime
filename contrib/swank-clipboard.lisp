@@ -5,7 +5,7 @@
 
 (defpackage :swank-clipboard
   (:use :cl)
-  (:import-from :swank :defslimefun :with-buffer-syntax :destructure-case)
+  (:import-from :swank :defslyfun :with-buffer-syntax :destructure-case)
   (:export :add :delete-entry :entries :entry-to-ref :ref))
 
 (in-package :swank-clipboard)
@@ -14,7 +14,7 @@
 
 (defvar *clipboard* (make-clipboard))
 
-(defslimefun add (datum)
+(defslyfun add (datum)
   (let ((value (destructure-case datum
 		 ((:string string package)
 		  (with-buffer-syntax (package)
@@ -27,16 +27,16 @@
     (format nil "Added: ~a"
 	    (entry-to-string (1- (length (clipboard-entries *clipboard*)))))))
 
-(defslimefun entries ()
+(defslyfun entries ()
   (loop for (ref . value) in (clipboard-entries *clipboard*)
 	collect `(,ref . ,(to-line value))))
 
-(defslimefun delete-entry (entry)
+(defslyfun delete-entry (entry)
   (let ((msg (format nil "Deleted: ~a" (entry-to-string entry))))
     (clipboard-delete-entry entry)
     msg))
 
-(defslimefun entry-to-ref (entry)
+(defslyfun entry-to-ref (entry)
   (destructuring-bind (ref . value) (clipboard-entry entry)
     (list ref (to-line value 5))))
 

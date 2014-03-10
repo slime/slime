@@ -1,7 +1,7 @@
 (defpackage :swank-trace-dialog
   (:use :cl)
   (:nicknames :std)
-  (:import-from :swank :defslimefun :from-string :to-string)
+  (:import-from :swank :defslyfun :from-string :to-string)
   (:export #:clear-trace-tree
            #:dialog-toggle-trace
            #:dialog-trace
@@ -107,7 +107,7 @@ program.")
 ;;;
 (defvar *traced-specs* '())
 
-(defslimefun dialog-trace (spec)
+(defslyfun dialog-trace (spec)
   (flet ((before-hook (args)
            (setf (current-trace) (make-instance 'trace-entry
                                                 :spec      spec
@@ -131,20 +131,20 @@ program.")
     (pushnew spec *traced-specs*)
     (format nil "~a is now traced for trace dialog" spec)))
 
-(defslimefun dialog-untrace (spec)
+(defslyfun dialog-untrace (spec)
   (swank-backend:unwrap spec 'trace-dialog)
   (setq *traced-specs* (remove spec *traced-specs* :test #'equal))
   (format nil "~a is now untraced for trace dialog" spec))
 
-(defslimefun dialog-toggle-trace (spec)
+(defslyfun dialog-toggle-trace (spec)
   (if (dialog-traced-p spec)
       (dialog-untrace spec)
       (dialog-trace spec)))
 
-(defslimefun dialog-traced-p (spec)
+(defslyfun dialog-traced-p (spec)
   (find spec *traced-specs* :test #'equal))
 
-(defslimefun dialog-untrace-all ()
+(defslyfun dialog-untrace-all ()
   (untrace)
   (mapcar #'dialog-untrace *traced-specs*))
 
@@ -191,7 +191,7 @@ program.")
            for i from 0
            collect (list i (swank::to-line retval)))))
 
-(defslimefun report-partial-tree (key)
+(defslyfun report-partial-tree (key)
   (unless (equal key *visitor-key*)
     (setq *visitor-idx* 0
           *visitor-key* key))
@@ -220,7 +220,7 @@ program.")
      (- (length *traces*) *visitor-idx*)
     key)))
 
-(defslimefun report-trace-detail (trace-id)
+(defslyfun report-trace-detail (trace-id)
   (swank::call-with-bindings
    swank::*inspector-printer-bindings*
    #'(lambda ()
@@ -231,15 +231,15 @@ program.")
             (list (backtrace-of trace)
                   (swank::to-line trace))))))))
 
-(defslimefun report-specs ()
+(defslyfun report-specs ()
   (sort (copy-list *traced-specs*)
         #'string<
         :key #'princ-to-string))
 
-(defslimefun report-total ()
+(defslyfun report-total ()
   (length *traces*))
 
-(defslimefun clear-trace-tree ()
+(defslyfun clear-trace-tree ()
   (setf *current-trace-by-thread* (clrhash *current-trace-by-thread*)
         *visitor-key* nil
         *unfinished-traces* nil)
@@ -250,12 +250,12 @@ program.")
 
 ;; HACK: `swank::*inspector-history*' is unbound by default and needs
 ;; a reset in that case so that it won't error `swank::inspect-object'
-;; before any other object is inspected in the slime session.
+;; before any other object is inspected in the sly session.
 ;;
 (unless (boundp 'swank::*inspector-history*)
   (swank::reset-inspector))
 
-(defslimefun inspect-trace-part (trace-id part-id type)
+(defslyfun inspect-trace-part (trace-id part-id type)
   (multiple-value-bind (obj found)
       (find-trace-part trace-id part-id type)
     (if found

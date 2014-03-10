@@ -12,47 +12,47 @@ infodir=/usr/local/info
 INSTALL_CMD=install -m 644
 
 # Info files generated here.
-infofiles=slime.info
+infofiles=sly.info
 
-TEXI = slime.texi contributors.texi
+TEXI = sly.texi contributors.texi
 
 help:
 	@echo -e "\
 Most important targets:\n\
 all               generate info, pdf, and html documents\n\
-slime.info        generate the slime.info file\n\
-slime.html        generate a single html file\n\
+sly.info        generate the sly.info file\n\
+sly.html        generate a single html file\n\
 html/index.html   generate on html file per node in html/ directory\n\
 html.tgz          create a tarball of all html files\n\
 clean             remove generated files"
 
-all: slime.info slime.pdf html/index.html
+all: sly.info sly.pdf html/index.html
 
-slime.dvi: $(TEXI)
-	texi2dvi slime.texi
+sly.dvi: $(TEXI)
+	texi2dvi sly.texi
 
-slime.ps: slime.dvi
+sly.ps: sly.dvi
 	dvips -o $@ $<
 
-slime.info: $(TEXI)
+sly.info: $(TEXI)
 	makeinfo $<
 
-slime.html: $(TEXI)
-	texi2html --css-include=slime.css $<
+sly.html: $(TEXI)
+	texi2html --css-include=sly.css $<
 
 html/index.html: $(TEXI)
-	makeinfo -o html --css-include=slime.css --html $<
+	makeinfo -o html --css-include=sly.css --html $<
 
 html.tgz: html/index.html
 	tar -czf $@ html
 
-DOCDIR=/project/slime/public_html/doc
+DOCDIR=/project/sly/public_html/doc
 # invoke this like: make CLUSER=heller publish
-publish: slime.pdf html.tgz
-	scp slime.pdf html.tgz $(CLUSER)@common-lisp.net:$(DOCDIR)
+publish: sly.pdf html.tgz
+	scp sly.pdf html.tgz $(CLUSER)@common-lisp.net:$(DOCDIR)
 	ssh $(CLUSER)@common-lisp.net "cd $(DOCDIR); tar -zxf html.tgz"
 
-slime.pdf: $(TEXI)
+sly.pdf: $(TEXI)
 	texi2pdf $<
 
 install: install-info
@@ -81,7 +81,7 @@ contributors.texi: ../ChangeLog Makefile texinfo-tabulate.awk
 
 # Debian's install-info wants a --section argument.
 install-info: section=$(shell grep INFO-DIR-SECTION $(infofiles) | sed 's/INFO-DIR-SECTION //')
-install-info: slime.info
+install-info: sly.info
 	mkdir -p $(infodir)
 	$(INSTALL_CMD) $(infofiles) $(infodir)/$(infofiles)
 	@if (install-info --version && \
@@ -104,8 +104,8 @@ uninstall-info:
 
 clean:
 	rm -f contributors.texi
-	rm -f slime.aux slime.cp slime.cps slime.fn slime.fns slime.ky
-	rm -f slime.kys slime.log slime.pg slime.tmp slime.toc slime.tp
-	rm -f slime.vr slime.vrs
-	rm -f slime.info slime.pdf slime.dvi slime.ps slime.html
+	rm -f sly.aux sly.cp sly.cps sly.fn sly.fns sly.ky
+	rm -f sly.kys sly.log sly.pg sly.tmp sly.toc sly.tp
+	rm -f sly.vr sly.vrs
+	rm -f sly.info sly.pdf sly.dvi sly.ps sly.html
 	rm -rf html html.tgz

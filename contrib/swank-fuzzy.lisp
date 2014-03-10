@@ -17,7 +17,7 @@
 ;;; For nomenclature of the fuzzy completion section, please read
 ;;; through the following docstring.
 
-(defslimefun fuzzy-completions (string default-package-name
+(defslyfun fuzzy-completions (string default-package-name
                                 &key limit time-limit-in-msec)
 "Returns a list of two values:
 
@@ -433,7 +433,7 @@ Cf. FUZZY-FIND-MATCHING-SYMBOLS."
                                  (- time-limit elapsed-time)))))))))
 
 
-(defslimefun fuzzy-completion-selected (original-string completion)
+(defslyfun fuzzy-completion-selected (original-string completion)
   "This function is called by Slime when a fuzzy completion is
 selected by the user.  It is for future expansion to make
 testing, say, a machine learning algorithm for completion scoring

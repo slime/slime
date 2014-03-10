@@ -1,6 +1,6 @@
 ;;;; -*- indent-tabs-mode: nil -*-
 ;;;
-;;; swank-ccl.lisp --- SLIME backend for Clozure CL.
+;;; swank-ccl.lisp --- SLY backend for Clozure CL.
 ;;;
 ;;; Copyright (C) 2003, James Bielman  <jamesjb@jamesjb.com>
 ;;;
@@ -792,7 +792,7 @@
          (mutex (mailbox.mutex mbox)))
     (assert (or (not timeout) (eq timeout t)))
     (loop
-     (check-slime-interrupts)
+     (check-sly-interrupts)
      (ccl:with-lock-grabbed (mutex)
        (let* ((q (mailbox.queue mbox))
               (tail (member-if test q)))

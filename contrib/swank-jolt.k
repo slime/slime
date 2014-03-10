@@ -13,7 +13,7 @@
 ;; also pretend to do OOP, but we must be careful to pass properly
 ;; tagged pointers to Smalltalk.
 ;;
-;; This file only implements a minimum of SLIME's functionality.  We
+;; This file only implements a minimum of SLY's functionality.  We
 ;; install a handler with atexit(3) to invoke the debugger.  This way
 ;; we can stop Jolt from terminating the process on every error.
 ;; Unfortunately, the backtrace doesn't contain much information and
@@ -29,13 +29,13 @@
 ;;       svn co http://piumarta.com/svn2/idst/trunk idst
 ;; 2. Add something like this to your .emacs:
 ;;    
-;;  (add-to-list 'slime-lisp-implementations
+;;  (add-to-list 'sly-lisp-implementations
 ;;               '(jolt (".../idst/function/jolt-burg/main" 
 ;;                       "boot.k" ".../swank-jolt.k" "-") ; note the "-"
-;;                      :init jolt-slime-init
-;;                      :init-function slime-redirect-inferior-output)
-;;  (defun jolt-slime-init (file _) (format "%S\n" `(start-swank ,file)))
-;;  (defun jolt () (interactive) (slime 'jolt))
+;;                      :init jolt-sly-init
+;;                      :init-function sly-redirect-inferior-output)
+;;  (defun jolt-sly-init (file _) (format "%S\n" `(start-swank ,file)))
+;;  (defun jolt () (interactive) (sly 'jolt))
 ;;
 ;; 3. Use `M-x jolt' to start it.
 ;;
@@ -640,7 +640,7 @@
 (define *debugger-hook* 0)
 
 ;; Jolt's error handling strategy is charmingly simple: call exit.
-;; We invoke the SLIME debugger from an exit handler. 
+;; We invoke the SLY debugger from an exit handler. 
 ;; (The handler is registered with atexit, that's a libc function.)
 
 (df exit-handler (reason arg)

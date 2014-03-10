@@ -1,6 +1,6 @@
 ;;; -*- indent-tabs-mode: nil; outline-regexp: ";;;;+" -*-
 ;;;
-;;; Scieneer Common Lisp code for SLIME.
+;;; Scieneer Common Lisp code for SLY.
 ;;;
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
@@ -106,7 +106,7 @@
 
 ;;;; Stream handling
 
-(defclass slime-input-stream (ext:character-input-stream)
+(defclass sly-input-stream (ext:character-input-stream)
   ((buffer :initarg :buffer :type string)
    (index :initarg :index :initform 0 :type fixnum)
    (position :initarg :position :initform 0 :type integer)
@@ -114,22 +114,22 @@
    (input-fn :initarg :input-fn :type function)
    ))
 
-(defun make-slime-input-stream (input-fn)
+(defun make-sly-input-stream (input-fn)
   (declare (function input-fn))
-  (make-instance 'slime-input-stream
+  (make-instance 'sly-input-stream
                  :in-buffer (make-string 256)
                  :in-head 0 :in-tail 0
                  :out-buffer ""
                  :buffer "" :index 0
                  :input-fn input-fn))
 
-(defmethod print-object ((s slime-input-stream) stream)
+(defmethod print-object ((s sly-input-stream) stream)
   (print-unreadable-object (s stream :type t)))
 
 ;;; input-stream-p inherits from input-stream.
 ;;; output-stream-p inherits nil.
 
-(defmethod ext:stream-listen ((stream slime-input-stream))
+(defmethod ext:stream-listen ((stream sly-input-stream))
   (let* ((buffer (slot-value stream 'buffer))
          (index (slot-value stream 'index))
          (length (length buffer)))
@@ -137,14 +137,14 @@
              (fixnum index length))
     (< index length)))
 
-(defmethod close ((stream slime-input-stream) &key ((:abort abort) nil))
+(defmethod close ((stream sly-input-stream) &key ((:abort abort) nil))
   (declare (ignore abort))
   (when (ext:stream-open-p stream)
     (setf (ext:stream-open-p stream) nil)
     (setf (ext:stream-in-buffer stream) " ")
     t))
 
-(defmethod ext:stream-clear-input ((stream slime-input-stream))
+(defmethod ext:stream-clear-input ((stream sly-input-stream))
   (let* ((input-buffer (slot-value stream 'buffer))
          (index (slot-value stream 'index))
          (input-length (length input-buffer))
@@ -167,7 +167,7 @@
 ;;; No 'stream-line-column method.
 
 ;;; Add the remaining input to the current position.
-(defmethod file-length ((stream slime-input-stream))
+(defmethod file-length ((stream sly-input-stream))
   (let* ((input-buffer (slot-value stream 'buffer))
          (index (slot-value stream 'index))
          (input-length (length input-buffer))
@@ -177,7 +177,7 @@
     (declare (type kernel:index index available position file-length))
     file-length))
 
-(defmethod ext:stream-file-position ((stream slime-input-stream)
+(defmethod ext:stream-file-position ((stream sly-input-stream)
                                      &optional position)
   (let ((current-position (slot-value stream 'position)))
     (declare (type kernel:index current-position))
@@ -187,12 +187,12 @@
           (t
            current-position))))
 
-(defmethod interactive-stream-p ((stream slime-input-stream))
+(defmethod interactive-stream-p ((stream sly-input-stream))
   (slot-value stream 'interactive))
 
 ;;; No 'file-string-length method.
 
-(defmethod ext:stream-read-chars ((stream slime-input-stream) buffer
+(defmethod ext:stream-read-chars ((stream sly-input-stream) buffer
                                   start requested waitp)
   (declare (type simple-string buffer)
 	   (type kernel:index start requested))
@@ -226,7 +226,7 @@
 
 ;;; Slime output stream.
 
-(defclass slime-output-stream (ext:character-output-stream)
+(defclass sly-output-stream (ext:character-output-stream)
   ((output-fn :initarg :output-fn :type function)
    (output-buffer :initarg :output-buffer :type simple-string)
    (buffer-tail :initarg :buffer-tail :initform 0 :type kernel:index)
@@ -235,9 +235,9 @@
    (interactive :initform nil :type (member nil t))
    (position :initform 0 :type integer)))
 
-(defun make-slime-output-stream (output-fn)
+(defun make-sly-output-stream (output-fn)
   (declare (function output-fn))
-  (make-instance 'slime-output-stream
+  (make-instance 'sly-output-stream
 		 :in-buffer ""
 		 :out-buffer ""
 		 :output-buffer (make-string 256)
@@ -245,7 +245,7 @@
                  :last-write (get-internal-real-time)
                  ))
   
-(defmethod print-object ((s slime-output-stream) stream)
+(defmethod print-object ((s sly-output-stream) stream)
   (print-unreadable-object (s stream :type t)))
 
 ;;; Use default 'input-stream-p method for 'output-stream which returns 'nil.
@@ -253,7 +253,7 @@
 
 ;;; No 'stream-listen method.
 
-(defmethod close ((stream slime-output-stream) &key ((:abort abort) nil))
+(defmethod close ((stream sly-output-stream) &key ((:abort abort) nil))
   (when (ext:stream-open-p stream)
     (unless abort
       (finish-output stream))
@@ -263,7 +263,7 @@
 
 ;;; No 'stream-clear-input method.
 
-(defmethod ext:stream-finish-output ((stream slime-output-stream))
+(defmethod ext:stream-finish-output ((stream sly-output-stream))
   (let ((buffer-tail (slot-value stream 'buffer-tail)))
     (declare (type kernel:index buffer-tail))
     (when (> buffer-tail 0)
@@ -276,11 +276,11 @@
       (setf (slot-value stream 'last-write) (get-internal-real-time))))
   nil)
 
-(defmethod ext:stream-force-output ((stream slime-output-stream))
+(defmethod ext:stream-force-output ((stream sly-output-stream))
   (ext:stream-finish-output stream)
   nil)
 
-(defmethod ext:stream-clear-output ((stream slime-output-stream))
+(defmethod ext:stream-clear-output ((stream sly-output-stream))
   (decf (slot-value stream 'position) (slot-value stream 'buffer-tail))
   (setf (slot-value stream 'buffer-tail) 0)
   nil)
@@ -288,16 +288,16 @@
 ;;; Use default 'stream-element-type method for 'character-stream which
 ;;; returns 'base-char.
 
-(defmethod ext:stream-line-length ((stream slime-output-stream))
+(defmethod ext:stream-line-length ((stream sly-output-stream))
   80)
 
-(defmethod ext:stream-line-column ((stream slime-output-stream))
+(defmethod ext:stream-line-column ((stream sly-output-stream))
   (slot-value stream 'column))
 
-(defmethod file-length ((stream slime-output-stream))
+(defmethod file-length ((stream sly-output-stream))
   (slot-value stream 'position))
 
-(defmethod ext:stream-file-position ((stream slime-output-stream)
+(defmethod ext:stream-file-position ((stream sly-output-stream)
                                      &optional position)
   (declare (optimize (speed 3)))
   (cond (position
@@ -325,14 +325,14 @@
 	(t
 	 (slot-value stream 'position))))
 
-(defmethod interactive-stream-p ((stream slime-output-stream))
+(defmethod interactive-stream-p ((stream sly-output-stream))
   (slot-value stream 'interactive))
 
 ;;; Use the default 'character-output-stream 'file-string-length method.
 
 ;;; stream-write-char -- internal
 ;;;
-(defmethod ext:stream-write-char ((stream slime-output-stream) character)
+(defmethod ext:stream-write-char ((stream sly-output-stream) character)
   (declare (type character character)
 	   (optimize (speed 3)))
   (unless (ext:stream-open-p stream)
@@ -383,7 +383,7 @@
 
 ;;; stream-write-chars
 ;;;
-(defmethod ext:stream-write-chars ((stream slime-output-stream)
+(defmethod ext:stream-write-chars ((stream sly-output-stream)
                                    string start end waitp)
   (declare (simple-string string)
 	   (type kernel:index start end)
@@ -420,10 +420,10 @@
 ;;;
 
 (defimplementation make-output-stream (output-fn)
-  (make-slime-output-stream output-fn))
+  (make-sly-output-stream output-fn))
 
 (defimplementation make-input-stream (input-fn)
-  (make-slime-input-stream input-fn))
+  (make-sly-input-stream input-fn))
 
 
 ;;;; Compilation Commands
@@ -805,7 +805,7 @@
   "Resolve the source location for a 'code-location from a stream.
   This only succeeds if the code was compiled from an Emacs buffer."
   (unless (debug-source-info-from-emacs-buffer-p debug-source)
-    (error "The code is compiled from a non-SLIME stream."))
+    (error "The code is compiled from a non-SLY stream."))
   (let* ((info (c::debug-source-info debug-source))
          (string (getf info :emacs-buffer-string))
          (position (code-location-string-offset 
@@ -1974,7 +1974,7 @@ The `symbol-value' of each element is a type tag.")
   (let ((mbox (mailbox thread:*thread*)))
     (assert (or (not timeout) (eq timeout t)))
     (loop
-     (check-slime-interrupts)
+     (check-sly-interrupts)
      (sys:without-interrupts
        (mp:with-lock-held ((mailbox-lock mbox))
          (let* ((q (mailbox-queue mbox))

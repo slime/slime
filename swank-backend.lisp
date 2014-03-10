@@ -1,6 +1,6 @@
 ;;; -*- indent-tabs-mode: nil; outline-regexp: ";;;;;*" -*-
 ;;;
-;;; slime-backend.lisp --- SLIME backend interface.
+;;; sly-backend.lisp --- SLY backend interface.
 ;;;
 ;;; Created by James Bielman in 2003. Released into the public domain.
 ;;;
@@ -36,8 +36,8 @@
            #:with-struct
            #:when-let
            ;; interrupt macro for the backend
-           #:*pending-slime-interrupts*
-           #:check-slime-interrupts
+           #:*pending-sly-interrupts*
+           #:check-sly-interrupts
            #:*interrupt-queued-handler*
            ;; inspector related symbols
            #:emacs-inspect
@@ -437,7 +437,7 @@ EXCEPT is a list of symbol names which should be ignored."
 (definterface codepoint-length (string)
   "Return the number of codepoints in STRING.
 With some Lisps, like cmucl, LENGTH returns the number of UTF-16 code
-units, but other Lisps return the number of codepoints. The slime
+units, but other Lisps return the number of codepoints. The sly
 protocol wants string lengths in terms of codepoints."
   (length string))
 
@@ -846,7 +846,7 @@ symbol. The recognised keys are:
 
 The value of each property is the corresponding documentation string,
 or NIL (or the obsolete :NOT-DOCUMENTED). It is legal to include keys
-not listed here (but slime-print-apropos in Emacs must know about
+not listed here (but sly-print-apropos in Emacs must know about
 them).
 
 Properties should be included if and only if they are applicable to
@@ -1385,16 +1385,16 @@ the initial value."
 
 ;; List of delayed interrupts.
 ;; This should only have thread-local bindings, so no init form.
-(defvar *pending-slime-interrupts*)
+(defvar *pending-sly-interrupts*)
 
-(defun check-slime-interrupts ()
+(defun check-sly-interrupts ()
   "Execute pending interrupts if any.
 This should be called periodically in operations which
 can take a long time to complete.
 Return a boolean indicating whether any interrupts was processed."
-  (when (and (boundp '*pending-slime-interrupts*)
-             *pending-slime-interrupts*)
-    (funcall (pop *pending-slime-interrupts*))
+  (when (and (boundp '*pending-sly-interrupts*)
+             *pending-sly-interrupts*)
+    (funcall (pop *pending-sly-interrupts*))
     t))
 
 (defvar *interrupt-queued-handler* nil
@@ -1536,7 +1536,7 @@ Implementations intercept calls to SPEC and call, in this order:
   (declare (ignore indicator))
   (assert (symbolp spec) nil
           "The default implementation for WRAP allows only simple names")
-  (assert (null (get spec 'slime-wrap)) nil
+  (assert (null (get spec 'sly-wrap)) nil
           "The default implementation for WRAP allows a single wrapping")
   (let* ((saved (symbol-function spec))
          (replacement (lambda (&rest args)
@@ -1554,25 +1554,25 @@ Implementations intercept calls to SPEC and call, in this order:
                               (funcall after (if completed
                                                  retlist
                                                  :exited-non-locally))))))))
-    (setf (get spec 'slime-wrap) (list saved replacement))
+    (setf (get spec 'sly-wrap) (list saved replacement))
     (setf (symbol-function spec) replacement))
   spec)
 
 (definterface unwrap (spec indicator)
   "Remove from SPEC any wrappings tagged with INDICATOR."
   (if (wrapped-p spec indicator)
-      (setf (symbol-function spec) (first (get spec 'slime-wrap)))
+      (setf (symbol-function spec) (first (get spec 'sly-wrap)))
       (cerror "All right, so I did"
               "Hmmm, ~a is not correctly wrapped, you probably redefined it"
               spec))
-  (setf (get spec 'slime-wrap) nil)
+  (setf (get spec 'sly-wrap) nil)
   spec)
 
 (definterface wrapped-p (spec indicator)
   "Returns true if SPEC is wrapped with INDICATOR."
   (declare (ignore indicator))
   (and (symbolp spec)
-       (let ((prop-value (get spec 'slime-wrap)))
+       (let ((prop-value (get spec 'sly-wrap)))
          (cond ((and prop-value
                      (not (eq (second prop-value)
                               (symbol-function spec))))

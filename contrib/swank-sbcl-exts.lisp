@@ -10,7 +10,7 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (swank-require :swank-arglists))
 
-;; We need to do this so users can place `slime-sbcl-exts' into their
+;; We need to do this so users can place `sly-sbcl-exts' into their
 ;; ~/.emacs, and still use any implementation they want.
 #+sbcl
 (progn

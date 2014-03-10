@@ -15,7 +15,7 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (swank-require :swank-util))
 
-(defslimefun completions (string default-package-name)
+(defslyfun completions (string default-package-name)
   "Return a list of completions for a symbol designator STRING.  
 
 The result is the list (COMPLETION-SET COMPLETED-PREFIX), where
@@ -285,7 +285,7 @@ For example:
 
 ;;;; Completion for character names
 
-(defslimefun completions-for-character (prefix)
+(defslyfun completions-for-character (prefix)
   (let* ((matcher (make-compound-prefix-matcher #\_ :test #'char-equal))
          (completion-set (character-completion-set prefix matcher))
          (completions (sort completion-set #'string<)))

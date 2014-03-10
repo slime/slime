@@ -1,41 +1,41 @@
-* SLIME News                                -*- mode: outline; coding: utf-8 -*-
+* SLY News                                -*- mode: outline; coding: utf-8 -*-
 
 * 2.4 (March 2014)
 
-** New contrib SLIME Trace Dialog included in `slime-fancy'
+** New contrib SLY Trace Dialog included in `sly-fancy'
 Interactive interface to tracing functions and methods. See manual for
 details.
 
-** New contrib `slime-fancy-trace', included in `slime-fancy'
+** New contrib `sly-fancy-trace', included in `sly-fancy'
 If your implementation allows it, trace complex method signatures,
 labels, etc...
 
-** New options in `slime-cl-indent.el' used by the `slime-indentation' contrib
+** New options in `sly-cl-indent.el' used by the `sly-indentation' contrib
 New variables are `lisp-loop-body-forms-indentation' and
 `lisp-loop-body-forms-indentation'.
 
 ** New command `sldb-copy-down-to-repl' bound to M-RET in debugger
 Copies the frame variable under point to the REPL, much as
-`slime-inspector-copy-down-to-repl' does.
+`sly-inspector-copy-down-to-repl' does.
 
-** New command `slime-delete-package'
+** New command `sly-delete-package'
 
 ** UTF8 encoding
-SLIME now uses only UTF8 to encode strings on the wire.  Customization
-variables like `slime-net-coding-system' or `swank:*coding-system*' are
+SLY now uses only UTF8 to encode strings on the wire.  Customization
+variables like `sly-net-coding-system' or `swank:*coding-system*' are
 now useless.
 
 ** Setup recipe
-In preparation for a more decentralized approach to SLIME contribs,
+In preparation for a more decentralized approach to SLY contribs,
 the setup recipe has been slightly changed, hopefully in a backwards
-compatible way. Calling `slime-setup' is no longer required. Instead,
-the `slime-contribs' variable can be customized with a list of
-contribs to be loaded when `M-x slime' is first executed. See section
-`8.1 Loading Contrib Packages' of the SLIME Manual for more details.
+compatible way. Calling `sly-setup' is no longer required. Instead,
+the `sly-contribs' variable can be customized with a list of
+contribs to be loaded when `M-x sly' is first executed. See section
+`8.1 Loading Contrib Packages' of the SLY Manual for more details.
 
 ** Bugfixes and stability improvements since the move to Github
 
-*** Issue #7: Multiline arglists in `slime-autodoc' no longer imply a newline
+*** Issue #7: Multiline arglists in `sly-autodoc' no longer imply a newline
 
 *** Issue #9: new REPL output respectes existing REPL results or presentations.
 
@@ -45,7 +45,7 @@ contribs to be loaded when `M-x slime' is first executed. See section
 
 *** Issue #43: `just-one-space' no longer breaks REPL
 
-*** Issue #34: "Error in timer" error when starting slime on emacs24
+*** Issue #34: "Error in timer" error when starting sly on emacs24
 
 *** Printing conditions is now a bit safer in the debugger (git:bafeb86)
 
@@ -60,32 +60,32 @@ Sometimes process buffer has been killed, but connection is still active.
 
 *** M-p on any part of the REPL buffer no longer errors (git:dc88935)
 
-*** slime-presentations can be enabled in inspector (git:647c3c3, 2f57b34)
-Set `slime-inspector-insert-ispec-function' to
-`slime-presentation-inspector-insert-ispec' to use them.
+*** sly-presentations can be enabled in inspector (git:647c3c3, 2f57b34)
+Set `sly-inspector-insert-ispec-function' to
+`sly-presentation-inspector-insert-ispec' to use them.
 
 *** M-. on a presentation on the REPL now longer errors
-This happened when `slime-presentations' was enabled, either by itself
-or by `slime-fancy'.
+This happened when `sly-presentations' was enabled, either by itself
+or by `sly-fancy'.
 
-*** M-. on the first position of a *slime-apropos* buffer no longer fails.
-This happened with the `slime-fancy-inspector.el' contrib.
+*** M-. on the first position of a *sly-apropos* buffer no longer fails.
+This happened with the `sly-fancy-inspector.el' contrib.
 
 *** RET on no part in *inspector* buffer no longer errors
 
-*** slime-repsentations properly recognized when at very beginning of buffer
+*** sly-repsentations properly recognized when at very beginning of buffer
 Fix by Attila Lendvai
 
 *** Avoid loading `swank-asdf.lisp' if there's a good chance it will break SWANK
 `swank-asdf.lisp' aborts the connection if it finds an old ASDF version.
 
-*** In ABCL, `slime-describe-function' now works for both macros and functions.
+*** In ABCL, `sly-describe-function' now works for both macros and functions.
 
-** SLIME builds on Travis CI
-See https://travis-ci.org/slime/slime for the build status and history.
+** SLY builds on Travis CI
+See https://travis-ci.org/sly/sly for the build status and history.
 
 ** Testing framework refactored to use ERT
-`def-slime-test' creates regular ERT tests. `define-slime-ert-test' is
+`def-sly-test' creates regular ERT tests. `define-sly-ert-test' is
 a lighter convenience macro which automatically sets some tags for the
 new tests.
 
@@ -94,7 +94,7 @@ For hackers or users using the latest version, there is now a
 top-level Makefile. Use "make help" to learn about targets.
 
 ** Moved to Github
-SLIME now lives in Github. The documentation and the README.md file
+SLY now lives in Github. The documentation and the README.md file
 were updated. HACKING was renamed to CONTRIBUTING.md and updated with
 Github specific instructions.
 
@@ -106,12 +106,12 @@ details.
 * 2.3 (October 2011)
 
 ** REPL no longer loaded by default
-SLIME has a REPL which communicates exclusively over SLIME's socket.
+SLY has a REPL which communicates exclusively over SLY's socket.
 This REPL is no longer loaded by default.  The default REPL is now the
 one by the Lisp implementation in the *inferior-lisp* buffer.  The
 simplest way to enable the old REPL is:
 
-  (slime-setup '(slime-repl))
+  (sly-setup '(sly-repl))
 
 ** Precise source tracking in Clozure CL
 Recent versions of the CCL compiler support source-location tracking.
@@ -119,7 +119,7 @@ This makes the sldb-show-source command much more useful and M-. works
 better too.
 
 ** Environment variables for Lisp process
-slime-lisp-implementations can be used to specify a list of strings to
+sly-lisp-implementations can be used to specify a list of strings to
 augment the process environment of the Lisp process.  E.g.:
 
     (sbcl-cvs
@@ -140,7 +140,7 @@ must make some changes to your ~/.emacs.  For details see, section
 Juho Snellman implemented stepping commands for SBCL.
 
 ** Completions
-SLIME can now complete keywords and character names (like #\newline).
+SLY can now complete keywords and character names (like #\newline).
 
 * 2.0 (April 2006)
 
@@ -148,19 +148,19 @@ SLIME can now complete keywords and character names (like #\newline).
 Marco Baringer wrote a new minor mode to incrementally expand macros.
 
 ** Improved arglist display
-SLIME now recognizes `make-instance' calls and displays the correct
+SLY now recognizes `make-instance' calls and displays the correct
 arglist if the classname is present.  Similarly, for `defmethod' forms
-SLIME displays the arguments of the generic function.
+SLY displays the arguments of the generic function.
 
 ** Persistent REPL history
-SLIME now saves the command history from REPL buffers in a file and
+SLY now saves the command history from REPL buffers in a file and
 reloads it for newly created REPL buffers.
 
 ** Scieneer Common Lisp
 Douglas Crosher added support for Scieneer Common Lisp.
 
 ** SBCL
-Various improvements to make SLIME work well with current SBCL versions.
+Various improvements to make SLY work well with current SBCL versions.
 
 ** Corman Common Lisp
 Espen Wiborg added support for Corman Common Lisp.
@@ -171,8 +171,8 @@ represetation in Emacs.  The text is clickable and operations on the
 associated object can be invoked from a pop-up menu.
 
 ** Security
-SLIME has now a simple authentication mechanism: if the file
-~/.slime-secret exists we verify that Emacs and Lisp can access it.
+SLY has now a simple authentication mechanism: if the file
+~/.sly-secret exists we verify that Emacs and Lisp can access it.
 Since both parties have access to the same file system, we assume that
 we can trust each other.
 
@@ -188,7 +188,7 @@ objects and methods.
 ** Unicode
 It's now possible to send non-ascii characters to Emacs, if the
 communication channel is configured properly.  See the variable
-`slime-net-coding-system'.
+`sly-net-coding-system'.
 
 ** Arglist lookup while debugging
 Previously, arglist lookup was disabled while debugging.  This
@@ -199,7 +199,7 @@ It's now possible to trace individual a single methods or all methods
 of a generic function.  Also tracing can be restricted to situations
 in which the traced function is called from a specific function.
 
-** M-x slime-browse-classes
+** M-x sly-browse-classes
 A simple class browser was added.
 
 ** FASL files
@@ -210,8 +210,8 @@ placed in different directories.
 
 * 1.0 (September 2004)
 
-** slime-interrupt
-The default key binding for slime-interrupt is now C-c C-b.
+** sly-interrupt
+The default key binding for sly-interrupt is now C-c C-b.
 
 ** sldb-inspect-condition
 In SLDB 'C' is now bound to sldb-inspect-condition.
@@ -230,7 +230,7 @@ now inserted in the REPL buffer.
 ** Compile function
 For Allegro M-. works now for functions compiled with C-c C-c.
 
-** slime-edit-definition
+** sly-edit-definition
 Better support for Allegro: works now for different type of
 definitions not only. So M-. now works for e.g. classes in Allegro.
 
@@ -241,21 +241,21 @@ for some time now.
 * 1.0 beta (August 2004)
 
 ** autodoc global variables
-The slime-autodoc-mode will now automatically show the value of a
+The sly-autodoc-mode will now automatically show the value of a
 global variable at point.
 
 ** Customize group
 The customize group is expanded and better-organised.
 
-** slime-interactive-eval
+** sly-interactive-eval
 Interactive-eval commands now print their results to the REPL when
 given a prefix argument.
 
-** slime-conservative-indentation
+** sly-conservative-indentation
 New Elisp variable. Non-nil means that we exclude def* and with-* from
 indentation-learning. The default is t.
 
-** (slime-setup)
+** (sly-setup)
 New function to streamline setup in ~/.emacs
 
 ** Modeline package
@@ -282,5 +282,5 @@ problems (e.g. reader-errors) could slip by quietly.
 
 * 1.0 alpha (June 2004)
 
-The first preview release of SLIME.
+The first preview release of SLY.
 

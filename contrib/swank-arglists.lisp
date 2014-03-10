@@ -1135,7 +1135,7 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 ;;; %CURSOR-MARKER%)). Only the forms up to point should be
 ;;; considered.
 
-(defslimefun autodoc (raw-form &key print-right-margin)
+(defslyfun autodoc (raw-form &key print-right-margin)
   "Return a list of two elements.
 First, a string representing the arglist for the deepest subform in
 RAW-FORM that does have an arglist. The highlighted parameter is
@@ -1184,7 +1184,7 @@ Second, a boolean value telling whether the returned string can be cached."
             (format s "~A ~A~S" symbol *echo-area-prefix* value))))))
 
 
-(defslimefun complete-form (raw-form)
+(defslyfun complete-form (raw-form)
   "Read FORM-STRING in the current buffer package, then complete it
   by adding a template for the missing arguments."
   ;; We do not catch errors here because COMPLETE-FORM is an
@@ -1200,7 +1200,7 @@ Second, a boolean value telling whether the returned string can be cached."
                                        :from-end t :count 1))
          :prefix "" :suffix "")))))
 
-(defslimefun completions-for-keyword (keyword-string raw-form)
+(defslyfun completions-for-keyword (keyword-string raw-form)
   "Return a list of possible completions for KEYWORD-STRING relative
 to the context provided by RAW-FORM."
   (with-buffer-syntax ()

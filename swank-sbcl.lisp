@@ -1,6 +1,6 @@
 ;;;;; -*- indent-tabs-mode: nil -*-
 ;;;
-;;; swank-sbcl.lisp --- SLIME backend for SBCL.
+;;; swank-sbcl.lisp --- SLY backend for SBCL.
 ;;;
 ;;; Created 2003, Daniel Barlow <dan@metacircles.com>
 ;;;
@@ -185,7 +185,7 @@
     (loop
       (let ((ready (remove-if-not #'input-ready-p streams)))
         (when ready (return ready)))
-      (when (check-slime-interrupts)
+      (when (check-sly-interrupts)
         (return :interrupt))
       (when *wait-for-input-called*
         (return :interrupt))
@@ -1668,7 +1668,7 @@ stack."
            (waitq (mailbox.waitqueue mbox)))
       (assert (or (not timeout) (eq timeout t)))
       (loop
-       (check-slime-interrupts)
+       (check-sly-interrupts)
        (sb-thread:with-mutex (mutex)
          (let* ((q (mailbox.queue mbox))
                 (tail (member-if test q)))
@@ -1705,12 +1705,12 @@ stack."
   ;; future.
   ;;
   ;; In an ideal world we would just have an :AROUND method on
-  ;; SLIME-OUTPUT-STREAM, and be done, but that class doesn't exist when this
+  ;; SLY-OUTPUT-STREAM, and be done, but that class doesn't exist when this
   ;; file is loaded -- so first we need a dummy definition that will be
   ;; overridden by swank-gray.lisp.
-  (defclass slime-output-stream (fundamental-character-output-stream)
+  (defclass sly-output-stream (fundamental-character-output-stream)
     ())
-  (defmethod stream-force-output :around ((stream slime-output-stream))
+  (defmethod stream-force-output :around ((stream sly-output-stream))
     (handler-case
         (sb-sys:with-deadline (:seconds 0.1)
           (call-next-method))

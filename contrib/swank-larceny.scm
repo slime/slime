@@ -5,7 +5,7 @@
 ;;
 ;; In a shell execute:
 ;;   larceny -r6rs -program swank-larceny.scm
-;; and then `M-x slime-connect' in Emacs.
+;; and then `M-x sly-connect' in Emacs.
 
 (library (swank os)
     (export getpid make-server-socket accept local-port close-socket)

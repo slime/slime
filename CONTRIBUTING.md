@@ -1,4 +1,4 @@
-# The SLIME Hacker's Handbook
+# The SLY Hacker's Handbook
 
 ## Lisp code file structure
 
@@ -14,12 +14,12 @@ Common Lisp system.  Uses swank-backend.lisp.
 components.  Uses swank-backend.lisp as an interface to the actual
 backends.
 
-* `slime.el`: The Superior Lisp Inferior Mode for Emacs, i.e. the
+* `sly.el`: The Superior Lisp Inferior Mode for Emacs, i.e. the
 Emacs frontend that the user actually interacts with and that connects
 to the SWANK server to send expressions to, and retrieve information
 from the running Common Lisp system.
 
-* `contrib/*.lisp`: Lisp related code for add-ons to SLIME that are
+* `contrib/*.lisp`: Lisp related code for add-ons to SLY that are
 maintained by their respective authors. Consult contrib/README for
 more information.
 
@@ -29,8 +29,8 @@ For each change we make an entry in the `ChangeLog` file. This is
 typically done using the command `add-change-log-entry-other-window`
 (`C-x 4 a`).
 
-ChangeLog diffs are automatically sent to the slime-devel mailing list
-each day as a sort of digest summary of the slime-cvs list.
+ChangeLog diffs are automatically sent to the sly-devel mailing list
+each day as a sort of digest summary of the sly-cvs list.
 
 There are good tips on writing ChangeLog entries in the
 [GNU Coding Standards][3].
@@ -103,7 +103,7 @@ fanatical about small source files (rather than big ones!)
 The page breaks usually go in the same place as top-level outline-mode
 headings, but they don't have to. They're flexible.
 
-In the old days, when `slime.el` was less than 100 pages long, these
+In the old days, when `sly.el` was less than 100 pages long, these
 page breaks were helpful when printing it out to read. Now they're
 useful for something else: narrowing.
 
@@ -120,7 +120,7 @@ Emacs you can press `C-x n p` to narrow to this page, and then later
 
 ## Coding style
 
-We like the fact that each function in SLIME will fit on a single
+We like the fact that each function in SLY will fit on a single
 screen (80x20), and would like to preserve this property! Beyond that
 we're not dogmatic :-)
 
@@ -145,14 +145,14 @@ variables is bad for karma.
 
 We generally neither use nor recommend eval-after-load.
 
-The biggest problem with SLIME's code base is feature creep.  Keep in
+The biggest problem with SLY's code base is feature creep.  Keep in
 mind that the Right Thing isn't always the Smart Thing.  If you can't
 find an elegant solution to a problem then you're probably solving the
 wrong problem.  It's often a good idea to simplify the problem and to
 ignore rarely needed cases.
 
 _Remember that to rewrite a program better is the sincerest form of
-code appreciation. When you can see a way to rewrite a part of SLIME
+code appreciation. When you can see a way to rewrite a part of SLY
 better, please do so!_
 
 

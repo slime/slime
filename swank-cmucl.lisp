@@ -252,7 +252,7 @@ specific functions.")
        (unwind-protect
             (let ((*interrupt-queued-handler* (lambda () 
                                                 (write-char #\! out))))
-              (when (check-slime-interrupts) (return :interrupt))
+              (when (check-sly-interrupts) (return :interrupt))
               (sys:serve-event))
          (mapc #'sys:remove-fd-handler handlers)
          (close in)
@@ -285,25 +285,25 @@ specific functions.")
 ;;; XXX: How come we don't use Gray streams in CMUCL too? -luke (15/May/2004)
 
 (defimplementation make-output-stream (write-string)
-  (make-slime-output-stream write-string))
+  (make-sly-output-stream write-string))
 
 (defimplementation make-input-stream (read-string)
-  (make-slime-input-stream read-string))
+  (make-sly-input-stream read-string))
 
-(defstruct (slime-output-stream
+(defstruct (sly-output-stream
              (:include lisp::lisp-stream
                        (lisp::misc #'sos/misc)
                        (lisp::out #'sos/write-char)
                        (lisp::sout #'sos/write-string))
              (:conc-name sos.)
-             (:print-function %print-slime-output-stream)
-             (:constructor make-slime-output-stream (output-fn)))
+             (:print-function %print-sly-output-stream)
+             (:constructor make-sly-output-stream (output-fn)))
   (output-fn nil :type function)
   (buffer (make-string 4000) :type string)
   (index 0 :type kernel:index)
   (column 0 :type kernel:index))
 
-(defun %print-slime-output-stream (s stream d)
+(defun %print-sly-output-stream (s stream d)
   (declare (ignore d))
   (print-unreadable-object (s stream :type t :identity t)))
 
@@ -354,13 +354,13 @@ specific functions.")
     (:close nil)
     (t (format *terminal-io* "~&~Astream: ~S~%" stream operation))))
 
-(defstruct (slime-input-stream
+(defstruct (sly-input-stream
              (:include string-stream
                        (lisp::in #'sis/in)
                        (lisp::misc #'sis/misc))
              (:conc-name sis.)
-             (:print-function %print-slime-output-stream)
-             (:constructor make-slime-input-stream (input-fn)))
+             (:print-function %print-sly-output-stream)
+             (:constructor make-sly-input-stream (input-fn)))
   (input-fn nil :type function)
   (buffer   ""  :type string)
   (index    0   :type kernel:index))
@@ -826,7 +826,7 @@ condition object."
   "Resolve the source location for a CODE-LOCATION from a stream.
 This only succeeds if the code was compiled from an Emacs buffer."
   (unless (debug-source-info-from-emacs-buffer-p debug-source)
-    (error "The code is compiled from a non-SLIME stream."))
+    (error "The code is compiled from a non-SLY stream."))
   (let* ((info (c::debug-source-info debug-source))
          (string (getf info :emacs-buffer-string))
          (position (code-location-string-offset 
@@ -2357,7 +2357,7 @@ The `symbol-value' of each element is a type tag.")
                 (make-mailbox)))))
   
   (defimplementation send (thread message)
-    (check-slime-interrupts)
+    (check-sly-interrupts)
     (let* ((mbox (mailbox thread)))
       (mp:with-lock-held ((mailbox.mutex mbox))
         (setf (mailbox.queue mbox)
@@ -2367,7 +2367,7 @@ The `symbol-value' of each element is a type tag.")
     (let ((mbox (mailbox mp:*current-process*)))
       (assert (or (not timeout) (eq timeout t)))
       (loop
-       (check-slime-interrupts)
+       (check-sly-interrupts)
        (mp:with-lock-held ((mailbox.mutex mbox))
          (let* ((q (mailbox.queue mbox))
                 (tail (member-if test q)))

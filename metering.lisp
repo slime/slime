@@ -21,7 +21,7 @@
 ;;; This code is in the public domain and is distributed without warranty
 ;;; of any kind.
 ;;;
-;;; This copy is from SLIME, http://www.common-lisp.net/project/slime/
+;;; This copy is from SLY, http://www.common-lisp.net/project/sly/
 ;;;
 ;;;
 
@@ -59,7 +59,7 @@
 ;;; 25-JAN-94 mk  v2.1  Patches for CLISP from Bruno Haible.
 ;;; 01-APR-05 lgorrie   Removed support for all Lisps except CLISP and OpenMCL.
 ;;;                     Purely to cut down on stale code (e.g. #+cltl2) in this
-;;;                     version that is bundled with SLIME.
+;;;                     version that is bundled with SLY.
 ;;; 22-Aug-08 stas      Define TIME-TYPE for Clozure CL.
 ;;; 07-Aug-12 heller    Break lines at 80 columns
 ;;;

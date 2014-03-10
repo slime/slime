@@ -7,7 +7,7 @@
 
 (in-package :swank)
 
-;; this file is empty of functionality.  The slime-media contrib
+;; this file is empty of functionality.  The sly-media contrib
 ;; allows swank to return messages other than :write-string as repl
 ;; results; this is used in the R implementation of swank to display R
 ;; objects with graphical representations (such as trellis objects) as

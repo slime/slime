@@ -1,6 +1,6 @@
 ;;;; -*- indent-tabs-mode: nil; outline-regexp: ";;;;;*"; -*-
 ;;;
-;;; swank-abcl.lisp --- Armedbear CL specific code for SLIME. 
+;;; swank-abcl.lisp --- Armedbear CL specific code for SLY. 
 ;;;
 ;;; Adapted from swank-acl.lisp, Andras Simon, 2004
 ;;;
@@ -18,10 +18,10 @@
           () "This file needs ABCL version 0.22 or newer"))
 
 (defimplementation make-output-stream (write-string)
-  (ext:make-slime-output-stream write-string))
+  (ext:make-sly-output-stream write-string))
 
 (defimplementation make-input-stream (read-string)
-  (ext:make-slime-input-stream read-string  
+  (ext:make-sly-input-stream read-string  
                                (make-synonym-stream '*standard-output*)))
 
 (defimplementation call-with-compilation-hooks (function)
@@ -601,7 +601,7 @@
 
 #| 
 Uncomment this if you have patched xref.lisp, as in 
-http://article.gmane.org/gmane.lisp.slime.devel/2425
+http://article.gmane.org/gmane.lisp.sly.devel/2425
 Also, make sure that xref.lisp is loaded by modifying the armedbear
 part of *sysdep-pathnames* in swank.loader.lisp. 
 
@@ -762,7 +762,7 @@ part of *sysdep-pathnames* in swank.loader.lisp.
   (let* ((mbox (mailbox (current-thread))))
     (assert (or (not timeout) (eq timeout t)))
     (loop
-     (check-slime-interrupts)
+     (check-sly-interrupts)
      (threads:synchronized-on mbox
        (let* ((q (mailbox-queue mbox))
               (tail (member-if test q)))

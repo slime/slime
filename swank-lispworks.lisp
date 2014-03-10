@@ -1,6 +1,6 @@
 ;;; -*- indent-tabs-mode: nil -*-
 ;;;
-;;; swank-lispworks.lisp --- LispWorks specific code for SLIME. 
+;;; swank-lispworks.lisp --- LispWorks specific code for SLY. 
 ;;;
 ;;; Created 2003, Helmut Eller
 ;;;
@@ -304,35 +304,35 @@ Return NIL if the symbol is unbound."
 
 ;;; Debugging
 
-(defclass slime-env (env:environment) 
+(defclass sly-env (env:environment) 
   ((debugger-hook :initarg :debugger-hoook)))
 
-(defun slime-env (hook io-bindings) 
-  (make-instance 'slime-env :name "SLIME Environment" 
+(defun sly-env (hook io-bindings) 
+  (make-instance 'sly-env :name "SLY Environment" 
                  :io-bindings io-bindings
                  :debugger-hoook hook))
 
 (defmethod env-internals:environment-display-notifier 
-    ((env slime-env) &key restarts condition)
+    ((env sly-env) &key restarts condition)
   (declare (ignore restarts condition))
   (funcall (swank-sym :swank-debugger-hook) condition *debugger-hook*)
   ;;  nil
   )
 
-(defmethod env-internals:environment-display-debugger ((env slime-env))
+(defmethod env-internals:environment-display-debugger ((env sly-env))
   *debug-io*)
 
-(defmethod env-internals:confirm-p ((e slime-env) &optional msg &rest args)
+(defmethod env-internals:confirm-p ((e sly-env) &optional msg &rest args)
   (apply (swank-sym :y-or-n-p-in-emacs) msg args))
 
 (defimplementation call-with-debugger-hook (hook fun)
   (let ((*debugger-hook* hook))
-    (env:with-environment ((slime-env hook '()))
+    (env:with-environment ((sly-env hook '()))
       (funcall fun))))
 
 (defimplementation install-debugger-globally (function)
   (setq *debugger-hook* function)
-  (setf (env:environment) (slime-env function '())))
+  (setf (env:environment) (sly-env function '())))
 
 (defvar *sldb-top-frame*)
 
@@ -891,7 +891,7 @@ function names like \(SETF GET)."
 
 (defimplementation initialize-multiprocessing (continuation)
   (cond ((not mp::*multiprocessing*)
-         (push (list "Initialize SLIME" '() continuation) 
+         (push (list "Initialize SLY" '() continuation) 
                mp:*initial-processes*)
          (mp:initialize-multiprocessing))
         (t (funcall continuation))))
@@ -958,7 +958,7 @@ function names like \(SETF GET)."
          (lock (mailbox.mutex mbox)))
     (assert (or (not timeout) (eq timeout t)))
     (loop
-     (check-slime-interrupts)
+     (check-sly-interrupts)
      (mp:with-lock (lock "receive-if/try")
        (let* ((q (mailbox.queue mbox))
               (tail (member-if test q)))

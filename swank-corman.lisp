@@ -1,5 +1,5 @@
 ;;;
-;;; swank-corman.lisp --- Corman Lisp specific code for SLIME.
+;;; swank-corman.lisp --- Corman Lisp specific code for SLY.
 ;;;
 ;;; Copyright (C) 2004, 2005 Espen Wiborg (espenhw@grumblesmurf.org)
 ;;;
@@ -28,17 +28,17 @@
 ;;; =====
 ;;; You will need CCL 2.51, and you will *definitely* need to patch
 ;;; CCL with the patches at
-;;; http://www.grumblesmurf.org/lisp/corman-patches, otherwise SLIME
+;;; http://www.grumblesmurf.org/lisp/corman-patches, otherwise SLY
 ;;; will blow up in your face.  You should also follow the
-;;; instructions on http://www.grumblesmurf.org/lisp/corman-slime.
+;;; instructions on http://www.grumblesmurf.org/lisp/corman-sly.
 ;;;
 ;;; The only communication style currently supported is NIL.
 ;;;
-;;; Starting CCL inside emacs (with M-x slime) seems to work for me
+;;; Starting CCL inside emacs (with M-x sly) seems to work for me
 ;;; with Corman Lisp 2.51, but I have seen random failures with 2.5
 ;;; (sometimes it works, other times it hangs on start or hangs when
 ;;; initializing WinSock) - starting CCL externally and using M-x
-;;; slime-connect always works fine.
+;;; sly-connect always works fine.
 ;;;
 ;;; Sometimes CCL gets confused and starts giving you random memory
 ;;; access violation errors on startup; if this happens, try redumping

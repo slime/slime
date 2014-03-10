@@ -119,7 +119,7 @@ This is an optimized way for Lisp to deliver output to Emacs."
 ;;; We always redirect the standard streams to Emacs while evaluating
 ;;; an RPC. This is done with simple dynamic bindings.
 
-(defslimefun create-repl (target &key coding-system)
+(defslyfun create-repl (target &key coding-system)
   (assert (eq target nil))
   (let ((conn *emacs-connection*))
     (initialize-streams-for-connection conn `(:coding-system ,coding-system))
@@ -165,13 +165,13 @@ This is an optimized way for Lisp to deliver output to Emacs."
 
 (defvar *listener-eval-function* 'repl-eval)
 
-(defslimefun listener-eval (string &key (window-width nil window-width-p))
+(defslyfun listener-eval (string &key (window-width nil window-width-p))
   (if window-width-p
       (let ((*print-right-margin* window-width))
         (funcall *listener-eval-function* string))
       (funcall *listener-eval-function* string)))
 
-(defslimefun clear-repl-variables ()
+(defslyfun clear-repl-variables ()
   (let ((variables '(*** ** * /// // / +++ ++ +
                      *last-repl-form*
                      *last-repl-values*)))
@@ -185,7 +185,7 @@ This is an optimized way for Lisp to deliver output to Emacs."
 (defun repl-eval (string)
   (clear-user-input)
   (with-buffer-syntax ()
-    (with-retry-restart (:msg "Retry SLIME REPL evaluation request.")
+    (with-retry-restart (:msg "Retry SLY REPL evaluation request.")
       (track-package
        (lambda ()
          (setq *** **  ** *  * (car *last-repl-values*)
@@ -212,7 +212,7 @@ This is an optimized way for Lisp to deliver output to Emacs."
         (send-to-emacs `(:write-string ,(cat (prin1-to-string v) #\newline)
                                        :repl-result)))))
 
-(defslimefun redirect-trace-output (target)
+(defslyfun redirect-trace-output (target)
   (setf (connection.trace-output *emacs-connection*)
         (make-output-stream-for-target *emacs-connection* target))
   nil)

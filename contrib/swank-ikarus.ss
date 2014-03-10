@@ -5,7 +5,7 @@
 ;;
 ;; In a shell execute:
 ;;   ikarus swank-ikarus.ss
-;; and then `M-x slime-connect' in Emacs.
+;; and then `M-x sly-connect' in Emacs.
 ;;
 
 (library (swank os)

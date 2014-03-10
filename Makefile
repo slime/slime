@@ -1,4 +1,4 @@
-### Makefile for SLIME
+### Makefile for SLY
 #
 # This file is in the public domain.
 
@@ -9,7 +9,7 @@ LISP=sbcl
 
 LOAD_PATH=-L .
 
-ELFILES := slime.el slime-autoloads.el slime-tests.el $(wildcard lib/*.el)
+ELFILES := sly.el sly-autoloads.el sly-tests.el $(wildcard lib/*.el)
 ELCFILES := $(ELFILES:.el=.elc)
 
 default: compile contrib-compile
@@ -36,7 +36,7 @@ SELECTOR  -- selector for ERT tests ($(SELECTOR))\n"
 
 # Compilation
 #
-slime.elc: slime.el ChangeLog lib/hyperspec.elc
+sly.elc: sly.el ChangeLog lib/hyperspec.elc
 
 %.elc: %.el
 	$(EMACS) -Q $(LOAD_PATH) --batch -f batch-byte-compile $<
@@ -49,15 +49,15 @@ SELECTOR=(quote t)
 
 check: compile
 	${EMACS} -Q --batch $(LOAD_PATH)				\
-		--eval "(require 'slime-tests)"				\
-		--eval "(slime-setup)"					\
+		--eval "(require 'sly-tests)"				\
+		--eval "(sly-setup)"					\
 		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
-		--eval "(slime-batch-test $(SELECTOR))"
+		--eval "(sly-batch-test $(SELECTOR))"
 
-elpa-slime:
-	echo "Not implemented yet: elpa-slime target" && exit 255
+elpa-sly:
+	echo "Not implemented yet: elpa-sly target" && exit 255
 
-elpa: elpa-slime contrib-elpa
+elpa: elpa-sly contrib-elpa
 
 # Cleanup
 #

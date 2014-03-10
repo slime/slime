@@ -1,6 +1,6 @@
 ;;;; -*- indent-tabs-mode: nil -*-
 ;;;
-;;; swank-ecl.lisp --- SLIME backend for ECL.
+;;; swank-ecl.lisp --- SLY backend for ECL.
 ;;;
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
@@ -202,7 +202,7 @@
   (defimplementation wait-for-input (streams &optional timeout)
     (assert (member timeout '(nil t)))
     (loop
-      (cond ((check-slime-interrupts) (return :interrupt))
+      (cond ((check-sly-interrupts) (return :interrupt))
             (timeout (return (poll-streams streams 0)))
             (t
              (when-let (ready (poll-streams streams 0.2))
@@ -214,7 +214,7 @@
 (defimplementation wait-for-input (streams &optional timeout)
   (assert (member timeout '(nil t)))
   (loop
-   (cond ((check-slime-interrupts) (return :interrupt))
+   (cond ((check-sly-interrupts) (return :interrupt))
          (timeout (return (remove-if-not #'listen streams)))
          (t
           (let ((ready (remove-if-not #'listen streams)))
@@ -818,7 +818,7 @@
            (mutex (mailbox.mutex mbox)))
       (assert (or (not timeout) (eq timeout t)))
       (loop
-         (check-slime-interrupts)
+         (check-sly-interrupts)
          (mp:with-lock (mutex)
            (let* ((q (mailbox.queue mbox))
                   (tail (member-if test q)))

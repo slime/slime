@@ -33,7 +33,7 @@
 (defvar *nil-surrogate* (make-symbol "nil-surrogate"))
 
 ;; XXX thread safety? [2006-09-13] mb: not in the slightest (fwiw the
-;; rest of slime isn't thread safe either), do we really care?
+;; rest of sly isn't thread safe either), do we really care?
 (defun save-presented-object (object)
   "Save OBJECT and return the assigned id.
 If OBJECT was saved previously return the old id."
@@ -46,7 +46,7 @@ If OBJECT was saved previously return the old id."
           (setf (gethash object *object-to-presentation-id*) id)
           id))))
 
-(defslimefun lookup-presented-object (id)
+(defslyfun lookup-presented-object (id)
   "Retrieve the object corresponding to ID.
 The secondary value indicates the absence of an entry."
   (etypecase id
@@ -78,13 +78,13 @@ The secondary value indicates the absence of an entry."
        ((:inspected-part part-index)
         (inspector-nth-part part-index))))))
 
-(defslimefun lookup-presented-object-or-lose (id)
+(defslyfun lookup-presented-object-or-lose (id)
   "Get the result of the previous REPL evaluation with ID."
   (multiple-value-bind (object foundp) (lookup-presented-object id)
     (cond (foundp object)
           (t (error "Attempt to access unrecorded object (id ~D)." id)))))
 
-(defslimefun clear-repl-results ()
+(defslyfun clear-repl-results ()
   "Forget the results of all previous REPL evaluations."
   (clear-presentation-tables)
   t)
@@ -222,7 +222,7 @@ The secondary value indicates the absence of an entry."
                 (declare (ignore choice id)) 
                 (disassemble object)))))
 
-(defslimefun inspect-presentation (id reset-p)
+(defslyfun inspect-presentation (id reset-p)
   (let ((what (lookup-presented-object-or-lose id)))
     (when reset-p
       (reset-inspector))
