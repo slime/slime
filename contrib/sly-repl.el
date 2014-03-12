@@ -164,9 +164,7 @@ current repl's (as per sly-output-buffer) window."
 
 (defun sly-repl-insert-banner ()
   (when (zerop (buffer-size))
-    (let ((welcome (concat "; SLY " (or (sly-changelog-date)
-                                          "- ChangeLog file not found"))))
-      (insert welcome))))
+    (insert (concat "; SLY " (sly-version)))))
 
 (defun sly-init-output-buffer (connection)
   (with-current-buffer (sly-output-buffer t)

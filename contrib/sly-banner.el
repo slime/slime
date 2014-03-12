@@ -27,8 +27,7 @@
                   (sly-connection-port (sly-connection))
                   (sly-pid))))
   (when (zerop (buffer-size))
-    (let ((welcome (concat "; SLY " (or (sly-changelog-date) 
-                                          "- ChangeLog file not found"))))
+    (let ((welcome (concat "; SLY " (sly-version))))
       (if sly-startup-animation
           (animate-string welcome 0 0) 
         (insert welcome)))))
