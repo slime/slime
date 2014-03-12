@@ -663,7 +663,8 @@ This list of flushed between commands."))
      (when ,var ,@body)))
 
 (defmacro destructure-case (value &rest patterns)
-  (declare (indent 1))
+  (declare (indent 1)
+           (debug (sexp &rest (sexp &rest form))))
   "Dispatch VALUE to one of PATTERNS.
 A cross between `case' and `destructuring-bind'.
 The pattern syntax is:
@@ -1987,7 +1988,9 @@ asynchronously.
 
 Note: don't use backquote syntax for SEXP, because various Emacs
 versions cannot deal with that."
-  (declare (indent 2))
+  (declare (indent 2)
+           (debug (sexp (form &optional sexp sexp)
+                        &rest (sexp &rest form))))
   (let ((result (cl-gensym)))
     `(lexical-let ,(cl-loop for var in saved-vars
                             collect (cl-etypecase var
