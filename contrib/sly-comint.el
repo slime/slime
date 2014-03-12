@@ -24,13 +24,26 @@
     (comint-output-filter (sly-comint--process) (sly-comint--prompt))
     (set-process-filter (sly-comint--process) 'comint-output-filter)))
 
+(sly-def-connection-var sly-comint--repl-buffer nil
+  "The buffer for the REPL for the current connection.  May be nil or a dead buffer.")
+
+(defun sly-comint--buffer (&optional noprompt)
+  "Return the output buffer, create it if necessary."
+  (let ((buffer (sly-comint--repl-buffer)))
+    (or (if (buffer-live-p buffer) buffer)
+        (setf (sly-comint--repl-buffer)
+              (let ((connection (sly-connection)))
+                (with-current-buffer (get-buffer-create (format "*SLY-COMINT-REPL %s*" (sly-connection-name connection)))
+                  (sly-comint-mode)
+                  (setq sly-buffer-connection connection)
+		  (setq sly-buffer-package (sly-current-package))
+                  (current-buffer)))))))
 
 
 (defun sly-comint-repl ()
   (interactive)
-  (with-current-buffer (generate-new-buffer "*SLY-COMINT*")
-    (sly-comint-mode)
-    (pop-to-buffer (current-buffer))))
+  (pop-to-buffer (sly-comint--buffer))
+  (goto-char (point-max)))
 
 (defun sly-comint--process () (get-buffer-process (current-buffer)))
 
@@ -68,9 +81,11 @@
        ;; (comint-output-filter (sly-comint--process) result)
        )
       ((:abort condition)
-       (comint-output-filter (sly-comint--process)
-                             (format "; Evaluation aborted on %s.\n"
-                                     condition))))))
+       (with-current-buffer (sly-comint--buffer)
+         (comint-output-filter (sly-comint--process)
+                               (format "; Evaluation aborted on %s.\n"
+                                       condition))
+         (comint-output-filter (sly-comint--process) (sly-comint--prompt)))))))
 
 (defcustom sly-comint-dynamic-return t
   "Control behaviour of \\<sly-comint-mode-map>\\[sly-comint-return] in \
@@ -124,7 +139,9 @@ simply inserts a newline."
 (defun sly-comint--event-hook-function (event)
   (destructure-case event
     ((:write-string output &optional target)
-     (comint-output-filter (sly-comint--process) output)
+     (with-current-buffer (sly-comint--buffer)
+       (comint-output-filter (sly-comint--process) output)
+       (comint-output-filter (sly-comint--process) (sly-comint--prompt)))
      t)
     ((:read-string thread tag)
      (assert thread)
@@ -143,7 +160,7 @@ simply inserts a newline."
      (error "unimplemented!")
      ;; (setf (sly-lisp-package) package)
      ;; (setf (sly-lisp-package-prompt-string) prompt-string)
-     ;; (let ((buffer (sly-connection-output-buffer)))
+     ;; (let ((buffer (sly-comint--repl-buffer)))
      ;;   (when (buffer-live-p buffer)
      ;;     (with-current-buffer buffer
      ;;       (setq sly-buffer-package package))))
