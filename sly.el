@@ -525,9 +525,8 @@ information."
 edit s-exprs, e.g. for source buffers and the REPL.")
 
 (defvar sly-editing-keys
-  `(;; Arglist display & completion
+  `(;; Completion
     ("\M-\t"      sly-complete-symbol)
-    (" "          sly-space)
     ;; Evaluating
     ;;("\C-x\M-e" sly-eval-last-expression-display-output :inferior t)
     ("\C-c\C-p"   sly-pprint-eval-last-expression)
@@ -3457,45 +3456,6 @@ Retuns the note overlay if such a position is found, otherwise nil."
 Retuns the note overlay if such a position is found, otherwise nil."
   (sly-search-property 'sly-note t #'sly-note-at-point))
 
-
-;;;; Arglist Display
-
-(defun sly-space (n)
-  "Insert a space and print some relevant information (function arglist).
-Designed to be bound to the SPC key.  Prefix argument can be used to insert
-more than one space."
-  (interactive "p")
-  (self-insert-command n)
-  (when (sly-background-activities-enabled-p)
-    (sly-echo-arglist)))
-
-(put 'sly-space 'delete-selection t) ; for delete-section-mode & CUA
-
-(defvar sly-echo-arglist-function 'sly-show-arglist)
-
-(defun sly-echo-arglist ()
-  "Display the arglist of the current form in the echo area."
-  (funcall sly-echo-arglist-function))
-
-(defun sly-show-arglist ()
-  (let ((op (sly-operator-before-point)))
-    (when op
-      (sly-eval-async `(swank:operator-arglist ,op ,(sly-current-package))
-        (lambda (arglist)
-          (when arglist
-            (sly-message "%s" arglist)))))))
-
-(defvar sly-operator-before-point-function 'sly-lisp-operator-before-point)
-
-(defun sly-operator-before-point ()
-  (funcall sly-operator-before-point-function))
-
-(defun sly-lisp-operator-before-point ()
-  (ignore-errors
-    (save-excursion
-      (backward-up-list 1)
-      (down-list 1)
-      (sly-symbol-at-point))))
 
 ;;;; Completion
 
