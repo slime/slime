@@ -39,11 +39,11 @@
   ((kbd "C-c C-b") 'sly-interrupt)
   ((kbd "C-c C-c") 'sly-interrupt))
 
-(defun sly-mrepl-process% () (get-buffer-process (current-buffer))) ;stupid
-(defun sly-mrepl-mark () (process-mark (sly-mrepl-process%)))
+(defun sly-mrepl--process () (get-buffer-process (current-buffer))) ;stupid
+(defun sly-mrepl--mark () (process-mark (sly-mrepl--process)))
 
 (defun sly-mrepl-insert (string)
-  (comint-output-filter (sly-mrepl-process%) string))
+  (comint-output-filter (sly-mrepl--process) string))
 
 (sly-define-channel-type listener)
 
@@ -79,7 +79,7 @@
 
 (defun sly-mrepl-write-string (self string)
   (with-current-buffer (sly-channel-get self 'buffer)
-    (goto-char (sly-mrepl-mark))
+    (goto-char (sly-mrepl--mark))
     (sly-mrepl-insert string)))
 
 (sly-define-channel-method listener :set-read-mode (mode)
@@ -94,7 +94,7 @@
   (sly-check-connected)
   (goto-char (point-max))
   (cond ((and sly-mrepl-expect-sexp
-	      (or (sly-input-complete-p (sly-mrepl-mark) (point))
+	      (or (sly-input-complete-p (sly-mrepl--mark) (point))
 		  end-of-input))
 	 (comint-send-input))
 	((not sly-mrepl-expect-sexp)

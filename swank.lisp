@@ -24,8 +24,9 @@
            #:swank-debugger-hook
            #:emacs-inspect
            ;;#:inspect-slot-for-emacs
-           ;; These are user-configurable variables:
-           #:*communication-style*
+           )
+  ;; These are user-configurable variables:
+  (:export #:*communication-style*
            #:*dont-close*
            #:*fasl-pathname-function*
            #:*log-events*
@@ -42,11 +43,9 @@
            #:*macroexpand-printer-bindings*
            #:*swank-pprint-bindings*
            #:*record-repl-results*
-           #:*inspector-verbose*
-           ;; This is SETFable.
-           #:debug-on-swank-error
-           ;; These are re-exported directly from the backend:
-           #:buffer-first-change
+           #:*inspector-verbose*)
+  ;; These are re-exported directly from the backend
+  (:export #:buffer-first-change
            #:frame-source-location
            #:gdb-initial-commands
            #:restart-frame
@@ -66,7 +65,11 @@
            #:y-or-n-p-in-emacs
            #:*find-definitions-right-trim*
            #:*find-definitions-left-trim*
-           #:*after-toggle-trace-hook*))
+           #:*after-toggle-trace-hook*)
+  ;; channels
+  ;; 
+  (:export #:channel-id
+           #:channel-thread))
 
 (in-package :swank)
 

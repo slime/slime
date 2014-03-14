@@ -2314,7 +2314,7 @@ Debugged requests are ignored."
   (declare (indent 3) (debug (&define name sexp lambda-list
                                       def-body)))
   `(puthash ',method
-            (lambda (self . ,args) . ,body)
+            (lambda (self . ,args) ,@body)
             ,(sly-channel-method-table-name type)))
 
 (defun sly-send-to-remote-channel (channel-id msg)

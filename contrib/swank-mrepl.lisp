@@ -8,6 +8,7 @@
 	       *emacs-connection*
 	       channel 
 	       channel-id
+               channel-thread
 	       define-channel-method
 	       defslyfun 
 	       destructure-case
@@ -38,17 +39,22 @@
    (mode :initform :eval)
    (tag :initform nil)))
 
+(defmethod initialize-instance :after ((channel listener-channel) &rest initargs)
+  ;; FIXME: fugly, but I need this to be able to name the thread
+  ;; according to the channel.
+  (setf (slot-value channel 'swank::thread)
+        (if (use-threads-p)
+            (spawn-listener-thread *emacs-connection* channel)
+            nil)))
+
 (defun package-prompt (package)
   (reduce (lambda (x y) (if (<= (length x) (length y)) x y))
 	  (cons (package-name package) (package-nicknames package))))
 
 (defslyfun create-mrepl (remote)
   (let* ((pkg *package*)
-         (conn *emacs-connection*)
-	 (thread (if (use-threads-p)
-		     (spawn-listener-thread conn)
-		     nil))
-         (ch (make-instance 'listener-channel :remote remote :thread thread)))
+         (ch (make-instance 'listener-channel :remote remote :thread nil))
+         (thread (channel-thread ch)))
     (setf (slot-value ch 'env) (initial-listener-env ch))
     (when thread
       (swank-backend:send thread `(:serve-channel ,ch)))
@@ -62,16 +68,40 @@
     (*standard-output* . ,(make-listener-output-stream listener))
     (*standard-input* . ,(make-listener-input-stream listener))))
 
-(defun spawn-listener-thread (connection)
+(defun spawn-listener-thread (connection channel)
+  "Spawn a listener thread for CONNECTION and CHANNEL."
   (swank-backend:spawn 
    (lambda ()
      (with-connection (connection)
        (destructure-case (swank-backend:receive)
 	 ((:serve-channel c)
+          (assert (eq c channel))
 	  (loop
-	   (with-top-level-restart (connection (drop-unprocessed-events c))
+	   (with-top-level-restart (connection (drop-unprocessed-events channel))
 	     (process-requests nil)))))))
-   :name "mrepl thread"))
+   :name (format nil "sly-mrepl-listener-ch-~a" (channel-id channel))))
+
+(defun repl-eval (string)
+  (clear-user-input)
+  (with-buffer-syntax ()
+    (with-retry-restart (:msg "Retry SLY REPL evaluation request.")
+      (track-package
+       (lambda ()
+         (setq *** **  ** *  * (car *last-repl-values*)
+                   /// //  // /  / *last-repl-values*
+                   +++ ++  ++ +  + *last-repl-form*)
+         (multiple-value-bind (values last-form) (eval-region string)
+           (setq *last-repl-form* last-form
+                 *last-repl-values* values)
+           (funcall *send-repl-results-function* values))))))
+  nil)
+
+(defun track-package (fun)
+  (let ((p *package*))
+    (unwind-protect (funcall fun)
+      (unless (eq *package* p)
+        (send-to-emacs (list :new-package (package-name *package*)
+                             (package-string-for-prompt *package*)))))))
 
 (defun drop-unprocessed-events (channel)
   (with-slots (mode) channel
@@ -94,7 +124,7 @@
   (with-slots (remote env) channel
     (let ((aborted t))
       (with-bindings env
-	(unwind-protect 
+	(unwind-protect
 	     (let ((result (with-sly-interrupts (read-eval-print string))))
 	       (send-to-remote-channel remote `(:write-result ,result))
 	       (setq aborted nil))
