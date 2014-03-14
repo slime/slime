@@ -5,18 +5,17 @@
   (:authors "Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>"
             "Tobias C Rittweiler <tcr@freebits.de>")
   (:license "GPL")
-  (:sly-dependencies sly-repl
+  (:sly-dependencies sly-mrepl
                      sly-autodoc
                      sly-c-p-c
                      sly-editing-commands
                      sly-fancy-inspector
                      sly-fancy-trace
                      sly-fuzzy
-                     sly-presentations
                      sly-scratch
-                     sly-references
                      sly-package-fu
                      sly-fontifying-fu
-                     sly-trace-dialog))
+                     sly-trace-dialog
+                     sly-indentation))
 
 (provide 'sly-fancy)
