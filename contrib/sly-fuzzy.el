@@ -1,5 +1,4 @@
 (require 'sly)
-(require 'sly-repl)
 (require 'cl-lib)
 
 (define-sly-contrib sly-fuzzy
@@ -10,10 +9,7 @@
   (:license "GPL")
   (:swank-dependencies swank-fuzzy)
   (:on-load
-   (define-key sly-mode-map "\C-c\M-i" 'sly-fuzzy-complete-symbol)
-   (when (featurep 'sly-repl)
-     (define-key sly-repl-mode-map "\C-c\M-i"
-       'sly-fuzzy-complete-symbol))))
+   (define-key sly-mode-map "\C-c\M-i" 'sly-fuzzy-complete-symbol)))
 
 (defcustom sly-fuzzy-completion-in-place t
   "When non-NIL the fuzzy symbol completion is done in place as
