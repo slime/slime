@@ -66,7 +66,19 @@
 (defun initial-listener-env (listener)
   `((*package* . ,*package*)
     (*standard-output* . ,(make-listener-output-stream listener))
-    (*standard-input* . ,(make-listener-input-stream listener))))
+    (*standard-input* . ,(make-listener-input-stream listener))
+    (*) (**) (***)
+    (/) (//) (///)
+    (+) (++) (+++)))
+
+(defun drop-unprocessed-events (channel)
+  (with-slots (mode) channel
+    (let ((old-mode mode))
+      (setf mode :drop)
+      (unwind-protect
+	   (process-requests t)
+	(setf mode old-mode)))
+    (send-prompt channel)))
 
 (defun spawn-listener-thread (connection channel)
   "Spawn a listener thread for CONNECTION and CHANNEL."
@@ -80,37 +92,6 @@
 	   (with-top-level-restart (connection (drop-unprocessed-events channel))
 	     (process-requests nil)))))))
    :name (format nil "sly-mrepl-listener-ch-~a" (channel-id channel))))
-
-(defun repl-eval (string)
-  (clear-user-input)
-  (with-buffer-syntax ()
-    (with-retry-restart (:msg "Retry SLY REPL evaluation request.")
-      (track-package
-       (lambda ()
-         (setq *** **  ** *  * (car *last-repl-values*)
-                   /// //  // /  / *last-repl-values*
-                   +++ ++  ++ +  + *last-repl-form*)
-         (multiple-value-bind (values last-form) (eval-region string)
-           (setq *last-repl-form* last-form
-                 *last-repl-values* values)
-           (funcall *send-repl-results-function* values))))))
-  nil)
-
-(defun track-package (fun)
-  (let ((p *package*))
-    (unwind-protect (funcall fun)
-      (unless (eq *package* p)
-        (send-to-emacs (list :new-package (package-name *package*)
-                             (package-string-for-prompt *package*)))))))
-
-(defun drop-unprocessed-events (channel)
-  (with-slots (mode) channel
-    (let ((old-mode mode))
-      (setf mode :drop)
-      (unwind-protect
-	   (process-requests t)
-	(setf mode old-mode)))
-    (send-prompt channel)))
 
 (define-channel-method :process ((c listener-channel) string)
   (log-event ":process ~s~%" string)
@@ -128,6 +109,10 @@
 	     (let ((result (with-sly-interrupts (read-eval-print string))))
 	       (send-to-remote-channel remote `(:write-result ,result))
 	       (setq aborted nil))
+          (when /
+            (setq *** **  ** *  * (car /)
+                  /// //  // /  
+                  +++ ++  ++ + ))
 	  (setf env (loop for (sym) in env
 			  collect (cons sym (symbol-value sym))))
 	  (cond (aborted
@@ -153,10 +138,10 @@
 (defun read-eval-print (string)
   (with-input-from-string (in string)
     (setq / ())
-    (loop
-       (let* ((form (read in nil in)))
-	 (cond ((eq form in) (return))
-	       (t (setq / (multiple-value-list (eval (setq + form))))))))
+    (loop for form = (read in nil in)
+          until (eq form in)
+          do
+             (setq / (multiple-value-list (eval (setq + form)))))
     (force-output)
     (if /
 	(format nil "~{~s~%~}" /) 

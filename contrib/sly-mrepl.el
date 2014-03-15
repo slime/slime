@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t -*-
 ;; An experimental implementation of multiple REPLs multiplexed over a
 ;; single Slime socket.  M-x sly-open-listener creates a new REPL
 ;; buffer.
@@ -14,23 +15,52 @@
 
 (require 'comint)
 
+(defvar sly-mrepl-all-repls)
+
 (defvar sly-mrepl-remote-channel nil)
+(defvar sly-mrepl-local-channel nil)
 (defvar sly-mrepl-expect-sexp nil)
 
 (define-derived-mode sly-mrepl-mode comint-mode "mrepl"
-  ;; idea lifted from ielm
-  (unless (get-buffer-process (current-buffer))
-    (let* ((process-connection-type nil)
-	   (proc (start-process "mrepl (dummy)" (current-buffer) "hexl")))
-      (set-process-query-on-exit-flag proc nil)))
+  (add-hook 'kill-buffer-hook 'sly-mrepl--delete-process nil 'local)
   (set (make-local-variable 'comint-use-prompt-regexp) nil)
   (set (make-local-variable 'comint-inhibit-carriage-motion) t)
   (set (make-local-variable 'comint-input-sender) 'sly-mrepl-input-sender)
   (set (make-local-variable 'comint-output-filter-functions) nil)
   (set (make-local-variable 'sly-mrepl-expect-sexp) t)
   ;;(set (make-local-variable 'comint-get-old-input) 'ielm-get-old-input)
-  (set-syntax-table lisp-mode-syntax-table)
-  )
+  (set-syntax-table lisp-mode-syntax-table))
+
+(defun sly-mrepl-new ()
+  "Create a new listener window."
+  (interactive)
+  (let ((local (sly-make-channel sly-listener-channel-methods))
+        (buffer (pop-to-buffer (generate-new-buffer (sly-buffer-name :mrepl)))))
+    (with-current-buffer buffer
+      (sly-mrepl-mode)
+      (start-process (format "sly-mrepl-pty-ch-%s" (sly-channel.id local))
+                     (current-buffer) nil)
+      (set-process-query-on-exit-flag (sly-mrepl--process) nil)
+      
+      (setq header-line-format (format "Waiting for REPL creation ack for channel %d..."
+                                       (sly-channel.id local)))
+      (set (make-local-variable 'sly-mrepl-local-channel) local))
+    (sly-eval-async
+        `(swank-mrepl:create-mrepl ,(sly-channel.id local))
+      (lambda (result)
+        (cl-destructuring-bind (remote thread-id package prompt) result
+          (with-current-buffer buffer
+            (setq header-line-format (format "local=%d remote=%d thread=%d"
+                                             (sly-channel.id local)
+                                             remote
+                                             thread-id))
+            (setq sly-current-thread thread-id)
+            (setq sly-buffer-connection (sly-connection))
+            (set (make-local-variable 'sly-mrepl-remote-channel) remote)
+            (sly-channel-put local 'buffer (current-buffer))
+            (sly-channel-send local `(:prompt ,package ,prompt))))))
+    buffer))
+
 
 (sly-define-keys sly-mrepl-mode-map
   ((kbd "RET") 'sly-mrepl-return)
@@ -41,6 +71,7 @@
 
 (defun sly-mrepl--process () (get-buffer-process (current-buffer))) ;stupid
 (defun sly-mrepl--mark () (process-mark (sly-mrepl--process)))
+(defun sly-mrepl--delete-process () (delete-process (sly-mrepl--process)))
 
 (defun sly-mrepl-insert (string)
   (comint-output-filter (sly-mrepl--process) string))
@@ -107,41 +138,27 @@
          (message "[input not complete]")))
   (sly-mrepl-recenter))
 
-(defun sly-mrepl-input-sender (proc string)
+(defun sly-mrepl-input-sender (_proc string)
   (sly-mrepl-send-string (substring-no-properties string)))
 
-(defun sly-mrepl-send-string (string &optional command-string)
+(defun sly-mrepl-send-string (string &optional _command-string)
   (sly-mrepl-send `(:process ,string)))
 
 (defun sly-mrepl-send (msg)
   "Send MSG to the remote channel."
   (sly-send-to-remote-channel sly-mrepl-remote-channel msg))
 
-(defun sly-new-mrepl ()
-  "Create a new listener window."
-  (interactive)
-  (let ((channel (sly-make-channel sly-listener-channel-methods)))
-    (sly-eval-async
-        `(swank-mrepl:create-mrepl ,(sly-channel.id channel))
-      (sly-rcurry 
-       (lambda (result channel)
-         (cl-destructuring-bind (remote thread-id package prompt) result
-           (pop-to-buffer (generate-new-buffer (sly-buffer-name :mrepl)))
-           (sly-mrepl-mode)
-           (setq sly-current-thread thread-id)
-           (setq sly-buffer-connection (sly-connection))
-           (set (make-local-variable 'sly-mrepl-remote-channel) remote)
-           (sly-channel-put channel 'buffer (current-buffer))
-           (sly-channel-send channel `(:prompt ,package ,prompt))))
-       channel))))
+
 
 (defun sly-mrepl ()
+  (interactive)
   (let ((conn (sly-connection)))
-    (cl-find-if (lambda (x) 
-	       (with-current-buffer x 
-		 (and (eq major-mode 'sly-mrepl-mode)
-		      (eq (sly-current-connection) conn))))
-	     (buffer-list))))
+    (or (cl-find-if (lambda (x) 
+                      (with-current-buffer x 
+                        (and (eq major-mode 'sly-mrepl-mode)
+                             (eq (sly-current-connection) conn))))
+                    (buffer-list))
+        (sly-mrepl-new))))
 
 (def-sly-selector-method ?m
   "First mrepl-buffer"
