@@ -24,7 +24,7 @@
            #:swank-debugger-hook
            #:emacs-inspect
            ;;#:inspect-slot-for-emacs
-           )
+           #:stop-processing)
   ;; These are user-configurable variables:
   (:export #:*communication-style*
            #:*dont-close*
@@ -930,16 +930,17 @@ The processing is done in the extent of the toplevel restart."
 
 (defun process-requests (timeout)
   "Read and process requests from Emacs."
-  (loop
-   (multiple-value-bind (event timeout?)
-       (wait-for-event `(or (:emacs-rex . _)
-                            (:emacs-channel-send . _))
-                       timeout)
-    (when timeout? (return))
-    (destructure-case event
-      ((:emacs-rex &rest args) (apply #'eval-for-emacs args))
-      ((:emacs-channel-send channel (selector &rest args))
-       (channel-send channel selector args))))))
+  (catch 'stop-processing
+    (loop
+      (multiple-value-bind (event timeout?)
+          (wait-for-event `(or (:emacs-rex . _)
+                               (:emacs-channel-send . _))
+                          timeout)
+        (when timeout? (return))
+        (destructure-case event
+          ((:emacs-rex &rest args) (apply #'eval-for-emacs args))
+          ((:emacs-channel-send channel (selector &rest args))
+           (channel-send channel selector args)))))))
 
 (defun current-socket-io ()
   (connection.socket-io *emacs-connection*))
@@ -1008,8 +1009,10 @@ The processing is done in the extent of the toplevel restart."
   (:method ((connection multithreaded-connection) (id (eql :find-existing)))
     (car (mconn.active-threads connection)))
   (:method (connection (id integer))
+    (declare (ignore connection))
     (find-thread id))
   (:method ((connection singlethreaded-connection) id)
+    (declare (ignore id))
     (current-thread)))
 
 (defun interrupt-worker-thread (connection id)
@@ -1084,7 +1087,12 @@ The processing is done in the extent of the toplevel restart."
      (send-event (find-thread thread-id) (cons (car event) args)))
     ((:emacs-channel-send channel-id msg)
      (let ((ch (find-channel channel-id)))
-       (send-event (channel-thread ch) `(:emacs-channel-send ,ch ,msg))))
+       (cond (ch
+              (send-event (channel-thread ch) `(:emacs-channel-send ,ch ,msg)))
+             (t
+              (encode-message 
+               (list :invalid-channel channel-id "Channel not found")
+               (current-socket-io))))))
     ((:reader-error packet condition)
      (encode-message `(:reader-error ,packet 
                                      ,(safe-condition-message condition))
@@ -1342,14 +1350,14 @@ event was found."
 (defvar *channel-counter* 0)
 
 (defclass channel ()
-  ((id :reader channel-id)
-   (thread :initarg :thread :initform (current-thread) :reader channel-thread)
-   (name :initarg :name :initform nil)))
+  ((id     :initform (incf *channel-counter*)
+           :reader channel-id)
+   (thread :initarg :thread :initform (current-thread)
+           :reader channel-thread)
+   (name   :initarg :name   :initform nil)))
 
 (defmethod initialize-instance :after ((ch channel) &key)
-  (with-slots (id) ch
-    (setf id (incf *channel-counter*))
-    (push (cons id ch) *channels*)))
+  (push (cons (channel-id ch) ch) *channels*))
 
 (defmethod print-object ((c channel) stream)
   (print-unreadable-object (c stream :type t)
@@ -1359,7 +1367,13 @@ event was found."
 (defun find-channel (id)
   (cdr (assoc id *channels*)))
 
-(defgeneric channel-send (channel selector args))
+(defun close-channel (channel)
+  (let ((probe (assoc (channel-id channel) *channels*)))
+    (cond (probe (setf *channels* (delete probe *channels*)))
+          (t (error "Can't close invalid channel: ~a" channel)))))
+
+(defgeneric channel-send (channel selector args)
+  (:documentation "Send to CHANNEL the message SELECTOR with ARGS."))
 
 (defmacro define-channel-method (selector (channel &rest args) &body body)
   `(defmethod channel-send (,channel (selector (eql ',selector)) args)

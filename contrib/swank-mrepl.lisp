@@ -9,6 +9,7 @@
 	       channel 
 	       channel-id
                channel-thread
+               close-channel
 	       define-channel-method
 	       defslyfun 
 	       destructure-case
@@ -21,6 +22,7 @@
 	       with-connection
 	       with-top-level-restart
 	       with-sly-interrupts
+               stop-processing
 	       )))
     (eval `(defpackage #:swank-api
 	     (:use)
@@ -34,12 +36,13 @@
 (in-package :swank-mrepl)
 
 (defclass listener-channel (channel)
-  ((remote :initarg :remote)
-   (env :initarg :env)
-   (mode :initform :eval)
-   (tag :initform nil)))
+  ((remote :initarg  :remote :accessor remote)
+   (env    :initarg  :env    :accessor env)
+   (mode   :initform :eval   :accessor channel-mode)
+   (tag    :initform nil)))
 
-(defmethod initialize-instance :after ((channel listener-channel) &rest initargs)
+(defmethod initialize-instance :after ((channel listener-channel)
+                                       &rest initargs)
   ;; FIXME: fugly, but I need this to be able to name the thread
   ;; according to the channel.
   (setf (slot-value channel 'swank::thread)
@@ -53,7 +56,10 @@
 
 (defslyfun create-mrepl (remote)
   (let* ((pkg *package*)
-         (ch (make-instance 'listener-channel :remote remote :thread nil))
+         (ch (make-instance
+              'listener-channel
+              :remote remote :thread nil
+              :name (format nil "mrepl listener for remote ~a" remote)))
          (thread (channel-thread ch)))
     (setf (slot-value ch 'env) (initial-listener-env ch))
     (when thread
@@ -72,6 +78,7 @@
     (+) (++) (+++)))
 
 (defun drop-unprocessed-events (channel)
+  "Empty CHANNEL of events, then send prompt to Emacs."
   (with-slots (mode) channel
     (let ((old-mode mode))
       (setf mode :drop)
@@ -90,7 +97,9 @@
           (assert (eq c channel))
 	  (loop
 	   (with-top-level-restart (connection (drop-unprocessed-events channel))
-	     (process-requests nil)))))))
+	     (when (eq (process-requests nil)
+                       'listener-teardown)
+               (return))))))))
    :name (format nil "sly-mrepl-listener-ch-~a" (channel-id channel))))
 
 (define-channel-method :process ((c listener-channel) string)
@@ -100,6 +109,11 @@
       (:eval (mrepl-eval c string))
       (:read (mrepl-read c string))
       (:drop))))
+
+(define-channel-method :teardown ((c listener-channel))
+  (log-event ":teardown~%")
+  (close-channel c)
+  (throw 'stop-processing 'listener-teardown))
 
 (defun mrepl-eval (channel string)
   (with-slots (remote env) channel
@@ -113,8 +127,8 @@
             (setq *** **  ** *  * (car /)
                   /// //  // /  
                   +++ ++  ++ + ))
-	  (setf env (loop for (sym) in env
-			  collect (cons sym (symbol-value sym))))
+          (loop for binding in env 
+                do (setf (cdr binding) (symbol-value (car binding))))
 	  (cond (aborted
 		 (send-to-remote-channel remote `(:evaluation-aborted)))
 		(t
@@ -128,7 +142,7 @@
       (when out (force-output out))
       (when in (clear-input in))
       (send-to-remote-channel remote `(:prompt ,(package-name pkg)
-					       ,(package-prompt pkg))))))
+                                               ,(package-prompt pkg))))))
   
 (defun mrepl-read (channel string)
   (with-slots (tag) channel

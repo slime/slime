@@ -2181,15 +2181,9 @@ Debugged requests are ignored."
            (sldb-exit thread level stepping))
           ((:emacs-interrupt thread)
            (sly-send `(:emacs-interrupt ,thread)))
-          ((:channel-send id msg)
-           (sly-channel-send (or (sly-find-channel id)
-                                   (error "Invalid channel id: %S %S" id msg))
-                               msg))
-          ((:emacs-channel-send id msg)
-           (sly-send `(:emacs-channel-send ,id ,msg)))
           ((:read-from-minibuffer thread tag prompt initial-value)
            (sly-read-from-minibuffer-for-swank thread tag prompt
-                                                 initial-value))
+                                               initial-value))
           ((:y-or-n-p thread tag question)
            (sly-y-or-n-p thread tag question))
           ((:emacs-return-string thread tag string)
@@ -2211,7 +2205,7 @@ Debugged requests are ignored."
           ((:inspect what thread tag)
            (let ((hook (when (and thread tag)
                          (sly-curry #'sly-send
-                                      `(:emacs-return ,thread ,tag nil)))))
+                                    `(:emacs-return ,thread ,tag nil)))))
              (sly-open-inspector what nil hook)))
           ((:background-message message)
            (sly-background-message "%s" message))
@@ -2232,7 +2226,15 @@ Debugged requests are ignored."
            (error "Invalid rpc: %s" message))
           ((:emacs-skipped-packet _pkg))
           ((:test-delay seconds) ; for testing only
-           (sit-for seconds))))))
+           (sit-for seconds))
+          ((:channel-send id msg)
+           (sly-channel-send (or (sly-find-channel id)
+                                 (error "Invalid channel id: %S %S" id msg))
+                             msg))
+          ((:emacs-channel-send id msg)
+           (sly-send `(:emacs-channel-send ,id ,msg)))
+          ((:invalid-channel channel-id reason)
+           (error "Invalid remote channel %d: %s" channel-id reason))))))
 
 (defun sly-send (sexp)
   "Send SEXP directly over the wire on the current connection."
@@ -2282,7 +2284,7 @@ Debugged requests are ignored."
   (setf (sly-channel.operations channel) 'closed-channel)
   (let ((probe (assq (sly-channel.id channel) (sly-channels))))
     (cond (probe (setf (sly-channels) (delete probe (sly-channels))))
-          (t (error "Invalid channel: %s" channel)))))
+          (t (error "Can't close invalid channel: %s" channel)))))
 
 (defun sly-find-channel (id)
   (cdr (assq id (sly-channels))))

@@ -22,7 +22,6 @@
 (defvar sly-mrepl-expect-sexp nil)
 
 (define-derived-mode sly-mrepl-mode comint-mode "mrepl"
-  (add-hook 'kill-buffer-hook 'sly-mrepl--delete-process nil 'local)
   (set (make-local-variable 'comint-use-prompt-regexp) nil)
   (set (make-local-variable 'comint-inhibit-carriage-motion) t)
   (set (make-local-variable 'comint-input-sender) 'sly-mrepl-input-sender)
@@ -54,6 +53,7 @@
                                              (sly-channel.id local)
                                              remote
                                              thread-id))
+            (add-hook 'kill-buffer-hook 'sly-mrepl--teardown nil 'local)
             (setq sly-current-thread thread-id)
             (setq sly-buffer-connection (sly-connection))
             (set (make-local-variable 'sly-mrepl-remote-channel) remote)
@@ -71,7 +71,10 @@
 
 (defun sly-mrepl--process () (get-buffer-process (current-buffer))) ;stupid
 (defun sly-mrepl--mark () (process-mark (sly-mrepl--process)))
-(defun sly-mrepl--delete-process () (delete-process (sly-mrepl--process)))
+(defun sly-mrepl--teardown ()
+  (delete-process (sly-mrepl--process))
+  (sly-mrepl-send `(:teardown))
+  (sly-close-channel sly-mrepl-local-channel))
 
 (defun sly-mrepl-insert (string)
   (comint-output-filter (sly-mrepl--process) string))
@@ -148,8 +151,6 @@
   "Send MSG to the remote channel."
   (sly-send-to-remote-channel sly-mrepl-remote-channel msg))
 
-
-
 (defun sly-mrepl ()
   (interactive)
   (let ((conn (sly-connection)))
@@ -159,6 +160,8 @@
                              (eq (sly-current-connection) conn))))
                     (buffer-list))
         (sly-mrepl-new))))
+
+
 
 (def-sly-selector-method ?m
   "First mrepl-buffer"
