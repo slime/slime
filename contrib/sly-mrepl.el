@@ -21,6 +21,7 @@
 (defvar sly-mrepl--pending-requests nil)
 
 (define-derived-mode sly-mrepl-mode comint-mode "mrepl"
+  (sly-mode)
   (set (make-local-variable 'comint-use-prompt-regexp) nil)
   (set (make-local-variable 'comint-inhibit-carriage-motion) t)
   (set (make-local-variable 'comint-input-sender) 'sly-mrepl--input-sender)
@@ -101,12 +102,10 @@
 
 (sly-define-channel-method listener :write-result (result)
   (with-current-buffer (sly-channel-get self 'buffer)
-    (goto-char (point-max))
-    (sly-mrepl--insert result)))
+    (sly-mrepl--insert (propertize result 'face 'sly-inspectable-value-face))))
 
 (sly-define-channel-method listener :evaluation-aborted ()
   (with-current-buffer (sly-channel-get self 'buffer)
-    (goto-char (point-max))
     (sly-mrepl--insert "; Evaluation aborted\n")))
 
 (sly-define-channel-method listener :write-string (string)
