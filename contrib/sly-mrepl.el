@@ -178,7 +178,27 @@ If message can't be sent right now, queue it onto
     buffer))
 
 
+;;; copy-down-to-REPL behaviour
+;;; 
+(defun sly-inspector-copy-down-to-repl (number)
+  "Evaluate the inspector slot at point via the REPL (to set `*')."
+  (interactive (list (or (get-text-property (point) 'sly-part-number)
+                         (error "No part at point"))))
+  (with-current-buffer (sly-mrepl)
+    (sly-mrepl--send-string
+     (format "%s" `(cl:nth-value 0 (swank:inspector-nth-part ,number))))
+    (pop-to-buffer (current-buffer))))
 
+(defun sldb-copy-down-to-repl (frame-id var-id)
+  "Evaluate the frame var at point via the REPL (to set `*')."
+  (interactive (list (sldb-frame-number-at-point) (sldb-var-number-at-point)))
+  (with-current-buffer (sly-mrepl)
+    (sly-mrepl--send-string (format "%s"
+                                   `(swank-backend:frame-var-value
+                                     ,frame-id ,var-id)))
+    (pop-to-buffer (current-buffer))))
+
+
 (def-sly-selector-method ?m
   "First mrepl-buffer"
   (or (sly-mrepl)
