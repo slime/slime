@@ -15,18 +15,17 @@
 
 (require 'comint)
 
-(defvar sly-mrepl-all-repls)
-
-(defvar sly-mrepl-remote-channel nil)
-(defvar sly-mrepl-local-channel nil)
-(defvar sly-mrepl-expect-sexp nil)
+(defvar sly-mrepl--remote-channel nil)
+(defvar sly-mrepl--local-channel nil)
+(defvar sly-mrepl--expect-sexp-mode t)
+(defvar sly-mrepl--pending-requests nil)
 
 (define-derived-mode sly-mrepl-mode comint-mode "mrepl"
   (set (make-local-variable 'comint-use-prompt-regexp) nil)
   (set (make-local-variable 'comint-inhibit-carriage-motion) t)
-  (set (make-local-variable 'comint-input-sender) 'sly-mrepl-input-sender)
+  (set (make-local-variable 'comint-input-sender) 'sly-mrepl--input-sender)
   (set (make-local-variable 'comint-output-filter-functions) nil)
-  (set (make-local-variable 'sly-mrepl-expect-sexp) t)
+  (set (make-local-variable 'sly-mrepl--expect-sexp-mode) t)
   ;;(set (make-local-variable 'comint-get-old-input) 'ielm-get-old-input)
   (set-syntax-table lisp-mode-syntax-table))
 
@@ -40,10 +39,10 @@
       (start-process (format "sly-mrepl-pty-ch-%s" (sly-channel.id local))
                      (current-buffer) nil)
       (set-process-query-on-exit-flag (sly-mrepl--process) nil)
-      
+
       (setq header-line-format (format "Waiting for REPL creation ack for channel %d..."
                                        (sly-channel.id local)))
-      (set (make-local-variable 'sly-mrepl-local-channel) local))
+      (set (make-local-variable 'sly-mrepl--local-channel) local))
     (sly-eval-async
         `(swank-mrepl:create-mrepl ,(sly-channel.id local))
       (lambda (result)
@@ -56,9 +55,10 @@
             (add-hook 'kill-buffer-hook 'sly-mrepl--teardown nil 'local)
             (setq sly-current-thread thread-id)
             (setq sly-buffer-connection (sly-connection))
-            (set (make-local-variable 'sly-mrepl-remote-channel) remote)
+            (set (make-local-variable 'sly-mrepl--remote-channel) remote)
             (sly-channel-put local 'buffer (current-buffer))
-            (sly-channel-send local `(:prompt ,package ,prompt))))))
+            (sly-channel-send local `(:prompt ,package ,prompt))
+            (sly-mrepl--send-pending)))))
     buffer))
 
 
@@ -72,66 +72,67 @@
 (defun sly-mrepl--process () (get-buffer-process (current-buffer))) ;stupid
 (defun sly-mrepl--mark () (process-mark (sly-mrepl--process)))
 (defun sly-mrepl--teardown ()
-  (delete-process (sly-mrepl--process))
-  (sly-mrepl-send `(:teardown))
-  (sly-close-channel sly-mrepl-local-channel))
+  (sly-mrepl--send `(:teardown))
+  (set (make-local-variable 'sly-mrepl--remote-channel) nil)
+  (sly-close-channel sly-mrepl--local-channel)
+  (delete-process (sly-mrepl--process)))
 
-(defun sly-mrepl-insert (string)
+(defun sly-mrepl--insert (string)
   (comint-output-filter (sly-mrepl--process) string))
 
 (sly-define-channel-type listener)
 
 (sly-define-channel-method listener :prompt (package prompt)
   (with-current-buffer (sly-channel-get self 'buffer)
-    (sly-mrepl-prompt package prompt)))
+    (sly-mrepl--prompt package prompt)))
 
-(defun sly-mrepl-prompt (package prompt)
+(defun sly-mrepl--prompt (package prompt)
   (setf sly-buffer-package package)
-  (sly-mrepl-insert (format "%s%s> "
+  (sly-mrepl--insert (format "%s%s> "
 			      (cl-case (current-column)
 				(0 "")
 				(t "\n"))
 			      prompt))
-  (sly-mrepl-recenter))
+  (sly-mrepl--recenter))
 
-(defun sly-mrepl-recenter ()
+(defun sly-mrepl--recenter ()
   (when (get-buffer-window)
     (recenter -1)))
 
 (sly-define-channel-method listener :write-result (result)
   (with-current-buffer (sly-channel-get self 'buffer)
     (goto-char (point-max))
-    (sly-mrepl-insert result)))
+    (sly-mrepl--insert result)))
 
 (sly-define-channel-method listener :evaluation-aborted ()
   (with-current-buffer (sly-channel-get self 'buffer)
     (goto-char (point-max))
-    (sly-mrepl-insert "; Evaluation aborted\n")))
+    (sly-mrepl--insert "; Evaluation aborted\n")))
 
 (sly-define-channel-method listener :write-string (string)
-  (sly-mrepl-write-string self string))
+  (sly-mrepl--write-string self string))
 
-(defun sly-mrepl-write-string (self string)
+(defun sly-mrepl--write-string (self string)
   (with-current-buffer (sly-channel-get self 'buffer)
     (goto-char (sly-mrepl--mark))
-    (sly-mrepl-insert string)))
+    (sly-mrepl--insert string)))
 
 (sly-define-channel-method listener :set-read-mode (mode)
   (with-current-buffer (sly-channel-get self 'buffer)
     (cl-ecase mode
-      (:read (setq sly-mrepl-expect-sexp nil)
+      (:read (setq sly-mrepl--expect-sexp-mode nil)
 	     (message "[Listener is waiting for input]"))
-      (:eval (setq sly-mrepl-expect-sexp t)))))
+      (:eval (setq sly-mrepl--expect-sexp-mode t)))))
 
 (defun sly-mrepl-return (&optional end-of-input)
   (interactive "P")
   (sly-check-connected)
   (goto-char (point-max))
-  (cond ((and sly-mrepl-expect-sexp
+  (cond ((and sly-mrepl--expect-sexp-mode
 	      (or (sly-input-complete-p (sly-mrepl--mark) (point))
 		  end-of-input))
 	 (comint-send-input))
-	((not sly-mrepl-expect-sexp)
+	((not sly-mrepl--expect-sexp-mode)
 	 (unless end-of-input
 	   (insert "\n"))
 	 (comint-send-input t))
@@ -139,27 +140,42 @@
 	 (insert "\n")
 	 (inferior-sly-indent-line)
          (message "[input not complete]")))
-  (sly-mrepl-recenter))
+  (sly-mrepl--recenter))
 
-(defun sly-mrepl-input-sender (_proc string)
-  (sly-mrepl-send-string (substring-no-properties string)))
+(defun sly-mrepl--input-sender (_proc string)
+  (sly-mrepl--send-string (substring-no-properties string)))
 
-(defun sly-mrepl-send-string (string &optional _command-string)
-  (sly-mrepl-send `(:process ,string)))
+(defun sly-mrepl--send-string (string &optional _command-string)
+  (sly-mrepl--send `(:process ,string)))
 
-(defun sly-mrepl-send (msg)
-  "Send MSG to the remote channel."
-  (sly-send-to-remote-channel sly-mrepl-remote-channel msg))
+(defun sly-mrepl--send (msg)
+  "Send MSG to the remote channel.
 
-(defun sly-mrepl ()
-  (interactive)
-  (let ((conn (sly-connection)))
-    (or (cl-find-if (lambda (x) 
-                      (with-current-buffer x 
-                        (and (eq major-mode 'sly-mrepl-mode)
-                             (eq (sly-current-connection) conn))))
-                    (buffer-list))
-        (sly-mrepl-new))))
+If message can't be sent right now, queue it onto
+`sly-mrepl--pending-requests'"
+  (if sly-mrepl--remote-channel
+      (sly-send-to-remote-channel sly-mrepl--remote-channel msg)
+    (add-to-list (make-local-variable 'sly-mrepl--pending-requests)
+                 msg 'append)))
+
+(defun sly-mrepl--send-pending ()
+  "Send pending requests from `sly-mrepl--pending-requests'."
+  (mapc #'sly-mrepl--send sly-mrepl--pending-requests)
+  (setq sly-mrepl--pending-requests nil))
+
+(defun sly-mrepl (&optional interactive)
+  (interactive (list t))
+  (let ((buffer
+         (or (cl-find-if (lambda (x)
+                           (with-current-buffer x
+                             (and (eq major-mode 'sly-mrepl-mode)
+                                  (eq (sly-current-connection)
+                                      (sly-connection)))))
+                         (buffer-list))
+             (sly-mrepl-new))))
+    (when interactive
+      (pop-to-buffer buffer))
+    buffer))
 
 
 
