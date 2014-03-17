@@ -69,10 +69,14 @@
 	  (package-name pkg)
 	  (package-prompt pkg))))
 
+(defvar *history* nil)
+
 (defun initial-listener-env (listener)
   `((*package* . ,*package*)
     (*standard-output* . ,(make-listener-output-stream listener))
     (*standard-input* . ,(make-listener-input-stream listener))
+    (*history* . ,(make-array 40 :fill-pointer 0
+                                 :adjustable t))
     (*) (**) (***)
     (/) (//) (///)
     (+) (++) (+++)))
@@ -109,6 +113,14 @@
       (:eval (mrepl-eval c string))
       (:read (mrepl-read c string))
       (:drop))))
+
+(define-channel-method :inspect ((c listener-channel) object-idx)
+  (log-event ":inspect ~s~%" object-idx)
+  (with-slots (remote env) c
+    (with-bindings env
+      (send-to-remote-channel remote
+                              `(:inspect-result
+                                ,(swank::inspect-object (aref *history* object-idx)))))))
 
 (define-channel-method :teardown ((c listener-channel))
   (log-event ":teardown~%")
@@ -157,8 +169,9 @@
           do
              (setq / (multiple-value-list (eval (setq + form)))))
     (force-output)
+    (vector-push-extend / *history*)
     (if /
-	(format nil "~{~s~%~}" /) 
+	(format nil "~{~s~^~%~}" /) 
 	"; No values")))
 
 (defun make-listener-output-stream (channel)

@@ -26,6 +26,7 @@
 (defvar sly-mrepl--local-channel nil)
 (defvar sly-mrepl--expect-sexp-mode t)
 (defvar sly-mrepl--pending-requests nil)
+(defvar sly-mrepl--result-counter -1)
 
 (defvar sly-mrepl-mode-map
   (let ((map (make-sparse-keymap)))
@@ -42,7 +43,10 @@
   (set (make-local-variable 'comint-inhibit-carriage-motion) t)
   (set (make-local-variable 'comint-input-sender) 'sly-mrepl--input-sender)
   (set (make-local-variable 'comint-output-filter-functions) nil)
+  (set (make-local-variable 'comint-input-filter-functions) nil)
   (set (make-local-variable 'sly-mrepl--expect-sexp-mode) t)
+  (set (make-local-variable 'sly-mrepl--result-counter) -1)
+  
   ;;(set (make-local-variable 'comint-get-old-input) 'ielm-get-old-input)
   (set-syntax-table lisp-mode-syntax-table))
 
@@ -79,7 +83,9 @@
     buffer))
 
 (defun sly-mrepl--process () (get-buffer-process (current-buffer))) ;stupid
+
 (defun sly-mrepl--mark () (process-mark (sly-mrepl--process)))
+
 (defun sly-mrepl--teardown ()
   (sly-mrepl--send `(:teardown))
   (set (make-local-variable 'sly-mrepl--remote-channel) nil)
@@ -110,7 +116,16 @@
 
 (sly-define-channel-method listener :write-result (result)
   (with-current-buffer (sly-channel-get self 'buffer)
-    (sly-mrepl--insert (propertize result 'face 'sly-inspectable-value-face))))
+    (cl-incf sly-mrepl--result-counter)
+    (let* ((button-action (lambda (_button)
+                            (sly-mrepl--send `(:inspect ,sly-mrepl--result-counter))))
+           (filter (lambda (output)
+                     (if (string-match "^;" output)
+                         output
+                       (make-text-button output nil 'action button-action
+                                         'font-lock-face 'sly-inspectable-value-face))))
+           (comint-preoutput-filter-functions (list filter)))
+      (sly-mrepl--insert result))))
 
 (sly-define-channel-method listener :evaluation-aborted ()
   (with-current-buffer (sly-channel-get self 'buffer)
@@ -119,9 +134,11 @@
 (sly-define-channel-method listener :write-string (string)
   (sly-mrepl--write-string self string))
 
+(sly-define-channel-method listener :inspect-result (parts)
+  (sly-open-inspector parts))
+
 (defun sly-mrepl--write-string (self string)
   (with-current-buffer (sly-channel-get self 'buffer)
-    (goto-char (sly-mrepl--mark))
     (sly-mrepl--insert string)))
 
 (sly-define-channel-method listener :set-read-mode (mode)
@@ -192,6 +209,7 @@ If message can't be sent right now, queue it onto
   (interactive (list (or (get-text-property (point) 'sly-part-number)
                          (error "No part at point"))))
   (with-current-buffer (sly-mrepl)
+    (sly-mrepl--insert "\n")
     (sly-mrepl--send-string
      (format "%s" `(cl:nth-value 0 (swank:inspector-nth-part ,number))))
     (pop-to-buffer (current-buffer))))
@@ -200,6 +218,7 @@ If message can't be sent right now, queue it onto
   "Evaluate the frame var at point via the REPL (to set `*')."
   (interactive (list (sldb-frame-number-at-point) (sldb-var-number-at-point)))
   (with-current-buffer (sly-mrepl)
+    (sly-mrepl--insert "\n")
     (sly-mrepl--send-string (format "%s"
                                    `(swank-backend:frame-var-value
                                      ,frame-id ,var-id)))
@@ -213,6 +232,7 @@ If message can't be sent right now, queue it onto
                         collect (get-text-property (point) prop)))
   (unless (and id part-id type) (error "No trace part at point %s" (point)))
   (with-current-buffer (sly-mrepl)
+    (sly-mrepl--insert "\n")
     (sly-mrepl--send-string
      (format "%s" `(nth-value 0
                               (swank-trace-dialog::find-trace-part
