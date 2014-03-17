@@ -8,7 +8,6 @@
   (:sly-dependencies sly-mrepl
                      sly-autodoc
                      sly-c-p-c
-                     sly-editing-commands
                      sly-fancy-inspector
                      sly-fancy-trace
                      sly-fuzzy

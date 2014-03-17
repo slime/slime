@@ -11,7 +11,14 @@
   "Multiple REPLs."
   (:authors "Helmut Eller <heller@common-lisp.net>")
   (:license "GPL")
-  (:swank-dependencies swank-mrepl))
+  (:swank-dependencies swank-mrepl)
+  (:on-load
+   (define-key sly-inspector-mode-map (kbd "M-RET") 'sly-inspector-copy-down-to-repl)
+   (define-key sldb-mode-map (kbd "M-RET") 'sldb-copy-down-to-repl)
+   ;; FIXME: ugly
+   (add-hook 'sly-trace-dialog-mode-hook
+             #'(lambda ()
+                 (local-set-key (kbd "M-RET") 'sly-trace-dialog-copy-down-to-repl)))))
 
 (require 'comint)
 
@@ -19,6 +26,15 @@
 (defvar sly-mrepl--local-channel nil)
 (defvar sly-mrepl--expect-sexp-mode t)
 (defvar sly-mrepl--pending-requests nil)
+
+(defvar sly-mrepl-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET")     'sly-mrepl-return)
+    (define-key map [return]        'sly-mrepl-return)
+    (define-key map (kbd "TAB")     'sly-indent-and-complete-symbol)
+    (define-key map (kbd "C-c C-b") 'sly-interrupt)
+    (define-key map (kbd "C-c C-c") 'sly-interrupt)
+    map))
 
 (define-derived-mode sly-mrepl-mode comint-mode "mrepl"
   (sly-mode)
@@ -61,14 +77,6 @@
             (sly-channel-send local `(:prompt ,package ,prompt))
             (sly-mrepl--send-pending)))))
     buffer))
-
-
-(sly-define-keys sly-mrepl-mode-map
-  ((kbd "RET") 'sly-mrepl-return)
-  ([return] 'sly-mrepl-return)
-  ((kbd "TAB") 'sly-indent-and-complete-symbol)
-  ((kbd "C-c C-b") 'sly-interrupt)
-  ((kbd "C-c C-c") 'sly-interrupt))
 
 (defun sly-mrepl--process () (get-buffer-process (current-buffer))) ;stupid
 (defun sly-mrepl--mark () (process-mark (sly-mrepl--process)))
@@ -195,6 +203,20 @@ If message can't be sent right now, queue it onto
     (sly-mrepl--send-string (format "%s"
                                    `(swank-backend:frame-var-value
                                      ,frame-id ,var-id)))
+    (pop-to-buffer (current-buffer))))
+
+(defun sly-trace-dialog-copy-down-to-repl (id part-id type)
+  "Eval the Trace Dialog entry under point in the REPL (to set *)"
+  (interactive (cl-loop for prop in '(sly-trace-dialog--id
+                                      sly-trace-dialog--part-id
+                                      sly-trace-dialog--type)
+                        collect (get-text-property (point) prop)))
+  (unless (and id part-id type) (error "No trace part at point %s" (point)))
+  (with-current-buffer (sly-mrepl)
+    (sly-mrepl--send-string
+     (format "%s" `(nth-value 0
+                              (swank-trace-dialog::find-trace-part
+                               ,id ,part-id ,type))))
     (pop-to-buffer (current-buffer))))
 
 

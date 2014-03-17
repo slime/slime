@@ -10,7 +10,7 @@
             "Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>"
             "Tobias C. Rittweiler <tcr@freebits.de>")
   (:license "GPL")
-  (:sly-dependencies sly-parse sly-editing-commands sly-autodoc)
+  (:sly-dependencies sly-parse sly-autodoc)
   (:swank-dependencies swank-c-p-c)
   (:on-load
    (push 
@@ -36,11 +36,6 @@
 If false, move point to the end of the inserted text."
   :type 'boolean
   :group 'sly-ui)
-
-(defcustom sly-complete-symbol*-fancy nil
-  "Use information from argument lists for DWIM'ish symbol completion."
-  :group 'sly-mode
-  :type 'boolean)
 
 (defun sly-complete-symbol* ()
   "Expand abbreviations and complete the symbol at point."
@@ -72,8 +67,6 @@ If false, move point to the end of the inserted text."
       (cond ((and (member completed-prefix completion-set)
                   (sly-length= completion-set 1))
              (sly-minibuffer-respecting-message "Sole completion")
-             (when sly-complete-symbol*-fancy
-               (sly-complete-symbol*-fancy-bit))
              (sly-complete-restore-window-configuration))
             ;; Incomplete
             (t
@@ -88,27 +81,6 @@ If false, move point to the end of the inserted text."
 		 (goto-char (+ beg unambiguous-completion-length))))
              (sly-display-or-scroll-completions completion-set 
                                                   completed-prefix))))))
-
-(defun sly-complete-symbol*-fancy-bit ()
-  "Do fancy tricks after completing a symbol.
-\(Insert a space or close-paren based on arglist information.)"
-  (let ((arglist (sly-retrieve-arglist (sly-symbol-at-point))))
-    (unless (eq arglist :not-available)
-      (let ((args
-             ;; Don't intern these symbols
-             (let ((obarray (make-vector 10 0)))
-               (cdr (read arglist))))
-            (function-call-position-p
-             (save-excursion
-               (backward-sexp)
-               (equal (char-before) ?\())))
-        (when function-call-position-p
-          (if (null args)
-              (execute-kbd-macro ")")
-              (execute-kbd-macro " ")
-              (when (and (sly-background-activities-enabled-p)
-                         (not (minibuffer-window-active-p (minibuffer-window))))
-                (sly-echo-arglist))))))))
 
 (defun* sly-contextual-completions (beg end) 
   "Return a list of completions of the token from BEG to END in the
@@ -167,9 +139,7 @@ This is a superset of the functionality of `sly-insert-arglist'."
                                 0
                                 1))
             (save-excursion
-              (insert result)
-              (let ((sly-close-parens-limit 1))
-                (sly-close-all-parens-in-sexp)))
+              (insert result))
             (save-excursion
               (backward-up-list 1)
               (indent-sexp)))))))

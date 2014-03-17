@@ -483,6 +483,7 @@ information."
     (define-key map (kbd "C-c C-u") 'sly-undefine-function)
     (define-key map (kbd "C-M-.") 'sly-next-location)
     (define-key map (kbd "C-M-,") 'sly-previous-location)
+    (set-keymap-parent map sly-parent-map)
     map))
 
 (defvar sly-editing-mode-map
@@ -506,7 +507,7 @@ information."
 
 (define-minor-mode sly-mode
   "Minor mode for horizontal SLY functionality."
-  nil nil)
+  nil nil nil)
 
 (define-minor-mode sly-editing-mode
   "Minor mode for editing `lisp-mode' buffers."
@@ -6908,14 +6909,6 @@ is setup, unless the user already set one explicitly."
 
 
 ;;;; Utilities (no not Paul Graham style)
-
-;; XXX: unused function
-(defun sly-intersperse (element list)
-  "Intersperse ELEMENT between each element of LIST."
-  (if (null list)
-      '()
-    (cons (car list)
-          (cl-mapcan (lambda (x) (list element x)) (cdr list)))))
 
 ;;; FIXME: this looks almost sly `sly-alistify', perhaps the two
 ;;;        functions can be merged.

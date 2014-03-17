@@ -7,7 +7,6 @@
 ;;;
 (require 'sly)
 (require 'sly-parse)
-(require 'sly-repl)
 (require 'cl-lib)
 
 (define-sly-contrib sly-trace-dialog
@@ -16,10 +15,8 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   (:authors "João Távora <joaotavora@gmail.com>")
   (:license "GPL")
   (:swank-dependencies swank-trace-dialog)
-  (:on-load (add-hook 'sly-mode-hook 'sly-trace-dialog-enable)
-            (add-hook 'sly-repl-mode-hook 'sly-trace-dialog-enable))
-  (:on-unload (remove-hook 'sly-mode-hook 'sly-trace-dialog-enable)
-              (remove-hook 'sly-repl-mode-hook 'sly-trace-dialog-enable)))
+  (:on-load (add-hook 'sly-mode-hook 'sly-trace-dialog-enable))
+  (:on-unload (remove-hook 'sly-mode-hook 'sly-trace-dialog-enable)))
 
 
 ;;;; Variables
@@ -77,7 +74,6 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
     (define-key map (kbd "G") 'sly-trace-dialog-fetch-traces)
     (define-key map (kbd "C-k") 'sly-trace-dialog-clear-fetched-traces)
     (define-key map (kbd "g") 'sly-trace-dialog-fetch-status)
-    (define-key map (kbd "M-RET") 'sly-trace-dialog-copy-down-to-repl)
     (define-key map (kbd "q") 'quit-window)
     map))
 
@@ -819,18 +815,5 @@ and fetch a first batch of traces."
       (sly-trace-dialog--clear-local-tree))
     (when clear-and-fetch
       (sly-trace-dialog-fetch-traces nil))))
-
-(defun sly-trace-dialog-copy-down-to-repl (id part-id type)
-  "Eval the Trace Dialog entry under point in the REPL (to set *)"
-  (interactive (cl-loop for prop in '(sly-trace-dialog--id
-                                      sly-trace-dialog--part-id
-                                      sly-trace-dialog--type)
-                        collect (get-text-property (point) prop)))
-  (unless (and id part-id type) (error "No trace part at point %s" (point)))
-  (sly-repl-send-string
-   (format "%s" `(nth-value 0
-                            (swank-trace-dialog::find-trace-part
-                             ,id ,part-id ,type))))
-  (sly-repl))
 
 (provide 'sly-trace-dialog)
