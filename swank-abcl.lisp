@@ -366,7 +366,14 @@
                 stream))
 
 (defimplementation frame-locals (index)
-  `(,(list :name "??" :id 0 :value "??")))
+ (loop for id upfrom 0
+       for item in (java:jcall "toLispList" (nth-frame index))
+       collect (let () ;; ((id id) (item item))
+                 (list :name "??" :id id :value item))))
+
+(defimplementation frame-var-value (index id)
+ (elt (java:jcall "toLispList" (nth-frame index)) id))
+
 
 #+nil
 (defimplementation disassemble-frame (index)
@@ -774,3 +781,4 @@ part of *sysdep-pathnames* in swank.loader.lisp.
 
 (defimplementation quit-lisp ()
   (ext:exit))
+

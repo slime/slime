@@ -1,3 +1,8 @@
+2014-03-17  Mark Evenson  <evenson@quoth.local>
+
+	* swank-abcl.lisp (frame-locals): Implement inspection of args,
+	thanks to Theam Yong Chew.
+
 2014-03-09  João Távora  <joaotavora@gmail.com>
 
 	Save and restore windows that popped debugger windows.
