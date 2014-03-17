@@ -227,7 +227,6 @@ If LOAD is true, load the fasl file."
   '(swank-util swank-repl
     swank-c-p-c swank-arglists swank-fuzzy
     swank-fancy-inspector
-    swank-presentations swank-presentation-streams
     #+(or asdf2 asdf3 sbcl ecl) swank-asdf
     swank-package-fu
     swank-hyperdoc
