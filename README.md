@@ -3,12 +3,9 @@
 Overview
 --------
 
-SLY is the Superior Lisp Interaction Mode for Emacs. It is implemented
-in two main parts: the Emacs Lisp side (`sly.el`), and the support
-library for the Common Lisp (`swank.lisp` and `swank-*.lisp`)
+SLY is a fork of [SLIME][1].
 
-For a real description, see the manual in `doc/` or browse an online
-version [here](http://common-lisp.net/project/sly/doc/html/).
+For a real description, see the manual in `doc/`.
 
 Quick setup instructions
 ------------------------
@@ -25,19 +22,21 @@ Add this to your `~/.emacs` file and fill in the appropriate filenames:
 (setq sly-contribs '(sly-fancy))
 ```
 
-Use `M-x sly` to fire up and connect to an inferior Lisp.  SLY will
-now automatically be available in your Lisp source buffers.
+Use `M-x sly` to fire up and connect to an inferior Lisp.  SLY will now
+automatically be available in your Lisp source buffers.
 
-Contribs
---------
+`sly-fancy` refers to the most commonly used contrib which primarily installs a
+popular set of other contributed packages. It includes a better REPL, and many
+more nice features.
 
-SLY comes with additional contributed packages or "contribs". When SLY
-is loaded it loads the contribs you set up before in `sly-contribs`. You
-can use the command `sly-setup` to reload contribs.
+SLIME incompatibilities
+-----------------------
 
-The most-often used contrib is `sly-fancy`, which primarily installs a
-popular set of other contributed packages. It includes a better REPL, and
-many more nice features.
+* SLY doesn't contain an equivalent to the `slime-presentations` contrib.
+
+* The `sly-mrepl` contrib, active by default in `sly-fancy` is not fully
+  compatible with SLIME's `swank-mrepl.lisp` since SLIME's support for multiple
+  REPLs is only experimental.
 
 Licence
 -------
@@ -45,15 +44,16 @@ Licence
 SLY is free software. All files, unless explicitly stated otherwise, are
 public domain.
 
-Contact
--------
+Contributing
+------------
 
-Questions and comments are best directed to the mailing list at
-`sly-devel@common-lisp.net`, but you have to [subscribe][3] first. The
-mailing list archive is also available on [Gmane][4].
+[Open an issue or a pull request][4], but first see the [CONTRIBUTING.md][5]
+file for instructions on how to contribute.
 
-See the [CONTRIBUTING.md][5] file for instructions on how to contribute.
+[1]: http://www.common-lisp.net/project/slime/
+[4]: https://github.com/capitaomorte/sly/issues
+[5]: https://github.com/capitaomorte/sly/blob/master/CONTRIBUTING.md
 
-[3]: http://www.common-lisp.net/project/sly/#mailinglist
-[4]: http://news.gmane.org/gmane.lisp.sly.devel
-[5]: https://github.com/sly/sly/blob/master/CONTRIBUTING.md
+<!-- Local Variables: -->
+<!-- fill-column: 80 -->
+<!-- End: -->
