@@ -25,9 +25,7 @@
 
 (autoload 'hyperspec-lookup "hyperspec" nil t)
 
-(autoload 'sly-lisp-mode-hook "sly")
-
-(autoload 'sly-scheme-mode-hook "sly")
+(autoload 'sly-editing-mode "sly" "SLY" t)
 
 (defvar sly-contribs nil
   "A list of contrib packages to load with SLY.")
@@ -38,7 +36,7 @@
 (define-obsolete-variable-alias 'sly-setup-contribs
   'sly-contribs "2.3.2")
 
-(add-hook 'lisp-mode-hook 'sly-lisp-mode-hook)
+(add-hook 'lisp-mode-hook 'sly-editing-mode)
 
 (provide 'sly-autoloads)
 

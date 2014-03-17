@@ -64,20 +64,12 @@ current repl's (as per sly-output-buffer) window."
   :group 'sly-repl)
 
 (defface sly-repl-prompt-face
-  (if (sly-face-inheritance-possible-p)
-      '((t (:inherit font-lock-keyword-face)))
-    '((((class color) (background light)) (:foreground "Purple"))
-      (((class color) (background dark)) (:foreground "Cyan"))
-      (t (:weight bold))))
+  '((t (:inherit font-lock-keyword-face)))
   "Face for the prompt in the SLY REPL."
   :group 'sly-repl)
 
 (defface sly-repl-output-face
-  (if (sly-face-inheritance-possible-p)
-      '((t (:inherit font-lock-string-face)))
-    '((((class color) (background light)) (:foreground "RosyBrown"))
-      (((class color) (background dark)) (:foreground "LightSalmon"))
-      (t (:slant italic))))
+  '((t (:inherit font-lock-string-face)))
   "Face for Lisp output in the SLY REPL."
   :group 'sly-repl)
 

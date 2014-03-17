@@ -36,10 +36,7 @@ Fontify CHECK-FOO like CHECK-TYPE."
     'lisp-mode sly-additional-font-lock-keywords)))
 
 (defface sly-reader-conditional-face
-  (if (sly-face-inheritance-possible-p)
-    '((t (:inherit font-lock-comment-face)))
-  '((((background light)) (:foreground "DimGray" :bold t))
-    (((background dark)) (:foreground "LightGray" :bold t))))
+  '((t (:inherit font-lock-comment-face)))
   "Face for compiler notes while selected."
   :group 'sly-mode-faces)
 

@@ -88,7 +88,6 @@ This is used to load the supporting Common Lisp library, Swank.
 The default value is automatically computed from the location of the
 Emacs Lisp package."))
 
-(defvar sly-lisp-modes '(lisp-mode))
 (defvar sly-contribs nil
   "A list of contrib packages to load with SLY.")
 (define-obsolete-variable-alias 'sly-setup-contribs
@@ -99,8 +98,7 @@ Emacs Lisp package."))
 CONTRIBS is a list of contrib packages to load. If `nil', use
 `sly-contribs'. "
   (interactive)
-  (when (member 'lisp-mode sly-lisp-modes)
-    (add-hook 'lisp-mode-hook 'sly-lisp-mode-hook))
+  (add-hook 'lisp-mode-hook 'sly-editing-mode)
   (when contribs
     (setq sly-contribs contribs))
   (sly--setup-contribs))
@@ -118,11 +116,6 @@ CONTRIBS is a list of contrib packages to load. If `nil', use
         (let ((init (intern (format "%s-init" c))))
           (when (fboundp init)
             (funcall init)))))))
-
-(defun sly-lisp-mode-hook ()
-  (sly-mode 1)
-  (set (make-local-variable 'lisp-indent-function)
-       'common-lisp-indent-function))
 
 (eval-and-compile
   (defun sly-version (&optional interactive)
@@ -316,19 +309,14 @@ argument."
   "Face for notes from the compiler."
   :group 'sly-mode-faces)
 
-(defun sly-face-inheritance-possible-p ()
-  "Return true if the :inherit face attribute is supported."
-  (assq :inherit custom-face-attributes))
-
 (defface sly-highlight-face
-  (if (sly-face-inheritance-possible-p)
-      '((t (:inherit highlight :underline nil)))
-    '((((class color) (background light))
-       (:background "darkseagreen2"))
-      (((class color) (background dark))
-       (:background "darkolivegreen"))
-      (t (:inverse-video t))))
+  '((t (:inherit highlight :underline nil)))
   "Face for compiler notes while selected."
+  :group 'sly-mode-faces)
+
+(defface sly-inspectable-value-face
+  '((t (:inherit font-lock-builtin-face)))
+  "Face for things which can themselves be inspected."
   :group 'sly-mode-faces)
 
 ;;;;; sldb
@@ -360,8 +348,7 @@ PROPERTIES specifies any default face properties."
   (section        "the labels of major sections in the debugger buffer")
   (frame-label    "backtrace frame numbers")
   (restart-type   "restart names."
-                  (if (sly-face-inheritance-possible-p)
-                      '(:inherit font-lock-keyword-face)))
+                  '(:inherit font-lock-keyword-face))
   (restart        "restart descriptions")
   (restart-number "restart numbers (correspond to keystrokes to invoke)"
                   '(:bold t))
@@ -376,62 +363,6 @@ PROPERTIES specifies any default face properties."
   (local-name     "local variable names")
   (local-value    "local variable values")
   (catch-tag      "catch tags"))
-
-
-;;;; Minor modes
-
-;;;;; sly-mode
-
-(defvar sly-mode-indirect-map (make-sparse-keymap)
-  "Empty keymap which has `sly-mode-map' as it's parent.
-This is a hack so that we can reinitilize the real sly-mode-map
-more easily. See `sly-init-keymaps'.")
-
-(defvar sly-modeline-string)
-(defvar sly-buffer-connection)
-(defvar sly-dispatching-connection)
-(defvar sly-current-thread)
-
-(define-minor-mode sly-mode
-  "\\<sly-mode-map>\
-SLY: The Superior Lisp Interaction Mode for Emacs (minor-mode).
-
-Commands to compile the current buffer's source file and visually
-highlight any resulting compiler notes and warnings:
-\\[sly-compile-and-load-file]	- Compile and load the current buffer's file.
-\\[sly-compile-file]	- Compile (but not load) the current buffer's file.
-\\[sly-compile-defun]	- Compile the top-level form at point.
-
-Commands for visiting compiler notes:
-\\[sly-next-note]	- Goto the next form with a compiler note.
-\\[sly-previous-note]	- Goto the previous form with a compiler note.
-\\[sly-remove-notes]	- Remove compiler-note annotations in buffer.
-
-Finding definitions:
-\\[sly-edit-definition]	\
-- Edit the definition of the function called at point.
-\\[sly-pop-find-definition-stack]	\
-- Pop the definition stack to go back from a definition.
-
-Documentation commands:
-\\[sly-describe-symbol]	- Describe symbol.
-\\[sly-apropos]	- Apropos search.
-\\[sly-disassemble-symbol]	- Disassemble a function.
-
-Evaluation commands:
-\\[sly-eval-defun]	- Evaluate top-level from containing point.
-\\[sly-eval-last-expression]	- Evaluate sexp before point.
-\\[sly-pprint-eval-last-expression]	\
-- Evaluate sexp before point, pretty-print result.
-
-Full set of commands:
-\\{sly-mode-map}"
-  nil
-  nil
-  sly-mode-indirect-map
-  (sly-setup-command-hooks)
-  (setq sly-modeline-string (sly-modeline-string)))
-
 
 
 ;;;;;; Modeline
@@ -480,169 +411,109 @@ information."
 
 
 ;;;;; Key bindings
+(defvar sly-doc-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-a") 'sly-apropos)
+    (define-key map (kbd "C-z") 'sly-apropos-all)
+    (define-key map (kbd "C-p") 'sly-apropos-package)
+    (define-key map (kbd "C-d") 'sly-describe-symbol)
+    (define-key map (kbd "C-f") 'sly-describe-function)
+    (define-key map (kbd "C-h") 'sly-documentation-lookup)
+    (define-key map (kbd "C-~") 'common-lisp-hyperspec-format)
+    (define-key map (kbd "C-#") 'common-lisp-hyperspec-lookup-reader-macro)
+    map))
 
-(defvar sly-parent-map nil
-  "Parent keymap for shared between all SLY related modes.")
+(defvar sly-who-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c") 'sly-who-calls)
+    (define-key map (kbd "C-w") 'sly-calls-who)
+    (define-key map (kbd "C-r") 'sly-who-references)
+    (define-key map (kbd "C-b") 'sly-who-binds)
+    (define-key map (kbd "C-s") 'sly-who-sets)
+    (define-key map (kbd "C-m") 'sly-who-macroexpands)
+    (define-key map (kbd "C-a") 'sly-who-specializes)
+    map))
 
-(defvar sly-parent-bindings
-  '(("\M-."      sly-edit-definition)
-    ("\M-,"      sly-pop-find-definition-stack)
-    ("\M-_"      sly-edit-uses)    ; for German layout
-    ("\M-?"      sly-edit-uses)    ; for USian layout
-    ("\C-x4." 	 sly-edit-definition-other-window)
-    ("\C-x5." 	 sly-edit-definition-other-frame)
-    ("\C-x\C-e"  sly-eval-last-expression)
-    ("\C-\M-x"   sly-eval-defun)
-    ;; Include PREFIX keys...
-    ("\C-c"	 sly-prefix-map)))
-
-(defvar sly-prefix-map nil
-  "Keymap for commands prefixed with `sly-prefix-key'.")
-
-(defvar sly-prefix-bindings
-  '(("\C-r"  sly-eval-region)
-    (":"     sly-interactive-eval)
-    ("\C-e"  sly-interactive-eval)
-    ("E"     sly-edit-value)
-    ("\C-l"  sly-load-file)
-    ("\C-b"  sly-interrupt)
-    ("\M-d"  sly-disassemble-symbol)
-    ("\C-t"  sly-toggle-trace-fdefinition)
-    ("I"     sly-inspect)
-    ("\C-xt" sly-list-threads)
-    ("\C-xn" sly-cycle-connections)
-    ("\C-xc" sly-list-connections)
-    ("<"     sly-list-callers)
-    (">"     sly-list-callees)
+(defvar sly-prefix-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-r")   'sly-eval-region)
+    (define-key map (kbd ":")     'sly-interactive-eval)
+    (define-key map (kbd "C-e")   'sly-interactive-eval)
+    (define-key map (kbd "E")     'sly-edit-value)
+    (define-key map (kbd "C-l")   'sly-load-file)
+    (define-key map (kbd "C-b")   'sly-interrupt)
+    (define-key map (kbd "M-d")   'sly-disassemble-symbol)
+    (define-key map (kbd "C-t")   'sly-toggle-trace-fdefinition)
+    (define-key map (kbd "I")     'sly-inspect)
+    (define-key map (kbd "C-x t") 'sly-list-threads)
+    (define-key map (kbd "C-x n") 'sly-cycle-connections)
+    (define-key map (kbd "C-x c") 'sly-list-connections)
+    (define-key map (kbd "<")     'sly-list-callers)
+    (define-key map (kbd ">")     'sly-list-callees)
     ;; Include DOC keys...
-    ("\C-d"  sly-doc-map)
+    (define-key map (kbd "C-d")  sly-doc-map)
     ;; Include XREF WHO-FOO keys...
-    ("\C-w"  sly-who-map)
-    ))
+    (define-key map (kbd "C-w")  sly-who-map)
+    map))
 
-(defvar sly-editing-map nil
-  "These keys are useful for buffers where the user can insert and
-edit s-exprs, e.g. for source buffers and the REPL.")
+(defvar sly-parent-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "M-.")     'sly-edit-definition)
+    (define-key map (kbd "M-,")     'sly-pop-find-definition-stack)
+    (define-key map (kbd "M-_")     'sly-edit-uses)    ; for German layout
+    (define-key map (kbd "M-?")     'sly-edit-uses)    ; for USian layout
+    (define-key map (kbd "C-x 4 .") 'sly-edit-definition-other-window)
+    (define-key map (kbd "C-x 5 .") 'sly-edit-definition-other-frame)
+    (define-key map (kbd "C-x C-e") 'sly-eval-last-expression)
+    (define-key map (kbd "C-M-x")   'sly-eval-defun)
+    ;; Include PREFIX keys...
+    (define-key map (kbd "C-c")     sly-prefix-map)
+    map))
 
-(defvar sly-editing-keys
-  `(;; Completion
-    ("\M-\t"      sly-complete-symbol)
+(defvar sly-mode-map
+  (let ((map (make-sparse-keymap)))
+    ;; Completion
+    (define-key map (kbd "M-t") 'sly-complete-symbol)
     ;; Evaluating
-    ;;("\C-x\M-e" sly-eval-last-expression-display-output :inferior t)
-    ("\C-c\C-p"   sly-pprint-eval-last-expression)
+    (define-key map (kbd "C-c C-p") 'sly-pprint-eval-last-expression)
     ;; Macroexpand
-    ("\C-c\C-m"   sly-expand-1)
-    ("\C-c\M-m"   sly-macroexpand-all)
+    (define-key map (kbd "C-c C-m") 'sly-expand-1)
+    (define-key map (kbd "C-c M-m") 'sly-macroexpand-all)
     ;; Misc
-    ("\C-c\C-u"   sly-undefine-function)
-    (,(kbd "C-M-.")   sly-next-location)
-    (,(kbd "C-M-,")   sly-previous-location)
-    ;; Obsolete, redundant bindings
-    ("\C-c\C-i" sly-complete-symbol)
-    ;;("\M-*" pop-tag-mark) ; almost to clever
-    ))
+    (define-key map (kbd "C-c C-u") 'sly-undefine-function)
+    (define-key map (kbd "C-M-.") 'sly-next-location)
+    (define-key map (kbd "C-M-,") 'sly-previous-location)
+    map))
 
-(defvar sly-mode-map nil
-  "Keymap for sly-mode.")
+(defvar sly-editing-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "M-p")     'sly-previous-note)
+    (define-key map (kbd "M-n")     'sly-next-note)
+    (define-key map (kbd "C-c M-c") 'sly-remove-notes)
+    (define-key map (kbd "C-c C-k") 'sly-compile-and-load-file)
+    (define-key map (kbd "C-c M-k") 'sly-compile-file)
+    (define-key map (kbd "C-c C-c") 'sly-compile-defun)
+    map))
 
-(defvar sly-keys
-  '( ;; Compiler notes
-    ("\M-p"       sly-previous-note)
-    ("\M-n"       sly-next-note)
-    ("\C-c\M-c"   sly-remove-notes)
-    ("\C-c\C-k"   sly-compile-and-load-file)
-    ("\C-c\M-k"   sly-compile-file)
-    ("\C-c\C-c"   sly-compile-defun)))
-
-(defun sly-nop ()
-  "The null command. Used to shadow currently-unused keybindings."
-  (interactive)
-  (call-interactively 'undefined))
-
-(defvar sly-doc-map nil
-  "Keymap for documentation commands. Bound to a prefix key.")
-
-(defvar sly-doc-bindings
-  '((?a sly-apropos)
-    (?z sly-apropos-all)
-    (?p sly-apropos-package)
-    (?d sly-describe-symbol)
-    (?f sly-describe-function)
-    (?h sly-documentation-lookup)
-    (?~ common-lisp-hyperspec-format)
-    (?# common-lisp-hyperspec-lookup-reader-macro)))
-
-(defvar sly-who-map nil
-  "Keymap for who-xref commands. Bound to a prefix key.")
-
-(defvar sly-who-bindings
-  '((?c sly-who-calls)
-    (?w sly-calls-who)
-    (?r sly-who-references)
-    (?b sly-who-binds)
-    (?s sly-who-sets)
-    (?m sly-who-macroexpands)
-    (?a sly-who-specializes)))
-
-(defun sly-init-keymaps ()
-  "(Re)initialize the keymaps for `sly-mode'."
-  (interactive)
-  (sly-init-keymap 'sly-doc-map t t sly-doc-bindings)
-  (sly-init-keymap 'sly-who-map t t sly-who-bindings)
-  (sly-init-keymap 'sly-prefix-map t nil sly-prefix-bindings)
-  (sly-init-keymap 'sly-parent-map nil nil sly-parent-bindings)
-  (sly-init-keymap 'sly-editing-map nil nil sly-editing-keys)
-  (set-keymap-parent sly-editing-map sly-parent-map)
-  (sly-init-keymap 'sly-mode-map nil nil sly-keys)
-  (set-keymap-parent sly-mode-map sly-editing-map)
-  (set-keymap-parent sly-mode-indirect-map sly-mode-map))
-
-(defun sly-init-keymap (keymap-name prefixp bothp bindings)
-  (set keymap-name (make-sparse-keymap))
-  (when prefixp (define-prefix-command keymap-name))
-  (sly-bind-keys (eval keymap-name) bothp bindings))
-
-(defun sly-bind-keys (keymap bothp bindings)
-  "Add BINDINGS to KEYMAP.
-If BOTHP is true also add bindings with control modifier."
-  (cl-loop for (key command) in bindings do
-           (cond (bothp
-                  (define-key keymap `[,key] command)
-                  (unless (equal key ?h)     ; But don't bind C-h
-                    (define-key keymap `[(control ,key)] command)))
-                 (t (define-key keymap key command)))))
-
-(sly-init-keymaps)
-
-(define-minor-mode sly-editing-mode
-  "Minor mode which makes sly-editing-map available.
-\\{sly-editing-map}"
-  nil
-  nil
-  sly-editing-map)
 
 
-;;;; Setup initial `sly-mode' hooks
+;;;; Minor modes
 
-(make-variable-buffer-local
- (defvar sly-pre-command-actions nil
-   "List of functions to execute before the next Emacs command.
-This list of flushed between commands."))
+;;;;; sly-mode
+(defvar sly-buffer-connection)
+(defvar sly-dispatching-connection)
+(defvar sly-current-thread)
 
-(defun sly-pre-command-hook ()
-  "Execute all functions in `sly-pre-command-actions', then NIL it."
-  (dolist (undo-fn sly-pre-command-actions)
-    (funcall undo-fn))
-  (setq sly-pre-command-actions nil))
+(define-minor-mode sly-mode
+  "Minor mode for horizontal SLY functionality."
+  nil nil)
 
-(defun sly-post-command-hook ()
-  (when (null pre-command-hook) ; sometimes this is lost
-    (add-hook 'pre-command-hook 'sly-pre-command-hook)))
-
-(defun sly-setup-command-hooks ()
-  "Setup a buffer-local `pre-command-hook' to call `sly-pre-command-hook'."
-  (add-hook 'pre-command-hook 'sly-pre-command-hook 'append 'local)
-  (add-hook 'post-command-hook 'sly-post-command-hook 'append 'local))
+(define-minor-mode sly-editing-mode
+  "Minor mode for editing `lisp-mode' buffers."
+  nil nil nil
+  (sly-mode 1)
+  (set (make-local-variable 'lisp-indent-function)
+       'common-lisp-indent-function))
 
 
 ;;;; Framework'ey bits
@@ -3619,6 +3490,18 @@ Return nil if point is not at filename."
         (minibuffer-message text)
       (message "%s" text))))
 
+(defun sly-show-arglist ()
+  (let ((op (ignore-errors
+              (save-excursion
+                (backward-up-list 1)
+                (down-list 1)
+                (sly-symbol-at-point)))))
+    (when op
+      (sly-eval-async `(swank:operator-arglist ,op ,(sly-current-package))
+        (lambda (arglist)
+          (when arglist
+            (sly-message "%s" arglist)))))))
+
 (defun sly-indent-and-complete-symbol ()
   "Indent the current line and perform symbol completion.
 First indent the line. If indenting doesn't move point, complete
@@ -3632,7 +3515,7 @@ for the most recently enclosed macro or function."
       (cond ((save-excursion (re-search-backward "[^() \n\t\r]+\\=" nil t))
              (sly-complete-symbol))
             ((memq (char-before) '(?\t ?\ ))
-             (sly-echo-arglist))))))
+             (sly-show-arglist))))))
 
 (defvar sly-minibuffer-map
   (let ((map (make-sparse-keymap)))
@@ -6256,18 +6139,8 @@ was called originally."
   "Face for labels in the inspector."
   :group 'sly-inspector)
 
-(defface sly-inspector-value-face
-  (if (sly-face-inheritance-possible-p)
-      '((t (:inherit font-lock-builtin-face)))
-    '((((background light)) (:foreground "MediumBlue" :bold t))
-      (((background dark)) (:foreground "LightGray" :bold t))))
-  "Face for things which can themselves be inspected."
-  :group 'sly-inspector)
-
 (defface sly-inspector-action-face
-  (if (sly-face-inheritance-possible-p)
-      '((t (:inherit font-lock-warning-face)))
-    '((t (:foreground "OrangeRed"))))
+  '((t (:inherit font-lock-warning-face)))
   "Face for labels of inspector actions."
   :group 'sly-inspector)
 
@@ -6324,7 +6197,7 @@ KILL-BUFFER hooks for the inspector buffer."
           (sly-propertize-region
               (list 'sly-part-number id
                     'mouse-face 'highlight
-                    'face 'sly-inspector-value-face)
+                    'face 'sly-inspectable-value-face)
             (insert title))
           (while (eq (char-before) ?\n)
             (backward-delete-char 1))
@@ -6365,7 +6238,7 @@ If PREV resp. NEXT are true insert more-buttons as needed."
        (sly-propertize-region
            (list 'sly-part-number id
                  'mouse-face 'highlight
-                 'face 'sly-inspector-value-face)
+                 'face 'sly-inspectable-value-face)
          (insert string)))
       ((:label string)
        (insert (sly-inspector-fontify label string)))
