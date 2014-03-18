@@ -1138,7 +1138,7 @@ See `sly-start'."
                  (args (sly-inferior-lisp-args process)))
              (sly-delete-swank-port-file 'message)
              (let ((c (sly-connect sly-lisp-host port
-                                     (plist-get args :coding-system))))
+                                   (plist-get args :coding-system))))
                (sly-set-inferior-process c process))))
           ((and retries (zerop retries))
            (message "Gave up connecting to Swank after %d attempts." attempt))
@@ -1249,12 +1249,15 @@ first line of the file."
     (file-error nil)))
 
 ;;; Interface
+(defvar sly--net-connect-counter 0)
 (defun sly-net-connect (host port)
   "Establish a connection with a CL."
   (let* ((inhibit-quit nil)
-         (proc (open-network-stream "SLY Lisp" nil host port))
-         (buffer (sly-make-net-buffer " *cl-connection*")))
+         (name (format "sly-%s" (incf sly--net-connect-counter)))
+         (proc (open-network-stream name nil host port))
+         (buffer (sly-make-net-buffer (format " *%s*" name))))
     (push proc sly-net-processes)
+    (set-process-plist proc `(sly--net-connect-counter ,sly--net-connect-counter))
     (set-process-buffer proc buffer)
     (set-process-filter proc 'sly-net-filter)
     (set-process-sentinel proc 'sly-net-sentinel)

@@ -22,7 +22,10 @@
 	       with-connection
 	       with-top-level-restart
 	       with-sly-interrupts
-               stop-processing)))
+               stop-processing
+               with-buffer-syntax
+               with-retry-restart
+               )))
     (eval `(defpackage #:swank-api
 	     (:use)
 	     (:import-from #:swank . ,api)
@@ -139,20 +142,23 @@
   (with-slots (remote env) channel
     (let ((aborted t))
       (with-bindings env
-	(unwind-protect
-	     (let ((results (with-sly-interrupts (read-eval-print string))))
-	       (send-to-remote-channel remote `(:write-values ,results))
-	       (setq aborted nil))
-          (when /
-            (setq *** **  ** *  * (car /)
-                  /// //  // /  
-                  +++ ++  ++ + ))
-          (loop for binding in env 
-                do (setf (cdr binding) (symbol-value (car binding))))
-	  (cond (aborted
-		 (send-to-remote-channel remote `(:evaluation-aborted)))
-		(t
-		 (send-prompt channel))))))))
+	(let ((p *package*)
+              results)
+          (unwind-protect
+               (progn (setq results (with-sly-interrupts (read-eval-print string)))
+                      (setq aborted nil))
+            (loop for binding in env 
+                  do (setf (cdr binding) (symbol-value (car binding))))
+            (cond (aborted
+                   (send-to-remote-channel remote `(:evaluation-aborted)))
+                  (t
+                   (when /
+                     (setq *** **  ** *  * (car /)
+                           /// //  // /  
+                           +++ ++  ++ + ))
+                   (unless (eq *package* p)
+                     (send-prompt channel))
+                   (send-to-remote-channel remote `(:write-values ,results))))))))))
 
 (defun send-prompt (channel)
   (with-slots (env remote) channel
@@ -170,15 +176,16 @@
     (throw tag string)))
 
 (defun read-eval-print (string)
-  (with-input-from-string (in string)
-    (setq / ())
-    (loop for form = (read in nil in)
-          until (eq form in)
-          do
-             (setq / (multiple-value-list (eval (setq + form)))))
-    (force-output)
-    (vector-push-extend / *history*)
-    (mapcar #'swank::to-line /)))
+  (with-retry-restart (:msg "Retry SLY mREPL evaluation request.")
+    (with-input-from-string (in string)
+      (setq / ())
+      (loop for form = (read in nil in)
+            until (eq form in)
+            do
+               (setq / (multiple-value-list (eval (setq + form)))))
+      (force-output)
+      (vector-push-extend / *history*)
+      (mapcar #'swank::to-line /))))
 
 (defun make-listener-output-stream (channel)
   (let ((remote (slot-value channel 'remote)))
