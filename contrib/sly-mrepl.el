@@ -92,9 +92,10 @@
 (defun sly-mrepl--mark () (process-mark (sly-mrepl--process)))
 
 (defun sly-mrepl--teardown ()
-  (sly-mrepl--send `(:teardown))
-  (set (make-local-variable 'sly-mrepl--remote-channel) nil)
-  (sly-close-channel sly-mrepl--local-channel)
+  (ignore-errors
+    (sly-mrepl--send `(:teardown))
+    (set (make-local-variable 'sly-mrepl--remote-channel) nil)
+    (sly-close-channel sly-mrepl--local-channel))
   (delete-process (sly-mrepl--process)))
 
 (defun sly-mrepl--insert (string)
