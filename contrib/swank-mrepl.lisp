@@ -22,8 +22,7 @@
 	       with-connection
 	       with-top-level-restart
 	       with-sly-interrupts
-               stop-processing
-	       )))
+               stop-processing)))
     (eval `(defpackage #:swank-api
 	     (:use)
 	     (:import-from #:swank . ,api)
@@ -36,10 +35,11 @@
 (in-package :swank-mrepl)
 
 (defclass listener-channel (channel)
-  ((remote :initarg  :remote :accessor remote)
-   (env    :initarg  :env    :accessor env)
-   (mode   :initform :eval   :accessor channel-mode)
-   (tag    :initform nil)))
+  ((remote     :initarg  :remote :accessor remote)
+   (env        :initarg  :env    :accessor env)
+   (mode       :initform :eval   :accessor channel-mode)
+   (tag        :initform nil)
+   (dedicated  :initform nil     :accessor dedicated)))
 
 (defmethod initialize-instance :after ((channel listener-channel)
                                        &rest initargs)
@@ -61,7 +61,12 @@
               :remote remote :thread nil
               :name (format nil "mrepl listener for remote ~a" remote)))
          (thread (channel-thread ch)))
+
+    (when *use-dedicated-output-stream*
+      (setf (dedicated ch) (open-dedicated-output-stream ch)))
+
     (setf (slot-value ch 'env) (initial-listener-env ch))
+    
     (when thread
       (swank-backend:send thread `(:serve-channel ,ch)))
     (list (channel-id ch)
@@ -71,10 +76,12 @@
 
 (defvar *history* nil)
 
-(defun initial-listener-env (listener)
+(defun initial-listener-env (channel)
   `((*package* . ,*package*)
-    (*standard-output* . ,(make-listener-output-stream listener))
-    (*standard-input* . ,(make-listener-input-stream listener))
+    (*standard-output* . ,(or
+                           (dedicated channel)
+                           (make-listener-output-stream channel)))
+    (*standard-input* . ,(make-listener-input-stream channel))
     (*history* . ,(make-array 40 :fill-pointer 0
                                  :adjustable t))
     (*) (**) (***)
@@ -96,12 +103,13 @@
   (swank-backend:spawn 
    (lambda ()
      (with-connection (connection)
-       (destructure-case (swank-backend:receive)
-	 ((:serve-channel c)
-          (assert (eq c channel))
-	  (loop
-	   (with-top-level-restart (connection (drop-unprocessed-events channel))
-	     (when (eq (process-requests nil)
+       (destructure-case
+        (swank-backend:receive)
+        ((:serve-channel c)
+         (assert (eq c channel))
+         (loop
+           (with-top-level-restart (connection (drop-unprocessed-events channel))
+             (when (eq (process-requests nil)
                        'listener-teardown)
                (return))))))))
    :name (format nil "sly-mrepl-listener-ch-~a" (channel-id channel))))
@@ -198,5 +206,45 @@
 	   (catch tag (process-requests nil))
 	(setf tag old-tag)
 	(set-mode channel old-mode)))))
+
+
+;;; Dedicated output stream
+;;;
+(defparameter *use-dedicated-output-stream* t
+  "When T, dedicate a second stream for sending output to Emacs.")
+
+(defparameter *dedicated-output-stream-port* 0
+  "Which port we should use for the dedicated output stream.")
+
+(defparameter *dedicated-output-stream-buffering*
+  (if (eq swank:*communication-style* :spawn) t nil)
+  "The buffering scheme that should be used for the output stream.
+Valid values are nil, t, :line")
+
+(defun open-dedicated-output-stream (channel)
+  "Establish a dedicated output connection to Emacs.
+
+Notify Emacs's CHANNEL that a socket is listening at a local ephemeral
+port. This is an optimized way for Lisp to deliver output to Emacs."
+  (let ((socket (swank-backend:create-socket swank::*loopback-interface*
+                                             *dedicated-output-stream-port*))
+        ;; HACK: hardcoded coding system
+        (ef (swank::find-external-format-or-lose "utf-8")))
+    (unwind-protect
+         (let ((port (swank-backend:local-port socket)))
+           (send-to-remote-channel (remote channel) `(:open-dedicated-output-stream ,port nil))
+           (let ((dedicated (swank-backend:accept-connection
+                             socket
+                             :external-format ef
+                             :buffering *dedicated-output-stream-buffering*
+                             :timeout 30)))
+             (swank:authenticate-client dedicated)
+             (swank-backend:close-socket socket)
+             (setf socket nil)
+             dedicated))
+      (when socket
+        (swank-backend:close-socket socket)))))
+
+
 
 (provide :swank-mrepl)

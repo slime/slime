@@ -24,7 +24,9 @@
            #:swank-debugger-hook
            #:emacs-inspect
            ;;#:inspect-slot-for-emacs
-           #:stop-processing)
+           #:stop-processing
+           #:authenticate-client
+           #:*loopback-interface*)
   ;; These are user-configurable variables:
   (:export #:*communication-style*
            #:*dont-close*
@@ -1040,7 +1042,7 @@ The processing is done in the extent of the toplevel restart."
              (with-top-level-restart (connection nil)
                (apply #'eval-for-emacs 
                       (cdr (wait-for-event `(:emacs-rex . _)))))))
-         :name "worker"))
+         :name "swank-worker"))
 
 (defun add-active-thread (connection thread)
   (etypecase connection
@@ -3474,7 +3476,8 @@ Example:
   (setq *thread-list* (all-threads))
   (when (and *emacs-connection*
              (use-threads-p)
-             (equalp (thread-name (current-thread)) "worker"))
+             ;; FIXME: hardcoded thread name
+             (equalp (thread-name (current-thread)) "swank-worker")) 
     (setf *thread-list* (delete (current-thread) *thread-list*)))
   (let* ((plist (thread-attributes (car *thread-list*)))
          (labels (loop for (key) on plist by #'cddr 

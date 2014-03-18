@@ -1056,7 +1056,7 @@ Return the created process."
       (comint-exec (current-buffer) "inferior-lisp" program nil program-args))
     (lisp-mode-variables t)
     (let ((proc (get-buffer-process (current-buffer))))
-      (sly-set-query-on-exit-flag proc)
+      (set-process-query-on-exit-flag proc (not sly-kill-without-query-p))
       (run-hooks 'sly-inferior-process-start-hook)
       proc)))
 
@@ -1258,7 +1258,7 @@ first line of the file."
     (set-process-buffer proc buffer)
     (set-process-filter proc 'sly-net-filter)
     (set-process-sentinel proc 'sly-net-sentinel)
-    (sly-set-query-on-exit-flag proc)
+    (set-process-query-on-exit-flag proc (not sly-kill-without-query-p))
     (when (fboundp 'set-process-coding-system)
       (set-process-coding-system proc 'binary 'binary))
     (when-let (secret (sly-secret))
@@ -1272,15 +1272,6 @@ first line of the file."
       (buffer-disable-undo)
       (set (make-local-variable 'kill-buffer-query-functions) nil))
     buffer))
-
-(defun sly-set-query-on-exit-flag (process)
-  "Set PROCESS's query-on-exit-flag to `sly-kill-without-query-p'."
-  (when sly-kill-without-query-p
-    ;; avoid byte-compiler warnings
-    (let ((fun (if (fboundp 'set-process-query-on-exit-flag)
-                   'set-process-query-on-exit-flag
-                 'process-kill-without-query)))
-      (funcall fun process nil))))
 
 ;;;;; Coding system madness
 

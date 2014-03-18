@@ -23,6 +23,15 @@
 
 (require 'comint)
 
+(defvar sly-mrepl-hook nil
+  "Functions run after `sly-mrepl-new' sets up a REPL.")
+
+(defvar sly-mrepl-runonce-hook nil
+  "Functions run once after `sly-mrepl-new' sets up a REPL.
+
+After running the contents of this hook it's default value is
+emptied.See also `sly-mrepl-hook'")
+
 (defvar sly-mrepl--remote-channel nil)
 (defvar sly-mrepl--local-channel nil)
 (defvar sly-mrepl--expect-sexp-mode t)
@@ -60,12 +69,14 @@
                                  (format "*sly-mrepl %s*" (sly-connection-name connection))))))
     (with-current-buffer buffer
       (sly-mrepl-mode)
-      (start-process (format "sly-mrepl-pty-ch-%s" (sly-channel.id local))
+      (start-process (format "sly-pty-ch-%s" (sly-channel.id local))
                      (current-buffer) nil)
       (set-process-query-on-exit-flag (sly-mrepl--process) nil)
 
       (setq header-line-format (format "Waiting for REPL creation ack for channel %d..."
                                        (sly-channel.id local)))
+      (sly-channel-put local 'buffer (current-buffer))
+      (add-hook 'kill-buffer-hook 'sly-mrepl--teardown nil 'local)
       (set (make-local-variable 'sly-mrepl--local-channel) local))
     (sly-eval-async
         `(swank-mrepl:create-mrepl ,(sly-channel.id local))
@@ -75,25 +86,18 @@
             (setq header-line-format nil)
             (when (zerop (buffer-size))
               (sly-mrepl--insert (concat "; SLY " (sly-version))))
-            (add-hook 'kill-buffer-hook 'sly-mrepl--teardown nil 'local)
             (setq sly-current-thread thread-id)
             (setq sly-buffer-connection connection)
             (set (make-local-variable 'sly-mrepl--remote-channel) remote)
-            (sly-channel-put local 'buffer (current-buffer))
             (sly-channel-send local `(:prompt ,package ,prompt))
-            (sly-mrepl--send-pending)))))
+            (sly-mrepl--send-pending)
+            (run-hooks 'sly-mrepl-hook 'sly-mrepl-runonce-hook)
+            (set-default 'sly-mrepl-runonce-hook nil)))))
     buffer))
 
 (defun sly-mrepl--process () (get-buffer-process (current-buffer))) ;stupid
 
 (defun sly-mrepl--mark () (process-mark (sly-mrepl--process)))
-
-(defun sly-mrepl--teardown ()
-  (ignore-errors
-    (sly-mrepl--send `(:teardown))
-    (set (make-local-variable 'sly-mrepl--remote-channel) nil)
-    (sly-close-channel sly-mrepl--local-channel))
-  (delete-process (sly-mrepl--process)))
 
 (defun sly-mrepl--insert (string)
   (comint-output-filter (sly-mrepl--process) string))
@@ -147,14 +151,12 @@
     (sly-mrepl--insert "; Evaluation aborted\n")))
 
 (sly-define-channel-method listener :write-string (string)
-  (sly-mrepl--write-string self string))
-
-(sly-define-channel-method listener :inspect-result (parts)
-  (sly-open-inspector parts))
-
-(defun sly-mrepl--write-string (self string)
   (with-current-buffer (sly-channel-get self 'buffer)
     (sly-mrepl--insert string)))
+
+(sly-define-channel-method listener :inspect-result (parts)
+  (cl-assert (sly-channel-p self))
+  (sly-open-inspector parts))
 
 (sly-define-channel-method listener :set-read-mode (mode)
   (with-current-buffer (sly-channel-get self 'buffer)
@@ -262,6 +264,59 @@ If message can't be sent right now, queue it onto
                               (swank-trace-dialog::find-trace-part
                                ,id ,part-id ,type))))
     (pop-to-buffer (current-buffer))))
+
+
+;;; Dedicated output stream
+;;;
+(defun sly-mrepl--dedicated-stream-output-filter (process string)
+  (let ((channel (process-get process 'sly-mrepl--channel)))
+    (when channel 
+      (with-current-buffer (sly-channel-get channel 'buffer)
+        (when (and (plusp (length string))
+                   (eq (process-status sly-buffer-connection) 'open))
+          (sly-mrepl--insert string))))))
+
+(defvar sly-mrepl--dedicated-stream-hooks)
+
+(defun sly-mrepl--open-dedicated-stream (channel port coding-system)
+  (let ((stream (open-network-stream (format "sly-dds-ch-%s" (sly-channel.id channel))
+                                     (get-buffer-create
+                                      (format " *sly-mrepl-dedicated-stream (ch: %s)*"
+                                              (sly-channel.id channel)))
+				     (car (process-contact (sly-connection)))
+                                     port))
+        (emacs-coding-system (car (cl-find coding-system
+                                           sly-net-valid-coding-systems
+                                           :key #'cl-third))))
+    (set-process-query-on-exit-flag stream nil)
+    (set-process-plist stream `(sly-mrepl--channel ,channel))
+    (set-process-filter stream 'sly-mrepl--dedicated-stream-output-filter)
+    (set-process-coding-system stream emacs-coding-system emacs-coding-system)
+    (when-let (secret (sly-secret))
+      (sly-net-send secret stream))
+    (run-hook-with-args 'sly-mrepl--dedicated-stream-hooks stream)
+    stream))
+
+(defvar sly-mrepl--dedicated-stream nil)
+
+(sly-define-channel-method listener :open-dedicated-output-stream (port _coding-system)
+  (with-current-buffer (sly-channel-get self 'buffer)
+    ;; HACK: no coding system
+    (set (make-local-variable 'sly-mrepl--dedicated-stream)
+         (sly-mrepl--open-dedicated-stream self port nil))))
+
+
+;;; Teardown
+;;;
+(defun sly-mrepl--teardown ()
+  (ignore-errors
+    (sly-mrepl--send `(:teardown))
+    (set (make-local-variable 'sly-mrepl--remote-channel) nil)
+    (sly-close-channel sly-mrepl--local-channel))
+  (delete-process (sly-mrepl--process))
+  (when sly-mrepl--dedicated-stream
+    (kill-buffer (process-buffer sly-mrepl--dedicated-stream))
+    (delete-process sly-mrepl--dedicated-stream)))
 
 
 (def-sly-selector-method ?m
