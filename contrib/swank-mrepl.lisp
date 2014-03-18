@@ -114,13 +114,13 @@
       (:read (mrepl-read c string))
       (:drop))))
 
-(define-channel-method :inspect ((c listener-channel) object-idx)
+(define-channel-method :inspect ((c listener-channel) object-idx value-idx)
   (log-event ":inspect ~s~%" object-idx)
   (with-slots (remote env) c
     (with-bindings env
       (send-to-remote-channel remote
                               `(:inspect-result
-                                ,(swank::inspect-object (aref *history* object-idx)))))))
+                                ,(swank::inspect-object (nth value-idx (aref *history* object-idx))))))))
 
 (define-channel-method :teardown ((c listener-channel))
   (log-event ":teardown~%")
@@ -132,8 +132,8 @@
     (let ((aborted t))
       (with-bindings env
 	(unwind-protect
-	     (let ((result (with-sly-interrupts (read-eval-print string))))
-	       (send-to-remote-channel remote `(:write-result ,result))
+	     (let ((results (with-sly-interrupts (read-eval-print string))))
+	       (send-to-remote-channel remote `(:write-values ,results))
 	       (setq aborted nil))
           (when /
             (setq *** **  ** *  * (car /)
@@ -170,9 +170,7 @@
              (setq / (multiple-value-list (eval (setq + form)))))
     (force-output)
     (vector-push-extend / *history*)
-    (if /
-	(format nil "~{~s~^~%~}" /) 
-	"; No values")))
+    (mapcar #'swank::to-line /)))
 
 (defun make-listener-output-stream (channel)
   (let ((remote (slot-value channel 'remote)))

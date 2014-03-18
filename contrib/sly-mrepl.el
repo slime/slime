@@ -114,18 +114,30 @@
   (when (get-buffer-window)
     (recenter -1)))
 
-(sly-define-channel-method listener :write-result (result)
+;; HACK: for SLIME compatibility
+(sly-define-channel-method listener :write-result (string)
+  (with-current-buffer (sly-channel-get self 'buffer)
+    (sly-mrepl--insert string)))
+
+(define-button-type 'sly
+  'face 'sly-inspectable-value-face)
+
+(sly-define-channel-method listener :write-values (values)
   (with-current-buffer (sly-channel-get self 'buffer)
     (cl-incf sly-mrepl--result-counter)
-    (let* ((button-action (lambda (_button)
-                            (sly-mrepl--send `(:inspect ,sly-mrepl--result-counter))))
-           (filter (lambda (output)
-                     (if (string-match "^;" output)
-                         output
-                       (make-text-button output nil 'action button-action
-                                         'font-lock-face 'sly-inspectable-value-face))))
-           (comint-preoutput-filter-functions (list filter)))
-      (sly-mrepl--insert result))))
+    (let* ((comint-preoutput-filter-functions nil))
+      (loop for value in values
+            for idx from 0
+            for request = `(:inspect ,sly-mrepl--result-counter ,idx)
+            do
+            (sly-mrepl--insert (make-text-button value nil
+                                                 'action `(lambda (_button)
+                                                            (sly-mrepl--send ',request))
+                                                 :type 'sly))
+            
+            (sly-mrepl--insert "\n"))
+      (when (null values)
+        (sly-mrepl--insert "; No values")))))
 
 (sly-define-channel-method listener :evaluation-aborted ()
   (with-current-buffer (sly-channel-get self 'buffer)
