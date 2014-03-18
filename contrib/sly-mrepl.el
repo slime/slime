@@ -60,6 +60,8 @@ emptied.See also `sly-mrepl-hook'")
   ;;(set (make-local-variable 'comint-get-old-input) 'ielm-get-old-input)
   (set-syntax-table lisp-mode-syntax-table))
 
+(sly-define-channel-type listener)
+
 (defun sly-mrepl-new ()
   "Create a new listener window."
   (interactive)
@@ -111,8 +113,6 @@ emptied.See also `sly-mrepl-hook'")
 (defun sly-mrepl--insert (string)
   (comint-output-filter (sly-mrepl--process) string))
 
-(sly-define-channel-type listener)
-
 (defvar sly-mrepl--prompt nil)
 
 (sly-define-channel-method listener :prompt (package prompt)
@@ -144,16 +144,16 @@ emptied.See also `sly-mrepl-hook'")
   (with-current-buffer (sly-channel-get self 'buffer)
     (cl-incf sly-mrepl--result-counter)
     (let* ((comint-preoutput-filter-functions nil))
-      (loop for value in values
-            for idx from 0
-            for request = `(:inspect ,sly-mrepl--result-counter ,idx)
-            do
-            (sly-mrepl--insert (make-text-button value nil
-                                                 'action `(lambda (_button)
-                                                            (sly-mrepl--send ',request))
-                                                 :type 'sly))
-            
-            (sly-mrepl--insert "\n"))
+      (cl-loop for value in values
+               for idx from 0
+               for request = `(:inspect ,sly-mrepl--result-counter ,idx)
+               do
+               (sly-mrepl--insert (make-text-button value nil
+                                                    'action `(lambda (_button)
+                                                               (sly-mrepl--send ',request))
+                                                    :type 'sly))
+               
+               (sly-mrepl--insert "\n"))
       (when (null values)
         (sly-mrepl--insert "; No values"))
       (sly-mrepl--prompt))))
@@ -287,7 +287,7 @@ If message can't be sent right now, queue it onto
   (let ((channel (process-get process 'sly-mrepl--channel)))
     (when channel 
       (with-current-buffer (sly-channel-get channel 'buffer)
-        (when (and (plusp (length string))
+        (when (and (cl-plusp (length string))
                    (eq (process-status sly-buffer-connection) 'open))
           (sly-mrepl--insert string))))))
 

@@ -212,15 +212,15 @@ Complete listing of keybindings with *Fuzzy Completions*:
 (defun sly-fuzzy-completions (prefix &optional default-package)
   "Get the list of sorted completion objects from completing
 `prefix' in `package' from the connected Lisp."
-  (let ((prefix (etypecase prefix
+  (let ((prefix (cl-etypecase prefix
                   (symbol (symbol-name prefix))
                   (string prefix))))
     (sly-eval `(swank:fuzzy-completions ,prefix
-                                          ,(or default-package
-                                               (sly-current-package))
-                  :limit ,sly-fuzzy-completion-limit
-                  :time-limit-in-msec
-                  ,sly-fuzzy-completion-time-limit-in-msec))))
+                                        ,(or default-package
+                                             (sly-current-package))
+                                        :limit ,sly-fuzzy-completion-limit
+                                        :time-limit-in-msec
+                                        ,sly-fuzzy-completion-time-limit-in-msec))))
 
 (defun sly-fuzzy-selected (prefix completion)
   "Tell the connected Lisp that the user selected completion
@@ -243,13 +243,13 @@ most recently enclosed macro or function."
       (cond ((save-excursion (re-search-backward "[^() \n\t\r]+\\=" nil t))
              (sly-fuzzy-complete-symbol))
             ((memq (char-before) '(?\t ?\ ))
-             (sly-echo-arglist))))))
+             (sly-show-arglist))))))
 
-(defun* sly-fuzzy-complete-symbol ()
+(cl-defun sly-fuzzy-complete-symbol ()
   "Fuzzily completes the abbreviation at point into a symbol."
   (interactive)
   (when (save-excursion (re-search-backward "\"[^ \t\n]+\\=" nil t))
-    (return-from sly-fuzzy-complete-symbol
+    (cl-return-from sly-fuzzy-complete-symbol
       ;; don't add space after completion
       (let ((comint-completion-addsuffix '("/" . "")))
         (if sly-when-complete-filename-expand
@@ -258,27 +258,27 @@ most recently enclosed macro or function."
   (let* ((end (move-marker (make-marker) (sly-symbol-end-pos)))
          (beg (move-marker (make-marker) (sly-symbol-start-pos)))
          (prefix (buffer-substring-no-properties beg end)))
-    (destructuring-bind (completion-set interrupted-p)
+    (cl-destructuring-bind (completion-set interrupted-p)
         (sly-fuzzy-completions prefix)
       (if (null completion-set)
           (progn (sly-minibuffer-respecting-message
                   "Can't find completion for \"%s\"" prefix)
                  (ding)
                  (sly-fuzzy-done))
-          (goto-char end)
-          (cond ((sly-length= completion-set 1)
-                 ;; insert completed string
-                 (insert-and-inherit (caar completion-set))
-                 (delete-region beg end)
-                 (goto-char (+ beg (length (caar completion-set))))
-                 (sly-minibuffer-respecting-message "Sole completion")
-                 (sly-fuzzy-done))
-                ;; Incomplete
-                (t
-                 (sly-fuzzy-choices-buffer completion-set interrupted-p
-                                             beg end)
-                 (sly-minibuffer-respecting-message
-                  "Complete but not unique")))))))
+        (goto-char end)
+        (cond ((sly-length= completion-set 1)
+               ;; insert completed string
+               (insert-and-inherit (caar completion-set))
+               (delete-region beg end)
+               (goto-char (+ beg (length (caar completion-set))))
+               (sly-minibuffer-respecting-message "Sole completion")
+               (sly-fuzzy-done))
+              ;; Incomplete
+              (t
+               (sly-fuzzy-choices-buffer completion-set interrupted-p
+                                         beg end)
+               (sly-minibuffer-respecting-message
+                "Complete but not unique")))))))
 
 
 (defun sly-get-fuzzy-buffer ()
@@ -296,16 +296,16 @@ Flags: boundp fboundp generic-function class macro special-operator package
   "Inserts the completion object `completion' as a formatted
 completion choice into the current buffer, and mark it with the
 proper text properties."
-  (destructuring-bind (symbol-name score chunks classification-string)
+  (cl-destructuring-bind (symbol-name score chunks classification-string)
       completion
     (let ((start (point))
           (end))
       (insert symbol-name)
       (setq end (point))
       (dolist (chunk chunks)
-        (put-text-property (+ start (first chunk))
-                           (+ start (first chunk)
-                              (length (second chunk)))
+        (put-text-property (+ start (cl-first chunk))
+                           (+ start (cl-first chunk)
+                              (length (cl-second chunk)))
                            'face 'bold))
       (put-text-property start (point) 'mouse-face 'highlight)
       (dotimes (i (- max-length (- end start)))
@@ -387,14 +387,14 @@ done."
     (insert sly-fuzzy-explanation)
     (let ((max-length 12))
       (dolist (completion completions)
-        (setf max-length (max max-length (length (first completion)))))
+        (setf max-length (max max-length (length (cl-first completion)))))
 
       (insert "Completion:")
       (dotimes (i (- max-length 10)) (insert " "))
       ;;     Flags:   Score:
       ;; ... -------  --------
       ;;     bfgctmsp
-      (let* ((example-classification-string (fourth (first completions)))
+      (let* ((example-classification-string (cl-fourth (cl-first completions)))
              (classification-length (length example-classification-string))
              (spaces (- classification-length (length "Flags:"))))
         (insert "Flags:")
@@ -441,7 +441,7 @@ already been inserted, it does nothing."
                  (not (eq sly-fuzzy-current-completion
                           current-completion)))
         (sly-fuzzy-insert
-         (first (get-text-property (point) 'completion)))
+         (cl-first (get-text-property (point) 'completion)))
         (setq sly-fuzzy-current-completion
               current-completion)))))
 
@@ -507,7 +507,7 @@ was selected."
     (with-current-buffer (sly-get-fuzzy-buffer)
       (let ((completion (get-text-property (point) 'completion)))
         (when completion
-          (sly-fuzzy-insert (first completion))
+          (sly-fuzzy-insert (cl-first completion))
           (sly-fuzzy-selected sly-fuzzy-original-text
                                 completion)
           (sly-fuzzy-done))))))

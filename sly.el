@@ -365,51 +365,6 @@ PROPERTIES specifies any default face properties."
   (catch-tag      "catch tags"))
 
 
-;;;;;; Modeline
-
-(add-to-list 'minor-mode-alist
-             `(sly-mode (:eval (sly-modeline-string))))
-
-(defun sly-modeline-string ()
-  "Return the string to display in the modeline.
-\"SLY\" only appears if we aren't connected.  If connected,
-include package-name, connection-name, and possibly some state
-information."
-  (let ((conn (sly-current-connection)))
-    ;; Bail out early in case there's no connection, so we won't
-    ;; implicitly invoke `sly-connection' which may query the user.
-    (if (not conn)
-        (and sly-mode " SLY")
-      (let ((local (eq conn sly-buffer-connection))
-            (pkg   (sly-current-package)))
-        (concat " "
-                (if local "{" "[")
-                (if pkg (sly-pretty-package-name pkg) "?")
-                " "
-                ;; ignore errors for closed connections
-                (ignore-errors (sly-connection-name conn))
-                (sly-modeline-state-string conn)
-                (if local "}" "]"))))))
-
-(defun sly-pretty-package-name (name)
-  "Return a pretty version of a package name NAME."
-  (cond ((string-match "^#?:\\(.*\\)$" name)
-         (match-string 1 name))
-        ((string-match "^\"\\(.*\\)\"$" name)
-         (match-string 1 name))
-        (t name)))
-
-(defun sly-modeline-state-string (conn)
-  "Return a string possibly describing CONN's state."
-  (cond ((not (eq (process-status conn) 'open))
-         (format " %s" (process-status conn)))
-        ((let ((pending (length (sly-rex-continuations conn)))
-               (sldbs (length (sldb-buffers conn))))
-           (cond ((and (zerop sldbs) (zerop pending)) nil)
-                 ((zerop sldbs) (format " %s" pending))
-                 (t (format " %s/%s" pending sldbs)))))))
-
-
 ;;;;; Key bindings
 (defvar sly-doc-map
   (let ((map (make-sparse-keymap)))
@@ -515,6 +470,50 @@ information."
   (sly-mode 1)
   (set (make-local-variable 'lisp-indent-function)
        'common-lisp-indent-function))
+
+
+;;;;;; Modeline
+(add-to-list 'minor-mode-alist
+             `(sly-mode (:eval (sly-modeline-string))))
+
+(defun sly-modeline-string ()
+  "Return the string to display in the modeline.
+\"SLY\" only appears if we aren't connected.  If connected,
+include package-name, connection-name, and possibly some state
+information."
+  (let ((conn (sly-current-connection)))
+    ;; Bail out early in case there's no connection, so we won't
+    ;; implicitly invoke `sly-connection' which may query the user.
+    (if (not conn)
+        (and (symbol-value 'sly-mode) " SLY")
+      (let ((local (eq conn sly-buffer-connection))
+            (pkg   (sly-current-package)))
+        (concat " "
+                (if local "{" "[")
+                (if pkg (sly-pretty-package-name pkg) "?")
+                " "
+                ;; ignore errors for closed connections
+                (ignore-errors (sly-connection-name conn))
+                (sly-modeline-state-string conn)
+                (if local "}" "]"))))))
+
+(defun sly-pretty-package-name (name)
+  "Return a pretty version of a package name NAME."
+  (cond ((string-match "^#?:\\(.*\\)$" name)
+         (match-string 1 name))
+        ((string-match "^\"\\(.*\\)\"$" name)
+         (match-string 1 name))
+        (t name)))
+
+(defun sly-modeline-state-string (conn)
+  "Return a string possibly describing CONN's state."
+  (cond ((not (eq (process-status conn) 'open))
+         (format " %s" (process-status conn)))
+        ((let ((pending (length (sly-rex-continuations conn)))
+               (sldbs (length (sldb-buffers conn))))
+           (cond ((and (zerop sldbs) (zerop pending)) nil)
+                 ((zerop sldbs) (format " %s" pending))
+                 (t (format " %s/%s" pending sldbs)))))))
 
 
 ;;;; Framework'ey bits

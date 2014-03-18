@@ -1,5 +1,5 @@
 (require 'sly)
-(require 'sly-repl)
+(require 'sly-old-repl)
 
 (define-sly-contrib sly-banner
   "Persistent header line and startup animation."

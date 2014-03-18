@@ -14,9 +14,6 @@
 (eval-and-compile
   (require 'sly))
 
-(defun sly-scheme-mode-hook ()
-  (sly-mode 1))
-
 (defun sly-scheme-indentation-update (symbol indent packages)
   ;; Does the symbol have an indentation value that we set?
   (when (equal (get symbol 'scheme-indent-function)
@@ -28,13 +25,11 @@
 ;;; Initialization
 
 (defun sly-scheme-init ()
-  (add-hook 'scheme-mode-hook 'sly-scheme-mode-hook)
-  (add-hook 'sly-indentation-update-hooks 'sly-scheme-indentation-update)
-  (add-to-list 'sly-lisp-modes 'scheme-mode))
+  (add-hook 'scheme-mode-hook 'sly-editing-mode)
+  (add-hook 'sly-indentation-update-hooks 'sly-scheme-indentation-update))
 
 (defun sly-scheme-unload ()
-  (remove-hook 'scheme-mode-hook 'sly-scheme-mode-hook)
-  (remove-hook 'sly-indentation-update-hooks 'sly-scheme-indentation-update)
-  (setq sly-lisp-modes (remove 'scheme-mode sly-lisp-modes)))
+  (remove-hook 'scheme-mode-hook 'sly-editing-mode)
+  (remove-hook 'sly-indentation-update-hooks 'sly-scheme-indentation-update))
 
 (provide 'sly-scheme)

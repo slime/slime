@@ -1,4 +1,4 @@
-(require 'sly-repl)
+(require 'sly-old-repl)
 (require 'sly-tests)
 (require 'cl-lib)
 

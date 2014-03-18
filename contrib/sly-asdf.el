@@ -10,7 +10,7 @@
             "Stas Boukarev       <stassats@gmail.com>"
             "Tobias C Rittweiler <tcr@freebits.de>")
   (:license "GPL")
-  (:sly-dependencies sly-repl)
+  (:sly-dependencies sly-old-repl)
   (:swank-dependencies swank-asdf)
   (:on-load
    (add-to-list 'sly-edit-uses-xrefs :depends-on t)

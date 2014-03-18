@@ -942,7 +942,7 @@ the buffer's undo-list."
        ("23" "42")))
   (with-temp-buffer
     (lisp-mode)
-    (sly-lisp-mode-hook)
+    (sly-editing-mode 1)
     (insert buffer-content)
     (sly-compile-region (point-min) (point-max))
     (sly-sync-to-top-level 3)

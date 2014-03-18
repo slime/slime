@@ -8,7 +8,7 @@
 ;;
 ;; Add sly-motd to your sly-setup call.
 (require 'sly)
-(require 'sly-repl)
+(require 'sly-old-repl)
 
 (define-sly-contrib sly-motd
   "Message Of The Day in a sly repl"

@@ -50,8 +50,8 @@ If false, move point to the end of the inserted text."
          (beg (move-marker (make-marker) (sly-symbol-start-pos)))
          (prefix (buffer-substring-no-properties beg end))
          (completion-result (sly-contextual-completions beg end))
-         (completion-set (first completion-result))
-         (completed-prefix (second completion-result)))
+         (completion-set (cl-first completion-result))
+         (completed-prefix (cl-second completion-result)))
     (if (null completion-set)
         (progn (sly-minibuffer-respecting-message
                 "Can't find completion for \"%s\"" prefix)
@@ -75,14 +75,14 @@ If false, move point to the end of the inserted text."
                 "Complete but not unique"))
 	     (when sly-c-p-c-unambiguous-prefix-p
 	       (let ((unambiguous-completion-length
-		      (loop for c in completion-set
-			    minimizing (or (cl-mismatch completed-prefix c)
-					   (length completed-prefix)))))
+		      (cl-loop for c in completion-set
+                               minimizing (or (cl-mismatch completed-prefix c)
+                                              (length completed-prefix)))))
 		 (goto-char (+ beg unambiguous-completion-length))))
              (sly-display-or-scroll-completions completion-set 
-                                                  completed-prefix))))))
+                                                completed-prefix))))))
 
-(defun* sly-contextual-completions (beg end) 
+(cl-defun sly-contextual-completions (beg end) 
   "Return a list of completions of the token from BEG to END in the
 current buffer."
   (let ((token (buffer-substring-no-properties beg end)))
@@ -92,18 +92,18 @@ current buffer."
       ;; Contextual keyword completion
       (let ((completions 
              (sly-completions-for-keyword token
-                                            (save-excursion 
-                                              (goto-char beg)
-                                              (sly-parse-form-upto-point)))))
-        (when (first completions)
-          (return-from sly-contextual-completions completions))
+                                          (save-excursion 
+                                            (goto-char beg)
+                                            (sly-parse-form-upto-point)))))
+        (when (cl-first completions)
+          (cl-return-from sly-contextual-completions completions))
         ;; If no matching keyword was found, do regular symbol
         ;; completion.
         ))
      ((and (>= (length token) 2)
            (string= (cl-subseq token 0 2) "#\\"))
       ;; Character name completion
-      (return-from sly-contextual-completions
+      (cl-return-from sly-contextual-completions
         (sly-completions-for-character token))))
     ;; Regular symbol completion
     (sly-completions token)))

@@ -1340,7 +1340,7 @@ expansion will be added to the REPL's history.)"
 (defun sly-save-some-lisp-buffers ()
   (if sly-repl-only-save-lisp-buffers
       (save-some-buffers nil (lambda ()
-                               (and (memq major-mode sly-lisp-modes)
+                               (and sly-editing-mode
                                     (not (null buffer-file-name)))))
     (save-some-buffers)))
 
@@ -1778,3 +1778,4 @@ while ignoring the repl prompt text."
 ;;         sly-repl-show-maximum-output))
 
 (provide 'sly-repl)
+(provide 'sly-old-repl)

@@ -1,5 +1,5 @@
 (require 'sly)
-(require 'sly-repl)
+(require 'sly-old-repl)
 
 (define-sly-contrib sly-clipboard
   "This add a few commands to put objects into a clipboard and to

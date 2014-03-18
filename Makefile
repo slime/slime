@@ -36,7 +36,7 @@ SELECTOR  -- selector for ERT tests ($(SELECTOR))\n"
 
 # Compilation
 #
-sly.elc: sly.el ChangeLog lib/hyperspec.elc
+sly.elc: sly.el lib/hyperspec.elc
 
 %.elc: %.el
 	$(EMACS) -Q $(LOAD_PATH) --batch -f batch-byte-compile $<

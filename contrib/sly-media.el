@@ -5,7 +5,7 @@
   "Display things other than text in SLY buffers"
   (:authors "Christophe Rhodes <csr21@cantab.net>")
   (:license "GPL")
-  (:sly-dependencies sly-repl)
+  (:sly-dependencies sly-old-repl)
   (:swank-dependencies swank-media)
   (:on-load
    (add-hook 'sly-event-hooks 'sly-dispatch-media-event)))
