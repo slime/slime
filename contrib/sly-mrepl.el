@@ -15,6 +15,7 @@
   (:on-load
    (define-key sly-inspector-mode-map (kbd "M-RET") 'sly-inspector-copy-down-to-repl)
    (define-key sldb-mode-map (kbd "M-RET") 'sldb-copy-down-to-repl)
+   (add-hook 'sly-connected-hook 'sly-mrepl-connected-hook)
    ;; FIXME: ugly
    (add-hook 'sly-trace-dialog-mode-hook
              #'(lambda ()
@@ -53,8 +54,10 @@
 (defun sly-mrepl-new ()
   "Create a new listener window."
   (interactive)
-  (let ((local (sly-make-channel sly-listener-channel-methods))
-        (buffer (pop-to-buffer (generate-new-buffer (sly-buffer-name :mrepl)))))
+  (let* ((local (sly-make-channel sly-listener-channel-methods))
+         (connection (sly-connection))
+         (buffer (pop-to-buffer (generate-new-buffer
+                                 (format "*sly-mrepl %s*" (sly-connection-name connection))))))
     (with-current-buffer buffer
       (sly-mrepl-mode)
       (start-process (format "sly-mrepl-pty-ch-%s" (sly-channel.id local))
@@ -69,13 +72,15 @@
       (lambda (result)
         (cl-destructuring-bind (remote thread-id package prompt) result
           (with-current-buffer buffer
-            (setq header-line-format (format "local=%d remote=%d thread=%d"
-                                             (sly-channel.id local)
-                                             remote
-                                             thread-id))
+            ;; (setq header-line-format (format "local=%d remote=%d thread=%d"
+            ;;                                  (sly-channel.id local)
+            ;;                                  remote
+            ;;                                  thread-id))
+            (when (zerop (buffer-size))
+              (sly-mrepl--insert (concat "; SLY " (sly-version))))
             (add-hook 'kill-buffer-hook 'sly-mrepl--teardown nil 'local)
             (setq sly-current-thread thread-id)
-            (setq sly-buffer-connection (sly-connection))
+            (setq sly-buffer-connection connection)
             (set (make-local-variable 'sly-mrepl--remote-channel) remote)
             (sly-channel-put local 'buffer (current-buffer))
             (sly-channel-send local `(:prompt ,package ,prompt))
@@ -212,6 +217,15 @@ If message can't be sent right now, queue it onto
     (when interactive
       (pop-to-buffer buffer))
     buffer))
+
+(defun sly-mrepl-connected-hook ()
+  (let* ((inferior-buffer (and (sly-process) (process-buffer (sly-process))))
+         (inferior-window (and inferior-buffer (get-buffer-window inferior-buffer t))))
+    (pop-to-buffer (sly-mrepl))
+    (when inferior-window
+      (bury-buffer inferior-buffer)
+      (delete-window inferior-window))
+    (goto-char (point-max))))
 
 
 ;;; copy-down-to-REPL behaviour
