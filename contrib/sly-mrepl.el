@@ -72,10 +72,7 @@
       (lambda (result)
         (cl-destructuring-bind (remote thread-id package prompt) result
           (with-current-buffer buffer
-            ;; (setq header-line-format (format "local=%d remote=%d thread=%d"
-            ;;                                  (sly-channel.id local)
-            ;;                                  remote
-            ;;                                  thread-id))
+            (setq header-line-format nil)
             (when (zerop (buffer-size))
               (sly-mrepl--insert (concat "; SLY " (sly-version))))
             (add-hook 'kill-buffer-hook 'sly-mrepl--teardown nil 'local)
@@ -211,7 +208,7 @@ If message can't be sent right now, queue it onto
          (or (cl-find-if (lambda (x)
                            (with-current-buffer x
                              (and (eq major-mode 'sly-mrepl-mode)
-                                  (eq (sly-current-connection)
+                                  (eq sly-buffer-connection
                                       (sly-connection)))))
                          (buffer-list))
              (sly-mrepl-new))))
