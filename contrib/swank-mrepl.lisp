@@ -80,16 +80,24 @@
 (defvar *history* nil)
 
 (defun initial-listener-env (channel)
-  `((*package* . ,*package*)
-    (*standard-output* . ,(or
-                           (dedicated channel)
-                           (make-listener-output-stream channel)))
-    (*standard-input* . ,(make-listener-input-stream channel))
-    (*history* . ,(make-array 40 :fill-pointer 0
-                                 :adjustable t))
-    (*) (**) (***)
-    (/) (//) (///)
-    (+) (++) (+++)))
+  (let* ((out (make-listener-output-stream channel))
+         (in (make-listener-input-stream channel))
+         (io (make-two-way-stream in out)))
+    `((cl:*package* . ,*package*)
+      (cl:*standard-output* . ,(or (dedicated channel) out))
+      (cl:*standard-input*  . ,in)
+      (cl:*trace-output*    . ,out)
+      (cl:*error-output*    . ,out)
+      (cl:*debug-io*	    . ,io)
+      (cl:*query-io*	    . ,io)
+      (cl:*terminal-io*	    . ,io)
+      
+      (*) (**) (***)
+      (/) (//) (///)
+      (+) (++) (+++)
+
+      (*history* . ,(make-array 40 :fill-pointer 0
+                                   :adjustable t)))))
 
 (defun drop-unprocessed-events (channel)
   "Empty CHANNEL of events, then send prompt to Emacs."
