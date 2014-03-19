@@ -37,6 +37,8 @@ emptied.See also `sly-mrepl-hook'")
 (defvar sly-mrepl--expect-sexp-mode t)
 (defvar sly-mrepl--pending-requests nil)
 (defvar sly-mrepl--result-counter -1)
+(defvar sly-mrepl--output-mark nil)
+(defvar sly-mrepl--dedicated-stream nil)
 
 (defvar sly-mrepl-mode-map
   (let ((map (make-sparse-keymap)))
@@ -56,6 +58,8 @@ emptied.See also `sly-mrepl-hook'")
   (set (make-local-variable 'comint-input-filter-functions) nil)
   (set (make-local-variable 'sly-mrepl--expect-sexp-mode) t)
   (set (make-local-variable 'sly-mrepl--result-counter) -1)
+  (set (make-local-variable 'sly-mrepl--output-mark) (point-marker))
+  (set-marker-insertion-type sly-mrepl--output-mark nil)
   
   ;;(set (make-local-variable 'comint-get-old-input) 'ielm-get-old-input)
   (set-syntax-table lisp-mode-syntax-table))
@@ -113,6 +117,14 @@ emptied.See also `sly-mrepl-hook'")
 (defun sly-mrepl--insert (string)
   (comint-output-filter (sly-mrepl--process) string))
 
+(defun sly-mrepl--insert-output (string)
+  (save-excursion
+    (goto-char sly-mrepl--output-mark)
+    (unless (looking-at "\n")
+      (save-excursion
+        (insert "\n")))
+    (insert-before-markers string)))
+
 (defvar sly-mrepl--prompt nil)
 
 (sly-define-channel-method listener :prompt (package prompt)
@@ -121,10 +133,11 @@ emptied.See also `sly-mrepl-hook'")
     (set (make-local-variable 'sly-mrepl--prompt) prompt)))
 
 (defun sly-mrepl--prompt ()
-  (sly-mrepl--insert (format "%s%s> "
-			      (cl-case (current-column)
+  (sly-mrepl--insert (pcase (current-column)
 				(0 "")
-				(t "\n"))
+				(t "\n")))
+  (set-marker sly-mrepl--output-mark (sly-mrepl--mark))
+  (sly-mrepl--insert (format "%s> "
 			      sly-mrepl--prompt))
   (sly-mrepl--recenter))
 
@@ -156,6 +169,13 @@ emptied.See also `sly-mrepl-hook'")
                (sly-mrepl--insert "\n"))
       (when (null values)
         (sly-mrepl--insert "; No values"))
+      (when (and sly-mrepl--dedicated-stream
+                 (process-live-p sly-mrepl--dedicated-stream))
+        ;; This non-blocking call should be enough to allow
+        ;; `sly-mrepl--insert-output' to still see the correct value
+        ;; for `sly-mrepl--output-marker', before `sly-mrepl-prompt'
+        ;; sets it.
+        (accept-process-output))
       (sly-mrepl--prompt))))
 
 (sly-define-channel-method listener :evaluation-aborted ()
@@ -164,7 +184,7 @@ emptied.See also `sly-mrepl-hook'")
 
 (sly-define-channel-method listener :write-string (string)
   (with-current-buffer (sly-channel-get self 'buffer)
-    (sly-mrepl--insert string)))
+    (sly-mrepl--insert-output string)))
 
 (sly-define-channel-method listener :inspect-result (parts)
   (cl-assert (sly-channel-p self))
@@ -184,7 +204,8 @@ emptied.See also `sly-mrepl-hook'")
   (cond ((and sly-mrepl--expect-sexp-mode
 	      (or (sly-input-complete-p (sly-mrepl--mark) (point))
 		  end-of-input))
-	 (comint-send-input))
+	 (comint-send-input)
+         (set-marker sly-mrepl--output-mark (point)))
 	((not sly-mrepl--expect-sexp-mode)
 	 (unless end-of-input
 	   (insert "\n"))
@@ -244,26 +265,26 @@ If message can't be sent right now, queue it onto
 
 
 ;;; copy-down-to-REPL behaviour
-;;; 
+;;;
+(defun sly-mrepl--eval-for-repl (form)
+  (with-current-buffer (sly-mrepl)
+    (let ((comint-input-sender
+           #'(lambda (_proc _string)
+               (sly-mrepl--send-string
+                (format "%s" form)))))
+      (comint-send-input)
+      (pop-to-buffer (current-buffer)))))
+
 (defun sly-inspector-copy-down-to-repl (number)
   "Evaluate the inspector slot at point via the REPL (to set `*')."
   (interactive (list (or (get-text-property (point) 'sly-part-number)
                          (error "No part at point"))))
-  (with-current-buffer (sly-mrepl)
-    (sly-mrepl--insert "\n")
-    (sly-mrepl--send-string
-     (format "%s" `(cl:nth-value 0 (swank:inspector-nth-part ,number))))
-    (pop-to-buffer (current-buffer))))
+  (sly-mrepl--eval-for-repl `(cl:nth-value 0 (swank:inspector-nth-part ,number))))
 
 (defun sldb-copy-down-to-repl (frame-id var-id)
   "Evaluate the frame var at point via the REPL (to set `*')."
   (interactive (list (sldb-frame-number-at-point) (sldb-var-number-at-point)))
-  (with-current-buffer (sly-mrepl)
-    (sly-mrepl--insert "\n")
-    (sly-mrepl--send-string (format "%s"
-                                   `(swank-backend:frame-var-value
-                                     ,frame-id ,var-id)))
-    (pop-to-buffer (current-buffer))))
+  (sly-mrepl--eval-for-repl `(swank-backend:frame-var-value ,frame-id ,var-id)))
 
 (defun sly-trace-dialog-copy-down-to-repl (id part-id type)
   "Eval the Trace Dialog entry under point in the REPL (to set *)"
@@ -272,13 +293,9 @@ If message can't be sent right now, queue it onto
                                       sly-trace-dialog--type)
                         collect (get-text-property (point) prop)))
   (unless (and id part-id type) (error "No trace part at point %s" (point)))
-  (with-current-buffer (sly-mrepl)
-    (sly-mrepl--insert "\n")
-    (sly-mrepl--send-string
-     (format "%s" `(nth-value 0
+  (sly-mrepl--eval-for-repl `(nth-value 0
                               (swank-trace-dialog::find-trace-part
                                ,id ,part-id ,type))))
-    (pop-to-buffer (current-buffer))))
 
 
 ;;; Dedicated output stream
@@ -289,7 +306,7 @@ If message can't be sent right now, queue it onto
       (with-current-buffer (sly-channel-get channel 'buffer)
         (when (and (cl-plusp (length string))
                    (eq (process-status sly-buffer-connection) 'open))
-          (sly-mrepl--insert string))))))
+          (sly-mrepl--insert-output string))))))
 
 (defvar sly-mrepl--dedicated-stream-hooks)
 
@@ -314,8 +331,6 @@ If message can't be sent right now, queue it onto
       (sly-net-send secret stream))
     (run-hook-with-args 'sly-mrepl--dedicated-stream-hooks stream)
     stream))
-
-(defvar sly-mrepl--dedicated-stream nil)
 
 (sly-define-channel-method listener :open-dedicated-output-stream (port _coding-system)
   (with-current-buffer (sly-channel-get self 'buffer)

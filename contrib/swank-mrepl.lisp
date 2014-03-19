@@ -155,8 +155,6 @@
           (unwind-protect
                (progn (setq results (with-sly-interrupts (read-eval-print string)))
                       (setq aborted nil))
-            (loop for binding in env 
-                  do (setf (cdr binding) (symbol-value (car binding))))
             (cond (aborted
                    (send-to-remote-channel remote `(:evaluation-aborted)))
                   (t
@@ -166,7 +164,9 @@
                            +++ ++  ++ + ))
                    (unless (eq *package* p)
                      (send-prompt channel))
-                   (send-to-remote-channel remote `(:write-values ,results))))))))))
+                   (send-to-remote-channel remote `(:write-values ,results))))
+            (loop for binding in env 
+                  do (setf (cdr binding) (symbol-value (car binding))))))))))
 
 (defun send-prompt (channel)
   (with-slots (env remote) channel
