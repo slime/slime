@@ -1,7 +1,6 @@
-;; -*- lexical-binding: t -*-
-;; An experimental implementation of multiple REPLs multiplexed over a
-;; single Slime socket.  M-x sly-open-listener creates a new REPL
-;; buffer.
+;; -*- lexical-binding: t -*- An experimental implementation of
+;; multiple REPLs multiplexed over a single Slime socket.  M-x
+;; sly-mrepl or M-x sly-mrepl-new create new REPL buffers.
 ;;
 (require 'sly)
 (require 'inferior-sly) ; inferior-sly-indent-lime
@@ -9,8 +8,6 @@
 
 (define-sly-contrib sly-mrepl
   "Multiple REPLs."
-  (:authors "Helmut Eller <heller@common-lisp.net>")
-  (:license "GPL")
   (:swank-dependencies swank-mrepl)
   (:on-load
    (define-key sly-inspector-mode-map (kbd "M-RET") 'sly-inspector-copy-down-to-repl)
@@ -133,12 +130,18 @@ emptied.See also `sly-mrepl-hook'")
     (set (make-local-variable 'sly-mrepl--prompt) prompt)))
 
 (defun sly-mrepl--prompt ()
+  (when (and sly-mrepl--dedicated-stream
+             (process-live-p sly-mrepl--dedicated-stream))
+    ;; This non-blocking call should be enough to allow asynch calls
+    ;; to `sly-mrepl--insert-output' to still see the correct value
+    ;; for `sly-mrepl--output-marker' just before we set it.
+    (accept-process-output))
   (sly-mrepl--insert (pcase (current-column)
-				(0 "")
-				(t "\n")))
+                       (0 "")
+                       (t "\n")))
   (set-marker sly-mrepl--output-mark (sly-mrepl--mark))
   (sly-mrepl--insert (format "%s> "
-			      sly-mrepl--prompt))
+                             sly-mrepl--prompt))
   (sly-mrepl--recenter))
 
 (defun sly-mrepl--recenter ()
@@ -169,18 +172,12 @@ emptied.See also `sly-mrepl-hook'")
                (sly-mrepl--insert "\n"))
       (when (null values)
         (sly-mrepl--insert "; No values"))
-      (when (and sly-mrepl--dedicated-stream
-                 (process-live-p sly-mrepl--dedicated-stream))
-        ;; This non-blocking call should be enough to allow
-        ;; `sly-mrepl--insert-output' to still see the correct value
-        ;; for `sly-mrepl--output-marker', before `sly-mrepl-prompt'
-        ;; sets it.
-        (accept-process-output))
       (sly-mrepl--prompt))))
 
-(sly-define-channel-method listener :evaluation-aborted ()
+(sly-define-channel-method listener :evaluation-aborted (&optional condition)
   (with-current-buffer (sly-channel-get self 'buffer)
-    (sly-mrepl--insert "; Evaluation aborted\n")))
+    (sly-mrepl--insert (format "; Evaluation aborted on %s\n" condition))
+    (sly-mrepl--prompt)))
 
 (sly-define-channel-method listener :write-string (string)
   (with-current-buffer (sly-channel-get self 'buffer)

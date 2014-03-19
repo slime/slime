@@ -42,7 +42,8 @@
    (env        :initarg  :env    :accessor env)
    (mode       :initform :eval   :accessor channel-mode)
    (tag        :initform nil)
-   (dedicated  :initform nil     :accessor dedicated)))
+   (out                          :reader out)
+   (in                           :reader in)))
 
 (defmethod initialize-instance :after ((channel listener-channel)
                                        &rest initargs)
@@ -51,7 +52,12 @@
   (setf (slot-value channel 'swank::thread)
         (if (use-threads-p)
             (spawn-listener-thread *emacs-connection* channel)
-            nil)))
+            nil))
+  (setf (slot-value channel 'out)
+        (or (and *use-dedicated-output-stream*
+                 (open-dedicated-output-stream channel))
+            (make-listener-output-stream channel)))
+  (setf (slot-value channel 'in) (make-listener-input-stream channel)))
 
 (defun package-prompt (package)
   (reduce (lambda (x y) (if (<= (length x) (length y)) x y))
@@ -65,9 +71,6 @@
               :name (format nil "mrepl listener for remote ~a" remote)))
          (thread (channel-thread ch)))
 
-    (when *use-dedicated-output-stream*
-      (setf (dedicated ch) (open-dedicated-output-stream ch)))
-
     (setf (slot-value ch 'env) (initial-listener-env ch))
     
     (when thread
@@ -80,11 +83,11 @@
 (defvar *history* nil)
 
 (defun initial-listener-env (channel)
-  (let* ((out (make-listener-output-stream channel))
-         (in (make-listener-input-stream channel))
+  (let* ((out (out channel))
+         (in (in channel))
          (io (make-two-way-stream in out)))
     `((cl:*package* . ,*package*)
-      (cl:*standard-output* . ,(or (dedicated channel) out))
+      (cl:*standard-output* . ,out)
       (cl:*standard-input*  . ,in)
       (cl:*trace-output*    . ,out)
       (cl:*error-output*    . ,out)
@@ -153,10 +156,16 @@
 	(let ((p *package*)
               results)
           (unwind-protect
-               (progn (setq results (with-sly-interrupts (read-eval-print string)))
-                      (setq aborted nil))
+               (handler-case
+                   (progn
+                     (setq results (with-sly-interrupts (read-eval-print string))
+                           aborted nil))
+                 (error (err)
+                   (setq aborted err)))
+            (flush-streams channel)
             (cond (aborted
-                   (send-to-remote-channel remote `(:evaluation-aborted)))
+                   (send-to-remote-channel remote `(:evaluation-aborted
+                                                    ,(prin1-to-string aborted))))
                   (t
                    (when /
                      (setq *** **  ** *  * (car /)
@@ -168,13 +177,14 @@
             (loop for binding in env 
                   do (setf (cdr binding) (symbol-value (car binding))))))))))
 
+(defun flush-streams (channel)
+  (with-slots (in out) channel
+    (force-output out)
+    (clear-input in)))
+
 (defun send-prompt (channel)
   (with-slots (env remote) channel
-    (let ((pkg (or (cdr (assoc '*package* env)) *package*))
-	  (out (cdr (assoc '*standard-output* env)))
-	  (in (cdr (assoc '*standard-input* env))))
-      (when out (force-output out))
-      (when in (clear-input in))
+    (let ((pkg (or (cdr (assoc '*package* env)) *package*)))
       (send-to-remote-channel remote `(:prompt ,(package-name pkg)
                                                ,(package-prompt pkg))))))
   
