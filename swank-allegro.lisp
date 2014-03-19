@@ -498,11 +498,7 @@
       (with-compilation-hooks ()
         (let ((*buffer-name* buffer)
               (*buffer-start-position* position)
-              (*buffer-string* string)
-              (*default-pathname-defaults*
-               (if filename 
-                   (merge-pathnames (pathname filename))
-                   *default-pathname-defaults*)))
+              (*buffer-string* string))
           (compile-from-temp-file string buffer position filename)))
     (reader-error () nil)))
 
