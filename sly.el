@@ -361,7 +361,8 @@ PROPERTIES specifies any default face properties."
   (detailed-frame-line
    "function names and arguments in a detailed (expanded) frame")
   (local-name     "local variable names")
-  (local-value    "local variable values")
+  (local-value    "local variable values"
+                  '(:inherit sly-inspectable-value-face))
   (catch-tag      "catch tags"))
 
 
@@ -5161,6 +5162,7 @@ CONTS is a list of pending Emacs continuations."
                 (and value
                      (not (buffer-live-p value))))))))
     (when window
+      (display-buffer-record-window 'reuse window buffer)
       (set-window-buffer window buffer)
       window)))
 
