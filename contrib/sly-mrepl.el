@@ -53,6 +53,10 @@ emptied.See also `sly-mrepl-hook'")
   (set (make-local-variable 'comint-input-sender) 'sly-mrepl--input-sender)
   (set (make-local-variable 'comint-output-filter-functions) nil)
   (set (make-local-variable 'comint-input-filter-functions) nil)
+  (set (make-local-variable 'comint-history-isearch) 'dwim)
+  (set (make-local-variable 'comint-input-ring-file-name) "~/.sly-mrepl-history")
+  (set (make-local-variable 'comint-input-ignoredups) t)
+  (set (make-local-variable 'comint-input-ring-size)  1500)
   (set (make-local-variable 'sly-mrepl--expect-sexp-mode) t)
   (set (make-local-variable 'sly-mrepl--result-counter) -1)
   (set (make-local-variable 'sly-mrepl--output-mark) (point-marker))
@@ -94,6 +98,7 @@ emptied.See also `sly-mrepl-hook'")
       (lambda (result)
         (cl-destructuring-bind (remote thread-id package prompt) result
           (with-current-buffer buffer
+            (comint-read-input-ring)
             (setq header-line-format nil)
             (when (zerop (buffer-size))
               (sly-mrepl--insert (concat "; SLY " (sly-version))))
@@ -338,14 +343,35 @@ If message can't be sent right now, queue it onto
 
 ;;; Teardown
 ;;;
+
+(defun sly-mrepl--merge-and-save-history ()
+  (let* ((current-ring (copy-tree comint-input-ring 'vectors-too))
+         (index (ring-length current-ring)))
+    ;; this sets comint-input-ring from the file
+    ;; 
+    (comint-read-input-ring)
+    (cl-loop for i from 0 below index
+             for item = (ring-ref current-ring i)
+             unless (ring-member comint-input-ring item)
+             do (ring-insert comint-input-ring item))
+    (comint-write-input-ring)))
+
 (defun sly-mrepl--teardown ()
-  (ignore-errors
-    (sly-mrepl--send `(:teardown))
-    (set (make-local-variable 'sly-mrepl--remote-channel) nil)
-    (when sly-mrepl--dedicated-stream
-      (kill-buffer (process-buffer sly-mrepl--dedicated-stream)))
-    (delete-process (sly-mrepl--process))
-    (sly-close-channel sly-mrepl--local-channel)))
+  (condition-case err
+      (progn
+        (sly-mrepl--merge-and-save-history)
+        (ignore-errors
+          (sly-mrepl--send `(:teardown)))
+        (set (make-local-variable 'sly-mrepl--remote-channel) nil)
+        (when sly-mrepl--dedicated-stream
+          (kill-buffer (process-buffer sly-mrepl--dedicated-stream)))
+        (delete-process (sly-mrepl--process))
+        (sly-close-channel sly-mrepl--local-channel))
+    (error
+     (message "[sly-mrepl]: error tearing down %s (%s), removing from kill hook."
+              (current-buffer)
+              err)
+     (remove-hook 'kill-buffer-hook 'sly-mrepl--teardown 'local))))
 
 
 (def-sly-selector-method ?m

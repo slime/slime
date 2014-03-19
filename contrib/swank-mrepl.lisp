@@ -153,16 +153,22 @@
   (with-slots (remote env) channel
     (let ((aborted t))
       (with-bindings env
-	(let ((p *package*)
+	(let (;; FIXME: the idea was to not always send the prompt to
+              ;; Emacs, but it doesn't work and I havent investigated.
+              ;; (p *package*)
               results)
           (unwind-protect
-               (handler-case
-                   (progn
-                     (setq results (with-sly-interrupts (read-eval-print string))
-                           aborted nil))
-                 (error (err)
-                   (setq aborted err)))
+               (handler-bind
+                   ((error #'(lambda (err)
+                               (setq aborted err))))
+                 (setq results (with-sly-interrupts (read-eval-print string))
+                       aborted nil))
             (flush-streams channel)
+            (loop for binding in env 
+                  do (setf (cdr binding) (symbol-value (car binding))))
+            ;; (unless (eq p *package*) ; see above
+            (send-prompt channel)
+            ;; )
             (cond (aborted
                    (send-to-remote-channel remote `(:evaluation-aborted
                                                     ,(prin1-to-string aborted))))
@@ -171,11 +177,7 @@
                      (setq *** **  ** *  * (car /)
                            /// //  // /  
                            +++ ++  ++ + ))
-                   (unless (eq *package* p)
-                     (send-prompt channel))
-                   (send-to-remote-channel remote `(:write-values ,results))))
-            (loop for binding in env 
-                  do (setf (cdr binding) (symbol-value (car binding))))))))))
+                   (send-to-remote-channel remote `(:write-values ,results))))))))))
 
 (defun flush-streams (channel)
   (with-slots (in out) channel
@@ -183,10 +185,9 @@
     (clear-input in)))
 
 (defun send-prompt (channel)
-  (with-slots (env remote) channel
-    (let ((pkg (or (cdr (assoc '*package* env)) *package*)))
-      (send-to-remote-channel remote `(:prompt ,(package-name pkg)
-                                               ,(package-prompt pkg))))))
+  (with-slots (remote) channel
+    (send-to-remote-channel remote `(:prompt ,(package-name *package*)
+                                             ,(package-prompt *package*)))))
   
 (defun mrepl-read (channel string)
   (with-slots (tag) channel
