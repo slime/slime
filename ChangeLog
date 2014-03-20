@@ -1,3 +1,10 @@
+2014-03-19  Paulo Madeira  <acelent@gmail.com>
+
+	Fix Allegro CL backend problem with temporary files.
+
+	* swank-allegro.lisp (swank-compile-string): Don't bind
+	*default-pathname-defaults*.
+
 2014-03-09  João Távora  <joaotavora@gmail.com>
 
 	Save and restore windows that popped debugger windows.
