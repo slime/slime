@@ -1,3 +1,15 @@
+2014-03-99  Paulo Madeira  <acelent@gmail.com>
+
+	In Allegro CL's backend, fixup source pathname and position when
+	possible.
+
+	* swank-allegro.lisp (compile-from-temp-file): Use same technique
+	as ELI to store source pathname and position when compiling from
+	file buffers.  Don't store buffer mapping for file buffers.  Don't
+	prevent redefinition warnings for different source pathnames.
+	(buffer-or-file, find-fspec-location) Don't use buffer mapping for
+	file buffers.
+
 2014-03-24  João Távora  <joaotavora@gmail.com>
 
 	* slime.el (slime-popup-buffer-mode): A SLIME popup buffer is
