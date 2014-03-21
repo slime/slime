@@ -469,27 +469,43 @@
 (defun compile-from-temp-file (string buffer offset file)
   (call-with-temp-file 
    (lambda (stream filename)
-     (let ((excl:*load-source-file-info* t)
-           (sys:*source-file-types* '(nil)) ; suppress .lisp extension
-           #+(version>= 8 2)
-           (compiler:save-source-level-debug-info-switch t)
-           #+(version>= 8 2)
-           (excl:*load-source-debug-info* t) ; NOTE: requires lldb
-           )
-       (write-string string stream)
-       (finish-output stream)
-       (multiple-value-bind (binary-filename warnings? failure?)
-           (excl:without-redefinition-warnings
-             ;; Suppress Allegro's redefinition warnings; they are
-             ;; pointless when we are compiling via a temporary
-             ;; file.
-             (compile-file filename :load-after-compile t))
-         (declare (ignore warnings?))
-         (when binary-filename
+     (when (and file offset)
+       (let* ((source-pathname-form
+               (let ((*package* (find-package :keyword)))
+                 (write-to-string
+                  `(cl:eval-when (:compile-toplevel :load-toplevel :execute)
+                     (cl:setq excl::*source-pathname*
+                              ,(sys::frob-source-file file))))))
+              (position-form
+               (loop                    ; only 2 iterations
+                  for previous-position-form = "" then position-form
+                  for position-form = (format nil
+                                              "(cl:setq excl::*partial-source-file-p* ~15d)~%"
+                                              (- offset
+                                                 (length source-pathname-form)
+                                                 (length previous-position-form)))
+                  when (string= previous-position-form position-form)
+                  return position-form)))
+         (write-string source-pathname-form stream)
+         (write-string position-form stream)))
+     (write-string string stream)
+     (finish-output stream)
+     (multiple-value-bind (binary-filename warnings? failure?)
+         (let ((sys:*source-file-types* '(nil)) ; suppress .lisp extension
+               #+(version>= 8 2)
+               (compiler:save-source-level-debug-info-switch t))
+           (compile-file filename))
+       (declare (ignore warnings?))
+       (when binary-filename
+         (let ((excl:*load-source-file-info* t)
+               #+(version>= 8 2)
+               (excl:*load-source-debug-info* t)) ; NOTE: requires lldb
+           (load binary-filename))
+         (when (and buffer (not file) offset)
            (setf (gethash (pathname stream) *temp-file-map*)
-                 (list buffer offset file))
-           (delete-file binary-filename))
-         (not failure?))))))
+                 (list buffer offset)))
+         (delete-file binary-filename))
+       (not failure?)))))
 
 (defimplementation swank-compile-string (string &key buffer position filename
                                          policy)
@@ -507,8 +523,7 @@
 (defun buffer-or-file (file file-fun buffer-fun)
   (let* ((probe (gethash file *temp-file-map*)))
     (cond (probe 
-           (destructuring-bind (buffer start file) probe
-             (declare (ignore file))
+           (destructuring-bind (buffer start) probe
              (funcall buffer-fun buffer start)))
           (t (funcall file-fun (namestring (truename file)))))))
 
@@ -549,8 +564,7 @@
         (pathname
          (let ((probe (gethash file *temp-file-map*)))
            (cond (probe
-                  (destructuring-bind (buffer offset file) probe
-                    (declare (ignore file))
+                  (destructuring-bind (buffer offset) probe
                     (make-location `(:buffer ,buffer)
                                    `(:offset ,offset 0))))
                  (t
