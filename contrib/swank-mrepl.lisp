@@ -110,7 +110,8 @@
       (unwind-protect
 	   (process-requests t)
 	(setf mode old-mode)))
-    (send-prompt channel)))
+    (with-bindings (env channel)
+      (send-prompt channel))))
 
 (defun spawn-listener-thread (connection channel)
   "Spawn a listener thread for CONNECTION and CHANNEL."
@@ -153,31 +154,27 @@
   (with-slots (remote env) channel
     (let ((aborted t))
       (with-bindings env
-	(let (;; FIXME: the idea was to not always send the prompt to
-              ;; Emacs, but it doesn't work and I havent investigated.
-              ;; (p *package*)
-              results)
+	(let (results)
           (unwind-protect
                (handler-bind
                    ((error #'(lambda (err)
                                (setq aborted err))))
-                 (setq results (with-sly-interrupts (read-eval-print string))
+                 (setq results (with-sly-interrupts (read-eval string))
                        aborted nil))
             (flush-streams channel)
-            (loop for binding in env 
-                  do (setf (cdr binding) (symbol-value (car binding))))
-            ;; (unless (eq p *package*) ; see above
-            (send-prompt channel)
-            ;; )
             (cond (aborted
                    (send-to-remote-channel remote `(:evaluation-aborted
                                                     ,(prin1-to-string aborted))))
                   (t
-                   (when /
-                     (setq *** **  ** *  * (car /)
-                           /// //  // /  
-                           +++ ++  ++ + ))
-                   (send-to-remote-channel remote `(:write-values ,results))))))))))
+                   (setq /// //  // /  / results
+                           *** **  ** *  * (car results)
+                           +++ ++  ++ + )
+                   (vector-push-extend results *history*)
+                   (send-to-remote-channel remote `(:write-values ,(mapcar #'swank::to-line
+                                                                           results)))
+                   (send-prompt channel)))
+            (loop for binding in env 
+                  do (setf (cdr binding) (symbol-value (car binding))))))))))
 
 (defun flush-streams (channel)
   (with-slots (in out) channel
@@ -194,17 +191,16 @@
     (assert tag)
     (throw tag string)))
 
-(defun read-eval-print (string)
+(defun read-eval (string)
   (with-retry-restart (:msg "Retry SLY mREPL evaluation request.")
     (with-input-from-string (in string)
-      (setq / ())
-      (loop for form = (read in nil in)
+      (loop with values
+            for form = (read in nil in)
             until (eq form in)
             do
-               (setq / (multiple-value-list (eval (setq + form)))))
-      (force-output)
-      (vector-push-extend / *history*)
-      (mapcar #'swank::to-line /))))
+               (setq values (multiple-value-list (eval (setq + form))))
+            finally
+               (return values)))))
 
 (defun make-listener-output-stream (channel)
   (let ((remote (slot-value channel 'remote)))

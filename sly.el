@@ -429,7 +429,7 @@ PROPERTIES specifies any default face properties."
 (defvar sly-mode-map
   (let ((map (make-sparse-keymap)))
     ;; Completion
-    (define-key map (kbd "M-t") 'sly-complete-symbol)
+    (define-key map (kbd "C-c TAB") 'sly-complete-symbol)
     ;; Evaluating
     (define-key map (kbd "C-c C-p") 'sly-pprint-eval-last-expression)
     ;; Macroexpand
@@ -3516,7 +3516,6 @@ for the most recently enclosed macro or function."
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map minibuffer-local-map)
     (define-key map "\t" 'sly-complete-symbol)
-    (define-key map "\M-\t" 'sly-complete-symbol)
     map)
   "Minibuffer keymap used for reading CL expressions.")
 

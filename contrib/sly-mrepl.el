@@ -105,7 +105,6 @@ emptied.See also `sly-mrepl-hook'")
             (setq sly-current-thread thread-id)
             (set (make-local-variable 'sly-mrepl--remote-channel) remote)
             (sly-channel-send local `(:prompt ,package ,prompt))
-            (sly-mrepl--prompt)
             (sly-mrepl--send-pending)
             (unwind-protect
                 (run-hooks 'sly-mrepl-hook 'sly-mrepl-runonce-hook)
@@ -127,26 +126,24 @@ emptied.See also `sly-mrepl-hook'")
         (insert "\n")))
     (insert-before-markers string)))
 
-(defvar sly-mrepl--prompt nil)
-
 (sly-define-channel-method listener :prompt (package prompt)
   (with-current-buffer (sly-channel-get self 'buffer)
     (setq sly-buffer-package package)
-    (set (make-local-variable 'sly-mrepl--prompt) prompt)))
+    (when (and sly-mrepl--dedicated-stream
+               (process-live-p sly-mrepl--dedicated-stream))
+      ;; This non-blocking call should be enough to allow asynch calls
+      ;; to `sly-mrepl--insert-output' to still see the correct value
+      ;; for `sly-mrepl--output-marker' just before we set it.
+      (accept-process-output))
+    
+    (sly-mrepl--prompt prompt)))
 
-(defun sly-mrepl--prompt ()
-  (when (and sly-mrepl--dedicated-stream
-             (process-live-p sly-mrepl--dedicated-stream))
-    ;; This non-blocking call should be enough to allow asynch calls
-    ;; to `sly-mrepl--insert-output' to still see the correct value
-    ;; for `sly-mrepl--output-marker' just before we set it.
-    (accept-process-output))
+(defun sly-mrepl--prompt (prompt)
   (sly-mrepl--insert (pcase (current-column)
                        (0 "")
                        (t "\n")))
   (set-marker sly-mrepl--output-mark (sly-mrepl--mark))
-  (sly-mrepl--insert (format "%s> "
-                             sly-mrepl--prompt))
+  (sly-mrepl--insert (format "%s> " prompt))
   (sly-mrepl--recenter))
 
 (defun sly-mrepl--recenter ()
@@ -176,13 +173,11 @@ emptied.See also `sly-mrepl-hook'")
                
                (sly-mrepl--insert "\n"))
       (when (null values)
-        (sly-mrepl--insert "; No values"))
-      (sly-mrepl--prompt))))
+        (sly-mrepl--insert "; No values")))))
 
 (sly-define-channel-method listener :evaluation-aborted (&optional condition)
   (with-current-buffer (sly-channel-get self 'buffer)
-    (sly-mrepl--insert (format "; Evaluation aborted on %s\n" condition))
-    (sly-mrepl--prompt)))
+    (sly-mrepl--insert (format "; Evaluation aborted on %s\n" condition))))
 
 (sly-define-channel-method listener :write-string (string)
   (with-current-buffer (sly-channel-get self 'buffer)
