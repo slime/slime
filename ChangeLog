@@ -1,3 +1,13 @@
+2014-03-99  João Távora  <joaotavora@gmail.com>
+
+	* swank-allegro.lisp (write-tracking-preamble): New function,
+	rewritten from previous hunk in COMPILE-FROM-TEMP-FILE for
+	clarity.  Also adds PATHNAME call which broke the previous
+	approach.
+	(compile-from-temp-file): In Allegro 9.0, make redefinition
+	warnings trigger only once now that compilation and loading from
+	temp files are separate steps.
+
 2014-03-99  Paulo Madeira  <acelent@gmail.com>
 
 	In Allegro CL's backend, fixup source pathname and position when

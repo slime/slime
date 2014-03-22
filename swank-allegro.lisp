@@ -466,40 +466,57 @@
 (defvar *temp-file-map* (make-hash-table :test #'equal)
   "A mapping from tempfile names to Emacs buffer names.")
 
+(defun write-tracking-preamble (stream file file-offset)
+  "Instrument the top of the temporary file to be compiled.
+
+The header tells allegro that any definitions compiled in the temp
+file should be found in FILE exactly at FILE-OFFSET.  To get Allegro
+to do this, this factors in the length of the inserted header itself."
+  (with-standard-io-syntax
+    (let* ((*package* (find-package :keyword))
+           (source-pathname-form
+            `(cl:eval-when (:compile-toplevel :load-toplevel :execute)
+               (cl:setq excl::*source-pathname*
+                        (pathname ,(sys::frob-source-file file)))))
+           (source-pathname-string (write-to-string source-pathname-form))
+           (position-form-length-bound 80) ; should be enough for everyone
+           (header-length (+ (length source-pathname-string)
+                             position-form-length-bound))
+           (position-form
+            `(cl:setq excl::*partial-source-file-p* ,(- file-offset
+                                                        header-length
+                                                        1 ; for the newline
+                                                        )))
+           (position-form-string (write-to-string position-form))
+           (padding-string (make-string (- position-form-length-bound
+                                           (length position-form-string))
+                                        :initial-element #\;)))
+      (write-string source-pathname-string stream)
+      (write-string position-form-string stream)  
+      (write-string padding-string stream)
+      (write-char #\newline stream))))
+
 (defun compile-from-temp-file (string buffer offset file)
   (call-with-temp-file 
    (lambda (stream filename)
      (when (and file offset)
-       (let* ((source-pathname-form
-               (let ((*package* (find-package :keyword)))
-                 (write-to-string
-                  `(cl:eval-when (:compile-toplevel :load-toplevel :execute)
-                     (cl:setq excl::*source-pathname*
-                              ,(sys::frob-source-file file))))))
-              (position-form
-               (loop                    ; only 2 iterations
-                  for previous-position-form = "" then position-form
-                  for position-form = (format nil
-                                              "(cl:setq excl::*partial-source-file-p* ~15d)~%"
-                                              (- offset
-                                                 (length source-pathname-form)
-                                                 (length previous-position-form)))
-                  when (string= previous-position-form position-form)
-                  return position-form)))
-         (write-string source-pathname-form stream)
-         (write-string position-form stream)))
-     (write-string string stream)
-     (finish-output stream)
+       (write-tracking-preamble stream file offset)
+       (write-string string stream)
+       (finish-output stream))
      (multiple-value-bind (binary-filename warnings? failure?)
          (let ((sys:*source-file-types* '(nil)) ; suppress .lisp extension
                #+(version>= 8 2)
-               (compiler:save-source-level-debug-info-switch t))
+               (compiler:save-source-level-debug-info-switch t)
+               (excl:*redefinition-warnings* nil))
            (compile-file filename))
        (declare (ignore warnings?))
        (when binary-filename
          (let ((excl:*load-source-file-info* t)
+               ;; NOTE: requires lldb. jt -- don't know the meaning of
+               ;; this note.
+               ;;
                #+(version>= 8 2)
-               (excl:*load-source-debug-info* t)) ; NOTE: requires lldb
+               (excl:*load-source-debug-info* t)) 
            (load binary-filename))
          (when (and buffer (not file) offset)
            (setf (gethash (pathname stream) *temp-file-map*)
