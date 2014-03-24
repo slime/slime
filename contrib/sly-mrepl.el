@@ -57,6 +57,7 @@ emptied.See also `sly-mrepl-hook'")
   (set (make-local-variable 'comint-input-ring-file-name) "~/.sly-mrepl-history")
   (set (make-local-variable 'comint-input-ignoredups) t)
   (set (make-local-variable 'comint-input-ring-size)  1500)
+  (set (make-local-variable 'comint-prompt-read-only) t)
   (set (make-local-variable 'sly-mrepl--expect-sexp-mode) t)
   (set (make-local-variable 'sly-mrepl--result-counter) -1)
   (set (make-local-variable 'sly-mrepl--output-mark) (point-marker))
@@ -119,12 +120,13 @@ emptied.See also `sly-mrepl-hook'")
   (comint-output-filter (sly-mrepl--process) string))
 
 (defun sly-mrepl--insert-output (string)
-  (save-excursion
-    (goto-char sly-mrepl--output-mark)
-    (unless (looking-at "\n")
-      (save-excursion
-        (insert "\n")))
-    (insert-before-markers string)))
+  (let ((inhibit-read-only t))
+    (save-excursion
+      (goto-char sly-mrepl--output-mark)
+      (unless (looking-at "\n")
+        (save-excursion
+          (insert "\n")))
+      (insert-before-markers string))))
 
 (sly-define-channel-method listener :prompt (package prompt)
   (with-current-buffer (sly-channel-get self 'buffer)
