@@ -2,6 +2,8 @@
 
 	* slime.el (slime-popup-buffer-mode): A SLIME popup buffer is
 	always read-only.
+	(slime-recenter): New function.
+	(sldb-show-frame-details, sldb-setup): Use `slime-recenter'.
 
 2014-03-19  Paulo Madeira  <acelent@gmail.com>
 
