@@ -629,6 +629,18 @@ It should be used for \"background\" messages such as argument lists."
                            (or (cl-position ?\n string) most-positive-fixnum)
                            (1- (window-width (minibuffer-window))))))
 
+(defun sly-recenter (target)
+  "Try to make the region between point and TARGET visible.
+Minimize point motion if possible."
+  (let ((window-height (window-text-height))
+        (height-diff (abs (- (line-number-at-pos target)
+                             (line-number-at-pos (point))))))
+    (when (or (> height-diff window-height)
+              (not (pos-visible-in-window-p target)))
+      (recenter (if (< target (point))
+                  (min (- window-height 2) height-diff)
+                (max 1 (- window-height height-diff 1)))))))
+
 ;; Interface
 (defun sly-set-truncate-lines ()
   "Apply `sly-truncate-lines' to the current buffer."
@@ -5147,6 +5159,7 @@ CONTS is a list of pending Emacs continuations."
       (set-syntax-table lisp-mode-syntax-table))
     (pop-to-buffer (current-buffer) '(sldb--display-in-prev-sldb-window))
     (set-window-parameter (selected-window) 'sldb (current-buffer))
+    (sly-recenter (point-min))
     (setq buffer-read-only t)
     (when (and sly-stack-eval-tags
                ;; (y-or-n-p "Enter recursive edit? ")
@@ -5554,11 +5567,7 @@ The details include local variable bindings and CATCH-tags."
                 (insert indent2 (sldb-in-face catch-tag (format "%s" tag))
                         "\n"))))
           (setq end (point)))))
-    (unless (pos-visible-in-window-p end)
-      (recenter (- (window-text-height)
-                   (- (line-number-at-pos end)
-                      (line-number-at-pos (point)))
-                   1)))))
+    (sly-recenter end)))
 
 (defun sldb-frame-details ()
   ;; Return a list (START END FRAME LOCALS CATCHES) for frame at point.
