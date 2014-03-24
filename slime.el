@@ -899,7 +899,8 @@ MODE is the name of a major mode which will be enabled.
 
 (define-minor-mode slime-popup-buffer-mode
   "Mode for displaying read only stuff"
-  nil nil)
+  nil nil nil
+  (setq buffer-read-only t))
 
 (add-to-list 'minor-mode-alist
              `(slime-popup-buffer-mode
