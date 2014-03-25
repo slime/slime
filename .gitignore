@@ -1,6 +1,6 @@
 Changelog
 *.x86f
-*.fasl
+*.fasl*
 *.dfsl
 *.lx64fsl
 *.elc
