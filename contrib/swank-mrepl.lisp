@@ -13,6 +13,7 @@
 	       define-channel-method
 	       defslyfun 
 	       destructure-case
+               find-channel
 	       log-event
 	       process-requests
 	       send-to-remote-channel
@@ -79,6 +80,10 @@
 	  (swank-backend:thread-id (or thread (swank-backend:current-thread)))
 	  (package-name pkg)
 	  (package-prompt pkg))))
+
+(defslyfun eval-in-mrepl (remote string)
+  "Like MREPL-EVAL, but not run in channel's thread."
+  (mrepl-eval (find-channel remote) string))
 
 (defvar *history* nil)
 

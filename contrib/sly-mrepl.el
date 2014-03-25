@@ -265,14 +265,20 @@ If message can't be sent right now, queue it onto
 
 ;;; copy-down-to-REPL behaviour
 ;;;
-(defun sly-mrepl--eval-for-repl (form)
-  (with-current-buffer (sly-mrepl)
-    (let ((comint-input-sender
-           #'(lambda (_proc _string)
-               (sly-mrepl--send-string
-                (format "%s" form)))))
-      (comint-send-input)
-      (pop-to-buffer (current-buffer)))))
+(defun sly-mrepl--eval-for-repl (form &optional out-of-band)
+  (let ((original-thread sly-current-thread))
+    (with-current-buffer (sly-mrepl)
+      (let ((comint-input-sender
+             #'(lambda (_proc _string)
+                 (let ((string (format "%s" form)))
+                   (if out-of-band
+                       (let ((sly-current-thread original-thread))
+                         (sly-eval `(swank-mrepl:eval-in-mrepl
+                                     ,sly-mrepl--remote-channel
+                                     ,string)))
+                     (sly-mrepl--send-string string))))))
+        (comint-send-input)
+        (pop-to-buffer (current-buffer))))))
 
 (defun sly-inspector-copy-down-to-repl (number)
   "Evaluate the inspector slot at point via the REPL (to set `*')."
@@ -283,7 +289,8 @@ If message can't be sent right now, queue it onto
 (defun sldb-copy-down-to-repl (frame-id var-id)
   "Evaluate the frame var at point via the REPL (to set `*')."
   (interactive (list (sldb-frame-number-at-point) (sldb-var-number-at-point)))
-  (sly-mrepl--eval-for-repl `(swank-backend:frame-var-value ,frame-id ,var-id)))
+  (sly-mrepl--eval-for-repl `(swank-backend:frame-var-value ,frame-id ,var-id)
+                            'out-of-band))
 
 (defun sly-trace-dialog-copy-down-to-repl (id part-id type)
   "Eval the Trace Dialog entry under point in the REPL (to set *)"
