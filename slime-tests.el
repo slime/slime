@@ -517,7 +517,8 @@ confronted with nasty #.-fu."
      "(cl:constantly 42)"))
   (when noninteractive
     (slime-skip-test "Can't use unread-command-events in batch mode"))
-  (setq unread-command-events (listify-key-sequence (kbd input-keys)))
+  (let ((keys (eval `(kbd ,input-keys)))) ; kbd is a macro in Emacs 23
+    (setq unread-command-events (listify-key-sequence keys)))
   (let ((actual-result (slime-read-from-minibuffer "Test: ")))
     (slime-test-expect "Completed string" expected-result actual-result)))
 
