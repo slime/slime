@@ -1,3 +1,7 @@
+2014-03-27  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-tests.el (read-from-minibuffer): New test.
+
 2014-03-24  João Távora  <joaotavora@gmail.com>
 
 	* slime.el (slime-popup-buffer-mode): A SLIME popup buffer is
