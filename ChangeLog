@@ -1,5 +1,13 @@
 2014-03-27  Helmut Eller  <heller@common-lisp.net>
 
+	Make it easier to specify regexps as test selector.
+
+	* Makefile (check): Use ' instead of " to avoid some of the
+	bizarre shell quoting rules.  Don't evaluate SELECTOR.
+	(SELECTOR): Extra quoting no longer needed.
+
+2014-03-27  Helmut Eller  <heller@common-lisp.net>
+
 	Fix bug in slime-complete-restore-window-configuration.
 
 	* slime.el (slime-complete-restore-window-configuration): Don't
