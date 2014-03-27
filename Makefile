@@ -45,14 +45,14 @@ compile: $(ELCFILES)
 
 # Automated tests
 #
-SELECTOR=(quote t)
+SELECTOR=t
 
 check: compile
 	${EMACS} -Q --batch $(LOAD_PATH)				\
 		--eval "(require 'sly-tests)"				\
 		--eval "(sly-setup)"					\
 		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
-		--eval "(sly-batch-test $(SELECTOR))"
+		--eval '(sly-batch-test (quote $(SELECTOR)))'
 
 elpa-sly:
 	echo "Not implemented yet: elpa-sly target" && exit 255
