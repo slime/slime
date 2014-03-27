@@ -54,7 +54,7 @@ check: compile
 		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
 		--eval '(sly-batch-test (quote $(SELECTOR)))'
 
-# run tests interactivly
+# run tests interactively
 #
 # FIXME: Not terribly useful until bugs in ert-run-tests-interactively
 # are fixed.
