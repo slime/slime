@@ -1,3 +1,17 @@
+2014-03-27  João Távora  <joaotavora@gmail.com>
+
+	The previous technique for setting *, ** and friends just-in-time
+	didn't work, especially when the inspector was called from the
+	REPL buffer to inspect *. The problem this was fixing was fixed in
+	a different manner, by making slime-repl.el ensure that these
+	variables are set in the swank side.
+
+	* swank-repl.lisp (set-repl-variables): New slimefun.
+	(repl-eval): Call SET-REPL-VARIABLES *after* evaluating region.
+
+	* slime-repl.el (sldb-copy-down-to-repl): Call new
+	SWANK:SET-REPL-VARIABLES just after copying down to REPL.
+
 2014-03-09  João Távora  <joaotavora@gmail.com>
 
 	* slime-trace-dialog.el (slime-trace-dialog--open-detail): Restore

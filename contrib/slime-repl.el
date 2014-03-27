@@ -1583,9 +1583,11 @@ expansion will be added to the REPL's history.)"
 (defun sldb-copy-down-to-repl (frame-id var-id)
   "Evaluate the frame var at point via the REPL (to set `*')."
   (interactive (list (sldb-frame-number-at-point) (sldb-var-number-at-point)))
-  (slime-repl-send-string (format "%s"
-                                  `(swank-backend:frame-var-value
-                                    ,frame-id ,var-id)))
+  (slime-repl-send-string
+   (format "%s"
+           `(cl:prog1 (swank-backend:frame-var-value
+                       ,frame-id ,var-id)
+                      (swank:set-repl-variables))))
   (slime-repl))
 
 (defun sldb-insert-frame-call-to-repl ()
