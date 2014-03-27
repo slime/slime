@@ -508,6 +508,19 @@ confronted with nasty #.-fu."
   (let ((completions (sly-simple-completions prefix)))
     (sly-test-expect "Completion set" expected-completions completions)))
 
+(def-sly-test read-from-minibuffer
+  (input-keys expected-result)
+  "Test `sly-read-from-minibuffer' with INPUT-KEYS as events."
+  '(("( r e v e TAB SPC ' ( 1 SPC 2 SPC 3 ) ) RET"
+     "(reverse '(1 2 3))")
+    ("( c l : c o n TAB s t a n t l TAB SPC 4 2 ) RET"
+     "(cl:constantly 42)"))
+  (when noninteractive
+    (sly-skip-test "Can't use unread-command-events in batch mode"))
+  (setq unread-command-events (listify-key-sequence (kbd input-keys)))
+  (let ((actual-result (sly-read-from-minibuffer "Test: ")))
+    (sly-test-expect "Completed string" expected-result actual-result)))
+
 (def-sly-test arglist
     ;; N.B. Allegro apparently doesn't return the default values of
     ;; optional parameters. Thus the regexp in the start-server
