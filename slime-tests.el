@@ -520,6 +520,7 @@ confronted with nasty #.-fu."
   (let ((keys (eval `(kbd ,input-keys)))) ; kbd is a macro in Emacs 23
     (setq unread-command-events (listify-key-sequence keys)))
   (let ((actual-result (slime-read-from-minibuffer "Test: ")))
+    (accept-process-output) ; run idle timers
     (slime-test-expect "Completed string" expected-result actual-result)))
 
 (def-slime-test arglist
