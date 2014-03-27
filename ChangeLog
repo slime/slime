@@ -1,5 +1,11 @@
 2014-03-27  Helmut Eller  <heller@common-lisp.net>
 
+	Fix bug in slime-complete-restore-window-configuration.
+
+	* slime.el (slime-complete-restore-window-configuration): Don't
+	use a timer.  That was only needed for XEmacs and it was
+	accidentally started multiple times.
+
 	* slime-tests.el (read-from-minibuffer): New test.
 
 2014-03-24  João Távora  <joaotavora@gmail.com>

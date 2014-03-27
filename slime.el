@@ -3516,6 +3516,7 @@ more than one space."
 
 (defvar slime-completions-buffer-name "*Completions*")
 
+;; FIXME: can probably use quit-window instead
 (make-variable-buffer-local
  (defvar slime-complete-saved-window-configuration nil
    "Window configuration before we show the *Completions* buffer.
@@ -3553,18 +3554,11 @@ Return true if the configuration was saved."
                'slime-complete-maybe-restore-window-configuration)
   (when (and slime-complete-saved-window-configuration
              (slime-completion-window-active-p))
-    ;; XEmacs does not allow us to restore a window configuration from
-    ;; pre-command-hook, so we do it asynchronously.
-    ;;
-    ;; FIXME: For possible refactoring, now that XEmacs is gone --js
-    (slime-run-when-idle
-     (lambda ()
-       (save-excursion
-         (set-window-configuration
-          slime-complete-saved-window-configuration))
-       (setq slime-complete-saved-window-configuration nil)
-       (when (buffer-live-p slime-completions-buffer-name)
-         (kill-buffer slime-completions-buffer-name))))))
+    (save-excursion (set-window-configuration
+                     slime-complete-saved-window-configuration))
+    (setq slime-complete-saved-window-configuration nil)
+    (when (buffer-live-p slime-completions-buffer-name)
+      (kill-buffer slime-completions-buffer-name))))
 
 (defun slime-complete-maybe-restore-window-configuration ()
   "Restore the window configuration, if the following command
