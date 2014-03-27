@@ -54,6 +54,17 @@ check: compile
 		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
 		--eval '(slime-batch-test (quote $(SELECTOR)))'
 
+# run tests interactivly
+#
+# FIXME: Not terribly useful until bugs in ert-run-tests-interactively
+# are fixed.
+test: compile
+	${EMACS} -Q -nw $(LOAD_PATH)					\
+		--eval "(require 'slime-tests)"				\
+		--eval "(slime-setup)"					\
+		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
+		--eval '(slime-batch-test (quote $(SELECTOR)))'
+
 elpa-slime:
 	echo "Not implemented yet: elpa-slime target" && exit 255
 
