@@ -1,3 +1,62 @@
+2014-03-27  João Távora  <joaotavora@gmail.com>
+
+	Previous changes broke compilation for definitions in buffers that
+	don't have files(like *slime-scratch*). Finding definitions in
+	buffers that have a file name that doens't exist in the
+	file-system was also broken.
+
+	Also WHO-CALLS functionality for top-level forms is unreliable in
+	ACL, be it for temp or other loading mechanisms. For the former,
+	note *TEMP-FILE-MAP* might point to dead buffers and for the
+	latter, there is not enough file info in the .fasl
+	annotations. See http://franz.com/support/documentation/ \
+	current/doc/cross-reference.htm#in-functions-arg-2.
+
+	Therefore, this change also deletes the previous attempt by
+	FSPEC-DEFINITION-LOCATIONS to reliably follow :TOP-LEVEL-FORM
+	references..
+
+	* swank-allegro.lisp (fspec-definition-locations): Don't attempt
+	to interpret :TOP-LEVEL-FORM fspecs, since file info is always
+	unreliable.
+
+	* swank-allegro.lisp (compile-from-temp-file): Reinstate recording
+	in *TEMP-FILE-MAP* for all compilations. It is still useful if we
+	haven't saved the buffer or are operating from a file-less buffer,
+	like *slime-scratch*
+
+2014-03-27  João Távora  <joaotavora@gmail.com>
+
+	* swank-allegro.lisp (write-tracking-preamble): New function,
+	rewritten from previous hunk in COMPILE-FROM-TEMP-FILE for
+	clarity.  Also adds PATHNAME call which broke the previous
+	approach.
+	(compile-from-temp-file): In Allegro 9.0, make redefinition
+	warnings trigger only once now that compilation and loading from
+	temp files are separate steps.
+
+2014-03-27  Paulo Madeira  <acelent@gmail.com>
+
+	Improve source file recording for ACL backend.
+
+	Finding definitions compiled with SWANK:SWANK-COMPILE-STRING
+	relied on a hash table mapping temporary file names to buffer
+	names, which broke when the original buffer was closed. A new
+	approach imitate's Franz's own ELI/LEP's and writes a preamble to
+	each temp file that sets the correct values for
+	EXCL::*SOURCE-PATHNAME* and *EXCL::*PARTIAL-SOURCE-FILE-P*
+	pointing to the correct spot in the original file.
+
+	For strings compiled in buffers with no file name, the previous
+	temp-file-to-buffer mapping is kept.
+
+	* swank-allegro.lisp (compile-from-temp-file): Use same technique
+	as ELI to store source pathname and position when compiling from
+	file buffers.  Don't store buffer mapping for file buffers.  Don't
+	prevent redefinition warnings for different source pathnames.
+	(buffer-or-file, find-fspec-location) Don't use buffer mapping for
+	file buffers.
+
 2014-03-27  Helmut Eller  <heller@common-lisp.net>
 
 	Make it easier to specify regexps as test selector.
