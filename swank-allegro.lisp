@@ -499,10 +499,10 @@ to do this, this factors in the length of the inserted header itself."
 (defun compile-from-temp-file (string buffer offset file)
   (call-with-temp-file 
    (lambda (stream filename)
-     (when (and file offset)
-       (write-tracking-preamble stream file offset)
-       (write-string string stream)
-       (finish-output stream))
+     (when (and file offset (probe-file file)) 
+       (write-tracking-preamble stream file offset))
+     (write-string string stream)
+     (finish-output stream)
      (multiple-value-bind (binary-filename warnings? failure?)
          (let ((sys:*source-file-types* '(nil)) ; suppress .lisp extension
                #+(version>= 8 2)
@@ -516,9 +516,11 @@ to do this, this factors in the length of the inserted header itself."
                ;; this note.
                ;;
                #+(version>= 8 2)
-               (excl:*load-source-debug-info* t)) 
+               (excl:*load-source-debug-info* t))
+           excl::*source-pathname*
            (load binary-filename))
-         (when (and buffer (not file) offset)
+         (when (and buffer offset (or (not file)
+                                      (not (probe-file file))))
            (setf (gethash (pathname stream) *temp-file-map*)
                  (list buffer offset)))
          (delete-file binary-filename))
@@ -604,12 +606,6 @@ to do this, this factors in the length of the inserted header itself."
 
 (defun fspec-definition-locations (fspec)
   (cond
-    ((and (listp fspec)
-          (eql (car fspec) :top-level-form))
-     (destructuring-bind (top-level-form file &optional (position 0)) fspec 
-       (declare (ignore top-level-form))
-       `((,fspec
-          ,(buffer-or-file-location file position)))))
     ((and (listp fspec) (eq (car fspec) :internal))
      (destructuring-bind (_internal next _n) fspec
        (declare (ignore _internal _n))
