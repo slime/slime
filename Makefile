@@ -54,6 +54,17 @@ check: compile
 		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
 		--eval '(sly-batch-test (quote $(SELECTOR)))'
 
+# run tests interactivly
+#
+# FIXME: Not terribly useful until bugs in ert-run-tests-interactively
+# are fixed.
+test: compile
+	${EMACS} -Q -nw $(LOAD_PATH)					\
+		--eval "(require 'sly-tests)"				\
+		--eval "(sly-setup)"					\
+		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
+		--eval '(sly-batch-test (quote $(SELECTOR)))'
+
 elpa-sly:
 	echo "Not implemented yet: elpa-sly target" && exit 255
 
