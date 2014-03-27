@@ -3345,6 +3345,7 @@ Retuns the note overlay if such a position is found, otherwise nil."
 
 (defvar sly-completions-buffer-name "*Completions*")
 
+;; FIXME: can probably use quit-window instead
 (make-variable-buffer-local
  (defvar sly-complete-saved-window-configuration nil
    "Window configuration before we show the *Completions* buffer.
@@ -3382,18 +3383,11 @@ Return true if the configuration was saved."
                'sly-complete-maybe-restore-window-configuration)
   (when (and sly-complete-saved-window-configuration
              (sly-completion-window-active-p))
-    ;; XEmacs does not allow us to restore a window configuration from
-    ;; pre-command-hook, so we do it asynchronously.
-    ;;
-    ;; FIXME: For possible refactoring, now that XEmacs is gone --js
-    (sly-run-when-idle
-     (lambda ()
-       (save-excursion
-         (set-window-configuration
-          sly-complete-saved-window-configuration))
-       (setq sly-complete-saved-window-configuration nil)
-       (when (buffer-live-p sly-completions-buffer-name)
-         (kill-buffer sly-completions-buffer-name))))))
+    (save-excursion (set-window-configuration
+                     sly-complete-saved-window-configuration))
+    (setq sly-complete-saved-window-configuration nil)
+    (when (buffer-live-p sly-completions-buffer-name)
+      (kill-buffer sly-completions-buffer-name))))
 
 (defun sly-complete-maybe-restore-window-configuration ()
   "Restore the window configuration, if the following command
