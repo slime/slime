@@ -1,3 +1,7 @@
+2014-03-28  João Távora  <joaotavora@gmail.com>
+
+	* slime.el (slime-init-command): Use `slime-to-lisp-filename'. 
+
 2014-03-27  João Távora  <joaotavora@gmail.com>
 
 	Previous changes broke compilation for definitions in buffers that
