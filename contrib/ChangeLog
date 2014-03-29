@@ -1,3 +1,9 @@
+2014-03-29  João Távora  <joaotavora@gmail.com>
+
+	* slime-trace-dialog.el (slime-trace-dialog--insert-trace): Set
+	trace entry's marker-insertion-type to T to avoid text later being
+	inserted before the marker from entering its protected region.
+
 2014-03-27  João Távora  <joaotavora@gmail.com>
 
 	The previous technique for setting *, ** and friends just-in-time

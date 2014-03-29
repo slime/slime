@@ -554,6 +554,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
     (setf (slime-trace-dialog--trace-summary-beg trace) (point-marker))
     (insert summary)
     (setf (slime-trace-dialog--trace-end trace) (point-marker))
+    (set-marker-insertion-type (slime-trace-dialog--trace-beg trace) t)
 
     (add-text-properties (slime-trace-dialog--trace-beg trace)
                          (slime-trace-dialog--trace-end trace)
