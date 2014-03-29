@@ -4235,7 +4235,7 @@ If PACKAGE is NIL, then search in all packages."
    `(swank:documentation-symbol ,symbol-name)))
 
 (defun sly-describe-function (symbol-name)
-  (interactive (list (sly-read-symbol-name "Describe symbol: ")))
+  (interactive (list (sly-read-symbol-name "Describe symbol's function: ")))
   (when (not symbol-name)
     (error "No symbol given"))
   (sly-eval-describe `(swank:describe-function ,symbol-name)))
