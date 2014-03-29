@@ -550,6 +550,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
     (setf (sly-trace-dialog--trace-summary-beg trace) (point-marker))
     (insert summary)
     (setf (sly-trace-dialog--trace-end trace) (point-marker))
+    (set-marker-insertion-type (sly-trace-dialog--trace-beg trace) t)
 
     (add-text-properties (sly-trace-dialog--trace-beg trace)
                          (sly-trace-dialog--trace-end trace)
