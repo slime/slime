@@ -1,6 +1,11 @@
+2014-03-29  João Távora  <joaotavora@gmail.com>
+
+	* slime.el (slime-describe-function): Be a little more precise and
+	prompt for a symbol naming a function.
+
 2014-03-28  João Távora  <joaotavora@gmail.com>
 
-	* slime.el (slime-init-command): Use `slime-to-lisp-filename'. 
+	* slime.el (slime-init-command): Use `slime-to-lisp-filename'.
 
 2014-03-27  João Távora  <joaotavora@gmail.com>
 
