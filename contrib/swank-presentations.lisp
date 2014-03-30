@@ -84,6 +84,11 @@ The secondary value indicates the absence of an entry."
     (cond (foundp object)
           (t (error "Attempt to access unrecorded object (id ~D)." id)))))
 
+(defslimefun lookup-and-save-presented-object-or-lose (id)
+  "Get the object associated with ID and save it in the presentation tables."
+  (let ((obj (lookup-presented-object-or-lose id)))
+    (save-presented-object obj)))
+
 (defslimefun clear-repl-results ()
   "Forget the results of all previous REPL evaluations."
   (clear-presentation-tables)

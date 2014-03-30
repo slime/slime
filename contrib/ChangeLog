@@ -1,3 +1,14 @@
+2014-04-20  Christophe Rhodes  <csr21@cantab.net>
+
+	* swank-presentations.lisp (lookup-and-save-presented-object-or-lose):
+	new slimefun, to take temporary presentations (e.g. from sldb or
+	slime-inspector) and turn them into permanent presentations in the
+	global presentation-id-object tables.
+
+	* slime-presentations.el (slime-copy-presentation-to-repl): rewrite,
+	including use of lookup-and-save-presented-object-or-lose, but also
+	restoring insertion of the presentation into the repl editing stream.
+
 2014-04-17  Olof-Joachim Frahm <olof@macrolet.net>
 
 	* slime-clipboard.el: Require `cl-lib`/`cl` for `lexical-let` and
