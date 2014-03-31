@@ -1,5 +1,44 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
 
+* 2.5 (April 2014)
+
+** Backend improvements
+
+*** Clozure CL
+
+**** `slime-set-default-directory' now calls chdir
+This propagates its effects to subprocesses.
+
+*** Allegro CL
+
+**** swank-compile-string no longer binds *default-pathname-defaults*
+This was inconsistent with the behaviour of other backends and caused
+strange issues with SYS:TEMPORARY-DIRECTORY.
+
+**** Improved source file recording
+Whenever possible interactive definition compilation is mapped to the
+actual source file rather than the buffer name to avoid breakage when
+the the buffer name changes or is closed.
+
+** SLIME Trace Dialog
+
+*** (Un)Tracing a definition automatically updates the trace status
+
+** slime-repl
+
+*** Inspecting * in REPL no longer inspects ** (issue #137)
+
+** slime-autodoc
+
+*** Multiline arglists in `slime-autodoc' no longer imply a newline (issue #7)
+
+** Core Bugfixes
+
+*** SWANK port file name defined in more portable fashion
+Bug reported by Mirko Vukovic on slime-devel.
+
+*** inferior-lisp-program can now hold paths with spaces (issue #116)
+
 * 2.4 (March 2014)
 
 ** New contrib SLIME Trace Dialog included in `slime-fancy'
@@ -34,8 +73,6 @@ contribs to be loaded when `M-x slime' is first executed. See section
 `8.1 Loading Contrib Packages' of the SLIME Manual for more details.
 
 ** Bugfixes and stability improvements since the move to Github
-
-*** Issue #7: Multiline arglists in `slime-autodoc' no longer imply a newline
 
 *** Issue #9: new REPL output respectes existing REPL results or presentations.
 
