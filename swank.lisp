@@ -2149,7 +2149,8 @@ conditions are simply reported."
   (let ((limit (ash 1 16)))
     (with-string-stream (stream :length limit)
       (handler-case
-          (let ((*print-pretty* t)
+          (let ((*print-readably* nil)
+                (*print-pretty* t)
                 (*print-right-margin* 65)
                 (*print-circle* t)
                 (*print-length* (or *print-length* limit))

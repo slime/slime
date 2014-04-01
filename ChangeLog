@@ -1,5 +1,8 @@
 2014-04-01  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (%%condition-message): Bind *print-readably* for good
+	measure.
+
 	* swank-sbcl.lisp (set-default-directory): Call chdir.
 
 2014-03-29  João Távora  <joaotavora@gmail.com>
