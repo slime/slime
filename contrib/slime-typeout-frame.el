@@ -1,5 +1,6 @@
-(eval-and-compile
-  (require 'slime))
+(require 'slime)
+(require 'slime-autodoc)
+(require 'cl-lib)
 
 (defvar slime-typeout-frame-unbind-stack ())
 
@@ -10,18 +11,18 @@
   (:on-load
    (unless (slime-typeout-tty-only-p)
      (add-hook 'slime-connected-hook 'slime-ensure-typeout-frame)
-     (loop for (var value) in 
-           '((slime-message-function slime-typeout-message)
-             (slime-background-message-function slime-typeout-message)
-             (slime-autodoc-message-function slime-typeout-autodoc-message)
-             (slime-autodoc-dimensions-function
-              slime-typeout-autodoc-dimensions))
-           do (slime-typeout-frame-init-var var value))))
+     (cl-loop for (var value) in 
+              '((slime-message-function slime-typeout-message)
+                (slime-background-message-function slime-typeout-message)
+                (slime-autodoc-message-function slime-typeout-autodoc-message)
+                (slime-autodoc-dimensions-function
+                 slime-typeout-autodoc-dimensions))
+              do (slime-typeout-frame-init-var var value))))
   (:on-unload
    (remove-hook 'slime-connected-hook 'slime-ensure-typeout-frame)
-   (loop for (var value) in slime-typeout-frame-unbind-stack 
-         do (cond ((eq var 'slime-unbound) (makunbound var))
-                  (t (set var value))))
+   (cl-loop for (var value) in slime-typeout-frame-unbind-stack 
+            do (cond ((eq var 'slime-unbound) (makunbound var))
+                     (t (set var value))))
    (setq slime-typeout-frame-unbind-stack nil)))
 
 (defun slime-typeout-frame-init-var (var value)
@@ -89,7 +90,6 @@
 (defun slime-typeout-autodoc-message (doc)
   ;; No need for refreshing per `slime-autodoc-pre-command-refresh-echo-area'.
   ;; FIXME: eldoc doesn't know anything about this
-  (setq slime-autodoc-last-message "")
   (slime-typeout-message-aux "%s" doc))
 
 (defun slime-typeout-autodoc-dimensions ()

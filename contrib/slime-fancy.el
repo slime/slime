@@ -1,5 +1,4 @@
-(eval-and-compile
-  (require 'slime))
+(require 'slime)
 
 (define-slime-contrib slime-fancy
   "Make SLIME fancy."

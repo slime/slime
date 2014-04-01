@@ -466,30 +466,65 @@
 (defvar *temp-file-map* (make-hash-table :test #'equal)
   "A mapping from tempfile names to Emacs buffer names.")
 
+(defun write-tracking-preamble (stream file file-offset)
+  "Instrument the top of the temporary file to be compiled.
+
+The header tells allegro that any definitions compiled in the temp
+file should be found in FILE exactly at FILE-OFFSET.  To get Allegro
+to do this, this factors in the length of the inserted header itself."
+  (with-standard-io-syntax
+    (let* ((*package* (find-package :keyword))
+           (source-pathname-form
+            `(cl:eval-when (:compile-toplevel :load-toplevel :execute)
+               (cl:setq excl::*source-pathname*
+                        (pathname ,(sys::frob-source-file file)))))
+           (source-pathname-string (write-to-string source-pathname-form))
+           (position-form-length-bound 80) ; should be enough for everyone
+           (header-length (+ (length source-pathname-string)
+                             position-form-length-bound))
+           (position-form
+            `(cl:setq excl::*partial-source-file-p* ,(- file-offset
+                                                        header-length
+                                                        1 ; for the newline
+                                                        )))
+           (position-form-string (write-to-string position-form))
+           (padding-string (make-string (- position-form-length-bound
+                                           (length position-form-string))
+                                        :initial-element #\;)))
+      (write-string source-pathname-string stream)
+      (write-string position-form-string stream)  
+      (write-string padding-string stream)
+      (write-char #\newline stream))))
+
 (defun compile-from-temp-file (string buffer offset file)
   (call-with-temp-file 
    (lambda (stream filename)
-     (let ((excl:*load-source-file-info* t)
-           (sys:*source-file-types* '(nil)) ; suppress .lisp extension
-           #+(version>= 8 2)
-           (compiler:save-source-level-debug-info-switch t)
-           #+(version>= 8 2)
-           (excl:*load-source-debug-info* t) ; NOTE: requires lldb
-           )
-       (write-string string stream)
-       (finish-output stream)
-       (multiple-value-bind (binary-filename warnings? failure?)
-           (excl:without-redefinition-warnings
-             ;; Suppress Allegro's redefinition warnings; they are
-             ;; pointless when we are compiling via a temporary
-             ;; file.
-             (compile-file filename :load-after-compile t))
-         (declare (ignore warnings?))
-         (when binary-filename
+     (when (and file offset (probe-file file)) 
+       (write-tracking-preamble stream file offset))
+     (write-string string stream)
+     (finish-output stream)
+     (multiple-value-bind (binary-filename warnings? failure?)
+         (let ((sys:*source-file-types* '(nil)) ; suppress .lisp extension
+               #+(version>= 8 2)
+               (compiler:save-source-level-debug-info-switch t)
+               (excl:*redefinition-warnings* nil))
+           (compile-file filename))
+       (declare (ignore warnings?))
+       (when binary-filename
+         (let ((excl:*load-source-file-info* t)
+               ;; NOTE: requires lldb. jt -- don't know the meaning of
+               ;; this note.
+               ;;
+               #+(version>= 8 2)
+               (excl:*load-source-debug-info* t))
+           excl::*source-pathname*
+           (load binary-filename))
+         (when (and buffer offset (or (not file)
+                                      (not (probe-file file))))
            (setf (gethash (pathname stream) *temp-file-map*)
-                 (list buffer offset file))
-           (delete-file binary-filename))
-         (not failure?))))))
+                 (list buffer offset)))
+         (delete-file binary-filename))
+       (not failure?)))))
 
 (defimplementation swank-compile-string (string &key buffer position filename
                                          policy)
@@ -498,11 +533,7 @@
       (with-compilation-hooks ()
         (let ((*buffer-name* buffer)
               (*buffer-start-position* position)
-              (*buffer-string* string)
-              (*default-pathname-defaults*
-               (if filename 
-                   (merge-pathnames (pathname filename))
-                   *default-pathname-defaults*)))
+              (*buffer-string* string))
           (compile-from-temp-file string buffer position filename)))
     (reader-error () nil)))
 
@@ -511,8 +542,7 @@
 (defun buffer-or-file (file file-fun buffer-fun)
   (let* ((probe (gethash file *temp-file-map*)))
     (cond (probe 
-           (destructuring-bind (buffer start file) probe
-             (declare (ignore file))
+           (destructuring-bind (buffer start) probe
              (funcall buffer-fun buffer start)))
           (t (funcall file-fun (namestring (truename file)))))))
 
@@ -553,8 +583,7 @@
         (pathname
          (let ((probe (gethash file *temp-file-map*)))
            (cond (probe
-                  (destructuring-bind (buffer offset file) probe
-                    (declare (ignore file))
+                  (destructuring-bind (buffer offset) probe
                     (make-location `(:buffer ,buffer)
                                    `(:offset ,offset 0))))
                  (t
@@ -577,12 +606,6 @@
 
 (defun fspec-definition-locations (fspec)
   (cond
-    ((and (listp fspec)
-          (eql (car fspec) :top-level-form))
-     (destructuring-bind (top-level-form file &optional (position 0)) fspec 
-       (declare (ignore top-level-form))
-       `((,fspec
-          ,(buffer-or-file-location file position)))))
     ((and (listp fspec) (eq (car fspec) :internal))
      (destructuring-bind (_internal next _n) fspec
        (declare (ignore _internal _n))

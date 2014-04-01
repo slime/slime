@@ -2,8 +2,9 @@
 ;; single Slime socket.  M-x slime-open-listener creates a new REPL
 ;; buffer.
 ;;
-(eval-and-compile
-  (require 'slime))
+(require 'slime)
+(require 'inferior-slime) ; inferior-slime-indent-lime
+(require 'cl-lib)
 
 (define-slime-contrib slime-mrepl
   "Multiple REPLs."
@@ -53,7 +54,7 @@
 (defun slime-mrepl-prompt (package prompt)
   (setf slime-buffer-package package)
   (slime-mrepl-insert (format "%s%s> "
-			      (case (current-column)
+			      (cl-case (current-column)
 				(0 "")
 				(t "\n"))
 			      prompt))
@@ -83,7 +84,7 @@
 
 (slime-define-channel-method listener :set-read-mode (mode)
   (with-current-buffer (slime-channel-get self 'buffer)
-    (ecase mode
+    (cl-ecase mode
       (:read (setq slime-mrepl-expect-sexp nil)
 	     (message "[Listener is waiting for input]"))
       (:eval (setq slime-mrepl-expect-sexp t)))))
@@ -121,22 +122,22 @@
   (interactive)
   (let ((channel (slime-make-channel slime-listener-channel-methods)))
     (slime-eval-async
-     `(swank-mrepl:create-mrepl ,(slime-channel.id channel))
-     (slime-rcurry 
-      (lambda (result channel)
-	(destructuring-bind (remote thread-id package prompt) result
-	  (pop-to-buffer (generate-new-buffer (slime-buffer-name :mrepl)))
-	  (slime-mrepl-mode)
-	  (setq slime-current-thread thread-id)
-	  (setq slime-buffer-connection (slime-connection))
-	  (set (make-local-variable 'slime-mrepl-remote-channel) remote)
-	  (slime-channel-put channel 'buffer (current-buffer))
-	  (slime-channel-send channel `(:prompt ,package ,prompt))))
-      channel))))
+        `(swank-mrepl:create-mrepl ,(slime-channel.id channel))
+      (slime-rcurry 
+       (lambda (result channel)
+         (cl-destructuring-bind (remote thread-id package prompt) result
+           (pop-to-buffer (generate-new-buffer (slime-buffer-name :mrepl)))
+           (slime-mrepl-mode)
+           (setq slime-current-thread thread-id)
+           (setq slime-buffer-connection (slime-connection))
+           (set (make-local-variable 'slime-mrepl-remote-channel) remote)
+           (slime-channel-put channel 'buffer (current-buffer))
+           (slime-channel-send channel `(:prompt ,package ,prompt))))
+       channel))))
 
 (defun slime-mrepl ()
   (let ((conn (slime-connection)))
-    (find-if (lambda (x) 
+    (cl-find-if (lambda (x) 
 	       (with-current-buffer x 
 		 (and (eq major-mode 'slime-mrepl-mode)
 		      (eq (slime-current-connection) conn))))

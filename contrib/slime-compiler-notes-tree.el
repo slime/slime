@@ -1,5 +1,5 @@
-(eval-and-compile
-  (require 'slime))
+(require 'slime)
+(require 'cl-lib)
 
 (define-slime-contrib slime-compiler-notes-tree
   "Display compiler messages in tree layout.
@@ -17,7 +17,7 @@ grouped by severity.
   "Show the compiler notes if appropriate."
   ;; don't pop up a buffer if all notes are already annotated in the
   ;; buffer itself
-  (unless (every #'slime-note-has-location-p notes)
+  (unless (cl-every #'slime-note-has-location-p notes)
     (slime-list-compiler-notes notes)))
 
 (defun slime-list-compiler-notes (notes)
@@ -52,9 +52,9 @@ grouped by severity.
 (defun slime-compiler-notes-to-tree (notes)
   (let* ((alist (slime-alistify notes #'slime-note.severity #'eq))
          (collapsed-p (slime-length> alist 1)))
-    (loop for (severity . notes) in alist
-          collect (slime-tree-for-severity severity notes 
-                                           collapsed-p))))
+    (cl-loop for (severity . notes) in alist
+             collect (slime-tree-for-severity severity notes 
+                                              collapsed-p))))
 
 (defvar slime-compiler-notes-mode-map)
 
@@ -74,7 +74,7 @@ grouped by severity.
 (defun slime-compiler-notes-default-action-or-show-details/mouse (event)
   "Invoke the action pointed at by the mouse, or show details."
   (interactive "e")
-  (destructuring-bind (mouse-2 (w pos &rest _) &rest __) event
+  (cl-destructuring-bind (mouse-2 (w pos &rest _) &rest __) event
     (save-excursion
       (goto-char pos)
       (let ((fn (get-text-property (point) 
@@ -100,7 +100,7 @@ grouped by severity.
 
 ;;;;;; Tree Widget
 
-(defstruct (slime-tree (:conc-name slime-tree.))
+(cl-defstruct (slime-tree (:conc-name slime-tree.))
   item
   (print-fn #'slime-tree-default-printer :type function)
   (kids '() :type list)
@@ -123,14 +123,14 @@ grouped by severity.
 
 (defun slime-tree-insert-list (list prefix)
   "Insert a list of trees."
-  (loop for (elt . rest) on list 
-	do (cond (rest
-		  (insert prefix " |")
-		  (slime-tree-insert elt (concat prefix " |"))
-                  (insert "\n"))
-		 (t
-		  (insert prefix " `")
-		  (slime-tree-insert elt (concat prefix "  "))))))
+  (cl-loop for (elt . rest) on list 
+           do (cond (rest
+                     (insert prefix " |")
+                     (slime-tree-insert elt (concat prefix " |"))
+                     (insert "\n"))
+                    (t
+                     (insert prefix " `")
+                     (slime-tree-insert elt (concat prefix "  "))))))
 
 (defun slime-tree-insert-decoration (tree)
   (insert (slime-tree-decoration tree)))

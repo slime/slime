@@ -1,5 +1,6 @@
-(eval-and-compile
-  (require 'slime))
+(require 'slime)
+(require 'slime-repl)
+(require 'cl-lib)
 
 (define-slime-contrib slime-editing-commands
   "Editing commands without server interaction."
@@ -43,6 +44,11 @@ Otherwise leave point unchanged and return NIL."
           (t (goto-char boundary) 
              nil))))
 
+(defvar slime-close-parens-limit nil
+  "Maxmimum parens for `slime-close-all-sexp' to insert. NIL
+means to insert as many parentheses as necessary to correctly
+close the form.")
+
 (defun slime-close-all-parens-in-sexp (&optional region)
   "Balance parentheses of open s-expressions at point.
 Insert enough right parentheses to balance unmatched left parentheses.
@@ -77,9 +83,9 @@ the top-level sexp before point."
       (setq point (point))
       (skip-chars-forward " \t\n)")
       (skip-chars-backward " \t\n")
-      (let* ((deleted-region     (slime-delete-and-extract-region point (point)))
+      (let* ((deleted-region     (delete-and-extract-region point (point)))
              (deleted-text       (substring-no-properties deleted-region))
-             (prior-parens-count (count ?\) deleted-text)))
+             (prior-parens-count (cl-count ?\) deleted-text)))
         ;; Remember: we always insert as many parentheses as necessary
         ;; and only afterwards delete the superfluously-added parens.
         (when slime-close-parens-limit
@@ -87,11 +93,6 @@ the top-level sexp before point."
                                    slime-close-parens-limit)))
             (dotimes (i (max 0 missing-parens))
               (delete-char -1))))))))
-
-(defvar slime-close-parens-limit nil
-  "Maxmimum parens for `slime-close-all-sexp' to insert. NIL
-means to insert as many parentheses as necessary to correctly
-close the form.")
 
 (defun slime-insert-balanced-comments (arg)
   "Insert a set of balanced comments around the s-expression

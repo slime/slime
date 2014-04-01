@@ -38,18 +38,18 @@ slime.info: $(TEXI)
 	makeinfo $<
 
 slime.html: $(TEXI)
-	texi2html $<
+	texi2html --css-include=slime.css $<
 
 html/index.html: $(TEXI)
-	makeinfo -o html --html $<
+	makeinfo -o html --css-include=slime.css --html $<
 
 html.tgz: html/index.html
 	tar -czf $@ html
 
 DOCDIR=/project/slime/public_html/doc
 # invoke this like: make CLUSER=heller publish
-publish: html.tgz
-	scp html.tgz $(CLUSER)@common-lisp.net:$(DOCDIR)
+publish: slime.pdf html.tgz
+	scp slime.pdf html.tgz $(CLUSER)@common-lisp.net:$(DOCDIR)
 	ssh $(CLUSER)@common-lisp.net "cd $(DOCDIR); tar -zxf html.tgz"
 
 slime.pdf: $(TEXI)
@@ -67,8 +67,6 @@ uninstall: uninstall-info
 # The gist of this horror show is that the contributor list is piped
 # into texinfo-tabulate.awk with one name per line, sorted
 # alphabetically.
-#
-# Some special-case TeX-escaping of international characters.
 contributors.texi: ../ChangeLog Makefile texinfo-tabulate.awk
 	cat ../ChangeLog | \
 	sed -ne '/^[0-9]/{s/^[^ ]* *//; s/ *<.*//; p;}' | \
@@ -76,18 +74,13 @@ contributors.texi: ../ChangeLog Makefile texinfo-tabulate.awk
 	uniq -c | \
 	sort -nr| \
 	sed -e 's/^[^A-Z]*//' | \
-	awk -f texinfo-tabulate.awk | \
-	sed -e "s/\o341/@'a/g" | \
-        sed -e "s/\o355/@'{@dotless{i}}/g" | \
-	sed -e "s/\o351/@'e/g" | \
-	sed -e "s/\o361/@~n/g" | \
-	sed -e 's/\o370/@o{}/g' \
+	awk -f texinfo-tabulate.awk \
 	> $@
 
 #.INTERMEDIATE: contributors.texi
 
 # Debian's install-info wants a --section argument.
-section := $(shell grep INFO-DIR-SECTION $(infofiles) | sed 's/INFO-DIR-SECTION //')
+install-info: section=$(shell grep INFO-DIR-SECTION $(infofiles) | sed 's/INFO-DIR-SECTION //')
 install-info: slime.info
 	mkdir -p $(infodir)
 	$(INSTALL_CMD) $(infofiles) $(infodir)/$(infofiles)

@@ -1,5 +1,5 @@
-(eval-and-compile
-  (require 'slime))
+(require 'slime)
+(require 'slime-repl)
 
 (define-slime-contrib slime-banner
   "Persistent header line and startup animation."

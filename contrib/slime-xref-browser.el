@@ -12,10 +12,10 @@
 (defun slime-expand-class-node (widget)
   (or (widget-get widget :args)
       (let ((name (widget-get widget :tag)))
-	(loop for kid in (slime-eval `(swank:mop :subclasses ,name))
-	      collect `(tree-widget :tag ,kid
-				    :expander slime-expand-class-node
-				    :has-children t)))))
+	(cl-loop for kid in (slime-eval `(swank:mop :subclasses ,name))
+                 collect `(tree-widget :tag ,kid
+                                       :expander slime-expand-class-node
+                                       :has-children t)))))
 
 (defun slime-browse-classes (name)
   "Read the name of a class and show its subclasses."
@@ -57,17 +57,17 @@
 LABEL is just a string for display purposes. 
 DSPEC can be used to expand the node."
   (let ((xrefs '()))
-    (loop for (_file . specs) in (slime-eval `(swank:xref ,type ,name)) do
-          (loop for (dspec . _location) in specs do
-                (let ((exp (ignore-errors (read (downcase dspec)))))
-                  (cond ((and (consp exp) (eq 'flet (car exp)))
-                         ;; we can't expand FLET references so they're useless
-                         )
-                        ((and (consp exp) (eq 'method (car exp)))
-                         ;; this isn't quite right, but good enough for now
-                         (push (list dspec (string (second exp))) xrefs))
-                        (t
-                         (push (list dspec dspec) xrefs))))))
+    (cl-loop for (_file . specs) in (slime-eval `(swank:xref ,type ,name)) do
+             (cl-loop for (dspec . _location) in specs do
+                      (let ((exp (ignore-errors (read (downcase dspec)))))
+                        (cond ((and (consp exp) (eq 'flet (car exp)))
+                               ;; we can't expand FLET references so they're useless
+                               )
+                              ((and (consp exp) (eq 'method (car exp)))
+                               ;; this isn't quite right, but good enough for now
+                               (push (list dspec (string (cl-second exp))) xrefs))
+                              (t
+                               (push (list dspec dspec) xrefs))))))
     xrefs))
 
 (defun slime-expand-xrefs (widget)
@@ -75,12 +75,12 @@ DSPEC can be used to expand the node."
       (let* ((type (widget-get widget :xref-type))
              (dspec (widget-get widget :xref-dspec))
              (xrefs (slime-fetch-browsable-xrefs type dspec)))
-        (loop for (label dspec) in xrefs
-              collect `(tree-widget :tag ,label
-                                    :xref-type ,type
-                                    :xref-dspec ,dspec
-                                    :expander slime-expand-xrefs
-                                    :has-children t)))))
+        (cl-loop for (label dspec) in xrefs
+                 collect `(tree-widget :tag ,label
+                                       :xref-type ,type
+                                       :xref-dspec ,dspec
+                                       :expander slime-expand-xrefs
+                                       :has-children t)))))
 
 (defun slime-browse-xrefs (name type)
   "Show the xref graph of a function in a tree widget."

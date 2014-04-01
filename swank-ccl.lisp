@@ -98,7 +98,7 @@
   :spawn)
 
 (defimplementation create-socket (host port &key backlog)
-  (ccl:make-socket :connect :passive :local-port port 
+  (ccl:make-socket :connect :passive :local-port port
                    :local-host host :reuse-address t
                    :backlog (or backlog 5)))
 
@@ -116,8 +116,8 @@
     (ccl:accept-connection socket :wait t :stream-args stream-args)))
 
 (defvar *external-format-to-coding-system*
-  '((:iso-8859-1 
-     "latin-1" "latin-1-unix" "iso-latin-1-unix" 
+  '((:iso-8859-1
+     "latin-1" "latin-1-unix" "iso-latin-1-unix"
      "iso-8859-1" "iso-8859-1-unix")
     (:utf-8 "utf-8" "utf-8-unix")))
 
@@ -163,7 +163,7 @@
           :message (compiler-warning-short-message condition)
           :source-context nil
           :severity (compiler-warning-severity condition)
-          :location (source-note-to-source-location 
+          :location (source-note-to-source-location
                      (ccl:compiler-warning-source-note condition)
                      (lambda () "Unknown source")
                      (ccl:compiler-warning-function-name condition))))
@@ -195,8 +195,8 @@
                                        &key policy)
   (declare (ignore policy))
   (with-compilation-hooks ()
-    (compile-file input-file 
-                  :output-file output-file 
+    (compile-file input-file
+                  :output-file output-file
                   :load load-p
                   :external-format external-format)))
 
@@ -210,7 +210,7 @@
           (ccl:*save-source-locations* t))
       (unwind-protect
            (progn
-             (with-open-file (s temp-file-name :direction :output 
+             (with-open-file (s temp-file-name :direction :output
                                 :if-exists :error :external-format :utf-8)
                (write-string string s))
              (let ((binary-filename (compile-temp-file
@@ -224,9 +224,9 @@
 (defun compile-temp-file (temp-file-name buffer-file-name buffer-name offset)
   (compile-file temp-file-name
                 :load t
-                :compile-file-original-truename 
+                :compile-file-original-truename
                 (or buffer-file-name
-                    (progn 
+                    (progn
                       (setf (gethash temp-file-name *temp-file-map*)
                             buffer-name)
                       temp-file-name))
@@ -241,7 +241,7 @@
 (defun xref-locations (relation name &optional inverse)
   (delete-duplicates
    (mapcan #'find-definitions
-           (if inverse 
+           (if inverse
              (ccl::get-relation relation name :wild :exhaustive t)
              (ccl::get-relation relation :wild name :exhaustive t)))
    :test 'equal))
@@ -251,7 +251,7 @@
 
 (defimplementation who-macroexpands (name)
   (xref-locations :macro-calls name t))
-  
+
 (defimplementation who-references (name)
   (remove-duplicates
    (append (xref-locations :references name)
@@ -275,7 +275,7 @@
     (setq class (find-class class nil)))
   (when class
     (delete-duplicates
-     (mapcar (lambda (m) 
+     (mapcar (lambda (m)
                (car (find-definitions m)))
              (ccl:specializer-direct-methods class))
      :test 'equal)))
@@ -370,7 +370,7 @@
     (let ((lfun (ccl:frame-function p context)))
       (format stream "(~S" (or (ccl:function-name lfun) lfun))
       (let* ((unavailable (cons nil nil))
-             (args (ccl:frame-supplied-arguments p context 
+             (args (ccl:frame-supplied-arguments p context
                                                  :unknown-marker unavailable)))
         (declare (dynamic-extent unavailable))
         (if (eq args unavailable)
@@ -385,7 +385,7 @@
   `(call/frame ,frame-number (lambda (,p ,context) . ,body)))
 
 (defun call/frame (frame-number if-found)
-  (map-backtrace  
+  (map-backtrace
    (lambda (p context)
      (return-from call/frame
        (funcall if-found p context)))
@@ -455,7 +455,7 @@
 
 ;; CCL commit r11373 | gz | 2008-11-16 16:35:28 +0100 (Sun, 16 Nov 2008)
 ;; contains some interesting details:
-;; 
+;;
 ;; Source location are recorded in CCL:SOURCE-NOTE's, which are objects
 ;; with accessors CCL:SOURCE-NOTE-FILENAME, CCL:SOURCE-NOTE-START-POS,
 ;; CCL:SOURCE-NOTE-END-POS and CCL:SOURCE-NOTE-TEXT.  The start and end
@@ -463,27 +463,27 @@
 ;; be NIL unless text recording was on at read-time.  If the original
 ;; file is still available, you can force missing source text to be read
 ;; from the file at runtime via CCL:ENSURE-SOURCE-NOTE-TEXT.
-;; 
+;;
 ;; Source-note's are associated with definitions (via record-source-file)
 ;; and also stored in function objects (including anonymous and nested
 ;; functions).  The former can be retrieved via
 ;; CCL:FIND-DEFINITION-SOURCES, the latter via CCL:FUNCTION-SOURCE-NOTE.
-;; 
+;;
 ;; The recording behavior is controlled by the new variable
 ;; CCL:*SAVE-SOURCE-LOCATIONS*:
-;; 
+;;
 ;;   If NIL, don't store source-notes in function objects, and store only
 ;;   the filename for definitions (the latter only if
 ;;   *record-source-file* is true).
-;; 
+;;
 ;;   If T, store source-notes, including a copy of the original source
 ;;   text, for function objects and definitions (the latter only if
 ;;   *record-source-file* is true).
-;; 
+;;
 ;;   If :NO-TEXT, store source-notes, but without saved text, for
 ;;   function objects and defintions (the latter only if
 ;;   *record-source-file* is true).  This is the default.
-;; 
+;;
 ;; PC to source mapping is controlled by the new variable
 ;; CCL:*RECORD-PC-MAPPING*.  If true (the default), functions store a
 ;; compressed table mapping pc offsets to corresponding source locations.
@@ -531,14 +531,14 @@
                  (make-location
                   (when file-name (filename-to-buffer (pathname file-name)))
                   (when start-pos (list :position (1+ start-pos)))
-                  (when full-text 
-                    (list :snippet (subseq full-text 0 
+                  (when full-text
+                    (list :snippet (subseq full-text 0
                                            (min 40 (length full-text))))))))
               ((and source name)
                ;; This branch is probably never used
                (make-location
                 (filename-to-buffer source)
-                (list :function-name (princ-to-string 
+                (list :function-name (princ-to-string
                                       (if (functionp name)
                                           (ccl:function-name name)
                                           name)))))
@@ -604,7 +604,7 @@
        :function (if (fboundp symbol)
                      (doc 'function)))
       (maybe-push
-       :setf (let ((setf-function-name (ccl:setf-function-spec-name 
+       :setf (let ((setf-function-name (ccl:setf-function-spec-name
                                         `(setf ,symbol))))
                (when (fboundp setf-function-name)
                  (doc 'function setf-function-name))))
@@ -615,7 +615,7 @@
 
 (defimplementation describe-definition (symbol namespace)
   (ecase namespace
-    (:variable 
+    (:variable
      (describe symbol))
     ((:function :generic-function)
      (describe (symbol-function symbol)))
@@ -629,13 +629,13 @@
 (defimplementation toggle-trace (spec)
   "We currently ignore just about everything."
   (ecase (car spec)
-    (setf 
+    (setf
      (ccl:trace-function spec))
     ((:defgeneric)
      (ccl:trace-function (second spec)))
     ((:defmethod)
      (destructuring-bind (name qualifiers specializers) (cdr spec)
-       (ccl:trace-function 
+       (ccl:trace-function
         (find-method (fdefinition name) qualifiers specializers)))))
   t)
 
@@ -653,15 +653,15 @@
 (defmethod emacs-inspect ((o t))
   (let* ((inspector:*inspector-disassembly* t)
          (i (inspector:make-inspector o))
-	 (count (inspector:compute-line-count i)))
-    (loop for l from 0 below count append 
+         (count (inspector:compute-line-count i)))
+    (loop for l from 0 below count append
           (multiple-value-bind (value label type) (inspector:line-n i l)
             (etypecase type
-              ((member nil :normal) 
+              ((member nil :normal)
                `(,(or label "") (:value ,value) (:newline)))
-              ((member :colon) 
+              ((member :colon)
                (label-value-line label value))
-              ((member :static) 
+              ((member :static)
                (list (princ-to-string label) " " `(:value ,value) '(:newline)))
               ((satisfies comment-type-p)
                (list (princ-to-string label) '(:newline))))))))
@@ -681,7 +681,7 @@
 (defmethod emacs-inspect ((f function))
   (append
    (label-value-line "Name" (function-name f))
-   `("Its argument list is: " 
+   `("Its argument list is: "
      ,(princ-to-string (arglist f)) (:newline))
    (label-value-line "Documentation" (documentation  f t))
    (when (function-lambda-expression f)
@@ -707,7 +707,7 @@
 
 (defmethod emacs-inspect ((uv uvector-inspector))
   (with-slots (object) uv
-    (loop for i below (ccl:uvsize object) append 
+    (loop for i below (ccl:uvsize object) append
           (label-value-line (princ-to-string i) (ccl:uvref object i)))))
 
 (defimplementation type-specifier-p (symbol)
@@ -716,13 +716,13 @@
 
 ;;; Multiprocessing
 
-(defvar *known-processes* 
+(defvar *known-processes*
   (make-hash-table :size 20 :weak :key :test #'eq)
   "A map from threads to mailboxes.")
 
 (defvar *known-processes-lock* (ccl:make-lock "*known-processes-lock*"))
 
-(defstruct (mailbox (:conc-name mailbox.)) 
+(defstruct (mailbox (:conc-name mailbox.))
   (mutex (ccl:make-lock "thread mailbox"))
   (semaphore (ccl:make-semaphore))
   (queue '() :type list))
@@ -767,12 +767,12 @@
   (not (ccl:process-exhausted-p thread)))
 
 (defimplementation interrupt-thread (thread function)
-  (ccl:process-interrupt 
-   thread 
+  (ccl:process-interrupt
+   thread
    (lambda ()
      (let ((ccl:*top-error-frame* (ccl::%current-exception-frame)))
        (funcall function)))))
-  
+
 (defun mailbox (thread)
   (ccl:with-lock-grabbed (*known-processes-lock*)
     (or (gethash thread *known-processes*)
@@ -796,8 +796,8 @@
      (ccl:with-lock-grabbed (mutex)
        (let* ((q (mailbox.queue mbox))
               (tail (member-if test q)))
-         (when tail 
-           (setf (mailbox.queue mbox) 
+         (when tail
+           (setf (mailbox.queue mbox)
                  (nconc (ldiff q tail) (cdr tail)))
            (return (car tail)))))
      (when (eq timeout t) (return (values nil t)))
@@ -810,7 +810,7 @@
     (declare (type symbol name))
     (ccl:with-lock-grabbed (lock)
       (etypecase thread
-        (null 
+        (null
          (setf alist (delete name alist :key #'car)))
         (ccl:process
          (let ((probe (assoc name alist)))
@@ -827,6 +827,12 @@
 
 (defimplementation quit-lisp ()
   (ccl:quit))
+
+(defimplementation set-default-directory (directory)
+  (let ((dir (truename (merge-pathnames directory))))
+    (setf *default-pathname-defaults* (truename (merge-pathnames directory)))
+    (ccl:cwd dir)
+    (default-directory)))
 
 ;;; Weak datastructures
 

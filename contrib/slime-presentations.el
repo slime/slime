@@ -1,5 +1,8 @@
-(eval-and-compile
-  (require 'slime))
+(require 'slime)
+(require 'bridge)
+(require 'cl-lib)
+(eval-when-compile
+  (require 'cl))
 
 (define-slime-contrib slime-presentations
   "Imitate LispM presentations."
@@ -13,8 +16,8 @@
              (lambda ()
                ;; Respect the syntax text properties of presentation.
                (set (make-local-variable 'parse-sexp-lookup-properties) t)
-               (slime-add-local-hook 'after-change-functions
-                                     'slime-after-change-function)))
+               (add-hook 'after-change-functions
+                         'slime-after-change-function 'append t)))
    (add-hook 'slime-event-hooks 'slime-dispatch-presentation-event)
    (setq slime-write-string-function 'slime-presentation-write)
    (add-hook 'slime-repl-return-hooks 'slime-presentation-on-return-pressed)
@@ -98,7 +101,7 @@ TARGET can be nil (regular process output) or :repl-result."
              (id (car (read-from-string match))))
         (slime-mark-presentation-end id))))
 
-(defstruct slime-presentation text id)
+(cl-defstruct slime-presentation text id)
 
 (defvar slime-presentation-syntax-table
   (let ((table (copy-syntax-table lisp-mode-syntax-table)))
@@ -147,6 +150,8 @@ RESULT-P decides whether a face for a return value or output text is used."
       ;; In these cases the mouse-face text properties need to take over ---
       ;; but they do not give nested highlighting.
       (slime-ensure-presentation-overlay start end presentation))))
+
+(defvar slime-presentation-map (make-sparse-keymap))
 
 (defun slime-ensure-presentation-overlay (start end presentation)
   (unless (cl-find presentation (overlays-at start)
@@ -577,8 +582,6 @@ A negative argument means move backward instead."
 	    (slime-presentation-around-or-before-point-or-error p)
 	  (goto-char start)))))))
 
-(defvar slime-presentation-map (make-sparse-keymap))
-
 (define-key  slime-presentation-map [mouse-2] 'slime-copy-or-inspect-presentation-at-mouse)
 (define-key  slime-presentation-map [mouse-3] 'slime-presentation-menu)
 
@@ -777,6 +780,7 @@ output; otherwise the new input is appended."
         (insert string))
       ;; Move the input-start marker after the REPL result.
       (set-marker marker (point))
+      (set-marker slime-output-end (point))
       ;; Restore point before insertion but only it if was farther
       ;; than `marker'. Omitting this breaks REPL test
       ;; `repl-type-ahead'.
@@ -806,11 +810,12 @@ buffer. Presentations of old results are expanded into code."
     (slime-repl-recenter-if-needed)
     t))
 
+(defun slime-presentation-bridge-insert (process output)
+  (slime-output-filter process (or output "")))
+
 (defun slime-presentation-on-stream-open (stream)
-  (require 'bridge)
-  (defun bridge-insert (process output)
-    (slime-output-filter process (or output "")))
   (install-bridge)
+  (setq bridge-insert-function #'slime-presentation-bridge-insert)
   (setq bridge-destination-insert nil)
   (setq bridge-source-insert nil)
   (setq bridge-handlers
@@ -851,60 +856,7 @@ even on Common Lisp implementations without weak hash tables."
 
 (defun slime-presentation-sldb-insert-frame-variable-value (value frame index)
   (slime-insert-presentation
-   (in-sldb-face local-value value)
+   (sldb-in-face local-value value)
    `(:frame-var ,slime-current-thread ,(car frame) ,index) t))
-
-
-;;; Tests
-(eval-and-compile
-  (require 'slime-tests nil t))
-
-(define-slime-ert-test pick-up-presentation-at-point ()
-  "Ensure presentations are found consistently."
-  (cl-labels ((assert-it (point &optional negate)
-                       (let ((result
-                              (cl-first
-                               (slime-presentation-around-or-before-point point))))
-                         (unless (if negate (not result) result)
-                           (ert-fail
-                            (format "Failed to pick up presentation at point %s"
-                                    point))))))
-    (with-temp-buffer
-      (slime-insert-presentation "1234567890" `(:inspected-part 42))
-      (insert "     ")
-      ;; in position 1 and 2 it worked, but farther away only with the fix
-      (assert-it 1)
-      (assert-it 2)
-      (assert-it 3)
-      (assert-it 4)
-      (assert-it 5)
-      (assert-it 10)
-      (assert-it 11)
-      (assert-it 12 t))))
-
-(def-slime-test (pretty-presentation-results (:fails-for "allegro"))
-    (input result-contents)
-    "Test some more simple situations dealing with print-width and stuff.
-
-Very much like `repl-test-2', but should be more stable when
-presentations are enabled, except in allegro."
-    '(("(with-standard-io-syntax
-         (write (make-list 15 :initial-element '(1 . 2)) :pretty t) 0)"
-       "SWANK> (with-standard-io-syntax
-         (write (make-list 15 :initial-element '(1 . 2)) :pretty t) 0)
-{((1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2)
- (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2))
-}0
-SWANK> *[]")
-      ;; Two times to test the effect of FRESH-LINE.
-      ("(with-standard-io-syntax
-         (write (make-list 15 :initial-element '(1 . 2)) :pretty t) 0)"
-       "SWANK> (with-standard-io-syntax
-         (write (make-list 15 :initial-element '(1 . 2)) :pretty t) 0)
-{((1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2)
- (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2))
-}0
-SWANK> *[]"))
-  (slime-test-repl-test input result-contents))
 
 (provide 'slime-presentations)

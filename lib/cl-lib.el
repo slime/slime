@@ -4,7 +4,7 @@
 
 ;; Author: Stefan Monnier <monnier@iro.umontreal.ca>
 ;; vcomment: Emacs-24.3's version is 1.0 so this has to stay below.
-;; Version: 0.4
+;; Version: 0.5
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -35,6 +35,15 @@
 ;; simply reversed.
 
 ;;; Code:
+
+;; We need to handle the situation where this package is used with an Emacs
+;; that comes with a real cl-lib (i.e. ≥24.3).
+
+;; First line of defense: try to make sure the built-in cl-lib comes earlier in
+;; load-path so we never get loaded:
+;;;###autoload (let ((d (file-name-directory #$)))
+;;;###autoload   (when (member d load-path)
+;;;###autoload     (setq load-path (append (remove d load-path) (list d)))))
 
 (when (functionp 'macroexp--compiler-macro)
   ;; `macroexp--compiler-macro' was introduced as part of the big CL
@@ -318,25 +327,27 @@
           (message "%S already defined, not rebinding" new))
       (defalias new fun))))
 
-(autoload 'cl-position "cl-seq")
-(defadvice cl-position (around cl-lib (cl-item cl-seq &rest cl-keys) activate)
+(unless (symbolp (symbol-function 'position))
+  (autoload 'cl-position "cl-seq")
+  (defadvice cl-position (around cl-lib (cl-item cl-seq &rest cl-keys) activate)
   (let ((argk (ad-get-args 2)))
     (if (or (null argk) (keywordp (car argk)))
         ;; This is a call to cl-lib's `cl-position'.
         (setq ad-return-value
               (apply #'position (ad-get-arg 0) (ad-get-arg 1) argk))
       ;; Must be a call to cl's old `cl-position'.
-      ad-do-it)))
+      ad-do-it))))
 
-(autoload 'cl-delete-duplicates "cl-seq")
-(defadvice cl-delete-duplicates (around cl-lib (cl-seq &rest cl-keys) activate)
+(unless (symbolp (symbol-function 'delete-duplicates))
+  (autoload 'cl-delete-duplicates "cl-seq")
+  (defadvice cl-delete-duplicates (around cl-lib (cl-seq &rest cl-keys) activate)
   (let ((argk (ad-get-args 1)))
     (if (or (null argk) (keywordp (car argk)))
         ;; This is a call to cl-lib's `cl-delete-duplicates'.
         (setq ad-return-value
               (apply #'delete-duplicates (ad-get-arg 0) argk))
       ;; Must be a call to cl's old `cl-delete-duplicates'.
-      ad-do-it)))
+      ad-do-it))))
 
 (when (or (not (fboundp 'cl-member))
           (eq (symbol-function 'cl-member) #'memq))
@@ -359,6 +370,13 @@
 
 ;;;; ChangeLog:
 
+;; 2014-02-25  Stefan Monnier  <monnier@iro.umontreal.ca>
+;; 
+;; 	Fixes: debbugs:16671
+;; 
+;; 	* cl-lib.el (cl-position, cl-delete-duplicate): Don't advise if >=24.3.
+;; 	(load-path): Try to make sure we're at the end.
+;; 
 ;; 2014-01-25  Stefan Monnier  <monnier@iro.umontreal.ca>
 ;; 
 ;; 	* cl-lib.el: Resolve conflicts with old internal definitions

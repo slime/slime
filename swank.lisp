@@ -2158,28 +2158,36 @@ conditions are simply reported."
     (send-to-emacs `(:debug-condition ,(current-thread-id)
                                       ,(princ-to-string real-condition)))))
 
-(defun condition-message (condition)
-  (let ((*print-pretty* t)
-        (*print-right-margin* 65)
-        (*print-circle* t))
-    (format-sldb-condition condition)))
+(defun %%condition-message (condition)
+  (let ((limit (ash 1 16)))
+    (with-string-stream (stream :length limit)
+      (handler-case
+          (let ((*print-readably* nil)
+                (*print-pretty* t)
+                (*print-right-margin* 65)
+                (*print-circle* t)
+                (*print-length* (or *print-length* limit))
+                (*print-level* (or *print-level* limit))
+                (*print-lines* (or *print-lines* limit)))
+            (print-condition condition stream))
+        (serious-condition (c)
+          (ignore-errors
+            (with-standard-io-syntax
+              (let ((*print-readably* nil))
+                (format stream "~&Error (~a) during printing: " (type-of c))
+                (print-unreadable-object (condition stream :type t
+                                                    :identity t))))))))))
 
-(defvar *sldb-condition-printer* #'condition-message
+(defun %condition-message (condition)
+  (string-trim #(#\newline #\space #\tab)
+               (%%condition-message condition)))
+
+(defvar *sldb-condition-printer* #'%condition-message
   "Function called to print a condition to an SLDB buffer.")
 
 (defun safe-condition-message (condition)
-  "Safely print condition to a string, handling any errors during
-printing."
-  (truncate-string
-   (handler-case
-       (funcall *sldb-condition-printer* condition)
-     (error (cond)
-       ;; Beware of recursive errors in printing, so only use the condition
-       ;; if it is printable itself:
-       (format nil "Unable to display error condition~@[: ~A~]"
-               (ignore-errors (princ-to-string cond)))))
-   (ash 1 16)
-   "..."))
+  "Print condition to a string, handling any errors during printing."
+  (funcall *sldb-condition-printer* condition))
 
 (defun debugger-condition-for-emacs ()
   (list (safe-condition-message *swank-debugger-condition*)

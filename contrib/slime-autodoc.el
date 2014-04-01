@@ -1,5 +1,8 @@
-(eval-and-compile
-  (require 'slime))
+(require 'slime)
+(require 'eldoc)
+(require 'cl-lib)
+(eval-when-compile
+  (require 'cl))
 
 (define-slime-contrib slime-autodoc
   "Show fancy arglist in echo area."
@@ -19,17 +22,10 @@
    (dolist (h '(slime-mode-hook slime-repl-mode-hook sldb-mode-hook))
      (remove-hook h 'slime-autodoc-maybe-enable))))
 
-(defun slime-autodoc-maybe-enable ()
-  (when slime-use-autodoc-mode
-    (slime-autodoc-mode 1)
-    (setq slime-echo-arglist-function
-          (lambda ()
-            (if slime-autodoc-mode
-                (eldoc-message (slime-autodoc))
-                (slime-show-arglist))))))
-
 (defcustom slime-use-autodoc-mode t
-  "When non-nil always enable slime-autodoc-mode in slime-mode.")
+  "When non-nil always enable slime-autodoc-mode in slime-mode."
+  :type 'boolean
+  :group 'slime-ui)
 
 (defcustom slime-autodoc-use-multiline-p nil
   "If non-nil, allow long autodoc messages to resize echo area display."
@@ -43,7 +39,9 @@
 
 (defcustom slime-autodoc-accuracy-depth 10
   "Number of paren levels that autodoc takes into account for
-  context-sensitive arglist display (local functions. etc)")
+  context-sensitive arglist display (local functions. etc)"
+  :type 'integer
+  :group 'slime-ui)
 
 
 
@@ -126,8 +124,8 @@ Return DOCUMENTATION."
 
 ;;;; slime-autodoc-mode
 
-(defun* slime-autodoc (&optional (multilinep slime-autodoc-use-multiline-p)
-                                 cache-multiline)
+(cl-defun slime-autodoc (&optional (multilinep slime-autodoc-use-multiline-p)
+                                   cache-multiline)
   "Returns the cached arglist information as string, or nil.
 If it's not in the cache, the cache will be updated asynchronously."
   (interactive)
@@ -138,8 +136,8 @@ If it's not in the cache, the cache will be updated asynchronously."
     (save-match-data
       (unless (if (fboundp 'slime-repl-inside-string-or-comment-p)
                   (slime-repl-inside-string-or-comment-p)
-                  (slime-inside-string-or-comment-p))
-        (multiple-value-bind (cache-key retrieve-form)
+                (slime-inside-string-or-comment-p))
+        (cl-multiple-value-bind (cache-key retrieve-form)
             (slime-make-autodoc-rpc-form)
           (let* (cached
                  (multilinep (or (slime-autodoc-multiline-cached
@@ -147,26 +145,27 @@ If it's not in the cache, the cache will be updated asynchronously."
                                  multilinep)))
             (slime-autodoc-cache-multiline (car cache-key) cache-multiline)
             (cond
-              ((not cache-key) nil)
-              ((setq cached (slime-get-cached-autodoc cache-key))
-               (slime-format-autodoc cached multilinep))
-              (t
-               ;; If nothing is in the cache, we first decline (by
-               ;; returning nil), and fetch the arglist information
-               ;; asynchronously.
-               (slime-eval-async retrieve-form
-                 (lexical-let ((cache-key cache-key)
-                               (multilinep multilinep))
-                   (lambda (doc)
-                     (destructuring-bind (doc cache-p) doc
-                       (unless (eq doc :not-available)
-                         (when cache-p
-                           (slime-store-into-autodoc-cache cache-key doc))
-                         ;; Now that we've got our information,
-                         ;; get it to the user ASAP.
-                         (eldoc-message
-                          (slime-format-autodoc doc multilinep)))))))
-               nil))))))))
+             ((not cache-key) nil)
+             ((setq cached (slime-get-cached-autodoc cache-key))
+              (slime-format-autodoc cached multilinep))
+             (t
+              ;; If nothing is in the cache, we first decline (by
+              ;; returning nil), and fetch the arglist information
+              ;; asynchronously.
+              (slime-eval-async retrieve-form
+                (lexical-let
+                 ((cache-key cache-key)
+                  (multilinep multilinep))
+                 (lambda (doc)
+                   (cl-destructuring-bind (doc cache-p) doc
+                     (unless (eq doc :not-available)
+                       (when cache-p
+                         (slime-store-into-autodoc-cache cache-key doc))
+                       ;; Now that we've got our information,
+                       ;; get it to the user ASAP.
+                       (eldoc-message
+                        (slime-format-autodoc doc multilinep)))))))
+              nil))))))))
 
 (defvar slime-autodoc-cache-car nil)
 
@@ -182,6 +181,22 @@ If it's not in the cache, the cache will be updated asynchronously."
                      slime-autodoc-cache-car))
          (setq slime-autodoc-cache-car nil))))
 
+(make-variable-buffer-local (defvar slime-autodoc-mode nil))
+
+;; FIXME: use `define-minor-mode'.
+(defun slime-autodoc-mode (&optional arg interactive)
+  (interactive (list (or current-prefix-arg 'toggle) t))
+  (make-local-variable 'eldoc-documentation-function)
+  (make-local-variable 'eldoc-idle-delay)
+  (make-local-variable 'eldoc-minor-mode-string)
+  (setq eldoc-documentation-function 'slime-autodoc)
+  (setq eldoc-idle-delay slime-autodoc-delay)
+  (setq eldoc-minor-mode-string " Autodoc")
+  (setq slime-autodoc-mode (eldoc-mode arg))
+  (when interactive
+    (message (format "Slime autodoc mode %s."
+                     (if slime-autodoc-mode "enabled" "disabled")))))
+
 (defun slime-autodoc-manually ()
   "Like slime-autodoc, but when called twice,
 or after slime-autodoc was already automatically called,
@@ -191,20 +206,14 @@ display multiline arglist"
                                     slime-autodoc-mode)
                                 t)))
 
-(make-variable-buffer-local (defvar slime-autodoc-mode nil))
-
-(defun slime-autodoc-mode (&optional arg)
-  (interactive (list (or current-prefix-arg 'toggle)))
-  (make-local-variable 'eldoc-documentation-function)
-  (make-local-variable 'eldoc-idle-delay)
-  (make-local-variable 'eldoc-minor-mode-string)
-  (setq eldoc-documentation-function 'slime-autodoc)
-  (setq eldoc-idle-delay slime-autodoc-delay)
-  (setq eldoc-minor-mode-string " Autodoc")
-  (setq slime-autodoc-mode (eldoc-mode arg))
-  (when (interactive-p)
-    (message (format "Slime autodoc mode %s."
-                     (if slime-autodoc-mode "enabled" "disabled")))))
+(defun slime-autodoc-maybe-enable ()
+  (when slime-use-autodoc-mode
+    (slime-autodoc-mode 1)
+    (setq slime-echo-arglist-function
+          (lambda ()
+            (if slime-autodoc-mode
+                (eldoc-message (slime-autodoc))
+              (slime-show-arglist))))))
 
 (defadvice eldoc-display-message-no-interference-p
     (after slime-autodoc-message-ok-p)
@@ -219,174 +228,5 @@ display multiline arglist"
                (slime-background-activities-enabled-p)))
     (slime-bind-keys slime-doc-map t '((?A slime-autodoc-manually))))
   ad-return-value)
-
-
-;;;; Initialization
-
-
-
-;;;; Test cases
-(eval-and-compile
-  (require 'slime-tests))
-
-(defun slime-autodoc-to-string ()
-  "Retrieve and return autodoc for form at point."
-  (let ((autodoc (car (slime-eval (second (slime-make-autodoc-rpc-form))))))
-    (if (eq autodoc :not-available)
-        :not-available
-        (slime-canonicalize-whitespace autodoc))))
-
-(defun slime-check-autodoc-at-point (arglist)
-  (slime-test-expect (format "Autodoc in `%s' (at %d) is as expected"
-                             (buffer-string) (point))
-                     arglist
-                     (slime-autodoc-to-string)))
-
-(defmacro define-autodoc-tests (&rest specs)
-  `(progn
-     ,@(loop
-        for (buffer-sexpr wished-arglist . options)
-        in specs
-        for fails-for = (cl-getf options :fails-for)
-        for skip-trailing-test-p = (cl-getf options :skip-trailing-test-p)
-        for i from 1
-        when (featurep 'ert)
-        collect `(define-slime-ert-test ,(intern (format "autodoc-tests-%d" i))
-                     ()
-                   ,(format "Check autodoc works ok for %s" buffer-sexpr)
-                   ,@(if fails-for
-                         `(:expected-result
-                           '(satisfies
-                             (lambda (result)
-                               (ert-test-result-type-p
-                                result
-                                (if (member (slime-lisp-implementation-name)
-                                            ',fails-for)
-                                    :failed
-                                  :passed))))))
-                   (slime-sync-to-top-level 0.3)
-                   (slime-check-top-level)
-                   (with-temp-buffer
-                     (setq slime-buffer-package "COMMON-LISP-USER")
-                     (lisp-mode)
-                     (insert ,buffer-sexpr)
-                     (search-backward "*HERE*")
-                     (delete-region (match-beginning 0) (match-end 0))
-                     (should (equal ,wished-arglist
-                                    (slime-autodoc-to-string)))
-                     (unless ,skip-trailing-test-p
-                       (insert ")") (backward-char)
-                       (should (equal ,wished-arglist
-                                      (slime-autodoc-to-string)))))
-                   (slime-sync-to-top-level 0.3)))))
-
-(define-autodoc-tests
-  ;; Test basics
-  ("(swank::emacs-connected*HERE*"    "(emacs-connected)")
-  ("(swank::emacs-connected *HERE*"   "(emacs-connected)")
-  ("(swank::create-socket*HERE*"
-   "(create-socket host port &key backlog)")
-  ("(swank::create-socket *HERE*"
-   "(create-socket ===> host <=== port &key backlog)")
-  ("(swank::create-socket foo *HERE*"
-   "(create-socket host ===> port <=== &key backlog)")
-
-  ;; Test that autodoc differentiates between exported and
-  ;; unexported symbols.
-  ("(swank:create-socket*HERE*" :not-available)
-
-  ;; Test if cursor is on non-existing required parameter
-  ("(swank::create-socket foo bar *HERE*"
-   "(create-socket host port &key backlog)")
-
-  ;; Test cursor in front of opening parenthesis
-  ("(swank::with-struct *HERE*(foo. x y) *struct* body1)"
-   "(with-struct (conc-name &rest names) obj &body body)"
-   :skip-trailing-test-p t)
-
-  ;; Test variable content display
-  ("(progn swank::default-server-port*HERE*"
-   "DEFAULT-SERVER-PORT => 4005")
-
-  ;; Test that "variable content display" is not triggered for
-  ;; trivial constants.
-  ("(swank::create-socket t*HERE*"
-   "(create-socket ===> host <=== port &key backlog)")
-  ("(swank::create-socket :foo*HERE*"
-   "(create-socket ===> host <=== port &key backlog)")
-
-  ;; Test with syntactic sugar
-  ("#'(lambda () (swank::create-socket*HERE*"
-   "(create-socket host port &key backlog)")
-  ("`(lambda () ,(swank::create-socket*HERE*"
-   "(create-socket host port &key backlog)")
-  ("(remove-if #'(lambda () (swank::create-socket*HERE*"
-   "(create-socket host port &key backlog)")
-  ("`(remove-if #'(lambda () ,@(swank::create-socket*HERE*"
-   "(create-socket host port &key backlog)")
-
-  ;; Test &optional
-  ("(swank::symbol-status foo *HERE*"
-   "(symbol-status symbol &optional\
- ===> (package (symbol-package symbol)) <===)" :fails-for ("allegro"))
-
-  ;; Test context-sensitive autodoc (DEFMETHOD)
-  ("(defmethod swank::arglist-dispatch (*HERE*"
-   "(defmethod arglist-dispatch\
- (===> operator <=== arguments) &body body)")
-  ("(defmethod swank::arglist-dispatch :before (*HERE*"
-   "(defmethod arglist-dispatch :before\
- (===> operator <=== arguments) &body body)")
-
-  ;; Test context-sensitive autodoc (APPLY)
-  ("(apply 'swank::eval-for-emacs*HERE*"
-   "(apply 'eval-for-emacs &optional form buffer-package id &rest args)")
-  ("(apply #'swank::eval-for-emacs*HERE*"
-   "(apply #'eval-for-emacs &optional form buffer-package id &rest args)")
-  ("(apply 'swank::eval-for-emacs foo *HERE*"
-   "(apply 'eval-for-emacs &optional form\
- ===> buffer-package <=== id &rest args)")
-  ("(apply #'swank::eval-for-emacs foo *HERE*"
-   "(apply #'eval-for-emacs &optional form\
- ===> buffer-package <=== id &rest args)")
-
-  ;; Test context-sensitive autodoc (ERROR, CERROR)
-  ("(error 'simple-condition*HERE*"
-   "(error 'simple-condition &rest arguments\
- &key format-arguments format-control)")
-  ("(cerror \"Foo\" 'simple-condition*HERE*"
-   "(cerror \"Foo\" 'simple-condition\
- &rest arguments &key format-arguments format-control)"
-   :fails-for ("allegro"))
-
-  ;; Test &KEY and nested arglists
-  ("(swank::with-retry-restart (:msg *HERE*"
-   "(with-retry-restart (&key ===> (msg \"Retry.\") <===) &body body)"
-   :fails-for ("allegro"))
-  ("(swank::with-retry-restart (:msg *HERE*(foo"
-   "(with-retry-restart (&key ===> (msg \"Retry.\") <===) &body body)"
-   :skip-trailing-test-p t
-   :fails-for ("allegro"))
-  ("(swank::start-server \"/tmp/foo\" :dont-close *HERE*"
-   "(start-server port-file &key (style swank:*communication-style*)\
- ===> (dont-close swank:*dont-close*) <===)"
-   :fails-for ("allegro"))
-
-  ;; Test declarations and type specifiers
-  ("(declare (string *HERE*"
-   "(declare (string &rest ===> variables <===))"
-   :fails-for ("allegro"))
-  ("(declare ((string *HERE*"
-   "(declare ((string &optional ===> size <===) &rest variables))")
-  ("(declare (type (string *HERE*"
-   "(declare (type (string &optional ===> size <===) &rest variables))")
-
-  ;; Test local functions
-  ("(flet ((foo (x y) (+ x y))) (foo *HERE*" "(foo ===> x <=== y)")
-  ("(macrolet ((foo (x y) `(+ ,x ,y))) (foo *HERE*" "(foo ===> x <=== y)")
-  ("(labels ((foo (x y) (+ x y))) (foo *HERE*" "(foo ===> x <=== y)")
-  ("(labels ((foo (x y) (+ x y))
-                 (bar (y) (foo *HERE*"
-   "(foo ===> x <=== y)" :fails-for ("cmucl" "sbcl" "allegro")))
 
 (provide 'slime-autodoc)

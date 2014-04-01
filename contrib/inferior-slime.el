@@ -10,6 +10,8 @@
 ;;   (add-to-list 'load-path "<directory-of-this-file>")
 ;;   (add-hook 'slime-load-hook (lambda () (require 'inferior-slime)))
 ;;   (add-hook 'inferior-lisp-mode-hook (lambda () (inferior-slime-mode 1)))
+(require 'slime)
+(require 'cl-lib)
 
 (define-minor-mode inferior-slime-mode
   "\\<slime-mode-map>\

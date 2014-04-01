@@ -6,6 +6,248 @@
 	* swank-presentation-streams.lisp [sbcl]: Simplify loading of
 	sbcl-pprint-patch when using swank-loader.lisp.
 
+2014-03-29  João Távora  <joaotavora@gmail.com>
+
+	* slime-trace-dialog.el (slime-trace-dialog--insert-trace): Set
+	trace entry's marker-insertion-type to T to avoid text later being
+	inserted before the marker from entering its protected region.
+
+2014-03-27  João Távora  <joaotavora@gmail.com>
+
+	The previous technique for setting *, ** and friends just-in-time
+	didn't work, especially when the inspector was called from the
+	REPL buffer to inspect *. The problem this was fixing was fixed in
+	a different manner, by making slime-repl.el ensure that these
+	variables are set in the swank side.
+
+	* swank-repl.lisp (set-repl-variables): New slimefun.
+	(repl-eval): Call SET-REPL-VARIABLES *after* evaluating region.
+
+	* slime-repl.el (sldb-copy-down-to-repl): Call new
+	SWANK:SET-REPL-VARIABLES just after copying down to REPL.
+
+2014-03-09  João Távora  <joaotavora@gmail.com>
+
+	* slime-trace-dialog.el (slime-trace-dialog--open-detail): Restore
+	`:mode' argument to `slime-with-popup-buffer'.
+
+	* slime-sprof.el (slime-sprof-report): idem
+
+	* slime-compiler-notes-tree.el (slime-list-compiler-notes): idem
+
+	* slime-clipboard.el (slime-clipboard-display-entries): idem
+
+2014-03-08  Luís Oliveira  <loliveira@common-lisp.net>
+
+	slime-autodoc: avoid adding a newline after things like
+	with-open-file when doing multiline display.
+
+	* swank-arglists.lisp (print-decoded-arglist): Don't
+	pprint-newline when adding a space after the operator.
+
+2014-03-07  João Távora  <joaotavora@gmail.com>
+
+	* slime-trace-dialog.el (slime-trace-dialog--open-detail): Fix
+	"read-only" error when navigating to the trace details.
+	(slime-trace-dialog--insert-trace): Nudge non-parent trace entries
+	one "-" to the right to line up with others at the same level.
+
+	When toggling trace on a definition, automatically update the
+	trace dialog if it is open already. Idea by Luís Oliveira.
+
+	* slime-trace-dialog.el (slime-trace-dialog--get-buffer): split
+	into reusable functions.
+	(slime-trace-dialog--buffer-name): new function
+	(slime-trace-dialog--live-dialog): new function
+	(slime-trace-dialog--ensure-buffer): new function
+	(slime-trace-dialog--update-existing-dialog): new function for
+	added to `slime-trace-dialog-after-toggle-hook' by default.
+	(slime-trace-dialog): Use `slime-trace-dialog--ensure-buffer'.
+
+2014-03-03  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-presentations.el: Require 'cl for case, return-from etc.
+
+2014-03-03  João Távora  <joaotavora@gmail.com>
+
+	* test/slime-indentation-tests.el: New file. Defines ERT
+	indentation tests from specs in `slime-cl-indent-test.txt'.
+
+	* slime-indentation.el (slime-cl-indet): `require' instead of
+	`load'.
+
+	* test/slime-cl-indent-test.txt: Moved to from previous file and
+	changed test names from numbers to symbols.
+
+	* slime-cl-indent.el: Moved tests to
+	test/slime-indentation-tests.el. In file comments, explain the
+	legacy cl-indent.el situation. Provide `slime-cl-indent'.
+
+2014-03-02  João Távora  <joaotavora@gmail.com>
+
+	The contrib's Makefile now works as the top-level Makefile,
+	byte-compiling files separately, uncovering errors when trying to
+	byte-compile files in isolation. Fixed almost all such problems in
+	contrib's el files and remove uses of the "xemacs compability
+	layer", in preparation of its removal.
+
+	For most files this amounted to moving some definitions around,
+	requiring the needed libs at the top, and prefixing cl-lib
+	functions with "cl". `cl' is required at compile-time only for
+	macros which aren't found in cl-lib.
+
+	All (minor) exceptions are listed below.o
+
+	* Makefile (%.elc): Do as in root-makefile and compile each el
+	file separately. This reveals more warnings.
+
+	* slime-typeout-frame.el (slime-typeout-autodoc-message): Don't
+	set inexistent `slime-autodoc-last-message' var.
+
+	* slime-compiler-notes-tree.el (slime-list-compiler-notes): Don't
+	pass :mode to `slime-with-popup-buffer'
+
+	* slime-clipboard.el (slime-clipboard-display-entries): Don't use
+	:mode arg to `slime-with-popup-buffer'.
+	(slime-clipboard-redisplay): Don't use `slime-save-coordinates' as
+	that's probably going away, use simpler approach.
+
+	* slime-indentation.el (slime-indentation): Correct description.
+
+	* slime-fontifying-fu.el (slime-beginning-of-tlf): Simplify,
+	conditional definition not needed.
+
+	* slime-enclosing-context.el (slime-enclosing-context): Explain
+	why contrib doesn't work.
+
+	* slime-cl-indent.el (require): Require needed libraries,
+	including `slime'.
+	(common-lisp-active-style): use proper defvar.
+	(common-lisp-current-package-function): Make it a variable, which
+	is how it's used.
+	(common-lisp-run-indentation-tests): Use `insert-file-contents'.
+	(slime-cl-indent): provide `slime-cl-indent' as well as `cl-indent'
+
+	* slime-autodoc.el (slime-autodoc-maybe-enable): move to solve
+	compilation warnings.
+	(slime-autodoc-mode): Replace `interactive-p' call with new
+	`interactive' arg.
+
+	* slime-asdf.el
+	(slime-open-system): Don't use `called-interactive-p'.
+
+	* slime-presentations.el (slime-presentation-on-stream-open): Use
+	`bridge-insert-function'.
+
+	* bridge.el (bridge-insert-function): new variable to solve
+	redefinition hack in slime-presentations.el
+	(bridge-insert): use it.
+
+
+2014-02-25  João Távora  <joaotavora@gmail.com>
+
+	* slime-trace-dialog.el (slime): Remove redundant
+	`eval-and-compile'
+	(slime-trace-dialog-mode): Don't also activate
+	`slime-trace-dialog-minor-mode'.
+	(slime-trace-dialog--menubar): Define same menu for both minor and
+	major modes.
+
+2014-02-24  João Távora  <joaotavora@gmail.com>
+
+	* slime-trace-dialog.el (slime-trace-dialog): simplify contrib
+	definition.
+	(slime-trace-dialog-mode): Also activate
+	`slime-trace-dialog-minor-mode'.
+	(slime-trace-dialog-minor-mode): New minor mode.
+	(slime-trace-dialog--menubar): New single top-level menu for
+	`slime-trace-dialog-minor-mode'.
+	(slime-trace-dialog-after-toggle-hook): New hook.
+	(slime-trace-dialog-toggle-trace): Run hooks.
+	(slime-trace-dialog-toggle-complex-trace): New interactive
+	function for calling from the menu.
+	(slime-trace-dialog--easy-menu): Delete it.
+	(my-menu): Delete it.
+
+2014-02-24  Marco Baringer  <mb@bese.it>
+
+	* slime-hyperdoc.el (slime-hyperdoc): Remove :slime-dependencies
+	on emacs libraries, these should be loaded via a simple require.
+
+	* slime-tramp.el (slime-tramp): idem for tramp.
+
+2014-02-23  João Távora  <joaotavora@gmail.com>
+
+	* Makefile (check-%): Remove redundant `slime-setup' call and call
+	`slime-contrib-all-dependencies'.
+
+	Closes #9: New output respects existing REPL results or presentations.
+
+	* slime-repl.el (slime-repl-emit-result): After emitting a result,
+ 	update `slime-output-end' marker.
+
+	* slime-presentations.el (slime-presentation-write-result): Idem,
+	but for presentation results.
+
+	* test/slime-repl-tests.el (mixed-output-and-results): New test.
+
+2014-02-23  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Canonicalize 'nil to nil when displaying default optional and
+	keyword arguments via slime-autodoc. On SBCL this turns
+	  (error 'simple-condition
+	         &rest arguments
+	         &key (format-arguments 'nil) (format-control 'nil))
+	into
+	  (error 'simple-condition
+	         &rest arguments
+	         &key format-arguments format-control)
+	which should be more readable.
+
+	* swank-arglists.lisp (canonicalize-default-arg): New function for
+	canonicalizing optional and keyword arguments.
+	(make-optional-arg, make-keyword-arg): Use it.
+
+2014-02-21  João Távora  <joaotavora@gmail.com>
+
+	* test/slime-presentations-tests.el: New file.
+	* test/slime-parse-tests.el: New file.
+	* test/slime-mdot-fu-tests.el: New file.
+	* test/slime-fontifying-fu-tests.el: New file.
+	* test/slime-enclosing-context-tests.el: New file.
+	* test/slime-c-p-c-tests.el: New file.
+	* test/slime-autodoc-tests.el: New file.
+
+	* slime-repl.el: Split off tests. Don't use `eval-and-compile'
+	* slime-presentations.el: Idem.
+	* slime-parse.el: Idem.
+	* slime-mdot-fu.el: Idem.
+	* slime-fontifying-fu.el: Idem.
+	* slime-enclosing-context.el: Idem.
+	* slime-c-p-c.el: Idem.
+	* slime-autodoc.el: Idem.
+
+	* inferior-slime.el: cleanup whitespace.
+
+	* Makefile: Fix whitespace.
+	(check-%): Look for tests under /contrib/tests. Explicitly require
+	all needed test libs.
+
+2014-02-19  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-repl.el: Load 'bytecomp before binding byte-compile-warnings.
+	* slime-scratch.el: eval-and-compile is redundant around require.
+	* inferior-slime.el: Whitespace cleanup.
+
+2014-02-19  Helmut Eller  <heller@common-lisp.net>
+
+	* inferior-slime.el: Require 'slime for macros at compile time.
+
+2014-02-18  Helmut Eller  <heller@common-lisp.net>
+
+	* Makefile: New file
+	(elpa-%, check-%): Moved to here from core.
+
 2014-02-10  João Távora  <joaotavora@gmail.com>
 
 	* slime-autodoc.el (define-autodoc-tests): Use

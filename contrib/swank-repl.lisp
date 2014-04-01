@@ -171,6 +171,18 @@ This is an optimized way for Lisp to deliver output to Emacs."
         (funcall *listener-eval-function* string))
       (funcall *listener-eval-function* string)))
 
+(defvar *last-repl-form* nil)
+(defvar *last-repl-values* nil)
+
+(defslimefun set-repl-variables (&optional
+                                 (values *last-repl-values*)
+                                 (form *last-repl-form*))
+  (setq *** **  ** *  * (car values)
+        /// //  // /  / values
+        +++ ++  ++ +  + form)
+  (setq *last-repl-form* form
+        *last-repl-values* values)) 
+
 (defslimefun clear-repl-variables ()
   (let ((variables '(*** ** * /// // / +++ ++ +
                      *last-repl-form*
@@ -179,8 +191,6 @@ This is an optimized way for Lisp to deliver output to Emacs."
        do (setf (symbol-value variable) nil))))
 
 (defvar *send-repl-results-function* 'send-repl-results-to-emacs)
-(defvar *last-repl-form* nil)
-(defvar *last-repl-values* nil)
 
 (defun repl-eval (string)
   (clear-user-input)
@@ -188,12 +198,8 @@ This is an optimized way for Lisp to deliver output to Emacs."
     (with-retry-restart (:msg "Retry SLIME REPL evaluation request.")
       (track-package
        (lambda ()
-         (setq *** **  ** *  * (car *last-repl-values*)
-                   /// //  // /  / *last-repl-values*
-                   +++ ++  ++ +  + *last-repl-form*)
          (multiple-value-bind (values last-form) (eval-region string)
-           (setq *last-repl-form* last-form
-                 *last-repl-values* values)
+           (set-repl-variables values last-form)
            (funcall *send-repl-results-function* values))))))
   nil)
 

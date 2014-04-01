@@ -33,7 +33,8 @@
 
 ;;; Code:
 
-(require 'cl)
+(require 'cl-lib nil t)
+(require 'cl-lib "lib/cl-lib")
 (require 'browse-url)                   ;you need the Emacs 20 version
 (require 'thingatpt)
 
@@ -56,20 +57,44 @@ or \"Symbol-Table.text\".")
 (defvar common-lisp-hyperspec-history nil
   "History of symbols looked up in the Common Lisp HyperSpec.")
 
-;;if only we had had packages or hash tables..., but let's fake it.
+(defvar common-lisp-hyperspec--symbols (make-hash-table :test 'equal)
+  "Map a symbol-name to it's list or relative URLs.")
 
-(defvar common-lisp-hyperspec-symbols (make-vector 67 0))
+;; Lookup NAME in 'common-lisp-hyperspec--symbols´
+(defun common-lisp-hyperspec--find (name)
+  (gethash name common-lisp-hyperspec--symbols))
 
-(defun common-lisp-hyperspec-strip-cl-package (name)
+(defun common-lisp-hyperspec--insert (name relative-url)
+  (cl-pushnew relative-url
+	      (gethash name common-lisp-hyperspec--symbols)
+	      :test #'equal))
+
+(defun common-lisp-hyperspec--strip-cl-package (name)
   (if (string-match "^\\([^:]*\\)::?\\([^:]*\\)$" name)
       (let ((package-name (match-string 1 name))
 	    (symbol-name (match-string 2 name)))
-	(if (member (downcase package-name) 
+	(if (member (downcase package-name)
 		    '("cl" "common-lisp"))
 	    symbol-name
 	  name))
     name))
 
+;; Choose the symbol at point or read symbol-name from the minibuffer.
+(defun common-lisp-hyperspec-read-symbol-name (&optional symbol-at-point)
+  (let* ((symbol-at-point (or symbol-at-point (thing-at-point 'symbol)))
+	 (stripped-symbol (and symbol-at-point
+			       (common-lisp-hyperspec--strip-cl-package
+				(downcase symbol-at-point)))))
+    (cond ((and stripped-symbol
+		(common-lisp-hyperspec--find stripped-symbol))
+	   stripped-symbol)
+	  (t
+	   (completing-read "Look up symbol in Common Lisp HyperSpec: "
+			    common-lisp-hyperspec--symbols nil t
+			    stripped-symbol
+			    'common-lisp-hyperspec-history)))))
+
+;; FIXME: is the (sleep-for 1.5) a actually needed?
 (defun common-lisp-hyperspec (symbol-name)
   "View the documentation on SYMBOL-NAME from the Common Lisp HyperSpec.
 If SYMBOL-NAME has more than one definition, all of them are displayed with
@@ -83,53 +108,17 @@ the entire Common Lisp HyperSpec to your own site under certain conditions.
 Visit http://www.lispworks.com/reference/HyperSpec/ for more information.
 If you copy the HyperSpec to another location, customize the variable
 `common-lisp-hyperspec-root' to point to that location."
-  (interactive (list (let* ((symbol-at-point (thing-at-point 'symbol))
-			    (stripped-symbol 
-			     (and symbol-at-point
-				  (substring-no-properties
-				   (downcase
-				    (common-lisp-hyperspec-strip-cl-package 
-				     symbol-at-point))))))
-                       (if (and stripped-symbol
-                                (intern-soft stripped-symbol
-                                             common-lisp-hyperspec-symbols))
-                           stripped-symbol
-                         (completing-read
-                          "Look up symbol in Common Lisp HyperSpec: "
-                          common-lisp-hyperspec-symbols #'boundp
-                          t stripped-symbol
-                          'common-lisp-hyperspec-history)))))
-  (maplist (lambda (entry)
-             (browse-url (concat common-lisp-hyperspec-root "Body/"
-				 (car entry)))
-             (if (cdr entry)
-                 (sleep-for 1.5)))
-           (let ((symbol (intern-soft 
-			  (common-lisp-hyperspec-strip-cl-package 
-			   (downcase symbol-name))
-			  common-lisp-hyperspec-symbols)))
-             (if (and symbol (boundp symbol))
-                 (symbol-value symbol)
-               (error "The symbol `%s' is not defined in Common Lisp"
-                      symbol-name)))))
-
-;;; Added the following just to provide a common entry point according
-;;; to the various 'hyperspec' implementations.
-;;;
-;;; 19990820 Marco Antoniotti
-
-(eval-when (load eval)
-  (defalias 'hyperspec-lookup 'common-lisp-hyperspec))
-
-;;; Refactored out from the below.
-;;;
-;;; 20090302 Tobias C Rittweiler
-
-(defun intern-clhs-symbol (string relative-url)
-  (let ((symbol (intern string common-lisp-hyperspec-symbols)))
-    (if (boundp symbol)
-        (push relative-url (symbol-value symbol))
-        (set symbol (list relative-url)))))
+  (interactive (list (common-lisp-hyperspec-read-symbol-name)))
+  (let ((name (common-lisp-hyperspec--strip-cl-package
+	       (downcase symbol-name))))
+    (cl-maplist (lambda (entry)
+		  (browse-url (concat common-lisp-hyperspec-root "Body/"
+				      (car entry)))
+		  (when (cdr entry)
+		    (sleep-for 1.5)))
+		(or (common-lisp-hyperspec--find name)
+		    (error "The symbol `%s' is not defined in Common Lisp"
+			   symbol-name)))))
 
 ;;; Added dynamic lookup of symbol in CLHS symbol table
 ;;;
@@ -140,23 +129,28 @@ If you copy the HyperSpec to another location, customize the variable
 ;;;
 ;;; 20020213 Edi Weitz
 
-(defun hyperspec--get-one-line ()
-  (prog1 
-      (delete* ?\n (thing-at-point 'line))
+(defun common-lisp-hyperspec--get-one-line ()
+  (prog1
+      (cl-delete ?\n (thing-at-point 'line))
     (forward-line)))
 
-(if common-lisp-hyperspec-symbol-table
-    (with-current-buffer (find-file-noselect 
-			  common-lisp-hyperspec-symbol-table)
-      (goto-char (point-min))
+(defun common-lisp-hyperspec--parse-map-file (file)
+  (with-current-buffer (find-file-noselect file)
+    (goto-char (point-min))
+    (let ((result '()))
       (while (< (point) (point-max))
-	(let* ((symbol-name (downcase (hyperspec--get-one-line)))
-	       (relative-url (hyperspec--get-one-line)))
-	  (intern-clhs-symbol symbol-name 
-			      (subseq relative-url
-				      (1+ (position ?\/ relative-url
-						    :from-end t)))))))
-  (mapc (lambda (entry) (intern-clhs-symbol (car entry) (cadr entry)))
+	(let* ((symbol-name (downcase (common-lisp-hyperspec--get-one-line)))
+	       (relative-url (common-lisp-hyperspec--get-one-line))
+	       (file (file-name-nondirectory relative-url)))
+	  (push (list symbol-name file)
+		result)))
+      (reverse result))))
+
+(mapc (lambda (entry)
+	(common-lisp-hyperspec--insert (car entry) (cadr entry)))
+      (if common-lisp-hyperspec-symbol-table
+	  (common-lisp-hyperspec--parse-map-file
+	   common-lisp-hyperspec-symbol-table)
         '(("&allow-other-keys" "03_da.htm")
           ("&aux" "03_da.htm")
           ("&body" "03_dd.htm")
@@ -1140,13 +1134,13 @@ If you copy the HyperSpec to another location, customize the variable
 ;;;
 ;;; 20090302 Tobias C Rittweiler, and Stas Boukarev
 
-(defvar common-lisp-hyperspec-reader-macros (make-hash-table :test #'equal))
+(defvar common-lisp-hyperspec--reader-macros (make-hash-table :test #'equal))
 
 ;;; Data/Map_Sym.txt in does not contain entries for the reader
 ;;; macros. So we have to enumerate these explicitly.
-(mapc (lambda (entry) 
-	(puthash (car entry) (cadr entry) 
-		 common-lisp-hyperspec-reader-macros))
+(mapc (lambda (entry)
+	(puthash (car entry) (cadr entry)
+		 common-lisp-hyperspec--reader-macros))
       '(("#" "02_dh.htm")
         ("##" "02_dhp.htm")
         ("#'" "02_dhb.htm")
@@ -1178,18 +1172,15 @@ If you copy the HyperSpec to another location, customize the variable
 
 (defun common-lisp-hyperspec-lookup-reader-macro (macro)
   "Browse the CLHS entry for the reader-macro MACRO."
-  (interactive 
-   (list 
+  (interactive
+   (list
     (let ((completion-ignore-case t))
-      (completing-read "Look up reader-macro: " 
-		       common-lisp-hyperspec-reader-macros nil t
+      (completing-read "Look up reader-macro: "
+		       common-lisp-hyperspec--reader-macros nil t
 		       (common-lisp-hyperspec-reader-macro-at-point)))))
   (browse-url
    (concat common-lisp-hyperspec-root "Body/"
-	   (gethash macro common-lisp-hyperspec-reader-macros))))
-
-(defalias 'hyperspec-lookup-reader-macro 
-  'common-lisp-hyperspec-lookup-reader-macro)
+	   (gethash macro common-lisp-hyperspec--reader-macros))))
 
 (defun common-lisp-hyperspec-reader-macro-at-point ()
   (let ((regexp "\\(#.?\\)\\|\\([\"',`';()]\\)"))
@@ -1203,17 +1194,14 @@ If you copy the HyperSpec to another location, customize the variable
 (defvar common-lisp-hyperspec-format-history nil
   "History of format characters looked up in the Common Lisp HyperSpec.")
 
-(defvar common-lisp-hyperspec-format-characters (make-vector 67 0))
-
-
 (defun common-lisp-hyperspec-section-6.0 (indices)
-  (let ((string (format "%sBody/%s_" 
+  (let ((string (format "%sBody/%s_"
 			common-lisp-hyperspec-root
 			(let ((base (pop indices)))
 			  (if (< base 10)
 			      (format "0%s" base)
 			    base)))))
-    (concat string 
+    (concat string
 	    (mapconcat (lambda (n)
 			 (make-string 1 (+ ?a (- n 1))))
 		       indices
@@ -1222,12 +1210,12 @@ If you copy the HyperSpec to another location, customize the variable
 
 (defun common-lisp-hyperspec-section-4.0 (indices)
   (let ((string (format "%sBody/sec_"
- 			common-lisp-hyperspec-root)))			
+			common-lisp-hyperspec-root)))
     (concat string
 	    (mapconcat (lambda (n)
 			 (format "%d" n))
 		       indices
-		       "-")	    
+		       "-")
 	    ".html")))
 
 (defvar common-lisp-hyperspec-section-fun 'common-lisp-hyperspec-section-6.0)
@@ -1235,30 +1223,29 @@ If you copy the HyperSpec to another location, customize the variable
 (defun common-lisp-hyperspec-section (indices)
   (funcall common-lisp-hyperspec-section-fun indices))
 
-(defun common-lisp-hyperspec-format (character-name)
-   (interactive 
-    (list (let ((char-at-point
-                 (ignore-errors (char-to-string (char-after (point))))))
-	    (if (and char-at-point
-		     (intern-soft (upcase char-at-point)
-				  common-lisp-hyperspec-format-characters))
- 	       char-at-point
- 	       (completing-read
- 		"Look up format control character in Common Lisp HyperSpec: "
- 		common-lisp-hyperspec-format-characters nil #'boundp
- 		nil nil 'common-lisp-hyperspec-format-history)))))
-   (maplist (lambda (entry)
-	      (browse-url (common-lisp-hyperspec-section (car entry))))
-	    (let ((symbol (intern-soft 
-			   character-name
-			   common-lisp-hyperspec-format-characters)))
-	      (if (and symbol (boundp symbol))
-		  (symbol-value symbol)
-		  (error "The symbol `%s' is not defined in Common Lisp"
-			 character-name)))))
+(defvar common-lisp-hyperspec--format-characters
+  (make-hash-table :test 'equal))
 
-(eval-when (load eval)
-  (defalias 'hyperspec-lookup-format 'common-lisp-hyperspec-format))
+(defun common-lisp-hyperspec--read-format-character ()
+  (let ((char-at-point
+	 (ignore-errors (char-to-string (char-after (point))))))
+    (if (and char-at-point
+	     (gethash (upcase char-at-point)
+		      common-lisp-hyperspec--format-characters))
+	char-at-point
+      (completing-read
+       "Look up format control character in Common Lisp HyperSpec: "
+       common-lisp-hyperspec--format-characters nil #'boundp
+       nil nil 'common-lisp-hyperspec-format-history))))
+
+(defun common-lisp-hyperspec-format (character-name)
+  (interactive (list (common-lisp-hyperspec--read-format-character)))
+  (cl-maplist (lambda (entry)
+                (browse-url (common-lisp-hyperspec-section (car entry))))
+              (or (gethash character-name
+			   common-lisp-hyperspec--format-characters)
+		  (error "The symbol `%s' is not defined in Common Lisp"
+			 character-name))))
 
 ;;; Previously there were entries for "C" and "C: Character",
 ;;; which unpleasingly crowded the completion buffer, so I made
@@ -1266,19 +1253,20 @@ If you copy the HyperSpec to another location, customize the variable
 ;;;
 ;;; 20100131 Tobias C Rittweiler
 
-(defun intern-clhs-format-directive (char section &optional summary)
-  (let* ((designator (if summary (format "%s - %s" char summary) char))
-         (symbol (intern designator common-lisp-hyperspec-format-characters)))
-    (if (boundp symbol)
-        (pushnew section (symbol-value symbol) :test 'equal)
-        (set symbol (list section)))))
+(defun common-lisp-hyperspec--insert-format-directive (char section
+							    &optional summary)
+  (let* ((designator (if summary (format "%s - %s" char summary) char)))
+    (cl-pushnew section (gethash designator
+				 common-lisp-hyperspec--format-characters)
+		:test #'equal)))
 
 (mapc (lambda (entry)
-	(destructuring-bind (char section &optional summary) entry
-	  (intern-clhs-format-directive char section summary)
+	(cl-destructuring-bind (char section &optional summary) entry
+	  (common-lisp-hyperspec--insert-format-directive char section summary)
 	  (when (and (= 1 (length char))
 		     (not (string-equal char (upcase char))))
-	    (intern-clhs-format-directive (upcase char) section summary))))
+	    (common-lisp-hyperspec--insert-format-directive
+	     (upcase char) section summary))))
       '(("c" (22 3 1 1) "Character")
 	("%" (22 3 1 2) "Newline")
 	("&" (22 3 1 3) "Fresh-line")
@@ -1319,6 +1307,7 @@ If you copy the HyperSpec to another location, customize the variable
 	("Missing and Additional FORMAT Arguments" (22 3 10 2))
 	("Additional FORMAT Parameters" (22 3 10 3))))
 
+;; FIXME: the glossary stuff is not used
 (defvar common-lisp-glossary-fun 'common-lisp-glossary-6.0)
 
 (defun common-lisp-glossary-6.0 (string)
@@ -1341,37 +1330,30 @@ If you copy the HyperSpec to another location, customize the variable
 	      "9"))
 	  (subst-char-in-string ?\  ?_ string)))
 
+;; FIXME: the issuex stuff is not used
 (defvar common-lisp-hyperspec-issuex-table nil
   "The HyperSpec IssueX table file.  If you copy the HyperSpec to your
 local system, set this variable to the location of the Issue
 cross-references table which is usually \"Map_IssX.txt\" or
 \"Issue-Cross-Refs.text\".")
 
-(defvar common-lisp-hyperspec-issuex-symbols (make-vector 67 0))
+(defvar common-lisp-hyperspec--issuex-symbols
+  (make-hash-table :test 'equal))
 
-(if common-lisp-hyperspec-issuex-table
-    (with-current-buffer (find-file-noselect
-			  common-lisp-hyperspec-issuex-table)
-      (goto-char (point-min))
-      (while (< (point) (point-max))
-	(let* ((symbol (intern (downcase (hyperspec--get-one-line))
-			       common-lisp-hyperspec-issuex-symbols))
-	       (relative-url (hyperspec--get-one-line)))
-	  (set symbol (subseq relative-url
-			      (1+ (position ?\/ relative-url 
-					    :from-end t)))))))
-  (mapc
-   (lambda (entry)
-     (let ((symbol (intern (car entry) common-lisp-hyperspec-issuex-symbols)))
-       (set symbol (cadr entry))))
+(mapc
+ (lambda (entry)
+   (puthash (car entry) (cadr entry) common-lisp-hyperspec--issuex-symbols))
+ (if common-lisp-hyperspec-issuex-table
+     (common-lisp-hyperspec--parse-map-file
+      common-lisp-hyperspec-issuex-table)
    '(("&environment-binding-order:first" "iss001.htm")
-     ("access-error-name" "iss002.htm") 
-     ("adjust-array-displacement" "iss003.htm") 
+     ("access-error-name" "iss002.htm")
+     ("adjust-array-displacement" "iss003.htm")
      ("adjust-array-fill-pointer" "iss004.htm")
      ("adjust-array-not-adjustable:implicit-copy" "iss005.htm")
      ("allocate-instance:add" "iss006.htm")
      ("allow-local-inline:inline-notinline" "iss007.htm")
-     ("allow-other-keys-nil:permit" "iss008.htm") 
+     ("allow-other-keys-nil:permit" "iss008.htm")
      ("aref-1d" "iss009.htm")
      ("argument-mismatch-error-again:consistent" "iss010.htm")
      ("argument-mismatch-error-moon:fix" "iss011.htm")
@@ -1379,8 +1361,8 @@ cross-references table which is usually \"Map_IssX.txt\" or
      ("arguments-underspecified:specify" "iss013.htm")
      ("array-dimension-limit-implications:all-fixnum" "iss014.htm")
      ("array-type-element-type-semantics:unify-upgrading" "iss015.htm")
-     ("assert-error-type:error" "iss016.htm") 
-     ("assoc-rassoc-if-key" "iss017.htm") 
+     ("assert-error-type:error" "iss016.htm")
+     ("assoc-rassoc-if-key" "iss017.htm")
      ("assoc-rassoc-if-key:yes" "iss018.htm")
      ("boa-aux-initialization:error-on-read" "iss019.htm")
      ("break-on-warnings-obsolete:remove" "iss020.htm")
@@ -1388,26 +1370,26 @@ cross-references table which is usually \"Map_IssX.txt\" or
      ("butlast-negative:should-signal" "iss022.htm")
      ("change-class-initargs:permit" "iss023.htm")
      ("char-name-case:x3j13-mar-91" "iss024.htm")
-     ("character-loose-ends:fix" "iss025.htm") 
-     ("character-proposal:2" "iss026.htm") 
+     ("character-loose-ends:fix" "iss025.htm")
+     ("character-proposal:2" "iss026.htm")
      ("character-proposal:2-1-1" "iss027.htm")
-     ("character-proposal:2-1-2" "iss028.htm") 
-     ("character-proposal:2-2-1" "iss029.htm") 
+     ("character-proposal:2-1-2" "iss028.htm")
+     ("character-proposal:2-2-1" "iss029.htm")
      ("character-proposal:2-3-1" "iss030.htm")
-     ("character-proposal:2-3-2" "iss031.htm") 
+     ("character-proposal:2-3-2" "iss031.htm")
      ("character-proposal:2-3-3" "iss032.htm")
      ("character-proposal:2-3-4" "iss033.htm")
      ("character-proposal:2-3-5" "iss034.htm")
-     ("character-proposal:2-3-6" "iss035.htm") 
+     ("character-proposal:2-3-6" "iss035.htm")
      ("character-proposal:2-4-1" "iss036.htm")
-     ("character-proposal:2-4-2" "iss037.htm") 
-     ("character-proposal:2-4-3" "iss038.htm") 
+     ("character-proposal:2-4-2" "iss037.htm")
+     ("character-proposal:2-4-3" "iss038.htm")
      ("character-proposal:2-5-2" "iss039.htm")
-     ("character-proposal:2-5-6" "iss040.htm") 
-     ("character-proposal:2-5-7" "iss041.htm") 
+     ("character-proposal:2-5-6" "iss040.htm")
+     ("character-proposal:2-5-7" "iss041.htm")
      ("character-proposal:2-6-1" "iss042.htm")
-     ("character-proposal:2-6-2" "iss043.htm") 
-     ("character-proposal:2-6-3" "iss044.htm") 
+     ("character-proposal:2-6-2" "iss043.htm")
+     ("character-proposal:2-6-3" "iss044.htm")
      ("character-proposal:2-6-5" "iss045.htm")
      ("character-vs-char:less-inconsistent-short" "iss046.htm")
      ("class-object-specializer:affirm" "iss047.htm")
@@ -1418,7 +1400,7 @@ cross-references table which is usually \"Map_IssX.txt\" or
      ("close-constructed-stream:argument-stream-only" "iss052.htm")
      ("closed-stream-operations:allow-inquiry" "iss053.htm")
      ("coercing-setf-name-to-function:all-function-names" "iss054.htm")
-     ("colon-number" "iss055.htm") 
+     ("colon-number" "iss055.htm")
      ("common-features:specify" "iss056.htm")
      ("common-type:remove" "iss057.htm")
      ("compile-argument-problems-again:fix" "iss058.htm")
@@ -1440,8 +1422,8 @@ cross-references table which is usually \"Map_IssX.txt\" or
      ("condition-accessors-setfable:no" "iss074.htm")
      ("condition-restarts:buggy" "iss075.htm")
      ("condition-restarts:permit-association" "iss076.htm")
-     ("condition-slots:hidden" "iss077.htm") 
-     ("cons-type-specifier:add" "iss078.htm") 
+     ("condition-slots:hidden" "iss077.htm")
+     ("cons-type-specifier:add" "iss078.htm")
      ("constant-circular-compilation:yes" "iss079.htm")
      ("constant-collapsing:generalize" "iss080.htm")
      ("constant-compilable-types:specify" "iss081.htm")
@@ -1504,7 +1486,7 @@ incompatibly-more-like-defclass+emphasize-read-only" "iss102.htm")
      ("dotimes-ignore:x3j13-mar91" "iss137.htm")
      ("dotted-list-arguments:clarify" "iss138.htm")
      ("dotted-macro-forms:allow" "iss139.htm")
-     ("dribble-technique" "iss140.htm") 
+     ("dribble-technique" "iss140.htm")
      ("dynamic-extent-function:extend" "iss141.htm")
      ("dynamic-extent:new-declaration" "iss142.htm")
      ("equal-structure:maybe-status-quo" "iss143.htm")
@@ -1637,10 +1619,10 @@ incompatibly-more-like-defclass+emphasize-read-only" "iss102.htm")
      ("pretty-print-interface" "iss270.htm")
      ("princ-readably:x3j13-dec-91" "iss271.htm")
      ("print-case-behavior:clarify" "iss272.htm")
-     ("print-case-print-escape-interaction:vertical-bar-rule-no-upcase" 
-      "iss273.htm") 
+     ("print-case-print-escape-interaction:vertical-bar-rule-no-upcase"
+      "iss273.htm")
      ("print-circle-shared:respect-print-circle" "iss274.htm")
-     ("print-circle-structure:user-functions-work" "iss275.htm") 
+     ("print-circle-structure:user-functions-work" "iss275.htm")
      ("print-readably-behavior:clarify" "iss276.htm")
      ("printer-whitespace:just-one-space" "iss277.htm")
      ("proclaim-etc-in-compile-file:new-macro" "iss278.htm")
@@ -1690,8 +1672,8 @@ incompatibly-more-like-defclass+emphasize-read-only" "iss102.htm")
      ("special-type-shadowing:clarify" "iss322.htm")
      ("standard-input-initial-binding:defined-contracts" "iss323.htm")
      ("standard-repertoire-gratuitous:rename" "iss324.htm")
-     ("step-environment:current" "iss325.htm") 
-     ("step-minimal:permit-progn" "iss326.htm") 
+     ("step-environment:current" "iss325.htm")
+     ("step-minimal:permit-progn" "iss326.htm")
      ("stream-access:add-types-accessors" "iss327.htm")
      ("stream-capabilities:interactive-stream-p" "iss328.htm")
      ("string-coercion:make-consistent" "iss329.htm")
@@ -1734,9 +1716,19 @@ incompatibly-more-like-defclass+emphasize-read-only" "iss102.htm")
      ("with-standard-io-syntax-readtable:x3j13-mar-91" "iss366.htm"))))
 
 (defun common-lisp-issuex (issue-name)
-  (let ((symbol 
-	 (intern (downcase issue-name) common-lisp-hyperspec-issuex-symbols)))
-    (concat common-lisp-hyperspec-root "Issues/" (symbol-value symbol))))
+  (let ((entry (gethash (downcase issue-name)
+			common-lisp-hyperspec--issuex-symbols)))
+    (concat common-lisp-hyperspec-root "Issues/" entry)))
+
+;;; Added the following just to provide a common entry point according
+;;; to the various 'hyperspec' implementations.
+;;;
+;;; 19990820 Marco Antoniotti
+
+(defalias 'hyperspec-lookup 'common-lisp-hyperspec)
+(defalias 'hyperspec-lookup-reader-macro
+  'common-lisp-hyperspec-lookup-reader-macro)
+(defalias 'hyperspec-lookup-format 'common-lisp-hyperspec-format)
 
 (provide 'hyperspec)
 
