@@ -1,10 +1,34 @@
-2014-04-01  João Távora  <joaotavora@gmail.com>
+2014-99-99  João Távora  <joaotavora@gmail.com>
 
-	* slime-tests.el (swank-loader-fallback): Simplify this test, it
+	* swank.lisp (*require-module*): Delete.
+	(*module-loading-*): New variable.
+	(require-module, add-to-load-path): New generic functions with
+	:ASDF and :SWANK-LOADER implementations.
+	(swank-require): Call the REQUIRE-MODULE generic.
+	(swank-add-load-paths): New slimefun, calls ADD-TO-LOAD-PATH generic.
+
+	* swank-loader.lisp (:swank-loader): Export *LOAD-PATH*.
+	(*contribs*, append-dir, contrib-dir, compile-contribs): Delete.
+	(load-swank): Don't set *LOAD-PATH* here.
+	(loadup, setup, init): Don't mess with contribs here.
+	(module-canditates): Delete.
+	(require-module): Redesigned to compile&load modules on demand.
+	(module-binary-dir): New auxiliary function.
+
+	* slime.el (slime-required-modules): Now an alist.
+	(slime--setup-contribs): Use `assq' for new
+	`slime-required-modules' format.
+	(slime-require): Delete it.
+	(slime-load-contribs): Use new `slime-required-modules'
+	format. Call new SWANK:SWANK-ADD-LOAD-PATHS slimefun.
+	(define-slime-contrib): Make the enable-function also add the
+	contrib's path to `slime-required-modules'.
+
+	* slime-tests.el (slime-test-check-repl-forms): Use new form of
+	`slime-required-modules'
+	(swank-loader-fallback): Simplify this test, it
 	just tests `slime-init-using-asdf', doesn't attempt to destroy
 	ASDF in the lisp and then test the automated fallback.
-
-2014-99-99  João Távora  <joaotavora@gmail.com>
 
 	* slime-tests.el (slime-test-default-landing-forms): new var.
 	(slime-test-recipe-test-for): Simplify a little more.

@@ -1190,7 +1190,7 @@ Reconnect afterwards."
 ;;;;
 (defvar slime-test-check-repl-forms
   `((unless (and (featurep 'slime-repl)
-                 (find 'swank-repl slime-required-modules))
+                 (assq 'swank-repl slime-required-modules))
       (die "`slime-repl' contrib not properly setup"))
     (with-current-buffer (slime-repl-buffer)
       (unless (and (string-match "^; +SLIME" (buffer-string))
