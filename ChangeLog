@@ -1,3 +1,9 @@
+2014-04-01  João Távora  <joaotavora@gmail.com>
+
+	* slime-tests.el (swank-loader-fallback): Simplify this test, it
+	just tests `slime-init-using-asdf', doesn't attempt to destroy
+	ASDF in the lisp and then test the automated fallback.
+
 2014-99-99  João Távora  <joaotavora@gmail.com>
 
 	* slime-tests.el (slime-test-default-landing-forms): new var.

@@ -1284,29 +1284,19 @@ Reconnect afterwards."
                 (slime-setup '(slime-fancy)))))
 
 (define-slime-ert-test swank-loader-fallback ()
-  "Test the `slime-init-using-asdf's fallback to swank-loader.lisp."
+  "Test `slime-init-using-swank-loader'"
+  ;; TODO: another useful test would be to test
+  ;; `slime-init-using-asdf's fallback to swank-loader.lisp."
   (slime-test-recipe-test-for
    :preflight `((add-to-list 'load-path ,slime-path)
                 (setq inferior-lisp-program ,inferior-lisp-program)
                 (require 'slime-autoloads)
                 (setq slime-contribs '(slime-fancy))
-                (setq slime-init-function
-                      #'(lambda (&rest args)
-                          (pp-to-string
-                           `(progn
-                              ;; these two lines should render asdf
-                              ;; useless if the package already exist,
-                              ;; thus forcing slime to fallback to
-                              ;; swank-loader.lisp
-                              ;; 
-                              (defpackage :asdf)
-                              (eval (read-from-string
-                                     "(defun asdf::version-satisfies())"))
-                              (provide "asdf")
-                              ,(read (apply #'slime-init-using-asdf args))))))
+                (setq slime-init-function 'slime-init-using-swank-loader)
                 (slime-setup '(slime-fancy)))
    :landing `((unless (slime-eval '(cl:and (cl:find-package :swank-loader) t))
                 (die "Expected SLIME to be loaded with swank-loader.lisp"))
               ,@slime-test-check-repl-forms)))
+
 
 (provide 'slime-tests)
