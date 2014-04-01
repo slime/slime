@@ -1,3 +1,7 @@
+2014-04-01  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-sbcl.lisp (set-default-directory): Call chdir.
+
 2014-03-29  João Távora  <joaotavora@gmail.com>
 
 	* slime.el (slime-describe-function): Be a little more precise and

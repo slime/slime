@@ -283,6 +283,12 @@
   (car (rassoc-if (lambda (x) (member coding-system x :test #'equal))
                   *external-format-to-coding-system*)))
 
+(defimplementation set-default-directory (directory)
+  (let ((directory (truename (merge-pathnames directory))))
+    (sb-posix:chdir directory)
+    (setf *default-pathname-defaults* directory)
+    (default-directory)))
+
 (defun make-socket-io-stream (socket external-format buffering)
   (let ((args `(,@()
                 :output t
