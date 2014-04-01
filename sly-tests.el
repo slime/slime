@@ -1332,29 +1332,19 @@ Reconnect afterwards."
                 (sly-setup '(sly-fancy)))))
 
 (define-sly-ert-test swank-loader-fallback ()
-  "Test the `sly-init-using-asdf's fallback to swank-loader.lisp."
+  "Test `sly-init-using-swank-loader'"
+  ;; TODO: another useful test would be to test
+  ;; `sly-init-using-asdf's fallback to swank-loader.lisp."
   (sly-test-recipe-test-for
    :preflight `((add-to-list 'load-path ,sly-path)
                 (setq inferior-lisp-program ,inferior-lisp-program)
                 (require 'sly-autoloads)
                 (setq sly-contribs '(sly-fancy))
-                (setq sly-init-function
-                      #'(lambda (&rest args)
-                          (pp-to-string
-                           `(progn
-                              ;; these two lines should render asdf
-                              ;; useless if the package already exist,
-                              ;; thus forcing sly to fallback to
-                              ;; swank-loader.lisp
-                              ;; 
-                              (defpackage :asdf)
-                              (eval (read-from-string
-                                     "(defun asdf::version-satisfies())"))
-                              (provide "asdf")
-                              ,(read (apply #'sly-init-using-asdf args))))))
+                (setq sly-init-function 'sly-init-using-swank-loader)
                 (sly-setup '(sly-fancy)))
    :landing `((unless (sly-eval '(cl:and (cl:find-package :swank-loader) t))
                 (die "Expected SLY to be loaded with swank-loader.lisp"))
               ,@sly-test-check-repl-forms)))
+
 
 (provide 'sly-tests)
