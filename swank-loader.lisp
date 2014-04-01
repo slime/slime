@@ -19,10 +19,11 @@
 
 (cl:defpackage :swank-loader
   (:use :cl)
-  (:export :init
-           :dump-image
-           :*source-directory*
-           :*fasl-directory*))
+  (:export #:init
+           #:dump-image
+           #:*source-directory*
+           #:*fasl-directory*
+           #:*load-path*))
 
 (cl:in-package :swank-loader)
 
@@ -228,32 +229,10 @@ If LOAD is true, load the fasl file."
 (defvar *swank-files*
   `(swank-backend ,@*sysdep-files* swank-match swank-rpc swank))
 
-(defvar *contribs*
-  '(swank-util swank-repl
-    swank-c-p-c swank-arglists swank-fuzzy
-    swank-fancy-inspector
-    #+(or asdf2 asdf3 sbcl ecl) swank-asdf
-    swank-package-fu
-    swank-hyperdoc
-    #+sbcl swank-sbcl-exts
-    swank-mrepl
-    swank-trace-dialog)
-  "List of names for contrib modules.")
-
-(defun append-dir (absolute name)
-  (merge-pathnames
-   (make-pathname :directory `(:relative ,name) :defaults absolute)
-   absolute))
-
-(defun contrib-dir (base-dir)
-  (append-dir base-dir "contrib"))
-
 (defun load-swank (&key (src-dir *source-directory*)
                      (fasl-dir *fasl-directory*)
                      quiet)
   (compile-files (src-files *swank-files* src-dir) fasl-dir t quiet)
-  (setq *load-path* (list (contrib-dir fasl-dir)
-                          (contrib-dir src-dir)))
   (funcall (q "swank::before-init")))
 
 (defun delete-stale-contrib-fasl-files (swank-files contrib-files fasl-dir)
@@ -264,35 +243,19 @@ If LOAD is true, load the fasl file."
                    (<= (file-write-date fasl) newest))
           (delete-file fasl))))))
 
-(defun compile-contribs (&key (src-dir (contrib-dir *source-directory*))
-                           (fasl-dir (contrib-dir *fasl-directory*))
-                           (swank-src-dir *source-directory*)
-                           load quiet)
-  (let* ((swank-src-files (src-files *swank-files* swank-src-dir))
-         (contrib-src-files (src-files *contribs* src-dir)))
-    (delete-stale-contrib-fasl-files swank-src-files contrib-src-files
-                                     fasl-dir)
-    (compile-files contrib-src-files fasl-dir load quiet)))
-
 (defun loadup ()
-  (load-swank)
-  (compile-contribs :load t))
+  (load-swank))
 
 (defun setup ()
   (load-site-init-file *source-directory*)
   (load-user-init-file)
-  (when (#-clisp probe-file
-         #+clisp ext:probe-directory
-         (contrib-dir *source-directory*))
-    (eval `(pushnew 'compile-contribs ,(q "swank::*after-init-hook*"))))
   (funcall (q "swank::init")))
 
-(defun init (&key delete reload load-contribs (setup t)
+(defun init (&key delete reload (setup t)
                (quiet (not *load-verbose*)))
   "Load SWANK and initialize some global variables.
 If DELETE is true, delete any existing SWANK packages.
 If RELOAD is true, reload SWANK, even if the SWANK package already exists.
-If LOAD-CONTRIBS is true, load all contribs
 If SETUP is true, load user init files and initialize some
 global variabes in SWANK."
   (when (and delete (find-package :swank))
@@ -301,8 +264,6 @@ global variabes in SWANK."
          (load-swank :quiet quiet))
         (t
          (warn "Not reloading SWANK.  Package already exists.")))
-  (when load-contribs
-    (compile-contribs :load t :quiet quiet))
   (when setup
     (setup)))
 
@@ -313,19 +274,36 @@ global variabes in SWANK."
 
 ;;;;;; Simple *require-module* function for asdf-loader.lisp.
 
-(defun module-canditates (name dir)
-  (list (compile-file-pathname (make-pathname :name name :defaults dir))
-        (make-pathname :name name :type "lisp" :defaults dir)))
 
-(defun require-module (module &optional filename)
-  (unless (member (string module) *modules* :test #'string=)
-    (let* ((name (string-downcase module))
-           (filename (or filename
-                         (some (lambda (dir) (some #'probe-file (module-canditates name dir)))
-                               *load-path*))))
-      (if filename
-          (require module filename)
-          (error "Can't find module ~a" module)))
-    (assert (member (string module) *modules* :test #'string=)
-            nil
-            "Required module ~s was not provided" module)))
+(defun module-binary-dir (src-file)
+  (flet ((dir-components (path)
+           (cdr (pathname-directory path))))
+    (make-pathname :directory
+                   (append
+                    (pathname-directory *fasl-directory*)
+                    (nthcdr (mismatch (dir-components *fasl-directory*)
+                                      (dir-components src-file)
+                                      :test #'string=)
+                            (dir-components src-file))))))
+
+(defun require-module (module)
+  (labels ((module () (string-upcase module))
+           (provided ()
+             (member (string-upcase (module)) *modules* :test #'string=)))
+    (unless (provided)
+      (let ((src-file
+              (some #'(lambda (dir)
+                        (probe-file (make-pathname
+                                     :name (string-downcase module)
+                                     :type "lisp"
+                                     :defaults dir)))
+                    *load-path*)))
+        (compile-files (list src-file)
+                       (module-binary-dir src-file)
+                       'load
+                       nil)
+        (require (module))
+        ;; Actually require itself should raise a similar error...
+        (assert (provided)
+                nil
+                "Required module ~s was not provided" module)))))

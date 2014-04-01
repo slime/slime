@@ -102,7 +102,12 @@ CONTRIBS is a list of contrib packages to load. If `nil', use
     (setq sly-contribs contribs))
   (sly--setup-contribs))
 
-(defvar sly-required-modules '())
+(defvar sly-required-modules '()
+  "Alist of MODULE . WHERE for swank-provided features.
+
+MODULE is a symbol naming a specific Swank feature and WHERE is
+the full pathname to the directory where the file(s)
+providing the feature are found.")
 
 (defun sly--setup-contribs ()
   "Load and initialize contribs."
@@ -110,7 +115,7 @@ CONTRIBS is a list of contrib packages to load. If `nil', use
     (add-to-list 'load-path (expand-file-name "contrib" sly-path))
     (dolist (c sly-contribs)
       (unless (and (featurep c)
-                   (memq c sly-required-modules))
+                   (assq c sly-required-modules))
         (require c)
         (let ((init (intern (format "%s-init" c))))
           (when (fboundp init)
@@ -6740,23 +6745,24 @@ is setup, unless the user already set one explicitly."
 
 ;;;; Contrib modules
 
-(defun sly-require (module)
-  (cl-pushnew module sly-required-modules)
-  (when (sly-connected-p)
-    (sly-load-contribs)))
-
 (defun sly-load-contribs ()
   (let ((needed (cl-remove-if (lambda (s)
-                                (member (cl-subseq (symbol-name s) 1)
-                                        (mapcar #'downcase
-                                                (sly-lisp-modules))))
-                              sly-required-modules)))
+                                (cl-find (symbol-name s)
+                                         (sly-lisp-modules)
+                                         :key #'downcase
+                                         :test #'string=))
+                              sly-required-modules
+                              :key #'car)))
     (when needed
       ;; No asynchronous request because with :SPAWN that could result
       ;; in the attempt to load modules concurrently which may not be
       ;; supported by the host Lisp.
+      (sly-eval `(swank:swank-add-load-paths ',(cl-remove-duplicates
+                                                  (mapcar #'cdr needed)
+                                                  :test #'string=)))
       (setf (sly-lisp-modules)
-            (sly-eval `(swank:swank-require ',needed))))))
+            (sly-eval `(swank:swank-require
+                          ',(mapcar #'symbol-name (mapcar #'car needed))))))))
 
 (cl-defstruct sly-contrib
   name
@@ -6778,14 +6784,24 @@ is setup, unless the user already set one explicitly."
       (cl-loop for (key . value) in clauses append `(,key ,value))
     (cl-labels
         ((enable-fn (c) (intern (concat (symbol-name c) "-init")))
-         (disable-fn (c) (intern (concat (symbol-name c) "-unload"))))
+         (disable-fn (c) (intern (concat (symbol-name c) "-unload")))
+         (path-sym (c) (intern (concat (symbol-name c) "--path"))))
       `(progn
+         (defvar ,(path-sym name))
+         (setq ,(path-sym name) (and load-file-name
+                                     (file-name-directory load-file-name)))
          ,@(mapcar (lambda (d) `(require ',d)) sly-dependencies)
          (defun ,(enable-fn name) ()
-           (mapc #'funcall ',(mapcar
-                              #'enable-fn
-                              sly-dependencies))
-           (mapc #'sly-require ',swank-dependencies)
+           (cl-loop for enable-fn in ',(mapcar
+                                        #'enable-fn
+                                        sly-dependencies)
+                    do (funcall enable-fn))
+           (cl-loop for dep in ',swank-dependencies
+                    do (cl-pushnew (cons dep ,(path-sym name))
+                                   sly-required-modules
+                                   :key #'car))
+           (when (sly-connected-p)
+             (sly-load-contribs))
            ,@on-load)
          (defun ,(disable-fn name) ()
            ,@on-unload

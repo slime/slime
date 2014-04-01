@@ -2575,20 +2575,46 @@ Record compiler notes signalled as `compiler-condition's."
 
 
 ;;;;; swank-require
-(defvar *require-module* (cond ((find-package :swank-loader)
-                                (intern "REQUIRE-MODULE" :swank-loader))
-                               ((find-package :asdf)
-                                (intern "LOAD-SYSTEM" :asdf)))
-  "Pluggable function to load modules.
-The function receives a module name as argument and should return
-non-nil if it managed to load it.")
+
+(defvar *module-loading-method* (find-if #'find-package '(:swank-loader :asdf))
+  "Keyword naming the module-loading method.
+
+SLY's own `swank-loader.lisp' is tried first, then ASDF")
+
+(defgeneric require-module (method module)
+  (:documentation
+   "Use METHOD to load MODULE.
+Receives a module name as argument and should return non-nil if it
+managed to load it.")
+  (:method ((method (eql :swank-loader)) module)
+    (funcall (intern "REQUIRE-MODULE" :swank-loader) module))
+  (:method ((method (eql :asdf)) module)
+    (funcall (intern "LOAD-SYSTEM" :asdf) module)))
+
+(defgeneric add-to-load-path (method path)
+  (:documentation
+   "Using METHOD, consider PATH when searching for modules.")
+  ;; FIXME: evil or reasonable use of eval?
+  (:method ((method (eql :swank-loader)) path)
+    (eval `(pushnew ,path ,(intern "*LOAD-PATH*" :swank-loader))))
+  (:method ((method (eql :asdf)) path)
+    (eval `(pushnew ,path ,(intern "*CENTRAL-REGISTRY*" :asdf)))))
+
+(defvar *add-to-load-path* nil)
 
 (defslyfun swank-require (modules)
-  "Load the module MODULE."
+  "Load each module in MODULES.
+
+MODULES is a list of strings designators or a single string
+designator. Returns a list of all modules available."
   (dolist (module (ensure-list modules))
-    (funcall *require-module* module)
+    (funcall #'require-module *module-loading-method* module)
     (pushnew (string module) *modules* :test #'string=))
   *modules*)
+
+(defslyfun swank-add-load-paths (paths)
+  (dolist (path paths)
+    (funcall #'add-to-load-path *module-loading-method* (pathname path))))
 
 
 ;;;; Macroexpansion

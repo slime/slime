@@ -1238,8 +1238,8 @@ Reconnect afterwards."
 ;;;;
 (defvar sly-test-check-repl-forms
   `((unless (and (featurep 'sly-mrepl)
-                 (find 'swank-mrepl sly-required-modules))
-      (die "`sly-mrepl' contrib not properly setup"))
+                 (assq 'swank-mrepl sly-required-modules))
+      (die "`sly-repl' contrib not properly setup"))
     (with-current-buffer (sly-mrepl)
       (unless (and (string-match "^; +SLY" (buffer-string))
                    (string-match "CL-USER> *$" (buffer-string)))
