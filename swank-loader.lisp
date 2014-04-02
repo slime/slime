@@ -276,7 +276,7 @@ global variabes in SWANK."
                     (pathname-directory *fasl-directory*)
                     (nthcdr (mismatch (dir-components *fasl-directory*)
                                       (dir-components src-file)
-                                      :test #'string=)
+                                      :test #'equal)
                             (dir-components src-file))))))
 
 (defun require-module (module)

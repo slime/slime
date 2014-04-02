@@ -2586,7 +2586,7 @@ MODULES is a list of strings designators or a single string
 designator. Returns a list of all modules available."
   (dolist (module (ensure-list modules))
     (funcall #'require-module *module-loading-method* module)
-    (pushnew (string module) *modules* :test #'string=))
+    (pushnew (string-upcase module) *modules* :test #'equal))
   *modules*)
 
 (defslimefun swank-add-load-paths (paths)

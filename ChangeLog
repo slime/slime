@@ -1,5 +1,14 @@
 2014-99-99  João Távora  <joaotavora@gmail.com>
 
+	* swank.lisp (swank-require): Shouldn't even need this, but push
+	upper-case version of string into *MODULES*.
+
+	* swank-loader.lisp (module-binary-dir): CMUCL doesn't always have
+	strings as directory components.
+
+	* slime.el (define-slime-contrib): Avoid some funky emacs23 issue
+	with cl-labels.
+
 	* swank.lisp (*require-module*): Delete.
 	(*module-loading-*): New variable.
 	(require-module, add-to-load-path): New generic functions with
