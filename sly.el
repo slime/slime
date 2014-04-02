@@ -6795,10 +6795,9 @@ is setup, unless the user already set one explicitly."
                                      (file-name-directory load-file-name)))
          ,@(mapcar (lambda (d) `(require ',d)) sly-dependencies)
          (defun ,(enable-fn name) ()
-           (cl-loop for enable-fn in ',(mapcar
-                                        #'enable-fn
-                                        sly-dependencies)
-                    do (funcall enable-fn))
+           (mapc #'funcall ',(mapcar
+                              #'enable-fn
+                              slime-dependencies))
            (cl-loop for dep in ',swank-dependencies
                     do (cl-pushnew (cons dep ,(path-sym name))
                                    sly-required-modules
