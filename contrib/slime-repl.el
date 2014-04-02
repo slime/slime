@@ -957,9 +957,6 @@ used with a prefix argument (C-u), doesn't switch back afterwards."
  (defvar slime-repl-input-history '()
    "History list of strings read from the REPL buffer."))
 
-(defun slime-trim-whitespace (string)
-  (replace-regexp-in-string "^[\t\n\s]*\\(.*?\\)[\t\n\s]*$" "\\1" string))
-
 (defun slime-repl-add-to-input-history (string)
   "Add STRING to the input history.
 Empty strings and duplicates are ignored."
