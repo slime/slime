@@ -1104,7 +1104,7 @@ respective DEFSTRUCT definition, and so on."
   ;; supposed to return the location of the DEFGENERIC definition on
   ;; #'SOME-GENERIC-FUNCTION.
   (declare (ignore object))
-  (make-error-location "FIND-DEFINITIONS is not yet implemented on ~
+  (make-error-location "FIND-SOURCE-LOCATION is not yet implemented on ~
                         this implementation."))
 
 (definterface buffer-first-change (filename)
