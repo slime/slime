@@ -145,6 +145,10 @@
        (subtypep nil symbol))
       (not (eq (type-specifier-arglist symbol) :not-available))))
 
+(defimplementation function-name (f)
+  (check-type f function)
+  (cross-reference::object-to-function-name f))
+
 ;;;; Debugger
 
 (defvar *sldb-topframe*)
@@ -630,6 +634,9 @@ to do this, this factors in the length of the inserted header itself."
 
 (defimplementation find-definitions (symbol)
   (fspec-definition-locations symbol))
+
+(defimplementation find-source-location (obj)
+  (first (rest (first (fspec-definition-locations obj)))))
 
 ;;;; XREF
 
