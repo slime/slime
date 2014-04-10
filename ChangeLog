@@ -1,3 +1,7 @@
+2014-04-12  Christophe Rhodes  <csr21@cantab.net>
+
+	* slime.el (slime-eval-with-transcript): Fix typo in docstring.
+
 2014-04-10  Phil Hargett <phil@haphazardhouse.net>
 
 	Using nicknames, especially short terse ones, are more likely to create package
