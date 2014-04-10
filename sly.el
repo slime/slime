@@ -3909,7 +3909,7 @@ inserted in the current buffer."
   (sly-message "%s" value))
 
 (defun sly-eval-with-transcript (form)
-  "Eval FROM in Lisp.  Display output, if any."
+  "Eval FORM in Lisp.  Display output, if any."
   (run-hooks 'sly-transcript-start-hook)
   (sly-rex () (form)
     ((:ok value)
