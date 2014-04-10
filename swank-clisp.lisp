@@ -568,26 +568,26 @@ Return two values: NAME and VALUE"
 ;;;; Profiling
 
 (defimplementation profile (fname)
-  (eval `(mon:monitor ,fname)))         ;monitor is a macro
+  (eval `(swank-monitor:monitor ,fname)))         ;monitor is a macro
 
 (defimplementation profiled-functions ()
-  mon:*monitored-functions*)
+  swank-monitor:*monitored-functions*)
 
 (defimplementation unprofile (fname)
-  (eval `(mon:unmonitor ,fname)))       ;unmonitor is a macro
+  (eval `(swank-monitor:unmonitor ,fname)))       ;unmonitor is a macro
 
 (defimplementation unprofile-all ()
-  (mon:unmonitor))
+  (swank-monitor:unmonitor))
 
 (defimplementation profile-report ()
-  (mon:report-monitoring))
+  (swank-monitor:report-monitoring))
 
 (defimplementation profile-reset ()
-  (mon:reset-all-monitoring))
+  (swank-monitor:reset-all-monitoring))
 
 (defimplementation profile-package (package callers-p methods)
   (declare (ignore callers-p methods))
-  (mon:monitor-all package))
+  (swank-monitor:monitor-all package))
 
 ;;;; Handle compiler conditions (find out location of error etc.)
 
