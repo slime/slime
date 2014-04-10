@@ -7232,9 +7232,17 @@ keys."
     (sequence (> (length seq) n))))
 
 (defun slime-trim-whitespace (str)
-  (save-match-data
-    (string-match "^\\s-*\\(.*?\\)\\s-*$" str)
-    (match-string 1 str)))
+  (let ((start (cl-position-if-not (lambda (x)
+                                     (memq x '(?\t ?\n ?\s ?\r)))
+                                   str))
+        
+        (end (cl-position-if-not (lambda (x)
+                                   (memq x '(?\t ?\n ?\s ?\r)))
+                                 str
+                                 :from-end t)))
+    (if start
+        (substring str start (1+ end))
+        "")))
 
 ;;;;; Buffer related
 
