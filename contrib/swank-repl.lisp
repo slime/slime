@@ -203,6 +203,25 @@ This is an optimized way for Lisp to deliver output to Emacs."
            (funcall *send-repl-results-function* values))))))
   nil)
 
+(defslimefun listener-eval-form (form &key (window-width nil window-width-p))
+  (if window-width-p
+      (let ((*print-right-margin* window-width))
+        (repl-eval-form form))
+      (repl-eval-form form)))
+
+(defun repl-eval-form (form)
+  (clear-user-input)
+  (with-buffer-syntax ()
+    (with-retry-restart (:msg "Retry SLIME REPL form evaluation request.")
+      (track-package
+       (lambda ()
+         (multiple-value-call
+             (lambda (&rest values)
+               (set-repl-variables values form)
+               (funcall *send-repl-results-function* values))
+           (eval form))))))
+  nil)
+
 (defun track-package (fun)
   (let ((p *package*))
     (unwind-protect (funcall fun)

@@ -228,7 +228,7 @@ profiling before running the benchmark."
   (switch-to-buffer (slime-output-buffer))
   (delete-other-windows)
   (sit-for 0)
-  (slime-repl-send-string "(swank:io-speed-test 4000 1)")
+  (slime-repl-eval-form '(swank:io-speed-test 4000 1))
   (let ((proc (slime-inferior-process)))
     (when proc
       (display-buffer (process-buffer proc) t)
@@ -534,6 +534,26 @@ joined together."))
       (slime-repl-mode-beginning-of-defun (- arg))
     (dotimes (i (or arg 1))
       (slime-repl-next-prompt))))
+
+(defun slime-repl-eval-form (form)
+  "Evaluate FORM at the slime repl.
+
+This is not a general-purpose evaluator; only syntax shared
+between emacs-lisp and the superior lisp (essentially, lists of
+numbers, booleans, keywords, strings and slimefun names) should
+be sent."
+  (slime-rex ()
+      ((if slime-repl-auto-right-margin
+           `(swank:listener-eval-form ',form
+                                      :window-width
+                                      ,(with-current-buffer (slime-output-buffer)
+                                         (window-width)))
+         `(swank:listener-eval-form ',form))
+       (slime-lisp-package))
+    ((:ok result)
+     (slime-repl-insert-result result))
+    ((:abort condition)
+     (slime-repl-show-abort condition))))
 
 (defun slime-repl-send-string (string &optional command-string)
   (cond (slime-repl-read-mode
@@ -1574,15 +1594,15 @@ expansion will be added to the REPL's history.)"
   "Evaluate the inspector slot at point via the REPL (to set `*')."
   (interactive (list (or (get-text-property (point) 'slime-part-number)
                          (error "No part at point"))))
-  (slime-repl-send-string
-   (format "%s" `(cl:nth-value 0 (swank:inspector-nth-part ,number))))
+  (slime-repl-eval-form
+   `(cl:nth-value 0 (swank:inspector-nth-part ,number)))
   (slime-repl))
 
 (defun sldb-copy-down-to-repl (frame-id var-id)
   "Evaluate the frame var at point via the REPL (to set `*')."
   (interactive (list (sldb-frame-number-at-point) (sldb-var-number-at-point)))
-  (slime-repl-send-string
-   (format "%s" `(swank-backend:frame-var-value ,frame-id ,var-id)))
+  (slime-repl-eval-form
+   `(swank-backend:frame-var-value ,frame-id ,var-id))
   (slime-repl))
 
 (defun sldb-insert-frame-call-to-repl ()
