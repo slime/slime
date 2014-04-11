@@ -6957,9 +6957,12 @@ keys."
     (sequence (> (length seq) n))))
 
 (defun sly-trim-whitespace (str)
-  (save-match-data
-    (string-match "^\\s-*\\(.*?\\)\\s-*$" str)
-    (match-string 1 str)))
+  "Chomp leading and tailing whitespace from STR."
+  ;; lited from http://www.emacswiki.org/emacs/ElispCookbook
+  (replace-regexp-in-string (rx (or (: bos (* (any " \t\n")))
+                                    (: (* (any " \t\n")) eos)))
+                            ""
+                            str))
 
 ;;;;; Buffer related
 
