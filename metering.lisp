@@ -370,7 +370,7 @@ Estimated total monitoring overhead: 0.88 seconds
 	   "DISPLAY-MONITORING-RESULTS"
 	   "MONITORING-ENCAPSULATE" "MONITORING-UNENCAPSULATE"
 	   "REPORT"))
-(in-package "MONITOR")
+(in-package "SWANK-MONITOR")
 
 ;;; Warn user if they're loading the source instead of compiling it first.
 (eval-when (eval)
