@@ -443,16 +443,27 @@ Also return the start position, end position, and buffer of the presentation."
       (when presentation
         (slime-M-.-presentation presentation start end (current-buffer) where)))))
 
-
 (defun slime-copy-presentation-to-repl (presentation start end buffer)
-  (with-current-buffer buffer
-    (slime-repl-send-string
-     (format "%s"
-             `(cl:nth-value
-               0
-               (swank:lookup-presented-object
-                ',(slime-presentation-id presentation)))))
-    (slime-repl)))
+  (let ((text (with-current-buffer buffer
+                ;; we use the buffer-substring rather than the
+                ;; presentation text to capture any overlays
+                (buffer-substring start end)))
+        (id (slime-presentation-id presentation)))
+    (unless (integerp id)
+      (setq id (slime-eval `(swank:lookup-and-save-presented-object-or-lose ',id))))
+    (unless (eql major-mode 'slime-repl-mode)
+      (slime-switch-to-output-buffer))
+    (cl-flet ((do-insertion ()
+                (unless (looking-back "\\s-" (- (point) 1))
+                  (insert " "))
+                (slime-insert-presentation text id)
+                (unless (or (eolp) (looking-at "\\s-"))
+                  (insert " "))))
+      (if (>= (point) slime-repl-prompt-start-mark)
+          (do-insertion)
+        (save-excursion
+          (goto-char (point-max))
+          (do-insertion))))))
 
 (defun slime-copy-presentation-at-mouse-to-repl (event)
   (interactive "e")
