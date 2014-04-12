@@ -1,3 +1,8 @@
+2014-04-15  Phil Hargett  <phil@haphazardhouse.net>
+
+	* test/slime-autodoc-tests.el: Mark several tests as failing for
+	CCL 1.9
+
 2014-04-02  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-repl-add-to-input-history): Fix whitespace
