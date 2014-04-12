@@ -1,24 +1,33 @@
-2014-04-10  Phil Hargett <phil@haphazardhouse.net>
+2014-04-12  João Távora  <joaotavora@gmail.com>
 
-	Using nicknames, especially short terse ones, are more likely to create package
-	name conflicts with othe packages.  Since swank is widely used, its better
-	to avoid using nicknames (or at least short ones).  All package nicknames removed.
+	Unbreak CCL and CLISP and cleanup ChangeLog.
 
-	Further, the "MONITOR" package has been renamed "SWANK-MONITOR" for the same reason:
-	without the extra qualification, the name could conflict with other packages.
+	* metering.lisp ("SWANK-MONITOR"): Enter SWANK-MONITOR package.
 
-	* contrib/swank-trace-dialog.el (defpackage swank-trace-dialog): removed :std nickname
+2014-04-10  Phil Hargett  <phil@haphazardhouse.net>
 
-	* metering.lisp (defpackage "MONITOR"): removed :mon nickname, touched up
-	references in comments
+	Using nicknames, especially short terse ones, are more likely to
+	create package name conflicts with othe packages.  Since swank is
+	widely used, its better to avoid using nicknames (or at least
+	short ones).  All package nicknames removed.
 
-	* swank-ccl.lisp (profile, profiled-functions, unprofile, unprofile-all, profile-report,
-	profile-reset, profile-package): replaced use of nickname mon: with new package
-	name swank-monitor:
+	Further, the MONITOR package has been renamed SWANK-MONITOR for
+	the same reason: without the extra qualification, the name could
+	conflict with other packages.
 
-	* swank-clisp.lisp (profile, profiled-functions, unprofile, unprofile-all, profile-report,
-	profile-reset, profile-package): replaced use of nickname mon: with new package
-	name swank-monitor:
+	* contrib/swank-trace-dialog.lisp (defpackage swank-trace-dialog):
+	removed :std nickname
+
+	* metering.lisp (defpackage "MONITOR"): removed MON nickname,
+	touched up references in comments
+
+	* swank-ccl.lisp (profile, profiled-functions, unprofile)
+	(unprofile-all, profile-report, profile-reset, profile-package):
+	replaced use of nickname MON with new package name SWANK-MONITOR
+
+	* swank-clisp.lisp (profile, profiled-functions, unprofile)
+	(unprofile-all, profile-report, profile-reset, profile-package):
+	replaced use of nickname MON with new package name SWANK-MONITOR
 
 2014-04-10  Stas Boukarev  <stassats@gmail.com>
 
