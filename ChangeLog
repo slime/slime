@@ -1,3 +1,11 @@
+2014-04-13  Phil Hargett  <phil@haphazardhouse.net>
+
+	* .travis.yml: added targets to include CCL 1.9 for Travis builds
+	* slime-tests.el (compile-defun,compile-defun-with-reader-characters):
+	Split test into two parts, as CCL does not pass 1 existing test
+	* contrib/test/slime-test-autodoc.el: Mark several tests as
+	failing for CCL 1.9
+
 2014-04-12  João Távora  <joaotavora@gmail.com>
 
 	Unbreak CCL and CLISP and cleanup ChangeLog.

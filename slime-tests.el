@@ -551,8 +551,7 @@ string buffer position filename policy)")
                        (lambda (pattern arglist)
                          (and arglist (string-match pattern arglist))))))
 
-(def-slime-test (compile-defun (:fails-for "allegro" "lispworks" "clisp"
-                                           "ccl"))
+(def-slime-test (compile-defun (:fails-for "allegro" "lispworks" "clisp"))
     (program subform)
     "Compile PROGRAM containing errors.
 Confirm that SUBFORM is correctly located."
@@ -584,11 +583,31 @@ Confirm that SUBFORM is correctly located."
            (cl-user::bar))
 
         "
-       (cl-user::bar))
-      ("(defun foo ()
+       (cl-user::bar)))
+  (slime-check-top-level)
+  (with-temp-buffer
+    (lisp-mode)
+    (insert program)
+    (let ((font-lock-verbose nil))
+      (setq slime-buffer-package ":swank")
+      (slime-compile-string (buffer-string) 1)
+      (setq slime-buffer-package ":cl-user")
+      (slime-sync-to-top-level 5)
+      (goto-char (point-max))
+      (slime-previous-note)
+      (slime-check error-location-correct
+        (equal (read (current-buffer)) subform))))
+  (slime-check-top-level))
+
+;; This test ideally would be collapsed into the previous
+;; compile-defun test, but only 1 case fails for ccl--and that's here
+(def-slime-test (compile-defun-with-reader-characters (:fails-for "allegro" "lispworks" "clisp" "ccl"))
+    (program subform)
+    "Compile PROGRAM containing errors.
+Confirm that SUBFORM is correctly located."
+    '(("(defun foo ()
           #+#.'(:and) (/ 1 0))"
-       (/ 1 0))
-      )
+       (/ 1 0)))
   (slime-check-top-level)
   (with-temp-buffer
     (lisp-mode)
@@ -998,7 +1017,7 @@ the buffer's undo-list."
                           0.5))
   (slime-sync-to-top-level 1))
 
-(def-slime-test (break2 (:fails-for "cmucl" "allegro" "ccl"))
+(def-slime-test (break2 (:fails-for "cmucl" "allegro"))
     (times exp)
     "Backends should arguably make sure that BREAK does not depend
 on *DEBUGGER-HOOK*."
