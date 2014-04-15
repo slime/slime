@@ -1,9 +1,18 @@
+2014-04-15  João Távora  <joaotavora@gmail.com>
+
+	* slime-tests.el (compile-defun-with-reader-conditionals): Renamed
+	from `compile-defun-with-reader-characters'. Break long lines.
+
+	* .travis.yml (env): Don't overtest on Emacs 23, as per comment.
+	(install): No need for trailing semicolon.
+
 2014-04-15  Phil Hargett  <phil@haphazardhouse.net>
 
 	* slime-tests.el (compile-defun): Test split into two parts.
 	(compile-defun-with-reader-characters): Split from `compile-defun'
 	as CCL does not pass this part.
-	* .travis.yml: added targets to include CCL 1.9 for Travis builds
+	* .travis.yml (env): added targets to include CCL 1.9 for Travis
+	builds
 
 2014-04-12  João Távora  <joaotavora@gmail.com>
 

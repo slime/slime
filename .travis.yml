@@ -3,9 +3,7 @@ language: emacs
 env:
   # we test emacs23 with sbcl only
   - "CHECK_TARGET=check       LISP=sbcl EMACS=emacs23"
-  - "CHECK_TARGET=check       LISP=ccl  EMACS=emacs23"
   - "CHECK_TARGET=check-fancy LISP=sbcl EMACS=emacs23"
-  - "CHECK_TARGET=check-fancy LISP=ccl  EMACS=emacs23"
 
   # for emacs24, use more combinations
   - "CHECK_TARGET=check       LISP=sbcl  EMACS=emacs24"
@@ -20,7 +18,7 @@ env:
   - "CHECK_TARGET=check-indentation LISP=sbcl EMACS=emacs24"
 
 install:
-  - curl https://raw2.github.com/luismbo/cl-travis/master/install.sh | bash ;
+  - curl https://raw2.github.com/luismbo/cl-travis/master/install.sh | bash
   - if [ "$EMACS" = "emacs23" ]; then
         sudo apt-get -qq update &&
         sudo apt-get -qq -f install &&
