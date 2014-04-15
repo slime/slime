@@ -599,7 +599,8 @@ Confirm that SUBFORM is correctly located."
 
 ;; This test ideally would be collapsed into the previous
 ;; compile-defun test, but only 1 case fails for ccl--and that's here
-(def-slime-test (compile-defun-with-reader-characters (:fails-for "allegro" "lispworks" "clisp" "ccl"))
+(def-slime-test (compile-defun-with-reader-conditionals
+                 (:fails-for "allegro" "lispworks" "clisp" "ccl"))
     (program subform)
     "Compile PROGRAM containing errors.
 Confirm that SUBFORM is correctly located."
