@@ -1,5 +1,8 @@
 (require 'sly)
 (require 'sly-old-repl)
+(require 'cl-lib)
+(eval-when-compile
+  (require 'cl)) ; lexical-let
 
 (define-sly-contrib sly-clipboard
   "This add a few commands to put objects into a clipboard and to
@@ -72,10 +75,11 @@ debugger to add the object at point to the clipboard."
     (insert (format fstring "Nr" "Id" "Value")
             (format fstring "--" "--" "-----" ))
     (save-excursion
-      (loop for i from 0 for (ref . value) in entries do
-	    (sly-insert-propertized `(sly-clipboard-entry ,i
-					sly-clipboard-ref ,ref)
-				      (format fstring i ref value))))))
+      (cl-loop
+       for i from 0 for (ref . value) in entries do
+       (sly-insert-propertized `(sly-clipboard-entry ,i
+                                                     sly-clipboard-ref ,ref)
+                               (format fstring i ref value))))))
 
 (defun sly-clipboard-redisplay ()
   "Update the clipboard buffer."
@@ -121,7 +125,7 @@ debugger to add the object at point to the clipboard."
 ;; remove this property in a modification when a user tries to modify
 ;; he real text.
 (defun sly-clipboard-insert-ref (entry)
-  (destructuring-bind (ref . string) 
+  (cl-destructuring-bind (ref . string) 
       (sly-eval `(swank-clipboard:entry-to-ref ,entry))
     (sly-insert-propertized
      `(display ,(format "#@%d%s" ref string)
@@ -134,7 +138,7 @@ debugger to add the object at point to the clipboard."
     (let ((inhibit-modification-hooks t))
       (save-excursion
 	(goto-char start)
-	(destructuring-bind (dstart dend) (sly-property-bounds 'display)
+	(cl-destructuring-bind (dstart dend) (sly-property-bounds 'display)
 	  (unless (and (= start dstart) (= end dend))
 	    (remove-list-of-text-properties 
 	     dstart dend '(display modification-hooks))))))))
