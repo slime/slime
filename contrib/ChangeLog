@@ -1,3 +1,10 @@
+2014-04-17  Olof-Joachim Frahm <olof@macrolet.net>
+
+	* slime-clipboard.el: Require `cl-lib`/`cl` for `lexical-let` and
+	`cl-` prefix.
+	(slime-clipboard-insert-entries, slime-clipboard-insert-ref)
+	(slime-clipboard-ref-modified): Use `cl-` prefix.
+
 2014-04-15  Phil Hargett  <phil@haphazardhouse.net>
 
 	* test/slime-autodoc-tests.el: Mark several tests as failing for
