@@ -1,3 +1,8 @@
+2014-04-26  João Távora  <joaotavora@gmail.com>
+
+	* slime.el (sldb-exit): An indirect, non-interactive exit from an
+	*sldb* buffer should just kill the buffer.
+
 2014-04-15  João Távora  <joaotavora@gmail.com>
 
 	* slime-tests.el (compile-defun-with-reader-conditionals): Renamed

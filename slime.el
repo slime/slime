@@ -5348,8 +5348,14 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
       (cond (stepping
              (setq sldb-level nil)
              (run-with-timer 0.4 nil 'sldb-close-step-buffer sldb))
+            ((not (eq sldb (window-buffer (selected-window))))
+             ;; A different window selection means an indirect,
+             ;; non-interactive exit, we just kill the sldb buffer.
+             (kill-buffer))
             (t
-             ;; FIXME: remove when dropping Emacs23 support
+             ;; An interactive exit should restore configuration per
+             ;; `quit-window's protocol. FIXME: remove
+             ;; `previous-window' hack when dropping Emacs23 support
              (let ((previous-window (window-parameter (selected-window)
                                                       'sldb-restore)))
                (quit-window t)
