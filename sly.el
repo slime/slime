@@ -5198,6 +5198,10 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
       (cond (stepping
              (setq sldb-level nil)
              (run-with-timer 0.4 nil 'sldb-close-step-buffer sldb))
+            ((not (eq sldb (window-buffer (selected-window))))
+             ;; A different window selection means an indirect,
+             ;; non-interactive exit, we just kill the sldb buffer.
+             (kill-buffer))
             (t
              (quit-window t))))))
 
