@@ -3,7 +3,6 @@
 ;; sly-mrepl or M-x sly-mrepl-new create new REPL buffers.
 ;;
 (require 'sly)
-(require 'inferior-sly) ; inferior-sly-indent-lime
 (require 'cl-lib)
 
 (define-sly-contrib sly-mrepl
@@ -48,21 +47,25 @@ emptied.See also `sly-mrepl-hook'")
 
 (define-derived-mode sly-mrepl-mode comint-mode "mrepl"
   (sly-mode)
-  (set (make-local-variable 'comint-use-prompt-regexp) nil)
-  (set (make-local-variable 'comint-inhibit-carriage-motion) t)
-  (set (make-local-variable 'comint-input-sender) 'sly-mrepl--input-sender)
-  (set (make-local-variable 'comint-output-filter-functions) nil)
-  (set (make-local-variable 'comint-input-filter-functions) nil)
-  (set (make-local-variable 'comint-history-isearch) 'dwim)
-  (set (make-local-variable 'comint-input-ring-file-name) "~/.sly-mrepl-history")
-  (set (make-local-variable 'comint-input-ignoredups) t)
-  (set (make-local-variable 'comint-input-ring-size)  1500)
-  (set (make-local-variable 'comint-prompt-read-only) t)
-  (set (make-local-variable 'sly-mrepl--expect-sexp-mode) t)
-  (set (make-local-variable 'sly-mrepl--result-counter) -1)
-  (set (make-local-variable 'sly-mrepl--output-mark) (point-marker))
-  (set-marker-insertion-type sly-mrepl--output-mark nil)
+  (cl-loop for (var value)
+           in `((comint-use-prompt-regexp nil)
+                (comint-inhibit-carriage-motion t)
+                (comint-input-sender sly-mrepl--input-sender)
+                (comint-output-filter-functions nil)
+                (comint-input-filter-functions nil)
+                (comint-history-isearch dwim)
+                (comint-input-ring-file-name "~/.sly-mrepl-history")
+                (comint-input-ignoredups t)
+                (comint-input-ring-size  1500)
+                (comint-prompt-read-only t)
+                (indent-line-function lisp-indent-line)
+                (sly-mrepl--expect-sexp-mode t)
+                (sly-mrepl--result-counter -1)
+                (sly-mrepl--output-mark ,(point-marker)))
+           do (set (make-local-variable var) value))
   
+  
+  (set-marker-insertion-type sly-mrepl--output-mark nil)
   ;;(set (make-local-variable 'comint-get-old-input) 'ielm-get-old-input)
   (set-syntax-table lisp-mode-syntax-table))
 
@@ -196,22 +199,28 @@ emptied.See also `sly-mrepl-hook'")
 	     (message "[Listener is waiting for input]"))
       (:eval (setq sly-mrepl--expect-sexp-mode t)))))
 
+(defun sly-mrepl--send-input ()
+  (goto-char (point-max))
+  (skip-chars-backward "\n\t\s")
+  (delete-region (max (point)
+                      (sly-mrepl--mark))
+                 (point-max))
+  (comint-send-input))
+
 (defun sly-mrepl-return (&optional end-of-input)
   (interactive "P")
   (sly-check-connected)
-  (goto-char (point-max))
   (cond ((and sly-mrepl--expect-sexp-mode
-	      (or (sly-input-complete-p (sly-mrepl--mark) (point))
+	      (or (sly-input-complete-p (sly-mrepl--mark) (point-max))
 		  end-of-input))
-	 (comint-send-input)
+	 (sly-mrepl--send-input)
          (set-marker sly-mrepl--output-mark (point)))
 	((not sly-mrepl--expect-sexp-mode)
 	 (unless end-of-input
-	   (insert "\n"))
-	 (comint-send-input t))
+	   (newline))
+	 (sly-mrepl--send-input))
         (t
-	 (insert "\n")
-	 (inferior-sly-indent-line)
+	 (newline-and-indent)
          (message "[input not complete]")))
   (sly-mrepl--recenter))
 
@@ -277,7 +286,7 @@ If message can't be sent right now, queue it onto
                                      ,sly-mrepl--remote-channel
                                      ,string)))
                      (sly-mrepl--send-string string))))))
-        (comint-send-input)
+        (comint-send-input 'no-newline 'artificial)
         (pop-to-buffer (current-buffer))))))
 
 (defun sly-inspector-copy-down-to-repl (number)
