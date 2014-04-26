@@ -310,7 +310,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
    'mouse-face 'highlight
    'sly-trace-dialog--part-id part-id
    'sly-trace-dialog--type type
-   'face 'sly-inspector-value-face))
+   'face 'sly-inspectable-value-face))
 
 (defun sly-trace-dialog--format-trace-entry (id external)
   (sly-trace-dialog--button
