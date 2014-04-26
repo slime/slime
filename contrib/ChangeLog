@@ -1,3 +1,17 @@
+2014-04-26  João Távora  <joaotavora@gmail.com>
+
+	* swank-repl.lisp (*listener-saved-value*): New thread-global
+	variable.
+	(listener-save-value): Save values produced by slimefuns.
+	(listener-get-value): Get values saved by LISTENER-SAVE-VALUE.
+	(*last-repl-form*, *last-repl-values*, set-repl-variables): Deleted.
+	(repl-eval): Don't call SET-REPL-VARIABLES.
+
+	* slime-repl.el (slime-repl): Return the REPL buffer switched to.
+	(slime-repl-copy-down-to-repl): New function.
+	(slime-inspector-copy-down-to-repl): Use `slime-repl-copy-down-to-repl'
+	(sldb-copy-down-to-repl): Use `slime-repl-copy-down-to-repl'
+
 2014-04-20  Christophe Rhodes  <csr21@cantab.net>
 
 	* swank-presentations.lisp (lookup-and-save-presented-object-or-lose):
