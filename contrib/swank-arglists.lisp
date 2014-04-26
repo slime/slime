@@ -869,6 +869,21 @@ forward keywords to OPERATOR."
                 (cons (car args) determiners))
         (call-next-method))))
 
+(defmethod extra-keywords ((operator symbol) &rest args)
+  (declare (ignore args))
+  (multiple-value-or
+   (let ((extra-keyword-arglist (get operator :swank-extra-keywords)))
+     (when extra-keyword-arglist
+       (values (loop for (sym default) in extra-keyword-arglist
+                     for keyword = (intern (symbol-name sym) :keyword)
+                     collect (make-keyword-arg keyword
+                                               keyword
+                                               default))
+               (get operator :swank-allow-other-keywords)
+               nil)))
+   (call-next-method)))
+
+
 (defun enrich-decoded-arglist-with-keywords (decoded-arglist keywords
                                              allow-other-keys-p)
   "Modify DECODED-ARGLIST using KEYWORDS and ALLOW-OTHER-KEYS-P."
