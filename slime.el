@@ -4228,7 +4228,7 @@ in Lisp when committed with \\[slime-edit-value-commit]."
                                                       ,value)
           (lambda (_)
             (with-current-buffer buffer
-              (quit-window t))))))))
+              (kill-buffer))))))))
 
 ;;;; Tracing
 
@@ -5358,7 +5358,7 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
              ;; `previous-window' hack when dropping Emacs23 support
              (let ((previous-window (window-parameter (selected-window)
                                                       'sldb-restore)))
-               (quit-window t)
+               (kill-buffer)
                (if (and (not (>= emacs-major-version 24))
                         (window-live-p previous-window))
                    (select-window previous-window))))))))
@@ -5367,7 +5367,7 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
   (when (buffer-live-p buffer)
     (with-current-buffer buffer
       (when (not sldb-level)
-        (quit-window t)))))
+        (kill-buffer)))))
 
 
 ;;;;;; SLDB buffer insertion
@@ -6064,7 +6064,7 @@ was called originally."
 (defun slime-quit-threads-buffer ()
   (when slime-threads-buffer-timer
     (cancel-timer slime-threads-buffer-timer))
-  (quit-window t)
+  (kill-buffer)
   (slime-eval-async `(swank:quit-thread-browser)))
 
 (defun slime-update-threads-buffer ()
@@ -6509,7 +6509,7 @@ that value.
   "Quit the inspector and kill the buffer."
   (interactive)
   (slime-eval-async `(swank:quit-inspector))
-  (quit-window t))
+  (kill-buffer))
 
 ;; FIXME: first return value is just point.
 ;; FIXME: could probably use slime-search-property.
