@@ -1243,7 +1243,7 @@ See `slime-start'."
                      :verbose t)
                (funcall (read-from-string "swank-loader:init"))
                (funcall (read-from-string "swank:start-server")
-                        ,port-filename)))))
+                        ,(slime-to-lisp-filename port-filename))))))
 
 (defun slime-swank-port-file ()
   "Filename where the SWANK server writes its TCP port number."
