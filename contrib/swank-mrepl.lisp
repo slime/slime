@@ -34,7 +34,9 @@
 
 (defpackage :swank-mrepl
   (:use :cl :swank-api)
-  (:export #:create-mrepl))
+  (:export #:create-mrepl
+           #:listener-save-value
+           #:eval-in-mrepl))
 
 (in-package :swank-mrepl)
 
@@ -48,6 +50,7 @@
 
 (defmethod initialize-instance :after ((channel listener-channel)
                                        &rest initargs)
+  (declare (ignore initargs))
   ;; FIXME: fugly, but I need this to be able to name the thread
   ;; according to the channel.
   (setf (slot-value channel 'swank::thread)
@@ -136,11 +139,10 @@
 
 (define-channel-method :process ((c listener-channel) string)
   (log-event ":process ~s~%" string)
-  (with-slots (mode remote) c
-    (ecase mode
+  (ecase (channel-mode c)
       (:eval (mrepl-eval c string))
       (:read (mrepl-read c string))
-      (:drop))))
+      (:drop)))
 
 (define-channel-method :inspect ((c listener-channel) object-idx value-idx)
   (log-event ":inspect ~s~%" object-idx)
@@ -154,6 +156,20 @@
   (log-event ":teardown~%")
   (close-channel c)
   (throw 'stop-processing 'listener-teardown))
+
+(defvar *listener-saved-value* nil)
+
+(defslyfun listener-save-value (slyfun &rest args)
+  "Apply SLYFUN to ARGS and save the value.
+ The saved value should be visible to all threads and retrieved via
+ LISTENER-GET-VALUE."
+  (setq *listener-saved-value* (apply slyfun args))
+  t)
+
+(define-channel-method :produce-saved-value ((c listener-channel))
+  (mrepl-eval c (let ((*package* (find-package :keyword)))
+                  (write-to-string '*listener-saved-value*))))
+
 
 (defun mrepl-eval (channel string)
   (with-slots (remote env) channel

@@ -167,7 +167,7 @@ emptied.See also `sly-mrepl-hook'")
   (with-current-buffer (sly-channel-get self 'buffer)
     (cl-incf sly-mrepl--result-counter)
     (let* ((comint-preoutput-filter-functions nil))
-      (cl-loop for value in values
+      (cl-loop for (value . more) on values
                for idx from 0
                for request = `(:inspect ,sly-mrepl--result-counter ,idx)
                do
@@ -175,8 +175,7 @@ emptied.See also `sly-mrepl-hook'")
                                                     'action `(lambda (_button)
                                                                (sly-mrepl--send ',request))
                                                     :type 'sly))
-               
-               (sly-mrepl--insert "\n"))
+               when more do (sly-mrepl--insert "\n"))
       (when (null values)
         (sly-mrepl--insert "; No values")))))
 
@@ -274,32 +273,29 @@ If message can't be sent right now, queue it onto
 
 ;;; copy-down-to-REPL behaviour
 ;;;
-(defun sly-mrepl--eval-for-repl (form &optional out-of-band)
-  (let ((original-thread sly-current-thread))
-    (with-current-buffer (sly-mrepl)
-      (let ((comint-input-sender
-             #'(lambda (_proc _string)
-                 (let ((string (format "%s" form)))
-                   (if out-of-band
-                       (let ((sly-current-thread original-thread))
-                         (sly-eval `(swank-mrepl:eval-in-mrepl
-                                     ,sly-mrepl--remote-channel
-                                     ,string)))
-                     (sly-mrepl--send-string string))))))
-        (comint-send-input 'no-newline 'artificial)
-        (pop-to-buffer (current-buffer))))))
+(defun sly-mrepl--eval-for-repl (slyfun &rest args)
+  (sly-eval-async
+   `(swank-mrepl:listener-save-value ',slyfun ,@args)
+   #'(lambda (_ignored)
+       (with-current-buffer (sly-mrepl)
+         (comint-output-filter (sly-mrepl--process) "\n")
+         ;; (save-excursion
+         ;;   (goto-char (sly-mrepl--mark))
+         ;;   (insert-before-markers "\n"))
+         (sly-mrepl--send `(:produce-saved-value))
+         (pop-to-buffer (current-buffer))
+         (goto-char (sly-mrepl--mark))))))
 
 (defun sly-inspector-copy-down-to-repl (number)
   "Evaluate the inspector slot at point via the REPL (to set `*')."
   (interactive (list (or (get-text-property (point) 'sly-part-number)
                          (error "No part at point"))))
-  (sly-mrepl--eval-for-repl `(cl:nth-value 0 (swank:inspector-nth-part ,number))))
+  (sly-mrepl--eval-for-repl 'swank:inspector-nth-part number))
 
 (defun sldb-copy-down-to-repl (frame-id var-id)
   "Evaluate the frame var at point via the REPL (to set `*')."
   (interactive (list (sldb-frame-number-at-point) (sldb-var-number-at-point)))
-  (sly-mrepl--eval-for-repl `(swank-backend:frame-var-value ,frame-id ,var-id)
-                            'out-of-band))
+  (sly-mrepl--eval-for-repl 'swank-backend:frame-var-value frame-id var-id))
 
 (defun sly-trace-dialog-copy-down-to-repl (id part-id type)
   "Eval the Trace Dialog entry under point in the REPL (to set *)"
