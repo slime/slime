@@ -74,7 +74,7 @@ use `sly-export-symbol-representation-function'.")
                                        (concat (file-name-as-directory (sly-to-lisp-filename dirname))
                                                (file-name-as-directory ".."))))
               (try (dirname)
-                   (dolist (package-file-name sly-package-file-candidates)
+                   (cl-dolist (package-file-name sly-package-file-candidates)
                      (let ((f (sly-to-lisp-filename
                                (concat dirname package-file-name))))
                        (when (file-readable-p f)
@@ -139,21 +139,36 @@ places the cursor at the start of the DEFPACKAGE form."
             (save-excursion
               (while (search-forward symbol-name clause-end t)
                 (when (target-symbol-p (sly-symbol-at-point))
-                  (cl-return (point)))))))))))
+                  (cl-return (if (sly-inside-string-p)
+                                 ;; Include the following "
+                                 (1+ (point))
+                               (point))))))))))))
+
+(defun sly-export-symbols ()
+  "Return a list of symbols inside :export clause of a defpackage."
+  ;; Assumes we're at the beginning of :export
+  (cl-labels ((read-sexp ()
+                         (ignore-errors
+                           (forward-comment (point-max))
+                           (buffer-substring-no-properties
+                            (point) (progn (forward-sexp) (point))))))
+    (save-excursion
+      (cl-loop for sexp = (read-sexp) while sexp collect sexp))))
 
 (defun sly-defpackage-exports ()
   "Return a list of symbols inside :export clause of a defpackage."
   ;; Assumes we're inside the beginning of a DEFPACKAGE form.
   (cl-labels ((normalize-name (name)
-                              (replace-regexp-in-string "^\\(\\(#:\\)\\|:\\)"
-                                                        "" name)))
+                              (if (string-prefix-p "\"" name)
+                                  (read name)
+                                (replace-regexp-in-string "^\\(\\(#:\\)\\|:\\)"
+                                                          "" name))))
     (save-excursion
-      (cl-loop while (ignore-errors (sly-goto-next-export-clause) t)
-               do (down-list) (forward-sexp)
-               append
-               (cl-loop while (ignore-errors (forward-sexp) t)
-                        collect (normalize-name (sly-symbol-at-point)))
-               do (up-list) (backward-sexp)))))
+      (mapcar #'normalize-name
+              (cl-loop while (ignore-errors (sly-goto-next-export-clause) t)
+                       do (down-list) (forward-sexp)
+                       append (sly-export-symbols)
+                       do (up-list) (backward-sexp))))))
 
 (defun sly-symbol-exported-p (name symbols)
   (cl-member name symbols :test 'equalp))
@@ -169,7 +184,8 @@ already exported/unexported."
     (sly-goto-package-source-definition current-package)
     (down-list 1)			; enter DEFPACKAGE form
     (forward-sexp)			; skip DEFPACKAGE symbol
-    (forward-sexp)			; skip package name
+    ;; Don't or will fail if (:export ...) is immediately following
+    ;; (forward-sexp)			; skip package name
     (let ((exported-symbols (sly-defpackage-exports))
           (symbols (if (consp symbols)
                        symbols
@@ -209,13 +225,6 @@ already exported/unexported."
            (insert "(:export ")
            (save-excursion (insert ")"))))))
 
-(defun sly-export-symbols ()
-  "Return a list of symbols inside :export clause of a defpackage."
-  ;; Assumes we're at the beginning of :export
-  (save-excursion
-    (cl-loop while (ignore-errors (forward-sexp) t)
-             collect (sly-symbol-at-point))))
-
 (defun sly-determine-symbol-style ()
   ;; Assumes we're inside :export
   (save-excursion
@@ -232,6 +241,10 @@ already exported/unexported."
                          (string-match "^#:" x))
                        symbols)
              (lambda (n) (format "#:%s" n)))
+            ((cl-every (lambda (x)
+                         (string-prefix-p "\"" x))
+                       symbols)
+             (lambda (n) (prin1-to-string (upcase (substring-no-properties n)))))
             (t
              sly-export-symbol-representation-function)))))
 
@@ -258,7 +271,8 @@ already exported/unexported."
 	(delete-region (point) point)
 	(beginning-of-line)
 	(when (looking-at "^\\s-*$")
-	  (join-line))))))
+          (join-line)
+          (delete-trailing-whitespace (point) (line-end-position)))))))
 
 (defun sly-export-symbol-at-point ()
   "Add the symbol at point to the defpackage source definition
