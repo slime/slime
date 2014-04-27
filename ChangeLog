@@ -1,3 +1,7 @@
+2014-04-27  Christophe Rhodes  <csr21@cantab.net>
+
+	* slime.el (slime-eval-with-transcript): Fix typo in docstring.
+
 2014-04-27  João Távora  <joaotavora@gmail.com>
 
 	* slime.el (slime-init-command): Also use `slime-to-lisp-filename'

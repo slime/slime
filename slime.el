@@ -4069,7 +4069,7 @@ inserted in the current buffer."
   (slime-message "%s" value))
 
 (defun slime-eval-with-transcript (form)
-  "Eval FROM in Lisp.  Display output, if any."
+  "Eval FORM in Lisp.  Display output, if any."
   (run-hooks 'slime-transcript-start-hook)
   (slime-rex () (form)
     ((:ok value)
