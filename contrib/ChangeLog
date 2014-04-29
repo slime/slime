@@ -1,3 +1,8 @@
+2014-04-29  Christophe Rhodes  <csr21@cantab.net>
+
+	* slime-references.el (slime-references-properties): Support
+	`:type' and `:system-class' `:ansi-cl' references.
+
 2014-04-26  João Távora  <joaotavora@gmail.com>
 
 	* swank-repl.lisp (*listener-saved-value*): New thread-global
