@@ -1,5 +1,11 @@
 2014-04-29  Christophe Rhodes  <csr21@cantab.net>
 
+	* slime-references.el (slime-lookup-reference-at-point): change
+	format for lookup in SBCL manual to match current all-in-one-page
+	publication.
+
+2014-04-29  Christophe Rhodes  <csr21@cantab.net>
+
 	* slime-references.el (slime-references-properties): Support
 	`:type' and `:system-class' `:ansi-cl' references.
 

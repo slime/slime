@@ -100,7 +100,7 @@ See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
              (t
               (hyperspec-lookup what))))
           (t
-           (let ((url (format "%s%s.html" slime-sbcl-manual-root
+           (let ((url (format "%s#%s" slime-sbcl-manual-root
                               (subst-char-in-string ?\  ?\- what))))
              (browse-url url))))))))
 
