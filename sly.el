@@ -5,7 +5,6 @@
 ;; Package-Requires: ((cl-lib "0.5"))
 ;; Keywords: languages, lisp, sly
 
-
 ;;;; License
 ;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
 ;;     Copyright (C) 2004,2005,2006  Luke Gorrie, Helmut Eller

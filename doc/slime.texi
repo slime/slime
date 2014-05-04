@@ -10,8 +10,8 @@
 @end direntry
 @c %**end of header
 
-@set EDITION 2.4
-@set SLYVER 2.4
+@set EDITION 1.0
+@set SLYVER 1.0
 @set UPDATED @today{}
 @set TITLE SLY User Manual
 @settitle @value{TITLE}, version @value{EDITION}
