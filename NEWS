@@ -1,5 +1,54 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
 
+* 2.6 (May 2014)
+
+** Core
+
+*** *print-readably* bound to nil when displaying condition messages
+
+*** Issue #144: Removed nicknames and short package names
+The STD nickname for SWANK-TRACE-DIALOG was removed. MONITOR was
+renamed to SWANK-MONITOR and its nickname MON removed.
+
+*** Issues #135, #154: slime-to-lisp-filename used more pervasively
+Now used for the both the port-file and loader file when announced
+from Emacs to the lisp backend. Allows a user-written
+`slime-to-lisp-filename-function' that supports Cygwin lisps with
+non-Cygwin Emacsen or vice-versa. See #135 for an example of such a
+function.
+
+*** Issue #155: Stale SLDB buffers are now properly removed
+Indirect exits from an SLDB buffer that was not selected in a window
+would leave a stale buffer behind, leading to an inconsistent state
+and unexpected errors.
+
+** Contribs
+
+*** Issue #139: Restored "copy to REPL" for slime-presentations
+`slime-copy-presentation-at-point-to-repl' will copy a presentation to
+the REPL, place it at point, and _not_ set *, ** and ***. This
+behaviour restored after refactorings of "copy to REPL" behaviour of
+previous versions.
+
+*** Issue #140: Improvements in the "copy to REPL" behaviour
+With or without the slime-presentations contrib, M-RET will
+copy/return values to REPL from both Inspector and SLDB buffers,
+setting *, ** and *** . If the slime-presentations contrib is enabled,
+the returned part will be an interactive presentation. The protocol
+for copying down parts to REPL has been reworked to not assume a CL
+backend .
+
+*** Now supports more CLHS references: :type, :system-class, :ansi-cl
+
+*** Issue #133: Fixed links to the SBCL manual
+
+** Backend improvements
+
+*** SBCL
+
+**** `slime-set-default-directory' now calls chdir
+This propagates its effects to subprocesses.
+
 * 2.5 (April 2014)
 
 ** Backend improvements
