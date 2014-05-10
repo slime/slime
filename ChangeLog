@@ -1,3 +1,8 @@
+2014-05-10  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-rpc.lisp (prin1-to-string-for-emacs): Convert floats into
+	double-floats, when possible. Emacs lisp only has double floats.
+
 2014-05-08  Gábor Melis  <mega@retes.hu>
 
 	* swank-allegro.lisp (function-name, find-source-location): New.
