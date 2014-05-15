@@ -87,10 +87,11 @@ Exits Emacs when finished. The exit code is the number of failed tests."
             (let ((file-name (or load-file-name
                                  byte-compile-current-file)))
               (if (and file-name
-                       (string-match "contrib/test/slime-\\(.*\\)\.elc?$" file-name))
+                       (string-match "contrib/test/slime-\\(.*\\)\.elc?$"
+				     file-name))
                   (list 'contrib (intern (match-string 1 file-name)))
                 '(core)))))
-  
+
   (defmacro define-slime-ert-test (name &rest args)
     "Like `ert-deftest', but set tags automatically.
 Also don't error if `ert.el' is missing."
@@ -752,7 +753,8 @@ Confirm that SUBFORM is correctly located."
 
 (defun sldb-first-abort-restart ()
   (let ((case-fold-search t))
-    (cl-position-if (lambda (x) (string-match "abort" (car x))) sldb-restarts)))
+    (cl-position-if (lambda (x) (string-match "abort" (car x)))
+		    sldb-restarts)))
 
 (def-slime-test loop-interrupt-quit
     ()
@@ -1211,7 +1213,6 @@ Reconnect afterwards."
 (cl-defun slime-test-recipe-test-for (&key preflight
                                            takeoff
                                            landing)
-  
   (let ((success nil)
         (test-file (make-temp-file "slime-recipe-" nil ".el"))
         (test-forms
@@ -1279,9 +1280,7 @@ Reconnect afterwards."
                 (require 'slime-autoloads)
                 (setq inferior-lisp-program ,inferior-lisp-program)
                 (setq slime-contribs '(slime-fancy)))
-   
    :takeoff `((call-interactively 'slime))
-   
    :landing `((unless (and (featurep 'slime-repl)
                            (find 'swank-repl slime-required-modules))
                 (die "slime-repl not loaded properly"))
@@ -1299,9 +1298,7 @@ Reconnect afterwards."
                 (require 'slime)
                 (setq inferior-lisp-program ,inferior-lisp-program)
                 (slime-setup '(slime-fancy)))
-   
    :takeoff `((call-interactively 'slime))
-   
    :landing `((unless (and (featurep 'slime-repl)
                            (find 'swank-repl slime-required-modules))
                 (die "slime-repl not loaded properly"))
@@ -1317,13 +1314,11 @@ Reconnect afterwards."
   (slime-test-recipe-test-for
    :preflight `((add-to-list 'load-path ,slime-path)
                 (require 'slime-autoloads))
-   
    :takeoff `((if (featurep 'slime)
                   (die "Didn't expect SLIME to be loaded so early!"))
-              (find-file ,(make-temp-file "slime-lisp-source-file" nil ".lisp"))
+              (find-file ,(make-temp-file "slime-lisp-source-file" nil
+					  ".lisp"))
               (unless (featurep 'slime)
                 (die "Expected SLIME to be fully loaded by now")))))
-
-
 
 (provide 'slime-tests)
