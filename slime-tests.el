@@ -402,6 +402,58 @@ after quitting Slime's temp buffer."
       ))
   (slime-check-top-level))
 
+(defun slime-test--display-region-eval-arg (line window-height)
+  (cl-etypecase line
+    (number line)
+    (cons (destructure-case line
+	    ((+h line)
+	     (+ (slime-test--display-region-eval-arg line window-height)
+		window-height))
+	    ((-h line)
+	     (- (slime-test--display-region-eval-arg line window-height)
+		window-height))))))
+
+(defun slime-test--display-region-line-to-position (line window-height)
+  (let ((line (slime-test--display-region-eval-arg line window-height)))
+    (save-excursion
+      (goto-char (point-min))
+      (forward-line (1- line))
+      (line-beginning-position))))
+
+(def-slime-test display-region
+    (start end pos window-start expected-window-start expected-point)
+    "Test `slime-display-region'."
+    ;; numbers are actually lines numbers
+    '(;; region visible, point in region
+      (2 4 3 1  1 3)
+      ;; region visible, point visible but ouside region
+      (2 4 5 1  1 5)
+      ;; end not visible, point at start
+      (2 (+h 2) 2 1  2 2)
+      ;; start not visible, point at start
+      ((+h 2) (+h 500) (+h 2) 1  (+h 2) (+h 2))
+      ;; start not visible, point after end
+      ((+h 2) (+h 500) (+h 6) 1  (+h 2) (+h 4))
+      ;; end - start should be visible, point after end
+      ((+h 2) (+h 7) (+h 10) 1  (-h (+h 8)) (+h 4)))
+  (when noninteractive
+    (slime-skip-test "Can't test slime-display-region in batch mode"))
+  (with-temp-buffer
+    (dotimes (i 1000)
+      (insert (format "%09d\n" i)))
+    (let* ((win (display-buffer (current-buffer)))
+	   (wh (window-text-height win)))
+      (cl-macrolet ((l2p (l)
+			 `(slime-test--display-region-line-to-position ,l wh)))
+	(select-window win)
+	(goto-char (l2p pos))
+	(set-window-start win (l2p window-start))
+	(redisplay)
+	(slime--display-region (l2p start) (l2p end))
+	(redisplay)
+	(cl-assert (= (l2p expected-window-start) (window-start)) t)
+	(cl-assert (l2p expected-point) (point))))))
+
 (def-slime-test find-definition
     (name buffer-package snippet)
     "Find the definition of a function or macro in swank.lisp."
@@ -1123,7 +1175,8 @@ CONTINUES  ... how often the continue restart should be invoked"
     (n delay interrupts)
     "Let Lisp produce output faster than Emacs can consume it."
     `((400 0.03 3))
-  (slime-skip-test "test is currently unstable")
+  (when noninteractive
+    (slime-skip-test "test is currently unstable"))
   (slime-check "No debugger" (not (sldb-get-default-buffer)))
   (slime-eval-async `(swank:flow-control-test ,n ,delay))
   (sleep-for 0.2)

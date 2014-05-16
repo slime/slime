@@ -759,18 +759,6 @@ It should be used for \"background\" messages such as argument lists."
                            (or (cl-position ?\n string) most-positive-fixnum)
                            (1- (window-width (minibuffer-window))))))
 
-(defun slime-recenter (target)
-  "Try to make the region between point and TARGET visible.
-Minimize point motion if possible."
-  (let ((window-height (window-text-height))
-        (height-diff (abs (- (line-number-at-pos target)
-                             (line-number-at-pos (point))))))
-    (when (or (> height-diff window-height)
-              (not (pos-visible-in-window-p target)))
-      (recenter (if (< target (point))
-                  (min (- window-height 2) height-diff)
-                (max 1 (- window-height height-diff 1)))))))
-
 ;; Interface
 (defun slime-set-truncate-lines ()
   "Apply `slime-truncate-lines' to the current buffer."
@@ -2830,9 +2818,7 @@ This is quite an expensive operation so use carefully."
                       when (slime-notes-in-same-location-p note other-note)
                       return (overlay-start overlay)))))
       (when pos
-        (with-selected-window (display-buffer (current-buffer))
-          (goto-char pos)
-          (recenter 0))))))
+        (slime--display-position pos nil 0)))))
 
 (defun slime-group-and-sort-notes (notes)
   "First sort, then group NOTES according to their canonicalized locs."
@@ -4598,7 +4584,7 @@ source-location."
 
 (defun slime-xref-show-location (loc)
   (cl-ecase (car loc)
-    (:location (slime-show-source-location loc t))
+    (:location (slime-show-source-location loc nil 1))
     (:error (message "%s" (cadr loc)))
     ((nil))))
 
@@ -4750,7 +4736,7 @@ This is used by `slime-goto-next-xref'")
   "Display the xref at point in the other window."
   (interactive)
   (let ((location (slime-xref-location-at-point)))
-    (slime-show-source-location location)))
+    (slime-show-source-location location t 1)))
 
 (defun slime-goto-next-xref (&optional backward)
   "Goto the next cross-reference location."
@@ -5312,10 +5298,11 @@ CONTS is a list of pending Emacs continuations."
       (run-hooks 'sldb-hook)
       (set-syntax-table lisp-mode-syntax-table))
     ;; FIXME: remove when dropping Emacs23 support
-    (let ((saved (selected-window)))    
+    (let ((saved (selected-window)))
       (pop-to-buffer (current-buffer))
       (set-window-parameter (selected-window) 'sldb-restore saved))
-    (slime-recenter (point-min))
+    (unless noninteractive ; needed for tests in batch-mode
+      (slime--display-region (point-min) (point)))
     (setq buffer-read-only t)
     (when (and slime-stack-eval-tags
                ;; (y-or-n-p "Enter recursive edit? ")
@@ -5666,15 +5653,61 @@ This is 0 if START and END at the same line."
          (message "%s" message)
          (ding))
         (t
-         (slime-show-source-location source-location))))))
+         (slime-show-source-location source-location t nil))))))
 
-(defun slime-show-source-location (source-location &optional no-highlight-p)
+(defun slime-show-source-location (source-location
+                                   &optional highlight recenter-arg)
+  "Go to SOURCE-LOCATION and display the buffer in the other window."
   (slime-goto-source-location source-location)
-  (let ((pos (point))) ; show the location, but don't hijack focus.
-    (with-selected-window (display-buffer (current-buffer))
-      (goto-char pos)
-      (recenter (if (= (current-column) 0) 1))
-      (unless no-highlight-p (slime-highlight-sexp)))))
+  ;; show the location, but don't hijack focus.
+  (slime--display-position (point) t recenter-arg)
+  (when highlight (slime-highlight-sexp)))
+
+(defun slime--display-position (pos other-window recenter-arg)
+  (with-selected-window (display-buffer (current-buffer) other-window)
+    (goto-char pos)
+    (recenter recenter-arg)))
+
+;; Set window-start so that the region from START to END becomes visible.
+(defun slime--adjust-window-start (start end)
+  (let ((window-height (window-text-height))
+        (region-height (count-screen-lines start end)))
+    ;; if needed, make the region visible
+    (when (or (not (pos-visible-in-window-p start))
+              (not (pos-visible-in-window-p end)))
+      (let* ((nlines (cond ((or (< start (window-start))
+                                (>= region-height window-height))
+                            0)
+                           (t
+                            (- (+ 1 region-height))))))
+        (goto-char start)
+        (recenter nlines)
+        ;; update window-end
+        (redisplay)))
+    (cl-assert (pos-visible-in-window-p start))
+    (cl-assert (or (pos-visible-in-window-p end)
+                   (>= region-height window-height)))))
+
+;; move POS to visible region
+(defun slime--adjust-window-point (pos)
+  (cond ((pos-visible-in-window-p pos)
+         (goto-char pos))
+        ((< pos (window-start))
+         (goto-char (window-start)))
+        (t
+         (goto-char (1- (window-end)))
+         (move-to-column 0)))
+  (cl-assert (pos-visible-in-window-p (point))))
+
+(defun slime--display-region (start end)
+  "Make the region from START to END visible.
+Minimize point motion."
+  (cl-assert (<= start end))
+  (cl-assert (eq (window-buffer (selected-window))
+                 (current-buffer)))
+  (let ((pos (point)))
+    (slime--adjust-window-start start end)
+    (slime--adjust-window-point pos)))
 
 (defun slime-highlight-sexp (&optional start end)
   "Highlight the first sexp after point."
@@ -5723,7 +5756,7 @@ The details include local variable bindings and CATCH-tags."
                 (insert indent2 (sldb-in-face catch-tag (format "%s" tag))
                         "\n"))))
           (setq end (point)))))
-    (slime-recenter end)))
+    (slime--display-region (point) end)))
 
 (defun sldb-frame-details ()
   ;; Return a list (START END FRAME LOCALS CATCHES) for frame at point.
