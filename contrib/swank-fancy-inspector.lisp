@@ -157,7 +157,12 @@
             (typecase spec
               (swank-mop:eql-specializer
                `(eql ,(swank-mop:eql-specializer-object spec)))
-              (t (swank-mop:class-name spec))))
+              #-sbcl (t
+               (swank-mop:class-name spec))
+              #+sbcl (t
+                      (sb-pcl:unparse-specializer-using-class
+                       (sb-mop:method-generic-function method)
+                       spec))))
           (swank-mop:method-specializers method)))
 
 (defun method-for-inspect-value (method)
@@ -186,7 +191,7 @@ See `methods-by-applicability'.")
   (let ((s1 specializer1) (s2 specializer2) )
     (cond ((typep s1 'swank-mop:eql-specializer)
            (not (typep s2 'swank-mop:eql-specializer)))
-          (t
+          ((typep s1 'class)
            (flet ((cpl (class)
                     (and (swank-mop:class-finalized-p class)
                          (swank-mop:class-precedence-list class))))
