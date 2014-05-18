@@ -1,3 +1,10 @@
+2014-06-11  Jan Moringen  <jmoringe@techfak.uni-bielefeld.de>
+
+	* swank-fancy-inspector.lisp (method-specializers-for-inspect): in
+	SBCL use `sb-pcl:unparse-specializer-using-class' instead of
+	simply `class-name'
+        (specializer<): only use CPL-based method for `class' specializers
+
 2014-04-29  Christophe Rhodes  <csr21@cantab.net>
 
 	* slime-references.el (slime-lookup-reference-at-point): change
