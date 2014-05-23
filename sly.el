@@ -2160,7 +2160,9 @@ Debugged requests are ignored."
 
 (defun sly-close-channel (channel)
   (setf (sly-channel.operations channel) 'closed-channel)
-  (let ((probe (assq (sly-channel.id channel) (sly-channels))))
+  (let ((probe (assq (sly-channel.id channel)
+                     (and (sly-current-connection)
+                          (sly-channels)))))
     (cond (probe (setf (sly-channels) (delete probe (sly-channels))))
           (t (error "Can't close invalid channel: %s" channel)))))
 

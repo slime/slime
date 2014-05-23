@@ -13,6 +13,7 @@
    (define-key sldb-mode-map (kbd "M-RET") 'sldb-copy-down-to-repl)
    (define-key sly-mode-map (kbd "C-c ~") 'sly-mrepl-sync-package-and-default-directory)
    (add-hook 'sly-connected-hook 'sly-mrepl-connected-hook)
+   (add-hook 'sly-net-process-close-hooks 'sly-mrepl-close-repls)
    ;; FIXME: ugly
    (add-hook 'sly-trace-dialog-mode-hook
              #'(lambda ()
@@ -80,7 +81,7 @@ emptied.See also `sly-mrepl-hook'")
          ;; sly-mrepl-new in a buffer which has a connection, but not
          ;; the default connection, the new REPL will be for that
          ;; connection.
-         (connection (sly-connection)) 
+         (connection (sly-connection))
          (buffer (pop-to-buffer (generate-new-buffer
                                  (format "*sly-mrepl %s*" (sly-connection-name connection))))))
     (with-current-buffer buffer
@@ -117,6 +118,15 @@ emptied.See also `sly-mrepl-hook'")
                 (run-hooks 'sly-mrepl-hook 'sly-mrepl-runonce-hook)
               (set-default 'sly-mrepl-runonce-hook nil))))))
     buffer))
+
+(defun sly-mrepl-close-repls (process)
+  (cl-loop for buffer in (buffer-list)
+           when (buffer-live-p buffer)
+           do (with-current-buffer buffer
+                (when (eq sly-buffer-connection
+                          process)
+                  (insert "\n--------------------------------------------------------\n")
+                  (sly-mrepl--teardown)))))
 
 (defun sly-mrepl--process () (get-buffer-process (current-buffer))) ;stupid
 
@@ -211,7 +221,10 @@ emptied.See also `sly-mrepl-hook'")
 
 (defun sly-mrepl-return (&optional end-of-input)
   (interactive "P")
-  (sly-check-connected)
+  (cl-assert (eq (process-status sly-buffer-connection)
+                 'open)
+             nil
+             "Connection closed, cannot this REPL.")
   (cond ((and sly-mrepl--expect-sexp-mode
 	      (or (sly-input-complete-p (sly-mrepl--mark) (point-max))
 		  end-of-input))
@@ -248,18 +261,19 @@ If message can't be sent right now, queue it onto
   (setq sly-mrepl--pending-requests nil))
 
 (defun sly-mrepl (&optional interactive)
-  "Find or create the mREPL for the default connection"
+  "Find or create the first useful REPL for the default connection."
   (interactive (list t))
-  (let ((buffer
-         (or (cl-find-if (lambda (x)
-                           (with-current-buffer x
-                             (and (eq major-mode 'sly-mrepl-mode)
-                                  (eq sly-buffer-connection
-                                      (let ((sly-buffer-connection nil)
-                                            (sly-dispatching-connection nil))
-                                        (sly-connection))))))
-                         (buffer-list))
-             (sly-mrepl-new))))
+  (let* ((default-connection
+           (let ((sly-buffer-connection nil)
+                 (sly-dispatching-connection nil))
+             (sly-connection)))
+         (buffer
+          (or (cl-find-if (lambda (x)
+                            (with-current-buffer x
+                              (and (eq major-mode 'sly-mrepl-mode)
+                                   (eq sly-buffer-connection default-connection))))
+                          (buffer-list))
+              (sly-mrepl-new))))
     (when interactive
       (pop-to-buffer buffer))
     buffer))
