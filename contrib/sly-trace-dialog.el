@@ -15,8 +15,10 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   (:authors "João Távora <joaotavora@gmail.com>")
   (:license "GPL")
   (:swank-dependencies swank-trace-dialog)
-  (:on-load (add-hook 'sly-mode-hook 'sly-trace-dialog-enable))
-  (:on-unload (remove-hook 'sly-mode-hook 'sly-trace-dialog-enable)))
+  (:on-load (add-hook 'sly-mode-hook 'sly-trace-dialog-enable)
+            (add-hook 'sldb-mode-hook 'sly-trace-dialog-enable))
+  (:on-unload (remove-hook 'sly-mode-hook 'sly-trace-dialog-enable)
+              (remove-hook 'sldb-mode-hook 'sly-trace-dialog-enable)))
 
 
 ;;;; Variables
