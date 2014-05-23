@@ -5,32 +5,32 @@
 (in-package :swank)
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (let ((api '(
-	       *emacs-connection*
-	       channel 
-	       channel-id
+               *emacs-connection*
+               channel
+               channel-id
                channel-thread
                close-channel
-	       define-channel-method
-	       defslyfun 
-	       destructure-case
+               define-channel-method
+               defslyfun
+               destructure-case
                find-channel
-	       log-event
-	       process-requests
-	       send-to-remote-channel
-	       use-threads-p
-	       wait-for-event
-	       with-bindings
-	       with-connection
-	       with-top-level-restart
-	       with-sly-interrupts
+               log-event
+               process-requests
+               send-to-remote-channel
+               use-threads-p
+               wait-for-event
+               with-bindings
+               with-connection
+               with-top-level-restart
+               with-sly-interrupts
                stop-processing
                with-buffer-syntax
                with-retry-restart
                )))
     (eval `(defpackage #:swank-api
-	     (:use)
-	     (:import-from #:swank . ,api)
-	     (:export . ,api)))))
+             (:use)
+             (:import-from #:swank . ,api)
+             (:export . ,api)))))
 
 (defpackage :swank-mrepl
   (:use :cl :swank-api)
@@ -65,7 +65,7 @@
 
 (defun package-prompt (package)
   (reduce (lambda (x y) (if (<= (length x) (length y)) x y))
-	  (cons (package-name package) (package-nicknames package))))
+          (cons (package-name package) (package-nicknames package))))
 
 (defslyfun create-mrepl (remote)
   (let* ((pkg *package*)
@@ -76,13 +76,13 @@
          (thread (channel-thread ch)))
 
     (setf (slot-value ch 'env) (initial-listener-env ch))
-    
+
     (when thread
       (swank-backend:send thread `(:serve-channel ,ch)))
     (list (channel-id ch)
-	  (swank-backend:thread-id (or thread (swank-backend:current-thread)))
-	  (package-name pkg)
-	  (package-prompt pkg))))
+          (swank-backend:thread-id (or thread (swank-backend:current-thread)))
+          (package-name pkg)
+          (package-prompt pkg))))
 
 (defslyfun eval-in-mrepl (remote string)
   "Like MREPL-EVAL, but not run in channel's thread."
@@ -99,10 +99,10 @@
       (cl:*standard-input*  . ,in)
       (cl:*trace-output*    . ,out)
       (cl:*error-output*    . ,out)
-      (cl:*debug-io*	    . ,io)
-      (cl:*query-io*	    . ,io)
-      (cl:*terminal-io*	    . ,io)
-      
+      (cl:*debug-io*        . ,io)
+      (cl:*query-io*        . ,io)
+      (cl:*terminal-io*             . ,io)
+
       (*) (**) (***)
       (/) (//) (///)
       (+) (++) (+++)
@@ -116,14 +116,14 @@
     (let ((old-mode mode))
       (setf mode :drop)
       (unwind-protect
-	   (process-requests t)
-	(setf mode old-mode)))
+           (process-requests t)
+        (setf mode old-mode)))
     (with-bindings (env channel)
       (send-prompt channel))))
 
 (defun spawn-listener-thread (connection channel)
   "Spawn a listener thread for CONNECTION and CHANNEL."
-  (swank-backend:spawn 
+  (swank-backend:spawn
    (lambda ()
      (with-connection (connection)
        (destructure-case
@@ -131,7 +131,8 @@
         ((:serve-channel c)
          (assert (eq c channel))
          (loop
-           (with-top-level-restart (connection (drop-unprocessed-events channel))
+           (with-top-level-restart (connection
+                                    (drop-unprocessed-events channel))
              (when (eq (process-requests nil)
                        'listener-teardown)
                (return))))))))
@@ -148,9 +149,11 @@
   (log-event ":inspect ~s~%" object-idx)
   (with-slots (remote env) c
     (with-bindings env
-      (send-to-remote-channel remote
-                              `(:inspect-result
-                                ,(swank::inspect-object (nth value-idx (aref *history* object-idx))))))))
+      (send-to-remote-channel
+       remote
+       `(:inspect-result
+         ,(swank::inspect-object (nth value-idx
+                                      (aref *history* object-idx))))))))
 
 (define-channel-method :teardown ((c listener-channel))
   (log-event ":teardown~%")
@@ -161,10 +164,23 @@
 
 (defslyfun listener-save-value (slyfun &rest args)
   "Apply SLYFUN to ARGS and save the value.
- The saved value should be visible to all threads and retrieved via
- LISTENER-GET-VALUE."
+ The saved value should be visible to all threads and retrieved via a
+ :PRODUCE-SAVED-VALUE message."
   (setq *listener-saved-value* (apply slyfun args))
   t)
+
+(define-channel-method :sync-package-and-default-directory ((c listener-channel)
+                                                            package-name
+                                                            directory)
+
+  (mrepl-eval
+   c (let ((*package* (find-package :keyword)))
+       (write-to-string
+        `(progn
+           (let ((package (swank::guess-package ,package-name)))
+             (swank:set-default-directory ,directory)
+             (and package (setq *package* package))
+             (list *package* *default-pathname-defaults*)))))))
 
 (define-channel-method :produce-saved-value ((c listener-channel))
   (mrepl-eval c (let ((*package* (find-package :keyword)))
@@ -175,7 +191,7 @@
   (with-slots (remote env) channel
     (let ((aborted t))
       (with-bindings env
-	(let (results)
+        (let (results)
           (unwind-protect
                (handler-bind
                    ((error #'(lambda (err)
@@ -184,17 +200,20 @@
                        aborted nil))
             (flush-streams channel)
             (cond (aborted
-                   (send-to-remote-channel remote `(:evaluation-aborted
-                                                    ,(prin1-to-string aborted))))
+                   (send-to-remote-channel remote
+                                           `(:evaluation-aborted
+                                             ,(prin1-to-string aborted))))
                   (t
                    (setq /// //  // /  / results
-                           *** **  ** *  * (car results)
-                           +++ ++  ++ + )
+                         *** **  ** *  * (car results)
+                         +++ ++  ++ + )
                    (vector-push-extend results *history*)
-                   (send-to-remote-channel remote `(:write-values ,(mapcar #'swank::to-line
-                                                                           results)))
+                   (send-to-remote-channel
+                    remote
+                    `(:write-values ,(mapcar #'swank::to-line
+                                             results)))
                    (send-prompt channel)))
-            (loop for binding in env 
+            (loop for binding in env
                   do (setf (cdr binding) (symbol-value (car binding))))))))))
 
 (defun flush-streams (channel)
@@ -206,7 +225,7 @@
   (with-slots (remote) channel
     (send-to-remote-channel remote `(:prompt ,(package-name *package*)
                                              ,(package-prompt *package*)))))
-  
+
 (defun mrepl-read (channel string)
   (with-slots (tag) channel
     (assert tag)
@@ -225,7 +244,7 @@
 
 (defun make-listener-output-stream (channel)
   (let ((remote (slot-value channel 'remote)))
-    (swank-backend:make-output-stream 
+    (swank-backend:make-output-stream
      (lambda (string)
        (send-to-remote-channel remote `(:write-string ,string))))))
 
@@ -242,13 +261,13 @@
   (with-slots (mode tag remote) channel
     (force-output)
     (let ((old-mode mode)
-	  (old-tag tag))
+          (old-tag tag))
       (setf tag (cons nil nil))
       (set-mode channel :read)
-      (unwind-protect 
-	   (catch tag (process-requests nil))
-	(setf tag old-tag)
-	(set-mode channel old-mode)))))
+      (unwind-protect
+           (catch tag (process-requests nil))
+        (setf tag old-tag)
+        (set-mode channel old-mode)))))
 
 
 ;;; Dedicated output stream
@@ -275,7 +294,8 @@ port. This is an optimized way for Lisp to deliver output to Emacs."
         (ef (swank::find-external-format-or-lose "utf-8")))
     (unwind-protect
          (let ((port (swank-backend:local-port socket)))
-           (send-to-remote-channel (remote channel) `(:open-dedicated-output-stream ,port nil))
+           (send-to-remote-channel (remote channel)
+                                   `(:open-dedicated-output-stream ,port nil))
            (let ((dedicated (swank-backend:accept-connection
                              socket
                              :external-format ef

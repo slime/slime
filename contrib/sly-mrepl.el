@@ -11,6 +11,7 @@
   (:on-load
    (define-key sly-inspector-mode-map (kbd "M-RET") 'sly-inspector-copy-down-to-repl)
    (define-key sldb-mode-map (kbd "M-RET") 'sldb-copy-down-to-repl)
+   (define-key sly-mode-map (kbd "C-c ~") 'sly-mrepl-sync-package-and-default-directory)
    (add-hook 'sly-connected-hook 'sly-mrepl-connected-hook)
    ;; FIXME: ugly
    (add-hook 'sly-trace-dialog-mode-hook
@@ -84,6 +85,8 @@ emptied.See also `sly-mrepl-hook'")
                                  (format "*sly-mrepl %s*" (sly-connection-name connection))))))
     (with-current-buffer buffer
       (sly-mrepl-mode)
+      (unless (file-readable-p comint-input-ring-file-name)
+        (with-temp-buffer (write-file comint-input-ring-file-name)))
       (setq sly-buffer-connection connection)
       (start-process (format "sly-pty-%s-%s"
                              (process-get connection
@@ -279,9 +282,6 @@ If message can't be sent right now, queue it onto
    #'(lambda (_ignored)
        (with-current-buffer (sly-mrepl)
          (comint-output-filter (sly-mrepl--process) "\n")
-         ;; (save-excursion
-         ;;   (goto-char (sly-mrepl--mark))
-         ;;   (insert-before-markers "\n"))
          (sly-mrepl--send `(:produce-saved-value))
          (pop-to-buffer (current-buffer))
          (goto-char (sly-mrepl--mark))))))
@@ -304,9 +304,7 @@ If message can't be sent right now, queue it onto
                                       sly-trace-dialog--type)
                         collect (get-text-property (point) prop)))
   (unless (and id part-id type) (error "No trace part at point %s" (point)))
-  (sly-mrepl--eval-for-repl `(nth-value 0
-                              (swank-trace-dialog::find-trace-part
-                               ,id ,part-id ,type))))
+  (sly-mrepl--eval-for-repl 'swank-trace-dialog::find-trace-part id part-id type))
 
 
 ;;; Dedicated output stream
@@ -381,6 +379,19 @@ If message can't be sent right now, queue it onto
               (current-buffer)
               err)
      (remove-hook 'kill-buffer-hook 'sly-mrepl--teardown 'local))))
+
+
+(defun sly-mrepl-sync-package-and-default-directory ()
+  "Set Lisp's package and directory to the values in current buffer."
+  (interactive)
+  (let ((package (sly-current-package)))
+    (with-current-buffer (sly-mrepl)
+      (comint-output-filter (sly-mrepl--process) "\n")
+      (sly-mrepl--send `(:sync-package-and-default-directory
+                         ,package
+                         ,default-directory))
+      (pop-to-buffer (current-buffer))
+      (goto-char (sly-mrepl--mark)))))
 
 
 (def-sly-selector-method ?m
