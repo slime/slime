@@ -369,7 +369,7 @@ conditions (assertions)."
        (sly-buffer-narrowed-p))
 
       (sly-with-popup-buffer (random-buffer-name)
-        (sly-check ("Checking that we're in Slime's temp buffer `%s'"
+        (sly-check ("Checking that we're in Sly's temp buffer `%s'"
                       random-buffer-name)
           (equal (buffer-name (current-buffer)) random-buffer-name)))
       (with-current-buffer random-buffer-name
@@ -382,7 +382,7 @@ conditions (assertions)."
              (= (point) defun-pos)))
 
       (sly-check "Checking that narrowing sustained \
-after quitting Slime's temp buffer."
+after quitting Sly's temp buffer."
         (sly-buffer-narrowed-p))
 
       (let ((sly-buffer-package "SWANK")
@@ -582,24 +582,24 @@ Confirm that SUBFORM is correctly located."
 
         "
        (cl-user::bar)))
-  (slime-check-top-level)
+  (sly-check-top-level)
   (with-temp-buffer
     (lisp-mode)
     (insert program)
     (let ((font-lock-verbose nil))
-      (setq slime-buffer-package ":swank")
-      (slime-compile-string (buffer-string) 1)
-      (setq slime-buffer-package ":cl-user")
-      (slime-sync-to-top-level 5)
+      (setq sly-buffer-package ":swank")
+      (sly-compile-string (buffer-string) 1)
+      (setq sly-buffer-package ":cl-user")
+      (sly-sync-to-top-level 5)
       (goto-char (point-max))
-      (slime-previous-note)
-      (slime-check error-location-correct
+      (sly-previous-note)
+      (sly-check error-location-correct
         (equal (read (current-buffer)) subform))))
-  (slime-check-top-level))
+  (sly-check-top-level))
 
 ;; This test ideally would be collapsed into the previous
 ;; compile-defun test, but only 1 case fails for ccl--and that's here
-(def-slime-test (compile-defun-with-reader-conditionals
+(def-sly-test (compile-defun-with-reader-conditionals
                  (:fails-for "allegro" "lispworks" "clisp" "ccl"))
     (program subform)
     "Compile PROGRAM containing errors.
@@ -607,7 +607,7 @@ Confirm that SUBFORM is correctly located."
     '(("(defun foo ()
           #+#.'(:and) (/ 1 0))"
        (/ 1 0)))
-  (slime-check-top-level)
+  (sly-check-top-level)
   (with-temp-buffer
     (lisp-mode)
     (insert program)
