@@ -1,3 +1,26 @@
+2014-05-16  Helmut Eller  <heller@common-lisp.net>
+
+	Fix display related bugs.
+
+	* slime.el (slime--display-region): Renamed from slime-recenter.
+	Also work in the case when the condition message takes up the
+	entire window.
+	(slime--adjust-window-start, slime--adjust-window-point): New
+	helpers.
+	(slime-show-source-location): Display buffer in other window, as
+	it always was.  Invert no-highlight-p argument to simplify
+	callers.  Add recenter-arg to get rid of the heuristic that
+	detected "sldb show source" vs. "show definition".
+	(slime--display-position): Factored out, again.
+
+	* slime-tests.el (display-region):  New test.
+	(slime-test--display-region-line-to-position)
+	(slime-test--display-region-eval-arg): New Helpers.
+
+2014-05-15  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-tests.el: Break long lines.
+
 2014-05-10  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-rpc.lisp (prin1-to-string-for-emacs): Convert floats into
