@@ -638,7 +638,7 @@ Minimize point motion if possible."
               (not (pos-visible-in-window-p target)))
       (recenter (if (< target (point))
                   (min (- window-height 2) height-diff)
-                (max 1 (- window-height height-diff 1)))))))
+                (max 0 (- window-height height-diff 1)))))))
 
 ;; Interface
 (defun sly-set-truncate-lines ()
@@ -2699,7 +2699,7 @@ This is quite an expensive operation so use carefully."
                       when (sly-notes-in-same-location-p note other-note)
                       return (overlay-start overlay)))))
       (when pos
-        (with-selected-window (display-buffer (current-buffer))
+        (with-selected-window (display-buffer (current-buffer) t)
           (goto-char pos)
           (recenter 0))))))
 
@@ -5514,7 +5514,7 @@ This is 0 if START and END at the same line."
 (defun sly-show-source-location (source-location &optional no-highlight-p)
   (sly-goto-source-location source-location)
   (let ((pos (point))) ; show the location, but don't hijack focus.
-    (with-selected-window (display-buffer (current-buffer))
+    (with-selected-window (display-buffer (current-buffer) t)
       (goto-char pos)
       (recenter (if (= (current-column) 0) 1))
       (unless no-highlight-p (sly-highlight-sexp)))))

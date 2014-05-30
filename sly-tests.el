@@ -401,6 +401,35 @@ after quitting Sly's temp buffer."
       ))
   (sly-check-top-level))
 
+(defun sly-test--pos-at-line (line)
+  (save-excursion
+    (goto-char (point-min))
+    (forward-line (1- line))
+    (line-beginning-position)))
+
+(def-sly-test recenter
+    (pos-line target expected-window-start)
+    "Test `sly-recenter'."
+    ;; numbers are actually lines numbers
+    '(;; region visible, point in region
+      (2 4 1)
+      ;; end not visible
+      (2 (+ wh 2) 2)
+      ;; end and start not visible
+      ((+ wh 2) (+ wh 500) (+ wh 2)))
+  (when noninteractive
+    (sly-skip-test "Can't test sly-recenter in batch mode"))
+  (with-current-buffer (generate-new-buffer "yoyo")
+    (cl-loop for i from 1 upto 1000
+             do (insert (format "%09d\n" i)))
+    (let* ((win (display-buffer (current-buffer)))
+	   (wh (window-text-height win)))
+      (with-selected-window win
+        (goto-char (sly-test--pos-at-line (eval pos-line)))
+        (sly-recenter (sly-test--pos-at-line (eval target)))
+        (redisplay)
+        (should (= (eval expected-window-start) (line-number-at-pos (window-start))))))))
+
 (def-sly-test find-definition
     (name buffer-package snippet)
     "Find the definition of a function or macro in swank.lisp."
@@ -1119,7 +1148,8 @@ CONTINUES  ... how often the continue restart should be invoked"
     (n delay interrupts)
     "Let Lisp produce output faster than Emacs can consume it."
     `((400 0.03 3))
-  (sly-skip-test "test is currently unstable")
+  (when noninteractive
+    (sly-skip-test "test is currently unstable"))
   (sly-check "No debugger" (not (sldb-get-default-buffer)))
   (sly-eval-async `(swank:flow-control-test ,n ,delay))
   (sleep-for 0.2)
