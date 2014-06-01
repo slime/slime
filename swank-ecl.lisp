@@ -394,6 +394,9 @@
 ;;; particular because it makes errors stemming from this file harder
 ;;; to debug, and given the "young" age of ECL's swank backend, that's
 ;;; a bad idea.
+;;;
+;;; Also before thinking whether to uncomment this consider that SLIME
+;;; might not be loaded with swank-loader.lisp at all.
 
 ;; (defun in-swank-package-p (x)
 ;;   (and

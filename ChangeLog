@@ -1,3 +1,119 @@
+2014-99-99  João Távora  <joaotavora@gmail.com>
+
+	* swank.lisp (swank-require): Shouldn't even need this, but push
+	upper-case version of string into *MODULES*.
+
+	* swank-loader.lisp (module-binary-dir): CMUCL doesn't always have
+	strings as directory components.
+
+	* slime.el (define-slime-contrib): Avoid some funky emacs23 issue
+	with cl-labels.
+
+	* swank.lisp (*require-module*): Delete.
+	(*module-loading-*): New variable.
+	(require-module, add-to-load-path): New generic functions with
+	:ASDF and :SWANK-LOADER implementations.
+	(swank-require): Call the REQUIRE-MODULE generic.
+	(swank-add-load-paths): New slimefun, calls ADD-TO-LOAD-PATH generic.
+
+	* swank-loader.lisp (:swank-loader): Export *LOAD-PATH*.
+	(*contribs*, append-dir, contrib-dir, compile-contribs): Delete.
+	(load-swank): Don't set *LOAD-PATH* here.
+	(loadup, setup, init): Don't mess with contribs here.
+	(module-canditates): Delete.
+	(require-module): Redesigned to compile&load modules on demand.
+	(module-binary-dir): New auxiliary function.
+
+	* slime.el (slime-required-modules): Now an alist.
+	(slime--setup-contribs): Use `assq' for new
+	`slime-required-modules' format.
+	(slime-require): Delete it.
+	(slime-load-contribs): Use new `slime-required-modules'
+	format. Call new SWANK:SWANK-ADD-LOAD-PATHS slimefun.
+	(define-slime-contrib): Make the enable-function also add the
+	contrib's path to `slime-required-modules'.
+
+	* slime-tests.el (slime-test-check-repl-forms): Use new form of
+	`slime-required-modules'
+	(swank-loader-fallback): Simplify this test, it
+	just tests `slime-init-using-asdf', doesn't attempt to destroy
+	ASDF in the lisp and then test the automated fallback.
+
+	* slime-tests.el (slime-test-default-landing-forms): new var.
+	(slime-test-recipe-test-for): Simplify a little more.
+	(*-recipe-*): simplify
+	(swank-loader-fallback): new test.
+
+	* slime.el (slime-backend, slime-swank-loader-backend): The former
+	is an obsoletion alias to the latter.
+
+	* swank-loader.lisp (*load-path*): Moved up to avoid forward
+	reference.
+
+	* swank-ecl.lisp: Add warning about uncommenting code that depends
+	on swank-loader.lisp.
+
+	* start-swank.lisp: Use MAKE-PATHNAME instead of MERGE-PATHNAMES.
+
+	* sbcl-pprint-patch.lisp: missing closing parenthesis.
+
+	* swank-loader.lisp (slime-version-string): Don't remove it, it's
+	needed for knowing where to place the fasls.
+
+	* swank.asd (:swank): swank-gray.lisp must be loaded for sbcl too.
+
+	* sbcl-pprint-patch.lisp: Handle package-unlocking and error
+	clobbering in patch file itself, not its users.
+
+	* swank-sbcl.lisp (swank-backend::sbcl-wrap): Remove a warning.
+
+	* swank.asd: Cleanup some comments.
+
+	* slime.el (slime-init-using-asdf): Fall back gracefully to
+	swank-loader.lisp.
+
+	* swank.asd (:swank): Simplify with tips from Fare.
+
+	* swank.lisp (*require-module*): INTERN takes strings, not
+	symbols.
+
+	* swank.lisp (before-init): don't take VERSION arg.
+	(slime-version-string): move it here.
+	(init): Call BEFORE-INIT.
+	(before-init): don't redo if :SWANK in *FEATURES*
+	(start-server): call INIT unless :SWANK in *FEATURES*
+
+	* swank-loader.lisp (slime-version-string): remove it.
+
+	* slime.el (slime-init-function): new defcustom
+	(slime-init-using-swank-loader): renamed from slime-init-command
+	(slime-init-using-asdf): new function
+
+	* swank.lisp (*require-module*): new user-customizable
+	var. Default value guesses loading method.
+	(swank-require): Remove optional arg. Simplify to call
+	*REQUIRE-MODULE*.
+	(*require-module*): New variable.
+	(*find-module*): Deleted variable.
+	(module-filename): Deleted.
+	(merged-directory): Deleted.
+	(module-canditates): Moved to swank-loader.lisp
+	(*load-path*): Moved to swank-loader.lisp
+	(before-init): removed second arg, no longer knows anything about
+	load-paths.
+
+	* swank-loader.lisp (*load-path*,module-canditates): moved from
+	swank.lisp.
+	(require-module): new function for plugging into
+	SWANK:*REQUIRE-MODULE*
+	(load-swank): set loader's load-path in loader.
+
+	* swank.asd: No loader depend on swank-loader.
+
+2014-99-99  Francois-Rene Rideau <tunes@google.com>
+
+	* swank.asd : load the swank source code without calling swank-loader.
+
 2014-05-16  Helmut Eller  <heller@common-lisp.net>
 
 	Fix display related bugs.

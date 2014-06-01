@@ -3,10 +3,25 @@
 ;;
 ;; The section marked "Changed functions" and the DEFSTRUCT
 ;; PRETTY-STREAM are based on SBCL's pprint.lisp.
-;; 
+;;
 ;; Public domain.
 
-(in-package "SB!PRETTY")
+(in-package :common-lisp)
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (loop for p in '("SB-PRETTY" "SB-KERNEL" "SB-IMPL")
+        for n = (substitute #\! #\- p) do
+          (sb-ext:unlock-package p)
+          (rename-package p p (list n))))
+
+(in-package "SB-PRETTY")
+
+(handler-bind ((simple-error
+                 (lambda (c)
+                   (declare (ignore c))
+                   (let ((clobber-it (find-restart 'sb-kernel::clobber-it)))
+                     (when clobber-it (invoke-restart clobber-it)))))
+               (style-warning #'muffle-warning))
 
 (defstruct (annotation (:include queued-op))
   (handler (constantly nil) :type function)
@@ -79,7 +94,6 @@
   (annotations-tail nil :type list)
   (annotations-head nil :type list))
 
-
 (defmacro enqueue (stream type &rest args)
   (let ((constructor (intern (concatenate 'string
 					  "MAKE-"
@@ -121,7 +135,7 @@
 (defun re-enqueue-annotations (stream end)
   (loop for tail = (pretty-stream-queue-tail stream) then (cdr tail)
      while (and tail (not (eql (car tail) end)))
-     when (annotation-p (car tail)) 
+     when (annotation-p (car tail))
      do (re-enqueue-annotation stream (car tail))))
 
 (defun dequeue-annotation (stream &key end-posn)
@@ -153,7 +167,7 @@
 	 (let ((annotation-index (posn-index (annotation-posn annotation)
 					     stream)))
 	   (when (> annotation-index start)
-	     (write-string buffer target :start start 
+	     (write-string buffer target :start start
 			   :end annotation-index)
 	     (setf start annotation-index))
 	   (invoke-annotation stream annotation nil)))
@@ -263,7 +277,7 @@
 		 (pretty-stream-print-lines stream)
 		 (>= line-number (pretty-stream-print-lines stream)))
 	(write-string " .." target)
-	(flush-annotations stream 
+	(flush-annotations stream
 			   (pretty-stream-buffer-fill-pointer stream)
 			   t)
 	(let ((suffix-length (logical-block-suffix-length
@@ -329,4 +343,11 @@
   (re-enqueue-annotations stream nil)
   (output-buffer-with-annotations stream 
 				  (pretty-stream-buffer-fill-pointer stream)))
-	      
+
+); handler-bind to avoid redefinition errors and warnings
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (loop for p in '("SB-PRETTY" "SB-KERNEL" "SB-IMPL") do
+    (rename-package p p ())
+    (sb-ext:lock-package p)))
+

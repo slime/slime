@@ -1,3 +1,11 @@
+2014-99-99  João Távora  <joaotavora@gmail.com>
+
+	* swank-presentation-streams.lisp [sbcl]: Don't rely on
+	swank-loader.lisp.
+
+	* swank-presentation-streams.lisp [sbcl]: Simplify loading of
+	sbcl-pprint-patch when using swank-loader.lisp.
+
 2014-04-29  Christophe Rhodes  <csr21@cantab.net>
 
 	* slime-references.el (slime-lookup-reference-at-point): change
@@ -50,6 +58,7 @@
 
 	* slime-repl.el (slime-repl-add-to-input-history): Fix whitespace
 	clean up. Reported by Robert Brown.
+>>>>>>> slime/master
 
 2014-03-29  João Távora  <joaotavora@gmail.com>
 

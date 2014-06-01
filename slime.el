@@ -107,7 +107,12 @@ CONTRIBS is a list of contrib packages to load. If `nil', use
     (setq slime-contribs contribs))
   (slime--setup-contribs))
 
-(defvar slime-required-modules '())
+(defvar slime-required-modules '()
+  "Alist of MODULE . WHERE for swank-provided features.
+
+MODULE is a symbol naming a specific Swank feature and WHERE is
+the full pathname to the directory where the file(s)
+providing the feature are found.")
 
 (defun slime--setup-contribs ()
   "Load and initialize contribs."
@@ -115,7 +120,7 @@ CONTRIBS is a list of contrib packages to load. If `nil', use
     (add-to-list 'load-path (expand-file-name "contrib" slime-path))
     (dolist (c slime-contribs)
       (unless (and (featurep c)
-                   (memq c slime-required-modules))
+                   (assq c slime-required-modules))
         (require c)
         (let ((init (intern (format "%s-init" c))))
           (when (fboundp init)
@@ -183,12 +188,31 @@ This applies to the *inferior-lisp* buffer and the network connections."
   :prefix "slime-"
   :group 'slime)
 
-(defcustom slime-backend "swank-loader.lisp"
-  "The name of the Lisp file that loads the Swank server.
-This name is interpreted relative to the directory containing
-slime.el, but could also be set to an absolute filename."
+(defcustom slime-init-function 'slime-init-using-asdf
+  "Function bootstrapping swank on the remote.
+
+Value is a function of two arguments: SWANK-PORTFILE and an
+ingored argument for backward compatibility. Function should
+return a string issuing very first commands issued by Slime to
+the remote-connection process. Some time after this there should
+be a port number ready in SWANK-PORTFILE."
+  :type '(choice (const :tag "Use ASDF"
+                        slime-init-using-asdf)
+                 (const :tag "Use legacy swank-loader.lisp"
+                        slime-init-using-swank-loader))
+  :group 'slime-lisp)
+
+(defcustom slime-swank-loader-backend "swank-loader.lisp"
+  "The name of the swank-loader that loads the Swank server.
+Only applicable if `slime-init-function' is set to
+`slime-init-using-swank-loader'. This name is interpreted
+relative to the directory containing slime.el, but could also be
+set to an absolute filename."
   :type 'string
   :group 'slime-lisp)
+
+(define-obsolete-variable-alias 'slime-backend
+'slime-swank-loader-backend "3.0")
 
 (defcustom slime-connected-hook nil
   "List of functions to call when SLIME connects to Lisp."
@@ -1035,13 +1059,13 @@ The rules for selecting the arguments are rather complicated:
       (cl-list* :name name :program prog :program-args args keys))))
 
 (cl-defun slime-start (&key (program inferior-lisp-program) program-args
-                            directory
-                            (coding-system slime-net-coding-system)
-                            (init 'slime-init-command)
-                            name
-                            (buffer "*inferior-lisp*")
-                            init-function
-                            env)
+                          directory
+                          (coding-system slime-net-coding-system)
+                          (init slime-init-function)
+                          name
+                          (buffer "*inferior-lisp*")
+                          init-function
+                          env)
   "Start a Lisp process and connect to it.
 This function is intended for programmatic use if `slime' is not
 flexible enough.
@@ -1050,7 +1074,7 @@ PROGRAM and PROGRAM-ARGS are the filename and argument strings
   for the subprocess.
 INIT is a function that should return a string to load and start
   Swank. The function will be called with the PORT-FILENAME and ENCODING as
-  arguments.  INIT defaults to `slime-init-command'.
+  arguments.  INIT defaults to `slime-init-function'.
 CODING-SYSTEM a symbol for the coding system. The default is
   slime-net-coding-system
 ENV environment variables for the subprocess (see `process-environment').
@@ -1218,12 +1242,32 @@ See `slime-start'."
   (with-current-buffer (process-buffer process)
     slime-inferior-lisp-args))
 
+(defun slime-init-using-asdf (port-filename _coding-system)
+  "Return a string to initialize Lisp using ASDF.
+
+Fall back to `slime-init-using-swank-loader' if ASDF fails."
+  (pp-to-string
+   `(cond ((ignore-errors
+             (funcall 'require "asdf")
+             (funcall (read-from-string "asdf:version-satisfies")
+                      (funcall (read-from-string "asdf:asdf-version"))
+                      "2.019"))
+           (push (pathname ,slime-path)
+                 (symbol-value
+                  (read-from-string "asdf:*central-registry*")))
+           (funcall
+            (read-from-string "asdf:load-system")
+            :swank)
+           (funcall
+            (read-from-string "swank:start-server")
+            ,port-filename))
+          (t
+           ,(read (slime-init-using-swank-loader port-filename _coding-system))))))
+
 ;; XXX load-server & start-server used to be separated. maybe that was  better.
-(defun slime-init-command (port-filename _coding-system)
+(defun slime-init-using-swank-loader (port-filename _coding-system)
   "Return a string to initialize Lisp."
-  (let ((loader (if (file-name-absolute-p slime-backend)
-                    slime-backend
-                  (concat slime-path slime-backend))))
+  (let ((loader (expand-file-name slime-swank-loader-backend slime-path)))
     ;; Return a single form to avoid problems with buffered input.
     (format "%S\n\n"
             `(progn
@@ -6904,23 +6948,24 @@ is setup, unless the user already set one explicitly."
 
 ;;;; Contrib modules
 
-(defun slime-require (module)
-  (cl-pushnew module slime-required-modules)
-  (when (slime-connected-p)
-    (slime-load-contribs)))
-
 (defun slime-load-contribs ()
   (let ((needed (cl-remove-if (lambda (s)
-                                (member (cl-subseq (symbol-name s) 1)
-                                        (mapcar #'downcase
-                                                (slime-lisp-modules))))
-                              slime-required-modules)))
+                                (cl-find (symbol-name s)
+                                         (slime-lisp-modules)
+                                         :key #'downcase
+                                         :test #'string=))
+                              slime-required-modules
+                              :key #'car)))
     (when needed
       ;; No asynchronous request because with :SPAWN that could result
       ;; in the attempt to load modules concurrently which may not be
       ;; supported by the host Lisp.
+      (slime-eval `(swank:swank-add-load-paths ',(cl-remove-duplicates
+                                                  (mapcar #'cdr needed)
+                                                  :test #'string=)))
       (setf (slime-lisp-modules)
-            (slime-eval `(swank:swank-require ',needed))))))
+            (slime-eval `(swank:swank-require
+                          ',(mapcar #'symbol-name (mapcar #'car needed))))))))
 
 (cl-defstruct slime-contrib
   name
@@ -6942,14 +6987,23 @@ is setup, unless the user already set one explicitly."
       (cl-loop for (key . value) in clauses append `(,key ,value))
     (cl-labels
         ((enable-fn (c) (intern (concat (symbol-name c) "-init")))
-         (disable-fn (c) (intern (concat (symbol-name c) "-unload"))))
+         (disable-fn (c) (intern (concat (symbol-name c) "-unload")))
+         (path-sym (c) (intern (concat (symbol-name c) "--path"))))
       `(progn
+         (defvar ,(path-sym name))
+         (setq ,(path-sym name) (and load-file-name
+                                     (file-name-directory load-file-name)))
          ,@(mapcar (lambda (d) `(require ',d)) slime-dependencies)
          (defun ,(enable-fn name) ()
            (mapc #'funcall ',(mapcar
                               #'enable-fn
                               slime-dependencies))
-           (mapc #'slime-require ',swank-dependencies)
+           (cl-loop for dep in ',swank-dependencies
+                    do (cl-pushnew (cons dep ,(path-sym name))
+                                   slime-required-modules
+                                   :key #'car))
+           (when (slime-connected-p)
+             (slime-load-contribs))
            ,@on-load)
          (defun ,(disable-fn name) ()
            ,@on-unload
