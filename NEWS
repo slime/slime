@@ -1,5 +1,17 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
 
+* 2.7 (June 2014)
+
+** Core
+
+*** SWANK now tries harder to send double-floats to Emacs
+
+** Allegro CL Backend
+
+*** Added implementation for FUNCTION-NAME and FIND-SOURCE-LOCATION interfaces
+Notably, this means that pressing "." in the SLIME inspector now works
+on Allegro CL. (Thanks to Gábor Melis.)
+
 * 2.6 (May 2014)
 
 ** Core
