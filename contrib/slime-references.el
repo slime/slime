@@ -45,6 +45,7 @@ Only add clickability to properties we actually know how to lookup."
     (if (or (and (eq where :sbcl) (eq type :node))
             (and (eq where :ansi-cl)
                  (memq type '(:function :special-operator :macro
+                                        :type :system-class
                                         :section :glossary :issue))))
         `(slime-reference ,reference
                           font-lock-face sldb-reference-face
@@ -99,7 +100,7 @@ See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
              (t
               (hyperspec-lookup what))))
           (t
-           (let ((url (format "%s%s.html" slime-sbcl-manual-root
+           (let ((url (format "%s#%s" slime-sbcl-manual-root
                               (subst-char-in-string ?\  ?\- what))))
              (browse-url url))))))))
 

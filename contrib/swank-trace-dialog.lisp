@@ -1,6 +1,5 @@
 (defpackage :swank-trace-dialog
   (:use :cl)
-  (:nicknames :std)
   (:import-from :swank :defslimefun :from-string :to-string)
   (:export #:clear-trace-tree
            #:dialog-toggle-trace

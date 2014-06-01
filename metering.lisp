@@ -144,10 +144,10 @@
 ;;; in order to average out to a higher resolution.
 ;;;
 ;;; The easiest way to use this package is to load it and execute either
-;;;     (mon:with-monitoring (names*) ()
+;;;     (swank-monitor:with-monitoring (names*) ()
 ;;;         your-forms*)
 ;;; or
-;;;     (mon:monitor-form your-form)
+;;;     (swank-monitor:monitor-form your-form)
 ;;; The former allows you to specify which functions will be monitored; the
 ;;; latter monitors all functions in the current package. Both automatically
 ;;; produce a table of statistics. Other variants can be constructed from
@@ -246,7 +246,7 @@
 ;;; The named functions will be set up for monitoring by augmenting
 ;;; their function definitions with code that gathers statistical information
 ;;; about code performance. As with the TRACE macro, the function names are
-;;; not evaluated. Calls the function MON::MONITORING-ENCAPSULATE on each
+;;; not evaluated. Calls the function SWANK-MONITOR::MONITORING-ENCAPSULATE on each
 ;;; function name. If no names are specified, returns a list of all
 ;;; monitored functions.
 ;;;
@@ -360,7 +360,7 @@ Estimated total monitoring overhead: 0.88 seconds
 
 ;;; For CLtL2 compatible lisps
 
-(defpackage "MONITOR" (:nicknames "MON") (:use "COMMON-LISP")
+(defpackage "SWANK-MONITOR" (:use "COMMON-LISP")
   (:export "*MONITORED-FUNCTIONS*"
 	   "MONITOR" "MONITOR-ALL" "UNMONITOR" "MONITOR-FORM"
 	   "WITH-MONITORING"
@@ -370,7 +370,7 @@ Estimated total monitoring overhead: 0.88 seconds
 	   "DISPLAY-MONITORING-RESULTS"
 	   "MONITORING-ENCAPSULATE" "MONITORING-UNENCAPSULATE"
 	   "REPORT"))
-(in-package "MONITOR")
+(in-package "SWANK-MONITOR")
 
 ;;; Warn user if they're loading the source instead of compiling it first.
 (eval-when (eval)
@@ -1184,7 +1184,7 @@ Time      Cons~
         (if (> num-no-calls 20)
             (format *trace-output*
                     "~%~@(~r~) monitored functions were not called. ~
-                      ~%See the variable mon::*no-calls* for a list."
+                      ~%See the variable swank-monitor::*no-calls* for a list."
                     num-no-calls)
             (format *trace-output*
                     "~%The following monitored functions were not called:~

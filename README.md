@@ -47,6 +47,8 @@ public domain.
 
 Contact
 -------
+If you have problems, first have a look at the list of
+[known issues and workarounds][6]. 
 
 Questions and comments are best directed to the mailing list at
 `slime-devel@common-lisp.net`, but you have to [subscribe][3] first. The
@@ -57,3 +59,4 @@ See the [CONTRIBUTING.md][5] file for instructions on how to contribute.
 [3]: http://www.common-lisp.net/project/slime/#mailinglist
 [4]: http://news.gmane.org/gmane.lisp.slime.devel
 [5]: https://github.com/slime/slime/blob/master/CONTRIBUTING.md
+[6]: https://github.com/slime/slime/issues?labels=workaround&state=closed

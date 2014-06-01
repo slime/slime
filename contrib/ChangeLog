@@ -6,6 +6,60 @@
 	* swank-presentation-streams.lisp [sbcl]: Simplify loading of
 	sbcl-pprint-patch when using swank-loader.lisp.
 
+2014-04-29  Christophe Rhodes  <csr21@cantab.net>
+
+	* slime-references.el (slime-lookup-reference-at-point): change
+	format for lookup in SBCL manual to match current all-in-one-page
+	publication.
+
+2014-04-29  Christophe Rhodes  <csr21@cantab.net>
+
+	* slime-references.el (slime-references-properties): Support
+	`:type' and `:system-class' `:ansi-cl' references.
+
+2014-04-26  João Távora  <joaotavora@gmail.com>
+
+	* swank-repl.lisp (*listener-saved-value*): New thread-global
+	variable.
+	(listener-save-value): Save values produced by slimefuns.
+	(listener-get-value): Get values saved by LISTENER-SAVE-VALUE.
+	(*last-repl-form*, *last-repl-values*, set-repl-variables): Deleted.
+	(repl-eval): Don't call SET-REPL-VARIABLES.
+
+	* slime-repl.el (slime-repl): Return the REPL buffer switched to.
+	(slime-repl-copy-down-to-repl): New function.
+	(slime-inspector-copy-down-to-repl): Use `slime-repl-copy-down-to-repl'
+	(sldb-copy-down-to-repl): Use `slime-repl-copy-down-to-repl'
+
+2014-04-20  Christophe Rhodes  <csr21@cantab.net>
+
+	* swank-presentations.lisp (lookup-and-save-presented-object-or-lose):
+	new slimefun, to take temporary presentations (e.g. from sldb or
+	slime-inspector) and turn them into permanent presentations in the
+	global presentation-id-object tables.
+
+	* slime-presentations.el (slime-copy-presentation-to-repl): rewrite,
+	including use of lookup-and-save-presented-object-or-lose, but also
+	restoring insertion of the presentation into the repl editing stream.
+
+2014-04-17  Olof-Joachim Frahm <olof@macrolet.net>
+
+	* slime-clipboard.el: Require `cl-lib`/`cl` for `lexical-let` and
+	`cl-` prefix.
+	(slime-clipboard-insert-entries, slime-clipboard-insert-ref)
+	(slime-clipboard-ref-modified): Use `cl-` prefix.
+
+2014-04-15  Phil Hargett  <phil@haphazardhouse.net>
+
+	* test/slime-autodoc-tests.el: Mark several tests as failing for
+	CCL 1.9
+
+2014-04-02  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-repl-add-to-input-history): Fix whitespace
+	clean up. Reported by Robert Brown.
+>>>>>>> slime/master
+
 2014-03-29  João Távora  <joaotavora@gmail.com>
 
 	* slime-trace-dialog.el (slime-trace-dialog--insert-trace): Set

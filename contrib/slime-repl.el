@@ -521,7 +521,8 @@ joined together."))
 
 (defun slime-repl ()
   (interactive)
-  (slime-switch-to-output-buffer))
+  (slime-switch-to-output-buffer)
+  (current-buffer))
 
 (defun slime-repl-mode-beginning-of-defun (&optional arg)
   (if (and arg (< arg 0))
@@ -961,9 +962,7 @@ used with a prefix argument (C-u), doesn't switch back afterwards."
   "Add STRING to the input history.
 Empty strings and duplicates are ignored."
   (when slime-repl-history-trim-whitespaces
-    (setq string (replace-regexp-in-string "[\t\n\s]*\\(.*?\\)[\t\n\s]*"
-                                           "\\1"
-                                           string)))
+    (setq string (slime-trim-whitespace string)))
   (unless (equal string "")
     (when slime-repl-history-remove-duplicates
       (setq slime-repl-input-history
@@ -1572,23 +1571,24 @@ expansion will be added to the REPL's history.)"
           (t
            (error "Not in a function definition")))))))
 
+(defun slime-repl-copy-down-to-repl (slimefun &rest args)
+  (slime-eval-async `(swank:listener-save-value ',slimefun ,@args)
+    #'(lambda (_ignored)
+        (with-current-buffer (slime-repl)
+          (slime-eval-async '(swank:listener-get-value)
+            #'(lambda (_ignored)
+                (slime-repl-insert-prompt)))))))
+
 (defun slime-inspector-copy-down-to-repl (number)
   "Evaluate the inspector slot at point via the REPL (to set `*')."
   (interactive (list (or (get-text-property (point) 'slime-part-number)
                          (error "No part at point"))))
-  (slime-repl-send-string
-   (format "%s" `(cl:nth-value 0 (swank:inspector-nth-part ,number))))
-  (slime-repl))
+  (slime-repl-copy-down-to-repl 'swank:inspector-nth-part number))
 
 (defun sldb-copy-down-to-repl (frame-id var-id)
   "Evaluate the frame var at point via the REPL (to set `*')."
   (interactive (list (sldb-frame-number-at-point) (sldb-var-number-at-point)))
-  (slime-repl-send-string
-   (format "%s"
-           `(cl:prog1 (swank-backend:frame-var-value
-                       ,frame-id ,var-id)
-                      (swank:set-repl-variables))))
-  (slime-repl))
+  (slime-repl-copy-down-to-repl 'swank-backend:frame-var-value frame-id var-id))
 
 (defun sldb-insert-frame-call-to-repl ()
   "Insert a call to a frame at point."

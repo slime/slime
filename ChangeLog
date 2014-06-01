@@ -114,6 +114,113 @@
 
 	* swank.asd : load the swank source code without calling swank-loader.
 
+2014-05-16  Helmut Eller  <heller@common-lisp.net>
+
+	Fix display related bugs.
+
+	* slime.el (slime--display-region): Renamed from slime-recenter.
+	Also work in the case when the condition message takes up the
+	entire window.
+	(slime--adjust-window-start, slime--adjust-window-point): New
+	helpers.
+	(slime-show-source-location): Display buffer in other window, as
+	it always was.  Invert no-highlight-p argument to simplify
+	callers.  Add recenter-arg to get rid of the heuristic that
+	detected "sldb show source" vs. "show definition".
+	(slime--display-position): Factored out, again.
+
+	* slime-tests.el (display-region):  New test.
+	(slime-test--display-region-line-to-position)
+	(slime-test--display-region-eval-arg): New Helpers.
+
+2014-05-15  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-tests.el: Break long lines.
+
+2014-05-10  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-rpc.lisp (prin1-to-string-for-emacs): Convert floats into
+	double-floats, when possible. Emacs lisp only has double floats.
+
+2014-05-08  Gábor Melis  <mega@retes.hu>
+
+	* swank-allegro.lisp (function-name, find-source-location): New.
+
+	* swank-backend.lisp (find-source-location): Fix name in error
+	message.
+
+2014-05-06  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-source-path-parser.lisp (make-source-recorder): Remove
+	FUNCTION type declaration, get-macro-character returns a
+	designator, not a function. Recent changes to SBCL exposed the
+	problem.
+
+2014-04-27  Christophe Rhodes  <csr21@cantab.net>
+
+	* slime.el (slime-eval-with-transcript): Fix typo in docstring.
+
+2014-04-27  João Távora  <joaotavora@gmail.com>
+
+	* slime.el (slime-init-command): Also use `slime-to-lisp-filename'
+	for the port-filename.
+
+2014-04-26  João Távora  <joaotavora@gmail.com>
+
+	* slime.el (sldb-exit): An indirect, non-interactive exit from an
+	*sldb* buffer should just kill the buffer.
+
+2014-04-15  João Távora  <joaotavora@gmail.com>
+
+	* slime-tests.el (compile-defun-with-reader-conditionals): Renamed
+	from `compile-defun-with-reader-characters'. Break long lines.
+
+	* .travis.yml (env): Don't overtest on Emacs 23, as per comment.
+	(install): No need for trailing semicolon.
+
+2014-04-15  Phil Hargett  <phil@haphazardhouse.net>
+
+	* slime-tests.el (compile-defun): Test split into two parts.
+	(compile-defun-with-reader-characters): Split from `compile-defun'
+	as CCL does not pass this part.
+	* .travis.yml (env): added targets to include CCL 1.9 for Travis
+	builds
+
+2014-04-12  João Távora  <joaotavora@gmail.com>
+
+	Unbreak CCL and CLISP and cleanup ChangeLog.
+
+	* metering.lisp ("SWANK-MONITOR"): Enter SWANK-MONITOR package.
+
+2014-04-10  Phil Hargett  <phil@haphazardhouse.net>
+
+	Using nicknames, especially short terse ones, are more likely to
+	create package name conflicts with othe packages.  Since swank is
+	widely used, its better to avoid using nicknames (or at least
+	short ones).  All package nicknames removed.
+
+	Further, the MONITOR package has been renamed SWANK-MONITOR for
+	the same reason: without the extra qualification, the name could
+	conflict with other packages.
+
+	* contrib/swank-trace-dialog.lisp (defpackage swank-trace-dialog):
+	removed :std nickname
+
+	* metering.lisp (defpackage "MONITOR"): removed MON nickname,
+	touched up references in comments
+
+	* swank-ccl.lisp (profile, profiled-functions, unprofile)
+	(unprofile-all, profile-report, profile-reset, profile-package):
+	replaced use of nickname MON with new package name SWANK-MONITOR
+
+	* swank-clisp.lisp (profile, profiled-functions, unprofile)
+	(unprofile-all, profile-report, profile-reset, profile-package):
+	replaced use of nickname MON with new package name SWANK-MONITOR
+
+2014-04-10  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-trim-whitespace): Handle multiline strings.
+
 2014-04-01  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (%%condition-message): Bind *print-readably* for good
@@ -168,7 +275,7 @@
 	temp files are separate steps.
 
 2014-03-27  Paulo Madeira  <acelent@gmail.com>
-
+ 
 	Improve source file recording for ACL backend.
 
 	Finding definitions compiled with SWANK:SWANK-COMPILE-STRING
