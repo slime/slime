@@ -378,7 +378,7 @@ PROPERTIES specifies any default face properties."
   (frame-line     "function names and arguments in the backtrace")
   (restartable-frame-line
    "frames which are surely restartable"
-   '(:foreground "lime green"))
+   '(:inherit font-lock-function-name-face))
   (non-restartable-frame-line
    "frames which are surely not restartable")
   (detailed-frame-line
