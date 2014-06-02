@@ -805,6 +805,7 @@ MODE is the name of a major mode which will be enabled.
 (define-minor-mode sly-popup-buffer-mode
   "Mode for displaying read only stuff"
   nil nil nil
+  (sly-mode 1)
   (setq buffer-read-only t))
 
 (add-to-list 'minor-mode-alist
@@ -4320,8 +4321,8 @@ arg, you're interactively asked for parameters of the search."
         `(swank:apropos-list-for-emacs ,string ,only-external-p
                                        ,case-sensitive-p ',package)
       (sly-rcurry #'sly-show-apropos string buffer-package
-                    (sly-apropos-summary string case-sensitive-p
-                                           package only-external-p)))))
+                  (sly-apropos-summary string case-sensitive-p
+                                       buffer-package only-external-p)))))
 
 (defun sly-apropos-all ()
   "Shortcut for (sly-apropos <string> nil nil)"
@@ -4422,8 +4423,7 @@ The most important commands:
 "
   (sly-popup-buffer-mode)
   (setq font-lock-defaults nil)
-  (setq delayed-mode-hooks nil)
-  (sly-mode -1))
+  (setq delayed-mode-hooks nil))
 
 (sly-define-keys sly-xref-mode-map
   ((kbd "RET") 'sly-goto-xref)
@@ -4827,7 +4827,6 @@ This variable specifies both what was expanded and how.")
   (let ((name (sly-buffer-name :macroexpansion)))
     (sly-with-popup-buffer (name :package t :connection t
                                    :mode 'lisp-mode)
-      (sly-mode 1)
       (sly-macroexpansion-minor-mode 1)
       (setq font-lock-keywords-case-fold-search t)
       (current-buffer))))
@@ -6797,7 +6796,7 @@ is setup, unless the user already set one explicitly."
          (defun ,(enable-fn name) ()
            (mapc #'funcall ',(mapcar
                               #'enable-fn
-                              slime-dependencies))
+                              sly-dependencies))
            (cl-loop for dep in ',swank-dependencies
                     do (cl-pushnew (cons dep ,(path-sym name))
                                    sly-required-modules

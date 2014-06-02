@@ -252,12 +252,16 @@ If LOAD is true, load the fasl file."
   (funcall (q "swank::init")))
 
 (defun init (&key delete reload (setup t)
-               (quiet (not *load-verbose*)))
+                  (quiet (not *load-verbose*))
+                  load-contribs)
   "Load SWANK and initialize some global variables.
 If DELETE is true, delete any existing SWANK packages.
 If RELOAD is true, reload SWANK, even if the SWANK package already exists.
 If SETUP is true, load user init files and initialize some
 global variabes in SWANK."
+  (if load-contribs
+      (warn
+       "LOAD-CONTRIBS arg to SWANK-LOADER:INIT is deprecated and useless"))
   (when (and delete (find-package :swank))
     (mapc #'delete-package '(:swank :swank-io-package :swank-backend)))
   (cond ((or (not (find-package :swank)) reload)

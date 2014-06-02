@@ -16,11 +16,11 @@
   (:sly-dependencies sly-parse)
   (:swank-dependencies swank-arglists)
   (:on-load
-   (dolist (h '(sly-mode-hook sly-repl-mode-hook sldb-mode-hook))
+   (dolist (h '(sly-editing-mode-hook sly-repl-mode-hook))
      (add-hook h 'sly-autodoc-mode)))
   (:on-unload
    ;; FIXME: This doesn't disable sly-autodoc-mode in existing buffers
-   (dolist (h '(sly-mode-hook sly-repl-mode-hook sldb-mode-hook))
+   (dolist (h '(sly-editing-mode-hook sly-repl-mode-hook))
      (remove-hook h 'sly-autodoc-mode))))
 
 (defcustom sly-autodoc-use-multiline-p nil

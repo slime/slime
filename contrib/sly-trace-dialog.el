@@ -15,10 +15,8 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   (:authors "João Távora <joaotavora@gmail.com>")
   (:license "GPL")
   (:swank-dependencies swank-trace-dialog)
-  (:on-load (add-hook 'sly-mode-hook 'sly-trace-dialog-enable)
-            (add-hook 'sldb-mode-hook 'sly-trace-dialog-enable))
-  (:on-unload (remove-hook 'sly-mode-hook 'sly-trace-dialog-enable)
-              (remove-hook 'sldb-mode-hook 'sly-trace-dialog-enable)))
+  (:on-load (add-hook 'sly-mode-hook 'sly-trace-dialog-enable))
+  (:on-unload (remove-hook 'sly-mode-hook 'sly-trace-dialog-enable)))
 
 
 ;;;; Variables
@@ -101,19 +99,19 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                  do (substitute-key-definition old new map))
         map))
 
-(defvar sly-trace-dialog-minor-mode-map
+(defvar sly-trace-dialog-shortcut-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c T") 'sly-trace-dialog)
     (define-key map (kbd "C-c M-t") 'sly-trace-dialog-toggle-trace)
     map))
 
-(define-minor-mode sly-trace-dialog-minor-mode
+(define-minor-mode sly-trace-dialog-shortcut-mode
   "Add keybindings for accessing SLY's Trace Dialog.")
 
 (defun sly-trace-dialog-enable ()
-  (sly-trace-dialog-minor-mode 1))
+  (sly-trace-dialog-shortcut-mode 1))
 
-(easy-menu-define sly-trace-dialog--menubar (list sly-trace-dialog-minor-mode-map
+(easy-menu-define sly-trace-dialog--menubar (list sly-trace-dialog-shortcut-mode-map
                                                     sly-trace-dialog-mode-map)
   "A menu for accessing some features of SLY's Trace Dialog"
   (let* ((in-dialog '(eq major-mode 'sly-trace-dialog-mode))
