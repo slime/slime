@@ -1474,16 +1474,16 @@ converted to lower case."
 (defun sly-version-string ()
   "Return a string identifying the SLY version.
 Return nil if nothing appropriate is available."
-  (ignore-errors
-   (with-open-file (s (merge-pathnames "sly.el" *source-directory*))
-     (let ((seq (make-array 200 :element-type 'character :initial-element #\null)))
-       (read-sequence seq s :end 200)
-       (let* ((beg (search ";; Version:" seq))
-              (end (position #\NewLine seq :start beg))
-              (middle (position #\Space seq :from-end t :end end)))
-         (subseq seq (1+ middle) end))))))
+  (with-open-file (s (make-pathname :name "sly" :type "el"
+                                    :defaults #.(or *compile-file-truename* *load-truename*)))
+    (let ((seq (make-array 200 :element-type 'character :initial-element #\null)))
+      (read-sequence seq s :end 200)
+      (let* ((beg (search ";; Version:" seq))
+             (end (position #\NewLine seq :start beg))
+             (middle (position #\Space seq :from-end t :end end)))
+        (subseq seq (1+ middle) end)))))
 
-(defvar *swank-wire-protocol-version* (sly-version-string)
+(defvar *swank-wire-protocol-version* (ignore-errors (sly-version-string))
   "The version of the swank/sly communication protocol.")
 
 (defslyfun connection-info ()
