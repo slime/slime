@@ -6560,12 +6560,11 @@ If ARG is negative, move forwards."
   ("e" 'sly-inspector-eval)
   ("h" 'sly-inspector-history)
   ("g" 'sly-inspector-reinspect)
-  ("v" 'sly-inspector-toggle-verbose)
+  ("v" 'sly-inspector-show-source)
   ("\C-i" 'sly-inspector-next-inspectable-object)
   ([(shift tab)]
    'sly-inspector-previous-inspectable-object) ; Emacs translates S-TAB
   ([backtab] 'sly-inspector-previous-inspectable-object) ; to BACKTAB on X.
-  ("." 'sly-inspector-show-source)
   (">" 'sly-inspector-fetch-all)
   ("q" 'sly-inspector-quit))
 
