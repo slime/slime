@@ -45,10 +45,10 @@
   (let* ((name (etypecase name
                 (string name)
                 (symbol (symbol-name name))))
-         (arglist (car (sly-eval `(swank:autodoc '(,name ,sly-cursor-marker))))))
-    (if (eq arglist :not-available)
-        (error "Arglist not available")
-      (message "%s" (sly-autodoc--fontify-string arglist)))))
+         (doc-and-reasons (sly-eval `(swank:autodoc '(,name ,sly-cursor-marker)))))
+    (if (memq (car doc-and-reasons) '(:error :not-available))
+        (error "Arglist not available: %a" (cadr doc-and-reasons))
+      (message "%s" (sly-autodoc--fontify-string (car doc-and-reasons))))))
 
 
 ;;;; Autodocs (automatic context-sensitive help)
@@ -112,7 +112,7 @@ Return DOCUMENTATION."
 ;;;; sly-autodoc-mode
 
 (cl-defun sly-autodoc (&optional (multilinep sly-autodoc-use-multiline-p)
-                                   cache-multiline)
+                                 cache-multiline)
   "Returns the cached arglist information as string, or nil.
 If it's not in the cache, the cache will be updated asynchronously."
   (interactive)
@@ -140,18 +140,21 @@ If it's not in the cache, the cache will be updated asynchronously."
               ;; returning nil), and fetch the arglist information
               ;; asynchronously.
               (sly-eval-async retrieve-form
-                (lexical-let
-                 ((cache-key cache-key)
-                  (multilinep multilinep))
-                 (lambda (doc)
-                   (cl-destructuring-bind (doc cache-p) doc
-                     (unless (eq doc :not-available)
-                       (when cache-p
-                         (sly-store-into-autodoc-cache cache-key doc))
-                       ;; Now that we've got our information,
-                       ;; get it to the user ASAP.
-                       (eldoc-message
-                        (sly-autodoc--format doc multilinep)))))))
+                (let ((cache-key cache-key)
+                      (multilinep multilinep))
+                  (lambda (results)
+                    (cl-destructuring-bind (doc cache-p-or-reason) results
+                      (cond ((eq doc :not-available)
+                             (message "docstring not available: %s" cache-p-or-reason))
+                            ((eq doc :error)
+                             (warn "autodoc error: %s" cache-p-or-reason))
+                            (t
+                             (when cache-p-or-reason
+                               (sly-store-into-autodoc-cache cache-key doc))
+                             ;; Now that we've got our information,
+                             ;; get it to the user ASAP.
+                             (eldoc-message
+                              (sly-autodoc--format doc multilinep))))))))
               nil))))))))
 
 (defvar sly-autodoc--cache-car nil)

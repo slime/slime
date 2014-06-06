@@ -1158,11 +1158,12 @@ wrapped in ===> X <===.
 
 Second, a boolean value telling whether the returned string can be cached."
   (handler-bind ((serious-condition
-                  #'(lambda (c)
-                      (unless (debug-on-swank-error)
-                        (let ((*print-right-margin* print-right-margin))
-                          (return-from autodoc
-                            (format nil "Arglist Error: \"~A\"" c)))))))
+                   #'(lambda (c)
+                       (unless (debug-on-swank-error)
+                         (let ((*print-right-margin* print-right-margin))
+                           (return-from autodoc
+                             (list :error
+                                   (format nil "Arglist Error: \"~A\"" c))))))))
     (with-buffer-syntax ()
       (multiple-value-bind (form arglist obj-at-cursor form-path)
           (find-subform-with-arglist (parse-raw-form raw-form))
