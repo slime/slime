@@ -1498,18 +1498,16 @@ stack."
 	  (t (call-next-method o)))))
 
 (defmethod emacs-inspect ((o sb-kernel:code-component))
-          (append
-           (label-value-line*
-            (:code-size (sb-kernel:%code-code-size o))
-            (:entry-points (sb-kernel:%code-entry-points o))
-            (:debug-info (sb-kernel:%code-debug-info o))
-            (:trace-table-offset (sb-kernel:code-header-ref
-                                  o sb-vm:code-trace-table-offset-slot)))
-           `("Constants:" (:newline))
-           (loop for i from sb-vm:code-constants-offset
-                 below (sb-kernel:get-header-data o)
-                 append (label-value-line i (sb-kernel:code-header-ref o i)))
-           `("Code:" (:newline)
+  (append
+   (label-value-line*
+    (:code-size (sb-kernel:%code-code-size o))
+    (:entry-points (sb-kernel:%code-entry-points o))
+    (:debug-info (sb-kernel:%code-debug-info o)))
+   `("Constants:" (:newline))
+   (loop for i from sb-vm:code-constants-offset
+         below (sb-kernel:get-header-data o)
+         append (label-value-line i (sb-kernel:code-header-ref o i)))
+   `("Code:" (:newline)
              , (with-output-to-string (s)
                  (cond ((sb-kernel:%code-debug-info o)
                         (sb-disassem:disassemble-code-component o :stream s))

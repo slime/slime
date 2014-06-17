@@ -1,3 +1,9 @@
+2014-06-17  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-sbcl.lisp (emacs-inspect sb-kernel:code-component):
+	There's no TRACE-TABLE-OFFSET slot. Don't bother showing it on
+	older SBCLs, since it isn't really useful.
+
 2014-05-16  Helmut Eller  <heller@common-lisp.net>
 
 	Fix display related bugs.
