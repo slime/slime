@@ -2234,9 +2234,7 @@ Debugged requests are ignored."
 (defmacro sly-define-channel-type (name)
   (declare (indent defun))
   (let ((tab (sly-channel-method-table-name name)))
-    `(progn
-       (defvar ,tab)
-       (setq ,tab (make-hash-table :size 10)))))
+    `(defvar ,tab (make-hash-table :size 10))))
 
 (defmacro sly-define-channel-method (type method args &rest body)
   (declare (indent 3) (debug (&define name sexp lambda-list

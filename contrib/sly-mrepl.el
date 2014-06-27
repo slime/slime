@@ -208,8 +208,9 @@ emptied.See also `sly-mrepl-hook'")
   (with-current-buffer (sly-channel-get self 'buffer)
     (cl-ecase mode
       (:read (setq sly-mrepl--expect-sexp-mode nil)
-	     (message "[Listener is waiting for input]"))
-      (:eval (setq sly-mrepl--expect-sexp-mode t)))))
+	     (message "[Listener waiting for input to read]"))
+      (:eval (setq sly-mrepl--expect-sexp-mode t)
+             (message "[Listener waiting for sexps to eval]")))))
 
 (defun sly-mrepl--send-input ()
   (goto-char (point-max))
@@ -219,13 +220,20 @@ emptied.See also `sly-mrepl-hook'")
                  (point-max))
   (comint-send-input))
 
+(defun sly-mrepl--busy-p ()
+  (>= sly-mrepl--output-mark (sly-mrepl--mark)))
+
 (defun sly-mrepl-return (&optional end-of-input)
   (interactive "P")
   (cl-assert (eq (process-status sly-buffer-connection)
                  'open)
              nil
              "Connection closed, cannot this REPL.")
-  (cond ((and sly-mrepl--expect-sexp-mode
+  (cond ((and
+	  sly-mrepl--expect-sexp-mode
+          (sly-mrepl--busy-p))
+	 (message "(wait for it!!!!)"))
+        ((and sly-mrepl--expect-sexp-mode
 	      (or (sly-input-complete-p (sly-mrepl--mark) (point-max))
 		  end-of-input))
 	 (sly-mrepl--send-input)
@@ -234,10 +242,20 @@ emptied.See also `sly-mrepl-hook'")
 	 (unless end-of-input
 	   (newline))
 	 (sly-mrepl--send-input))
+        
         (t
 	 (newline-and-indent)
          (message "[input not complete]")))
   (sly-mrepl--recenter))
+
+;; (add-hook 'post-command-hook 'sly-mrepl--debug t t) is a useful
+;; command to debug mrepl issues.
+(defun sly-mrepl--debug ()
+  (message "point at %s, output-mark at %s, process-mark at %s (%s)"
+           (point)
+           (marker-position sly-mrepl--output-mark)
+           (marker-position (sly-mrepl--mark))
+           (if (sly-mrepl--busy-p) "BUSY" "READY")))
 
 (defun sly-mrepl--input-sender (_proc string)
   (sly-mrepl--send-string (substring-no-properties string)))
