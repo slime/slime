@@ -260,20 +260,21 @@ If message can't be sent right now, queue it onto
   (mapc #'sly-mrepl--send sly-mrepl--pending-requests)
   (setq sly-mrepl--pending-requests nil))
 
+(defun sly-mrepl--find-create (connection)
+  (or (cl-find-if (lambda (x)
+                    (with-current-buffer x
+                      (and (eq major-mode 'sly-mrepl-mode)
+                           (eq sly-buffer-connection connection))))
+                  (buffer-list))
+      (sly-mrepl-new)))
+
 (defun sly-mrepl (&optional interactive)
   "Find or create the first useful REPL for the default connection."
   (interactive (list t))
-  (let* ((default-connection
-           (let ((sly-buffer-connection nil)
-                 (sly-dispatching-connection nil))
-             (sly-connection)))
+  (let* ((sly-buffer-connection nil)
+         (sly-dispatching-connection nil)
          (buffer
-          (or (cl-find-if (lambda (x)
-                            (with-current-buffer x
-                              (and (eq major-mode 'sly-mrepl-mode)
-                                   (eq sly-buffer-connection default-connection))))
-                          (buffer-list))
-              (sly-mrepl-new))))
+          (sly-mrepl-find-create (sly-connection))))
     (when interactive
       (pop-to-buffer buffer))
     buffer))
@@ -294,7 +295,7 @@ If message can't be sent right now, queue it onto
   (sly-eval-async
    `(swank-mrepl:listener-save-value ',slyfun ,@args)
    #'(lambda (_ignored)
-       (with-current-buffer (sly-mrepl)
+       (with-current-buffer (sly-mrepl--find-create (sly-connection))
          (comint-output-filter (sly-mrepl--process) "\n")
          (sly-mrepl--send `(:produce-saved-value))
          (pop-to-buffer (current-buffer))
