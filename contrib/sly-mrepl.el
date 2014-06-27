@@ -274,7 +274,7 @@ If message can't be sent right now, queue it onto
   (let* ((sly-buffer-connection nil)
          (sly-dispatching-connection nil)
          (buffer
-          (sly-mrepl-find-create (sly-connection))))
+          (sly-mrepl--find-create (sly-connection))))
     (when interactive
       (pop-to-buffer buffer))
     buffer))
