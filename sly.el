@@ -596,7 +596,8 @@ corresponding values in the CDR of VALUE."
 (cl-defmacro with-struct ((conc-name &rest slots) struct &body body)
   "Like with-slots but works only for structs.
 \(fn (CONC-NAME &rest SLOTS) STRUCT &body BODY)"
-  (declare (indent 2))
+  (declare (indent 2)
+           (debug (sexp sexp &rest form)))
   (let ((struct-var (cl-gensym "struct"))
         (reader (lambda (slot)
                   (intern (concat (symbol-name conc-name)
@@ -2473,7 +2474,8 @@ to it depending on its sign."
           ',position
           ,(if (buffer-file-name) (sly-to-lisp-filename (buffer-file-name)))
           ',sly-compilation-policy)
-      #'sly-compilation-finished)))
+      #'(lambda (result)
+          (sly-compilation-finished result t)))))
 
 (defcustom sly-load-failed-fasl 'ask
   "Which action to take when COMPILE-FILE set FAILURE-P to T.
@@ -2490,12 +2492,13 @@ ASK asks the user."
     (always t)
     (ask (y-or-n-p "Compilation failed.  Load fasl file anyway? "))))
 
-(defun sly-compilation-finished (result)
+(defun sly-compilation-finished (result &optional stringp)
   (with-struct (sly-compilation-result. notes duration successp
                                           loadp faslfile) result
     (setf sly-last-compilation-result result)
     (sly-show-note-counts notes duration (cond ((not loadp) successp)
-                                                 (t (and faslfile successp))))
+                                               (t (and faslfile successp)))
+                          (or stringp loadp))
     (when sly-highlight-compiler-notes
       (sly-highlight-notes notes))
     (run-hook-with-args 'sly-compilation-finished-hook notes)
@@ -2504,9 +2507,11 @@ ASK asks the user."
                    (sly-load-failed-fasl-p)))
       (sly-eval-async `(swank:load-file ,faslfile)))))
 
-(defun sly-show-note-counts (notes secs successp)
+(defun sly-show-note-counts (notes secs successp loadp)
   (message (concat
-            (cond (successp "Compilation finished")
+            (cond ((and successp loadp)
+                   "Compiled and loaded")
+                  (successp "Compilation finished")
                   (t (sly-add-face 'font-lock-warning-face
                        "Compilation failed")))
             (if (null notes) ". (No warnings)" ": ")
@@ -3341,9 +3346,9 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
   "Present the details of a compiler note to the user."
   (sly-temporarily-highlight-note overlay)
   (if (get-buffer-window (sly-buffer-name :compilation) t)
-      (sly-goto-note-in-compilation-log (overlay-get overlay 'sly-note))
-    (let ((message (get-char-property (point) 'help-echo)))
-      (sly-message "%s" (if (zerop (length message)) "\"\"" message)))))
+      (sly-goto-note-in-compilation-log (overlay-get overlay 'sly-note)))
+  (let ((message (get-char-property (point) 'help-echo)))
+      (sly-message "%s" (if (zerop (length message)) "\"\"" message))))
 
 ;; FIXME: could probably use flash region
 (defun sly-temporarily-highlight-note (overlay)
