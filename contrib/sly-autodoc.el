@@ -16,11 +16,11 @@
   (:sly-dependencies sly-parse)
   (:swank-dependencies swank-arglists)
   (:on-load
-   (dolist (h '(sly-editing-mode-hook sly-repl-mode-hook))
+   (dolist (h '(sly-editing-mode-hook sly-mrepl-mode-hook))
      (add-hook h 'sly-autodoc-mode)))
   (:on-unload
    ;; FIXME: This doesn't disable sly-autodoc-mode in existing buffers
-   (dolist (h '(sly-editing-mode-hook sly-repl-mode-hook))
+   (dolist (h '(sly-editing-mode-hook sly-mrepl-mode-hook))
      (remove-hook h 'sly-autodoc-mode))))
 
 (defcustom sly-autodoc-use-multiline-p nil
@@ -145,7 +145,8 @@ If it's not in the cache, the cache will be updated asynchronously."
                   (lambda (results)
                     (cl-destructuring-bind (doc cache-p-or-reason) results
                       (cond ((eq doc :not-available)
-                             (message "docstring not available: %s" cache-p-or-reason))
+                             nil ;; silently ignore
+                             )
                             ((eq doc :error)
                              (warn "autodoc error: %s" cache-p-or-reason))
                             (t
