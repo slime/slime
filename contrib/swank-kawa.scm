@@ -64,7 +64,7 @@
 (import (only (gnu kawa slib syntaxutils) expand))
 (import (only (kawa regex) regex-match))
 
-(unless (regex-match #/^1\.14/
+(unless (regex-match #/^1\.14( |$)/
                      (scheme-implementation-version))
   (error "swank-kawa.scm requires Kawa version 1.14"))
 
