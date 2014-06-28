@@ -1,3 +1,14 @@
+2014-06-28  Helmut Eller  <heller@common-lisp.net>
+
+	Make swank-kawa.scm work with Kawa 1.14.
+
+	* swank-kawa.scm (connection-info): Return :encoding options
+	to make slime-repl work.
+	(listener): Set current-output-port.
+
+	Also add a version check at the beginning and update the
+	compilation instructions.
+
 2014-06-11  Jan Moringen  <jmoringe@techfak.uni-bielefeld.de>
 
 	* swank-fancy-inspector.lisp (method-specializers-for-inspect): in
