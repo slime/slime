@@ -7,27 +7,44 @@
 
 ;;;; Installation 
 ;;
-;; 1. You need Kawa (SVN version) 
-;;    and a Sun JVM with debugger support.
-;; 2. Compile this file with:
-;;      kawa -e '(compile-file "swank-kawa.scm" "swank-kawa")'
+;; 1. You need Kawa (version 1.14) and a JVM with debugger support.
+;;
+;; 2. Compile this file and create swank-kawa.jar with:
+;;      java -cp kawa-1.14.jar:$JAVA_HOME/lib/tools.jar \
+;;           -Xss650k kawa.repl -d classes -C swank-kawa.scm &&
+;;      jar cf swank-kawa.jar -C classes .
+;;
 ;; 3. Add something like this to your .emacs:
 #|
-;; Kawa and the debugger classes (tools.jar) must be in the classpath.
-;; You also need to start the debug agent.
+;; Kawa, Swank, and the debugger classes (tools.jar) must be in the
+;; classpath.  You also need to start the debug agent.
 (setq sly-lisp-implementations
-      '((kawa ("java"
-               "-Xss450k" ; compiler needs more stack
-	       "-cp" "/opt/kawa/kawa-svn:/opt/java/jdk1.6.0/lib/tools.jar"
-	       "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n"
-	       "kawa.repl" "-s")
-              :init kawa-sly-init)))
+      '((kawa
+         ("java"
+          ;; needed jar files
+          "-cp" "kawa-1.14.jar:swank-kawa.jar:/opt/jdk1.6.0/lib/tools.jar"
+          ;; channel for debugger
+          "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n"
+          ;; depending on JVM, compiler may need more stack 
+          "-Xss450k"
+          ;; kawa without GUI
+          "kawa.repl" "-s")
+         :init kawa-sly-init)))
 
 (defun kawa-sly-init (file _)
   (setq sly-protocol-version 'ignore)
-  (let ((swank ".../sly/contrib/swank-kawa.scm")) ; <-- insert the right path
-    (format "%S\n"
-            `(begin (require ,(expand-file-name swank)) (start-swank ,file)))))
+  (format "%S\n"
+          `(begin (import (swank-kawa))
+                  (start-swank ,file)
+                  ;; Optionally add source paths of your code so
+                  ;; that M-. works better:
+                  ;;(set! swank-java-source-path
+		  ;;  (append
+		  ;;   '(,(expand-file-name "~/lisp/sly/contrib/")
+		  ;;     "/scratch/kawa")
+		  ;;   swank-java-source-path))
+                  )))
+
 |#
 ;; 4. Start everything with  M-- M-x sly kawa
 ;;
@@ -44,8 +61,12 @@
  )
 
 (import (rnrs hashtables))
-;;(require 'hash-table)
 (import (only (gnu kawa slib syntaxutils) expand))
+(import (only (kawa regex) regex-match))
+
+(unless (regex-match #/^1\.14/
+                     (scheme-implementation-version))
+  (error "swank-kawa.scm requires Kawa version 1.14"))
 
 
 ;;;; Macros ()
@@ -588,7 +609,9 @@
     :machine (:instance ,(prop "java.vm.name") :type ,(prop "os.name")
                         :version ,(prop "java.runtime.version"))
     :features ()
-    :package (:name "??" :prompt ,(! getName env)))))
+    :package (:name "??" :prompt ,(! getName env))
+    :encoding (:coding-systems ("iso-8859-1"))
+    )))
 
  
 ;;;; Listener
@@ -598,7 +621,7 @@
   (log "listener: ~s ~s ~s ~s\n"
        (current-thread) ((current-thread):hashCode) c env)
   (let ((out (make-swank-outport (rpc c `(get-channel)))))
-    ;;(set (current-output-port) out)
+    (set (current-output-port) out)
     (let ((vm (as <vm> (rpc c `(get-vm)))))
       (send c `(set-listener ,(vm-mirror vm (current-thread))))
       (request-uncaught-exception-events vm)
@@ -2337,6 +2360,6 @@
 ;; mode: goo 
 ;; compile-command: "\
 ;;  rm -rf classes && \
-;;  JAVA_OPTS=-Xss450k kawa -d classes -C swank-kawa.scm && \
+;;  JAVA_OPTS=-Xss650k kawa -d classes -C swank-kawa.scm && \
 ;;  jar cf swank-kawa.jar -C classes ."
 ;; End:
