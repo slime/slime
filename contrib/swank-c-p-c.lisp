@@ -44,19 +44,21 @@ format. The cases are as follows:
   PKG:FOO  - Symbols with matching prefix and external in package PKG.
   PKG::FOO - Symbols with matching prefix and accessible in package PKG.
 "
-  (multiple-value-bind (name package-name package internal-p)
-      (parse-completion-arguments string default-package-name)
-    (let* ((symbol-set  (symbol-completion-set 
-			 name package-name package internal-p
-			 (make-compound-prefix-matcher #\-)))
-	   (package-set (package-completion-set 
-			 name package-name package internal-p
-			 (make-compound-prefix-matcher '(#\. #\-))))
-	   (completion-set
-	    (format-completion-set (nconc symbol-set package-set) 
-				   internal-p package-name)))
-      (when completion-set
-	(list completion-set (longest-compound-prefix completion-set))))))
+  (let ((*package* (or (guess-package default-package-name)
+                       *package*)))
+    (multiple-value-bind (name package-name package internal-p)
+        (parse-completion-arguments string default-package-name)
+      (let* ((symbol-set  (symbol-completion-set
+                           name package-name package internal-p
+                           (make-compound-prefix-matcher #\-)))
+             (package-set (package-completion-set
+                           name package-name package internal-p
+                           (make-compound-prefix-matcher '(#\. #\-))))
+             (completion-set
+              (format-completion-set (nconc symbol-set package-set)
+                                     internal-p package-name)))
+        (when completion-set
+          (list completion-set (longest-compound-prefix completion-set)))))))
 
 
 ;;;;; Find completion set
