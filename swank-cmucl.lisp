@@ -1401,7 +1401,7 @@ NAME can any valid function name (e.g, (setf car))."
 
 ;;;;; Argument lists
 
-(defimplementation arglist (fun)
+(defimplementation %arglist (fun)
   (etypecase fun
     (function (function-arglist fun))
     (symbol (function-arglist (or (macro-function fun)

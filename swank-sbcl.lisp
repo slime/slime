@@ -413,11 +413,11 @@
           (error "~S does not exist in SWANK." name)))))
 
 #+#.(swank-backend:with-symbol 'function-lambda-list 'sb-introspect)
-(defimplementation arglist (fname)
+(defimplementation %arglist (fname)
   (sb-introspect:function-lambda-list fname))
 
 #-#.(swank-backend:with-symbol 'function-lambda-list 'sb-introspect)
-(defimplementation arglist (fname)
+(defimplementation %arglist (fname)
   (sb-introspect:function-arglist fname))
 
 (defimplementation function-name (f)

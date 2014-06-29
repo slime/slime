@@ -314,7 +314,7 @@
 
 ;;;; Documentation
 
-(defimplementation arglist (name)
+(defimplementation %arglist (name)
   (multiple-value-bind (arglist foundp)
       (ext:function-lambda-list name)
     (if foundp arglist :not-available)))

@@ -138,7 +138,7 @@
 
 ;;; Arglist
 
-(defimplementation arglist (fname)
+(defimplementation %arglist (fname)
   (multiple-value-bind (arglist binding) (let ((*break-on-signals* nil))
                                            (ccl:arglist fname))
     (if binding

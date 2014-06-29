@@ -1,3 +1,25 @@
+2014-06-29  Bart Botta  <00003b@gmail.com>
+	Add hooks for extending arglist lookup.
+
+	* contrib/swank-arglists.lisp (*valid-operator-symbol-p-hooks*):
+	New variable.
+	(valid-operator-symbol-p): use it
+
+	* swank-backend.lisp (%arglist): rename interface from arglist
+	(*arglist-hooks*): new variable, default to %arglist
+	(arglist): new function, call functions in *arglist-hooks*
+
+	* swank-abcl.lisp (%arglist): renamed from arglist
+	* swank-allegro.lisp (%arglist): renamed from arglist
+	* swank-ccl.lisp (%arglist): renamed from arglist
+	* swank-clisp.lisp (%arglist): renamed from arglist
+	* swank-cmucl.lisp (%arglist): renamed from arglist
+	* swank-corman.lisp (%arglist): renamed from arglist
+	* swank-ecl.lisp (%arglist): renamed from arglist
+	* swank-lispworks.lisp (%arglist): renamed from arglist
+	* swank-sbcl.lisp (%arglist): renamed from arglist
+	* swank-scl.lisp (%arglist): renamed from arglist
+
 2014-06-17  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sbcl.lisp (emacs-inspect sb-kernel:code-component):

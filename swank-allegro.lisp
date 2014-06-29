@@ -103,7 +103,7 @@
 
 ;;;; Misc
 
-(defimplementation arglist (symbol)
+(defimplementation %arglist (symbol)
   (handler-case (excl:arglist symbol)
     (simple-error () :not-available)))
 
