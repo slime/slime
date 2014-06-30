@@ -31,6 +31,7 @@
            #:quit-lisp
            #:references
            #:unbound-slot-filler
+           #:arglist
            #:declaration-arglist
            #:type-specifier-arglist
            #:with-struct
@@ -734,7 +735,11 @@ arglist cannot be determined."
    (declare (ignore name))
    :not-available)
 
-(defparameter *arglist-hooks* '(%arglist))
+(defparameter *arglist-hooks* '(%arglist)
+  "Functions to call to get the arglist of a specific operator. Uses
+ the first return value from the first function to return true in
+ either of the first 2 values, so an empty arglist can be indicated
+ by (values nil t).")
 
 (defun arglist (name)
   (loop for f in *arglist-hooks*
