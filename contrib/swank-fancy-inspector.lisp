@@ -853,23 +853,24 @@ SPECIAL-OPERATOR groups."
           (label-value-line "Truename" (truename pathname)))))
 
 (defmethod emacs-inspect ((pathname logical-pathname))
-          (append
-           (label-value-line*
-            ("Namestring" (namestring pathname))
-            ("Physical pathname: " (translate-logical-pathname pathname)))
-           `("Host: "
-             ,(pathname-host pathname)
-             " (" (:value ,(logical-pathname-translations
-                            (pathname-host pathname)))
-             "other translations)"
-             (:newline))
-           (label-value-line*
-            ("Directory" (pathname-directory pathname))
-            ("Name" (pathname-name pathname))
-            ("Type" (pathname-type pathname))
-            ("Version" (pathname-version pathname))
-            ("Truename" (if (not (wild-pathname-p pathname))
-                            (probe-file pathname))))))
+  (append
+   (label-value-line*
+    ("Namestring" (namestring pathname))
+    ("Physical pathname: " (translate-logical-pathname pathname)))
+   `("Host: "
+     (:value ,(pathname-host pathname))
+     " ("
+     (:value ,(logical-pathname-translations
+               (pathname-host pathname)))
+     " other translations)"
+     (:newline))
+   (label-value-line*
+    ("Directory" (pathname-directory pathname))
+    ("Name" (pathname-name pathname))
+    ("Type" (pathname-type pathname))
+    ("Version" (pathname-version pathname))
+    ("Truename" (if (not (wild-pathname-p pathname))
+                    (probe-file pathname))))))
 
 (defmethod emacs-inspect ((n number))
   `("Value: " ,(princ-to-string n)))
