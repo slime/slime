@@ -1,3 +1,15 @@
+2014-07-02  Jan Moringen  <jmoringe@techfak.uni-bielefeld.de>
+
+	Make fancy inspector more robust w.r.t. unexpected logical PATHNAME-HOST
+
+	While CLHS seems to guarantee PATHNAME-HOST to return a string,
+	this is not always the case in practice (e.g. SBCL returns a
+	SB-IMPL:LOGICAL-HOST instance).
+
+	* swank-fancy-inspector.lisp (emacs-inspect logical-pathname):
+	wrap the return value of PATHNAME-HOST in a (:value ...) in case
+	it is not a string
+
 2014-06-28  Helmut Eller  <heller@common-lisp.net>
 
 	Make swank-kawa.scm work with Kawa 1.14.
@@ -247,7 +259,7 @@
 	Closes #9: New output respects existing REPL results or presentations.
 
 	* slime-repl.el (slime-repl-emit-result): After emitting a result,
- 	update `slime-output-end' marker.
+	update `slime-output-end' marker.
 
 	* slime-presentations.el (slime-presentation-write-result): Idem,
 	but for presentation results.
