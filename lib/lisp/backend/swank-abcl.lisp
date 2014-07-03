@@ -52,19 +52,19 @@
   nil)
 
 (defun specializer-direct-methods (spec)
-  (mop::class-direct-methods spec))
+  (mop:class-direct-methods spec))
 
 (defun slot-definition-name (slot)
-  (mop::slot-definition-name slot))
+  (mop:slot-definition-name slot))
 
 (defun class-slots (class)
   (mop:class-slots class))
 
 (defun method-generic-function (method)
-  (mop::%method-generic-function method))
+  (mop:method-generic-function method))
 
 (defun method-function (method)
-  (mop::%method-function method))
+  (mop:method-function method))
 
 (defun slot-boundp-using-class (class object slotdef)
   (declare (ignore class))
@@ -82,47 +82,47 @@
    cl:standard-class
    #+#.(swank-backend:with-symbol 'compute-applicable-methods-using-classes 
          'mop)
-   mop::compute-applicable-methods-using-classes
+   mop:compute-applicable-methods-using-classes
    ;; standard-class readers
-   mop::class-default-initargs
-   mop::class-direct-default-initargs
-   mop::class-direct-slots
-   mop::class-direct-subclasses
-   mop::class-direct-superclasses
-   mop::eql-specializer
-   mop::class-finalized-p 
+   mop:class-default-initargs
+   mop:class-direct-default-initargs
+   mop:class-direct-slots
+   mop:class-direct-subclasses
+   mop:class-direct-superclasses
+   mop:eql-specializer
+   mop:class-finalized-p 
    mop:finalize-inheritance
    cl:class-name
-   mop::class-precedence-list
+   mop:class-precedence-list
    class-prototype ;;dummy
    class-slots
    specializer-direct-methods 
    ;; eql-specializer accessors
    mop::eql-specializer-object
    ;; generic function readers
-   mop::generic-function-argument-precedence-order
+   mop:generic-function-argument-precedence-order
    generic-function-declarations ;;dummy
-   mop::generic-function-lambda-list
-   mop::generic-function-methods
-   mop::generic-function-method-class
-   mop::generic-function-method-combination
-   mop::generic-function-name
+   mop:generic-function-lambda-list
+   mop:generic-function-methods
+   mop:generic-function-method-class
+   mop:generic-function-method-combination
+   mop:generic-function-name
    ;; method readers
    method-generic-function
    method-function
-   mop::method-lambda-list
-   mop::method-specializers
-   mop::method-qualifiers
+   mop:method-lambda-list
+   mop:method-specializers
+   mop:method-qualifiers
    ;; slot readers
-   mop::slot-definition-allocation
+   mop:slot-definition-allocation
    slot-definition-documentation ;;dummy
-   mop::slot-definition-initargs
-   mop::slot-definition-initform
-   mop::slot-definition-initfunction
+   mop:slot-definition-initargs
+   mop:slot-definition-initform
+   mop:slot-definition-initfunction
    slot-definition-name
    slot-definition-type ;;dummy
-   mop::slot-definition-readers
-   mop::slot-definition-writers
+   mop:slot-definition-readers
+   mop:slot-definition-writers
    slot-boundp-using-class
    slot-value-using-class
    ))
@@ -647,18 +647,18 @@ part of *sysdep-pathnames* in swank.loader.lisp.
 
 (defmethod emacs-inspect ((slot mop::slot-definition))
   `("Name: " 
-    (:value ,(mop::%slot-definition-name slot))
+    (:value ,(mop:slot-definition-name slot))
     (:newline)
     "Documentation:" (:newline)
     ,@(when (slot-definition-documentation slot)
             `((:value ,(slot-definition-documentation slot)) (:newline)))
     "Initialization:" (:newline)
-    "  Args: " (:value ,(mop::%slot-definition-initargs slot)) (:newline)
-    "  Form: "  ,(if (mop::%slot-definition-initfunction slot)
-                     `(:value ,(mop::%slot-definition-initform slot))
+    "  Args: " (:value ,(mop:slot-definition-initargs slot)) (:newline)
+    "  Form: "  ,(if (mop:slot-definition-initfunction slot)
+                     `(:value ,(mop:slot-definition-initform slot))
                      "#<unspecified>") (:newline)
                      "  Function: " 
-                     (:value ,(mop::%slot-definition-initfunction slot))
+                     (:value ,(mop:slot-definition-initfunction slot))
                      (:newline)))
 
 (defmethod emacs-inspect ((f function))
