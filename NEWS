@@ -1,5 +1,12 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
 
+* 2.8 (July 2014)
+** Core
+*** Inspector fixes and improvements for SBCL.
+
+** Contribs
+*** Kawa backend supports Kawa 1.14.
+
 * 2.7 (June 2014)
 
 ** Core

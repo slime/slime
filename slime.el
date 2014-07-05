@@ -3,7 +3,7 @@
 ;; URL: https://github.com/slime/slime
 ;; Package-Requires: ((cl-lib "0.5"))
 ;; Keywords: languages, lisp, slime
-;; Version: 2.7
+;; Version: 2.8
 
 ;;;; License
 ;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
