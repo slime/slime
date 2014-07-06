@@ -1,3 +1,13 @@
+2014-07-03  Mark Evenson  <evenson.not.org@gmail.com>
+
+	* swank-abcl.lisp: Adjust MOP symbols to publically exported
+	version.
+
+2014-07-03  Mark Evenson  <evenson.not.org@gmail.com>
+
+   	* swank-abcl.lisp (frame-locals): Implement inspection of sldb
+ 	frame args.  Thanks to Theam Yong Chew.
+
 2014-06-17  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sbcl.lisp (emacs-inspect sb-kernel:code-component):
