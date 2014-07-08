@@ -1,3 +1,8 @@
+2014-06-29  Bart Botta  <00003b@gmail.com>
+
+	* contrib/swank-c-p-c.lisp (completions): Bind *PACKAGE* so local
+	package nicknames/aliases can be used to find symbols.
+
 2014-06-17  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sbcl.lisp (emacs-inspect sb-kernel:code-component):
