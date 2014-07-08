@@ -44,12 +44,14 @@ Otherwise NIL is returned."
                   (setq found v))))
     found))
 
+(defparameter *valid-operator-symbol-p-hooks*
+  (list 'fboundp 'macro-function 'special-operator-p
+        (lambda (symbol) (member symbol '(declare declaim))))
+  "List of functions to call to determine if a symbol names a valid operator.")
+
 (defun valid-operator-symbol-p (symbol)
   "Is SYMBOL the name of a function, a macro, or a special-operator?"
-  (or (fboundp symbol)
-      (macro-function symbol)
-      (special-operator-p symbol)
-      (member symbol '(declare declaim))))
+  (some (lambda (a) (funcall a symbol)) *valid-operator-symbol-p-hooks*))
 
 (defun function-exists-p (form)
   (and (valid-function-name-p form)

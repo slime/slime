@@ -219,7 +219,7 @@
         (intern (write-to-string x)))))
    tree))
                
-(defimplementation arglist (symbol-or-function)
+(defimplementation %arglist (symbol-or-function)
   (let ((arglist (lw:function-lambda-list symbol-or-function)))
     (etypecase arglist
       ((member :dont-know) 

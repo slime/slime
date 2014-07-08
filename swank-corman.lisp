@@ -293,7 +293,7 @@
 (defimplementation find-definitions (name)
   (list (list name (fspec-location name))))
 
-(defimplementation arglist (name)
+(defimplementation %arglist (name)
   (handler-case
       (cond ((and (symbolp name)
                   (macro-function name))

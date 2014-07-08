@@ -253,7 +253,7 @@
 
 ;;;; Misc
 
-(defimplementation arglist (fun)
+(defimplementation %arglist (fun)
   (cond ((symbolp fun)
           (multiple-value-bind (arglist present) 
               (sys::arglist fun)
