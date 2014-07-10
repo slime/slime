@@ -132,17 +132,38 @@ emptied.See also `sly-mrepl-hook'")
 
 (defun sly-mrepl--mark () (process-mark (sly-mrepl--process)))
 
+(defmacro sly-mrepl--commiting-text (&rest body)
+  (let ((start-sym (cl-gensym)))
+    `(let ((,start-sym (marker-position (sly-mrepl--mark)))
+           (inhibit-read-only t))
+       ,@body
+       (add-text-properties ,start-sym (sly-mrepl--mark)
+                            '(read-only t front-sticky (read-only))))))
+
 (defun sly-mrepl--insert (string)
-  (comint-output-filter (sly-mrepl--process) string))
+  (sly-mrepl--commiting-text
+   (comint-output-filter (sly-mrepl--process) string)))
 
 (defun sly-mrepl--insert-output (string)
-  (let ((inhibit-read-only t))
+  (let ((inhibit-read-only t)
+        (start (marker-position sly-mrepl--output-mark)))
     (save-excursion
       (goto-char sly-mrepl--output-mark)
       (unless (looking-at "\n")
         (save-excursion
           (insert "\n")))
-      (insert-before-markers string))))
+      (insert-before-markers string)
+      (add-text-properties start (point) '(read-only t)))))
+
+(defun sly-mrepl--send-input ()
+  (goto-char (point-max))
+  (skip-chars-backward "\n\t\s")
+  (delete-region (max (point)
+                      (sly-mrepl--mark))
+                 (point-max))
+  (buffer-disable-undo)
+  (sly-mrepl--commiting-text
+   (comint-send-input)))
 
 (sly-define-channel-method listener :prompt (package prompt)
   (with-current-buffer (sly-channel-get self 'buffer)
@@ -162,7 +183,8 @@ emptied.See also `sly-mrepl-hook'")
                        (t "\n")))
   (set-marker sly-mrepl--output-mark (sly-mrepl--mark))
   (sly-mrepl--insert (format "%s> " prompt))
-  (sly-mrepl--recenter))
+  (sly-mrepl--recenter)
+  (buffer-enable-undo))
 
 (defun sly-mrepl--recenter ()
   (when (get-buffer-window)
@@ -211,14 +233,6 @@ emptied.See also `sly-mrepl-hook'")
 	     (message "[Listener waiting for input to read]"))
       (:eval (setq sly-mrepl--expect-sexp-mode t)
              (message "[Listener waiting for sexps to eval]")))))
-
-(defun sly-mrepl--send-input ()
-  (goto-char (point-max))
-  (skip-chars-backward "\n\t\s")
-  (delete-region (max (point)
-                      (sly-mrepl--mark))
-                 (point-max))
-  (comint-send-input))
 
 (defun sly-mrepl--busy-p ()
   (>= sly-mrepl--output-mark (sly-mrepl--mark)))
