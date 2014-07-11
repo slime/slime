@@ -302,12 +302,14 @@ global variabes in SWANK."
                                      :type "lisp"
                                      :defaults dir)))
                     *load-path*)))
+        (assert src-file
+                nil
+                "Required module ~a but no source file found in ~a" module *load-path*)
         (compile-files (list src-file)
                        (module-binary-dir src-file)
                        'load
                        nil)
-        (require (module))
-        ;; Actually require itself should raise a similar error...
         (assert (provided)
                 nil
-                "Required module ~s was not provided" module)))))
+                "Compiled and loaded ~a but required module ~s was not
+                provided" src-file module)))))
