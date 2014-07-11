@@ -17,7 +17,10 @@
    ;; FIXME: ugly
    (add-hook 'sly-trace-dialog-mode-hook
              #'(lambda ()
-                 (local-set-key (kbd "M-RET") 'sly-trace-dialog-copy-down-to-repl)))))
+                 (local-set-key (kbd "M-RET") 'sly-trace-dialog-copy-down-to-repl)))
+   (setq sly-connection-list-button-action #'(lambda (process)
+                                               (let ((sly-default-connection process))
+                                                 (sly-mrepl 'interactive))))))
 
 (require 'comint)
 
