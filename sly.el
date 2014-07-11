@@ -506,16 +506,13 @@ information."
     ;; implicitly invoke `sly-connection' which may query the user.
     (if (not conn)
         (and (symbol-value 'sly-mode) " SLY")
-      (let ((local (eq conn sly-buffer-connection))
-            (pkg   (sly-current-package)))
+      (let ((pkg   (sly-current-package)))
         (concat " "
-                (if local "{" "[")
-                (if pkg (sly-pretty-package-name pkg) "?")
-                " "
+                (if pkg
+                    (concat (sly-pretty-package-name pkg) " "))
                 ;; ignore errors for closed connections
                 (ignore-errors (sly-connection-name conn))
-                (sly-modeline-state-string conn)
-                (if local "}" "]"))))))
+                (sly-modeline-state-string conn))))))
 
 (defun sly-pretty-package-name (name)
   "Return a pretty version of a package name NAME."
