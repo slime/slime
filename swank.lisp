@@ -1491,7 +1491,7 @@ Return nil if nothing appropriate is available."
 \(&key PID STYLE LISP-IMPLEMENTATION MACHINE FEATURES PACKAGE VERSION)
 PID: is the process-id of Lisp process (or nil, depending on the STYLE)
 STYLE: the communication style
-LISP-IMPLEMENTATION: a list (&key TYPE NAME VERSION)
+LISP-IMPLEMENTATION: a list (&key TYPE NAME VERSION PROGRAM)
 FEATURES: a list of keywords
 PACKAGE: a list (&key NAME PROMPT)
 VERSION: the protocol version"
