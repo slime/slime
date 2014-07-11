@@ -435,8 +435,9 @@ PROPERTIES specifies any default face properties."
     (define-key map (kbd "C-w")  sly-who-map)
     map))
 
-(defvar sly-parent-map
+(defvar sly-mode-map
   (let ((map (make-sparse-keymap)))
+    ;; These used to be a `sly-parent-map'
     (define-key map (kbd "M-.")     'sly-edit-definition)
     (define-key map (kbd "M-,")     'sly-pop-find-definition-stack)
     (define-key map (kbd "M-_")     'sly-edit-uses)    ; for German layout
@@ -447,10 +448,6 @@ PROPERTIES specifies any default face properties."
     (define-key map (kbd "C-M-x")   'sly-eval-defun)
     ;; Include PREFIX keys...
     (define-key map (kbd "C-c")     sly-prefix-map)
-    map))
-
-(defvar sly-mode-map
-  (let ((map (make-sparse-keymap)))
     ;; Completion
     (define-key map (kbd "C-c TAB") 'sly-complete-symbol)
     ;; Evaluating
@@ -462,7 +459,6 @@ PROPERTIES specifies any default face properties."
     (define-key map (kbd "C-c C-u") 'sly-undefine-function)
     (define-key map (kbd "C-M-.") 'sly-next-location)
     (define-key map (kbd "C-M-,") 'sly-previous-location)
-    (set-keymap-parent map sly-parent-map)
     map))
 
 (defvar sly-editing-mode-map
@@ -813,8 +809,6 @@ MODE is the name of a major mode which will be enabled.
              `(sly-popup-buffer-mode
                (:eval (unless sly-mode
                         (sly-modeline-string)))))
-
-(set-keymap-parent sly-popup-buffer-mode-map sly-parent-map)
 
 ;;;;; Filename translation
 ;;;
@@ -5071,12 +5065,10 @@ Full list of commands:
   (set-syntax-table sldb-mode-syntax-table)
   (sly-set-truncate-lines)
   ;; Make original sly-connection "sticky" for SLDB commands in this buffer
-  (setq sly-buffer-connection (sly-connection)))
-
-(set-keymap-parent sldb-mode-map sly-parent-map)
+  (setq sly-buffer-connection (sly-connection))
+  (sly-mode))
 
 (sly-define-keys sldb-mode-map
-
   ((kbd "RET") 'sldb-default-action)
   ("\C-m"      'sldb-default-action)
   ([return] 'sldb-default-action)
@@ -6549,7 +6541,6 @@ If ARG is negative, move forwards."
              (list (append i2 i1) l2 s2 e1))
             (t (error "Invalid chunks"))))))
 
-(set-keymap-parent sly-inspector-mode-map sly-parent-map)
 
 (sly-define-keys sly-inspector-mode-map
   ([return] 'sly-inspector-operate-on-point)
