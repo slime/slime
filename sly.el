@@ -6082,27 +6082,56 @@ was called originally."
 
 ;;;;; Connection listing
 
-(define-derived-mode sly-connection-list-mode fundamental-mode
+(define-derived-mode sly-connection-list-mode tabulated-list-mode
   "SLY-Connections"
   "SLY Connection List Mode.
 
 \\{sly-connection-list-mode-map}
 \\{sly-popup-buffer-mode-map}"
-  (when sly-truncate-lines
-    (set (make-local-variable 'truncate-lines) t)))
+  (set (make-local-variable 'tabulated-list-format)
+       `[("Default" 8) ("Name" 24 t) ("Host" 12)
+         ("Port" 6) ("Pid" 6 t) ("Type" 1000 t)])
+  (tabulated-list-init-header))
 
 (sly-define-keys sly-connection-list-mode-map
   ("d"         'sly-connection-list-make-default)
   ("g"         'sly-update-connection-list)
+  ((kbd "RET") 'sly-connection-list-default-action)
+  ("\C-m"      'sly-connection-list-default-action)
   ((kbd "C-k") 'sly-quit-connection-at-point)
   ("R"         'sly-restart-connection-at-point))
 
-(defun sly-connection-at-point ()
-  (or (get-text-property (point) 'sly-connection)
+(defun sly--connection-at-point ()
+  (or (get-text-property (point) 'tabulated-list-id)
       (error "No connection at point")))
 
+(defvar sly-connection-list-button-action nil)
+
+(defun sly-connection-list-default-action (connection)
+  (interactive (list (sly--connection-at-point)))
+  (funcall sly-connection-list-button-action connection))
+
+(defun sly-update-connection-list ()
+  (interactive)
+  (set (make-local-variable 'tabulated-list-entries)
+       (mapcar #'(lambda (p)
+                   (list p
+                         `[,(if (eq sly-default-connection p) "*" " ")
+                           (,(file-name-nondirectory (sly-connection-name p))
+                            action ,#'(lambda (_button)
+                                        (and sly-connection-list-button-action
+                                             (funcall sly-connection-list-button-action p))))
+                           ,(first (process-contact p))
+                           ,(format "%s" (second (process-contact p)))
+                           ,(format "%s" (sly-pid p))
+                           ,(sly-lisp-implementation-type p)]))
+               (reverse sly-net-processes)))
+  (let ((p (point)))
+    (tabulated-list-print)
+    (goto-char p)))
+
 (defun sly-quit-connection-at-point (connection)
-  (interactive (list (sly-connection-at-point)))
+  (interactive (list (sly--connection-at-point)))
   (let ((sly-dispatching-connection connection)
         (end (time-add (current-time) (seconds-to-time 3))))
     (sly-quit-lisp t)
@@ -6114,7 +6143,7 @@ was called originally."
   (sly-update-connection-list))
 
 (defun sly-restart-connection-at-point (connection)
-  (interactive (list (sly-connection-at-point)))
+  (interactive (list (sly--connection-at-point)))
   (let ((sly-dispatching-connection connection))
     (sly-restart-inferior-lisp)))
 
@@ -6124,43 +6153,13 @@ was called originally."
   (sly-select-connection (sly-connection-at-point))
   (sly-update-connection-list))
 
-(defvar sly-connections-buffer-name (sly-buffer-name :connections))
-
 (defun sly-list-connections ()
   "Display a list of all connections."
   (interactive)
-  (sly-with-popup-buffer (sly-connections-buffer-name
-                            :mode 'sly-connection-list-mode)
-    (sly-draw-connection-list)))
+  (sly-with-popup-buffer ((sly-buffer-name :connections)
+                          :mode 'sly-connection-list-mode)
+    (sly-update-connection-list)))
 
-(defun sly-update-connection-list ()
-  "Display a list of all connections."
-  (interactive)
-  (let ((pos (point))
-        (inhibit-read-only t))
-    (erase-buffer)
-    (sly-draw-connection-list)
-    (goto-char pos)))
-
-(defun sly-draw-connection-list ()
-  (let ((default-pos nil)
-        (default sly-default-connection)
-        (fstring "%s%2s  %-10s  %-17s  %-7s %-s\n"))
-    (insert (format fstring " " "Nr" "Name" "Port" "Pid" "Type")
-            (format fstring " " "--" "----" "----" "---" "----"))
-    (dolist (p (reverse sly-net-processes))
-      (when (eq default p) (setf default-pos (point)))
-      (sly-insert-propertized
-       (list 'sly-connection p)
-       (format fstring
-               (if (eq default p) "*" " ")
-               (sly-connection-number p)
-               (sly-connection-name p)
-               (or (process-id p) (process-contact p))
-               (sly-pid p)
-               (sly-lisp-implementation-type p))))
-    (when default-pos
-      (goto-char default-pos))))
 
 
 ;;;; Inspector
@@ -6668,7 +6667,7 @@ switch-to-buffer."
 (def-sly-selector-method ?c
   "SLY connections buffer."
   (sly-list-connections)
-  sly-connections-buffer-name)
+  (sly-buffer-name :connections))
 
 (def-sly-selector-method ?n
   "Cycle to the next Lisp connection."
