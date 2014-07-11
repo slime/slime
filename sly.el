@@ -1763,6 +1763,8 @@ This is automatically synchronized from Lisp.")
       (top-level)))
 
 (defun sly-generate-connection-name (lisp-name)
+  (when (file-exists-p lisp-name)
+      (setq lisp-name (file-name-nondirectory lisp-name)))
   (cl-loop for i from 1
            for name = lisp-name then (format "%s<%d>" lisp-name i)
            while (cl-find name sly-net-processes
