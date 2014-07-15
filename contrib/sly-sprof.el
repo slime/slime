@@ -26,7 +26,8 @@
 \\<sly-sprof-browser-mode-map>\
 \\{sly-sprof-browser-mode-map}"
   :syntax-table lisp-mode-syntax-table
-  (setq buffer-read-only t))
+  (setq buffer-read-only t)
+  (sly-mode))
 
 (set-keymap-parent sly-sprof-browser-mode-map sly-parent-map)
 

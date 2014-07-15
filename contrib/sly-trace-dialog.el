@@ -70,7 +70,6 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
     (set-keymap-parent map sly-inspector-mode-map)
     (cl-loop for (old . new) in remaps
              do (substitute-key-definition old new map))
-    (set-keymap-parent map sly-parent-map)
     (define-key map (kbd "G") 'sly-trace-dialog-fetch-traces)
     (define-key map (kbd "C-k") 'sly-trace-dialog-clear-fetched-traces)
     (define-key map (kbd "g") 'sly-trace-dialog-fetch-status)
@@ -82,7 +81,8 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   (set-syntax-table lisp-mode-syntax-table)
   (read-only-mode 1)
   (add-to-list (make-local-variable 'sly-trace-dialog-after-toggle-hook)
-               'sly-trace-dialog-fetch-status))
+               'sly-trace-dialog-fetch-status)
+  (sly-mode))
 
 (define-derived-mode sly-trace-dialog--detail-mode sly-inspector-mode
   "SLY Trace Detail"
