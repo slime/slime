@@ -1,4 +1,5 @@
 ;;; -*- lisp -*-
+(in-package :asdf)
 
 ;; ASDF system definition for loading the Swank server independently
 ;; of Emacs.
@@ -6,7 +7,7 @@
 ;; Usage:
 ;;
 ;;   (asdf:load-system :swank)
-;;   (swank:create-server PORT) => ACTUAL-PORT
+;;   (swank:create-server :port PORT) => ACTUAL-PORT
 ;;
 ;; (PORT can be zero to mean "any available port".)
 ;; Then the Swank server is running on localhost:ACTUAL-PORT. You can
@@ -53,6 +54,14 @@
    (:file "swank-match")
    (:file "swank-rpc")
    (:file "swank")))
+
+(defmethod perform :after ((o load-op) (c (eql (find-system :swank))))
+  (format *error-output* "&SWANK's ASDF loader finished")
+  (funcall (read-from-string "swank::init")))
+
+
+;;; Contrib systems (should probably go into their own file one day)
+;;;
 
 (defsystem :swank-util
   :components ((:file "contrib/swank-util")))

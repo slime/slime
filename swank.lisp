@@ -765,8 +765,6 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
                                     (dont-close *dont-close*))
   "Start the server and write the listen port number to PORT-FILE.
 This is the entry point for Emacs."
-  (unless (member :swank *features*)
-    (init))
   (setup-server 0
                 (lambda (port) (announce-server-port port-file port))
                 style dont-close nil))
@@ -3780,12 +3778,20 @@ Collisions are caused because package information is ignored."
 
 
 
-(defun before-init ()
-  (unless (member :swank *features*)
-    (pushnew :swank *features*)
-    (swank-backend::warn-unimplemented-interfaces)))
+(defun load-user-init-file ()
+  "Load the user init file, return NIL if it does not exist."
+  (or (load (merge-pathnames (user-homedir-pathname)
+                             (make-pathname :name ".swank" :type "lisp"))
+            :if-does-not-exist nil)
+      (load (merge-pathnames (user-homedir-pathname)
+                             (make-pathname :name ".swankrc"))
+            :if-does-not-exist nil)))
 
 (defun init ()
+  (unless (member :swank *features*)
+    (pushnew :swank *features*)
+    (swank-backend::warn-unimplemented-interfaces))
+  (load-user-init-file)
   (run-hook *after-init-hook*))
 
 ;; Local Variables:

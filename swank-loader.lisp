@@ -209,17 +209,6 @@ If LOAD is true, load the fasl file."
       (load file :verbose (not quiet)
       (force-output)))))
 
-(defun load-user-init-file ()
-  "Load the user init file, return NIL if it does not exist."
-  (load (merge-pathnames (user-homedir-pathname)
-                         (make-pathname :name ".swank" :type "lisp"))
-        :if-does-not-exist nil))
-
-(defun load-site-init-file (dir)
-  (load (make-pathname :name "site-init" :type "lisp"
-                       :defaults dir)
-        :if-does-not-exist nil))
-
 (defun src-files (names src-dir)
   (mapcar (lambda (name)
             (make-pathname :name (string-downcase name) :type "lisp"
@@ -232,8 +221,7 @@ If LOAD is true, load the fasl file."
 (defun load-swank (&key (src-dir *source-directory*)
                      (fasl-dir *fasl-directory*)
                      quiet)
-  (compile-files (src-files *swank-files* src-dir) fasl-dir t quiet)
-  (funcall (q "swank::before-init")))
+  (compile-files (src-files *swank-files* src-dir) fasl-dir t quiet))
 
 (defun delete-stale-contrib-fasl-files (swank-files contrib-files fasl-dir)
   (let ((newest (reduce #'max (mapcar #'file-write-date swank-files))))
@@ -247,8 +235,6 @@ If LOAD is true, load the fasl file."
   (load-swank))
 
 (defun setup ()
-  (load-site-init-file *source-directory*)
-  (load-user-init-file)
   (funcall (q "swank::init")))
 
 (defun init (&key delete reload (setup t)
