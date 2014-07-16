@@ -84,15 +84,6 @@
 (defsystem :swank-presentations
   :components ((:file "contrib/swank-presentations")))
 
-#+sbcl
-(defsystem :swank/sbcl-pprint-patch
-  :depends-on (:swank)
-  :components ((:file "sbcl-pprint-patch")))
-
-(defsystem :swank-presentation-streams
-  :depends-on (#+sbcl :swank/sbcl-pprint-patch)
-  :components ((:file "contrib/swank-presentation-streams")))
-
 (defsystem :swank-asdf
   :components ((:file "contrib/swank-asdf")))
 
@@ -138,7 +129,6 @@
    :swank-util :swank-repl
    :swank-c-p-c :swank-arglists :swank-fuzzy
    :swank-fancy-inspector
-   :swank-presentations :swank-presentation-streams
    #+(or asdf2 asdf3 sbcl ecl) :swank-asdf
    :swank-package-fu
    :swank-hyperdoc
