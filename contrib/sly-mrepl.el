@@ -68,8 +68,6 @@ emptied.See also `sly-mrepl-hook'")
                 (sly-mrepl--result-counter -1)
                 (sly-mrepl--output-mark ,(point-marker)))
            do (set (make-local-variable var) value))
-  
-  
   (set-marker-insertion-type sly-mrepl--output-mark nil)
   ;;(set (make-local-variable 'comint-get-old-input) 'ielm-get-old-input)
   (set-syntax-table lisp-mode-syntax-table))
@@ -89,8 +87,6 @@ emptied.See also `sly-mrepl-hook'")
                                  (format "*sly-mrepl %s*" (sly-connection-name connection))))))
     (with-current-buffer buffer
       (sly-mrepl-mode)
-      (unless (file-readable-p comint-input-ring-file-name)
-        (with-temp-buffer (write-file comint-input-ring-file-name)))
       (setq sly-buffer-connection connection)
       (start-process (format "sly-pty-%s-%s"
                              (process-get connection
@@ -109,7 +105,7 @@ emptied.See also `sly-mrepl-hook'")
       (lambda (result)
         (cl-destructuring-bind (remote thread-id package prompt) result
           (with-current-buffer buffer
-            (comint-read-input-ring)
+            (sly-mrepl-read-input-ring)
             (setq header-line-format nil)
             (when (zerop (buffer-size))
               (sly-mrepl--insert (concat "; SLY " (sly-version))))
@@ -398,12 +394,20 @@ If message can't be sent right now, queue it onto
          (sly-mrepl--open-dedicated-stream self port nil))))
 
 
-;;; Teardown
+;;; Misc
 ;;;
+(defvar sly-mrepl-history-separator "####\n")
+
+(defun sly-mrepl-read-input-ring ()
+  (let ((comint-input-ring-separator sly-mrepl-history-separator))
+    (comint-read-input-ring)))
+  
 
 (defun sly-mrepl--merge-and-save-history ()
   (let* ((current-ring (copy-tree comint-input-ring 'vectors-too))
-         (index (ring-length current-ring)))
+         (index (ring-length current-ring))
+         (comint-input-ring-separator sly-mrepl-history-separator))
+
     ;; this sets comint-input-ring from the file
     ;; 
     (comint-read-input-ring)
