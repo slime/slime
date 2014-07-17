@@ -6150,7 +6150,7 @@ was called originally."
 (defun sly-connection-list-make-default ()
   "Make the connection at point the default connection."
   (interactive)
-  (sly-select-connection (sly-connection-at-point))
+  (sly-select-connection (sly--connection-at-point))
   (sly-update-connection-list))
 
 (defun sly-list-connections ()
