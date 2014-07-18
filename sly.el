@@ -7254,6 +7254,12 @@ The returned bounds are either nil or non-empty."
           (t t))))
 
 
+;;;; Buttons
+;;;; 
+(define-button-type 'sly
+  'face 'sly-inspectable-value-face)
+
+
 ;;;; sly.el in pretty colors
 
 (cl-loop for sym in (list 'sly-def-connection-var

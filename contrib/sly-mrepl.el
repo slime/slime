@@ -194,24 +194,44 @@ emptied.See also `sly-mrepl-hook'")
   (with-current-buffer (sly-channel-get self 'buffer)
     (sly-mrepl--insert string)))
 
-(define-button-type 'sly
-  'face 'sly-inspectable-value-face)
+(defvar sly-mrepl--result-button-keymap
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "M-RET") 'sly-mrepl-copy-down-to-repl)
+    (define-key map (kbd "RET") 'sly-mrepl-inspect-object-at-point)
+    map))
+
+(defun sly-mrepl--make-result-button (label object-idx value-idx)
+  (make-text-button label nil
+                    'keymap sly-mrepl--result-button-keymap
+                    'sly-mrepl--object-indexes (list object-idx value-idx)
+                    :type 'sly))
+
+(defun sly-mrepl--get-object-indexes-at-point ()
+  (let ((props (get-text-property (point) 'sly-mrepl--object-indexes)))
+    (or props
+        (error "no MREPL object at point"))))
+
+(defun sly-mrepl--insert-returned-values (values)
+  (cl-incf sly-mrepl--result-counter)
+  (let* ((comint-preoutput-filter-functions nil))
+    (cl-loop for (value . more) on values
+             for idx from 0
+             do
+             (sly-mrepl--insert (sly-mrepl--make-result-button value sly-mrepl--result-counter idx))
+             when more do (sly-mrepl--insert "\n"))
+    (when (null values)
+      (sly-mrepl--insert "; No values"))))
 
 (sly-define-channel-method listener :write-values (values)
   (with-current-buffer (sly-channel-get self 'buffer)
-    (cl-incf sly-mrepl--result-counter)
-    (let* ((comint-preoutput-filter-functions nil))
-      (cl-loop for (value . more) on values
-               for idx from 0
-               for request = `(:inspect ,sly-mrepl--result-counter ,idx)
-               do
-               (sly-mrepl--insert (make-text-button value nil
-                                                    'action `(lambda (_button)
-                                                               (sly-mrepl--send ',request))
-                                                    :type 'sly))
-               when more do (sly-mrepl--insert "\n"))
-      (when (null values)
-        (sly-mrepl--insert "; No values")))))
+    (sly-mrepl--insert-returned-values values)))
+
+(sly-define-channel-method listener :copy-object-to-repl (object)
+  (with-current-buffer (sly-channel-get self 'buffer)
+    (comint-output-filter (sly-mrepl--process) "\n")
+    (sly-mrepl--insert-returned-values (list object))
+    (pop-to-buffer (current-buffer))
+    (goto-char (sly-mrepl--mark))))
 
 (sly-define-channel-method listener :evaluation-aborted (&optional condition)
   (with-current-buffer (sly-channel-get self 'buffer)
@@ -221,7 +241,7 @@ emptied.See also `sly-mrepl-hook'")
   (with-current-buffer (sly-channel-get self 'buffer)
     (sly-mrepl--insert-output string)))
 
-(sly-define-channel-method listener :inspect-result (parts)
+(sly-define-channel-method listener :inspect-object (parts)
   (cl-assert (sly-channel-p self))
   (sly-open-inspector parts))
 
@@ -320,17 +340,22 @@ If message can't be sent right now, queue it onto
     (goto-char (point-max))))
 
 
-;;; copy-down-to-REPL behaviour
+;;; copy-down-to-repl and inspection behaviour
 ;;;
+(defun sly-mrepl-inspect-object-at-point (object-idx value-idx)
+  (interactive (sly-mrepl--get-object-indexes-at-point))
+  (sly-mrepl--send `(:inspect-object ,object-idx ,value-idx)))
+
+(defun sly-mrepl-copy-down-to-repl (object-idx value-idx)
+  (interactive (sly-mrepl--get-object-indexes-at-point))
+  (sly-mrepl--send `(:copy-object-to-repl (,object-idx ,value-idx))))
+
 (defun sly-mrepl--eval-for-repl (slyfun &rest args)
   (sly-eval-async
-   `(swank-mrepl:listener-save-value ',slyfun ,@args)
+   `(swank-mrepl:globally-save-object ',slyfun ,@args)
    #'(lambda (_ignored)
        (with-current-buffer (sly-mrepl--find-create (sly-connection))
-         (comint-output-filter (sly-mrepl--process) "\n")
-         (sly-mrepl--send `(:produce-saved-value))
-         (pop-to-buffer (current-buffer))
-         (goto-char (sly-mrepl--mark))))))
+         (sly-mrepl--send `(:copy-object-to-repl))))))
 
 (defun sly-inspector-copy-down-to-repl (number)
   "Evaluate the inspector slot at point via the REPL (to set `*')."

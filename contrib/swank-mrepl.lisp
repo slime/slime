@@ -35,18 +35,18 @@
 (defpackage :swank-mrepl
   (:use :cl :swank-api)
   (:export #:create-mrepl
-           #:listener-save-value
+           #:globally-save-object
            #:eval-in-mrepl))
 
 (in-package :swank-mrepl)
 
 (defclass listener-channel (channel)
-  ((remote     :initarg  :remote :accessor remote)
-   (env        :initarg  :env    :accessor env)
+  ((remote     :initarg  :remote :reader channel-remote)
+   (env        :initarg  :env    :accessor channel-env)
    (mode       :initform :eval   :accessor channel-mode)
    (tag        :initform nil)
-   (out                          :reader out)
-   (in                           :reader in)))
+   (out                          :reader channel-out)
+   (in                           :reader channel-in)))
 
 (defmethod initialize-instance :after ((channel listener-channel)
                                        &rest initargs)
@@ -66,6 +66,16 @@
 (defun package-prompt (package)
   (reduce (lambda (x y) (if (<= (length x) (length y)) x y))
           (cons (package-name package) (package-nicknames package))))
+
+(defmacro with-listener-channel (channel &body body)
+  "Execute BODY inside CHANNEL's environment, update environment afterwards."
+  `(with-slots (env) ,channel
+     (with-bindings env
+       (unwind-protect
+            (progn
+              ,@body)
+         (loop for binding in env
+               do (setf (cdr binding) (symbol-value (car binding))))))))
 
 (defslyfun create-mrepl (remote)
   (let* ((pkg *package*)
@@ -91,8 +101,8 @@
 (defvar *history* nil)
 
 (defun initial-listener-env (channel)
-  (let* ((out (out channel))
-         (in (in channel))
+  (let* ((out (channel-out channel))
+         (in (channel-in channel))
          (io (make-two-way-stream in out)))
     `((cl:*package* . ,*package*)
       (cl:*standard-output* . ,out)
@@ -118,7 +128,7 @@
       (unwind-protect
            (process-requests t)
         (setf mode old-mode)))
-    (with-bindings (env channel)
+    (with-bindings (channel-env channel)
       (send-prompt channel))))
 
 (defun spawn-listener-thread (connection channel)
@@ -139,35 +149,24 @@
    :name (format nil "sly-mrepl-listener-ch-~a" (channel-id channel))))
 
 (define-channel-method :process ((c listener-channel) string)
-  (log-event ":process ~s~%" string)
   (ecase (channel-mode c)
       (:eval (mrepl-eval c string))
       (:read (mrepl-read c string))
       (:drop)))
 
-(define-channel-method :inspect ((c listener-channel) object-idx value-idx)
-  (log-event ":inspect ~s~%" object-idx)
-  (with-slots (remote env) c
-    (with-bindings env
-      (send-to-remote-channel
-       remote
-       `(:inspect-result
-         ,(swank::inspect-object (nth value-idx
-                                      (aref *history* object-idx))))))))
+(defun mrepl-get-object-from-history (entry-idx value-idx)
+  (nth value-idx (aref *history* entry-idx)))
+
+(define-channel-method :inspect-object ((c listener-channel) entry-idx value-idx)
+  (with-listener-channel c
+    (send-to-remote-channel
+       (channel-remote c)
+       `(:inspect-object
+         ,(swank::inspect-object (mrepl-get-object-from-history entry-idx value-idx))))))
 
 (define-channel-method :teardown ((c listener-channel))
-  (log-event ":teardown~%")
   (close-channel c)
   (throw 'stop-processing 'listener-teardown))
-
-(defvar *listener-saved-value* nil)
-
-(defslyfun listener-save-value (slyfun &rest args)
-  "Apply SLYFUN to ARGS and save the value.
- The saved value should be visible to all threads and retrieved via a
- :PRODUCE-SAVED-VALUE message."
-  (setq *listener-saved-value* (apply slyfun args))
-  t)
 
 (define-channel-method :sync-package-and-default-directory ((c listener-channel)
                                                             package-name
@@ -182,39 +181,52 @@
              (and package (setq *package* package))
              (list *package* *default-pathname-defaults*)))))))
 
-(define-channel-method :produce-saved-value ((c listener-channel))
-  (mrepl-eval c (let ((*package* (find-package :keyword)))
-                  (write-to-string '*listener-saved-value*))))
+(defvar *saved-object* nil)
+
+(defslyfun globally-save-object (slyfun &rest args)
+  "Apply SLYFUN to ARGS and save the value.
+ The saved value should be visible to all threads and retrieved via a
+ :COPY-OBJECT-TO-REPL message."
+  (setq *saved-object* (apply slyfun args))
+  t)
+
+(define-channel-method :copy-object-to-repl ((c listener-channel) &optional object-indexes)
+  (with-listener-channel c
+    ;; FIXME: Notice some duplication to MREPL-EVAL.
+    (let ((object (if object-indexes
+                      (mrepl-get-object-from-history (first object-indexes) (second object-indexes))
+                      *saved-object*)))
+      (setq *** **  ** *  * object)
+      (vector-push-extend (list object) *history*)
+      (send-to-remote-channel (channel-remote c) `(:copy-object-to-repl ,(swank::to-line object)))
+      (send-prompt c))))
 
 
 (defun mrepl-eval (channel string)
-  (with-slots (remote env) channel
-    (let ((aborted t))
-      (with-bindings env
-        (let (results)
-          (unwind-protect
-               (handler-bind
-                   ((error #'(lambda (err)
-                               (setq aborted err))))
-                 (setq results (with-sly-interrupts (read-eval string))
-                       aborted nil))
-            (flush-streams channel)
-            (cond (aborted
-                   (send-to-remote-channel remote
-                                           `(:evaluation-aborted
-                                             ,(prin1-to-string aborted))))
-                  (t
-                   (setq /// //  // /  / results
-                         *** **  ** *  * (car results)
-                         +++ ++  ++ + )
-                   (vector-push-extend results *history*)
-                   (send-to-remote-channel
-                    remote
-                    `(:write-values ,(mapcar #'swank::to-line
-                                             results)))
-                   (send-prompt channel)))
-            (loop for binding in env
-                  do (setf (cdr binding) (symbol-value (car binding))))))))))
+  (let ((aborted t)
+        (results))
+    (with-listener-channel channel
+      (unwind-protect
+           (handler-bind
+               ((error #'(lambda (err)
+                           (setq aborted err))))
+             (setq results (with-sly-interrupts (read-eval string))
+                   aborted nil))
+        (flush-streams channel)
+        (cond (aborted
+               (send-to-remote-channel (channel-remote channel)
+                                       `(:evaluation-aborted
+                                         ,(prin1-to-string aborted))))
+              (t
+               (setq /// //  // /  / results
+                     *** **  ** *  * (car results)
+                     +++ ++  ++ + )
+               (vector-push-extend results *history*)
+               (send-to-remote-channel
+                (channel-remote channel)
+                `(:write-values ,(mapcar #'swank::to-line
+                                         results)))
+               (send-prompt channel)))))))
 
 (defun flush-streams (channel)
   (with-slots (in out) channel
@@ -294,7 +306,7 @@ port. This is an optimized way for Lisp to deliver output to Emacs."
         (ef (swank::find-external-format-or-lose "utf-8")))
     (unwind-protect
          (let ((port (swank-backend:local-port socket)))
-           (send-to-remote-channel (remote channel)
+           (send-to-remote-channel (channel-remote channel)
                                    `(:open-dedicated-output-stream ,port nil))
            (let ((dedicated (swank-backend:accept-connection
                              socket
