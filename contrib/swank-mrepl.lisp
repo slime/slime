@@ -168,38 +168,40 @@
   (close-channel c)
   (throw 'stop-processing 'listener-teardown))
 
+(defun copy-values-to-repl (channel values)
+  ;; FIXME: Notice some duplication to MREPL-EVAL.
+  (setq /// //  // /  / values
+        *** **  ** *  * (car values))
+  (vector-push-extend values *history*)
+  (send-to-remote-channel (channel-remote channel)
+                          `(:copy-to-repl ,(mapcar #'swank::to-line values)))
+  (send-prompt channel))
+
 (define-channel-method :sync-package-and-default-directory ((c listener-channel)
                                                             package-name
                                                             directory)
-
-  (mrepl-eval
-   c (let ((*package* (find-package :keyword)))
-       (write-to-string
-        `(progn
-           (let ((package (swank::guess-package ,package-name)))
-             (swank:set-default-directory ,directory)
-             (and package (setq *package* package))
-             (list *package* *default-pathname-defaults*)))))))
+  (with-listener-channel c
+    (let ((package (swank::guess-package package-name)))
+      (swank:set-default-directory directory)
+      (and package (setq *package* package))
+      (copy-values-to-repl c (list *package* *default-pathname-defaults*)))))
 
 (defvar *saved-object* nil)
 
 (defslyfun globally-save-object (slyfun &rest args)
   "Apply SLYFUN to ARGS and save the value.
  The saved value should be visible to all threads and retrieved via a
- :COPY-OBJECT-TO-REPL message."
+ :COPY-TO-REPL message."
   (setq *saved-object* (apply slyfun args))
   t)
 
-(define-channel-method :copy-object-to-repl ((c listener-channel) &optional object-indexes)
+(define-channel-method :copy-to-repl ((c listener-channel) &optional object-indexes)
   (with-listener-channel c
     ;; FIXME: Notice some duplication to MREPL-EVAL.
     (let ((object (if object-indexes
                       (mrepl-get-object-from-history (first object-indexes) (second object-indexes))
                       *saved-object*)))
-      (setq *** **  ** *  * object)
-      (vector-push-extend (list object) *history*)
-      (send-to-remote-channel (channel-remote c) `(:copy-object-to-repl ,(swank::to-line object)))
-      (send-prompt c))))
+      (copy-values-to-repl c (list object)))))
 
 
 (defun mrepl-eval (channel string)

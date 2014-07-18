@@ -226,7 +226,7 @@ emptied.See also `sly-mrepl-hook'")
   (with-current-buffer (sly-channel-get self 'buffer)
     (sly-mrepl--insert-returned-values values)))
 
-(sly-define-channel-method listener :copy-object-to-repl (object)
+(sly-define-channel-method listener :copy-to-repl (objects)
   (with-current-buffer (sly-channel-get self 'buffer)
     (goto-char (sly-mrepl--mark))
     (let ((saved-text (buffer-substring (point) (point-max))))
@@ -235,7 +235,7 @@ emptied.See also `sly-mrepl-hook'")
       (sly-mrepl--commiting-text
        (let ((comint-input-sender 'sly-mrepl--dummy-sender))
          (comint-send-input)))
-      (sly-mrepl--insert-returned-values (list object))
+      (sly-mrepl--insert-returned-values objects)
       (pop-to-buffer (current-buffer))
       (goto-char (sly-mrepl--mark))
       (insert saved-text))))
@@ -357,14 +357,14 @@ If message can't be sent right now, queue it onto
 
 (defun sly-mrepl-copy-down-to-repl (object-idx value-idx)
   (interactive (sly-mrepl--get-object-indexes-at-point))
-  (sly-mrepl--send `(:copy-object-to-repl (,object-idx ,value-idx))))
+  (sly-mrepl--send `(:copy-to-repl (,object-idx ,value-idx))))
 
 (defun sly-mrepl--eval-for-repl (slyfun &rest args)
   (sly-eval-async
    `(swank-mrepl:globally-save-object ',slyfun ,@args)
    #'(lambda (_ignored)
        (with-current-buffer (sly-mrepl--find-create (sly-connection))
-         (sly-mrepl--send `(:copy-object-to-repl))))))
+         (sly-mrepl--send `(:copy-to-repl))))))
 
 (defun sly-inspector-copy-down-to-repl (number)
   "Evaluate the inspector slot at point via the REPL (to set `*')."
@@ -474,12 +474,9 @@ If message can't be sent right now, queue it onto
   (interactive)
   (let ((package (sly-current-package)))
     (with-current-buffer (sly-mrepl)
-      (comint-output-filter (sly-mrepl--process) "\n")
       (sly-mrepl--send `(:sync-package-and-default-directory
                          ,package
-                         ,default-directory))
-      (pop-to-buffer (current-buffer))
-      (goto-char (sly-mrepl--mark)))))
+                         ,default-directory)))))
 
 
 (def-sly-selector-method ?m
