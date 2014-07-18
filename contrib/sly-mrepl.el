@@ -228,10 +228,17 @@ emptied.See also `sly-mrepl-hook'")
 
 (sly-define-channel-method listener :copy-object-to-repl (object)
   (with-current-buffer (sly-channel-get self 'buffer)
-    (comint-output-filter (sly-mrepl--process) "\n")
-    (sly-mrepl--insert-returned-values (list object))
-    (pop-to-buffer (current-buffer))
-    (goto-char (sly-mrepl--mark))))
+    (goto-char (sly-mrepl--mark))
+    (let ((saved-text (buffer-substring (point) (point-max))))
+      (delete-region (point) (point-max))
+      (insert ";; ")
+      (sly-mrepl--commiting-text
+       (let ((comint-input-sender 'sly-mrepl--dummy-sender))
+         (comint-send-input)))
+      (sly-mrepl--insert-returned-values (list object))
+      (pop-to-buffer (current-buffer))
+      (goto-char (sly-mrepl--mark))
+      (insert saved-text))))
 
 (sly-define-channel-method listener :evaluation-aborted (&optional condition)
   (with-current-buffer (sly-channel-get self 'buffer)
@@ -292,6 +299,8 @@ emptied.See also `sly-mrepl-hook'")
 
 (defun sly-mrepl--input-sender (_proc string)
   (sly-mrepl--send-string (substring-no-properties string)))
+
+(defun sly-mrepl--dummy-sender (_proc _string))
 
 (defun sly-mrepl--send-string (string &optional _command-string)
   (sly-mrepl--send `(:process ,string)))
