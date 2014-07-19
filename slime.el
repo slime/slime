@@ -4539,11 +4539,6 @@ The most important commands:
   ([remap previous-line] 'slime-xref-prev-line)
   )
 
-(defun slime-next-line/not-add-newlines ()
-  (interactive)
-  (let ((next-line-add-newlines nil))
-    (forward-line 1)))
-
 
 ;;;;; XREF results buffer and window management
 

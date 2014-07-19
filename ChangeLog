@@ -1,4 +1,9 @@
 2014-07-19  Bart Botta  <00003b@gmail.com>
+
+	* slime.el (slime-next-line/not-add-newlines): Delete unused
+	function.
+
+2014-07-19  Bart Botta  <00003b@gmail.com>
 	Fix slime-all-xrefs.
 
 	* slime.el (slime-all-xrefs): slime-next-line/not-add-newlines
