@@ -3361,7 +3361,6 @@ keybinding (if there is one) refer to the function description.
 @c @fcnindex{slime-make-default-connection}
 @c @fcnindex{slime-make-typeout-frame}
 @fcnindex{slime-mode}
-@c @fcnindex{slime-next-line/not-add-newlines}
 @c @fcnindex{slime-next-location}
 @fcnindex{slime-next-note}
 @fcnindex{slime-nop}
