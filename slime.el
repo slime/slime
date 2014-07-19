@@ -2649,7 +2649,7 @@ PREDICATE is executed in the buffer to test."
                              (slime-current-package)
                              start
                              (if (buffer-file-name)
-                                 (file-name-directory (buffer-file-name))
+                                 (slime-to-lisp-filename (buffer-file-name))
                                nil)))))
         ',slime-compilation-policy)
     cont))

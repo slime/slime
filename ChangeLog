@@ -1,3 +1,10 @@
+2014-11-16  Bart Botta  <00003b@gmail.com>
+
+	Fix source locations when recompiling from an xref buffer.
+
+	* slime.el (slime-recompile-locations): Pass full filenames to
+	swank:compile-multiple-strings-for-emacs.
+
 2014-11-14  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* doc/slime.texi (Installation): Reworked to add MELPA
