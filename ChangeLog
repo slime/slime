@@ -1,3 +1,9 @@
+2014-11-18  Bart Botta  <00003b@gmail.com>
+
+	* slime.el (slime-all-xrefs): Call forward-line directly instead
+	of slime-next-line/not-add-newlines.
+	(slime-next-line/not-add-newlines): Delete.
+
 2014-11-17  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-all-xrefs): Know when to stop iterating over

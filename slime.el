@@ -4538,11 +4538,6 @@ The most important commands:
   ([remap previous-line] 'slime-xref-prev-line)
   )
 
-(defun slime-next-line/not-add-newlines ()
-  (interactive)
-  (let ((next-line-add-newlines nil))
-    (forward-line 1)))
-
 
 ;;;;; XREF results buffer and window management
 
@@ -4718,7 +4713,7 @@ This is used by `slime-goto-next-xref'")
   (let ((xrefs nil))
     (save-excursion
      (goto-char (point-min))
-     (while (zerop (slime-next-line/not-add-newlines))
+     (while (zerop (forward-line 1))
        (let ((loc (get-text-property (point) 'slime-location)))
          (when loc
            (let* ((dspec (slime-xref-dspec-at-point))
