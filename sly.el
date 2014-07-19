@@ -2573,7 +2573,7 @@ ASK asks the user."
                              (sly-current-package)
                              start
                              (if (buffer-file-name)
-                                 (file-name-directory (buffer-file-name))
+                                 (sly-to-lisp-filename (buffer-file-name))
                                nil)))))
         ',sly-compilation-policy)
     cont))
