@@ -1,3 +1,9 @@
+2014-07-19  Bart Botta  <00003b@gmail.com>
+	Fix source locations when recompiling from an xref buffer.
+
+	* slime.el (slime-recompile-locations): pass full filenames to
+	swank:compile-multiple-strings-for-emacs
+
 2014-06-17  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sbcl.lisp (emacs-inspect sb-kernel:code-component):
