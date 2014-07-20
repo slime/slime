@@ -2,36 +2,6 @@
 ;;
 ;; Licence: public domain
 
-(in-package :swank)
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (let ((api '(
-               *emacs-connection*
-               channel
-               channel-id
-               channel-thread
-               close-channel
-               define-channel-method
-               defslyfun
-               destructure-case
-               find-channel
-               log-event
-               process-requests
-               send-to-remote-channel
-               use-threads-p
-               wait-for-event
-               with-bindings
-               with-connection
-               with-top-level-restart
-               with-sly-interrupts
-               stop-processing
-               with-buffer-syntax
-               with-retry-restart
-               )))
-    (eval `(defpackage #:swank-api
-             (:use)
-             (:import-from #:swank . ,api)
-             (:export . ,api)))))
-
 (defpackage :swank-mrepl
   (:use :cl :swank-api)
   (:export #:create-mrepl
@@ -40,52 +10,32 @@
 
 (in-package :swank-mrepl)
 
-(defclass listener-channel (channel)
-  ((remote     :initarg  :remote :reader channel-remote)
-   (env        :initarg  :env    :accessor channel-env)
-   (mode       :initform :eval   :accessor channel-mode)
-   (tag        :initform nil)
-   (out                          :reader channel-out)
-   (in                           :reader channel-in)))
-
-(defmethod initialize-instance :after ((channel listener-channel)
-                                       &rest initargs)
-  (declare (ignore initargs))
-  ;; FIXME: fugly, but I need this to be able to name the thread
-  ;; according to the channel.
-  (setf (slot-value channel 'swank::thread)
-        (if (use-threads-p)
-            (spawn-listener-thread *emacs-connection* channel)
-            nil))
-  (setf (slot-value channel 'out)
-        (or (and *use-dedicated-output-stream*
-                 (open-dedicated-output-stream channel))
-            (make-listener-output-stream channel)))
-  (setf (slot-value channel 'in) (make-listener-input-stream channel)))
+(defclass mrepl (channel listener)
+  ((remote-id     :initarg  :remote-id :accessor mrepl-remote-id)
+   (mode       :initform :eval   :accessor mrepl-mode)
+   (tag        :initform nil))
+  (:documentation "A listener implemented in terms of a channel.")
+  (:default-initargs
+   :make-out-stream #'make-mrepl-output-stream
+   :make-in-stream #'make-mrepl-input-stream
+   :initial-env `((cl:*package* . ,*package*)
+                  (*) (**) (***)
+                  (/) (//) (///)
+                  (+) (++) (+++)
+                  (*history* . ,(make-array 40 :fill-pointer 0
+                                               :adjustable t)))))
 
 (defun package-prompt (package)
   (reduce (lambda (x y) (if (<= (length x) (length y)) x y))
           (cons (package-name package) (package-nicknames package))))
 
-(defmacro with-listener-channel (channel &body body)
-  "Execute BODY inside CHANNEL's environment, update environment afterwards."
-  `(with-slots (env) ,channel
-     (with-bindings env
-       (unwind-protect
-            (progn
-              ,@body)
-         (loop for binding in env
-               do (setf (cdr binding) (symbol-value (car binding))))))))
-
-(defslyfun create-mrepl (remote)
+(defslyfun create-mrepl (remote-id)
   (let* ((pkg *package*)
          (ch (make-instance
-              'listener-channel
-              :remote remote :thread nil
-              :name (format nil "mrepl listener for remote ~a" remote)))
+              'mrepl
+              :remote-id remote-id
+              :name (format nil "mrepl-remote-~a" remote-id)))
          (thread (channel-thread ch)))
-
-    (setf (slot-value ch 'env) (initial-listener-env ch))
 
     (when thread
       (swank-backend:send thread `(:serve-channel ,ch)))
@@ -94,97 +44,60 @@
           (package-name pkg)
           (package-prompt pkg))))
 
-(defslyfun eval-in-mrepl (remote string)
+(defslyfun eval-in-mrepl (remote-id string)
   "Like MREPL-EVAL, but not run in channel's thread."
-  (mrepl-eval (find-channel remote) string))
+  (mrepl-eval (find-channel remote-id) string))
 
 (defvar *history* nil)
 
-(defun initial-listener-env (channel)
-  (let* ((out (channel-out channel))
-         (in (channel-in channel))
-         (io (make-two-way-stream in out)))
-    `((cl:*package* . ,*package*)
-      (cl:*standard-output* . ,out)
-      (cl:*standard-input*  . ,in)
-      (cl:*trace-output*    . ,out)
-      (cl:*error-output*    . ,out)
-      (cl:*debug-io*        . ,io)
-      (cl:*query-io*        . ,io)
-      (cl:*terminal-io*             . ,io)
-
-      (*) (**) (***)
-      (/) (//) (///)
-      (+) (++) (+++)
-
-      (*history* . ,(make-array 40 :fill-pointer 0
-                                   :adjustable t)))))
-
-(defun drop-unprocessed-events (channel)
-  "Empty CHANNEL of events, then send prompt to Emacs."
-  (with-slots (mode) channel
+(defmethod swank::drop-unprocessed-events :after (repl)
+  "Empty REPL of events, then send prompt to Emacs."
+  (with-slots (mode) repl
     (let ((old-mode mode))
       (setf mode :drop)
       (unwind-protect
            (process-requests t)
         (setf mode old-mode)))
-    (with-bindings (channel-env channel)
-      (send-prompt channel))))
+    (with-listener repl
+      (send-prompt repl))))
 
-(defun spawn-listener-thread (connection channel)
-  "Spawn a listener thread for CONNECTION and CHANNEL."
-  (swank-backend:spawn
-   (lambda ()
-     (with-connection (connection)
-       (destructure-case
-        (swank-backend:receive)
-        ((:serve-channel c)
-         (assert (eq c channel))
-         (loop
-           (with-top-level-restart (connection
-                                    (drop-unprocessed-events channel))
-             (when (eq (process-requests nil)
-                       'listener-teardown)
-               (return))))))))
-   :name (format nil "sly-mrepl-listener-ch-~a" (channel-id channel))))
-
-(define-channel-method :process ((c listener-channel) string)
-  (ecase (channel-mode c)
-      (:eval (mrepl-eval c string))
-      (:read (mrepl-read c string))
-      (:drop)))
+(define-channel-method :process ((c mrepl) string)
+  (ecase (mrepl-mode c)
+    (:eval (mrepl-eval c string))
+    (:read (mrepl-read c string))
+    (:drop)))
 
 (defun mrepl-get-object-from-history (entry-idx value-idx)
   (nth value-idx (aref *history* entry-idx)))
 
-(define-channel-method :inspect-object ((c listener-channel) entry-idx value-idx)
-  (with-listener-channel c
+(define-channel-method :inspect-object ((r mrepl) entry-idx value-idx)
+  (with-listener r
     (send-to-remote-channel
-       (channel-remote c)
+       (mrepl-remote-id r)
        `(:inspect-object
          ,(swank::inspect-object (mrepl-get-object-from-history entry-idx value-idx))))))
 
-(define-channel-method :teardown ((c listener-channel))
-  (close-channel c)
+(define-channel-method :teardown ((r mrepl))
+  (close-channel r)
   (throw 'stop-processing 'listener-teardown))
 
-(defun copy-values-to-repl (channel values)
+(defun copy-values-to-repl (repl values)
   ;; FIXME: Notice some duplication to MREPL-EVAL.
   (setq /// //  // /  / values
         *** **  ** *  * (car values))
   (vector-push-extend values *history*)
-  (send-to-remote-channel (channel-remote channel)
+  (send-to-remote-channel (mrepl-remote-id repl)
                           `(:copy-to-repl ,(mapcar #'swank::to-line values)))
-  (send-prompt channel))
+  (send-prompt repl))
 
-(define-channel-method :sync-package-and-default-directory ((c listener-channel)
+(define-channel-method :sync-package-and-default-directory ((r mrepl)
                                                             package-name
                                                             directory)
-  (with-listener-channel c
+  (with-listener r
     (let ((package (swank::guess-package package-name)))
       (swank:set-default-directory directory)
       (and package (setq *package* package))
-      (copy-values-to-repl c (list *package* *default-pathname-defaults*)))))
+      (copy-values-to-repl r (list *package* *default-pathname-defaults*)))))
 
 (defvar *saved-object* nil)
 
@@ -195,28 +108,28 @@
   (setq *saved-object* (apply slyfun args))
   t)
 
-(define-channel-method :copy-to-repl ((c listener-channel) &optional object-indexes)
-  (with-listener-channel c
+(define-channel-method :copy-to-repl ((r mrepl) &optional object-indexes)
+  (with-listener r
     ;; FIXME: Notice some duplication to MREPL-EVAL.
     (let ((object (if object-indexes
                       (mrepl-get-object-from-history (first object-indexes) (second object-indexes))
                       *saved-object*)))
-      (copy-values-to-repl c (list object)))))
+      (copy-values-to-repl r (list object)))))
 
 
-(defun mrepl-eval (channel string)
+(defun mrepl-eval (repl string)
   (let ((aborted t)
         (results))
-    (with-listener-channel channel
+    (with-listener repl
       (unwind-protect
            (handler-bind
                ((error #'(lambda (err)
                            (setq aborted err))))
              (setq results (with-sly-interrupts (read-eval string))
                    aborted nil))
-        (flush-streams channel)
+        (flush-listener-streams repl)
         (cond (aborted
-               (send-to-remote-channel (channel-remote channel)
+               (send-to-remote-channel (mrepl-remote-id repl)
                                        `(:evaluation-aborted
                                          ,(prin1-to-string aborted))))
               (t
@@ -225,23 +138,18 @@
                      +++ ++  ++ + )
                (vector-push-extend results *history*)
                (send-to-remote-channel
-                (channel-remote channel)
+                (mrepl-remote-id repl)
                 `(:write-values ,(mapcar #'swank::to-line
                                          results)))
-               (send-prompt channel)))))))
+               (send-prompt repl)))))))
 
-(defun flush-streams (channel)
-  (with-slots (in out) channel
-    (force-output out)
-    (clear-input in)))
+(defun send-prompt (repl)
+  (send-to-remote-channel (mrepl-remote-id repl)
+                          `(:prompt ,(package-name *package*)
+                                    ,(package-prompt *package*))))
 
-(defun send-prompt (channel)
-  (with-slots (remote) channel
-    (send-to-remote-channel remote `(:prompt ,(package-name *package*)
-                                             ,(package-prompt *package*)))))
-
-(defun mrepl-read (channel string)
-  (with-slots (tag) channel
+(defun mrepl-read (repl string)
+  (with-slots (tag) repl
     (assert tag)
     (throw tag string)))
 
@@ -256,32 +164,34 @@
             finally
                (return values)))))
 
-(defun make-listener-output-stream (channel)
-  (let ((remote (slot-value channel 'remote)))
-    (swank-backend:make-output-stream
-     (lambda (string)
-       (send-to-remote-channel remote `(:write-string ,string))))))
+(defun make-mrepl-output-stream (repl)
+  (or (and *use-dedicated-output-stream*
+           (open-dedicated-output-stream repl))
+      (swank-backend:make-output-stream
+       (lambda (string)
+         (send-to-remote-channel (mrepl-remote-id repl) `(:write-string ,string))))))
 
-(defun make-listener-input-stream (channel)
-  (swank-backend:make-input-stream (lambda () (read-input channel))))
+(defun make-mrepl-input-stream (repl)
+  (swank-backend:make-input-stream
+   (lambda () (read-input repl))))
 
-(defun set-mode (channel new-mode)
-  (with-slots (mode remote) channel
+(defun set-mode (repl new-mode)
+  (with-slots (mode remote-id) repl
     (unless (eq mode new-mode)
-      (send-to-remote-channel remote `(:set-read-mode ,new-mode)))
+      (send-to-remote-channel remote-id `(:set-read-mode ,new-mode)))
     (setf mode new-mode)))
 
-(defun read-input (channel)
-  (with-slots (mode tag remote) channel
+(defun read-input (repl)
+  (with-slots (mode tag remote-id) repl
     (force-output)
     (let ((old-mode mode)
           (old-tag tag))
       (setf tag (cons nil nil))
-      (set-mode channel :read)
+      (set-mode repl :read)
       (unwind-protect
            (catch tag (process-requests nil))
         (setf tag old-tag)
-        (set-mode channel old-mode)))))
+        (set-mode repl old-mode)))))
 
 
 ;;; Dedicated output stream
@@ -297,10 +207,10 @@
   "The buffering scheme that should be used for the output stream.
 Valid values are nil, t, :line")
 
-(defun open-dedicated-output-stream (channel)
+(defun open-dedicated-output-stream (repl)
   "Establish a dedicated output connection to Emacs.
 
-Notify Emacs's CHANNEL that a socket is listening at a local ephemeral
+Notify Emacs's REPL that a socket is listening at a local ephemeral
 port. This is an optimized way for Lisp to deliver output to Emacs."
   (let ((socket (swank-backend:create-socket swank::*loopback-interface*
                                              *dedicated-output-stream-port*))
@@ -308,7 +218,7 @@ port. This is an optimized way for Lisp to deliver output to Emacs."
         (ef (swank::find-external-format-or-lose "utf-8")))
     (unwind-protect
          (let ((port (swank-backend:local-port socket)))
-           (send-to-remote-channel (channel-remote channel)
+           (send-to-remote-channel (mrepl-remote-id repl)
                                    `(:open-dedicated-output-stream ,port nil))
            (let ((dedicated (swank-backend:accept-connection
                              socket

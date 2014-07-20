@@ -200,34 +200,33 @@ Backend code should treat the connection structure as opaque.")
 
 (defstruct (connection
              (:constructor %make-connection)
-             (:conc-name connection.)
+             (:conc-name connection-)
              (:print-function print-connection))
   ;; The listening socket. (usually closed)
+  ;; 
   (socket           (missing-arg) :type t :read-only t)
   ;; Character I/O stream of socket connection.  Read-only to avoid
   ;; race conditions during initialization.
+  ;; 
   (socket-io        (missing-arg) :type stream :read-only t)
-  ;; Optional dedicated output socket (backending `user-output' slot).
-  ;; Has a slot so that it can be closed with the connection.
-  (dedicated-output nil :type (or stream null))
-  ;; Streams that can be used for user interaction, with requests
-  ;; redirected to Emacs.
-  (user-input       nil :type (or stream null))
-  (user-output      nil :type (or stream null))
-  (user-io          nil :type (or stream null))
-  ;; Bindings used for this connection (usually streams)
-  (env '() :type list)
-  ;; A stream that we use for *trace-output*; if nil, we user user-output.
-  (trace-output     nil :type (or stream null))
-  ;; A stream where we send REPL results.
-  (repl-results     nil :type (or stream null))
+  ;; An alist of (ID . CHANNEL) entries. Channels are good for
+  ;; streaming data over the wire (see their description in sly.el)
+  ;;
+  (channels '() :type list)
+  ;; A list of LISTENER objects. Each listener has a couple of streams
+  ;; and an environment (an alist of bindings)
+  ;;
+  (listeners '() :type list)
   ;; Cache of macro-indentation information that has been sent to Emacs.
   ;; This is used for preparing deltas to update Emacs's knowledge.
   ;; Maps: symbol -> indentation-specification
+  ;; 
   (indentation-cache (make-hash-table :test 'eq) :type hash-table)
   ;; The list of packages represented in the cache:
+  ;; 
   (indentation-cache-packages '())
   ;; The communication style used.
+  ;; 
   (communication-style nil :type (member nil :spawn :sigio :fd-handler))
   )
 
@@ -462,6 +461,118 @@ corresponding values in the CDR of VALUE."
                '()
                `((t (error "destructure-case failed: ~S" ,tmp))))))))
 
+
+
+;;; Channels
+
+(defvar *channel-counter* 0)
+
+(defmacro channels () `(connection-channels *emacs-connection*))
+
+(defclass channel ()
+  ((id     :initform (incf *channel-counter*)
+           :reader channel-id)
+   (thread :initarg :thread :initform (current-thread)
+           :reader channel-thread)
+   (name   :initarg :name   :initform nil)))
+
+(defmethod initialize-instance :after ((ch channel) &key)
+  ;; FIXME: slightly fugly, but I need this to be able to name the
+  ;; thread according to the channel's id.
+  (setf (slot-value ch 'thread)
+        (and (use-threads-p)
+             (spawn-channel-thread *emacs-connection* ch)))
+  (push ch (channels)))
+
+(defmethod print-object ((c channel) stream)
+  (print-unreadable-object (c stream :type t)
+    (with-slots (id name) c
+      (format stream "~d ~a" id name))))
+
+(defmethod drop-unprocessed-events (channel)
+  ;; FIXME: perhaps this should incorporate most
+  ;; behaviour from it's :after spec currently in swank-mrepl.lisp)
+  )
+
+(defun find-channel (id)
+  (find id (channels) :key #'channel-id))
+
+(defun close-channel (channel)
+  (let ((probe (find-channel (channel-id channel))))
+    (cond (probe (setf (channels) (delete probe (channels))))
+          (t (error "Can't close invalid channel: ~a" channel)))))
+
+(defgeneric channel-send (channel selector args)
+  (:documentation "Send to CHANNEL the message SELECTOR with ARGS."))
+
+(defmacro define-channel-method (selector (channel &rest args) &body body)
+  `(defmethod channel-send (,channel (selector (eql ',selector)) args)
+     (destructuring-bind ,args args
+       . ,body)))
+
+(defun send-to-remote-channel (channel-id msg)
+  (send-to-emacs `(:channel-send ,channel-id ,msg)))
+
+
+;;; Listeners
+(defclass listener ()
+  ((out :initarg :out :type stream :reader channel-out)
+   (in  :initarg :in :type stream :reader channel-in)
+   (env)))
+
+(defmacro listeners () `(connection-listeners *emacs-connection*))
+
+(defmethod initialize-instance :after ((l listener) &key initial-env
+                                                      make-out-stream
+                                                      make-in-stream) 
+  (with-slots (out in env) l
+    (when make-out-stream
+      (setf out (funcall make-out-stream l)))
+    (when make-in-stream
+      (setf in (funcall make-in-stream l)))
+    (let ((io (make-two-way-stream in out)))
+      (setf env
+            (append
+             initial-env
+             `((cl:*standard-output* . ,out)
+               (cl:*standard-input*  . ,in)
+               (cl:*trace-output*    . ,out)
+               (cl:*error-output*    . ,out)
+               (cl:*debug-io*        . ,io)
+               (cl:*query-io*        . ,io)
+               (cl:*terminal-io*     . ,io)))))
+    (assert out nil "Must have an OUT stream")
+    (assert in nil "Must have an IN stream")
+    (assert env nil "Must have an ENV"))
+  (push l (listeners)))
+
+(defmacro with-listener (listener &body body)
+  "Execute BODY inside LISTENER's environment, update environment afterwards."
+  `(with-slots (env) ,listener
+     (with-bindings
+         env
+       (unwind-protect
+            (progn
+              ,@body)
+         (loop for binding in env
+               do (setf (cdr binding) (symbol-value (car binding))))))))
+
+(defmacro with-default-listener ((connection) &body body)
+  "Execute BODY with I/O redirection to CONNECTION's default listener."
+  (let ((listener-sym (gensym))
+        (body-fn-sym (gensym)))
+    `(let ((,listener-sym (first (connection-listeners ,connection)))
+           (,body-fn-sym #'(lambda () ,@body)))
+       (if ,listener-sym
+           (with-listener ,listener-sym
+             (funcall ,body-fn-sym))
+           (funcall ,body-fn-sym)))))
+
+(defun flush-listener-streams (listener)
+  (with-slots (in out) listener
+    (force-output out)
+    (clear-input in)))
+
 
 ;;;; Interrupt handling
 
@@ -528,13 +639,6 @@ corresponding values in the CDR of VALUE."
                 (when *interrupt-queued-handler*
                   (funcall *interrupt-queued-handler*)))))))
 
-
-;;; FIXME: poor name?
-(defmacro with-io-redirection ((connection) &body body)
-  "Execute BODY I/O redirection to CONNECTION. "
-  `(with-bindings (connection.env ,connection)
-     . ,body))
-
 ;; Thread local variable used for flow-control.
 ;; It's bound by `with-connection'.
 (defvar *send-counter*)
@@ -550,7 +654,7 @@ corresponding values in the CDR of VALUE."
                (*send-counter* 0))
            (without-sly-interrupts
              (with-swank-error-handler (connection)
-               (with-io-redirection (connection)
+               (with-default-listener (connection)
                  (call-with-debugger-hook #'swank-debugger-hook
                                           function))))))))
 
@@ -661,7 +765,7 @@ recently established one."
 ;;;;; Misc
 
 (defun use-threads-p ()
-  (eq (connection.communication-style *emacs-connection*) :spawn))
+  (eq (connection-communication-style *emacs-connection*) :spawn))
 
 (defun current-thread-id ()
   (thread-id (current-thread)))
@@ -854,7 +958,7 @@ if the file doesn't exist; otherwise the first line of the file."
     (multithreaded-connection
      (spawn-threads-for-connection connection))
     (singlethreaded-connection
-     (ecase (connection.communication-style connection)
+     (ecase (connection-communication-style connection)
        ((nil) (simple-serve-requests connection))
        (:sigio (install-sigio-handler connection))
        (:fd-handler (install-fd-handler connection))))))
@@ -864,7 +968,7 @@ if the file doesn't exist; otherwise the first line of the file."
     (multithreaded-connection
      (cleanup-connection-threads connection))
     (singlethreaded-connection
-     (ecase (connection.communication-style connection)
+     (ecase (connection-communication-style connection)
        ((nil))
        (:sigio (deinstall-sigio-handler connection))
        (:fd-handler (deinstall-fd-handler connection))))))
@@ -934,7 +1038,8 @@ The processing is done in the extent of the toplevel restart."
                 (process-requests timeout)))))))
 
 (defun process-requests (timeout)
-  "Read and process requests from Emacs."
+  "Read and process requests from Emacs.
+FIXME: what does TIMEOUT do exactly?"
   (catch 'stop-processing
     (loop
       (multiple-value-bind (event timeout?)
@@ -947,8 +1052,27 @@ The processing is done in the extent of the toplevel restart."
           ((:emacs-channel-send channel (selector &rest args))
            (channel-send channel selector args)))))))
 
+(defun spawn-channel-thread (connection channel)
+  "Spawn a listener thread for CONNECTION and CHANNEL."
+  (swank-backend:spawn
+   (lambda ()
+     (with-connection (connection)
+       (destructure-case
+        (swank-backend:receive)
+        ((:serve-channel c)
+         (assert (eq c channel))
+         (loop
+           (with-top-level-restart (connection
+                                    (drop-unprocessed-events channel))
+             (when (eq (process-requests nil)
+                       'listener-teardown)
+               (return))))))))
+   :name (with-slots (id name) channel
+           (format nil "sly-channel-~a-~a" id name))))
+
+
 (defun current-socket-io ()
-  (connection.socket-io *emacs-connection*))
+  (connection-socket-io *emacs-connection*))
 
 (defun close-connection (connection condition backtrace)
   (send-to-sentinel `(:close-connection ,connection ,condition ,backtrace)))
@@ -959,9 +1083,9 @@ The processing is done in the extent of the toplevel restart."
     (format *log-output* "~&;; swank:close-connection: ~A~%"
             (escape-non-ascii (safe-condition-message condition)))
     (stop-serving-requests c)
-    (close (connection.socket-io c))
-    (when (connection.dedicated-output c)
-      (close (connection.dedicated-output c)))
+    (close (connection-socket-io c))
+    (when (connection-dedicated-output c)
+      (close (connection-dedicated-output c)))
     (setf *connections* (remove c *connections*))
     (run-hook *connection-closed-hook* c)
     (when (and condition (not (typep condition 'end-of-file)))
@@ -980,14 +1104,14 @@ The processing is done in the extent of the toplevel restart."
                       (format nil "~d: ~a" i (escape-non-ascii f))))
               (escape-non-ascii (safe-condition-message condition) )
               (type-of condition)
-              (connection.communication-style c)))
+              (connection-communication-style c)))
     (finish-output *log-output*)
     (log-event "close-connection ~a ... done.~%" condition)))
 
 ;;;;;; Thread based communication
 
 (defun read-loop (connection)
-  (let ((input-stream (connection.socket-io connection))
+  (let ((input-stream (connection-socket-io connection))
         (control-thread (mconn.control-thread connection)))
     (with-swank-error-handler (connection)
       (loop (send control-thread (decode-message input-stream))))))
@@ -1239,7 +1363,7 @@ event was found."
 ;;;;;; Signal driven IO
 
 (defun install-sigio-handler (connection)
-  (add-sigio-handler (connection.socket-io connection)
+  (add-sigio-handler (connection-socket-io connection)
                      (lambda () (process-io-interrupt connection)))
   (handle-requests connection t))
 
@@ -1254,13 +1378,13 @@ event was found."
 
 (defun deinstall-sigio-handler (connection)
   (log-event "deinstall-sigio-handler...~%")
-  (remove-sigio-handlers (connection.socket-io connection))
+  (remove-sigio-handlers (connection-socket-io connection))
   (log-event "deinstall-sigio-handler...done~%"))
 
 ;;;;;; SERVE-EVENT based IO
 
 (defun install-fd-handler (connection)
-  (add-fd-handler (connection.socket-io connection)
+  (add-fd-handler (connection-socket-io connection)
                   (lambda () (handle-requests connection t)))
   (setf (sconn.saved-sigint-handler connection)
         (install-sigint-handler
@@ -1275,7 +1399,7 @@ event was found."
 
 (defun deinstall-fd-handler (connection)
   (log-event "deinstall-fd-handler~%")
-  (remove-fd-handlers (connection.socket-io connection))
+  (remove-fd-handlers (connection-socket-io connection))
   (install-sigint-handler (sconn.saved-sigint-handler connection)))
 
 ;;;;;; Simple sequential IO
@@ -1321,7 +1445,7 @@ event was found."
 
 (defun repl-input-stream-read (connection stdin)
   (loop
-   (let* ((socket (connection.socket-io connection))
+   (let* ((socket (connection-socket-io connection))
           (inputs (list socket stdin))
           (ready (wait-for-input inputs)))
      (cond ((eq ready :interrupt)
@@ -1331,7 +1455,7 @@ event was found."
             ;; redirect IO to the REPL buffer.
             (with-simple-restart (process-input "Continue reading input.")
               (let ((*sldb-quit-restart* (find-restart 'process-input)))
-                (with-io-redirection (connection)
+                (with-default-listener (connection)
                   (handle-requests connection t)))))
            ((member stdin ready)
             ;; User typed something into the  *inferior-lisp* buffer,
@@ -1348,47 +1472,6 @@ event was found."
       (end-of-file () (error 'end-of-repl-input :stream stream)))))
 
 
-;;; Channels
-
-;; FIXME: should be per connection not global.
-(defvar *channels* '())
-(defvar *channel-counter* 0)
-
-(defclass channel ()
-  ((id     :initform (incf *channel-counter*)
-           :reader channel-id)
-   (thread :initarg :thread :initform (current-thread)
-           :reader channel-thread)
-   (name   :initarg :name   :initform nil)))
-
-(defmethod initialize-instance :after ((ch channel) &key)
-  (push (cons (channel-id ch) ch) *channels*))
-
-(defmethod print-object ((c channel) stream)
-  (print-unreadable-object (c stream :type t)
-    (with-slots (id name) c
-      (format stream "~d ~a" id name))))
-
-(defun find-channel (id)
-  (cdr (assoc id *channels*)))
-
-(defun close-channel (channel)
-  (let ((probe (assoc (channel-id channel) *channels*)))
-    (cond (probe (setf *channels* (delete probe *channels*)))
-          (t (error "Can't close invalid channel: ~a" channel)))))
-
-(defgeneric channel-send (channel selector args)
-  (:documentation "Send to CHANNEL the message SELECTOR with ARGS."))
-
-(defmacro define-channel-method (selector (channel &rest args) &body body)
-  `(defmethod channel-send (,channel (selector (eql ',selector)) args)
-     (destructuring-bind ,args args
-       . ,body)))
-
-(defun send-to-remote-channel (channel-id msg)
-  (send-to-emacs `(:channel-send ,channel-id ,msg)))
-
-
 
 (defvar *sly-features* nil
   "The feature list that has been sent to Emacs.")
@@ -1396,17 +1479,17 @@ event was found."
 (defun send-oob-to-emacs (object)
   (send-to-emacs object))
 
-;; FIXME: belongs to swank-repl.lisp
 (defun force-user-output ()
-  (force-output (connection.user-io *emacs-connection*)))
+  (with-default-listener (*emacs-connection*)
+    (force-output *standard-output*)))
 
 (add-hook *pre-reply-hook* 'force-user-output)
 
-;; FIXME: belongs to swank-repl.lisp
 (defun clear-user-input  ()
-  (clear-input (connection.user-input *emacs-connection*)))
+  (with-default-listener (*emacs-connection*)
+    (clear-input *standard-input*)))
 
-;; FIXME: not thread save.
+;; FIXME: not thread safe.
 (defvar *tag-counter* 0)
 
 (defun make-tag ()
@@ -1495,7 +1578,7 @@ PACKAGE: a list (&key NAME PROMPT)
 VERSION: the protocol version"
   (let ((c *emacs-connection*))
     (setq *sly-features* *features*)
-    `(:pid ,(getpid) :style ,(connection.communication-style c)
+    `(:pid ,(getpid) :style ,(connection-communication-style c)
       :encoding (:coding-systems
                  ,(loop for cs in '("utf-8-unix" "iso-latin-1-unix")
                         when (find-external-format cs) collect cs))
@@ -3629,18 +3712,18 @@ after each command.")
 This is a heuristic to avoid scanning all symbols all the time:
 instead, we only do a full scan if the set of packages has changed."
   (set-difference (list-all-packages)
-                  (connection.indentation-cache-packages connection)))
+                  (connection-indentation-cache-packages connection)))
 
 (defun perform-indentation-update (connection force package)
   "Update the indentation cache in CONNECTION and update Emacs.
 If FORCE is true then start again without considering the old cache."
-  (let ((cache (connection.indentation-cache connection)))
+  (let ((cache (connection-indentation-cache connection)))
     (when force (clrhash cache))
     (let ((delta (update-indentation/delta-for-emacs cache force package)))
-      (setf (connection.indentation-cache-packages connection)
+      (setf (connection-indentation-cache-packages connection)
             (list-all-packages))
       (unless (null delta)
-        (setf (connection.indentation-cache connection) cache)
+        (setf (connection-indentation-cache connection) cache)
         (send-to-emacs (list :indentation-update delta))))))
 
 (defun update-indentation/delta-for-emacs (cache force package)
@@ -3777,7 +3860,46 @@ Collisions are caused because package information is ignored."
       (background-message "flow-control-test: ~d" i))))
 
 
+;;;; The "official" API
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (let ((api '(
+               *emacs-connection*
+               ;;
+               channel
+               channel-id
+               channel-thread
+               close-channel
+               define-channel-method
+               find-channel
+               ;;
+               listener
+               with-listener
+               flush-listener-streams
+               ;;
+               defslyfun
+               destructure-case
+               log-event
+               process-requests
+               send-to-remote-channel
+               use-threads-p
+               wait-for-event
+               with-bindings
+               with-connection
+               with-top-level-restart
+               with-sly-interrupts
+               stop-processing
+               with-buffer-syntax
+               with-retry-restart
+               
+               )))
+    (eval `(defpackage #:swank-api
+             (:use)
+             (:import-from #:swank . ,api)
+             (:export . ,api)))))
 
+
+;;;; INIT, as called from the swank-loader.lisp and ASDF's loaders
+;;;; 
 (defun load-user-init-file ()
   "Load the user init file, return NIL if it does not exist."
   (or (load (merge-pathnames (user-homedir-pathname)

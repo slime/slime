@@ -13,10 +13,10 @@
 
 (defslyfun restore-snapshot (image-file)
   (let* ((conn swank::*emacs-connection*)
-	 (stream (swank::connection.socket-io conn))
+	 (stream (swank::connection-socket-io conn))
 	 (clone (swank-backend:dup (swank-backend:socket-fd stream)))
-	 (style (swank::connection.communication-style conn))
-	 (repl (if (swank::connection.user-io conn) t))
+	 (style (swank::connection-communication-style conn))
+	 (repl (if (swank::connection-user-io conn) t))
 	 (args (list "--swank-fd" (format nil "~d" clone)
 		     "--swank-style" (format nil "~s" style)
 		     "--swank-repl" (format nil "~s" repl))))
