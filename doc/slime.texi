@@ -1415,7 +1415,7 @@ Invoke the @code{ABORT} restart.
 @kbditem{q, sldb-quit}
 ``Quit'' -- For @SLIME{} evaluation requests, invoke a restart which
 restores to a known program state. For errors in other threads, see
-@ref{SWANK:*SLDB-QUIT-RESTART*}.
+@ref{*SLDB-QUIT-RESTART*}.
 
 @kbditem{c, sldb-continue}
 Invoke the @code{CONTINUE} restart.
@@ -1860,7 +1860,7 @@ globally set to @code{SWANK:SWANK-DEBUGGER-HOOK} and thus for @SLIME{}
 to handle all debugging in the Lisp image. This is for debugging
 multithreaded and callback-driven applications.
 
-@anchor{SWANK:*SLDB-QUIT-RESTART*}
+@anchor{*SLDB-QUIT-RESTART*}
 @vindex SWANK:*SLDB-QUIT-RESTART*
 @item SWANK:*SLDB-QUIT-RESTART*
 This variable names the restart that is invoked when pressing @kbd{q}

@@ -1,3 +1,9 @@
+2014-09-30  Robert P. Goldman  <rpgoldman@gmail.com>
+
+	* doc/slime.texi (Other configurables): fixed anchor and
+	cross-reference since makeinfo doesn't colons in reference
+	targets.
+
 2014-09-30  Helmut Eller  <heller@common-lisp.net>
 
 	* swank/backend.lisp (codepoint-length): Deleted. No longer used.
