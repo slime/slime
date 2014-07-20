@@ -122,8 +122,8 @@ emptied.See also `sly-mrepl-hook'")
   (cl-loop for buffer in (buffer-list)
            when (buffer-live-p buffer)
            do (with-current-buffer buffer
-                (when (eq sly-buffer-connection
-                          process)
+                (when (and (eq major-mode 'sly-mrepl-mode)
+                           (eq sly-buffer-connection process))
                   (insert "\n--------------------------------------------------------\n")
                   (sly-mrepl--teardown)))))
 
