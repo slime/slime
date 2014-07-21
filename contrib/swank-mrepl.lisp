@@ -31,15 +31,21 @@
 
 (defslyfun create-mrepl (remote-id)
   (let* ((pkg *package*)
-         (ch (make-instance
-              'mrepl
-              :remote-id remote-id
-              :name (format nil "mrepl-remote-~a" remote-id)))
-         (thread (channel-thread ch)))
-
+         (mrepl (make-instance
+                 'mrepl
+                 :remote-id remote-id
+                 :name (format nil "mrepl-remote-~a" remote-id)))
+         (thread (channel-thread mrepl)))
     (when thread
-      (swank-backend:send thread `(:serve-channel ,ch)))
-    (list (channel-id ch)
+      (swank-backend:send thread `(:serve-channel ,mrepl)))
+    (let ((target (maybe-redirect-global-io *emacs-connection*)))
+      (cond ((and target
+                  (not (eq mrepl target)))
+             (format (swank::listener-out mrepl) "~&; Global redirection setup elsewhere~%"))
+            ((not target)
+             (format (swank::listener-out mrepl) "~&; Global redirection not setup~%"))))
+    (flush-listener-streams mrepl)
+    (list (channel-id mrepl)
           (swank-backend:thread-id (or thread (swank-backend:current-thread)))
           (package-name pkg)
           (package-prompt pkg))))
@@ -50,16 +56,18 @@
 
 (defvar *history* nil)
 
-(defmethod swank::drop-unprocessed-events :after (repl)
+;;; FIXME: Dropping events should be moved to the library, and this
+;;; :DROP nonsense dropped, hence the deliberate SWANK::.
+(defmethod swank::drop-unprocessed-events ((r mrepl))
   "Empty REPL of events, then send prompt to Emacs."
-  (with-slots (mode) repl
+  (with-slots (mode) r
     (let ((old-mode mode))
       (setf mode :drop)
       (unwind-protect
            (process-requests t)
         (setf mode old-mode)))
-    (with-listener repl
-      (send-prompt repl))))
+    (with-listener r
+      (send-prompt r))))
 
 (define-channel-method :process ((c mrepl) string)
   (ecase (mrepl-mode c)
@@ -164,38 +172,6 @@
             finally
                (return values)))))
 
-(defun make-mrepl-output-stream (repl)
-  (or (and *use-dedicated-output-stream*
-           (open-dedicated-output-stream repl))
-      (swank-backend:make-output-stream
-       (lambda (string)
-         (send-to-remote-channel (mrepl-remote-id repl) `(:write-string ,string))))))
-
-(defun make-mrepl-input-stream (repl)
-  (swank-backend:make-input-stream
-   (lambda () (read-input repl))))
-
-(defun set-mode (repl new-mode)
-  (with-slots (mode remote-id) repl
-    (unless (eq mode new-mode)
-      (send-to-remote-channel remote-id `(:set-read-mode ,new-mode)))
-    (setf mode new-mode)))
-
-(defun read-input (repl)
-  (with-slots (mode tag remote-id) repl
-    (force-output)
-    (let ((old-mode mode)
-          (old-tag tag))
-      (setf tag (cons nil nil))
-      (set-mode repl :read)
-      (unwind-protect
-           (catch tag (process-requests nil))
-        (setf tag old-tag)
-        (set-mode repl old-mode)))))
-
-
-;;; Dedicated output stream
-;;;
 (defparameter *use-dedicated-output-stream* t
   "When T, dedicate a second stream for sending output to Emacs.")
 
@@ -206,6 +182,17 @@
   (if (eq swank:*communication-style* :spawn) t nil)
   "The buffering scheme that should be used for the output stream.
 Valid values are nil, t, :line")
+
+(defun make-mrepl-output-stream (repl)
+  (or (and *use-dedicated-output-stream*
+           (open-dedicated-output-stream repl))
+      (swank-backend:make-output-stream
+       (lambda (string)
+         (send-to-remote-channel (mrepl-remote-id repl) `(:write-string ,string))))))
+
+(defun make-mrepl-input-stream (repl)
+  (swank-backend:make-input-stream
+   (lambda () (read-input repl))))
 
 (defun open-dedicated-output-stream (repl)
   "Establish a dedicated output connection to Emacs.
@@ -232,6 +219,174 @@ port. This is an optimized way for Lisp to deliver output to Emacs."
       (when socket
         (swank-backend:close-socket socket)))))
 
+(defun set-mode (repl new-mode)
+  (with-slots (mode remote-id) repl
+    (unless (eq mode new-mode)
+      (send-to-remote-channel remote-id `(:set-read-mode ,new-mode)))
+    (setf mode new-mode)))
 
+(defun read-input (repl)
+  (with-slots (mode tag remote-id) repl
+    (force-output)
+    (let ((old-mode mode)
+          (old-tag tag))
+      (setf tag (cons nil nil))
+      (set-mode repl :read)
+      (unwind-protect
+           (catch tag (process-requests nil))
+        (setf tag old-tag)
+        (set-mode repl old-mode)))))
+
+
+;;;; Globally redirect IO to Emacs
+;;;
+;;; This code handles redirection of the standard I/O streams
+;;; (`*standard-output*', etc) into Emacs. If any LISTENER objects
+;;; exist in the CONNECTION structure, they will contain the
+;;; appropriate streams, so all we have to do is make the right
+;;; bindings.
+;;;
+;;; When the first ever MREPL is created we redirect the streams into
+;;; it, and they keep going into that MREPL even if more are
+;;; established, in the current connection or even other
+;;; connections. If the MREPL is closed (interactively or by closing
+;;; the connection), we choose some other MREPL (in some other default
+;;; connection possibly), or, or if there are no MREPL's left, we
+;;; revert to the original (real) streams.
+;;;
+;;; It is slightly tricky to assign the global values of standard
+;;; streams because they are often shadowed by dynamic bindings. We
+;;; solve this problem by introducing an extra indirection via synonym
+;;; streams, so that *STANDARD-INPUT* is a synonym stream to
+;;; *CURRENT-STANDARD-INPUT*, etc. We never shadow the "current"
+;;; variables, so they can always be assigned to affect a global
+;;; change.
+
+(defparameter *globally-redirect-io* t
+  "When non-nil globally redirect all standard streams to Emacs.")
+
+(defvar *saved-global-streams* '()
+  "A plist to save and restore redirected stream objects.
+E.g. the value for '*standard-output* holds the stream object
+for *standard-output* before we install our redirection.")
+
+(defun setup-stream-indirection (stream-var &optional stream)
+  "Setup redirection scaffolding for a global stream variable.
+Supposing (for example) STREAM-VAR is *STANDARD-INPUT*, this macro:
+
+1. Saves the value of *STANDARD-INPUT* in `*SAVED-GLOBAL-STREAMS*'.
+
+2. Creates *CURRENT-STANDARD-INPUT*, initially with the same value as
+*STANDARD-INPUT*.
+
+3. Assigns *STANDARD-INPUT* to a synonym stream pointing to
+*CURRENT-STANDARD-INPUT*.
+
+This has the effect of making *CURRENT-STANDARD-INPUT* contain the
+effective global value for *STANDARD-INPUT*. This way we can assign
+the effective global value even when *STANDARD-INPUT* is shadowed by a
+dynamic binding."
+  (let ((current-stream-var (prefixed-var '#:current stream-var))
+        (stream (or stream (symbol-value stream-var))))
+    ;; Save the real stream value for the future.
+    (setf (getf *saved-global-streams* stream-var) stream)
+    ;; Define a new variable for the effective stream.
+    ;; This can be reassigned.
+    (proclaim `(special ,current-stream-var))
+    (set current-stream-var stream)
+    ;; Assign the real binding as a synonym for the current one.
+    (let ((stream (make-synonym-stream current-stream-var)))
+      (set stream-var stream)
+      (swank::set-default-initial-binding stream-var `(quote ,stream)))))
+
+(defun prefixed-var (prefix variable-symbol)
+  "(PREFIXED-VAR \"FOO\" '*BAR*) => SWANK::*FOO-BAR*"
+  (let ((basename (subseq (symbol-name variable-symbol) 1)))
+    (intern (format nil "*~A-~A" (string prefix) basename) :swank)))
+
+(defvar *standard-output-streams*
+  '(*standard-output* *error-output* *trace-output*)
+  "The symbols naming standard output streams.")
+
+(defvar *standard-input-streams*
+  '(*standard-input*)
+  "The symbols naming standard input streams.")
+
+(defvar *standard-io-streams*
+  '(*debug-io* *query-io* *terminal-io*)
+  "The symbols naming standard io streams.")
+
+(defun init-global-stream-redirection ()
+  (when *globally-redirect-io*
+    (cond (*saved-global-streams*
+           (warn "Streams already redirected."))
+          (t
+           (mapc #'setup-stream-indirection
+                 (append *standard-output-streams*
+                         *standard-input-streams*
+                         *standard-io-streams*))))))
+
+(defun globally-redirect-to-listener (listener)
+  "Set the standard I/O streams to redirect to LISTENER.
+Assigns *CURRENT-<STREAM>* for all standard streams."
+  (with-listener listener
+    (dolist (o *standard-output-streams*)
+      (set (prefixed-var '#:current o)
+           *standard-output*))
+    
+    ;; FIXME: If we redirect standard input to Emacs then we get the
+    ;; regular Lisp top-level trying to read from our REPL.
+    ;;
+    ;; Perhaps the ideal would be for the real top-level to run in a
+    ;; thread with local bindings for all the standard streams. Failing
+    ;; that we probably would like to inhibit it from reading while
+    ;; Emacs is connected.
+    ;;
+    ;; Meanwhile we just leave *standard-input* alone.
+    #+NIL
+    (dolist (i *standard-input-streams*)
+      (set (prefixed-var '#:current i)
+           (connection.user-input connection)))
+    (dolist (io *standard-io-streams*)
+      (set (prefixed-var '#:current io)
+           *terminal-io*))))
+
+(defvar *target-listener-for-redirection* nil
+  "The listener to which standard I/O streams are globally redirected.
+NIL if streams are not globally redirected.")
+
+(defun revert-global-io-redirection ()
+  "Set *CURRENT-<STREAM>* to *REAL-<STREAM>* for all standard streams."
+  (format *standard-output* "~&; About to revert global IO direction~%")
+  (flush-listener-streams *target-listener-for-redirection*)
+  (dolist (stream-var (append *standard-output-streams*
+                              *standard-input-streams*
+                              *standard-io-streams*))
+    (set (prefixed-var '#:current stream-var)
+         (getf *saved-global-streams* stream-var))))
+
+(defun maybe-redirect-global-io (connection)
+  "Consider globally redirecting output to CONNECTION's listener.
+
+Return the current redirection target, or nil"
+  (let ((l (default-listener connection)))
+    (when (and *globally-redirect-io*
+               (null *target-listener-for-redirection*)
+               l)
+      (unless *saved-global-streams*
+        (init-global-stream-redirection))
+      (setq *target-listener-for-redirection* l)
+      (globally-redirect-to-listener l)
+      (format *standard-output* "~&; Redirecting all output to this MREPL~%"))
+    *target-listener-for-redirection*))
+
+(defmethod close-channel :before ((r mrepl))
+  ;; If this channel was the redirection target.
+  (when (eq r *target-listener-for-redirection*)
+    (setq *target-listener-for-redirection* nil)
+    (maybe-redirect-global-io (default-connection))
+    (unless *target-listener-for-redirection*
+      (revert-global-io-redirection)
+      (format *standard-output* "~&; Reverted global IO direction~%"))))
 
 (provide :swank-mrepl)

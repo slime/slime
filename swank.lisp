@@ -44,7 +44,6 @@
            #:*default-worker-thread-bindings*
            #:*macroexpand-printer-bindings*
            #:*swank-pprint-bindings*
-           #:*record-repl-results*
            #:*inspector-verbose*
            #:*require-module*
            ;; This is SETFable.
@@ -253,13 +252,9 @@ Backend code should treat the connection structure as opaque.")
   ;; threads. The `reader-thread' is responsible for reading network
   ;; requests from Emacs and sending them to the `control-thread'; the
   ;; `control-thread' is responsible for dispatching requests to the
-  ;; threads that should handle them; the `repl-thread' is the one
-  ;; that evaluates REPL expressions. The control thread dispatches
-  ;; all REPL evaluations to the REPL thread and for other requests it
-  ;; spawns new threads.
+  ;; threads that should handle them.
   reader-thread
   control-thread
-  repl-thread
   auto-flush-thread
   indentation-cache-thread
   ;; List of threads that are currently processing requests.  We use
@@ -482,7 +477,8 @@ corresponding values in the CDR of VALUE."
   (setf (slot-value ch 'thread)
         (and (use-threads-p)
              (spawn-channel-thread *emacs-connection* ch)))
-  (push ch (channels)))
+  (setf (channels) (nconc (channels)
+                          (list ch))))
 
 (defmethod print-object ((c channel) stream)
   (print-unreadable-object (c stream :type t)
@@ -497,7 +493,7 @@ corresponding values in the CDR of VALUE."
 (defun find-channel (id)
   (find id (channels) :key #'channel-id))
 
-(defun close-channel (channel)
+(defmethod close-channel (channel)
   (let ((probe (find-channel (channel-id channel))))
     (cond (probe (setf (channels) (delete probe (channels))))
           (t (error "Can't close invalid channel: ~a" channel)))))
@@ -516,8 +512,8 @@ corresponding values in the CDR of VALUE."
 
 ;;; Listeners
 (defclass listener ()
-  ((out :initarg :out :type stream :reader channel-out)
-   (in  :initarg :in :type stream :reader channel-in)
+  ((out :initarg :out :type stream :reader listener-out)
+   (in  :initarg :in :type stream :reader listener-in)
    (env)))
 
 (defmacro listeners () `(connection-listeners *emacs-connection*))
@@ -544,7 +540,8 @@ corresponding values in the CDR of VALUE."
     (assert out nil "Must have an OUT stream")
     (assert in nil "Must have an IN stream")
     (assert env nil "Must have an ENV"))
-  (push l (listeners)))
+  (setf (listeners) (nconc (listeners)
+                           (list l))))
 
 (defmacro with-listener (listener &body body)
   "Execute BODY inside LISTENER's environment, update environment afterwards."
@@ -558,20 +555,28 @@ corresponding values in the CDR of VALUE."
                do (setf (cdr binding) (symbol-value (car binding))))))))
 
 (defmacro with-default-listener ((connection) &body body)
-  "Execute BODY with I/O redirection to CONNECTION's default listener."
+  "Execute BODY with in CONNECTION's default listener."
   (let ((listener-sym (gensym))
         (body-fn-sym (gensym)))
-    `(let ((,listener-sym (first (connection-listeners ,connection)))
+    `(let ((,listener-sym (default-listener ,connection))
            (,body-fn-sym #'(lambda () ,@body)))
        (if ,listener-sym
            (with-listener ,listener-sym
              (funcall ,body-fn-sym))
            (funcall ,body-fn-sym)))))
 
+(defun default-listener (connection)
+  (first (connection-listeners connection)))
+
 (defun flush-listener-streams (listener)
   (with-slots (in out) listener
     (force-output out)
     (clear-input in)))
+
+(defmethod close-channel :after ((l listener))
+  (with-slots (in out) l
+    (close in)
+    (close out)))
 
 
 ;;;; Interrupt handling
@@ -1039,14 +1044,14 @@ The processing is done in the extent of the toplevel restart."
 
 (defun process-requests (timeout)
   "Read and process requests from Emacs.
-FIXME: what does TIMEOUT do exactly?"
+TIMEOUT has the same meaning as in WAIT-FOR-EVENT."
   (catch 'stop-processing
     (loop
-      (multiple-value-bind (event timeout?)
+      (multiple-value-bind (event timed-out-p)
           (wait-for-event `(or (:emacs-rex . _)
                                (:emacs-channel-send . _))
                           timeout)
-        (when timeout? (return))
+        (when timed-out-p (return))
         (destructure-case event
           ((:emacs-rex &rest args) (apply #'eval-for-emacs args))
           ((:emacs-channel-send channel (selector &rest args))
@@ -1084,8 +1089,7 @@ FIXME: what does TIMEOUT do exactly?"
             (escape-non-ascii (safe-condition-message condition)))
     (stop-serving-requests c)
     (close (connection-socket-io c))
-    (when (connection-dedicated-output c)
-      (close (connection-dedicated-output c)))
+    (mapc #'close-channel (connection-channels c))
     (setf *connections* (remove c *connections*))
     (run-hook *connection-closed-hook* c)
     (when (and condition (not (typep condition 'end-of-file)))
@@ -1274,8 +1278,8 @@ FIXME: what does TIMEOUT do exactly?"
 
 (defun wait-for-event (pattern &optional timeout)
   "Scan the event queue for PATTERN and return the event.
-If TIMEOUT is 'nil wait until a matching event is enqued.
-If TIMEOUT is 't only scan the queue without waiting.
+If TIMEOUT is NIL wait until a matching event is enqued.
+If TIMEOUT is T only scan the queue without waiting.
 The second return value is t if the timeout expired before a matching
 event was found."
   (log-event "wait-for-event: ~s ~s~%" pattern timeout)
@@ -1349,8 +1353,7 @@ event was found."
 
 (defun cleanup-connection-threads (connection)
   (let* ((c connection)
-         (threads (list (mconn.repl-thread c)
-                        (mconn.reader-thread c)
+         (threads (list (mconn.reader-thread c)
                         (mconn.control-thread c)
                         (mconn.auto-flush-thread c)
                         (mconn.indentation-cache-thread c))))
@@ -3862,8 +3865,8 @@ Collisions are caused because package information is ignored."
 
 ;;;; The "official" API
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (let ((api '(
-               *emacs-connection*
+  (let ((api '(*emacs-connection*
+               default-connection
                ;;
                channel
                channel-id
@@ -3871,16 +3874,24 @@ Collisions are caused because package information is ignored."
                close-channel
                define-channel-method
                find-channel
+               send-to-remote-channel
                ;;
                listener
                with-listener
                flush-listener-streams
+               default-listener
+               ;;
+               add-hook
+               *connection-closed-hook*
+               *after-init-hook*
+               *new-connection-hook*
+               *pre-reply-hook*
+               *after-toggle-trace-hook*
                ;;
                defslyfun
                destructure-case
                log-event
                process-requests
-               send-to-remote-channel
                use-threads-p
                wait-for-event
                with-bindings
