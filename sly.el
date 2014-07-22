@@ -1116,9 +1116,8 @@ See `sly-start'."
   (with-current-buffer (process-buffer process)
     sly-inferior-lisp-args))
 
-(defun sly-init-using-asdf (port-filename _coding-system)
+(defun sly-init-using-asdf (port-filename coding-system)
   "Return a string to initialize Lisp using ASDF.
-
 Fall back to `sly-init-using-swank-loader' if ASDF fails."
   (pp-to-string
    `(cond ((ignore-errors
@@ -1136,7 +1135,7 @@ Fall back to `sly-init-using-swank-loader' if ASDF fails."
             (read-from-string "swank:start-server")
             ,port-filename))
           (t
-           ,(read (sly-init-using-swank-loader port-filename _coding-system))))))
+           ,(read (sly-init-using-swank-loader port-filename coding-system))))))
 
 ;; XXX load-server & start-server used to be separated. maybe that was  better.
 (defun sly-init-using-swank-loader (port-filename _coding-system)
