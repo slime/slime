@@ -16,8 +16,6 @@
    (tag        :initform nil))
   (:documentation "A listener implemented in terms of a channel.")
   (:default-initargs
-   :make-out-stream #'make-mrepl-output-stream
-   :make-in-stream #'make-mrepl-input-stream
    :initial-env `((cl:*package* . ,*package*)
                   (*) (**) (***)
                   (/) (//) (///)
@@ -34,7 +32,10 @@
          (mrepl (make-instance
                  'mrepl
                  :remote-id remote-id
-                 :name (format nil "mrepl-remote-~a" remote-id)))
+                 :name (format nil "mrepl-remote-~a" remote-id)
+                 :out (make-mrepl-output-stream remote-id)
+                 :in (make-mrepl-input-stream remote-id)
+                 ))
          (thread (channel-thread mrepl)))
     (when thread
       (swank-backend:send thread `(:serve-channel ,mrepl)))
@@ -84,10 +85,6 @@
        (mrepl-remote-id r)
        `(:inspect-object
          ,(swank::inspect-object (mrepl-get-object-from-history entry-idx value-idx))))))
-
-(define-channel-method :teardown ((r mrepl))
-  (close-channel r)
-  (throw 'stop-processing 'listener-teardown))
 
 (defun copy-values-to-repl (repl values)
   ;; FIXME: Notice some duplication to MREPL-EVAL.
@@ -183,29 +180,31 @@
   "The buffering scheme that should be used for the output stream.
 Valid values are nil, t, :line")
 
-(defun make-mrepl-output-stream (repl)
+(defun make-mrepl-output-stream (remote-id)
   (or (and *use-dedicated-output-stream*
-           (open-dedicated-output-stream repl))
+           (open-dedicated-output-stream remote-id))
       (swank-backend:make-output-stream
        (lambda (string)
-         (send-to-remote-channel (mrepl-remote-id repl) `(:write-string ,string))))))
+         (send-to-remote-channel remote-id `(:write-string ,string))))))
 
 (defun make-mrepl-input-stream (repl)
   (swank-backend:make-input-stream
    (lambda () (read-input repl))))
 
-(defun open-dedicated-output-stream (repl)
+(defun open-dedicated-output-stream (remote-id)
   "Establish a dedicated output connection to Emacs.
 
-Notify Emacs's REPL that a socket is listening at a local ephemeral
-port. This is an optimized way for Lisp to deliver output to Emacs."
+Emacs's channel at REMOTE-ID is notified of a socket listening at an
+ephemeral port. Upon connection, the listening socket is closed, and
+the resulting connecion socket is used as optimized way for Lisp to
+deliver output to Emacs."
   (let ((socket (swank-backend:create-socket swank::*loopback-interface*
                                              *dedicated-output-stream-port*))
         ;; HACK: hardcoded coding system
         (ef (swank::find-external-format-or-lose "utf-8")))
     (unwind-protect
          (let ((port (swank-backend:local-port socket)))
-           (send-to-remote-channel (mrepl-remote-id repl)
+           (send-to-remote-channel remote-id
                                    `(:open-dedicated-output-stream ,port nil))
            (let ((dedicated (swank-backend:accept-connection
                              socket
@@ -317,14 +316,13 @@ dynamic binding."
   "The symbols naming standard io streams.")
 
 (defun init-global-stream-redirection ()
-  (when *globally-redirect-io*
-    (cond (*saved-global-streams*
-           (warn "Streams already redirected."))
-          (t
-           (mapc #'setup-stream-indirection
-                 (append *standard-output-streams*
-                         *standard-input-streams*
-                         *standard-io-streams*))))))
+  (cond (*saved-global-streams*
+         (warn "Streams already redirected."))
+        (t
+         (mapc #'setup-stream-indirection
+               (append *standard-output-streams*
+                       *standard-input-streams*
+                       *standard-io-streams*)))))
 
 (defun globally-redirect-to-listener (listener)
   "Set the standard I/O streams to redirect to LISTENER.
@@ -377,11 +375,14 @@ Return the current redirection target, or nil"
         (init-global-stream-redirection))
       (setq *target-listener-for-redirection* l)
       (globally-redirect-to-listener l)
-      (format *standard-output* "~&; Redirecting all output to this MREPL~%"))
+      (with-listener l
+        (format *standard-output* "~&; Redirecting all output to this MREPL~%")
+        (flush-listener-streams l)))
     *target-listener-for-redirection*))
 
 (defmethod close-channel :before ((r mrepl))
   ;; If this channel was the redirection target.
+  (close-listener r)
   (when (eq r *target-listener-for-redirection*)
     (setq *target-listener-for-redirection* nil)
     (maybe-redirect-global-io (default-connection))

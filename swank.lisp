@@ -24,7 +24,6 @@
            #:swank-debugger-hook
            #:emacs-inspect
            ;;#:inspect-slot-for-emacs
-           #:stop-processing
            #:authenticate-client
            #:*loopback-interface*)
   ;; These are user-configurable variables:
@@ -506,6 +505,9 @@ corresponding values in the CDR of VALUE."
      (destructuring-bind ,args args
        . ,body)))
 
+(define-channel-method :teardown ((c channel))
+  (throw 'stop-processing 'listener-teardown))
+
 (defun send-to-remote-channel (channel-id msg)
   (send-to-emacs `(:channel-send ,channel-id ,msg)))
 
@@ -518,14 +520,8 @@ corresponding values in the CDR of VALUE."
 
 (defmacro listeners () `(connection-listeners *emacs-connection*))
 
-(defmethod initialize-instance :after ((l listener) &key initial-env
-                                                      make-out-stream
-                                                      make-in-stream) 
+(defmethod initialize-instance :after ((l listener) &key initial-env) 
   (with-slots (out in env) l
-    (when make-out-stream
-      (setf out (funcall make-out-stream l)))
-    (when make-in-stream
-      (setf in (funcall make-in-stream l)))
     (let ((io (make-two-way-stream in out)))
       (setf env
             (append
@@ -573,10 +569,10 @@ corresponding values in the CDR of VALUE."
     (force-output out)
     (clear-input in)))
 
-(defmethod close-channel :after ((l listener))
-  (with-slots (in out) l
-    (close in)
-    (close out)))
+(defmethod close-listener (l)
+  ;; TODO: investigate why SBCL complains when we close IN and OUT
+  ;; here.
+  (setf (listeners) (delete l (listeners))))
 
 
 ;;;; Interrupt handling
@@ -1071,7 +1067,8 @@ TIMEOUT has the same meaning as in WAIT-FOR-EVENT."
                                     (drop-unprocessed-events channel))
              (when (eq (process-requests nil)
                        'listener-teardown)
-               (return))))))))
+               (return))))))
+       (close-channel channel)))
    :name (with-slots (id name) channel
            (format nil "sly-channel-~a-~a" id name))))
 
@@ -1090,6 +1087,7 @@ TIMEOUT has the same meaning as in WAIT-FOR-EVENT."
     (stop-serving-requests c)
     (close (connection-socket-io c))
     (mapc #'close-channel (connection-channels c))
+    (mapc #'close-listener (connection-listeners c))
     (setf *connections* (remove c *connections*))
     (run-hook *connection-closed-hook* c)
     (when (and condition (not (typep condition 'end-of-file)))
@@ -3880,6 +3878,7 @@ Collisions are caused because package information is ignored."
                with-listener
                flush-listener-streams
                default-listener
+               close-listener
                ;;
                add-hook
                *connection-closed-hook*
@@ -3898,7 +3897,6 @@ Collisions are caused because package information is ignored."
                with-connection
                with-top-level-restart
                with-sly-interrupts
-               stop-processing
                with-buffer-syntax
                with-retry-restart
                
