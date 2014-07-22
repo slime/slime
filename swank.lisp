@@ -210,6 +210,7 @@ Backend code should treat the connection structure as opaque.")
   ;; An alist of (ID . CHANNEL) entries. Channels are good for
   ;; streaming data over the wire (see their description in sly.el)
   ;;
+  (channel-counter 0 :type number)
   (channels '() :type list)
   ;; A list of LISTENER objects. Each listener has a couple of streams
   ;; and an environment (an alist of bindings)
@@ -459,12 +460,11 @@ corresponding values in the CDR of VALUE."
 
 ;;; Channels
 
-(defvar *channel-counter* 0)
-
 (defmacro channels () `(connection-channels *emacs-connection*))
+(defmacro channel-counter () `(connection-channel-counter *emacs-connection*))
 
 (defclass channel ()
-  ((id     :initform (incf *channel-counter*)
+  ((id     :initform (incf (channel-counter))
            :reader channel-id)
    (thread :initarg :thread :initform (current-thread)
            :reader channel-thread)
@@ -3899,6 +3899,8 @@ Collisions are caused because package information is ignored."
                with-sly-interrupts
                with-buffer-syntax
                with-retry-restart
+               ;;
+               *swank-wire-protocol-version*
                
                )))
     (eval `(defpackage #:swank-api

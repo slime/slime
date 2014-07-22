@@ -23,6 +23,10 @@
                   (*history* . ,(make-array 40 :fill-pointer 0
                                                :adjustable t)))))
 
+(defmethod print-object ((r mrepl) stream)
+  (print-unreadable-object (r stream :type t)
+    (format stream "mrepl-~a-~a" (channel-id r) (mrepl-remote-id r))))
+
 (defun package-prompt (package)
   (reduce (lambda (x y) (if (<= (length x) (length y)) x y))
           (cons (package-name package) (package-nicknames package))))
@@ -39,6 +43,9 @@
          (thread (channel-thread mrepl)))
     (when thread
       (swank-backend:send thread `(:serve-channel ,mrepl)))
+    (format (swank::listener-out mrepl) "~&; SLY ~a (~a)~%"
+            *swank-wire-protocol-version*
+            mrepl)
     (let ((target (maybe-redirect-global-io *emacs-connection*)))
       (cond ((and target
                   (not (eq mrepl target)))
@@ -356,7 +363,8 @@ NIL if streams are not globally redirected.")
 (defun revert-global-io-redirection ()
   "Set *CURRENT-<STREAM>* to *REAL-<STREAM>* for all standard streams."
   (format *standard-output* "~&; About to revert global IO direction~%")
-  (flush-listener-streams *target-listener-for-redirection*)
+  (when *target-listener-for-redirection*
+    (flush-listener-streams *target-listener-for-redirection*))
   (dolist (stream-var (append *standard-output-streams*
                               *standard-input-streams*
                               *standard-io-streams*))

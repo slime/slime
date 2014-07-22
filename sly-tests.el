@@ -565,8 +565,8 @@ Confirm that EXPECTED-ARGLIST is displayed."
       ("swank::compile-string-for-emacs"
        "(swank::compile-string-for-emacs \
 string buffer position filename policy)")
-      ("swank::connection.socket-io"
-       "(swank::connection.socket-io \
+      ("swank::connection-socket-io"
+       "(swank::connection-socket-io \
 \\(struct\\(ure\\)?\\|object\\|instance\\|x\\|connection\\))")
       ("cl:lisp-implementation-type" "(cl:lisp-implementation-type)")
       ("cl:class-name"
@@ -1240,11 +1240,16 @@ Reconnect afterwards."
   `((unless (and (featurep 'sly-mrepl)
                  (assq 'swank-mrepl sly-required-modules))
       (die "`sly-repl' contrib not properly setup"))
-    (with-current-buffer (sly-mrepl)
-      (unless (and (string-match "^; +SLY" (buffer-string))
-                   (string-match "CL-USER> *$" (buffer-string)))
-        (die "REPL prompt not properly setup"
-             (buffer-substring-no-properties (point-min) (point-max)))))))
+    (let ((mrepl-buffer (sly-mrepl--find-buffer)))
+      (unless mrepl-buffer
+        (die "MREPL buffer not setup!"))
+      (with-current-buffer mrepl-buffer
+        ;; FIXME: suboptimal: wait one second for the lisp
+        ;; to reply.
+        (sit-for 1) 
+        (unless (and (string-match "^; +SLY" (buffer-string))
+                     (string-match "CL-USER> *$" (buffer-string)))
+          (die "MREPL prompt not setup properly"))))))
 
 (defvar sly-test-check-asdf-loader-forms
   `((when (sly-eval '(cl:and (cl:find-package :swank-loader) t))
