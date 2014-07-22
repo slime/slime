@@ -1,8 +1,6 @@
 (require 'sly)
 (require 'cl-lib)
 
-(defvar sly-c-p-c-init-undo-stack nil)
-
 (define-sly-contrib sly-c-p-c
   "ILISP style Compound Prefix Completion."
   (:authors "Luke Gorrie  <luke@synap.se>"
@@ -13,23 +11,14 @@
   (:sly-dependencies sly-parse sly-autodoc)
   (:swank-dependencies swank-c-p-c)
   (:on-load
-   (push 
-    `(progn
-       (setq sly-complete-symbol-function ',sly-complete-symbol-function)
-       (remove-hook 'sly-connected-hook 'sly-c-p-c-on-connect)
-       ,@(when (featurep 'sly-repl)
-               `((define-key sly-mode-map "\C-c\C-s"
-                   ',(lookup-key sly-mode-map "\C-c\C-s"))
-                 (define-key sly-repl-mode-map "\C-c\C-s"
-                   ',(lookup-key sly-repl-mode-map "\C-c\C-s")))))
-    sly-c-p-c-init-undo-stack)
    (setq sly-complete-symbol-function 'sly-complete-symbol*)
-   (define-key sly-mode-map "\C-c\C-s" 'sly-complete-form)
-   (when (featurep 'sly-repl)
-     (define-key sly-repl-mode-map "\C-c\C-s" 'sly-complete-form)))
+   (define-key sly-mode-map "\C-c\C-s" 'sly-complete-form))
   (:on-unload
-   (while sly-c-p-c-init-undo-stack
-     (eval (pop sly-c-p-c-init-undo-stack)))))
+   ;; FIXME: To properly support unloading, this contrib should be
+   ;; made a minor mode with it's own keymap. The minor mode
+   ;; activation function should be added to the proper sly-* hooks.
+   ;; 
+   ))
 
 (defcustom sly-c-p-c-unambiguous-prefix-p t
   "If true, set point after the unambigous prefix.

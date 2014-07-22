@@ -29,7 +29,7 @@
   (setq buffer-read-only t)
   (sly-mode))
 
-(set-keymap-parent sly-sprof-browser-mode-map sly-parent-map)
+(set-keymap-parent sly-sprof-browser-mode-map sly-mode-map)
 
 (sly-define-keys sly-sprof-browser-mode-map
   ("h" 'describe-mode)

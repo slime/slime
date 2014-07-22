@@ -5,10 +5,10 @@
 (defun sly-autodoc-to-string ()
   "Retrieve and return autodoc for form at point."
   (let ((autodoc (car (sly-eval
-                       (cl-second (sly-make-autodoc-rpc-form))))))
+                       (cl-second (sly-autodoc--make-rpc-form))))))
     (if (eq autodoc :not-available)
         :not-available
-        (sly-canonicalize-whitespace autodoc))))
+      (replace-regexp-in-string "[ \n\t]+" " "  autodoc))))
 
 (defun sly-check-autodoc-at-point (arglist)
   (sly-test-expect (format "Autodoc in `%s' (at %d) is as expected"

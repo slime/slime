@@ -2,22 +2,19 @@
 (require 'sly-c-p-c)
 (require 'sly-parse)
 
-(defvar sly-package-fu-init-undo-stack nil)
-
 (define-sly-contrib sly-package-fu
   "Exporting/Unexporting symbols at point."
   (:authors "Tobias C. Rittweiler <tcr@freebits.de>")
   (:license "GPL")
   (:swank-dependencies swank-package-fu)
   (:on-load 
-   (push `(progn (define-key sly-mode-map "\C-cx"
-                   ',(lookup-key sly-mode-map "\C-cx")))
-         sly-package-fu-init-undo-stack)
    (define-key sly-mode-map "\C-cx"  'sly-export-symbol-at-point))
   (:on-unload
-   (while sly-c-p-c-init-undo-stack
-     (eval (pop sly-c-p-c-init-undo-stack)))))
-
+   ;; FIXME: To properly support unloading, this contrib should be
+   ;; made a minor mode with it's own keymap. The minor mode
+   ;; activation function should be added to the proper sly-* hooks.
+   ;; 
+   ))
 
 (defvar sly-package-file-candidates
   (mapcar #'file-name-nondirectory
