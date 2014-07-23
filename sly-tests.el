@@ -1249,7 +1249,7 @@ Reconnect afterwards."
         (sit-for 1) 
         (unless (and (string-match "^; +SLY" (buffer-string))
                      (string-match "CL-USER> *$" (buffer-string)))
-          (die "MREPL prompt not setup properly"))))))
+          (die (format "MREPL prompt: %s" (buffer-string))))))))
 
 (defvar sly-test-check-asdf-loader-forms
   `((when (sly-eval '(cl:and (cl:find-package :swank-loader) t))

@@ -123,15 +123,18 @@ This is a superset of the functionality of `sly-insert-arglist'."
     (let ((result (sly-eval `(swank:complete-form ',buffer-form))))
       (if (eq result :not-available)
           (error "Could not generate completion for the form `%s'" buffer-form)
-          (progn
-            (just-one-space (if (looking-back "\\s(" (1- (point)))
-                                0
-                                1))
-            (save-excursion
-              (insert result))
+        (progn
+          (just-one-space (if (looking-back "\\s(" (1- (point)))
+                              0
+                            1))
+          (let ((result-end
+                 (save-excursion
+                   (insert result)
+                   (unless (<= (save-excursion (car (syntax-ppss (point-max)))) 0)
+                     (insert ")"))
+                   (point))))
             (save-excursion
               (backward-up-list 1)
-              (indent-sexp)))))))
+              (indent-region (point) result-end))))))))
 
 (provide 'sly-c-p-c)
-

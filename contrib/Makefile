@@ -61,8 +61,10 @@ $(CONTRIBS:%=elpa-%): compile
 
 elpa-all: $(CONTRIBS:%=elpa-%)
 
+SELECTOR=t
+
 $(CONTRIBS:%=check-%): CONTRIB_NAME=$(patsubst check-%,sly-%,$@)
-$(CONTRIBS:%=check-%): SELECTOR=(quote (tag contrib))
+$(CONTRIBS:%=check-%): SELECTOR=(tag contrib)
 $(CONTRIBS:%=check-%): compile
 	$(EMACS) -Q --batch $(LOAD_PATH) -L test                        \
 	        --eval "(require (quote sly))"                        \
@@ -74,6 +76,6 @@ $(CONTRIBS:%=check-%): compile
 	                      (sly-contrib-all-dependencies           \
 	                        (quote $(CONTRIB_NAME))))"              \
 	        --eval "(setq inferior-lisp-program \"$(LISP)\")"       \
-	        --eval "(sly-batch-test $(SELECTOR))"
+	        --eval '(sly-batch-test (quote $(SELECTOR)))'
 
 check-all: $(CONTRIBS:%=check-%)

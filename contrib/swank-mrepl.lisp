@@ -207,8 +207,8 @@ the resulting connecion socket is used as optimized way for Lisp to
 deliver output to Emacs."
   (let ((socket (swank-backend:create-socket swank::*loopback-interface*
                                              *dedicated-output-stream-port*))
-        ;; HACK: hardcoded coding system
-        (ef (swank::find-external-format-or-lose "utf-8")))
+        (ef (or (some #'swank::find-external-format '("utf-8-unix" "utf-8"))
+                (error "no suitable coding system for dedicated stream"))))
     (unwind-protect
          (let ((port (swank-backend:local-port socket)))
            (send-to-remote-channel remote-id
