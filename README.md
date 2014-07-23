@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/sly/sly.png?branch=master)](https://travis-ci.org/sly/sly)
+[![Build Status](https://travis-ci.org/capitaomorte/sly.png?branch=master)](https://travis-ci.org/capitaomorte/sly)
 
 Overview
 --------
