@@ -67,7 +67,8 @@ emptied.See also `sly-mrepl-hook'")
                 (sly-mrepl--expect-sexp-mode t)
                 (sly-mrepl--result-counter -1)
                 (sly-mrepl--output-mark ,(point-marker))
-                (sly-mrepl--last-prompt-beg-and-end nil))
+                (sly-mrepl--last-prompt-beg-and-end nil)
+                (sly-find-buffer-package-function sly-mrepl-guess-package))
            do (set (make-local-variable var) value))
   (set-marker-insertion-type sly-mrepl--output-mark nil)
   ;;(set (make-local-variable 'comint-get-old-input) 'ielm-get-old-input)
@@ -206,21 +207,20 @@ emptied.See also `sly-mrepl-hook'")
 
 (sly-define-channel-method listener :prompt (package prompt)
   (with-current-buffer (sly-channel-get self 'buffer)
-    (setq sly-buffer-package package)
     (when (and sly-mrepl--dedicated-stream
                (process-live-p sly-mrepl--dedicated-stream))
       ;; This non-blocking call should be enough to allow asynch calls
       ;; to `sly-mrepl--insert-output' to still see the correct value
       ;; for `sly-mrepl--output-mark' just before we set it.
       (accept-process-output))
-    (sly-mrepl--prompt prompt)))
+    (sly-mrepl--prompt prompt package)))
 
 (defface sly-mrepl-prompt-face
   `((t (:inherit comint-highlight-prompt)))
   "Face for errors from the compiler."
   :group 'sly-mode-faces)
 
-(defun sly-mrepl--prompt (prompt)
+(defun sly-mrepl--prompt (prompt package)
   (sly-mrepl--unfreeze)
   (sly-mrepl--insert (pcase (current-column)
                        (0 "")
@@ -229,7 +229,7 @@ emptied.See also `sly-mrepl-hook'")
   (let ((beg (point)))
     (sly-mrepl--insert (propertize (format "%s> " prompt)
                                  'face 'sly-mrepl-prompt-face
-                                 'sly-mrepl--prompt t))
+                                 'sly-mrepl--prompt package))
     (set (make-local-variable 'sly-mrepl--last-prompt-beg-and-end)
          (cons beg (point))))
   (sly-mrepl--recenter)
@@ -514,6 +514,22 @@ emptied.See also `sly-mrepl-hook'")
       (sly-mrepl--send `(:sync-package-and-default-directory
                          ,package
                          ,default-directory)))))
+
+
+(defun sly-mrepl-guess-package (&optional point interactive)
+  (interactive (list (point) t))
+  (let* ((point (or point (point)))
+         (probe
+          (previous-single-property-change point
+                                           'sly-mrepl--prompt))
+         (package (and probe
+                       (or (get-text-property probe 'sly-mrepl--prompt)
+                           (get-text-property (previous-single-property-change
+                                               probe 'sly-mrepl--prompt)
+                                              'sly-mrepl--prompt)))))
+    (when interactive
+      (message "Guessed package \"%s\"" package))
+    package))
 
 
 (def-sly-selector-method ?m
