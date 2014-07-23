@@ -36,7 +36,6 @@ emptied.See also `sly-mrepl-hook'")
 (defvar sly-mrepl--remote-channel nil)
 (defvar sly-mrepl--local-channel nil)
 (defvar sly-mrepl--expect-sexp-mode t)
-(defvar sly-mrepl--pending-requests nil)
 (defvar sly-mrepl--result-counter -1)
 (defvar sly-mrepl--output-mark nil)
 (defvar sly-mrepl--dedicated-stream nil)
@@ -52,6 +51,7 @@ emptied.See also `sly-mrepl-hook'")
 
 (define-derived-mode sly-mrepl-mode comint-mode "mrepl"
   (sly-mode)
+  (font-lock-mode -1)
   (cl-loop for (var value)
            in `((comint-use-prompt-regexp nil)
                 (comint-inhibit-carriage-motion t)
@@ -66,7 +66,8 @@ emptied.See also `sly-mrepl-hook'")
                 (indent-line-function lisp-indent-line)
                 (sly-mrepl--expect-sexp-mode t)
                 (sly-mrepl--result-counter -1)
-                (sly-mrepl--output-mark ,(point-marker)))
+                (sly-mrepl--output-mark ,(point-marker))
+                (sly-mrepl--last-prompt-beg-and-end nil))
            do (set (make-local-variable var) value))
   (set-marker-insertion-type sly-mrepl--output-mark nil)
   ;;(set (make-local-variable 'comint-get-old-input) 'ielm-get-old-input)
@@ -122,14 +123,12 @@ emptied.See also `sly-mrepl-hook'")
     (sly-eval-async
         `(swank-mrepl:create-mrepl ,(sly-channel.id local))
       (lambda (result)
-        (cl-destructuring-bind (remote thread-id package prompt) result
+        (cl-destructuring-bind (remote thread-id _package _prompt) result
           (with-current-buffer buffer
             (sly-mrepl-read-input-ring)
             (setq header-line-format nil)
             (setq sly-current-thread thread-id)
             (set (make-local-variable 'sly-mrepl--remote-channel) remote)
-            (sly-channel-send local `(:prompt ,package ,prompt))
-            (sly-mrepl--send-pending)
             (sly-mrepl--commit-buffer-name)
             (unwind-protect
                 (run-hooks 'sly-mrepl-hook 'sly-mrepl-runonce-hook)
@@ -174,6 +173,26 @@ emptied.See also `sly-mrepl-hook'")
       (insert-before-markers string)
       (add-text-properties start (point) '(read-only t)))))
 
+(defvar sly-mrepl--last-prompt-beg-and-end nil)
+
+(defun sly-mrepl--last-prompt-beg-and-end ()
+  sly-mrepl--last-prompt-beg-and-end)
+
+(defun sly-mrepl--freeze ()
+  (let* ((beg-and-end (sly-mrepl--last-prompt-beg-and-end))
+         (inhibit-read-only t))
+    (when beg-and-end
+      (put-text-property (car beg-and-end) (cdr beg-and-end)
+                         'face 'font-lock-warning-face))))
+
+(defun sly-mrepl--unfreeze ()
+  (let* ((beg-and-end (sly-mrepl--last-prompt-beg-and-end))
+         (inhibit-read-only t))
+    (when beg-and-end
+      (put-text-property (car beg-and-end) (cdr beg-and-end)
+                         'face 'sly-mrepl-prompt-face))))
+
+
 (defun sly-mrepl--send-input ()
   (goto-char (point-max))
   (skip-chars-backward "\n\t\s")
@@ -181,6 +200,7 @@ emptied.See also `sly-mrepl-hook'")
                       (sly-mrepl--mark))
                  (point-max))
   (buffer-disable-undo)
+  (sly-mrepl--freeze)
   (sly-mrepl--commiting-text
    (comint-send-input)))
 
@@ -193,15 +213,25 @@ emptied.See also `sly-mrepl-hook'")
       ;; to `sly-mrepl--insert-output' to still see the correct value
       ;; for `sly-mrepl--output-mark' just before we set it.
       (accept-process-output))
-    
     (sly-mrepl--prompt prompt)))
 
+(defface sly-mrepl-prompt-face
+  `((t (:inherit comint-highlight-prompt)))
+  "Face for errors from the compiler."
+  :group 'sly-mode-faces)
+
 (defun sly-mrepl--prompt (prompt)
+  (sly-mrepl--unfreeze)
   (sly-mrepl--insert (pcase (current-column)
                        (0 "")
                        (t "\n")))
   (set-marker sly-mrepl--output-mark (sly-mrepl--mark))
-  (sly-mrepl--insert (format "%s> " prompt))
+  (let ((beg (point)))
+    (sly-mrepl--insert (propertize (format "%s> " prompt)
+                                 'face 'sly-mrepl-prompt-face
+                                 'sly-mrepl--prompt t))
+    (set (make-local-variable 'sly-mrepl--last-prompt-beg-and-end)
+         (cons beg (point))))
   (sly-mrepl--recenter)
   (buffer-enable-undo))
 
@@ -249,16 +279,16 @@ emptied.See also `sly-mrepl-hook'")
 (sly-define-channel-method listener :copy-to-repl (objects)
   (with-current-buffer (sly-channel-get self 'buffer)
     (goto-char (sly-mrepl--mark))
-    (let ((saved-text (buffer-substring (point) (point-max))))
-      (delete-region (point) (point-max))
-      (insert ";; ")
-      (sly-mrepl--commiting-text
-       (let ((comint-input-sender 'sly-mrepl--dummy-sender))
-         (comint-send-input)))
-      (sly-mrepl--insert-returned-values objects)
-      (pop-to-buffer (current-buffer))
-      (goto-char (sly-mrepl--mark))
-      (insert saved-text))))
+    (cl-labels ((sly-mrepl--dummy-sender (_proc _string)))
+      (let ((saved-text (buffer-substring (point) (point-max)))
+            (comint-input-sender 'sly-mrepl--dummy-sender))
+        (delete-region (point) (point-max))
+        (insert ";; ")
+        (sly-mrepl--send-input)
+        (sly-mrepl--insert-returned-values objects)
+        (pop-to-buffer (current-buffer))
+        (goto-char (sly-mrepl--mark))
+        (insert saved-text)))))
 
 (sly-define-channel-method listener :evaluation-aborted (&optional condition)
   (with-current-buffer (sly-channel-get self 'buffer)
@@ -292,7 +322,7 @@ emptied.See also `sly-mrepl-hook'")
   (cond ((and
 	  sly-mrepl--expect-sexp-mode
           (sly-mrepl--busy-p))
-	 (message "(wait for it!!!!)"))
+	 (message "REPL is busy"))
         ((and sly-mrepl--expect-sexp-mode
 	      (or (sly-input-complete-p (sly-mrepl--mark) (point-max))
 		  end-of-input))
@@ -308,37 +338,15 @@ emptied.See also `sly-mrepl-hook'")
          (message "[input not complete]")))
   (sly-mrepl--recenter))
 
-;; (add-hook 'post-command-hook 'sly-mrepl--debug t t) is a useful
-;; command to debug mrepl issues.
-(defun sly-mrepl--debug ()
-  (message "point at %s, output-mark at %s, process-mark at %s (%s)"
-           (point)
-           (marker-position sly-mrepl--output-mark)
-           (marker-position (sly-mrepl--mark))
-           (if (sly-mrepl--busy-p) "BUSY" "READY")))
-
 (defun sly-mrepl--input-sender (_proc string)
   (sly-mrepl--send-string (substring-no-properties string)))
-
-(defun sly-mrepl--dummy-sender (_proc _string))
 
 (defun sly-mrepl--send-string (string &optional _command-string)
   (sly-mrepl--send `(:process ,string)))
 
 (defun sly-mrepl--send (msg)
-  "Send MSG to the remote channel.
-
-If message can't be sent right now, queue it onto
-`sly-mrepl--pending-requests'"
-  (if sly-mrepl--remote-channel
-      (sly-send-to-remote-channel sly-mrepl--remote-channel msg)
-    (add-to-list (make-local-variable 'sly-mrepl--pending-requests)
-                 msg 'append)))
-
-(defun sly-mrepl--send-pending ()
-  "Send pending requests from `sly-mrepl--pending-requests'."
-  (mapc #'sly-mrepl--send sly-mrepl--pending-requests)
-  (setq sly-mrepl--pending-requests nil))
+  "Send MSG to the remote channel."
+  (sly-send-to-remote-channel sly-mrepl--remote-channel msg))
 
 (defun sly-mrepl--find-buffer (&optional connection)
   "Find the default `sly-mrepl' buffer for CONNECTION."

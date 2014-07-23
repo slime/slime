@@ -43,16 +43,18 @@
          (thread (channel-thread mrepl)))
     (when thread
       (swank-backend:send thread `(:serve-channel ,mrepl)))
-    (format (swank::listener-out mrepl) "~&; SLY ~a (~a)~%"
-            *swank-wire-protocol-version*
-            mrepl)
-    (let ((target (maybe-redirect-global-io *emacs-connection*)))
-      (cond ((and target
-                  (not (eq mrepl target)))
-             (format (swank::listener-out mrepl) "~&; Global redirection setup elsewhere~%"))
-            ((not target)
-             (format (swank::listener-out mrepl) "~&; Global redirection not setup~%"))))
-    (flush-listener-streams mrepl)
+    (with-listener mrepl
+      (format *standard-output* "~&; SLY ~a (~a)~%"
+              *swank-wire-protocol-version*
+              mrepl)
+      (let ((target (maybe-redirect-global-io *emacs-connection*)))
+        (cond ((and target
+                    (not (eq mrepl target)))
+               (format *standard-output* "~&; Global redirection setup elsewhere~%"))
+              ((not target)
+               (format *standard-output* "~&; Global redirection not setup~%"))))
+      (flush-listener-streams mrepl)
+      (send-prompt mrepl))
     (list (channel-id mrepl)
           (swank-backend:thread-id (or thread (swank-backend:current-thread)))
           (package-name pkg)
