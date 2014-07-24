@@ -2549,7 +2549,7 @@ PREDICATE is executed in the buffer to test."
 
 (defun sly-recompile-location (location)
   (save-excursion
-    (sly-goto-source-location location)
+    (sly--move-to-source-location location)
     (sly-compile-defun)))
 
 (defun sly-recompile-locations (locations cont)
@@ -2557,7 +2557,7 @@ PREDICATE is executed in the buffer to test."
       `(swank:compile-multiple-strings-for-emacs
         ',(cl-loop for loc in locations collect
                    (save-excursion
-                     (sly-goto-source-location loc)
+                     (sly--move-to-source-location loc)
                      (cl-destructuring-bind (start end)
                          (sly-region-for-defun-at-point)
                        (list (buffer-substring-no-properties start end)
@@ -2708,7 +2708,7 @@ This is quite an expensive operation so use carefully."
   (save-excursion
     (sly-goto-location-buffer (sly-location.buffer location))
     (save-excursion
-      (sly-goto-source-location location)
+      (sly--move-to-source-location location)
       (list (or (buffer-file-name) (buffer-name))
             (save-restriction
               (widen)
@@ -2867,7 +2867,7 @@ Return nil if there's no useful source location."
              (cl-values pos (1+ pos)))))))
 
 (defun sly-choose-overlay-for-sexp (location)
-  (sly-goto-source-location location)
+  (sly--move-to-source-location location)
   (skip-chars-forward "'#`")
   (let ((start (point)))
     (ignore-errors (sly-forward-sexp))
@@ -3195,7 +3195,7 @@ Don't move if there are multiple or no calls in the current defun."
       (beginning-of-defun))
     (sly-forward-source-path edit-path)))
 
-(defun sly-goto-source-location (location &optional noerror)
+(defun sly--move-to-source-location (location &optional noerror)
   "Move to the source location LOCATION.  Several kinds of locations
 are supported:
 
@@ -3227,6 +3227,27 @@ are supported:
      (if noerror
          (sly-message "%s" message)
        (error "%s" message)))))
+
+(defun sly--display-source-location (source-location)
+  (save-excursion
+    (sly--move-to-source-location source-location)
+    (sly-highlight-sexp)
+    (let ((pos (point)))
+      (with-selected-window (display-buffer (current-buffer) t)
+        (goto-char pos)
+        (recenter (if (= (current-column) 0) 1))))))
+
+(defun sly--pop-to-source-location (source-location &optional method)
+  (sly--move-to-source-location source-location)
+  (sly-highlight-sexp)
+  (cl-ecase method
+    ((nil)     (switch-to-buffer (current-buffer)))
+    (window    (pop-to-buffer (current-buffer) t))
+    (delete-current (let ((original (selected-window)))
+                      (pop-to-buffer (current-buffer) t)
+                      (unless (eq original (selected-window))
+                        (delete-window original))))
+    (frame     (let ((pop-up-frames t)) (pop-to-buffer (current-buffer) t)))))
 
 (defun sly-location-offset (location)
   "Return the position, as character number, of LOCATION."
@@ -3660,7 +3681,7 @@ function name is prompted."
                   name (sly-current-package)))
           (1loc
            (sly-push-definition-stack)
-           (sly-pop-to-location (sly-xref.location (car xrefs)) where))
+           (sly--pop-to-source-location (sly-xref.location (car xrefs)) where))
           ((sly-length= xrefs 1)      ; ((:error "..."))
            (error "%s" (cadr (sly-xref.location (car xrefs)))))
           (t
@@ -3686,7 +3707,7 @@ function name is prompted."
                         (sly-length= (cdar  xrefs) 1)) ; one ref in group
                    (cl-destructuring-bind (_ (_ loc)) (cl-first xrefs)
                      (sly-push-definition-stack)
-                     (sly-pop-to-location loc)))
+                     (sly--pop-to-source-location loc)))
                   (t
                    (sly-push-definition-stack)
                    (sly-show-xref-buffer xrefs type symbol package))))))
@@ -3717,13 +3738,6 @@ FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
            ((:zip _zip entry) entry)))
         (t
          "(No location)")))
-
-(defun sly-pop-to-location (location &optional where)
-  (sly-goto-source-location location)
-  (cl-ecase where
-    ((nil)     (switch-to-buffer (current-buffer)))
-    (window    (pop-to-buffer (current-buffer) t))
-    (frame     (let ((pop-up-frames t)) (pop-to-buffer (current-buffer) t)))))
 
 (defun sly-postprocess-xref (original-xref)
   "Process (for normalization purposes) an Xref comming directly
@@ -4428,10 +4442,7 @@ The most important commands:
   ("p" 'sly-xref-prev-line)
   ("\C-c\C-c" 'sly-recompile-xref)
   ("\C-c\C-k" 'sly-recompile-all-xrefs)
-  ("\M-," 'sly-xref-retract)
-  ([remap next-line] 'sly-xref-next-line)
-  ([remap previous-line] 'sly-xref-prev-line)
-  )
+  ("\M-," 'sly-xref-retract))
 
 (defun sly-next-line/not-add-newlines ()
   (interactive)
@@ -4478,7 +4489,7 @@ source-location."
 
 (defun sly-xref-show-location (loc)
   (cl-ecase (car loc)
-    (:location (sly-show-source-location loc t))
+    (:location (sly--display-source-location loc))
     (:error (message "%s" (cadr loc)))
     ((nil))))
 
@@ -4623,14 +4634,12 @@ This is used by `sly-goto-next-xref'")
 (defun sly-goto-xref ()
   "Goto the cross-referenced location at point."
   (interactive)
-  (sly-show-xref)
-  (quit-window))
+  (sly--pop-to-source-location (sly-xref-location-at-point) 'delete-current))
 
 (defun sly-show-xref ()
   "Display the xref at point in the other window."
   (interactive)
-  (let ((location (sly-xref-location-at-point)))
-    (sly-show-source-location location)))
+  (sly--display-source-location (sly-xref-location-at-point)))
 
 (defun sly-goto-next-xref (&optional backward)
   "Goto the next cross-reference location."
@@ -4641,7 +4650,7 @@ This is used by `sly-goto-next-xref'")
           (cl-values (sly-search-property 'sly-location backward)
                      (point)))
       (cond ((sly-location-p location)
-             (sly-pop-to-location location)
+             (sly--pop-to-source-location location)
              ;; We do this here because changing the location can take
              ;; a while when Emacs needs to read a file from disk.
              (with-current-buffer sly-xref-last-buffer
@@ -5545,15 +5554,7 @@ This is 0 if START and END at the same line."
          (message "%s" message)
          (ding))
         (t
-         (sly-show-source-location source-location))))))
-
-(defun sly-show-source-location (source-location &optional no-highlight-p)
-  (sly-goto-source-location source-location)
-  (let ((pos (point))) ; show the location, but don't hijack focus.
-    (with-selected-window (display-buffer (current-buffer) t)
-      (goto-char pos)
-      (recenter (if (= (current-column) 0) 1))
-      (unless no-highlight-p (sly-highlight-sexp)))))
+         (sly--display-source-location source-location))))))
 
 (defun sly-highlight-sexp (&optional start end)
   "Highlight the first sexp after point."
@@ -6461,7 +6462,7 @@ If ARG is negative, move forwards."
                          (error "No part at point"))))
   (sly-eval-async
       `(swank:find-source-location-for-emacs '(:inspector ,part))
-    #'sly-show-source-location))
+    #'sly--display-source-location))
 
 (defun sly-inspector-reinspect ()
   (interactive)
