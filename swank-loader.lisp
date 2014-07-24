@@ -36,18 +36,18 @@
   "A list of directories to search for modules.")
 
 (defparameter *sysdep-files*
-  #+cmu '(swank-source-path-parser swank-source-file-cache swank-cmucl)
-  #+scl '(swank-source-path-parser swank-source-file-cache swank-scl)
+  #+cmu '(swank-source-path-parser swank-source-file-cache (backend swank-cmucl))
+  #+scl '(swank-source-path-parser swank-source-file-cache (backend swank-scl))
   #+sbcl '(swank-source-path-parser swank-source-file-cache
-           swank-sbcl swank-gray)
-  #+clozure '(metering swank-ccl swank-gray)
-  #+lispworks '(swank-lispworks swank-gray)
-  #+allegro '(swank-allegro swank-gray)
-  #+clisp '(xref metering swank-clisp swank-gray)
-  #+armedbear '(swank-abcl)
-  #+cormanlisp '(swank-corman swank-gray)
+           (backend swank-sbcl) swank-gray)
+  #+clozure '(metering (backend swank-ccl) swank-gray)
+  #+lispworks '((backend swank-lispworks) swank-gray)
+  #+allegro '((backend swank-allegro) swank-gray)
+  #+clisp '(xref metering (backend swank-clisp) swank-gray)
+  #+armedbear '((backend swank-abcl))
+  #+cormanlisp '((backend swank-corman) swank-gray)
   #+ecl '(swank-source-path-parser swank-source-file-cache
-          swank-ecl swank-gray))
+          (backend swank-ecl) swank-gray))
 
 (defparameter *implementation-features*
   '(:allegro :lispworks :sbcl :clozure :cmu :clisp :ccl :corman :cormanlisp
@@ -209,11 +209,20 @@ If LOAD is true, load the fasl file."
       (load file :verbose (not quiet)
       (force-output)))))
 
-(defun src-files (names src-dir)
-  (mapcar (lambda (name)
-            (make-pathname :name (string-downcase name) :type "lisp"
-                           :defaults src-dir))
-          names))
+(defun ensure-list (o)
+  (if (listp o) o (list o)))
+
+(defun src-files (files src-dir)
+  "Return actual pathnames for each spec in FILES."
+  (mapcar (lambda (compound-name)
+            (let* ((directories (butlast compound-name))
+                   (name (car (last compound-name))))
+              (make-pathname :name (string-downcase name) :type "lisp"
+                             :directory (append (pathname-directory src-dir)
+                                                '("lib" "lisp")
+                                                (mapcar #'string-downcase directories))
+                             :defaults src-dir)))
+          (mapcar #'ensure-list files)))
 
 (defvar *swank-files*
   `(swank-backend ,@*sysdep-files* swank-match swank-rpc swank))

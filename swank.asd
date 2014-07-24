@@ -19,41 +19,47 @@
 (defsystem :swank
   :serial t
   :components
-  ((:file "swank-backend")
-   ;; If/when we require ASDF3, we shall use :if-feature instead
-   #+(or cmu sbcl scl)
-   (:file "swank-source-path-parser")
-   #+(or cmu ecl sbcl scl)
-   (:file "swank-source-file-cache")
-   #+clisp
-   (:file "xref")
-   #+(or clisp clozure)
-   (:file "metering")
-   #+allegro
-   (:file "swank-allegro")
-   #+armedbear
-   (:file "swank-abcl")
-   #+clisp
-   (:file "swank-clisp")
-   #+clozure
-   (:file "swank-ccl")
-   #+cmu
-   (:file "swank-cmucl")
-   #+cormanlisp
-   (:file "swank-corman")
-   #+ecl
-   (:file "swank-ecl")
-   #+lispworks
-   (:file "swank-lispworks")
-   #+sbcl
-   (:file "swank-sbcl")
-   #+scl
-   (:file "swank-scl")
-   #+(or sbcl allegro clisp clozure cormanlisp ecl lispworks)
-   (:file "swank-gray")
-   (:file "swank-match")
-   (:file "swank-rpc")
-   (:file "swank")))
+  ((:module "lib"
+    :components
+    ((:module "lisp"
+      :components
+      ((:file "swank-backend")
+       ;; If/when we require ASDF3, we shall use :if-feature instead
+       #+(or cmu sbcl scl)
+       (:file "swank-source-path-parser")
+       #+(or cmu ecl sbcl scl)
+       (:file "swank-source-file-cache")
+       (:module "backend"
+        :components (#+clisp
+                     (:file "xref")
+                     #+(or clisp clozure)
+                     (:file "metering")
+                     #+allegro
+                     (:file "swank-allegro")
+                     #+armedbear
+                     (:file "swank-abcl")
+                     #+clisp
+                     (:file "swank-clisp")
+                     #+clozure
+                     (:file "swank-ccl")
+                     #+cmu
+                     (:file "swank-cmucl")
+                     #+cormanlisp
+                     (:file "swank-corman")
+                     #+ecl
+                     (:file "swank-ecl")
+                     #+lispworks
+                     (:file "swank-lispworks")
+                     #+sbcl
+                     (:file "swank-sbcl")
+                     #+scl
+                     (:file "swank-scl")))
+       #+(or sbcl allegro clisp clozure cormanlisp ecl lispworks)
+       (:file "swank-gray")
+       (:file "swank-match")
+       (:file "swank-rpc")
+       (:file "swank")
+       ))))))
 
 (defmethod perform :after ((o load-op) (c (eql (find-system :swank))))
   (format *error-output* "&SWANK's ASDF loader finished")
