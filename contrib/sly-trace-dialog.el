@@ -58,18 +58,11 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 ;;;; Modes and mode maps
 ;;;
 (defvar sly-trace-dialog-mode-map
-  (let ((map (make-sparse-keymap))
-        (remaps '((sly-inspector-operate-on-point . nil)
-                  (sly-inspector-operate-on-click . nil)
-                  (sly-inspector-reinspect
-                   . sly-trace-dialog-fetch-status)
-                  (sly-inspector-next-inspectable-object
-                   . sly-trace-dialog-next-button)
-                  (sly-inspector-previous-inspectable-object
-                   . sly-trace-dialog-prev-button))))
-    (set-keymap-parent map sly-inspector-mode-map)
-    (cl-loop for (old . new) in remaps
-             do (substitute-key-definition old new map))
+  (let ((map (make-sparse-keymap)))
+    (define-key map [(shift tab)] 'sly-trace-dialog-prev-button)
+    (define-key map [backtab] 'sly-trace-dialog-prev-button)
+    (define-key map [tab] 'sly-trace-dialog-next-button)
+    
     (define-key map (kbd "G") 'sly-trace-dialog-fetch-traces)
     (define-key map (kbd "C-k") 'sly-trace-dialog-clear-fetched-traces)
     (define-key map (kbd "g") 'sly-trace-dialog-fetch-status)
@@ -79,8 +72,6 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
     (define-key map (kbd ".")     'sly-unimplemented)
     (define-key map (kbd "i")     'sly-unimplemented)
     (define-key map (kbd "M-RET") 'sly-unimplemented)
-    
-    (define-key map (kbd "q") 'quit-window)
     map))
 
 (define-derived-mode sly-trace-dialog-mode fundamental-mode
@@ -88,8 +79,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   (set-syntax-table lisp-mode-syntax-table)
   (read-only-mode 1)
   (add-to-list (make-local-variable 'sly-trace-dialog-after-toggle-hook)
-               'sly-trace-dialog-fetch-status)
-  (sly-navigation-mode 1))
+               'sly-trace-dialog-fetch-status))
 
 (define-derived-mode sly-trace-dialog--detail-mode sly-inspector-mode
   "SLY Trace Detail"
