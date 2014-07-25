@@ -471,6 +471,10 @@ PROPERTIES specifies any default face properties."
     (define-key map (kbd "C-c C-c") 'sly-compile-defun)
     map))
 
+(defvar sly-popup-buffer-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "q") 'sly-quit-window)
+    map))
 
 
 ;;;; Minor modes
@@ -490,6 +494,12 @@ PROPERTIES specifies any default face properties."
   (sly-mode 1)
   (set (make-local-variable 'lisp-indent-function)
        'common-lisp-indent-function))
+
+(define-minor-mode sly-popup-buffer-mode
+  "Minor mode for all read-only SLY buffers"
+  nil nil nil
+  (sly-mode 1)
+  (setq buffer-read-only t))
 
 
 ;;;;;; Modeline
@@ -579,12 +589,6 @@ corresponding values in the CDR of VALUE."
 	 ,@(if (eq (caar (last patterns)) t)
 	       '()
 	     `((t (error "Elisp destructure-case failed: %S" ,tmp))))))))
-
-(defmacro sly-define-keys (keymap &rest key-command)
-  "Define keys in KEYMAP. Each KEY-COMMAND is a list of (KEY COMMAND)."
-  (declare (indent 1))
-  `(progn . ,(mapcar (lambda (k-c) `(define-key ,keymap . ,k-c))
-		     key-command)))
 
 (cl-defmacro with-struct ((conc-name &rest slots) struct &body body)
   "Like with-slots but works only for structs.
@@ -753,8 +757,8 @@ This idiom is preferred over `lexical-let'."
 
 ;; Interface
 (cl-defmacro sly-with-popup-buffer ((name &key package connection select
-                                            mode)
-                                      &body body)
+                                          mode)
+                                    &body body)
   "Similar to `with-output-to-temp-buffer'.
 Bind standard-output and initialize some buffer-local variables.
 Restore window configuration when closed.
@@ -779,33 +783,18 @@ MODE is the name of a major mode which will be enabled.
          (let ((inhibit-read-only t)
                (standard-output (current-buffer)))
            (erase-buffer)
-           (funcall (or ,mode 'fundamental-mode))
+           ,@(cond (mode
+                    `((funcall ,mode)))
+                   (t
+                    `((sly-popup-buffer-mode 1))))
            (setq sly-buffer-package ,package-sym
                  sly-buffer-connection ,connection-sym)
            (set-syntax-table lisp-mode-syntax-table)
            ,@body
-           (sly-popup-buffer-mode 1)
+           
            (funcall (if ,select 'pop-to-buffer 'display-buffer)
                     (current-buffer))
            (current-buffer))))))
-
-(defvar sly-popup-buffer-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "q") 'quit-window)
-    ;;("\C-c\C-z" . sly-switch-to-output-buffer)
-    (define-key map (kbd "M-.") 'sly-edit-definition)
-    map))
-
-(define-minor-mode sly-popup-buffer-mode
-  "Mode for displaying read only stuff"
-  nil nil nil
-  (sly-mode 1)
-  (setq buffer-read-only t))
-
-(add-to-list 'minor-mode-alist
-             `(sly-popup-buffer-mode
-               (:eval (unless sly-mode
-                        (sly-modeline-string)))))
 
 ;;;;; Filename translation
 ;;;
@@ -2605,7 +2594,7 @@ Each newlines and following indentation is replaced by a single space."
       (replace-match " "))
     (buffer-string)))
 
-(defun sly-xrefs-for-notes (notes)
+(defun sly-xref--get-xrefs-for-notes (notes)
   (let ((xrefs))
     (dolist (note notes)
       (let* ((location (cl-getf note :location))
@@ -2624,9 +2613,9 @@ Each newlines and following indentation is replaced by a single space."
 
 (defun sly-maybe-show-xrefs-for-notes (notes)
   "Show the compiler notes NOTES if they come from more than one file."
-  (let ((xrefs (sly-xrefs-for-notes notes)))
+  (let ((xrefs (sly-xref--get-xrefs-for-notes notes)))
     (when (sly-length> xrefs 1)          ; >1 file
-      (sly-show-xrefs
+      (sly-xref--show-results
        xrefs 'definition "Compiler notes" (sly-current-package)))))
 
 (defun sly-note-has-location-p (note)
@@ -3686,7 +3675,7 @@ function name is prompted."
            (error "%s" (cadr (sly-xref.location (car xrefs)))))
           (t
            (sly-push-definition-stack)
-           (sly-show-xrefs file-alist 'definition name
+           (sly-xref--show-results file-alist 'definition name
                              (sly-current-package))))))
 
 (defvar sly-edit-uses-xrefs
@@ -3697,7 +3686,7 @@ function name is prompted."
 (defun sly-edit-uses (symbol)
   "Lookup all the uses of SYMBOL."
   (interactive (list (sly-read-symbol-name "Edit Uses of: ")))
-  (sly-xrefs sly-edit-uses-xrefs
+  (sly-xref--get-xrefs sly-edit-uses-xrefs
                symbol
                (lambda (xrefs type symbol package)
                  (cond
@@ -3710,7 +3699,7 @@ function name is prompted."
                      (sly--pop-to-source-location loc)))
                   (t
                    (sly-push-definition-stack)
-                   (sly-show-xref-buffer xrefs type symbol package))))))
+                   (sly-xref--show-buffer xrefs type symbol package))))))
 
 (defun sly-analyze-xrefs (xrefs)
   "Find common filenames in XREFS.
@@ -4005,8 +3994,8 @@ inserted in the current buffer."
   ;; FIXME: could easily be achieved with M-x rename-buffer
   (let ((bufname (sly-buffer-name :description)))
     (sly-with-popup-buffer (bufname :package package
-                                      :connection t
-                                      :select sly-description-autofocus)
+                                    :connection t
+                                    :select sly-description-autofocus)
       (princ string)
       (goto-char (point-min)))))
 
@@ -4098,10 +4087,9 @@ in Lisp when committed with \\[sly-edit-value-commit]."
 (defun sly-edit-value-callback (form-string current-value package)
   (let* ((name (generate-new-buffer-name (format "*Edit %s*" form-string)))
          (buffer (sly-with-popup-buffer (name :package package
-                                                :connection t
-                                                :select t
-                                                :mode 'lisp-mode)
-                   (sly-popup-buffer-mode -1) ; don't want binding of 'q'
+                                              :connection t
+                                              :select t
+                                              :mode 'lisp-mode)
                    (sly-mode 1)
                    (sly-edit-value-mode 1)
                    (setq sly-edit-form-string form-string)
@@ -4346,13 +4334,22 @@ With prefix argument include internal symbols."
                      current-prefix-arg))
   (sly-apropos "" (not internal) package))
 
-(autoload 'apropos-mode "apropos")
+(defvar sly-apropos-mode-map
+  (let ((map (make-sparse-keymap)))
+    map))
+
+(define-derived-mode sly-apropos-mode apropos-mode "SLY-Apropos"
+  "SLY Apropos Mode
+
+TODO"
+  )
+
 (defun sly-show-apropos (plists string package summary)
   (if (null plists)
       (message "No apropos matches for %S" string)
     (sly-with-popup-buffer ((sly-buffer-name :apropos)
-                              :package package :connection t
-                              :mode 'apropos-mode)
+                            :package package :connection t
+                            :mode 'sly-apropos-mode)
       (if (boundp 'header-line-format)
           (setq header-line-format summary)
         (insert summary "\n\n"))
@@ -4417,32 +4414,33 @@ With prefix argument include internal symbols."
 
 ;;;; XREF: cross-referencing
 
-(defvar sly-xref-mode-map)
+(defvar sly-xref-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") 'sly-xref-goto)
+    (define-key map (kbd "SPC") 'sly-xref-goto)
+    (define-key map (kbd "n") 'sly-xref-next-line)
+    (define-key map (kbd "p") 'sly-xref-prev-line)
+    (define-key map (kbd "C-c C-c") 'sly-recompile-xref)
+    (define-key map (kbd "C-c C-k") 'sly-recompile-all-xrefs)
+
+    (define-key map (kbd "q")     'quit-window)
+    (define-key map (kbd "v")     'sly-xref-show)
+    (define-key map (kbd ".")     'sly-xref-goto)
+    (define-key map (kbd "i")     'sly-unimplemented)
+    (define-key map (kbd "M-RET") 'sly-unimplemented)
+    
+    map))
 
 (define-derived-mode sly-xref-mode lisp-mode "Xref"
   "sly-xref-mode: Major mode for cross-referencing.
 \\<sly-xref-mode-map>\
 The most important commands:
-\\[sly-xref-quit]	- Dismiss buffer.
-\\[sly-show-xref]	- Display referenced source and keep xref window.
-\\[sly-goto-xref]	- Jump to referenced source and dismiss xref window.
+\\[sly-xref-show]	- Display referenced source and keep xref window.
+\\[sly-xref-goto]	- Jump to referenced source and dismiss xref window.
 
-\\{sly-xref-mode-map}
-\\{sly-popup-buffer-mode-map}
-"
-  (sly-popup-buffer-mode)
+\\{sly-xref-mode-map}"
   (setq font-lock-defaults nil)
   (setq delayed-mode-hooks nil))
-
-(sly-define-keys sly-xref-mode-map
-  ((kbd "RET") 'sly-goto-xref)
-  ((kbd "SPC") 'sly-goto-xref)
-  ("v" 'sly-show-xref)
-  ("n" 'sly-xref-next-line)
-  ("p" 'sly-xref-prev-line)
-  ("\C-c\C-c" 'sly-recompile-xref)
-  ("\C-c\C-k" 'sly-recompile-all-xrefs)
-  ("\M-," 'sly-xref-retract))
 
 (defun sly-next-line/not-add-newlines ()
   (interactive)
@@ -4453,14 +4451,14 @@ The most important commands:
 ;;;;; XREF results buffer and window management
 
 (cl-defmacro sly-with-xref-buffer ((_xref-type _symbol &optional package)
-                                     &body body)
+                                   &body body)
   "Execute BODY in a xref buffer, then show that buffer."
   (declare (indent 1))
   `(sly-with-popup-buffer ((sly-buffer-name :xref)
-                             :package ,package
-                             :connection t
-                             :select t
-                             :mode 'sly-xref-mode)
+                           :package ,package
+                           :connection t
+                           :select t
+                           :mode 'sly-xref-mode)
      (sly-set-truncate-lines)
      ,@body))
 
@@ -4481,13 +4479,13 @@ source-location."
 
 (defun sly-xref-next-line ()
   (interactive)
-  (sly-xref-show-location (sly-search-property 'sly-location)))
+  (sly-xref--show-location (sly-search-property 'sly-location)))
 
 (defun sly-xref-prev-line ()
   (interactive)
-  (sly-xref-show-location (sly-search-property 'sly-location t)))
+  (sly-xref--show-location (sly-search-property 'sly-location t)))
 
-(defun sly-xref-show-location (loc)
+(defun sly-xref--show-location (loc)
   (cl-ecase (car loc)
     (:location (sly--display-source-location loc))
     (:error (message "%s" (cadr loc)))
@@ -4503,7 +4501,7 @@ source-location."
   "The most recent XREF results buffer.
 This is used by `sly-goto-next-xref'")
 
-(defun sly-show-xref-buffer (xrefs _type _symbol package)
+(defun sly-xref--show-buffer (xrefs _type _symbol package)
   (sly-with-xref-buffer (_type _symbol package)
     (sly-insert-xrefs xrefs)
     (setq sly-next-location-function 'sly-goto-next-xref)
@@ -4511,11 +4509,11 @@ This is used by `sly-goto-next-xref'")
     (setq sly-xref-last-buffer (current-buffer))
     (goto-char (point-min))))
 
-(defun sly-show-xrefs (xrefs type symbol package)
+(defun sly-xref--show-results (xrefs type symbol package)
   "Show the results of an XREF query."
   (if (null xrefs)
       (message "No references found for %s." symbol)
-    (sly-show-xref-buffer xrefs type symbol package)))
+    (sly-xref--show-buffer xrefs type symbol package)))
 
 
 ;;;;; XREF commands
@@ -4574,7 +4572,7 @@ This is used by `sly-goto-next-xref'")
                     (sly-check-xref-implemented type result)
                     (let* ((_xrefs (sly-postprocess-xrefs result))
                            (file-alist (cadr (sly-analyze-xrefs result))))
-                      (funcall (or cont 'sly-show-xrefs)
+                      (funcall (or cont 'sly-xref--show-results)
                                file-alist type symbol package)))
                   type
                   symbol
@@ -4590,13 +4588,13 @@ This is used by `sly-goto-next-xref'")
 (defun sly-xref-type (type)
   (format "who-%s" (sly-cl-symbol-name type)))
 
-(defun sly-xrefs (types symbol &optional continuation)
+(defun sly-xref--get-xrefs (types symbol &optional continuation)
   "Make multiple XREF requests at once."
   (sly-eval-async
       `(swank:xrefs ',types ',symbol)
     #'(lambda (result)
         (funcall (or continuation
-                     #'sly-show-xrefs)
+                     #'sly-xref--show-results)
                  (cl-loop for (key . val) in result
                           collect (cons (sly-xref-type key) val))
                  types symbol (sly-current-package)))))
@@ -4631,12 +4629,12 @@ This is used by `sly-goto-next-xref'")
             (push xref xrefs)))))
     (nreverse xrefs)))
 
-(defun sly-goto-xref ()
+(defun sly-xref-goto ()
   "Goto the cross-referenced location at point."
   (interactive)
   (sly--pop-to-source-location (sly-xref-location-at-point) 'delete-current))
 
-(defun sly-show-xref ()
+(defun sly-xref-show ()
   "Display the xref at point in the other window."
   (interactive)
   (sly--display-source-location (sly-xref-location-at-point)))
@@ -4768,11 +4766,16 @@ When displaying XREF information, this goes to the previous reference."
 
 ;;;; Macroexpansion
 
+(defvar sly-macroexpansion-minor-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "g") 'sly-macroexpand-again)
+    (define-key map (kbd "q") 'quit-window)
+    map))
+
 (define-minor-mode sly-macroexpansion-minor-mode
   "SLY mode for macroexpansion"
   nil
-  " Macroexpand"
-  '(("g" . sly-macroexpand-again)))
+  " Macroexpand")
 
 (cl-macrolet ((remap (from to)
                      `(dolist (mapping
@@ -4830,7 +4833,7 @@ This variable specifies both what was expanded and how.")
 (defun sly-create-macroexpansion-buffer ()
   (let ((name (sly-buffer-name :macroexpansion)))
     (sly-with-popup-buffer (name :package t :connection t
-                                   :mode 'lisp-mode)
+                                 :mode 'lisp-mode)
       (sly-macroexpansion-minor-mode 1)
       (setq font-lock-keywords-case-fold-search t)
       (current-buffer))))
@@ -5027,6 +5030,48 @@ argument is given, with CL:MACROEXPAND."
     table)
   "Syntax table for SLDB mode.")
 
+(defvar sldb-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") 'sldb-default-action)
+    (define-key map "\C-m"      'sldb-default-action)
+    (define-key map [return] 'sldb-default-action)
+    (define-key map [mouse-2]  'sldb-default-action/mouse)
+    (define-key map [follow-link] 'mouse-face)
+    (define-key map "\C-i" 'sldb-cycle)
+    (define-key map "h"    'describe-mode)
+    (define-key map "e"    'sldb-eval-in-frame)
+    (define-key map "d"    'sldb-pprint-eval-in-frame)
+    (define-key map "D"    'sldb-disassemble)
+    (define-key map "n"    'sldb-down)
+    (define-key map "p"    'sldb-up)
+    (define-key map "\M-n" 'sldb-details-down)
+    (define-key map "\M-p" 'sldb-details-up)
+    (define-key map "<"    'sldb-beginning-of-backtrace)
+    (define-key map ">"    'sldb-end-of-backtrace)
+    (define-key map "t"    'sldb-toggle-details)
+    (define-key map "r"    'sldb-restart-frame)
+    (define-key map "I"    'sldb-invoke-restart-by-name)
+    (define-key map "R"    'sldb-return-from-frame)
+    (define-key map "c"    'sldb-continue)
+    (define-key map "s"    'sldb-step)
+    (define-key map "x"    'sldb-next)
+    (define-key map "o"    'sldb-out)
+    (define-key map "b"    'sldb-break-on-return)
+    (define-key map "a"    'sldb-abort)
+    (define-key map "A"    'sldb-break-with-system-debugger)
+    (define-key map "B"    'sldb-break-with-default-debugger)
+    (define-key map "P"    'sldb-print-condition)
+    (define-key map "C"    'sldb-inspect-condition)
+    (define-key map ":"    'sly-interactive-eval)
+    (define-key map "\C-c\C-c" 'sldb-recompile-frame-source)
+
+    (define-key map (kbd "q")     'sldb-quit)
+    (define-key map (kbd "v")     'sldb-show-source)
+    (define-key map (kbd ".")     'sldb-goto-source)
+    (define-key map (kbd "i")     'sldb-inspect-in-frame)
+    (define-key map (kbd "M-RET") 'sly-unimplemented)
+    map))
+
 (define-derived-mode sldb-mode fundamental-mode "sldb"
   "Superior lisp debugger mode.
 In addition to ordinary SLY commands, the following are
@@ -5073,44 +5118,7 @@ Full list of commands:
   (sly-set-truncate-lines)
   ;; Make original sly-connection "sticky" for SLDB commands in this buffer
   (setq sly-buffer-connection (sly-connection))
-  (sly-mode))
-
-(sly-define-keys sldb-mode-map
-  ((kbd "RET") 'sldb-default-action)
-  ("\C-m"      'sldb-default-action)
-  ([return] 'sldb-default-action)
-  ([mouse-2]  'sldb-default-action/mouse)
-  ([follow-link] 'mouse-face)
-  ("\C-i" 'sldb-cycle)
-  ("h"    'describe-mode)
-  ("v"    'sldb-show-source)
-  ("e"    'sldb-eval-in-frame)
-  ("d"    'sldb-pprint-eval-in-frame)
-  ("D"    'sldb-disassemble)
-  ("i"    'sldb-inspect-in-frame)
-  ("n"    'sldb-down)
-  ("p"    'sldb-up)
-  ("\M-n" 'sldb-details-down)
-  ("\M-p" 'sldb-details-up)
-  ("<"    'sldb-beginning-of-backtrace)
-  (">"    'sldb-end-of-backtrace)
-  ("t"    'sldb-toggle-details)
-  ("r"    'sldb-restart-frame)
-  ("I"    'sldb-invoke-restart-by-name)
-  ("R"    'sldb-return-from-frame)
-  ("c"    'sldb-continue)
-  ("s"    'sldb-step)
-  ("x"    'sldb-next)
-  ("o"    'sldb-out)
-  ("b"    'sldb-break-on-return)
-  ("a"    'sldb-abort)
-  ("q"    'sldb-quit)
-  ("A"    'sldb-break-with-system-debugger)
-  ("B"    'sldb-break-with-default-debugger)
-  ("P"    'sldb-print-condition)
-  ("C"    'sldb-inspect-condition)
-  (":"    'sly-interactive-eval)
-  ("\C-c\C-c" 'sldb-recompile-frame-source))
+  (sly-mode 1))
 
 ;; Keys 0-9 are shortcuts to invoke particular restarts.
 (dotimes (number 10)
@@ -5177,30 +5185,29 @@ CONTS is a list of pending Emacs continuations."
                () "Bug: sldb-level is equal but condition differs\n%s\n%s"
                sldb-condition condition)
     (unless (equal sldb-level level)
-      (setq buffer-read-only nil)
-      (sldb-mode)
-      (setq sly-current-thread thread)
-      (setq sldb-level level)
-      (setq mode-name (format "sldb[%d]" sldb-level))
-      (setq sldb-condition condition)
-      (setq sldb-restarts restarts)
-      (setq sldb-continuations conts)
-      (sldb-insert-condition condition)
-      (insert "\n\n" (sldb-in-face section "Restarts:") "\n")
-      (setq sldb-restart-list-start-marker (point-marker))
-      (sldb-insert-restarts restarts 0 sldb-initial-restart-limit)
-      (insert "\n" (sldb-in-face section "Backtrace:") "\n")
-      (setq sldb-backtrace-start-marker (point-marker))
-      (save-excursion
-        (if frames
-            (sldb-insert-frames (sldb-prune-initial-frames frames) t)
-          (insert "[No backtrace]")))
-      (run-hooks 'sldb-hook)
-      (set-syntax-table lisp-mode-syntax-table))
+      (let ((inhibit-read-only t))
+        (sldb-mode)
+        (setq sly-current-thread thread)
+        (setq sldb-level level)
+        (setq mode-name (format "sldb[%d]" sldb-level))
+        (setq sldb-condition condition)
+        (setq sldb-restarts restarts)
+        (setq sldb-continuations conts)
+        (sldb-insert-condition condition)
+        (insert "\n\n" (sldb-in-face section "Restarts:") "\n")
+        (setq sldb-restart-list-start-marker (point-marker))
+        (sldb-insert-restarts restarts 0 sldb-initial-restart-limit)
+        (insert "\n" (sldb-in-face section "Backtrace:") "\n")
+        (setq sldb-backtrace-start-marker (point-marker))
+        (save-excursion
+          (if frames
+              (sldb-insert-frames (sldb-prune-initial-frames frames) t)
+            (insert "[No backtrace]")))
+        (run-hooks 'sldb-hook)
+        (set-syntax-table lisp-mode-syntax-table)))
     (pop-to-buffer (current-buffer) '(sldb--display-in-prev-sldb-window))
     (set-window-parameter (selected-window) 'sldb (current-buffer))
     (sly-recenter (point-min))
-    (setq buffer-read-only t)
     (when (and sly-stack-eval-tags
                ;; (y-or-n-p "Enter recursive edit? ")
                )
@@ -5929,7 +5936,7 @@ was called originally."
   (interactive)
   (let ((name sly-threads-buffer-name))
     (sly-with-popup-buffer (name :connection t
-                                   :mode 'sly-thread-control-mode)
+                                 :mode 'sly-thread-control-mode)
       (sly-update-threads-buffer)
       (goto-char (point-min))
       (when sly-threads-update-interval
@@ -6026,23 +6033,23 @@ was called originally."
 
 
 ;;;;; Major mode
+(defvar sly-thread-control-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "a" 'sly-thread-attach)
+    (define-key map "d" 'sly-thread-debug)
+    (define-key map "g" 'sly-update-threads-buffer)
+    (define-key map "k" 'sly-thread-kill)
+    (define-key map "q" 'sly-quit-threads-buffer)
+    map))
 
 (define-derived-mode sly-thread-control-mode fundamental-mode
   "Threads"
   "SLY Thread Control Panel Mode.
 
-\\{sly-thread-control-mode-map}
-\\{sly-popup-buffer-mode-map}"
+\\{sly-thread-control-mode-map}"
   (when sly-truncate-lines
     (set (make-local-variable 'truncate-lines) t))
   (setq buffer-undo-list t))
-
-(sly-define-keys sly-thread-control-mode-map
-  ("a" 'sly-thread-attach)
-  ("d" 'sly-thread-debug)
-  ("g" 'sly-update-threads-buffer)
-  ("k" 'sly-thread-kill)
-  ("q" 'sly-quit-threads-buffer))
 
 (defun sly-thread-kill ()
   (interactive)
@@ -6082,24 +6089,26 @@ was called originally."
 
 ;;;;; Connection listing
 
+(defvar sly-connection-list-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "d"         'sly-connection-list-make-default)
+    (define-key map "g"         'sly-update-connection-list)
+    (define-key map (kbd "RET") 'sly-connection-list-default-action)
+    (define-key map (kbd "C-m")      'sly-connection-list-default-action)
+    (define-key map (kbd "C-k") 'sly-quit-connection-at-point)
+    (define-key map (kbd "R")   'sly-restart-connection-at-point)
+    (define-key map (kbd "q")   'quit-window)
+    map))
+
 (define-derived-mode sly-connection-list-mode tabulated-list-mode
   "SLY-Connections"
   "SLY Connection List Mode.
 
-\\{sly-connection-list-mode-map}
-\\{sly-popup-buffer-mode-map}"
+\\{sly-connection-list-mode-map}"
   (set (make-local-variable 'tabulated-list-format)
        `[("Default" 8) ("Name" 24 t) ("Host" 12)
          ("Port" 6) ("Pid" 6 t) ("Type" 1000 t)])
   (tabulated-list-init-header))
-
-(sly-define-keys sly-connection-list-mode-map
-  ("d"         'sly-connection-list-make-default)
-  ("g"         'sly-update-connection-list)
-  ((kbd "RET") 'sly-connection-list-default-action)
-  ("\C-m"      'sly-connection-list-default-action)
-  ((kbd "C-k") 'sly-quit-connection-at-point)
-  ("R"         'sly-restart-connection-at-point))
 
 (defun sly--connection-at-point ()
   (or (get-text-property (point) 'tabulated-list-id)
@@ -6198,11 +6207,37 @@ was called originally."
 				     (sly-sexp-at-point))))
   (sly-eval-async `(swank:init-inspector ,string) 'sly-open-inspector))
 
+(defvar sly-inspector-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map [return] 'sly-inspector-operate-on-point)
+    (define-key map "\C-m"   'sly-inspector-operate-on-point)
+    (define-key map [mouse-2] 'sly-inspector-operate-on-click)
+    (define-key map "l" 'sly-inspector-pop)
+    (define-key map "n" 'sly-inspector-next)
+    (define-key map " " 'sly-inspector-next)
+    (define-key map "d" 'sly-inspector-describe)
+    (define-key map "p" 'sly-inspector-pprint)
+    (define-key map "e" 'sly-inspector-eval)
+    (define-key map "h" 'sly-inspector-history)
+    (define-key map "g" 'sly-inspector-reinspect)
+    (define-key map "\C-i" 'sly-inspector-next-inspectable-object)
+    ;; Emacs translates S-TAB
+    (define-key map [(shift tab)] 'sly-inspector-previous-inspectable-object)
+    ;; to BACKTAB on X.
+    (define-key map [backtab] 'sly-inspector-previous-inspectable-object)
+    (define-key map ">" 'sly-inspector-fetch-all)
+
+    (define-key map (kbd "q")     'sly-inspector-quit)
+    (define-key map (kbd "v")     'sly-inspector-show-source)
+    (define-key map (kbd ".")     'sly-inspector-goto-source)
+    (define-key map (kbd "i")     'sly-inspector-operate-on-point) ; not quite
+    (define-key map (kbd "M-RET") 'sly-unimplemented)
+    map))
+
 (define-derived-mode sly-inspector-mode fundamental-mode
   "SLY-Inspector"
   "
-\\{sly-inspector-mode-map}
-\\{sly-popup-buffer-mode-map}"
+\\{sly-inspector-mode-map}"
   (set-syntax-table lisp-mode-syntax-table)
   (sly-set-truncate-lines)
   (setq buffer-read-only t))
@@ -6210,7 +6245,7 @@ was called originally."
 (defun sly-inspector-buffer ()
   (or (get-buffer (sly-buffer-name :inspector))
       (sly-with-popup-buffer ((sly-buffer-name :inspector)
-                                :mode 'sly-inspector-mode)
+                              :mode 'sly-inspector-mode)
         (setq sly-inspector-mark-stack '())
         (buffer-disable-undo)
         (current-buffer))))
@@ -6538,27 +6573,6 @@ If ARG is negative, move forwards."
             ((= e2 s1)
              (list (append i2 i1) l2 s2 e1))
             (t (error "Invalid chunks"))))))
-
-
-(sly-define-keys sly-inspector-mode-map
-  ([return] 'sly-inspector-operate-on-point)
-  ("\C-m"   'sly-inspector-operate-on-point)
-  ([mouse-2] 'sly-inspector-operate-on-click)
-  ("l" 'sly-inspector-pop)
-  ("n" 'sly-inspector-next)
-  (" " 'sly-inspector-next)
-  ("d" 'sly-inspector-describe)
-  ("p" 'sly-inspector-pprint)
-  ("e" 'sly-inspector-eval)
-  ("h" 'sly-inspector-history)
-  ("g" 'sly-inspector-reinspect)
-  ("v" 'sly-inspector-show-source)
-  ("\C-i" 'sly-inspector-next-inspectable-object)
-  ([(shift tab)]
-   'sly-inspector-previous-inspectable-object) ; Emacs translates S-TAB
-  ([backtab] 'sly-inspector-previous-inspectable-object) ; to BACKTAB on X.
-  (">" 'sly-inspector-fetch-all)
-  ("q" 'sly-inspector-quit))
 
 
 ;;;; Buffer selector

@@ -42,7 +42,9 @@
 	(sly-mode t)
 	(current-buffer))))
 
-(sly-define-keys sly-scratch-mode-map
-  ("\C-j" 'sly-eval-print-last-expression))
+(defvar sly-scratch-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "\C-j" 'sly-eval-print-last-expression)
+    map))
 
 (provide 'sly-scratch)

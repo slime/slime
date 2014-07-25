@@ -73,6 +73,13 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
     (define-key map (kbd "G") 'sly-trace-dialog-fetch-traces)
     (define-key map (kbd "C-k") 'sly-trace-dialog-clear-fetched-traces)
     (define-key map (kbd "g") 'sly-trace-dialog-fetch-status)
+
+    (define-key map (kbd "q")     'quit-window)
+    (define-key map (kbd "v")     'sly-unimplemented)
+    (define-key map (kbd ".")     'sly-unimplemented)
+    (define-key map (kbd "i")     'sly-unimplemented)
+    (define-key map (kbd "M-RET") 'sly-unimplemented)
+    
     (define-key map (kbd "q") 'quit-window)
     map))
 
@@ -82,7 +89,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   (read-only-mode 1)
   (add-to-list (make-local-variable 'sly-trace-dialog-after-toggle-hook)
                'sly-trace-dialog-fetch-status)
-  (sly-mode))
+  (sly-navigation-mode 1))
 
 (define-derived-mode sly-trace-dialog--detail-mode sly-inspector-mode
   "SLY Trace Detail"

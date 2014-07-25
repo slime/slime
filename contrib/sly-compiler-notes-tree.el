@@ -66,10 +66,12 @@ grouped by severity.
 "
   (sly-set-truncate-lines))
 
-(sly-define-keys sly-compiler-notes-mode-map
-  ((kbd "RET") 'sly-compiler-notes-default-action-or-show-details)
-  ([return] 'sly-compiler-notes-default-action-or-show-details)
-  ([mouse-2] 'sly-compiler-notes-default-action-or-show-details/mouse))
+(defvar sly-compiler-notes-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") 'sly-compiler-notes-default-action-or-show-details)
+    (define-key map [return] 'sly-compiler-notes-default-action-or-show-details)
+    (define-key map [mouse-2] 'sly-compiler-notes-default-action-or-show-details/mouse)
+    map))
 
 (defun sly-compiler-notes-default-action-or-show-details/mouse (event)
   "Invoke the action pointed at by the mouse, or show details."

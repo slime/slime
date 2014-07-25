@@ -20,6 +20,16 @@
 (defvar sly-sprof-exclude-swank nil
   "*Display swank functions in the report.")
 
+(defvar sly-sprof-browser-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "h" 'describe-mode)
+    (define-key map "d" 'sly-sprof-browser-disassemble-function)
+    (define-key map "g" 'sly-sprof-browser-go-to)
+    (define-key map "v" 'sly-sprof-browser-view-source)
+    (define-key map "s" 'sly-sprof-toggle-swank-exclusion)
+    (define-key map (kbd "RET") 'sly-sprof-browser-toggle)
+    map))
+
 (define-derived-mode sly-sprof-browser-mode fundamental-mode
   "slprof"
   "Mode for browsing profiler data\
@@ -28,16 +38,6 @@
   :syntax-table lisp-mode-syntax-table
   (setq buffer-read-only t)
   (sly-mode))
-
-(set-keymap-parent sly-sprof-browser-mode-map sly-mode-map)
-
-(sly-define-keys sly-sprof-browser-mode-map
-  ("h" 'describe-mode)
-  ("d" 'sly-sprof-browser-disassemble-function)
-  ("g" 'sly-sprof-browser-go-to)
-  ("v" 'sly-sprof-browser-view-source)
-  ("s" 'sly-sprof-toggle-swank-exclusion)
-  ((kbd "RET") 'sly-sprof-browser-toggle))
 
 ;; Start / stop profiling
 
