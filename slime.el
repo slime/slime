@@ -5669,23 +5669,25 @@ This is 0 if START and END at the same line."
     (recenter recenter-arg)))
 
 ;; Set window-start so that the region from START to END becomes visible.
+;; START is inclusive; END is exclusive.
 (defun slime--adjust-window-start (start end)
-  (let ((window-height (window-text-height))
-        (region-height (count-screen-lines start end)))
+  (let* ((last (1- end))
+         (window-height (window-text-height))
+         (region-height (count-screen-lines start last t)))
     ;; if needed, make the region visible
     (when (or (not (pos-visible-in-window-p start))
-              (not (pos-visible-in-window-p end)))
+              (not (pos-visible-in-window-p last)))
       (let* ((nlines (cond ((or (< start (window-start))
                                 (>= region-height window-height))
                             0)
                            (t
-                            (- (+ 1 region-height))))))
+                            (- (+ 1 region-height)))))
         (goto-char start)
         (recenter nlines)
         ;; update window-end
         (redisplay)))
     (cl-assert (pos-visible-in-window-p start))
-    (cl-assert (or (pos-visible-in-window-p end)
+    (cl-assert (or (pos-visible-in-window-p last)
                    (>= region-height window-height)))))
 
 ;; move POS to visible region

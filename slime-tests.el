@@ -435,7 +435,12 @@ after quitting Slime's temp buffer."
       ;; start not visible, point after end
       ((+h 2) (+h 500) (+h 6) 1  (+h 2) (+h 4))
       ;; end - start should be visible, point after end
-      ((+h 2) (+h 7) (+h 10) 1  (-h (+h 8)) (+h 4)))
+      ((+h 2) (+h 7) (+h 10) 1  (-h (+h 8)) (+h 4))
+      ;; region is window-height + 1 and ends with newline
+      (2 (+h 1) 3 1  1 3)
+      (2 (+h 0) 3 1  1 3)
+      (2 (+h -1) 3 1  1 3)
+      )
   (when noninteractive
     (slime-skip-test "Can't test slime-display-region in batch mode"))
   (with-temp-buffer

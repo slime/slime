@@ -1,3 +1,13 @@
+2014-07-27  Helmut Eller  <heller@common-lisp.net>
+
+	Fix display related bugs.
+
+	* slime.el (slime--adjust-window-start): Consider the END argument
+	exclusive but count trailing newlines normally.  Adjust the
+	assertion so that (1- END) is the last visible position.
+	* slime-tests.el (display-region):  Add tests for the situation
+	when (1- END) should be visible but not END.
+
 2014-06-17  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sbcl.lisp (emacs-inspect sb-kernel:code-component):
