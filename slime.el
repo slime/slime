@@ -5684,7 +5684,7 @@ This is 0 if START and END at the same line."
                                 (>= region-height window-height))
                             0)
                            (t
-                            (- (+ 1 region-height))))))
+                            (- region-height)))))
         (goto-char start)
         (recenter nlines)
         ;; update window-end

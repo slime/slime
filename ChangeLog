@@ -1,5 +1,12 @@
 2014-07-27  Helmut Eller  <heller@common-lisp.net>
 
+	Fix another off-by-one bug.
+
+	* slime.el (slime--adjust-window-start): Scroll one line more.
+	* slime-tests.el (display-region): Add test.
+
+2014-07-27  Helmut Eller  <heller@common-lisp.net>
+
 	Don't use cl-labels as it is miscompiled in some Emacs versions.
 
 	* slime.el (define-slime-contrib): Get rid of cl-labels.
