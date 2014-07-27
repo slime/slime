@@ -389,7 +389,6 @@ PROPERTIES specifies any default face properties."
 This is a hack so that we can reinitilize the real slime-mode-map
 more easily. See `slime-init-keymaps'.")
 
-(defvar slime-modeline-string)
 (defvar slime-buffer-connection)
 (defvar slime-dispatching-connection)
 (defvar slime-current-thread)
@@ -431,8 +430,7 @@ Full set of commands:
   nil
   nil
   slime-mode-indirect-map
-  (slime-setup-command-hooks)
-  (setq slime-modeline-string (slime-modeline-string)))
+  (slime-setup-command-hooks))
 
 
 
@@ -479,6 +477,9 @@ information."
            (cond ((and (zerop sldbs) (zerop pending)) nil)
                  ((zerop sldbs) (format " %s" pending))
                  (t (format " %s/%s" pending sldbs)))))))
+
+(defun slime--recompute-modelines ()
+  (force-mode-line-update t))
 
 
 ;;;;; Key bindings
@@ -2163,11 +2164,13 @@ Debugged requests are ignored."
              (slime-display-oneliner "; pipelined request... %S" form))
            (let ((id (cl-incf (slime-continuation-counter))))
              (slime-send `(:emacs-rex ,form ,package ,thread ,id))
-             (push (cons id continuation) (slime-rex-continuations))))
+             (push (cons id continuation) (slime-rex-continuations))
+             (slime--recompute-modelines)))
           ((:return value id)
            (let ((rec (assq id (slime-rex-continuations))))
              (cond (rec (setf (slime-rex-continuations)
                               (remove rec (slime-rex-continuations)))
+                        (slime--recompute-modelines)
                         (funcall (cdr rec) value))
                    (t
                     (error "Unexpected reply: %S %S" id value)))))
@@ -5681,7 +5684,7 @@ This is 0 if START and END at the same line."
                                 (>= region-height window-height))
                             0)
                            (t
-                            (- (+ 1 region-height)))))
+                            (- (+ 1 region-height))))))
         (goto-char start)
         (recenter nlines)
         ;; update window-end

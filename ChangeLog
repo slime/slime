@@ -1,5 +1,18 @@
 2014-07-27  Helmut Eller  <heller@common-lisp.net>
 
+	Update modeline more often.
+
+	The numbers in the modeline can be out of date when all RPCs
+	complete without user input; probably because modeline updating is
+	performed in some lazy way.
+
+	* slime.el (slime--recompute-modelines): Resurrected.
+	(slime-dispatch-event): Force modeline updates.
+	(slime-modeline-string): Deleted. The variable is no longer
+	needed.
+
+2014-07-27  Helmut Eller  <heller@common-lisp.net>
+
 	Fix display related bugs.
 
 	* slime.el (slime--adjust-window-start): Consider the END argument
