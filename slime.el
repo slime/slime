@@ -5674,7 +5674,7 @@ This is 0 if START and END at the same line."
 ;; Set window-start so that the region from START to END becomes visible.
 ;; START is inclusive; END is exclusive.
 (defun slime--adjust-window-start (start end)
-  (let* ((last (1- end))
+  (let* ((last (max start (1- end)))
          (window-height (window-text-height))
          (region-height (count-screen-lines start last t)))
     ;; if needed, make the region visible
@@ -6937,10 +6937,10 @@ is setup, unless the user already set one explicitly."
   license)
 
 (defun slime-contrib--enable-fun (name)
-  (intern (concat (symbol-name c) "-init")))
+  (intern (concat (symbol-name name) "-init")))
 
 (defun slime-contrib--disable-fun (name)
-  (intern (concat (symbol-name c) "-unload")))
+  (intern (concat (symbol-name name) "-unload")))
 
 (defmacro define-slime-contrib (name _docstring &rest clauses)
   (declare (indent 1))

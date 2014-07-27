@@ -3,6 +3,7 @@
 	Fix another off-by-one bug.
 
 	* slime.el (slime--adjust-window-start): Scroll one line more.
+	Also handle case when (= start end 1).
 	* slime-tests.el (display-region): Add test.
 
 2014-07-27  Helmut Eller  <heller@common-lisp.net>

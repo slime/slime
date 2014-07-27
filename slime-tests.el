@@ -440,7 +440,10 @@ after quitting Slime's temp buffer."
       ((+h -2) (+h (+h -3)) (+h -2) 1  (+h -3) (+h -2))
       (2 (+h 1) 3 1  1 3)
       (2 (+h 0) 3 1  1 3)
-      (2 (+h -1) 3 1  1 3))
+      (2 (+h -1) 3 1  1 3)
+      ;; start and end are the beginning
+      (1 1 1 1  1 1)
+      )
   (when noninteractive
     (slime-skip-test "Can't test slime-display-region in batch mode"))
   (with-temp-buffer
