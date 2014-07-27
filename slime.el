@@ -6936,6 +6936,12 @@ is setup, unless the user already set one explicitly."
   authors
   license)
 
+(defun slime-contrib--enable-fun (name)
+  (intern (concat (symbol-name c) "-init")))
+
+(defun slime-contrib--disable-fun (name)
+  (intern (concat (symbol-name c) "-unload")))
+
 (defmacro define-slime-contrib (name _docstring &rest clauses)
   (declare (indent 1))
   (cl-destructuring-bind (&key slime-dependencies
@@ -6945,28 +6951,26 @@ is setup, unless the user already set one explicitly."
                                authors
                                license)
       (cl-loop for (key . value) in clauses append `(,key ,value))
-    (cl-labels
-        ((enable-fn (c) (intern (concat (symbol-name c) "-init")))
-         (disable-fn (c) (intern (concat (symbol-name c) "-unload"))))
-      `(progn
-         ,@(mapcar (lambda (d) `(require ',d)) slime-dependencies)
-         (defun ,(enable-fn name) ()
-           (mapc #'funcall ',(mapcar
-                              #'enable-fn
-                              slime-dependencies))
-           (mapc #'slime-require ',swank-dependencies)
-           ,@on-load)
-         (defun ,(disable-fn name) ()
-           ,@on-unload
-           (mapc #'funcall ',(mapcar
-                              #'disable-fn
-                              slime-dependencies)))
-         (put 'slime-contribs ',name
-              (make-slime-contrib
-               :name ',name :authors ',authors :license ',license
-               :slime-dependencies ',slime-dependencies
-               :swank-dependencies ',swank-dependencies
-               :enable ',(enable-fn name) :disable ',(disable-fn name)))))))
+    `(progn
+       ,@(mapcar (lambda (d) `(require ',d)) slime-dependencies)
+       (defun ,(slime-contrib--enable-fun name) ()
+         (mapc #'funcall ',(mapcar
+                            #'slime-contrib--enable-fun
+                            slime-dependencies))
+         (mapc #'slime-require ',swank-dependencies)
+         ,@on-load)
+       (defun ,(slime-contrib--disable-fun name) ()
+         ,@on-unload
+         (mapc #'funcall ',(mapcar
+                            #'slime-contrib--disable-fun
+                            slime-dependencies)))
+       (put 'slime-contribs ',name
+            (make-slime-contrib
+             :name ',name :authors ',authors :license ',license
+             :slime-dependencies ',slime-dependencies
+             :swank-dependencies ',swank-dependencies
+             :enable ',(slime-contrib--enable-fun name)
+             :disable ',(slime-contrib--disable-fun name))))))
 
 (defun slime-all-contribs ()
   (cl-loop for (nil val) on (symbol-plist 'slime-contribs) by #'cddr
