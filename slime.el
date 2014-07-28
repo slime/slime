@@ -5689,7 +5689,7 @@ This is 0 if START and END at the same line."
         (recenter nlines)))
     (cl-assert (pos-visible-in-window-p start))
     (cl-assert (or (pos-visible-in-window-p last)
-                   (>= region-height window-height)))
+                   (> region-height window-height)))
     (cl-assert (pos-visible-in-window-p (1- (window-end nil t))))))
 
 ;; move POS to visible region

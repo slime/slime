@@ -9,6 +9,8 @@
 	* slime.el (slime--adjust-window-point): Call window-end with
 	update argument.
 	(slime--adjust-window-start): Remove explicit call to redisplay.
+	Stricter assertion: LAST should be visible as long as
+	REGION-HEIGHT <= WINDOW-HEIGHT not <.
 	* slime-tests.el (display-region): Actually check point ends up as
 	expected.  The old code was buggy and only checked for non-nil.
 
