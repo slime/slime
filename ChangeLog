@@ -1,3 +1,17 @@
+2014-07-28  Helmut Eller  <heller@common-lisp.net>
+
+	Fix bug involving stale window-end.
+
+	Call window-end with update=t.  That works better than calling
+	redisplay when we scroll because window-end may be wrong even
+	without scrolling.
+
+	* slime.el (slime--adjust-window-point): Call window-end with
+	update argument.
+	(slime--adjust-window-start): Remove explicit call to redisplay.
+	* slime-tests.el (display-region): Actually check point ends up as
+	expected.  The old code was buggy and only checked for non-nil.
+
 2014-07-27  Helmut Eller  <heller@common-lisp.net>
 
 	Fix another off-by-one bug.

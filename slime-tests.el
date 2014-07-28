@@ -433,9 +433,9 @@ after quitting Slime's temp buffer."
       ;; start not visible, point at start
       ((+h 2) (+h 500) (+h 2) 1  (+h 2) (+h 2))
       ;; start not visible, point after end
-      ((+h 2) (+h 500) (+h 6) 1  (+h 2) (+h 4))
+      ((+h 2) (+h 500) (+h 6) 1  (+h 2) (+h 6))
       ;; end - start should be visible, point after end
-      ((+h 2) (+h 7) (+h 10) 1  (-h (+h 7)) (+h 4))
+      ((+h 2) (+h 7) (+h 10) 1  (-h (+h 7)) (+h 6))
       ;; region is window-height + 1 and ends with newline
       ((+h -2) (+h (+h -3)) (+h -2) 1  (+h -3) (+h -2))
       (2 (+h 1) 3 1  1 3)
@@ -443,24 +443,29 @@ after quitting Slime's temp buffer."
       (2 (+h -1) 3 1  1 3)
       ;; start and end are the beginning
       (1 1 1 1  1 1)
+      ;;
+      (1 (+h 1) (+h 22) (+h 20)  1 (+h 0))
       )
   (when noninteractive
     (slime-skip-test "Can't test slime-display-region in batch mode"))
   (with-temp-buffer
     (dotimes (i 1000)
       (insert (format "%09d\n" i)))
-    (let* ((win (display-buffer (current-buffer)))
+    (let* ((win (display-buffer (current-buffer) t))
 	   (wh (window-text-height win)))
       (cl-macrolet ((l2p (l)
 			 `(slime-test--display-region-line-to-position ,l wh)))
 	(select-window win)
-	(goto-char (l2p pos))
 	(set-window-start win (l2p window-start))
 	(redisplay)
+	(goto-char (l2p pos))
+	(cl-assert (= (l2p window-start) (window-start win)))
+	(cl-assert (= (point) (l2p pos)))
 	(slime--display-region (l2p start) (l2p end))
 	(redisplay)
-	(cl-assert (= (l2p expected-window-start) (window-start)) t)
-	(cl-assert (l2p expected-point) (point))))))
+	(cl-assert (= (l2p expected-window-start) (window-start)))
+	(cl-assert (= (l2p expected-point) (point)))
+	))))
 
 (def-slime-test find-definition
     (name buffer-package snippet)
