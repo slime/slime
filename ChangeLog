@@ -1,3 +1,12 @@
+2014-07-29  Helmut Eller  <heller@common-lisp.net>
+
+	Avoid some compiler warnings.
+
+	* swank-backend.lisp (utf8-encode): Avoid unreachable code
+	warnings.
+	(%utf8-encode): New helper.
+	* swank-sbcl.lisp (sbcl-wrap): Add ignore declaration.
+
 2014-07-28  Helmut Eller  <heller@common-lisp.net>
 
 	Fix bug involving stale window-end.
