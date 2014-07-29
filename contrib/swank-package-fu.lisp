@@ -53,7 +53,8 @@
   (let ((*package* (guess-package package)))
     (when *package*
       (let* ((name (from-string name))
-             (symbols (cond ((or (not (find-class name nil))
+             (symbols (cond #+(or sbcl ccl)
+			    ((or (not (find-class name nil))
                                  (subtypep name 'structure-object))
                              (list-structure-symbols name))
                             (t

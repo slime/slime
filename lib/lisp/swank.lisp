@@ -1150,10 +1150,10 @@ point the thread terminates and CHANNEL is closed."
   (:method ((connection multithreaded-connection) (id (eql :find-existing)))
     (car (mconn.active-threads connection)))
   (:method (connection (id integer))
-    (declare (ignore connection))
+    (declare (ignorable connection))
     (find-thread id))
   (:method ((connection singlethreaded-connection) id)
-    (declare (ignore id))
+    (declare (ignorable connection connection id))
     (current-thread)))
 
 (defun interrupt-worker-thread (connection id)
@@ -3917,8 +3917,7 @@ Collisions are caused because package information is ignored."
 
 (defun init ()
   (unless (member :swank *features*)
-    (pushnew :swank *features*)
-    (swank-backend::warn-unimplemented-interfaces))
+    (pushnew :swank *features*))
   (load-user-init-file)
   (run-hook *after-init-hook*))
 
