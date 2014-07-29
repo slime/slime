@@ -6,6 +6,9 @@
 	warnings.
 	(%utf8-encode): New helper.
 	* swank-sbcl.lisp (sbcl-wrap): Add ignore declaration.
+	* swank.lisp (before-init): Don't call
+	warn-unimplemented-interfaces as it confuses first time users.
+	(thread-for-evaluation): Suppress unused var warnings.
 
 2014-07-28  Helmut Eller  <heller@common-lisp.net>
 

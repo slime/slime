@@ -1005,8 +1005,10 @@ The processing is done in the extent of the toplevel restart."
   (:method ((connection multithreaded-connection) (id (eql :find-existing)))
     (car (mconn.active-threads connection)))
   (:method (connection (id integer))
+    (declare (ignorable connection))
     (find-thread id))
   (:method ((connection singlethreaded-connection) id)
+    (declare (ignorable connection connection id))
     (current-thread)))
 
 (defun interrupt-worker-thread (connection id)
@@ -3746,8 +3748,7 @@ Collisions are caused because package information is ignored."
 (defun before-init (version load-path)
   (pushnew :swank *features*)
   (setq *swank-wire-protocol-version* version)
-  (setq *load-path* load-path)
-  (swank-backend::warn-unimplemented-interfaces))
+  (setq *load-path* load-path))
 
 (defun init ()
   (run-hook *after-init-hook*))

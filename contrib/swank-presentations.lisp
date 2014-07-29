@@ -16,11 +16,11 @@
 (defvar *record-repl-results* t
   "Non-nil means that REPL results are saved for later lookup.")
 
-(defvar *object-to-presentation-id* 
+(defvar *object-to-presentation-id*
   (make-weak-key-hash-table :test 'eq)
   "Store the mapping of objects to numeric identifiers")
 
-(defvar *presentation-id-to-object* 
+(defvar *presentation-id-to-object*
   (make-weak-value-hash-table :test 'eql)
   "Store the mapping of numeric identifiers to objects")
 
@@ -51,7 +51,7 @@ If OBJECT was saved previously return the old id."
 The secondary value indicates the absence of an entry."
   (etypecase id
     (integer
-     ;; 
+     ;;
      (multiple-value-bind (object foundp)
          (gethash id *presentation-id-to-object*)
        (cond
@@ -62,13 +62,13 @@ The secondary value indicates the absence of an entry."
           ;; Object that was replaced by nil in the weak hash table
           ;; when the object was garbage collected.
           (values nil nil))
-         (t 
+         (t
           (values object foundp)))))
     (cons
      (destructure-case id
        ((:frame-var thread-id frame index)
-        (declare (ignore thread-id)) ; later 
-        (handler-case 
+        (declare (ignore thread-id)) ; later
+        (handler-case
             (frame-var-value frame index)
           (t (condition)
             (declare (ignore condition))
@@ -95,7 +95,7 @@ The secondary value indicates the absence of an entry."
   t)
 
 (defun present-repl-results (values)
-  ;; Override a function in swank.lisp, so that 
+  ;; Override a function in swank.lisp, so that
   ;; presentations are associated with every REPL result.
   (flet ((send (value)
            (let ((id (and *record-repl-results*
@@ -104,7 +104,7 @@ The secondary value indicates the absence of an entry."
 	     (send-to-emacs `(:write-string ,(prin1-to-string value)
 					    :repl-result))
 	     (send-to-emacs `(:presentation-end ,id :repl-result))
-	     (send-to-emacs `(:write-string ,(string #\Newline) 
+	     (send-to-emacs `(:write-string ,(string #\Newline)
 					    :repl-result)))))
     (fresh-line)
     (finish-output)
@@ -124,7 +124,7 @@ The secondary value indicates the absence of an entry."
 ;;
 ;; choice: The string naming the action from above
 ;;
-;; object: The object 
+;; object: The object
 ;;
 ;; id: The presentation id of the object
 ;;
@@ -146,12 +146,13 @@ The secondary value indicates the absence of an entry."
   (cond ((keywordp thing) thing)
 	((and (symbolp thing)(not (find #\: (symbol-name thing))))
 	 (intern (symbol-name thing) 'swank-io-package))
-	((consp thing) (cons (swank-ioify (car thing)) (swank-ioify (cdr thing))))
+	((consp thing) (cons (swank-ioify (car thing))
+			     (swank-ioify (cdr thing))))
 	(t thing)))
 
 (defun execute-menu-choice-for-presentation-id (id count item)
   (let ((ob (lookup-presented-object id)))
-    (assert (equal id (car *presentation-active-menu*)) () 
+    (assert (equal id (car *presentation-active-menu*)) ()
 	    "Bug: Execute menu call for id ~a  but menu has id ~a"
 	    id (car *presentation-active-menu*))
     (let ((action (second (nth (1- count) (cdr *presentation-active-menu*)))))
@@ -165,22 +166,23 @@ The secondary value indicates the absence of an entry."
 (defmethod menu-choices-for-presentation ((ob pathname))
   (let* ((file-exists (ignore-errors (probe-file ob)))
 	 (lisp-type (make-pathname :type "lisp"))
-	 (source-file (and (not (member (pathname-type ob) '("lisp" "cl") :test 'equal))
+	 (source-file (and (not (member (pathname-type ob) '("lisp" "cl")
+					:test 'equal))
 			   (let ((source (merge-pathnames lisp-type ob)))
 			     (and (ignore-errors (probe-file source))
 				  source))))
-	 (fasl-file (and file-exists 
+	 (fasl-file (and file-exists
 			 (equal (ignore-errors
 				  (namestring
 				   (truename
 				    (compile-file-pathname
 				     (merge-pathnames lisp-type ob)))))
 				(namestring (truename ob))))))
-    (remove nil 
+    (remove nil
 	    (list*
 	     (and (and file-exists (not fasl-file))
-		  (list "Edit this file" 
-			(lambda(choice object id) 
+		  (list "Edit this file"
+			(lambda(choice object id)
 			  (declare (ignore choice id))
 			  (ed-in-emacs (namestring (truename object)))
 			  nil)))
@@ -188,43 +190,44 @@ The secondary value indicates the absence of an entry."
 		  (list "Dired containing directory"
 			(lambda (choice object id)
 			  (declare (ignore choice id))
-			  (ed-in-emacs (namestring 
+			  (ed-in-emacs (namestring
 					(truename
 					 (merge-pathnames
-					  (make-pathname :name "" :type "") object))))
+					  (make-pathname :name "" :type "")
+					  object))))
 			  nil)))
 	     (and fasl-file
 		  (list "Load this fasl file"
 			(lambda (choice object id)
-			  (declare (ignore choice id object)) 
+			  (declare (ignore choice id object))
 			  (load ob)
 			  nil)))
 	     (and fasl-file
 		  (list "Delete this fasl file"
 			(lambda (choice object id)
-			  (declare (ignore choice id object)) 
+			  (declare (ignore choice id object))
 			  (let ((nt (namestring (truename ob))))
 			    (when (y-or-n-p-in-emacs "Delete ~a? " nt)
 			      (delete-file nt)))
 			  nil)))
-	     (and source-file 
-		  (list "Edit lisp source file" 
-			(lambda (choice object id) 
-			  (declare (ignore choice id object)) 
+	     (and source-file
+		  (list "Edit lisp source file"
+			(lambda (choice object id)
+			  (declare (ignore choice id object))
 			  (ed-in-emacs (namestring (truename source-file)))
 			  nil)))
-	     (and source-file 
-		  (list "Load lisp source file" 
-			(lambda(choice object id) 
-			  (declare (ignore choice id object)) 
+	     (and source-file
+		  (list "Load lisp source file"
+			(lambda(choice object id)
+			  (declare (ignore choice id object))
 			  (load source-file)
 			  nil)))
 	     (and (next-method-p) (call-next-method))))))
 
 (defmethod menu-choices-for-presentation ((ob function))
   (list (list "Disassemble"
-              (lambda (choice object id) 
-                (declare (ignore choice id)) 
+              (lambda (choice object id)
+                (declare (ignore choice id))
                 (disassemble object)))))
 
 (defslimefun inspect-presentation (id reset-p)
@@ -233,7 +236,8 @@ The secondary value indicates the absence of an entry."
       (reset-inspector))
     (inspect-object what)))
 
-
+;; FIXME: actually defined in swank-repl.lisp
+(defvar *send-repl-results-function*)
 (setq *send-repl-results-function* 'present-repl-results)
 
 (provide :swank-presentations)

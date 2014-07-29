@@ -460,6 +460,9 @@ Most natural language searches and symbols do not have this
 problem -- this is only here as a safeguard.")
 (declaim (fixnum *fuzzy-recursion-soft-limit*))
 
+(defvar *all-chunks* '())
+(declaim (type list *all-chunks*))
+
 (defun compute-highest-scoring-completion (short full)
   "Finds the highest scoring way to complete the abbreviation
 SHORT onto the string FULL, using CHAR= as a equality function for
@@ -478,7 +481,6 @@ Calls RECURSIVELY-COMPUTE-MOST-COMPLETIONS recursively.  Returns
 a list of (&rest CHUNKS), where each CHUNKS is a description of
 how a completion matches."
   (let ((*all-chunks* nil))
-    (declare (special *all-chunks*))
     (recursively-compute-most-completions short full 0 0 nil nil nil t)
     *all-chunks*))
 
@@ -508,8 +510,7 @@ onto the special variable *ALL-CHUNKS* and the function returns."
   (declare (optimize speed)
            (type fixnum short-index initial-full-index)
            (type list current-chunk)
-           (simple-string short full)
-           (special *all-chunks*))
+           (simple-string short full))
   (flet ((short-cur ()
            "Returns the next letter from the abbreviation, or NIL
             if all have been used."
