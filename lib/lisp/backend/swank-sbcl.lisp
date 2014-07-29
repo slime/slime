@@ -1922,6 +1922,7 @@ stack."
   (sb-int:encapsulated-p spec indicator))
 
 (defun sbcl-wrap (spec before after replace function args)
+  (declare (ignore spec))
   (let (retlist completed)
     (unwind-protect
          (progn
