@@ -1,5 +1,9 @@
 2014-07-29  Helmut Eller  <heller@common-lisp.net>
 
+	* Makefile (clean-fasls): Recognize more file extensions.
+
+2014-07-29  Helmut Eller  <heller@common-lisp.net>
+
 	Avoid some compiler warnings.
 
 	* swank-backend.lisp (utf8-encode): Avoid unreachable code

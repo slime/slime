@@ -72,8 +72,10 @@ elpa: elpa-slime contrib-elpa
 
 # Cleanup
 #
+FASLREGEX = .*\.\(fasl\|ufasl\|sse2f\|lx32fsl\|abcl\|fas\|lib\|trace\)$$
+
 clean-fasls:
-	find . -iname '*.fasl' -exec rm {} \;
+	find . -regex '$(FASLREGEX)' -exec rm -v {} \;
 clean: clean-fasls
 	find . -iname '*.elc' -exec rm {} \;
 
