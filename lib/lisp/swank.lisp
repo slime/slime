@@ -68,11 +68,7 @@
            #:y-or-n-p-in-emacs
            #:*find-definitions-right-trim*
            #:*find-definitions-left-trim*
-           #:*after-toggle-trace-hook*)
-  ;; channels
-  ;; 
-  (:export #:channel-id
-           #:channel-thread))
+           #:*after-toggle-trace-hook*))
 
 (in-package :swank)
 
@@ -473,11 +469,12 @@ corresponding values in the CDR of VALUE."
 (defmethod initialize-instance :after ((ch channel) &key)
   ;; FIXME: slightly fugly, but I need this to be able to name the
   ;; thread according to the channel's id.
-  (setf (slot-value ch 'thread)
-        (and (use-threads-p)
-             (spawn-channel-thread *emacs-connection* ch)))
-  (setf (channels) (nconc (channels)
-                          (list ch))))
+  ;;
+  (with-slots (thread) ch
+    (when (use-threads-p)
+      (setf thread (spawn-channel-thread *emacs-connection* ch)))
+    (swank-backend:send thread `(:serve-channel ,ch)))
+  (setf (channels) (nconc (channels) (list ch))))
 
 (defmethod print-object ((c channel) stream)
   (print-unreadable-object (c stream :type t)
@@ -491,6 +488,12 @@ corresponding values in the CDR of VALUE."
 
 (defun find-channel (id)
   (find id (channels) :key #'channel-id))
+
+(defun find-channel-thread (channel)
+  (channel-thread channel))
+
+(defun channel-thread-id (channel)
+  (swank-backend:thread-id (channel-thread channel)))
 
 (defmethod close-channel (channel)
   (let ((probe (find-channel (channel-id channel))))
@@ -1217,9 +1220,15 @@ TIMEOUT has the same meaning as in WAIT-FOR-EVENT."
     (((:emacs-pong :emacs-return :emacs-return-string) thread-id &rest args)
      (send-event (find-thread thread-id) (cons (car event) args)))
     ((:emacs-channel-send channel-id msg)
-     (let ((ch (find-channel channel-id)))
-       (cond (ch
-              (send-event (channel-thread ch) `(:emacs-channel-send ,ch ,msg)))
+     (let* ((ch (find-channel channel-id))
+            (thread (and ch (find-channel-thread ch))))
+       (cond ((and ch thread)
+              (send-event thread `(:emacs-channel-send ,ch ,msg)))
+             (channel
+              (encode-message 
+               (list :invalid-channel channel-id
+                     "No suitable threads for channel")
+               (current-socket-io)))
              (t
               (encode-message 
                (list :invalid-channel channel-id "Channel not found")
@@ -3872,7 +3881,7 @@ Collisions are caused because package information is ignored."
                ;;
                channel
                channel-id
-               channel-thread
+               channel-thread-id
                close-channel
                define-channel-method
                find-channel

@@ -39,10 +39,7 @@
                  :name (format nil "mrepl-remote-~a" remote-id)
                  :out (make-mrepl-output-stream remote-id)
                  :in (make-mrepl-input-stream remote-id)
-                 ))
-         (thread (channel-thread mrepl)))
-    (when thread
-      (swank-backend:send thread `(:serve-channel ,mrepl)))
+                 )))
     (with-listener mrepl
       (format *standard-output* "~&; SLY ~a (~a)~%"
               *swank-wire-protocol-version*
@@ -56,7 +53,7 @@
       (flush-listener-streams mrepl)
       (send-prompt mrepl))
     (list (channel-id mrepl)
-          (swank-backend:thread-id (or thread (swank-backend:current-thread)))
+          (channel-thread-id mrepl)
           (package-name pkg)
           (package-prompt pkg))))
 
