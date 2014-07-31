@@ -29,12 +29,12 @@
        (:file "swank-source-path-parser")
        #+(or cmu ecl sbcl scl)
        (:file "swank-source-file-cache")
+       #+clisp
+       (:file "xref")
+       #+(or clisp clozure)
+       (:file "metering")
        (:module "backend"
-        :components (#+clisp
-                     (:file "xref")
-                     #+(or clisp clozure)
-                     (:file "metering")
-                     #+allegro
+        :components (#+allegro
                      (:file "swank-allegro")
                      #+armedbear
                      (:file "swank-abcl")

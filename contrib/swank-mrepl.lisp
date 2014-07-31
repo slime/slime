@@ -16,7 +16,7 @@
    (tag        :initform nil))
   (:documentation "A listener implemented in terms of a channel.")
   (:default-initargs
-   :initial-env `((cl:*package* . ,*package*)
+   :initial-env `((cl:*package* . ,(find-package :COMMON-LISP-USER))
                   (*) (**) (***)
                   (/) (//) (///)
                   (+) (++) (+++)
@@ -32,8 +32,7 @@
           (cons (package-name package) (package-nicknames package))))
 
 (defslyfun create-mrepl (remote-id)
-  (let* ((pkg *package*)
-         (mrepl (make-instance
+  (let* ((mrepl (make-instance
                  'mrepl
                  :remote-id remote-id
                  :name (format nil "mrepl-remote-~a" remote-id)
@@ -51,11 +50,11 @@
               ((not target)
                (format *standard-output* "~&; Global redirection not setup~%"))))
       (flush-listener-streams mrepl)
-      (send-prompt mrepl))
-    (list (channel-id mrepl)
-          (channel-thread-id mrepl)
-          (package-name pkg)
-          (package-prompt pkg))))
+      (send-prompt mrepl)
+      (list (channel-id mrepl)
+            (channel-thread-id mrepl)
+            (package-name *package*)
+            (package-prompt *package*)))))
 
 (defslyfun eval-in-mrepl (remote-id string)
   "Like MREPL-EVAL, but not run in channel's thread."
