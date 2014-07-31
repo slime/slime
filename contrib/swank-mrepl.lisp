@@ -127,28 +127,36 @@
 (defun mrepl-eval (repl string)
   (let ((aborted t)
         (results))
-    (with-listener repl
-      (unwind-protect
-           (handler-bind
-               ((error #'(lambda (err)
-                           (setq aborted err))))
-             (setq results (with-sly-interrupts (read-eval string))
-                   aborted nil))
-        (flush-listener-streams repl)
-        (cond (aborted
-               (send-to-remote-channel (mrepl-remote-id repl)
-                                       `(:evaluation-aborted
-                                         ,(prin1-to-string aborted))))
-              (t
-               (setq /// //  // /  / results
-                     *** **  ** *  * (car results)
-                     +++ ++  ++ + )
-               (vector-push-extend results *history*)
-               (send-to-remote-channel
-                (mrepl-remote-id repl)
-                `(:write-values ,(mapcar #'swank::to-line
-                                         results)))
-               (send-prompt repl)))))))
+    (unwind-protect
+         (handler-bind
+             ((error #'(lambda (err)
+                         (setq aborted err))))
+           (setq results (with-sly-interrupts
+                           ;; Use a read-only (and swank::hackish)
+                           ;; version of the listener environment
+                           ;; otherwise clobbering can occur when
+                           ;; copying to repl from the sldb, for
+                           ;; example.
+                           ;; 
+                           (with-bindings (slot-value repl 'swank::env) 
+                             (read-eval string)))
+                 aborted nil)
+           (flush-listener-streams repl)
+           (cond (aborted
+                  (send-to-remote-channel (mrepl-remote-id repl)
+                                          `(:evaluation-aborted
+                                            ,(prin1-to-string aborted))))
+                 (t
+                  (with-listener repl
+                    (setq /// //  // /  / results
+                          *** **  ** *  * (car results)
+                          +++ ++  ++ + )
+                    (vector-push-extend results *history*)
+                    (send-to-remote-channel
+                     (mrepl-remote-id repl)
+                     `(:write-values ,(mapcar #'swank::to-line
+                                              results)))
+                    (send-prompt repl))))))))
 
 (defun send-prompt (repl)
   (send-to-remote-channel (mrepl-remote-id repl)
