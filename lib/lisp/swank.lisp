@@ -509,7 +509,10 @@ corresponding values in the CDR of VALUE."
        . ,body)))
 
 (define-channel-method :teardown ((c channel))
-  (throw 'stop-processing 'listener-teardown))
+  (if (use-threads-p)
+      ;; eventually calls CLOSE-CHANNEL
+      (throw 'stop-processing 'listener-teardown)
+      (close-channel c)))
 
 (defun send-to-remote-channel (channel-id msg)
   (send-to-emacs `(:channel-send ,channel-id ,msg)))
@@ -1057,7 +1060,11 @@ TIMEOUT has the same meaning as in WAIT-FOR-EVENT."
            (channel-send channel selector args)))))))
 
 (defun spawn-channel-thread (connection channel)
-  "Spawn a listener thread for CONNECTION and CHANNEL."
+  "Spawn a listener thread for CONNECTION and CHANNEL.
+
+The new thread will block waiting for a :SERVE-CHANNEL message, then
+process all requests in series until the :TEARDOWN message, at which
+point the thread terminates and CHANNEL is closed."
   (swank-backend:spawn
    (lambda ()
      (with-connection (connection)
@@ -1068,6 +1075,7 @@ TIMEOUT has the same meaning as in WAIT-FOR-EVENT."
          (loop
            (with-top-level-restart (connection
                                     (drop-unprocessed-events channel))
+             
              (when (eq (process-requests nil)
                        'listener-teardown)
                (return))))))
@@ -2257,8 +2265,11 @@ after Emacs causes a restart to be invoked."
            (handler-case
                (destructure-case (wait-for-event
                                   `(or (:emacs-rex . _)
+                                       (:emacs-channel-send . _)
                                        (:sldb-return ,(1+ level))))
                  ((:emacs-rex &rest args) (apply #'eval-for-emacs args))
+                 ((:emacs-channel-send channel (selector &rest args))
+                  (channel-send channel selector args))
                  ((:sldb-return _) (declare (ignore _)) (return nil)))
              (sldb-condition (c)
                (handle-sldb-condition c))))))

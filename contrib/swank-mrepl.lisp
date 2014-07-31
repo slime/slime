@@ -51,10 +51,7 @@
                (format *standard-output* "~&; Global redirection not setup~%"))))
       (flush-listener-streams mrepl)
       (send-prompt mrepl)
-      (list (channel-id mrepl)
-            (channel-thread-id mrepl)
-            (package-name *package*)
-            (package-prompt *package*)))))
+      (list (channel-id mrepl) (channel-thread-id mrepl)))))
 
 (defslyfun eval-in-mrepl (remote-id string)
   "Like MREPL-EVAL, but not run in channel's thread."

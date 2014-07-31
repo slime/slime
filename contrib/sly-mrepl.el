@@ -124,7 +124,7 @@ emptied.See also `sly-mrepl-hook'")
     (sly-eval-async
         `(swank-mrepl:create-mrepl ,(sly-channel.id local))
       (lambda (result)
-        (cl-destructuring-bind (remote thread-id _package _prompt) result
+        (cl-destructuring-bind (remote thread-id) result
           (with-current-buffer buffer
             (sly-mrepl-read-input-ring)
             (setq header-line-format nil)
@@ -213,14 +213,14 @@ emptied.See also `sly-mrepl-hook'")
       ;; to `sly-mrepl--insert-output' to still see the correct value
       ;; for `sly-mrepl--output-mark' just before we set it.
       (accept-process-output))
-    (sly-mrepl--prompt prompt package)))
+    (sly-mrepl--prompt package prompt)))
 
 (defface sly-mrepl-prompt-face
   `((t (:inherit comint-highlight-prompt)))
   "Face for errors from the compiler."
   :group 'sly-mode-faces)
 
-(defun sly-mrepl--prompt (prompt package)
+(defun sly-mrepl--prompt (package prompt)
   (sly-mrepl--unfreeze)
   (sly-mrepl--insert (pcase (current-column)
                        (0 "")
