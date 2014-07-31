@@ -180,18 +180,10 @@ emptied.See also `sly-mrepl-hook'")
   sly-mrepl--last-prompt-beg-and-end)
 
 (defun sly-mrepl--freeze ()
-  (let* ((beg-and-end (sly-mrepl--last-prompt-beg-and-end))
-         (inhibit-read-only t))
-    (when beg-and-end
-      (put-text-property (car beg-and-end) (cdr beg-and-end)
-                         'face 'font-lock-warning-face))))
+  )
 
 (defun sly-mrepl--unfreeze ()
-  (let* ((beg-and-end (sly-mrepl--last-prompt-beg-and-end))
-         (inhibit-read-only t))
-    (when beg-and-end
-      (put-text-property (car beg-and-end) (cdr beg-and-end)
-                         'face 'sly-mrepl-prompt-face))))
+  )
 
 
 (defun sly-mrepl--send-input ()
