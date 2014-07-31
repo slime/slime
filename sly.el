@@ -72,9 +72,9 @@
 (require 'outline)
 (require 'arc-mode)
 (require 'etags)
+(require 'apropos)
 
 (eval-when-compile
-  (require 'apropos)
   (require 'compile)
   (require 'gud))
 
@@ -4342,7 +4342,7 @@ With prefix argument include internal symbols."
   "SLY Apropos Mode
 
 TODO"
-  )
+  (sly-mode))
 
 (defun sly-show-apropos (plists string package summary)
   (if (null plists)
