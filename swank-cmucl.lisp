@@ -1115,25 +1115,36 @@ NAME can any valid function name (e.g, (setf car))."
       (let ((class (kernel::find-class name nil)))
         (etypecase class
           (null '())
-          (kernel::structure-class 
+          (kernel::structure-class
            (list (list `(defstruct ,name) (dd-location (find-dd name)))))
           #+(or)
           (conditions::condition-class
-           (list (list `(define-condition ,name) 
+           (list (list `(define-condition ,name)
                        (condition-class-location class))))
           (kernel::standard-class
-           (list (list `(defclass ,name) 
-                       (class-location (find-class name)))))
-          ((or kernel::built-in-class 
+           (list (list `(defclass ,name)
+                       (pcl-class-location (find-class name)))))
+          ((or kernel::built-in-class
                conditions::condition-class
                kernel:funcallable-structure-class)
-           (list (list `(kernel::define-type-class ,name)
-                       `(:error 
-                         ,(format nil "No source info for ~A" name)))))))))
+           (list (list `(class ,name) (class-location class))))))))
 
-(defun class-location (class)
+(defun pcl-class-location (class)
   "Return the `defclass' location for CLASS."
   (definition-source-location class (pcl:class-name class)))
+
+;; FIXME: eval used for backward compatibility.
+(defun class-location (class)
+  (declare (type kernel::class class))
+  (let ((name (kernel:%class-name class)))
+    (multiple-value-bind (loc found?)
+        (let ((x (ignore-errors
+                   (multiple-value-list
+                    (eval `(ext:info :source-location :class ',name))))))
+          (values-list x))
+      (cond (found? (resolve-source-location loc))
+            (`(:error
+               ,(format nil "No location recorded for class: ~S" name)))))))
 
 (defun find-dd (name)
   "Find the defstruct-definition by the name of its structure-class."

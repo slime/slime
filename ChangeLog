@@ -1,3 +1,12 @@
+2014-08-01  Helmut Eller  <heller@common-lisp.net>
+
+	For CMUCL, make M-. work on condition classes.
+
+	* swank-cmucl.lisp (pcl-class-location): Renamed from
+	class-location.
+	(class-location): New.
+	(class-definitions): Search condition classes in infodb.
+
 2014-07-29  Helmut Eller  <heller@common-lisp.net>
 
 	* Makefile (clean-fasls): Recognize more file extensions.
