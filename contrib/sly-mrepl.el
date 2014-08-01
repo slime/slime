@@ -167,10 +167,9 @@ emptied.See also `sly-mrepl-hook'")
   (let ((inhibit-read-only t)
         (start (marker-position sly-mrepl--output-mark)))
     (save-excursion
+      (when (sly-mrepl--busy-p)
+        (sly-mrepl--ensure-newline sly-mrepl--output-mark))
       (goto-char sly-mrepl--output-mark)
-      (unless (looking-at "\n")
-        (save-excursion
-          (insert "\n")))
       (insert-before-markers string)
       (add-text-properties start (point) '(read-only t)))))
 
@@ -197,6 +196,12 @@ emptied.See also `sly-mrepl-hook'")
   (sly-mrepl--commiting-text
    (comint-send-input)))
 
+(defun sly-mrepl--ensure-newline (marker)
+  (unless (eq ?\n (char-before marker))
+    (goto-char marker)
+    (insert-before-markers "\n")
+    (goto-char marker)))
+
 (sly-define-channel-method listener :prompt (package prompt)
   (with-current-buffer (sly-channel-get self 'buffer)
     (when (and sly-mrepl--dedicated-stream
@@ -205,27 +210,22 @@ emptied.See also `sly-mrepl-hook'")
       ;; to `sly-mrepl--insert-output' to still see the correct value
       ;; for `sly-mrepl--output-mark' just before we set it.
       (accept-process-output))
-    (sly-mrepl--prompt package prompt)))
+    (sly-mrepl--unfreeze)
+    (sly-mrepl--ensure-newline (sly-mrepl--mark))
+    (set-marker sly-mrepl--output-mark (sly-mrepl--mark))
+    (let ((beg (point)))
+      (sly-mrepl--insert (propertize (format "%s> " prompt)
+                                     'face 'sly-mrepl-prompt-face
+                                     'sly-mrepl--prompt package))
+      (set (make-local-variable 'sly-mrepl--last-prompt-beg-and-end)
+           (cons beg (point))))
+    (sly-mrepl--recenter)
+    (buffer-enable-undo)))
 
 (defface sly-mrepl-prompt-face
   `((t (:inherit comint-highlight-prompt)))
   "Face for errors from the compiler."
   :group 'sly-mode-faces)
-
-(defun sly-mrepl--prompt (package prompt)
-  (sly-mrepl--unfreeze)
-  (sly-mrepl--insert (pcase (current-column)
-                       (0 "")
-                       (t "\n")))
-  (set-marker sly-mrepl--output-mark (sly-mrepl--mark))
-  (let ((beg (point)))
-    (sly-mrepl--insert (propertize (format "%s> " prompt)
-                                 'face 'sly-mrepl-prompt-face
-                                 'sly-mrepl--prompt package))
-    (set (make-local-variable 'sly-mrepl--last-prompt-beg-and-end)
-         (cons beg (point))))
-  (sly-mrepl--recenter)
-  (buffer-enable-undo))
 
 (defun sly-mrepl--recenter ()
   (when (get-buffer-window)
@@ -256,15 +256,16 @@ emptied.See also `sly-mrepl-hook'")
 (defun sly-mrepl--insert-returned-values (values)
   (cl-incf sly-mrepl--result-counter)
   (let* ((comint-preoutput-filter-functions nil))
-    (cl-loop for (value . more) on values
+    (cl-loop for value in values
              for idx from 0
              do
-             (sly-mrepl--insert (sly-mrepl--make-result-button value sly-mrepl--result-counter idx))
-             when more do (sly-mrepl--insert "\n"))
+             (sly-mrepl--ensure-newline (sly-mrepl--mark))
+             (sly-mrepl--insert (sly-mrepl--make-result-button value sly-mrepl--result-counter idx)))
     (when (null values)
       (sly-mrepl--insert "; No values"))))
 
 (sly-define-channel-method listener :write-values (values)
+  (accept-process-output)
   (with-current-buffer (sly-channel-get self 'buffer)
     (sly-mrepl--insert-returned-values values)))
 
@@ -528,5 +529,35 @@ emptied.See also `sly-mrepl-hook'")
   "First mrepl-buffer"
   (or (sly-mrepl)
       (error "No mrepl buffer (%s)" (sly-connection-name))))
+
+
+(defvar sly-mrepl--debug-overlays nil)
+(defun sly-mrepl--debug (&rest ignored)
+  (interactive)
+  (mapc #'delete-overlay sly-mrepl--debug-overlays)
+  (let ((overlay (make-overlay sly-mrepl--output-mark
+                               (sly-mrepl--mark)))
+        (color (if (< sly-mrepl--output-mark (sly-mrepl--mark))
+                   "green"
+                 "orange"))
+        (marker-color (if (= sly-mrepl--output-mark (sly-mrepl--mark))
+                          "red"
+                        "purple")))
+    (overlay-put overlay
+                 'face `(:background ,color))
+    (overlay-put overlay
+                 'after-string (propertize "F" 'face `(:background ,marker-color)))
+    (push overlay sly-mrepl--debug-overlays)))
+
+(defun sly-mrepl--turn-on-debug ()
+  (interactive)
+  (add-hook 'after-change-functions 'sly-mrepl--debug nil 'local)
+  (add-hook 'post-command-hook 'sly-mrepl--debug nil 'local))
+
+(defun sly-mrepl--turn-off-debug ()
+  (interactive)
+  (remove-hook 'after-change-functions 'sly-mrepl--debug 'local)
+  (remove-hook 'post-command-hook 'sly-mrepl--debug 'local))
+
 
 (provide 'sly-mrepl)

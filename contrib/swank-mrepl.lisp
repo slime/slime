@@ -140,23 +140,23 @@
                            ;; 
                            (with-bindings (slot-value repl 'swank::env) 
                              (read-eval string)))
-                 aborted nil)
-           (flush-listener-streams repl)
-           (cond (aborted
-                  (send-to-remote-channel (mrepl-remote-id repl)
-                                          `(:evaluation-aborted
-                                            ,(prin1-to-string aborted))))
-                 (t
-                  (with-listener repl
-                    (setq /// //  // /  / results
-                          *** **  ** *  * (car results)
-                          +++ ++  ++ + )
-                    (vector-push-extend results *history*)
-                    (send-to-remote-channel
-                     (mrepl-remote-id repl)
-                     `(:write-values ,(mapcar #'swank::to-line
-                                              results)))
-                    (send-prompt repl))))))))
+                 aborted nil))
+      (flush-listener-streams repl)
+      (cond (aborted
+             (send-to-remote-channel (mrepl-remote-id repl)
+                                     `(:evaluation-aborted
+                                       ,(prin1-to-string aborted))))
+            (t
+             (with-listener repl
+               (setq /// //  // /  / results
+                     *** **  ** *  * (car results)
+                     +++ ++  ++ + )
+               (vector-push-extend results *history*)
+               (send-to-remote-channel
+                (mrepl-remote-id repl)
+                `(:write-values ,(mapcar #'swank::to-line
+                                         results)))
+               (send-prompt repl)))))))
 
 (defun send-prompt (repl)
   (send-to-remote-channel (mrepl-remote-id repl)
