@@ -13,7 +13,9 @@
    (define-key sldb-mode-map (kbd "M-RET") 'sldb-copy-down-to-repl)
    (define-key sly-mode-map (kbd "C-c ~") 'sly-mrepl-sync-package-and-default-directory)
    (add-hook 'sly-connected-hook 'sly-mrepl-connected-hook)
-   (add-hook 'sly-net-process-close-hooks 'sly-mrepl-teardown-repls)
+   (add-hook 'sly-net-process-close-hooks 'sly-mrepl--teardown-repls)
+   (add-hook 'sldb-hook 'sly-mrepl--freeze-prompt)
+   (add-hook 'sldb-exit-hook 'sly-mrepl--unfreeze-prompt)
    ;; FIXME: ugly
    (add-hook 'sly-trace-dialog-mode-hook
              #'(lambda ()
@@ -67,7 +69,7 @@ emptied.See also `sly-mrepl-hook'")
                 (sly-mrepl--expect-sexp-mode t)
                 (sly-mrepl--result-counter -1)
                 (sly-mrepl--output-mark ,(point-marker))
-                (sly-mrepl--last-prompt-beg-and-end nil)
+                (sly-mrepl--last-prompt-overlay ,(make-overlay 0 0))
                 (sly-find-buffer-package-function sly-mrepl-guess-package))
            do (set (make-local-variable var) value))
   (set-marker-insertion-type sly-mrepl--output-mark nil)
@@ -137,7 +139,7 @@ emptied.See also `sly-mrepl-hook'")
               (set-default 'sly-mrepl-runonce-hook nil))))))
     buffer))
 
-(defun sly-mrepl-teardown-repls (process)
+(defun sly-mrepl--teardown-repls (process)
   (cl-loop for buffer in (buffer-list)
            when (buffer-live-p buffer)
            do (with-current-buffer buffer
@@ -171,17 +173,32 @@ emptied.See also `sly-mrepl-hook'")
       (insert-before-markers string)
       (add-text-properties start (point) '(read-only t)))))
 
-(defvar sly-mrepl--last-prompt-beg-and-end nil)
+(defvar sly-mrepl--last-prompt-overlay nil)
+(defvar sly-mrepl--frozen-prompt-overlay nil)
 
-(defun sly-mrepl--last-prompt-beg-and-end ()
-  sly-mrepl--last-prompt-beg-and-end)
+(defun sly-mrepl--sldb-find-mrepl-buffer ()
+  (cl-loop with conn = (sly-connection)
+           with thread-id = sly-current-thread
+           for b in (buffer-list)
+           when (with-current-buffer b
+                  (and (eql thread-id sly-current-thread)
+                       (eq conn sly-buffer-connection)
+                       (eq major-mode 'sly-mrepl-mode)))
+           return b))
 
-(defun sly-mrepl--freeze ()
-  )
+(defun sly-mrepl--freeze-prompt ()
+  (let ((mrepl (sly-mrepl--sldb-find-mrepl-buffer)))
+    (with-current-buffer mrepl
+      (set (make-local-variable 'sly-mrepl--frozen-prompt-overlay)
+           (copy-overlay sly-mrepl--last-prompt-overlay))
+      (overlay-put sly-mrepl--frozen-prompt-overlay 'face 'font-lock-warning-face))))
 
-(defun sly-mrepl--unfreeze ()
-  )
-
+(defun sly-mrepl--unfreeze-prompt ()
+  (let ((mrepl (sly-mrepl--sldb-find-mrepl-buffer)))
+    (when mrepl
+      (with-current-buffer mrepl
+        (cl-assert (overlay-buffer sly-mrepl--frozen-prompt-overlay))
+        (delete-overlay sly-mrepl--frozen-prompt-overlay)))))
 
 (defun sly-mrepl--send-input ()
   (goto-char (point-max))
@@ -190,7 +207,7 @@ emptied.See also `sly-mrepl-hook'")
                       (sly-mrepl--mark))
                  (point-max))
   (buffer-disable-undo)
-  (sly-mrepl--freeze)
+  (overlay-put sly-mrepl--last-prompt-overlay 'face 'highlight)
   (sly-mrepl--commiting-text
    (comint-send-input)))
 
@@ -209,15 +226,14 @@ emptied.See also `sly-mrepl-hook'")
       ;; to `sly-mrepl--insert-output' to still see the correct value
       ;; for `sly-mrepl--output-mark' just before we set it.
       (accept-process-output))
-    (sly-mrepl--unfreeze)
+    (overlay-put sly-mrepl--last-prompt-overlay 'face nil)
     (sly-mrepl--ensure-newline (sly-mrepl--mark))
     (set-marker sly-mrepl--output-mark (sly-mrepl--mark))
     (let ((beg (point)))
       (sly-mrepl--insert (propertize (format "%s> " prompt)
                                      'face 'sly-mrepl-prompt-face
                                      'sly-mrepl--prompt package))
-      (set (make-local-variable 'sly-mrepl--last-prompt-beg-and-end)
-           (cons beg (point))))
+      (move-overlay sly-mrepl--last-prompt-overlay beg (point)))
     (sly-mrepl--recenter)
     (buffer-enable-undo)))
 
@@ -484,9 +500,7 @@ emptied.See also `sly-mrepl-hook'")
 (defun sly-mrepl--teardown ()
   (remove-hook 'kill-buffer-hook 'sly-mrepl--teardown)
   (sly-mrepl--ensure-newline (point-max))
-  (goto-char (point-max))
-  (insert
-   (format "; Local teardown. Mergin and saving history"))
+  (sly-mrepl--insert "; Local teardown. Mergin and saving history")
   (sly-mrepl--merge-and-save-history)
   (when sly-mrepl--dedicated-stream
     (kill-buffer (process-buffer sly-mrepl--dedicated-stream)))

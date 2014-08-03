@@ -1862,7 +1862,6 @@ Return nil if there's no process object for the connection."
  (defvar sly-current-thread t
    "The id of the current thread on the Lisp side.
 t means the \"current\" thread;
-:repl-thread the thread that executes REPL requests;
 fixnum a specific thread."))
 
 (make-variable-buffer-local
@@ -5250,10 +5249,14 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
     ((:ok result)
      (apply #'sldb-setup thread level result))))
 
+(defvar sldb-exit-hook nil
+  "Hooks run in the debugger buffer just before exit")
+
 (defun sldb-exit (thread _level &optional stepping)
   "Exit from the debug level LEVEL."
   (when-let (sldb (sldb-find-buffer thread))
     (with-current-buffer sldb
+      (run-hooks 'sldb-exit-hook)
       (cond (stepping
              (setq sldb-level nil)
              (run-with-timer 0.4 nil 'sldb-close-step-buffer sldb))
