@@ -123,6 +123,13 @@
                       *saved-object*)))
       (copy-values-to-repl r (list object)))))
 
+;; FIXME: this should be a `:before' spec and closing the channel in
+;; swank.lisp's :teardown method should suffice.
+;; 
+(define-channel-method :teardown ((r mrepl))
+  (setf (mrepl-mode r) :teardown)
+  (call-next-method))
+
 
 (defun mrepl-eval (repl string)
   (let ((aborted t)
@@ -143,9 +150,10 @@
                  aborted nil))
       (flush-listener-streams repl)
       (cond (aborted
-             (send-to-remote-channel (mrepl-remote-id repl)
-                                     `(:evaluation-aborted
-                                       ,(prin1-to-string aborted))))
+             (unless (eq (mrepl-mode repl) :teardown)
+               (send-to-remote-channel (mrepl-remote-id repl)
+                                       `(:evaluation-aborted
+                                         ,(prin1-to-string aborted)))))
             (t
              (with-listener repl
                (setq /// //  // /  / results
