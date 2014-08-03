@@ -1358,14 +1358,21 @@ EVAL'd by Lisp."
   (setq sly-net-processes (remove process sly-net-processes))
   (when (eq process sly-default-connection)
     (setq sly-default-connection nil))
-  (cond (debug
-         (set-process-sentinel process 'ignore)
-         (set-process-filter process 'ignore)
-         (delete-process process))
-        (t
-         (run-hook-with-args 'sly-net-process-close-hooks process)
-         ;; killing the buffer also closes the socket
-         (kill-buffer (process-buffer process)))))
+  ;; Run hooks
+  ;; 
+  (unless debug
+    (run-hook-with-args 'sly-net-process-close-hooks process))
+  ;; Kill the process (socket). Killing the buffer does it in case it
+  ;; still exists (interactive `sly-disconnect' call, for instance),
+  ;; but we first unset its sentinel otherwise we get a second
+  ;; `sly-net-close' call.
+  ;; 
+  (set-process-sentinel process nil)
+  (when debug
+    (set-process-filter process nil))
+  (if debug
+      (delete-process process) ; leave the buffer
+    (kill-buffer (process-buffer process))))
 
 (defun sly-net-sentinel (process message)
   (message "Lisp connection closed unexpectedly: %s" message)

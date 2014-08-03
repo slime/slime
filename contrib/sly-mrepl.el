@@ -13,7 +13,7 @@
    (define-key sldb-mode-map (kbd "M-RET") 'sldb-copy-down-to-repl)
    (define-key sly-mode-map (kbd "C-c ~") 'sly-mrepl-sync-package-and-default-directory)
    (add-hook 'sly-connected-hook 'sly-mrepl-connected-hook)
-   (add-hook 'sly-net-process-close-hooks 'sly-mrepl-close-repls)
+   (add-hook 'sly-net-process-close-hooks 'sly-mrepl-teardown-repls)
    ;; FIXME: ugly
    (add-hook 'sly-trace-dialog-mode-hook
              #'(lambda ()
@@ -114,7 +114,8 @@ emptied.See also `sly-mrepl-hook'")
                              (process-get connection
                                           'sly--net-connect-counter)
                              (sly-channel.id local))
-                     (current-buffer) nil)
+                     (current-buffer)
+                     nil) 
       (set-process-query-on-exit-flag (sly-mrepl--process) nil)
       (setq header-line-format (format "Waiting for REPL creation ack for channel %d..."
                                        (sly-channel.id local)))
@@ -136,15 +137,12 @@ emptied.See also `sly-mrepl-hook'")
               (set-default 'sly-mrepl-runonce-hook nil))))))
     buffer))
 
-(defun sly-mrepl-close-repls (process)
+(defun sly-mrepl-teardown-repls (process)
   (cl-loop for buffer in (buffer-list)
            when (buffer-live-p buffer)
            do (with-current-buffer buffer
                 (when (and (eq major-mode 'sly-mrepl-mode)
                            (eq sly-buffer-connection process))
-                  (goto-char (point-max))
-                  (let ((inhibit-read-only t))
-                    (insert "\n--------------------------------------------------------\n"))
                   (sly-mrepl--teardown)))))
 
 (defun sly-mrepl--process () (get-buffer-process (current-buffer))) ;stupid
@@ -197,8 +195,9 @@ emptied.See also `sly-mrepl-hook'")
    (comint-send-input)))
 
 (defun sly-mrepl--ensure-newline (marker)
-  (unless (eq ?\n (char-before marker))
-    (goto-char marker)
+  (goto-char marker)
+  (unless (or (= (point-min) marker)
+              (eq ?\n (char-before marker)))
     (insert-before-markers "\n")
     (goto-char marker)))
 
@@ -308,10 +307,11 @@ emptied.See also `sly-mrepl-hook'")
 
 (defun sly-mrepl-return (&optional end-of-input)
   (interactive "P")
-  (cl-assert (eq (process-status sly-buffer-connection)
-                 'open)
-             nil
-             "Connection closed, cannot this REPL.")
+  (cl-assert (process-live-p (sly-mrepl--process)) nil
+             "No local live process, cannot use this REPL")
+  ;; should never get here
+  (cl-assert (process-live-p sly-buffer-connection) nil
+             "Local process exists, but connection closed!")
   (cond ((and
 	  sly-mrepl--expect-sexp-mode
           (sly-mrepl--busy-p))
@@ -482,21 +482,21 @@ emptied.See also `sly-mrepl-hook'")
     (comint-write-input-ring)))
 
 (defun sly-mrepl--teardown ()
-  (condition-case err
-      (progn
-        (sly-mrepl--merge-and-save-history)
-        (ignore-errors
-          (sly-mrepl--send `(:teardown)))
-        (set (make-local-variable 'sly-mrepl--remote-channel) nil)
-        (when sly-mrepl--dedicated-stream
-          (kill-buffer (process-buffer sly-mrepl--dedicated-stream)))
-        (delete-process (sly-mrepl--process))
-        (sly-close-channel sly-mrepl--local-channel))
-    (error
-     (message "[sly-mrepl]: error tearing down %s (%s), removing from kill hook."
-              (current-buffer)
-              err)
-     (remove-hook 'kill-buffer-hook 'sly-mrepl--teardown 'local))))
+  (remove-hook 'kill-buffer-hook 'sly-mrepl--teardown)
+  (sly-mrepl--ensure-newline (point-max))
+  (goto-char (point-max))
+  (insert
+   (format "; Local teardown. Mergin and saving history"))
+  (sly-mrepl--merge-and-save-history)
+  (when sly-mrepl--dedicated-stream
+    (kill-buffer (process-buffer sly-mrepl--dedicated-stream)))
+  ;; signal lisp that we're closingq
+  (when (ignore-errors (sly-connection))
+    (sly-mrepl--send `(:teardown))
+    (sly-close-channel sly-mrepl--local-channel))
+  (set (make-local-variable 'sly-mrepl--remote-channel) nil)
+  (when (sly-mrepl--process)
+    (delete-process (sly-mrepl--process))))
 
 
 (defun sly-mrepl-sync-package-and-default-directory ()
