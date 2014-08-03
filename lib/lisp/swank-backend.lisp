@@ -865,6 +865,25 @@ TYPE can be any value returned by DESCRIBE-SYMBOL-FOR-EMACS.
 
 Return a documentation string, or NIL if none is available.")
 
+(definterface make-apropos-matcher (pattern &optional case-sensitive include-qualifier)
+  "Produce a function that looks for PATTERN in symbol names.
+CASE-SENSITIVE indicates case-sensitivity.  INCLUDE-QUALIFIER
+indicates if the package's name should be included in the search."
+  (let ((chr= (if case-sensitive #'char= #'char-equal)))
+    (lambda (symbol)
+      (search pattern
+              (cond (include-qualifier
+                     (concatenate 'string
+                                  (package-name (symbol-package symbol))
+                                  (if (eq :external
+                                          (find-symbol (symbol-name symbol)
+                                                       (symbol-package symbol)))
+                                      ":" "::")
+                                  (symbol-name symbol)))
+                    (t
+                     (string symbol))) :test chr=))))
+
+
 
 ;;;; Debugging
 

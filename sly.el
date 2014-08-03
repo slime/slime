@@ -4316,22 +4316,21 @@ arg, you're interactively asked for parameters of the search."
    (if current-prefix-arg
        (list (read-string "SLY Apropos: ")
              (y-or-n-p "External symbols only? ")
-             (let ((pkg (sly-read-package-name "Package: ")))
+             (let ((pkg (sly-read-package-name "Package (blank for all): ")))
                (if (string= pkg "") nil pkg))
              (y-or-n-p "Case-sensitive? "))
-     (list (read-string "SLY Apropos: ") t nil nil)))
-  (let ((buffer-package (or package (sly-current-package))))
-    (sly-eval-async
-        `(swank:apropos-list-for-emacs ,string ,only-external-p
-                                       ,case-sensitive-p ',package)
-      (sly-rcurry #'sly-show-apropos string buffer-package
-                  (sly-apropos-summary string case-sensitive-p
-                                       buffer-package only-external-p)))))
+     (list (read-string "SLY Apropos (external symbols): ") t nil nil)))
+  (sly-eval-async
+      `(swank:apropos-list-for-emacs ,string ,only-external-p
+                                     ,case-sensitive-p ',package)
+    (sly-rcurry #'sly-show-apropos string package
+                (sly-apropos-summary string case-sensitive-p
+                                     package only-external-p))))
 
 (defun sly-apropos-all ()
   "Shortcut for (sly-apropos <string> nil nil)"
   (interactive)
-  (sly-apropos (read-string "SLY Apropos: ") nil nil))
+  (sly-apropos (read-string "SLY Apropos (all symbols): ") nil nil))
 
 (defun sly-apropos-package (package &optional internal)
   "Show apropos listing for symbols in PACKAGE.

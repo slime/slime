@@ -2856,7 +2856,7 @@ Returns a list of completions with package qualifiers if needed."
 ;;;; Documentation
 
 (defslyfun apropos-list-for-emacs  (name &optional external-only
-                                           case-sensitive package)
+                                         case-sensitive package)
   "Make an apropos search for Emacs.
 The result is a list of property lists."
   (let ((package (if package
@@ -2864,10 +2864,16 @@ The result is a list of property lists."
                          (error "No such package: ~S" package)))))
     ;; The MAPCAN will filter all uninteresting symbols, i.e. those
     ;; who cannot be meaningfully described.
-    (mapcan (listify #'briefly-describe-symbol-for-emacs)
-            (sort (remove-duplicates
-                   (apropos-symbols name external-only case-sensitive package))
-                  #'present-symbol-before-p))))
+    ;;
+    ;; *BUFFER-PACKAGE* is exceptionally set so that the symbol
+    ;; listing will only omit package qualifier iff the user specified
+    ;; PACKAGE.
+    (let ((*buffer-package* (or package
+                                *swank-io-package*)))
+      (mapcan (listify #'briefly-describe-symbol-for-emacs)
+              (sort (remove-duplicates
+                     (apropos-symbols name external-only case-sensitive package))
+                    #'present-symbol-before-p)))))
 
 (defun briefly-describe-symbol-for-emacs (symbol)
   "Return a property list describing SYMBOL.
@@ -2912,15 +2918,12 @@ that symbols accessible in the current package go first."
                      (string< (symbol-name x) (symbol-name y))
                      (string< (package-name px) (package-name py)))))))))
 
-(defun make-apropos-matcher (pattern case-sensitive)
-  (let ((chr= (if case-sensitive #'char= #'char-equal)))
-    (lambda (symbol)
-      (search pattern (string symbol) :test chr=))))
-
 (defun apropos-symbols (string external-only case-sensitive package)
   (let ((packages (or package (remove (find-package :keyword)
                                       (list-all-packages))))
-        (matcher  (make-apropos-matcher string case-sensitive))
+        (matcher  (swank-backend:make-apropos-matcher string
+                                                      case-sensitive
+                                                      (not package)))
         (result))
     (with-package-iterator (next packages :external :internal)
       (loop (multiple-value-bind (morep symbol) (next)
