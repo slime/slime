@@ -156,10 +156,11 @@
                                          ,(prin1-to-string aborted)))))
             (t
              (with-listener repl
-               (setq /// //  // /  / results
-                     *** **  ** *  * (car results)
-                     +++ ++  ++ + )
-               (vector-push-extend results *history*)
+               (when results
+                 (setq /// //  // /  / results
+                       *** **  ** *  * (car results)
+                       +++ ++  ++ + )
+                 (vector-push-extend results *history*))
                (send-to-remote-channel
                 (mrepl-remote-id repl)
                 `(:write-values ,(mapcar #'swank::to-line

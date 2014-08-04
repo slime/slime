@@ -32,8 +32,8 @@
 (defvar sly-mrepl-runonce-hook nil
   "Functions run once after `sly-mrepl-new' sets up a REPL.
 
-After running the contents of this hook it's default value is
-emptied.See also `sly-mrepl-hook'")
+After running the contents of this hook its default value is
+emptied. See also `sly-mrepl-hook'")
 
 (defvar sly-mrepl--remote-channel nil)
 (defvar sly-mrepl--local-channel nil)
@@ -188,17 +188,20 @@ emptied.See also `sly-mrepl-hook'")
 
 (defun sly-mrepl--freeze-prompt ()
   (let ((mrepl (sly-mrepl--sldb-find-mrepl-buffer)))
-    (with-current-buffer mrepl
-      (set (make-local-variable 'sly-mrepl--frozen-prompt-overlay)
-           (copy-overlay sly-mrepl--last-prompt-overlay))
-      (overlay-put sly-mrepl--frozen-prompt-overlay 'face 'font-lock-warning-face))))
+    (when mrepl
+      (with-current-buffer mrepl
+        (set (make-local-variable 'sly-mrepl--frozen-prompt-overlay)
+             (copy-overlay sly-mrepl--last-prompt-overlay))
+        (overlay-put sly-mrepl--frozen-prompt-overlay 'face 'font-lock-warning-face))))
+  )
 
 (defun sly-mrepl--unfreeze-prompt ()
   (let ((mrepl (sly-mrepl--sldb-find-mrepl-buffer)))
     (when mrepl
       (with-current-buffer mrepl
         (cl-assert (overlay-buffer sly-mrepl--frozen-prompt-overlay))
-        (delete-overlay sly-mrepl--frozen-prompt-overlay)))))
+        (delete-overlay sly-mrepl--frozen-prompt-overlay))))
+  )
 
 (defun sly-mrepl--send-input ()
   (goto-char (point-max))
@@ -212,11 +215,12 @@ emptied.See also `sly-mrepl-hook'")
    (comint-send-input)))
 
 (defun sly-mrepl--ensure-newline (marker)
-  (goto-char marker)
-  (unless (or (= (point-min) marker)
-              (eq ?\n (char-before marker)))
-    (insert-before-markers "\n")
-    (goto-char marker)))
+  (let ((inhibit-read-only t))
+    (goto-char marker)
+    (unless (or (= (point-min) marker)
+                (eq ?\n (char-before marker)))
+      (insert-before-markers "\n")
+      (goto-char marker))))
 
 (sly-define-channel-method listener :prompt (package prompt)
   (with-current-buffer (sly-channel-get self 'buffer)
@@ -245,11 +249,6 @@ emptied.See also `sly-mrepl-hook'")
 (defun sly-mrepl--recenter ()
   (when (get-buffer-window)
     (recenter -1)))
-
-;; HACK: for SLIME compatibility
-(sly-define-channel-method listener :write-result (string)
-  (with-current-buffer (sly-channel-get self 'buffer)
-    (sly-mrepl--insert string)))
 
 (defvar sly-mrepl--result-button-keymap
   (let ((map (make-sparse-keymap)))
@@ -323,11 +322,9 @@ emptied.See also `sly-mrepl-hook'")
 
 (defun sly-mrepl-return (&optional end-of-input)
   (interactive "P")
+  (cl-assert (sly-connection))
   (cl-assert (process-live-p (sly-mrepl--process)) nil
              "No local live process, cannot use this REPL")
-  ;; should never get here
-  (cl-assert (process-live-p sly-buffer-connection) nil
-             "Local process exists, but connection closed!")
   (cond ((and
 	  sly-mrepl--expect-sexp-mode
           (sly-mrepl--busy-p))
@@ -498,9 +495,11 @@ emptied.See also `sly-mrepl-hook'")
     (comint-write-input-ring)))
 
 (defun sly-mrepl--teardown ()
-  (remove-hook 'kill-buffer-hook 'sly-mrepl--teardown)
-  (sly-mrepl--ensure-newline (point-max))
-  (sly-mrepl--insert "; Local teardown. Mergin and saving history")
+  (remove-hook 'kill-buffer-hook 'sly-mrepl--teardown t)
+  (let ((inhibit-read-only t))
+    (goto-char (point-max))
+    (unless (zerop (current-column)) (insert "\n"))
+    (insert "; -------------  (teardown) -------------"))
   (sly-mrepl--merge-and-save-history)
   (when sly-mrepl--dedicated-stream
     (kill-buffer (process-buffer sly-mrepl--dedicated-stream)))
