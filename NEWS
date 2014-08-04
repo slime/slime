@@ -1,5 +1,12 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
 
+* 2.9 (August 2014)
+** Core
+*** Various display-related bugfixes
+
+** CMUCL
+*** M-. now works on condition classes
+
 * 2.8 (July 2014)
 ** Core
 *** Inspector fixes and improvements for SBCL.
