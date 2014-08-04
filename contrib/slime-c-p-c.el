@@ -55,8 +55,8 @@ If false, move point to the end of the inserted text."
          (beg (move-marker (make-marker) (slime-symbol-start-pos)))
          (prefix (buffer-substring-no-properties beg end))
          (completion-result (slime-contextual-completions beg end))
-         (completion-set (first completion-result))
-         (completed-prefix (second completion-result)))
+         (completion-set (cl-first completion-result))
+         (completed-prefix (cl-second completion-result)))
     (if (null completion-set)
         (progn (slime-minibuffer-respecting-message
                 "Can't find completion for \"%s\"" prefix)
@@ -82,9 +82,9 @@ If false, move point to the end of the inserted text."
                 "Complete but not unique"))
 	     (when slime-c-p-c-unambiguous-prefix-p
 	       (let ((unambiguous-completion-length
-		      (loop for c in completion-set
-			    minimizing (or (cl-mismatch completed-prefix c)
-					   (length completed-prefix)))))
+		      (cl-loop for c in completion-set
+			       minimizing (or (cl-mismatch completed-prefix c)
+                                              (length completed-prefix)))))
 		 (goto-char (+ beg unambiguous-completion-length))))
              (slime-display-or-scroll-completions completion-set 
                                                   completed-prefix))))))
@@ -110,7 +110,7 @@ If false, move point to the end of the inserted text."
                          (not (minibuffer-window-active-p (minibuffer-window))))
                 (slime-echo-arglist))))))))
 
-(defun* slime-contextual-completions (beg end) 
+(cl-defun slime-contextual-completions (beg end)
   "Return a list of completions of the token from BEG to END in the
 current buffer."
   (let ((token (buffer-substring-no-properties beg end)))
@@ -123,15 +123,15 @@ current buffer."
                                             (save-excursion 
                                               (goto-char beg)
                                               (slime-parse-form-upto-point)))))
-        (when (first completions)
-          (return-from slime-contextual-completions completions))
+        (when (cl-first completions)
+          (cl-return-from slime-contextual-completions completions))
         ;; If no matching keyword was found, do regular symbol
         ;; completion.
         ))
      ((and (>= (length token) 2)
            (string= (cl-subseq token 0 2) "#\\"))
       ;; Character name completion
-      (return-from slime-contextual-completions
+      (cl-return-from slime-contextual-completions
         (slime-completions-for-character token))))
     ;; Regular symbol completion
     (slime-completions token)))

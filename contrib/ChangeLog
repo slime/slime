@@ -1,3 +1,8 @@
+2014-08-04  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* slime-c-p-c.el: fix compilation errors due to missing cl-
+	prefixes for some functions/macros.
+
 2014-07-29  Helmut Eller  <heller@common-lisp.net>
 
 	Avoid some compiler warnings.
