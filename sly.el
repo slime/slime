@@ -1108,23 +1108,23 @@ See `sly-start'."
 (defun sly-init-using-asdf (port-filename coding-system)
   "Return a string to initialize Lisp using ASDF.
 Fall back to `sly-init-using-swank-loader' if ASDF fails."
-  (pp-to-string
-   `(cond ((ignore-errors
-             (funcall 'require "asdf")
-             (funcall (read-from-string "asdf:version-satisfies")
-                      (funcall (read-from-string "asdf:asdf-version"))
-                      "2.019"))
-           (push (pathname ,(sly-to-lisp-filename sly-path))
-                 (symbol-value
-                  (read-from-string "asdf:*central-registry*")))
-           (funcall
-            (read-from-string "asdf:load-system")
-            :swank)
-           (funcall
-            (read-from-string "swank:start-server")
-            ,port-filename))
-          (t
-           ,(read (sly-init-using-swank-loader port-filename coding-system))))))
+  (format "%S\n\n"
+          `(cond ((ignore-errors
+                    (funcall 'require "asdf")
+                    (funcall (read-from-string "asdf:version-satisfies")
+                             (funcall (read-from-string "asdf:asdf-version"))
+                             "2.019"))
+                  (push (pathname ,(sly-to-lisp-filename sly-path))
+                        (symbol-value
+                         (read-from-string "asdf:*central-registry*")))
+                  (funcall
+                   (read-from-string "asdf:load-system")
+                   :swank)
+                  (funcall
+                   (read-from-string "swank:start-server")
+                   ,port-filename))
+                 (t
+                  ,(read (sly-init-using-swank-loader port-filename coding-system))))))
 
 ;; XXX load-server & start-server used to be separated. maybe that was  better.
 (defun sly-init-using-swank-loader (port-filename _coding-system)
