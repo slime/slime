@@ -2224,7 +2224,7 @@ Debugged requests are ignored."
     `(defvar ,tab (make-hash-table :size 10))))
 
 (defmacro sly-define-channel-method (type method args &rest body)
-  (declare (indent 3) (debug (&define name sexp lambda-list
+  (declare (indent 3) (debug (&define sexp name lambda-list
                                       def-body)))
   `(puthash ',method
             (lambda (self . ,args) ,@body)
