@@ -2204,7 +2204,9 @@ Debugged requests are ignored."
 
 (defun sly-channel-send (channel message)
   (apply (or (gethash (car message) (sly-channel.operations channel))
-             (error "Unsupported operation: %S %S" message channel))
+             (error "Unsupported operation %S for channel %d"
+                    (car message)
+                    (sly-channel.id channel)))
          channel (cdr message)))
 
 (defun sly-channel-put (channel prop value)

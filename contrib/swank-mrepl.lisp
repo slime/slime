@@ -132,12 +132,18 @@
 
 
 (defun mrepl-eval (repl string)
-  (let ((aborted t)
+  (let ((errored nil)
+        (aborted t)
         (results))
     (unwind-protect
          (handler-bind
              ((error #'(lambda (err)
-                         (setq aborted err))))
+                         (when errored
+                           (send-to-remote-channel (mrepl-remote-id repl)
+                                     `(:unfreeze-prompt ,errored)))
+                         (setq aborted err errored (gensym))
+                         (send-to-remote-channel (mrepl-remote-id repl)
+                                                 `(:freeze-prompt ,errored)))))
            (setq results (with-sly-interrupts
                            ;; Use a read-only (and swank::hackish)
                            ;; version of the listener environment
@@ -149,6 +155,9 @@
                              (read-eval string)))
                  aborted nil))
       (flush-listener-streams repl)
+      (when errored
+        (send-to-remote-channel (mrepl-remote-id repl)
+                                     `(:unfreeze-prompt ,errored)))
       (cond (aborted
              (unless (eq (mrepl-mode repl) :teardown)
                (send-to-remote-channel (mrepl-remote-id repl)

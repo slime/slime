@@ -14,8 +14,6 @@
    (define-key sly-mode-map (kbd "C-c ~") 'sly-mrepl-sync-package-and-default-directory)
    (add-hook 'sly-connected-hook 'sly-mrepl-connected-hook)
    (add-hook 'sly-net-process-close-hooks 'sly-mrepl--teardown-repls)
-   (add-hook 'sldb-hook 'sly-mrepl--freeze-prompt)
-   (add-hook 'sldb-exit-hook 'sly-mrepl--unfreeze-prompt)
    ;; FIXME: ugly
    (add-hook 'sly-trace-dialog-mode-hook
              #'(lambda ()
@@ -174,34 +172,21 @@ emptied. See also `sly-mrepl-hook'")
       (add-text-properties start (point) '(read-only t)))))
 
 (defvar sly-mrepl--last-prompt-overlay nil)
-(defvar sly-mrepl--frozen-prompt-overlay nil)
+(defvar sly-mrepl--frozen-prompt-overlays (make-hash-table))
+(make-variable-buffer-local 'sly-mrepl--frozen-prompt-overlays)
 
-(defun sly-mrepl--sldb-find-mrepl-buffer ()
-  (cl-loop with conn = (sly-connection)
-           with thread-id = sly-current-thread
-           for b in (buffer-list)
-           when (with-current-buffer b
-                  (and (eql thread-id sly-current-thread)
-                       (eq conn sly-buffer-connection)
-                       (eq major-mode 'sly-mrepl-mode)))
-           return b))
+(sly-define-channel-method listener :freeze-prompt (key)
+  (with-current-buffer (sly-channel-get self 'buffer)
+    (let ((new (copy-overlay sly-mrepl--last-prompt-overlay)))
+      (overlay-put new 'face 'font-lock-warning-face)
+      (puthash (intern (format "sly-mrepl-%s" key))
+               new
+               sly-mrepl--frozen-prompt-overlays))))
 
-(defun sly-mrepl--freeze-prompt ()
-  (let ((mrepl (sly-mrepl--sldb-find-mrepl-buffer)))
-    (when mrepl
-      (with-current-buffer mrepl
-        (set (make-local-variable 'sly-mrepl--frozen-prompt-overlay)
-             (copy-overlay sly-mrepl--last-prompt-overlay))
-        (overlay-put sly-mrepl--frozen-prompt-overlay 'face 'font-lock-warning-face))))
-  )
-
-(defun sly-mrepl--unfreeze-prompt ()
-  (let ((mrepl (sly-mrepl--sldb-find-mrepl-buffer)))
-    (when mrepl
-      (with-current-buffer mrepl
-        (cl-assert (overlay-buffer sly-mrepl--frozen-prompt-overlay))
-        (delete-overlay sly-mrepl--frozen-prompt-overlay))))
-  )
+(sly-define-channel-method listener :unfreeze-prompt (key)
+  (with-current-buffer (sly-channel-get self 'buffer)
+    (delete-overlay (gethash (intern (format "sly-mrepl-%s" key))
+                             sly-mrepl--frozen-prompt-overlays))))
 
 (defun sly-mrepl--send-input ()
   (goto-char (point-max))
