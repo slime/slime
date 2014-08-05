@@ -253,15 +253,15 @@ emptied. See also `sly-mrepl-hook'")
         (error "no MREPL object at point"))))
 
 (defun sly-mrepl--insert-returned-values (values)
-  (cl-incf sly-mrepl--result-counter)
   (let* ((comint-preoutput-filter-functions nil))
-    (cl-loop for value in values
-             for idx from 0
-             do
-             (sly-mrepl--ensure-newline (sly-mrepl--mark))
-             (sly-mrepl--insert (sly-mrepl--make-result-button value sly-mrepl--result-counter idx)))
-    (when (null values)
-      (sly-mrepl--insert "; No values"))))
+    (if (null values)
+        (sly-mrepl--insert "; No values")
+      (cl-incf sly-mrepl--result-counter)
+      (cl-loop for value in values
+               for idx from 0
+               do
+               (sly-mrepl--ensure-newline (sly-mrepl--mark))
+               (sly-mrepl--insert (sly-mrepl--make-result-button value sly-mrepl--result-counter idx))))))
 
 (sly-define-channel-method listener :write-values (values)
   (accept-process-output)

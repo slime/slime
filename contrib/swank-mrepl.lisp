@@ -117,7 +117,6 @@
 
 (define-channel-method :copy-to-repl ((r mrepl) &optional object-indexes)
   (with-listener r
-    ;; FIXME: Notice some duplication to MREPL-EVAL.
     (let ((object (if object-indexes
                       (mrepl-get-object-from-history (first object-indexes) (second object-indexes))
                       *saved-object*)))
@@ -144,15 +143,7 @@
                          (setq aborted err errored (gensym))
                          (send-to-remote-channel (mrepl-remote-id repl)
                                                  `(:freeze-prompt ,errored)))))
-           (setq results (with-sly-interrupts
-                           ;; Use a read-only (and swank::hackish)
-                           ;; version of the listener environment
-                           ;; otherwise clobbering can occur when
-                           ;; copying to repl from the sldb, for
-                           ;; example.
-                           ;; 
-                           (with-bindings (slot-value repl 'swank::env) 
-                             (read-eval string)))
+           (setq results (mread-eval-1 repl string)
                  aborted nil))
       (flush-listener-streams repl)
       (when errored
@@ -186,16 +177,33 @@
     (assert tag)
     (throw tag string)))
 
-(defun read-eval (string)
-  (with-retry-restart (:msg "Retry SLY mREPL evaluation request.")
-    (with-input-from-string (in string)
-      (loop with values
-            for form = (read in nil in)
-            until (eq form in)
-            do
-               (setq values (multiple-value-list (eval (setq + form))))
-            finally
-               (return values)))))
+(defun mread-eval-1 (repl string)
+  "In REPL's environment, READ and EVAL forms in STRING."
+  (with-sly-interrupts
+    ;; Don't change REPL's protected environment here, use
+    ;; WITH-BINDINGS. If EVAL pops up an error in the argument
+    ;; STRING's form, and in the meantime we had some debugging
+    ;; prompts (which make recursive calls to mrepl-eval), the
+    ;; variables *, **, *** and *HISTORY* will get incorrectly
+    ;; clobbered to their pre-debugger values, whereas we want to
+    ;; serialize this history.
+    ;;
+    ;; However, as an exception, we /do/ want *PACKAGE* to be
+    ;; clobbered if the evaluation of STRING eventually completes.
+    ;;
+    (swank::with-bindings (slot-value repl 'swank::env)
+      (prog1
+          (with-retry-restart (:msg "Retry SLY mREPL evaluation request.")
+            (with-input-from-string (in string)
+              (loop with values
+                    for form = (read in nil in)
+                    until (eq form in)
+                    do
+                       (setq values (multiple-value-list (eval (setq + form))))
+                    finally
+                       (return values))))
+        (setf (cdr (assoc '*package* (slot-value repl 'swank::env)))
+              *package*)))))
 
 (defparameter *use-dedicated-output-stream* t
   "When T, dedicate a second stream for sending output to Emacs.")
