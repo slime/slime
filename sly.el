@@ -1047,7 +1047,7 @@ Return true if we have been given permission to continue."
          (when-let (conn (cl-find (get-buffer-process buffer)
                                   sly-net-processes
                                   :key #'sly-inferior-process))
-           (sly-net-close conn))
+           (sly-net-close conn "Killing existing connection first"))
          (get-buffer-process buffer))
         (t (sly-start-lisp program program-args env directory
                              (generate-new-buffer-name buffer)))))
@@ -1354,7 +1354,8 @@ EVAL'd by Lisp."
       (and (not (multibyte-string-p string))
            (not (sly-coding-system-mulibyte-p coding-system)))))
 
-(defun sly-net-close (process &optional debug)
+(defun sly-net-close (process reason &optional debug)
+  (process-put process 'sly-net-close-reason reason)
   (setq sly-net-processes (remove process sly-net-processes))
   (when (eq process sly-default-connection)
     (setq sly-default-connection nil))
@@ -1375,8 +1376,9 @@ EVAL'd by Lisp."
     (kill-buffer (process-buffer process))))
 
 (defun sly-net-sentinel (process message)
-  (message "Lisp connection closed unexpectedly: %s" message)
-  (sly-net-close process))
+  (let ((reason (format "Lisp connection closed unexpectedly: %s" message)))
+    (message reason)
+    (sly-net-close process reason)))
 
 ;;; Socket input is handled by `sly-net-filter', which decodes any
 ;;; complete messages and hands them off to the event dispatcher.
@@ -1428,7 +1430,7 @@ EVAL'd by Lisp."
   (condition-case error
       (sly-net-read)
     (error
-     (sly-net-close process t)
+     (sly-net-close process "Fatal net-read error" t)
      (error "net-read error: %S" error))))
 
 (defun sly-net-read ()
@@ -1754,7 +1756,7 @@ This is automatically synchronized from Lisp.")
       (y-or-n-p
        (format "Versions differ: %s (sly) vs. %s (swank). Continue? "
                sly-protocol-version version))
-      (sly-net-close conn)
+      (sly-net-close conn "Versions differ")
       (top-level)))
 
 (defun sly-generate-connection-name (lisp-name)
@@ -1781,12 +1783,14 @@ This is automatically synchronized from Lisp.")
 (defun sly-disconnect ()
   "Close the current connection."
   (interactive)
-  (sly-net-close (sly-connection)))
+  (sly-net-close (sly-connection) "Disconnecting"))
 
 (defun sly-disconnect-all ()
   "Disconnect all connections."
   (interactive)
-  (mapc #'sly-net-close sly-net-processes))
+  (mapc #'(lambda (process)
+            (sly-net-close process "Disconnecting all connections"))
+        sly-net-processes))
 
 (defun sly-connection-port (connection)
   "Return the remote port number of CONNECTION."
@@ -2309,7 +2313,7 @@ Also rearrange windows."
                                      (plist-get args :env)
                                      nil
                                      buffer)))
-    (sly-net-close process)
+    (sly-net-close process "Restarting inferior lisp process")
     (sly-inferior-connect new-proc args)
     (switch-to-buffer buffer)
     (goto-char (point-max))))
@@ -4968,7 +4972,7 @@ argument is given, with CL:MACROEXPAND."
          (inferior-buffer (if inferior (process-buffer inferior))))
     (when inferior (delete-process inferior))
     (when inferior-buffer (kill-buffer inferior-buffer))
-    (sly-net-close process)
+    (sly-net-close process "Quitting lisp")
     (message "Connection closed.")))
 
 

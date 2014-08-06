@@ -143,7 +143,7 @@ emptied. See also `sly-mrepl-hook'")
            do (with-current-buffer buffer
                 (when (and (eq major-mode 'sly-mrepl-mode)
                            (eq sly-buffer-connection process))
-                  (sly-mrepl--teardown)))))
+                  (sly-mrepl--teardown (process-get process 'sly-net-close-reason))))))
 
 (defun sly-mrepl--process () (get-buffer-process (current-buffer))) ;stupid
 
@@ -479,12 +479,15 @@ emptied. See also `sly-mrepl-hook'")
              do (ring-insert comint-input-ring item))
     (comint-write-input-ring)))
 
-(defun sly-mrepl--teardown ()
+(defun sly-mrepl--teardown (&optional reason)
   (remove-hook 'kill-buffer-hook 'sly-mrepl--teardown t)
   (let ((inhibit-read-only t))
     (goto-char (point-max))
     (unless (zerop (current-column)) (insert "\n"))
-    (insert "; -------------  (teardown) -------------"))
+    (insert (format "; %s" (or reason "REPL teardown")))
+    (unless (zerop (current-column)) (insert "\n"))
+    (insert "; --------------------------------------------------------")
+    (setq buffer-read-only t))
   (sly-mrepl--merge-and-save-history)
   (when sly-mrepl--dedicated-stream
     (kill-buffer (process-buffer sly-mrepl--dedicated-stream)))
