@@ -165,11 +165,13 @@ emptied. See also `sly-mrepl-hook'")
   (let ((inhibit-read-only t)
         (start (marker-position sly-mrepl--output-mark)))
     (save-excursion
-      (when (sly-mrepl--busy-p)
-        (sly-mrepl--ensure-newline sly-mrepl--output-mark))
       (goto-char sly-mrepl--output-mark)
+      (when (and (sly-mrepl--busy-p)
+                 (not (zerop (current-column))))
+        (insert-before-markers "\n"))
       (insert-before-markers string)
-      (add-text-properties start (point) '(read-only t)))))
+      (add-text-properties start sly-mrepl--output-mark
+                           '(read-only t front-sticky (read-only))))))
 
 (defvar sly-mrepl--last-prompt-overlay nil)
 (defvar sly-mrepl--frozen-prompt-overlays (make-hash-table))
@@ -199,13 +201,11 @@ emptied. See also `sly-mrepl-hook'")
   (sly-mrepl--commiting-text
    (comint-send-input)))
 
-(defun sly-mrepl--ensure-newline (marker)
-  (let ((inhibit-read-only t))
-    (goto-char marker)
-    (unless (or (= (point-min) marker)
-                (eq ?\n (char-before marker)))
-      (insert-before-markers "\n")
-      (goto-char marker))))
+(defun sly-mrepl--ensure-newline ()
+  (unless (save-excursion
+            (goto-char (sly-mrepl--mark))
+            (zerop (current-column)))
+    (sly-mrepl--insert "\n")))
 
 (sly-define-channel-method listener :prompt (package prompt)
   (with-current-buffer (sly-channel-get self 'buffer)
@@ -216,7 +216,7 @@ emptied. See also `sly-mrepl-hook'")
       ;; for `sly-mrepl--output-mark' just before we set it.
       (accept-process-output))
     (overlay-put sly-mrepl--last-prompt-overlay 'face nil)
-    (sly-mrepl--ensure-newline (sly-mrepl--mark))
+    (sly-mrepl--ensure-newline)
     (set-marker sly-mrepl--output-mark (sly-mrepl--mark))
     (let ((beg (point)))
       (sly-mrepl--insert (propertize (format "%s> " prompt)
@@ -260,7 +260,7 @@ emptied. See also `sly-mrepl-hook'")
       (cl-loop for value in values
                for idx from 0
                do
-               (sly-mrepl--ensure-newline (sly-mrepl--mark))
+               (sly-mrepl--ensure-newline)
                (sly-mrepl--insert (sly-mrepl--make-result-button value sly-mrepl--result-counter idx))))))
 
 (sly-define-channel-method listener :write-values (values)
