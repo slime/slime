@@ -78,6 +78,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   "SLY Trace Dialog" "Mode for controlling SLY's Trace Dialog"
   (set-syntax-table lisp-mode-syntax-table)
   (read-only-mode 1)
+  (sly-mode 1)
   (add-to-list (make-local-variable 'sly-trace-dialog-after-toggle-hook)
                'sly-trace-dialog-fetch-status))
 
