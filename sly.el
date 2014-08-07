@@ -74,6 +74,8 @@
 (require 'etags)
 (require 'apropos)
 
+(require 'sly-buttons)
+
 (eval-when-compile
   (require 'compile)
   (require 'gud))
@@ -7281,12 +7283,6 @@ The returned bounds are either nil or non-empty."
                         do (forward-sexp))
                t)))
           (t t))))
-
-
-;;;; Buttons
-;;;; 
-(define-button-type 'sly
-  'face 'sly-inspectable-value-face)
 
 
 ;;;; sly.el in pretty colors

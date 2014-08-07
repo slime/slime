@@ -297,20 +297,20 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                (sly-trace-dialog--trace-end trace)
                (if sly-trace-dialog-hide-details-mode 1 -1))))
 
+(define-button-type 'sly-trace-dialog-part :supertype 'sly-part
+  'inspect-function #'(lambda (trace-id part-id type)
+                        (sly-eval-async
+                            `(swank-trace-dialog:inspect-trace-part ,trace-id ,part-id ,type)
+                          #'sly-open-inspector)))
+
 (defun sly-trace-dialog--format-part (part-id part-text trace-id type)
-  (sly-trace-dialog--button
-   (format "%s" part-text)
-   #'(lambda (_button)
-       (sly-eval-async
-           `(swank-trace-dialog:inspect-trace-part ,trace-id ,part-id ,type)
-         #'sly-open-inspector))
-   'mouse-face 'highlight
-   'sly-trace-dialog--part-id part-id
-   'sly-trace-dialog--type type
-   'face 'sly-inspectable-value-face))
+  (make-text-button (format "%s" part-text) nil
+                    :type 'sly-trace-dialog-part
+                    'part-args (list trace-id part-id type)
+                    'part-label (format "%s" part-text)))
 
 (defun sly-trace-dialog--format-trace-entry (id external)
-  (sly-trace-dialog--button
+  (sly-make-action-button
    (format "%s" external)
    #'(lambda (_button)
        (sly-eval-async
@@ -323,16 +323,6 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
          (indent (make-string (max 2
                                    (- 50 (length string))) ? )))
     (format "%s%s" string indent)))
-
-(defun sly-trace-dialog--button (title lambda &rest props)
-  (let ((string (format "%s" title)))
-    (apply #'make-text-button string nil
-           'action     #'(lambda (button)
-                           (funcall lambda button))
-           'mouse-face 'highlight
-           'face       'sly-inspector-action-face
-           props)
-    string))
 
 (defun sly-trace-dialog--call-maintaining-properties (pos fn)
   (save-excursion
@@ -373,17 +363,17 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                   :recover-point-p t)
       (insert
        (sly-trace-dialog--format "Traced specs (%s)" (length traced-specs))
-       (sly-trace-dialog--button "[refresh]"
-                                   (make-report-spec-fn))
+       (sly-make-action-button "[refresh]"
+                                 (make-report-spec-fn))
        "\n" (make-string 50 ? )
-       (sly-trace-dialog--button
+       (sly-make-action-button
         "[untrace all]"
         (make-report-spec-fn `(swank-trace-dialog:dialog-untrace-all)))
        "\n\n")
       (cl-loop for spec in traced-specs
                do (insert
                    "  "
-                   (sly-trace-dialog--button
+                   (sly-make-action-button
                     "[untrace]"
                     (make-report-spec-fn
                      `(swank-trace-dialog:dialog-untrace ',spec)))
@@ -405,30 +395,30 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
        (sly-trace-dialog--format "Trace collection status (%d/%s)"
                                    done
                                    (or total "0"))
-       (sly-trace-dialog--button "[refresh]"
+       (sly-make-action-button "[refresh]"
                                    #'(lambda (_button)
                                        (sly-trace-dialog-fetch-progress))))
 
       (when (and total (cl-plusp (- total done)))
         (insert "\n" (make-string 50 ? )
-                (sly-trace-dialog--button
+                (sly-make-action-button
                  "[fetch next batch]"
                  #'(lambda (_button)
                      (sly-trace-dialog-fetch-traces nil)))
                 "\n" (make-string 50 ? )
-                (sly-trace-dialog--button
+                (sly-make-action-button
                  "[fetch all]"
                  #'(lambda (_button)
                      (sly-trace-dialog-fetch-traces t)))))
       (when total
         (insert "\n" (make-string 50 ? )
-                (sly-trace-dialog--button
+                (sly-make-action-button
                  "[clear]"
                  #'(lambda (_button)
                      (sly-trace-dialog-clear-fetched-traces)))))
       (when show-stop-p
         (insert "\n" (make-string 50 ? )
-                (sly-trace-dialog--button
+                (sly-make-action-button
                  "[stop]"
                  #'(lambda (_button)
                      (setq sly-trace-dialog--stop-fetching t)))))
@@ -487,15 +477,15 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
           (if (cl-plusp depth) suffix)))
 
 (defun sly-trace-dialog--make-collapse-button (trace)
-  (sly-trace-dialog--button (if (sly-trace-dialog--trace-collapsed-p trace)
-                                  (cdr sly-trace-dialog--collapse-chars)
-                                (car sly-trace-dialog--collapse-chars))
-                              #'(lambda (button)
-                                  (sly-trace-dialog--set-collapsed
-                                   (not (sly-trace-dialog--trace-collapsed-p
-                                         trace))
-                                   trace
-                                   button))))
+  (sly-make-action-button (if (sly-trace-dialog--trace-collapsed-p trace)
+                              (cdr sly-trace-dialog--collapse-chars)
+                            (car sly-trace-dialog--collapse-chars))
+                          #'(lambda (button)
+                              (sly-trace-dialog--set-collapsed
+                               (not (sly-trace-dialog--trace-collapsed-p
+                                     trace))
+                               trace
+                               button))))
 
 
 (defun sly-trace-dialog--insert-trace (trace)
@@ -509,7 +499,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                           (sly-trace-dialog--trace-depth trace)
                           "   "))
          (autofollow-fn (sly-trace-dialog--make-autofollow-fn id))
-         (id-string (sly-trace-dialog--button
+         (id-string (sly-make-action-button
                      (format "%4s" id)
                      #'(lambda (_button)
                          (sly-eval-async
@@ -591,12 +581,12 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
     ;;
     (when parent
       (sly-trace-dialog--draw-tree-lines (sly-trace-dialog--trace-beg trace)
-                                           (+ 2 (length indent-spec))
-                                           'up))
+                                         (+ 2 (length indent-spec))
+                                         'up))
     (when has-children-p
       (sly-trace-dialog--draw-tree-lines (sly-trace-dialog--trace-beg trace)
-                                           (+ 5 (length indent-spec))
-                                           'down))
+                                         (+ 5 (length indent-spec))
+                                         'down))
     ;; set the "children-end" slot
     ;;
     (unless (sly-trace-dialog--trace-children-end trace)

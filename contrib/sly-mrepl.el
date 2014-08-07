@@ -9,18 +9,31 @@
   "Multiple REPLs."
   (:swank-dependencies swank-mrepl)
   (:on-load
+   ;; FIXME, these are going away to favour the new `sly-part-button' idea
+   ;; 
    (define-key sly-inspector-mode-map (kbd "M-RET") 'sly-inspector-copy-down-to-repl)
    (define-key sldb-mode-map (kbd "M-RET") 'sldb-copy-down-to-repl)
-   (define-key sly-mode-map (kbd "C-c ~") 'sly-mrepl-sync-package-and-default-directory)
-   (add-hook 'sly-connected-hook 'sly-mrepl-connected-hook)
+   ;; FIXME: still not very pretty
+   ;;
+   (eval-after-load 'sly-trace-dialog
+     `(progn
+        (button-type-put 'sly-trace-dialog-part
+                         'copy-to-repl-function
+                         'sly-trace-dialog-copy-down-to-repl)))
+   ;; Insinuate ourselves in useful keymaps
+   ;;
+   (define-key sly-part-button-keymap (kbd "M-RET") 'sly-button-copy-to-REPL)
+   (define-key sly-editing-mode-map (kbd "C-c ~") 'sly-mrepl-sync-package-and-default-directory)
+   ;; Insinuate ourselves in hooks
+   ;;
+   (add-hook 'sly-connected-hook 'sly-mrepl-pop-to-mrepl)
    (add-hook 'sly-net-process-close-hooks 'sly-mrepl--teardown-repls)
-   ;; FIXME: ugly
-   (add-hook 'sly-trace-dialog-mode-hook
-             #'(lambda ()
-                 (local-set-key (kbd "M-RET") 'sly-trace-dialog-copy-down-to-repl)))
-   (setq sly-connection-list-button-action #'(lambda (process)
-                                               (let ((sly-default-connection process))
-                                                 (sly-mrepl 'interactive))))))
+   ;; The connection list is also tweaked
+   ;;
+   (setq sly-connection-list-button-action
+         #'(lambda (process)
+             (let ((sly-default-connection process))
+               (sly-mrepl 'interactive))))))
 
 (require 'comint)
 
@@ -235,22 +248,25 @@ emptied. See also `sly-mrepl-hook'")
   (when (get-buffer-window)
     (recenter -1)))
 
-(defvar sly-mrepl--result-button-keymap
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "M-RET") 'sly-mrepl-copy-down-to-repl)
-    (define-key map (kbd "RET") 'sly-mrepl-inspect-object-at-point)
-    map))
+(defun sly-button-copy-to-REPL (button)
+  "Copy the object under BUTTON of type `sly-part' to the REPL."
+  (interactive (list (sly-button-at-point)))
+  (apply (button-get button 'copy-to-repl-function)
+         (button-get button 'part-args)))
+
+(define-button-type 'sly-mrepl-part :supertype 'sly-part
+  'inspect-function #'(lambda (object-idx value-idx)
+                        (sly-mrepl--send `(:inspect-object ,object-idx
+                                                           ,value-idx)))
+  'copy-to-repl-function #'(lambda (object-idx value-idx)
+                             (sly-mrepl--send `(:copy-to-repl (,object-idx
+                                                               ,value-idx)))))
 
 (defun sly-mrepl--make-result-button (label object-idx value-idx)
   (make-text-button label nil
-                    'keymap sly-mrepl--result-button-keymap
-                    'sly-mrepl--object-indexes (list object-idx value-idx)
-                    :type 'sly))
-
-(defun sly-mrepl--get-object-indexes-at-point ()
-  (let ((props (get-text-property (point) 'sly-mrepl--object-indexes)))
-    (or props
-        (error "no MREPL object at point"))))
+                    :type 'sly-mrepl-part
+                    'part-args (list object-idx value-idx)
+                    'part-label label))
 
 (defun sly-mrepl--insert-returned-values (values)
   (let* ((comint-preoutput-filter-functions nil))
@@ -367,7 +383,7 @@ emptied. See also `sly-mrepl-hook'")
       (pop-to-buffer buffer))
     buffer))
 
-(defun sly-mrepl-connected-hook ()
+(defun sly-mrepl-pop-to-mrepl ()
   (let* ((inferior-buffer (and (sly-process) (process-buffer (sly-process))))
          (inferior-window (and inferior-buffer (get-buffer-window inferior-buffer t))))
     (pop-to-buffer (sly-mrepl))
@@ -379,14 +395,6 @@ emptied. See also `sly-mrepl-hook'")
 
 ;;; copy-down-to-repl and inspection behaviour
 ;;;
-(defun sly-mrepl-inspect-object-at-point (object-idx value-idx)
-  (interactive (sly-mrepl--get-object-indexes-at-point))
-  (sly-mrepl--send `(:inspect-object ,object-idx ,value-idx)))
-
-(defun sly-mrepl-copy-down-to-repl (object-idx value-idx)
-  (interactive (sly-mrepl--get-object-indexes-at-point))
-  (sly-mrepl--send `(:copy-to-repl (,object-idx ,value-idx))))
-
 (defun sly-mrepl--eval-for-repl (slyfun &rest args)
   (sly-eval-async
    `(swank-mrepl:globally-save-object ',slyfun ,@args)
