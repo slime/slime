@@ -6266,17 +6266,17 @@ was called originally."
         (current-buffer))))
 
 (define-button-type 'sly-inspector-part :supertype 'sly-part
-  'inspect-function
+  'sly-button-inspect
   #'(lambda (id)
       (sly-eval-async `(swank:inspect-nth-part ,id)
         (lambda (parts)
           (when parts
             (sly-open-inspector parts))))
       (push (sly-inspector-position) sly-inspector-mark-stack))
-  'pretty-print-function
+  'sly-button-pretty-print
   #'(lambda (id)
       (sly-eval-describe `(swank:pprint-inspector-part ,id)))
-  'show-source-function
+  'sly-button-show-source
   #'(lambda (id)
       (sly-eval-async
           `(swank:find-source-location-for-emacs '(:inspector ,id))

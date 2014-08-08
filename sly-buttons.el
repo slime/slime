@@ -6,39 +6,13 @@
       (let ((map (make-sparse-keymap)))
         (set-keymap-parent map button-map)
         (define-key map (kbd "RET") 'sly-button-inspect)
-        (define-key map (kbd "d")   'sly-button-describe)
-        (define-key map (kbd "p")   'sly-button-pretty-print)
-        (define-key map (kbd "v")   'sly-button-show-source)
         (define-key map [down-mouse-3] 'sly-button-popup-part-menu)
         (define-key map [mouse-3] 'sly-button-popup-part-menu)
         map))
 
-(defun sly-button--popup-option-name (symbol)
-  (save-match-data
-    (and 
-     (not (eq symbol 'sly-button-popup-part-menu))
-     (string-match "sly-button-\\(.*\\)" (symbol-name symbol))
-     (match-string 1 (symbol-name symbol)))))
-
-(defun sly-button--popup-part-menu-options (button &optional keymap)
-  (cl-loop
-   with keymap = (or keymap (button-get button 'keymap))
-   for pair in (cdr keymap)
-   for binding = (and (consp pair) (cdr pair))
-   for name = (and binding
-                   (symbolp binding)
-                   (sly-button--popup-option-name binding))
-   for function-sym = (and name
-                           (intern (format "%s-function" name)))
-   for readable-name = (and name
-                            (upcase-initials (replace-regexp-in-string
-                                              "-" " " name)))
-   if (and name
-           (not (eq (button-get button function-sym)
-                    'sly-button-not-implemented)))
-   collect `(,binding menu-item ,readable-name ,binding)
-   else if (keymapp binding)
-   append (sly-button--popup-part-menu-options button binding)))
+(defvar sly-button-popup-part-menu-keymap
+  (let ((map (make-sparse-keymap)))
+    map))
 
 (defun sly-button-popup-part-menu (event)
   "Popup a menu for a `sly-part' button"
@@ -48,28 +22,40 @@
      `(keymap
        (heading menu-item ,(button-get button 'part-label))
        (separator menu-item "----")
-       ,@(sly-button--popup-part-menu-options button)))))
+       ,@(cdr sly-button-popup-part-menu-keymap)))))
 
 (defun sly-button-at-point ()
   (button-at (if (mouse-event-p last-input-event)
                  (posn-point (event-end last-input-event))
                  (point))))
 
-(defmacro sly-button-define-part-action (action)
-  `(defun ,(intern (format "sly-button-%s" action)) (button)
-     ,(format "%s the object under BUTTON of type `sly-part'."
-              (upcase-initials action))
-     (interactive (list (sly-button-at-point)))
-     (apply (button-get button ',(intern (format "%s-function" action)))
-            (button-get button 'part-args))))
+(defmacro sly-button-define-part-action (action label key)
+  `(progn
+     (defun ,action (button)
+       ,(format "%s the object under BUTTON."
+                label)
+       (interactive (list (sly-button-at-point)))
+       (let ((fn (button-get button ',action))
+             (args (button-get button 'part-args)))
+         (cond ((and fn args)
+                (apply fn args))
+               (args
+                (error (format "[sly] button of type `%s' doesn't implement `%s'"
+                               (button-type button) ',action)))
+               (fn
+                (error (format "[sly] button %s doesn't have the `part-args' property"
+                               button))))))
+     (define-key sly-part-button-keymap ,key ',action)
+     (define-key sly-button-popup-part-menu-keymap
+       [,action] '(menu-item ,label ,action
+                             :visible (let ((button (sly-button-at-point)))
+                                        (and button
+                                             (button-get button ',action)))))))
 
-(sly-button-define-part-action "inspect")
-
-(sly-button-define-part-action "describe")
-
-(sly-button-define-part-action "pretty-print")
-
-(sly-button-define-part-action "show-source")
+(sly-button-define-part-action sly-button-inspect      "Inspect"      (kbd "i"))
+(sly-button-define-part-action sly-button-describe     "Describe"     (kbd "d"))
+(sly-button-define-part-action sly-button-pretty-print "Pretty Print" (kbd "p"))
+(sly-button-define-part-action sly-button-show-source  "Show Source"  (kbd "v"))
 
 (defun sly-make-action-button (label action &rest props)
   (apply #'make-text-button
@@ -77,9 +63,6 @@
          'action action
          'mouse-action action
          props))
-
-(defun sly-button-not-implemented (&rest _ignore)
-  (error "[sly] not implemented!"))
 
 (define-button-type 'sly-action
   'face 'sly-inspector-action-face
@@ -89,10 +72,14 @@
   'face 'sly-inspectable-value-face
   'action 'sly-button-inspect
   'mouse-action 'sly-button-inspect
-  'inspect-function 'sly-button-not-implemented
-  'describe-function 'sly-button-not-implemented
-  'pretty-print-function 'sly-button-not-implemented
-  'keymap sly-part-button-keymap)
+  'keymap  sly-part-button-keymap
+  'help-echo "RET, mouse-2: Inspect object; mouse-3: Context menu"
+  ;; these are ajust here for clarity
+  ;; 
+  'sly-button-inspect nil
+  'sly-button-describe nil
+  'sly-button-pretty-print nil
+  'sly-button-show-source nil)
 
 (provide 'sly-buttons)
 

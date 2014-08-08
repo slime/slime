@@ -14,17 +14,17 @@
    (define-key sldb-mode-map (kbd "M-RET") 'sldb-copy-down-to-repl)
    ;; FIXME: still not very pretty
    ;;
+   (sly-button-define-part-action sly-mrepl-copy-to-repl "Copy to REPL" (kbd "M-RET"))
    (button-type-put 'sly-inspector-part
-                    'copy-to-REPL-function
+                    'sly-mrepl-copy-to-repl
                     'sly-inspector-copy-down-to-repl)
    (eval-after-load 'sly-trace-dialog
      `(progn
         (button-type-put 'sly-trace-dialog-part
-                         'copy-to-REPL-function
+                         'sly-mrepl-copy-to-repl
                          'sly-trace-dialog-copy-down-to-repl)))
-   ;; Insinuate ourselves in useful keymaps
+   ;; Make C-c ~ bring popup REPL
    ;;
-   (define-key sly-part-button-keymap (kbd "M-RET") 'sly-button-copy-to-REPL)
    (define-key sly-editing-mode-map (kbd "C-c ~") 'sly-mrepl-sync-package-and-default-directory)
    ;; Insinuate ourselves in hooks
    ;;
@@ -250,15 +250,13 @@ emptied. See also `sly-mrepl-hook'")
   (when (get-buffer-window)
     (recenter -1)))
 
-(sly-button-define-part-action "copy-to-REPL")
-
 (define-button-type 'sly-mrepl-part :supertype 'sly-part
-  'inspect-function #'(lambda (object-idx value-idx)
-                        (sly-mrepl--send `(:inspect-object ,object-idx
-                                                           ,value-idx)))
-  'copy-to-REPL-function #'(lambda (object-idx value-idx)
-                             (sly-mrepl--send `(:copy-to-repl (,object-idx
-                                                               ,value-idx)))))
+  'sly-button-inspect #'(lambda (object-idx value-idx)
+                          (sly-mrepl--send `(:inspect-object ,object-idx
+                                                             ,value-idx)))
+  'sly-mrepl-copy-to-repl #'(lambda (object-idx value-idx)
+                              (sly-mrepl--send `(:copy-to-repl (,object-idx
+                                                                ,value-idx)))))
 
 (defun sly-mrepl--make-result-button (label object-idx value-idx)
   (make-text-button label nil

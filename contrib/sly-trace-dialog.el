@@ -293,10 +293,10 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                (if sly-trace-dialog-hide-details-mode 1 -1))))
 
 (define-button-type 'sly-trace-dialog-part :supertype 'sly-part
-  'inspect-function #'(lambda (trace-id part-id type)
-                        (sly-eval-async
-                            `(swank-trace-dialog:inspect-trace-part ,trace-id ,part-id ,type)
-                          #'sly-open-inspector))
+  'sly-button-inspect #'(lambda (trace-id part-id type)
+                          (sly-eval-async
+                              `(swank-trace-dialog:inspect-trace-part ,trace-id ,part-id ,type)
+                            #'sly-open-inspector))
   'skip t)
 
 (defun sly-trace-dialog--format-part (part-id part-text trace-id type)
