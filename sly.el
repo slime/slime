@@ -742,13 +742,12 @@ PROP is the name of a text property."
     (list (previous-single-char-property-change end prop) end)))
 
 (defun sly-curry (fun &rest args)
-  "Partially apply FUN to ARGS.  The result is a new function.
-This idiom is preferred over `lexical-let'."
-  `(lambda (&rest more) (apply ',fun (append ',args more))))
+  "Partially apply FUN to ARGS.  The result is a new function."
+  (lambda (&rest more) (apply fun (append args more))))
 
 (defun sly-rcurry (fun &rest args)
   "Like `sly-curry' but ARGS on the right are applied."
-  `(lambda (&rest more) (apply ',fun (append more ',args))))
+  (lambda (&rest more) (apply fun (append more args))))
 
 
 ;;;;; Temporary popup buffers
@@ -6226,9 +6225,6 @@ was called originally."
 
 (defvar sly-inspector-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map [return] 'sly-inspector-operate-on-point)
-    (define-key map "\C-m"   'sly-inspector-operate-on-point)
-    (define-key map [mouse-2] 'sly-inspector-operate-on-click)
     (define-key map "l" 'sly-inspector-pop)
     (define-key map "n" 'sly-inspector-next)
     (define-key map " " 'sly-inspector-next)
@@ -6255,7 +6251,8 @@ was called originally."
 \\{sly-inspector-mode-map}"
   (set-syntax-table lisp-mode-syntax-table)
   (sly-set-truncate-lines)
-  (setq buffer-read-only t))
+  (setq buffer-read-only t)
+  (sly-mode 1))
 
 (defun sly-inspector-buffer ()
   (or (get-buffer (sly-buffer-name :inspector))
@@ -6340,18 +6337,21 @@ If PREV resp. NEXT are true insert more-buttons as needed."
       (sly-inspector-insert-more-button end nil))))
 
 (defun sly-inspector-insert-ispec (ispec)
-  (if (stringp ispec)
-      (insert ispec)
-    (destructure-case ispec
-      ((:value string id)
-       (insert (sly-inspector-part string id)))
-      ((:label string)
-       (insert (sly-inspector-fontify label string)))
-      ((:action string id)
-       (sly-insert-propertized (list 'sly-action-number id
-                                       'mouse-face 'highlight
-                                       'face 'sly-inspector-action-face)
-                                 string)))))
+  (insert
+   (if (stringp ispec) ispec
+     (destructure-case ispec
+       ((:value string id)
+        (sly-inspector-part string id))
+       ((:label string)
+        (sly-inspector-fontify label string))
+       ((:action string id)
+        (sly-make-action-button string
+                                #'(lambda (_button)
+                                    (let ((pos (sly-inspector-position)))
+                                      (sly-eval-async `(swank::inspector-call-nth-action ,id)
+                                        (lambda (parts)
+                                          (when parts
+                                            (sly-open-inspector parts pos))))))))))))
 
 (defun sly-inspector-position ()
   "Return a pair (Y-POSITION X-POSITION) representing the
@@ -6363,50 +6363,6 @@ position of point in the current buffer."
     (widen)
     (cons (line-number-at-pos)
           (current-column))))
-
-(defun sly-inspector-property-at-point ()
-  (let* ((properties '(sly-range-button sly-action-number))
-         (find-property
-          (lambda (point)
-            (cl-loop for property in properties
-                     for value = (get-text-property point property)
-                     when value
-                     return (list property value)))))
-    (or (funcall find-property (point))
-        (funcall find-property (1- (point))))))
-
-(defun sly-inspector-operate-on-point ()
-  "Invoke the command for the text at point.
-1. If point is on a value then recursivly call the inspector on
-that value.
-2. If point is on an action then call that action.
-3. If point is on a range-button fetch and insert the range."
-  (interactive)
-  (let ((opener (lexical-let ((point (sly-inspector-position)))
-                  (lambda (parts)
-                    (when parts
-                      (sly-open-inspector parts point))))))
-    (cl-destructuring-bind (&optional property value)
-        (sly-inspector-property-at-point)
-      (cl-case property
-        (sly-range-button
-         (sly-inspector-fetch-more value))
-        (sly-action-number
-         (sly-eval-async `(swank::inspector-call-nth-action ,value)
-           opener))
-        (t (error "No object at point"))))))
-
-(defun sly-inspector-operate-on-click (event)
-  "Move to events' position and operate the part."
-  (interactive "@e")
-  (let ((point (posn-point (event-end event))))
-    (cond ((and point
-                (or (get-text-property point 'sly-range-button)
-                    (get-text-property point 'sly-action-number)))
-           (goto-char point)
-           (sly-inspector-operate-on-point))
-          (t
-           (error "No clickable part here")))))
 
 (defun sly-inspector-pop ()
   "Reinspect the previous object."
@@ -6465,11 +6421,10 @@ that value.
         (sly-open-inspector parts point)))))
 
 (defun sly-inspector-insert-more-button (index previous)
-  (sly-insert-propertized
-   (list 'sly-range-button (list index previous)
-         'mouse-face 'highlight
-         'face 'sly-inspector-action-face)
-   (if previous " [--more--]\n" " [--more--]")))
+  (insert (sly-make-action-button
+           (if previous " [--more--]\n" " [--more--]")
+           #'sly-inspector-fetch-more
+           'range-args (list index previous))))
 
 (defun sly-inspector-fetch-all ()
   "Fetch all inspector contents and go to the end."
@@ -6481,13 +6436,13 @@ that value.
         (sly-inspector-fetch-more button)))))
 
 (defun sly-inspector-fetch-more (button)
-  (cl-destructuring-bind (index prev) button
+  (cl-destructuring-bind (index prev) (button-get button 'range-args)
     (sly-inspector-fetch-chunk
      (list '() (1+ index) index index) prev
      (sly-rcurry
       (lambda (chunk prev)
         (let ((inhibit-read-only t))
-          (apply #'delete-region (sly-property-bounds 'sly-range-button))
+          (delete-region (button-start button) (button-end button))
           (sly-inspector-insert-chunk chunk prev (not prev))))
       prev))))
 
