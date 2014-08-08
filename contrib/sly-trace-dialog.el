@@ -59,9 +59,9 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 ;;;
 (defvar sly-trace-dialog-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map [(shift tab)] 'sly-trace-dialog-prev-button)
-    (define-key map [backtab] 'sly-trace-dialog-prev-button)
-    (define-key map [tab] 'sly-trace-dialog-next-button)
+    (define-key map [(shift tab)] 'backward-button)
+    (define-key map [backtab] 'backward-button)
+    (define-key map [tab] 'forward-button)
     
     (define-key map (kbd "G") 'sly-trace-dialog-fetch-traces)
     (define-key map (kbd "C-k") 'sly-trace-dialog-clear-fetched-traces)
@@ -85,15 +85,9 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   "SLY Trace Detail"
   "Mode for viewing a particular trace from SLY's Trace Dialog")
 
-(setq sly-trace-dialog--detail-mode-map
-      (let ((map (make-sparse-keymap))
-            (remaps '((sly-inspector-next-inspectable-object
-                       . sly-trace-dialog-next-button)
-                      (sly-inspector-previous-inspectable-object
-                       . sly-trace-dialog-prev-button))))
+(defvar sly-trace-dialog--detail-mode-map
+      (let ((map (make-sparse-keymap)))
         (set-keymap-parent map sly-trace-dialog-mode-map)
-        (cl-loop for (old . new) in remaps
-                 do (substitute-key-definition old new map))
         map))
 
 (defvar sly-trace-dialog-shortcut-mode-map
@@ -301,7 +295,8 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   'inspect-function #'(lambda (trace-id part-id type)
                         (sly-eval-async
                             `(swank-trace-dialog:inspect-trace-part ,trace-id ,part-id ,type)
-                          #'sly-open-inspector)))
+                          #'sly-open-inspector))
+  'skip t)
 
 (defun sly-trace-dialog--format-part (part-id part-text trace-id type)
   (make-text-button (format "%s" part-text) nil
@@ -733,20 +728,6 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                       ',sly-trace-dialog--fetch-key)
     #'(lambda (results) (sly-trace-dialog--on-new-results results
                                                             recurse))))
-
-(defun sly-trace-dialog-next-button (&optional goback)
-  (interactive)
-  (let ((finder (if goback
-                    #'previous-single-property-change
-                  #'next-single-property-change)))
-    (cl-loop for pos = (funcall finder (point) 'action)
-             while pos
-             do (goto-char pos)
-             until (get-text-property pos 'action))))
-
-(defun sly-trace-dialog-prev-button ()
-  (interactive)
-  (sly-trace-dialog-next-button 'goback))
 
 (defvar sly-trace-dialog-after-toggle-hook nil
   "Hooks run after toggling a dialog-trace")

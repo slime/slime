@@ -6233,19 +6233,17 @@ was called originally."
     (define-key map "n" 'sly-inspector-next)
     (define-key map " " 'sly-inspector-next)
     (define-key map "d" 'sly-inspector-describe)
-    (define-key map "p" 'sly-inspector-pprint)
     (define-key map "e" 'sly-inspector-eval)
     (define-key map "h" 'sly-inspector-history)
     (define-key map "g" 'sly-inspector-reinspect)
-    (define-key map "\C-i" 'sly-inspector-next-inspectable-object)
+    (define-key map "\C-i" 'forward-button)
     ;; Emacs translates S-TAB
-    (define-key map [(shift tab)] 'sly-inspector-previous-inspectable-object)
+    (define-key map [(shift tab)] 'backward-button)
     ;; to BACKTAB on X.
-    (define-key map [backtab] 'sly-inspector-previous-inspectable-object)
+    (define-key map [backtab] 'backward-button)
     (define-key map ">" 'sly-inspector-fetch-all)
 
     (define-key map (kbd "q")     'sly-inspector-quit)
-    (define-key map (kbd "v")     'sly-inspector-show-source)
     (define-key map (kbd ".")     'sly-inspector-goto-source)
     (define-key map (kbd "i")     'sly-inspector-operate-on-point) ; not quite
     (define-key map (kbd "M-RET") 'sly-unimplemented)
@@ -6267,10 +6265,33 @@ was called originally."
         (buffer-disable-undo)
         (current-buffer))))
 
+(define-button-type 'sly-inspector-part :supertype 'sly-part
+  'inspect-function
+  #'(lambda (id)
+      (sly-eval-async `(swank:inspect-nth-part ,id)
+        (lambda (parts)
+          (when parts
+            (sly-open-inspector parts))))
+      (push (sly-inspector-position) sly-inspector-mark-stack))
+  'pretty-print-function
+  #'(lambda (id)
+      (sly-eval-describe `(swank:pprint-inspector-part ,id)))
+  'show-source-function
+  #'(lambda (id)
+      (sly-eval-async
+          `(swank:find-source-location-for-emacs '(:inspector ,id))
+        #'sly--display-source-location)))
+
+(defun sly-inspector-part (label id &rest props)
+  (apply #'make-text-button
+         label nil
+         :type 'sly-inspector-part
+         'part-args (list id)
+         'part-label label
+         props))
+
 (defmacro sly-inspector-fontify (face string)
   `(sly-add-face ',(intern (format "sly-inspector-%s-face" face)) ,string))
-
-(defvar sly-inspector-insert-ispec-function 'sly-inspector-insert-ispec)
 
 (defun sly-open-inspector (inspected-parts &optional point hook)
   "Display INSPECTED-PARTS in a new inspector window.
@@ -6286,11 +6307,7 @@ KILL-BUFFER hooks for the inspector buffer."
       (cl-destructuring-bind (&key id title content) inspected-parts
         (cl-macrolet ((fontify (face string)
                                `(sly-inspector-fontify ,face ,string)))
-          (sly-propertize-region
-              (list 'sly-part-number id
-                    'mouse-face 'highlight
-                    'face 'sly-inspectable-value-face)
-            (insert title))
+          (insert (sly-inspector-part title id 'skip t))
           (while (eq (char-before) ?\n)
             (backward-delete-char 1))
           (insert "\n" (fontify label "--------------------") "\n")
@@ -6318,7 +6335,7 @@ If PREV resp. NEXT are true insert more-buttons as needed."
   (cl-destructuring-bind (ispecs len start end) chunk
     (when (and prev (> start 0))
       (sly-inspector-insert-more-button start t))
-    (mapc sly-inspector-insert-ispec-function ispecs)
+    (mapc #'sly-inspector-insert-ispec ispecs)
     (when (and next (< end len))
       (sly-inspector-insert-more-button end nil))))
 
@@ -6327,11 +6344,7 @@ If PREV resp. NEXT are true insert more-buttons as needed."
       (insert ispec)
     (destructure-case ispec
       ((:value string id)
-       (sly-propertize-region
-           (list 'sly-part-number id
-                 'mouse-face 'highlight
-                 'face 'sly-inspectable-value-face)
-         (insert string)))
+       (insert (sly-inspector-part string id)))
       ((:label string)
        (insert (sly-inspector-fontify label string)))
       ((:action string id)
@@ -6352,8 +6365,7 @@ position of point in the current buffer."
           (current-column))))
 
 (defun sly-inspector-property-at-point ()
-  (let* ((properties '(sly-part-number sly-range-button
-                                         sly-action-number))
+  (let* ((properties '(sly-range-button sly-action-number))
          (find-property
           (lambda (point)
             (cl-loop for property in properties
@@ -6373,17 +6385,10 @@ that value.
   (let ((opener (lexical-let ((point (sly-inspector-position)))
                   (lambda (parts)
                     (when parts
-                      (sly-open-inspector parts point)))))
-        (new-opener (lambda (parts)
-                      (when parts
-                        (sly-open-inspector parts)))))
+                      (sly-open-inspector parts point))))))
     (cl-destructuring-bind (&optional property value)
         (sly-inspector-property-at-point)
       (cl-case property
-        (sly-part-number
-         (sly-eval-async `(swank:inspect-nth-part ,value)
-           new-opener)
-         (push (sly-inspector-position) sly-inspector-mark-stack))
         (sly-range-button
          (sly-inspector-fetch-more value))
         (sly-action-number
@@ -6396,8 +6401,7 @@ that value.
   (interactive "@e")
   (let ((point (posn-point (event-end event))))
     (cond ((and point
-                (or (get-text-property point 'sly-part-number)
-                    (get-text-property point 'sly-range-button)
+                (or (get-text-property point 'sly-range-button)
                     (get-text-property point 'sly-action-number)))
            (goto-char point)
            (sly-inspector-operate-on-point))
@@ -6432,72 +6436,9 @@ that value.
   (sly-eval-async `(swank:quit-inspector))
   (quit-window t))
 
-;; FIXME: first return value is just point.
-;; FIXME: could probably use sly-search-property.
-(defun sly-find-inspectable-object (direction limit)
-  "Find the next/previous inspectable object.
-DIRECTION can be either 'next or 'prev.
-LIMIT is the maximum or minimum position in the current buffer.
-
-Return a list of two values: If an object could be found, the
-starting position of the found object and T is returned;
-otherwise LIMIT and NIL is returned."
-  (let ((finder (cl-ecase direction
-                  (next 'next-single-property-change)
-                  (prev 'previous-single-property-change))))
-    (let ((prop nil) (curpos (point)))
-      (while (and (not prop) (not (= curpos limit)))
-        (let ((newpos (funcall finder curpos 'sly-part-number nil limit)))
-          (setq prop (get-text-property newpos 'sly-part-number))
-          (setq curpos newpos)))
-      (list curpos (and prop t)))))
-
-(defun sly-inspector-next-inspectable-object (arg)
-  "Move point to the next inspectable object.
-With optional ARG, move across that many objects.
-If ARG is negative, move backwards."
-  (interactive "p")
-  (let ((maxpos (point-max)) (minpos (point-min))
-        (previously-wrapped-p nil))
-    ;; Forward.
-    (while (> arg 0)
-      (cl-destructuring-bind (pos foundp)
-          (sly-find-inspectable-object 'next maxpos)
-        (if foundp
-            (progn (goto-char pos) (setq arg (1- arg))
-                   (setq previously-wrapped-p nil))
-          (if (not previously-wrapped-p) ; cycle detection
-              (progn (goto-char minpos) (setq previously-wrapped-p t))
-            (error "No inspectable objects")))))
-    ;; Backward.
-    (while (< arg 0)
-      (cl-destructuring-bind (pos foundp)
-          (sly-find-inspectable-object 'prev minpos)
-        ;; SLY-OPEN-INSPECTOR inserts the title of an inspector page
-        ;; as a presentation at the beginning of the buffer; skip
-        ;; that.  (Notice how this problem can not arise in ``Forward.'')
-        (if (and foundp (/= pos minpos))
-            (progn (goto-char pos) (setq arg (1+ arg))
-                   (setq previously-wrapped-p nil))
-          (if (not previously-wrapped-p) ; cycle detection
-              (progn (goto-char maxpos) (setq previously-wrapped-p t))
-            (error "No inspectable objects")))))))
-
-(defun sly-inspector-previous-inspectable-object (arg)
-  "Move point to the previous inspectable object.
-With optional ARG, move across that many objects.
-If ARG is negative, move forwards."
-  (interactive "p")
-  (sly-inspector-next-inspectable-object (- arg)))
-
 (defun sly-inspector-describe ()
   (interactive)
   (sly-eval-describe `(swank:describe-inspectee)))
-
-(defun sly-inspector-pprint (part)
-  (interactive (list (or (get-text-property (point) 'sly-part-number)
-                         (error "No part at point"))))
-  (sly-eval-describe `(swank:pprint-inspector-part ,part)))
 
 (defun sly-inspector-eval (string)
   "Eval an expression in the context of the inspected object."
@@ -6508,13 +6449,6 @@ If ARG is negative, move forwards."
   "Show the previously inspected objects."
   (interactive)
   (sly-eval-describe `(swank:inspector-history)))
-
-(defun sly-inspector-show-source (part)
-  (interactive (list (or (get-text-property (point) 'sly-part-number)
-                         (error "No part at point"))))
-  (sly-eval-async
-      `(swank:find-source-location-for-emacs '(:inspector ,part))
-    #'sly--display-source-location))
 
 (defun sly-inspector-reinspect ()
   (interactive)

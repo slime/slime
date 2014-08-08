@@ -11,14 +11,16 @@
   (:on-load
    ;; FIXME, these are going away to favour the new `sly-part-button' idea
    ;; 
-   (define-key sly-inspector-mode-map (kbd "M-RET") 'sly-inspector-copy-down-to-repl)
    (define-key sldb-mode-map (kbd "M-RET") 'sldb-copy-down-to-repl)
    ;; FIXME: still not very pretty
    ;;
+   (button-type-put 'sly-inspector-part
+                    'copy-to-REPL-function
+                    'sly-inspector-copy-down-to-repl)
    (eval-after-load 'sly-trace-dialog
      `(progn
         (button-type-put 'sly-trace-dialog-part
-                         'copy-to-repl-function
+                         'copy-to-REPL-function
                          'sly-trace-dialog-copy-down-to-repl)))
    ;; Insinuate ourselves in useful keymaps
    ;;
@@ -248,17 +250,13 @@ emptied. See also `sly-mrepl-hook'")
   (when (get-buffer-window)
     (recenter -1)))
 
-(defun sly-button-copy-to-REPL (button)
-  "Copy the object under BUTTON of type `sly-part' to the REPL."
-  (interactive (list (sly-button-at-point)))
-  (apply (button-get button 'copy-to-repl-function)
-         (button-get button 'part-args)))
+(sly-button-define-part-action "copy-to-REPL")
 
 (define-button-type 'sly-mrepl-part :supertype 'sly-part
   'inspect-function #'(lambda (object-idx value-idx)
                         (sly-mrepl--send `(:inspect-object ,object-idx
                                                            ,value-idx)))
-  'copy-to-repl-function #'(lambda (object-idx value-idx)
+  'copy-to-REPL-function #'(lambda (object-idx value-idx)
                              (sly-mrepl--send `(:copy-to-repl (,object-idx
                                                                ,value-idx)))))
 
@@ -404,8 +402,6 @@ emptied. See also `sly-mrepl-hook'")
 
 (defun sly-inspector-copy-down-to-repl (number)
   "Evaluate the inspector slot at point via the REPL (to set `*')."
-  (interactive (list (or (get-text-property (point) 'sly-part-number)
-                         (error "No part at point"))))
   (sly-mrepl--eval-for-repl 'swank:inspector-nth-part number))
 
 (defun sldb-copy-down-to-repl (frame-id var-id)
@@ -415,11 +411,6 @@ emptied. See also `sly-mrepl-hook'")
 
 (defun sly-trace-dialog-copy-down-to-repl (id part-id type)
   "Eval the Trace Dialog entry under point in the REPL (to set *)"
-  (interactive (cl-loop for prop in '(sly-trace-dialog--id
-                                      sly-trace-dialog--part-id
-                                      sly-trace-dialog--type)
-                        collect (get-text-property (point) prop)))
-  (unless (and id part-id type) (error "No trace part at point %s" (point)))
   (sly-mrepl--eval-for-repl 'swank-trace-dialog::find-trace-part id part-id type))
 
 
