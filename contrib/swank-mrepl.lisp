@@ -78,8 +78,11 @@
     (:read (mrepl-read c string))
     (:drop)))
 
+(defun mrepl-get-history-entry (entry-idx)
+  (aref *history* entry-idx))
+
 (defun mrepl-get-object-from-history (entry-idx value-idx)
-  (nth value-idx (aref *history* entry-idx)))
+  (nth value-idx (mrepl-get-history-entry entry-idx)))
 
 (define-channel-method :inspect-object ((r mrepl) entry-idx value-idx)
   (with-listener r
@@ -88,13 +91,14 @@
        `(:inspect-object
          ,(swank::inspect-object (mrepl-get-object-from-history entry-idx value-idx))))))
 
-(defun copy-values-to-repl (repl values)
+(defun copy-values-to-repl (repl values note)
   ;; FIXME: Notice some duplication to MREPL-EVAL.
   (setq /// //  // /  / values
         *** **  ** *  * (car values))
   (vector-push-extend values *history*)
   (send-to-remote-channel (mrepl-remote-id repl)
-                          `(:copy-to-repl ,(mapcar #'swank::to-line values)))
+                          `(:copy-to-repl ,(mapcar #'swank::to-line values)
+                                          ,note))
   (send-prompt repl))
 
 (define-channel-method :sync-package-and-default-directory ((r mrepl)
@@ -104,23 +108,34 @@
     (let ((package (swank::guess-package package-name)))
       (swank:set-default-directory directory)
       (and package (setq *package* package))
-      (copy-values-to-repl r (list *package* *default-pathname-defaults*)))))
+      (copy-values-to-repl r (list *package* *default-pathname-defaults*)
+                           "Synching directory and package"))))
 
-(defvar *saved-object* nil)
+(defvar *saved-objects* nil)
+(defvar *saved-objects-note* nil)
 
-(defslyfun globally-save-object (slyfun &rest args)
+(defslyfun globally-save-object (note slave-slyfun &rest args)
   "Apply SLYFUN to ARGS and save the value.
  The saved value should be visible to all threads and retrieved via a
  :COPY-TO-REPL message."
-  (setq *saved-object* (apply slyfun args))
+  (setq *saved-objects* (multiple-value-list (apply slave-slyfun args))
+        *saved-objects-note* note)
   t)
 
-(define-channel-method :copy-to-repl ((r mrepl) &optional object-indexes)
+(define-channel-method :copy-to-repl ((r mrepl) &optional entry-idx value-idx)
   (with-listener r
-    (let ((object (if object-indexes
-                      (mrepl-get-object-from-history (first object-indexes) (second object-indexes))
-                      *saved-object*)))
-      (copy-values-to-repl r (list object)))))
+    (let ((objects-and-note
+            (cond ((and entry-idx value-idx)
+                   (cons (list (mrepl-get-object-from-history entry-idx value-idx))
+                         (format nil "Returning value ~a of history entry ~a" value-idx entry-idx)))
+                  (entry-idx
+                   (cons (mrepl-get-history-entry entry-idx)
+                         (format nil "Returning values of history entry ~a" entry-idx)))
+                  (value-idx
+                   (error "Doesn't make sense"))
+                  (t
+                   (cons *saved-objects* *saved-objects-note*)))))
+      (copy-values-to-repl r (car objects-and-note) (cdr objects-and-note)))))
 
 ;; FIXME: this should be a `:before' spec and closing the channel in
 ;; swank.lisp's :teardown method should suffice.

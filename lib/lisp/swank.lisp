@@ -3367,6 +3367,13 @@ The second value indicates if that part exists at all."
     (values (and foundp (aref parts index))
             foundp)))
 
+(defslyfun inspector-nth-part-or-lose (index)
+  "Return the current inspector's INDEXth part.
+The second value indicates if that part exists at all."
+  (multiple-value-bind (part foundp)
+      (inspector-nth-part index)
+    (if foundp part (error "No part with index ~a" index))))
+
 (defslyfun inspect-nth-part (index)
   (with-buffer-syntax ()
     (inspect-object (inspector-nth-part index))))

@@ -260,9 +260,10 @@ emptied. See also `sly-mrepl-hook'")
   'sly-button-inspect #'(lambda (object-idx value-idx)
                           (sly-mrepl--send `(:inspect-object ,object-idx
                                                              ,value-idx)))
-  'sly-mrepl-copy-to-repl #'(lambda (object-idx value-idx)
-                              (sly-mrepl--send `(:copy-to-repl (,object-idx
-                                                                ,value-idx)))))
+  'sly-mrepl-copy-to-repl 'sly-mrepl--copy-to-repl)
+
+(defun sly-mrepl--copy-to-repl (&optional object-idx value-idx)
+  (sly-mrepl--send `(:copy-to-repl ,object-idx ,value-idx)))
 
 (defun sly-mrepl--make-result-button (label object-idx value-idx)
   (make-text-button label nil
@@ -286,14 +287,14 @@ emptied. See also `sly-mrepl-hook'")
   (with-current-buffer (sly-channel-get self 'buffer)
     (sly-mrepl--insert-returned-values values)))
 
-(sly-define-channel-method listener :copy-to-repl (objects)
+(sly-define-channel-method listener :copy-to-repl (objects note)
   (with-current-buffer (sly-channel-get self 'buffer)
     (goto-char (sly-mrepl--mark))
     (cl-labels ((sly-mrepl--dummy-sender (_proc _string)))
       (let ((saved-text (buffer-substring (point) (point-max)))
             (comint-input-sender #'sly-mrepl--dummy-sender))
         (delete-region (point) (point-max))
-        (insert ";; ")
+        (insert ";; " note)
         (sly-mrepl--send-input)
         (sly-mrepl--insert-returned-values objects)
         (pop-to-buffer (current-buffer))
@@ -407,25 +408,30 @@ emptied. See also `sly-mrepl-hook'")
 
 ;;; copy-down-to-repl and inspection behaviour
 ;;;
-(defun sly-mrepl--eval-for-repl (slyfun &rest args)
+(defun sly-mrepl--eval-for-repl (note slyfun &rest args)
   (sly-eval-async
-   `(swank-mrepl:globally-save-object ',slyfun ,@args)
+   `(swank-mrepl:globally-save-object ,note ',slyfun ,@args)
    #'(lambda (_ignored)
        (with-current-buffer (sly-mrepl--find-create (sly-connection))
-         (sly-mrepl--send `(:copy-to-repl))))))
+         (sly-mrepl--copy-to-repl)))))
 
 (defun sly-inspector-copy-down-to-repl (number)
   "Evaluate the inspector slot at point via the REPL (to set `*')."
-  (sly-mrepl--eval-for-repl 'swank:inspector-nth-part number))
+  (sly-mrepl--eval-for-repl (format "Returning inspector slot %s" number)
+                            'swank:inspector-nth-part-or-lose number))
 
 (defun sldb-copy-down-to-repl (frame-id var-id)
   "Evaluate the frame var at point via the REPL (to set `*')."
   (interactive (list (sldb-frame-number-at-point) (sldb-var-number-at-point)))
-  (sly-mrepl--eval-for-repl 'swank-backend:frame-var-value frame-id var-id))
+  (sly-mrepl--eval-for-repl
+   (format "Returning var %s of frame %s" var-id frame-id)
+   'swank-backend:frame-var-value frame-id var-id))
 
 (defun sly-trace-dialog-copy-down-to-repl (id part-id type)
   "Eval the Trace Dialog entry under point in the REPL (to set *)"
-  (sly-mrepl--eval-for-repl 'swank-trace-dialog::find-trace-part id part-id type))
+  (sly-mrepl--eval-for-repl
+   (format "Returning part %s (%s) of trace entry %s" part-id type id)
+   'swank-trace-dialog::find-trace-part id part-id type))
 
 
 ;;; Dedicated output stream
