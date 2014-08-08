@@ -83,7 +83,8 @@ emptied. See also `sly-mrepl-hook'")
                 (sly-mrepl--result-counter -1)
                 (sly-mrepl--output-mark ,(point-marker))
                 (sly-mrepl--last-prompt-overlay ,(make-overlay 0 0))
-                (sly-find-buffer-package-function sly-mrepl-guess-package))
+                (sly-find-buffer-package-function sly-mrepl-guess-package)
+                (sly-autodoc-inhibit-autodoc sly-mrepl-inside-string-or-comment-p))
            do (set (make-local-variable var) value))
   (set-marker-insertion-type sly-mrepl--output-mark nil)
   ;;(set (make-local-variable 'comint-get-old-input) 'ielm-get-old-input)
@@ -543,6 +544,12 @@ emptied. See also `sly-mrepl-hook'")
     (when interactive
       (message "Guessed package \"%s\"" package))
     package))
+
+
+(defun sly-mrepl-inside-string-or-comment-p ()
+  (when (> (point) (sly-mrepl--mark))
+    (let ((ppss (parse-partial-sexp (sly-mrepl--mark) (point))))
+      (or (nth 3 ppss) (nth 4 ppss)))))
 
 
 (def-sly-selector-method ?m

@@ -111,24 +111,27 @@ Return DOCUMENTATION."
 
 ;;;; sly-autodoc-mode
 
+(defvar sly-autodoc-inhibit-autodoc
+  'sly-inside-string-or-comment-p
+  "If non-nil, function inhibiting `sly-autodoc' by returning non-nil")
+
 (cl-defun sly-autodoc (&optional (multilinep sly-autodoc-use-multiline-p)
                                  cache-multiline)
   "Returns the cached arglist information as string, or nil.
 If it's not in the cache, the cache will be updated asynchronously."
   (interactive)
-  (save-excursion
-    ;; Save match data just in case. This is automatically run in
-    ;; background, so it'd be rather disastrous if it touched match
-    ;; data.
-    (save-match-data
-      (unless (if (fboundp 'sly-repl-inside-string-or-comment-p)
-                  (sly-repl-inside-string-or-comment-p)
-                (sly-inside-string-or-comment-p))
+  (unless (and sly-autodoc-inhibit-autodoc
+               (funcall sly-autodoc-inhibit-autodoc))
+    (save-excursion
+      ;; Save match data just in case. This is automatically run in
+      ;; background, so it'd be rather disastrous if it touched match
+      ;; data.
+      (save-match-data
         (cl-multiple-value-bind (cache-key retrieve-form)
             (sly-autodoc--make-rpc-form)
           (let* (cached
                  (multilinep (or (sly-autodoc--multiline-cached
-				  (car cache-key))
+                                  (car cache-key))
                                  multilinep)))
             (sly-autodoc--cache-multiline (car cache-key) cache-multiline)
             (cond
@@ -192,9 +195,11 @@ If it's not in the cache, the cache will be updated asynchronously."
 or after sly-autodoc was already automatically called,
 display multiline arglist"
   (interactive)
-  (eldoc-message (sly-autodoc (or sly-autodoc-use-multiline-p
-                                    sly-autodoc-mode)
-                                t)))
+  (eldoc-message
+   (let ((sly-autodoc-inhibit-autodoc nil))
+     (sly-autodoc (or sly-autodoc-use-multiline-p
+                      sly-autodoc-mode)
+                  t))))
 
 (defadvice eldoc-display-message-no-interference-p
     (after sly-autodoc-message-ok-p)
