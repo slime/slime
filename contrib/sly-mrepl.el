@@ -164,16 +164,17 @@ emptied. See also `sly-mrepl-hook'")
 
 (defun sly-mrepl--mark () (process-mark (sly-mrepl--process)))
 
-(defmacro sly-mrepl--commiting-text (&rest body)
+(defmacro sly-mrepl--commiting-text (props &rest body)
   (let ((start-sym (cl-gensym)))
     `(let ((,start-sym (marker-position (sly-mrepl--mark)))
            (inhibit-read-only t))
        ,@body
        (add-text-properties ,start-sym (sly-mrepl--mark)
-                            '(read-only t front-sticky (read-only))))))
+                            (append '(read-only t front-sticky (read-only))
+                                    ,props)))))
 
 (defun sly-mrepl--insert (string)
-  (sly-mrepl--commiting-text
+  (sly-mrepl--commiting-text ()
    (comint-output-filter (sly-mrepl--process) string)))
 
 (defun sly-mrepl--insert-output (string)
@@ -214,6 +215,11 @@ emptied. See also `sly-mrepl-hook'")
   (buffer-disable-undo)
   (overlay-put sly-mrepl--last-prompt-overlay 'face 'highlight)
   (sly-mrepl--commiting-text
+   `(field sly-mrepl-input
+           keymap ,(let ((map (make-sparse-keymap)))
+                     (define-key map (kbd "RET") 'sly-mrepl-insert-input)
+                     (define-key map [mouse-2] 'sly-mrepl-insert-input)
+                     map))
    (comint-send-input)))
 
 (defun sly-mrepl--ensure-newline ()
@@ -335,11 +341,21 @@ emptied. See also `sly-mrepl-hook'")
 	 (unless end-of-input
 	   (newline))
 	 (sly-mrepl--send-input))
-        
         (t
 	 (newline-and-indent)
          (message "[input not complete]")))
   (sly-mrepl--recenter))
+
+(defun sly-mrepl-insert-input (pos)
+  (interactive (list (if (mouse-event-p last-input-event)
+                         (posn-point (event-end last-input-event))
+                       (point))))
+  (let ((new-input (field-string-no-properties pos))
+        (offset (- (point) (field-beginning pos))))
+    (goto-char (sly-mrepl--mark))
+    (delete-region (point) (point-max))
+    (insert (sly-trim-whitespace new-input))
+    (goto-char (+ (sly-mrepl--mark) offset))))
 
 (defun sly-mrepl--input-sender (_proc string)
   (sly-mrepl--send-string (substring-no-properties string)))
