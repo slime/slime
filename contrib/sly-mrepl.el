@@ -9,15 +9,17 @@
   "Multiple REPLs."
   (:swank-dependencies swank-mrepl)
   (:on-load
-   ;; FIXME, these are going away to favour the new `sly-part-button' idea
+   ;; Define a new "part action" for the `sly-part' buttons and change
+   ;; the `sly-inspector-part', `sldb-local-part' and
+   ;; `sly-trace-dialog-part' to include it.
    ;; 
-   (define-key sldb-mode-map (kbd "M-RET") 'sldb-copy-down-to-repl)
-   ;; FIXME: still not very pretty
-   ;;
    (sly-button-define-part-action sly-mrepl-copy-to-repl "Copy to REPL" (kbd "M-RET"))
    (button-type-put 'sly-inspector-part
                     'sly-mrepl-copy-to-repl
                     'sly-inspector-copy-down-to-repl)
+   (button-type-put 'sldb-local-part
+                    'sly-mrepl-copy-to-repl
+                    'sldb-copy-down-to-repl)
    (eval-after-load 'sly-trace-dialog
      `(progn
         (button-type-put 'sly-trace-dialog-part
@@ -423,7 +425,6 @@ emptied. See also `sly-mrepl-hook'")
 
 (defun sldb-copy-down-to-repl (frame-id var-id)
   "Evaluate the frame var at point via the REPL (to set `*')."
-  (interactive (list (sldb-frame-number-at-point) (sldb-var-number-at-point)))
   (sly-mrepl--eval-for-repl
    (format "Returning var %s of frame %s" var-id frame-id)
    'swank-backend:frame-var-value frame-id var-id))

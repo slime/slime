@@ -5130,6 +5130,7 @@ Full list of commands:
   (sly-set-truncate-lines)
   ;; Make original sly-connection "sticky" for SLDB commands in this buffer
   (setq sly-buffer-connection (sly-connection))
+  (setq buffer-read-only t)
   (sly-mode 1))
 
 ;; Keys 0-9 are shortcuts to invoke particular restarts.
@@ -5422,11 +5423,6 @@ Called on the `point-entered' text-property hook."
     (cond (frame (car frame))
 	  (t (error "No frame at point")))))
 
-(defun sldb-var-number-at-point ()
-  (let ((var (get-text-property (point) 'var)))
-    (cond (var var)
-	  (t (error "No variable at point")))))
-
 (defun sldb-previous-frame-number ()
   (save-excursion
     (sldb-backward-frame)
@@ -5636,8 +5632,17 @@ The details include local variable bindings and CATCH-tags."
       (cl-list* start end frame
                 (sly-eval `(swank:frame-locals-and-catch-tags ,num))))))
 
-(defvar sldb-insert-frame-variable-value-function
-  'sldb-insert-frame-variable-value)
+(define-button-type 'sldb-local-part :supertype 'sly-part
+  'sly-button-inspect #'(lambda (frame-id var-id)
+                          (sly-eval-async `(swank:inspect-frame-var ,frame-id
+                                                                    ,var-id)
+                            'sly-open-inspector)))
+
+(defun sldb-local-part (label frame var-id &rest props)
+  (apply #'make-text-button label nil
+         :type 'sldb-local-part
+         'part-args (list (sldb-frame.number frame) var-id)
+         'part-label label props))
 
 (defun sldb-insert-locals (vars prefix frame)
   "Insert VARS and add PREFIX at the beginning of each inserted line.
@@ -5645,15 +5650,12 @@ VAR should be a plist with the keys :name, :id, and :value."
   (cl-loop for i from 0
            for var in vars do
            (cl-destructuring-bind (&key name id value) var
-             (sly-propertize-region
-                 (list 'sldb-default-action 'sldb-inspect-var 'var i)
-               (insert prefix
-                       (sldb-in-face local-name
-                         (concat name (if (zerop id) "" (format "#%d" id))))
-                       " = ")
-               (funcall sldb-insert-frame-variable-value-function
-                        value frame i)
-               (insert "\n")))))
+             (insert prefix
+                     (sldb-in-face local-name
+                       (concat name (if (zerop id) "" (format "#%d" id))))
+                     " = "
+                     (sldb-local-part value frame i)
+                     "\n"))))
 
 (defun sldb-insert-frame-variable-value (value _frame _index)
   (insert (sldb-in-face local-value value)))
@@ -5709,12 +5711,6 @@ VAR should be a plist with the keys :name, :id, and :value."
                       (sly-sexp-at-point))))
   (let ((number (sldb-frame-number-at-point)))
     (sly-eval-async `(swank:inspect-in-frame ,string ,number)
-      'sly-open-inspector)))
-
-(defun sldb-inspect-var ()
-  (let ((frame (sldb-frame-number-at-point))
-        (var (sldb-var-number-at-point)))
-    (sly-eval-async `(swank:inspect-frame-var ,frame ,var)
       'sly-open-inspector)))
 
 (defun sldb-inspect-condition ()
