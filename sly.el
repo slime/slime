@@ -74,7 +74,7 @@
 (require 'etags)
 (require 'apropos)
 
-(require 'sly-buttons)
+(require 'sly-buttons "lib/sly-buttons")
 
 (eval-when-compile
   (require 'compile)
