@@ -24,17 +24,29 @@
        (separator menu-item "----")
        ,@(cdr sly-button-popup-part-menu-keymap)))))
 
-(defun sly-button-at-point ()
-  (button-at (if (mouse-event-p last-input-event)
-                 (posn-point (event-end last-input-event))
-                 (point))))
+(defun sly-button-at (&optional pos type no-error)
+  (let ((button (button-at (or pos
+                               (if (mouse-event-p last-input-event)
+                                   (posn-point (event-end last-input-event))
+                                 (point))))))
+    (cond ((and button type
+                (eq (button-type button) type))
+           button)
+          ((and button type)
+           (unless no-error
+             (error "[sly] Button at point is not of expected type %s" type)))
+          (button
+           button)
+          (t
+           (unless no-error
+             (error "[sly] No button at point"))))))
 
 (defmacro sly-button-define-part-action (action label key)
   `(progn
      (defun ,action (button)
        ,(format "%s the object under BUTTON."
                 label)
-       (interactive (list (sly-button-at-point)))
+       (interactive (list (sly-button-at)))
        (let ((fn (button-get button ',action))
              (args (button-get button 'part-args)))
          (cond ((and fn args)
@@ -48,7 +60,7 @@
      (define-key sly-part-button-keymap ,key ',action)
      (define-key sly-button-popup-part-menu-keymap
        [,action] '(menu-item ,label ,action
-                             :visible (let ((button (sly-button-at-point)))
+                             :visible (let ((button (sly-button-at)))
                                         (and button
                                              (button-get button ',action)))))))
 
@@ -62,13 +74,16 @@
          label nil :type 'sly-action
          'action action
          'mouse-action action
-         props))
+         props)
+  label)
 
-(define-button-type 'sly-action
+(define-button-type 'sly-button)
+
+(define-button-type 'sly-action :supertype 'sly-button
   'face 'sly-inspector-action-face
   'mouse-face 'highlight)
 
-(define-button-type 'sly-part
+(define-button-type 'sly-part :supertype 'sly-button
   'face 'sly-inspectable-value-face
   'action 'sly-button-inspect
   'mouse-action 'sly-button-inspect

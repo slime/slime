@@ -10,14 +10,14 @@
   (:swank-dependencies swank-mrepl)
   (:on-load
    ;; Define a new "part action" for the `sly-part' buttons and change
-   ;; the `sly-inspector-part', `sldb-local-part' and
+   ;; the `sly-inspector-part', `sldb-local-variable' and
    ;; `sly-trace-dialog-part' to include it.
    ;; 
    (sly-button-define-part-action sly-mrepl-copy-to-repl "Copy to REPL" (kbd "M-RET"))
    (button-type-put 'sly-inspector-part
                     'sly-mrepl-copy-to-repl
                     'sly-inspector-copy-down-to-repl)
-   (button-type-put 'sldb-local-part
+   (button-type-put 'sldb-local-variable
                     'sly-mrepl-copy-to-repl
                     'sldb-copy-down-to-repl)
    (eval-after-load 'sly-trace-dialog
@@ -272,7 +272,8 @@ emptied. See also `sly-mrepl-hook'")
   (make-text-button label nil
                     :type 'sly-mrepl-part
                     'part-args (list object-idx value-idx)
-                    'part-label label))
+                    'part-label label)
+  label)
 
 (defun sly-mrepl--insert-returned-values (values)
   (let* ((comint-preoutput-filter-functions nil))

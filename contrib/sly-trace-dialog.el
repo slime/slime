@@ -300,10 +300,11 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   'skip t)
 
 (defun sly-trace-dialog--format-part (part-id part-text trace-id type)
-  (make-text-button (format "%s" part-text) nil
+  (make-text-button part-text nil
                     :type 'sly-trace-dialog-part
                     'part-args (list trace-id part-id type)
-                    'part-label (format "%s" part-text)))
+                    'part-label part-text)
+  part-text)
 
 (defun sly-trace-dialog--format-trace-entry (id external)
   (sly-make-action-button
