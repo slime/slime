@@ -156,7 +156,6 @@ Using @SLY{} mode
 * Disassembly::
 * Recovery::
 * Inspector::
-* Profiling::
 * Other::
 * Semantic indentation::
 * Reader conditionals::
@@ -615,7 +614,6 @@ describes the @code{sly-mode} and its relatives.
 * Disassembly::
 * Recovery::
 * Inspector::
-* Profiling::
 * Other::
 * Semantic indentation::
 * Reader conditionals::
@@ -1252,31 +1250,6 @@ sly-inspector-previous-inspectable-object}
 
 Jump to the next and previous inspectable object respectively.
 
-@end table
-
-@c -----------------------
-@node Profiling
-@section Profiling commands
-
-The profiling commands are based on CMUCL's profiler.  These are
-simple wrappers around functions which usually print something to the
-output buffer.
-
-@table @kbd
-@cmditem{sly-toggle-profile-fdefinition}
-Toggle profiling of a function.
-@cmditem{sly-profile-package}
-Profile all functions in a package.
-@cmditem{sly-profile-by-substring}
-Profile all functions which names contain a substring.
-@cmditem{sly-unprofile-all}
-Unprofile all functions.
-@cmditem{sly-profile-report}
-Report profiler data.
-@cmditem{sly-profile-reset}
-Reset profiler data.
-@cmditem{sly-profiled-functions}
-Show list of currently profiled functions.
 @end table
 
 @c -----------------------
@@ -3371,10 +3344,6 @@ keybinding (if there is one) refer to the function description.
 @c @fcnindex{sly-presentation-menu}
 @c @fcnindex{sly-pretty-lambdas}
 @fcnindex{sly-previous-note}
-@fcnindex{sly-profile-package}
-@fcnindex{sly-profile-report}
-@fcnindex{sly-profile-reset}
-@fcnindex{sly-profiled-functions}
 @fcnindex{sly-quit}
 @c @fcnindex{sly-quit-connection-at-point}
 @c @fcnindex{sly-quit-lisp}
@@ -3437,10 +3406,6 @@ keybinding (if there is one) refer to the function description.
 @c @fcnindex{sly-thread-control-mode}
 @c @fcnindex{sly-thread-kill}
 @c @fcnindex{sly-thread-quit}
-@fcnindex{sly-toggle-profile-fdefinition}
-@fcnindex{sly-toggle-trace-fdefinition}
-@fcnindex{sly-undefine-function}
-@fcnindex{sly-unprofile-all}
 @fcnindex{sly-untrace-all}
 @fcnindex{sly-update-connection-list}
 @c @fcnindex{sly-update-indentation}                  ???

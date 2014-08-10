@@ -55,11 +55,6 @@
            #:sldb-step
            #:sldb-break
            #:sldb-break-on-return
-           #:profiled-functions
-           #:profile-report
-           #:profile-reset
-           #:unprofile-all
-           #:profile-package
            #:default-directory
            #:set-default-directory
            #:quit-lisp
@@ -3052,47 +3047,6 @@ If non-nil, called with two arguments SPEC and TRACED-P." )
     (delete-package pkg)
     nil))
 
-
-;;;; Profiling
-
-(defun profiledp (fspec)
-  (member fspec (profiled-functions)))
-
-(defslyfun toggle-profile-fdefinition (fname-string)
-  (let ((fname (from-string fname-string)))
-    (cond ((profiledp fname)
-	   (unprofile fname)
-	   (format nil "~S is now unprofiled." fname))
-	  (t
-           (profile fname)
-	   (format nil "~S is now profiled." fname)))))
-
-(defslyfun profile-by-substring (substring package)
-  (let ((count 0))
-    (flet ((maybe-profile (symbol)
-             (when (and (fboundp symbol)
-                        (not (profiledp symbol))
-                        (search substring (symbol-name symbol) :test #'equalp))
-               (handler-case (progn
-                               (profile symbol)
-                               (incf count))
-                 (error (condition)
-                   (warn "~a" condition))))))
-      (if package
-          (do-symbols (symbol (parse-package package))
-            (maybe-profile symbol))
-          (do-all-symbols (symbol)
-            (maybe-profile symbol))))
-    (format nil "~a function~:p ~:*~[are~;is~:;are~] now profiled" count)))
-
-(defslyfun swank-profile-package (package-name callersp methodsp)
-  (let ((pkg (or (guess-package package-name)
-                 (error "Not a valid package name: ~s" package-name))))
-    (check-type callersp boolean)
-    (check-type methodsp boolean)
-    (profile-package pkg callersp methodsp)))
-
-
 ;;;; Source Locations
 
 (defslyfun find-definition-for-thing (thing)

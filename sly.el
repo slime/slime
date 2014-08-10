@@ -4202,63 +4202,6 @@ Return whatever swank:set-default-directory returns."
   (message "Directory %s" (sly-eval `(swank:default-directory))))
 
 
-;;;; Profiling
-
-(defun sly-toggle-profile-fdefinition (fname-string)
-  "Toggle profiling for FNAME-STRING."
-  (interactive (list (sly-read-from-minibuffer
-                      "(Un)Profile: "
-                      (sly-symbol-at-point))))
-  (sly-eval-async `(swank:toggle-profile-fdefinition ,fname-string)
-    (lambda (r) (message "%s" r))))
-
-(defun sly-unprofile-all ()
-  "Unprofile all functions."
-  (interactive)
-  (sly-eval-async '(swank:unprofile-all)
-    (lambda (r) (message "%s" r))))
-
-(defun sly-profile-report ()
-  "Print profile report."
-  (interactive)
-  (sly-eval-with-transcript '(swank:profile-report)))
-
-(defun sly-profile-reset ()
-  "Reset profile counters."
-  (interactive)
-  (sly-eval-async (sly-eval `(swank:profile-reset))
-    (lambda (r) (message "%s" r))))
-
-(defun sly-profiled-functions ()
-  "Return list of names of currently profiled functions."
-  (interactive)
-  (sly-eval-async `(swank:profiled-functions)
-    (lambda (r) (message "%s" r))))
-
-(defun sly-profile-package (package callers methods)
-  "Profile all functions in PACKAGE.
-If CALLER is non-nil names have counts of the most common calling
-functions recorded.
-If METHODS is non-nil, profile all methods of all generic function
-having names in the given package."
-  (interactive (list (sly-read-package-name "Package: ")
-                     (y-or-n-p "Record the most common callers? ")
-                     (y-or-n-p "Profile methods? ")))
-  (sly-eval-async `(swank:swank-profile-package ,package ,callers ,methods)
-    (lambda (r) (message "%s" r))))
-
-(defun sly-profile-by-substring (substring &optional package)
-  "Profile all functions which names contain SUBSTRING.
-If PACKAGE is NIL, then search in all packages."
-  (interactive (list
-                (sly-read-from-minibuffer
-                 "Profile by matching substring: "
-                 (sly-symbol-at-point))
-                (sly-read-package-name "Package (RET for all packages): ")))
-  (let ((package (unless (equal package "") package)))
-    (sly-eval-async `(swank:profile-by-substring ,substring ,package)
-      (lambda (r) (message "%s" r)) )))
-
 ;;;; Documentation
 
 (defvar sly-documentation-lookup-function
@@ -6687,7 +6630,6 @@ is setup, unless the user already set one explicitly."
       ("Debugging"
        [ "Macroexpand Once..."     sly-macroexpand-1 ,C ]
        [ "Macroexpand All..."      sly-macroexpand-all ,C ]
-       [ "Create Trace Buffer"     sly-redirect-trace-output ,C ]
        [ "Toggle Trace..."         sly-toggle-trace-fdefinition ,C ]
        [ "Untrace All"             sly-untrace-all ,C]
        [ "Disassemble..."          sly-disassemble-symbol ,C ]
@@ -6716,15 +6658,6 @@ is setup, unless the user already set one explicitly."
        [ "Check Parens"            check-parens t]
        [ "Update Indentation"      sly-update-indentation ,C]
        [ "Select Buffer"           sly-selector t])
-      ("Profiling"
-       [ "Toggle Profiling..."     sly-toggle-profile-fdefinition ,C ]
-       [ "Profile Package"         sly-profile-package ,C]
-       [ "Profile by Substring"    sly-profile-by-substring ,C ]
-       [ "Unprofile All"           sly-unprofile-all ,C ]
-       [ "Show Profiled"           sly-profiled-functions ,C ]
-       "--"
-       [ "Report"                  sly-profile-report ,C ]
-       [ "Reset Counters"          sly-profile-reset ,C ])
       ("Documentation"
        [ "Describe Symbol..."      sly-describe-symbol ,C ]
        [ "Lookup Documentation..." sly-documentation-lookup t ]
