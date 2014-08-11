@@ -192,22 +192,24 @@ emptied. See also `sly-mrepl-hook'")
       (add-text-properties start sly-mrepl--output-mark
                            '(read-only t front-sticky (read-only))))))
 
-(defvar sly-mrepl--last-prompt-overlay nil)
-(defvar sly-mrepl--frozen-prompt-overlays (make-hash-table))
-(make-variable-buffer-local 'sly-mrepl--frozen-prompt-overlays)
+(defvar sly-mrepl--stacked-errors nil)
+(make-variable-buffer-local 'sly-mrepl--stacked-errors)
 
 (sly-define-channel-method listener :freeze-prompt (key)
   (with-current-buffer (sly-channel-get self 'buffer)
-    (let ((new (copy-overlay sly-mrepl--last-prompt-overlay)))
-      (overlay-put new 'face 'font-lock-warning-face)
-      (puthash (intern (format "sly-mrepl-%s" key))
-               new
-               sly-mrepl--frozen-prompt-overlays))))
+    (push key sly-mrepl--stacked-errors)
+    (let ((inhibit-read-only t))
+      (add-text-properties (overlay-start sly-mrepl--last-prompt-overlay)
+                           (overlay-end sly-mrepl--last-prompt-overlay)
+                           `(face ,(sly-mrepl--prompt-face))))))
 
 (sly-define-channel-method listener :unfreeze-prompt (key)
   (with-current-buffer (sly-channel-get self 'buffer)
-    (delete-overlay (gethash (intern (format "sly-mrepl-%s" key))
-                             sly-mrepl--frozen-prompt-overlays))))
+    (unwind-protect
+        (progn
+          (cl-assert sly-mrepl--stacked-errors)
+          (cl-assert (string= key (car sly-mrepl--stacked-errors)))))
+    (pop sly-mrepl--stacked-errors)))
 
 (defun sly-mrepl--send-input ()
   (goto-char (point-max))
@@ -244,16 +246,26 @@ emptied. See also `sly-mrepl-hook'")
     (set-marker sly-mrepl--output-mark (sly-mrepl--mark))
     (let ((beg (point)))
       (sly-mrepl--insert (propertize (format "%s> " prompt)
-                                     'face 'sly-mrepl-prompt-face
+                                     'face (sly-mrepl--prompt-face)
                                      'sly-mrepl--prompt package))
       (move-overlay sly-mrepl--last-prompt-overlay beg (point)))
     (sly-mrepl--recenter)
     (buffer-enable-undo)))
 
-(defface sly-mrepl-prompt-face
+(defface sly-mrepl-normal-prompt-face
   `((t (:inherit comint-highlight-prompt)))
-  "Face for errors from the compiler."
+  "Face for the regular MREPL prompt."
   :group 'sly-mode-faces)
+
+(defface sly-mrepl-errored-prompt-face
+  `((t (:inherit font-lock-warning-face)))
+  "Face for the MREPL prompt when errors are on the stack."
+  :group 'sly-mode-faces)
+
+(defun sly-mrepl--prompt-face ()
+  (if sly-mrepl--stacked-errors
+      'sly-mrepl-errored-prompt-face
+    'sly-mrepl-normal-prompt-face))
 
 (defun sly-mrepl--recenter ()
   (when (get-buffer-window)
