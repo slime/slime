@@ -3867,7 +3867,7 @@ Collisions are caused because package information is ignored."
                #:define-channel-method
                #:find-channel
                #:send-to-remote-channel
-               #:;;
+               ;;
                #:listener
                #:with-listener
                #:flush-listener-streams
@@ -3897,9 +3897,11 @@ Collisions are caused because package information is ignored."
                ;;
                #:*swank-wire-protocol-version*)))
     (loop for sym in api
-          do (unintern (intern sym :swank-api) :swank-api)
-             (import (intern sym :swank) :swank-api)
-             (export (intern sym :swank) :swank-api))))
+          for swank-api-sym = (intern (string sym) :swank-api)
+          for swank-sym = (intern (string sym) :swank)
+          do (unintern swank-api-sym :swank-api)
+             (import swank-sym :swank-api)
+             (export swank-sym :swank-api))))
 
 
 ;;;; INIT, as called from the swank-loader.lisp and ASDF's loaders
