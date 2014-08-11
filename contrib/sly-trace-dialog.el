@@ -82,15 +82,6 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   (add-to-list (make-local-variable 'sly-trace-dialog-after-toggle-hook)
                'sly-trace-dialog-fetch-status))
 
-(define-derived-mode sly-trace-dialog--detail-mode sly-inspector-mode
-  "SLY Trace Detail"
-  "Mode for viewing a particular trace from SLY's Trace Dialog")
-
-(defvar sly-trace-dialog--detail-mode-map
-      (let ((map (make-sparse-keymap)))
-        (set-keymap-parent map sly-trace-dialog-mode-map)
-        map))
-
 (defvar sly-trace-dialog-shortcut-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c T") 'sly-trace-dialog)
@@ -130,7 +121,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   (sly-trace-dialog--set-hide-details-mode))
 
 (define-minor-mode sly-trace-dialog-autofollow-mode
-  "Automatically open buffers with trace details from `sly-trace-dialog-mode'"
+  "Automatically inspect trace entries from `sly-trace-dialog-mode'"
   nil " Autofollow"
   :group 'sly-trace-dialog
   (unless (derived-mode-p 'sly-trace-dialog-mode)
@@ -228,26 +219,6 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
           (setq sly-buffer-connection sly-default-connection)
           (current-buffer)))))
 
-(defun sly-trace-dialog--make-autofollow-fn (id)
-  (let ((requested nil))
-    #'(lambda (_before after)
-        (let ((inhibit-point-motion-hooks t)
-              (id-after (get-text-property after 'sly-trace-dialog--id)))
-          (when (and (= after (point))
-                     sly-trace-dialog-autofollow-mode
-                     id-after
-                     (= id-after id)
-                     (not requested))
-            (setq requested t)
-            (sly-eval-async `(swank-trace-dialog:report-trace-detail
-                                ,id-after)
-              #'(lambda (detail)
-                  (setq requested nil)
-                  (when detail
-                    (let ((inhibit-point-motion-hooks t))
-                      (sly-trace-dialog--open-detail detail
-                                                       'no-pop))))))))))
-
 (defun sly-trace-dialog--set-collapsed (collapsed-p trace button)
   (save-excursion
     (setf (sly-trace-dialog--trace-collapsed-p trace) collapsed-p)
@@ -292,29 +263,6 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                (sly-trace-dialog--trace-end trace)
                (if sly-trace-dialog-hide-details-mode 1 -1))))
 
-(define-button-type 'sly-trace-dialog-part :supertype 'sly-part
-  'sly-button-inspect #'(lambda (trace-id part-id type)
-                          (sly-eval-async
-                              `(swank-trace-dialog:inspect-trace-part ,trace-id ,part-id ,type)
-                            #'sly-open-inspector))
-  'skip t)
-
-(defun sly-trace-dialog--format-part (part-id part-text trace-id type)
-  (make-text-button part-text nil
-                    :type 'sly-trace-dialog-part
-                    'part-args (list trace-id part-id type)
-                    'part-label part-text)
-  part-text)
-
-(defun sly-trace-dialog--format-trace-entry (id external)
-  (sly-make-action-button
-   (format "%s" external)
-   #'(lambda (_button)
-       (sly-eval-async
-           `(swank::inspect-object (swank-trace-dialog::find-trace ,id))
-         #'sly-open-inspector))
-   'face 'sly-inspector-value-face))
-
 (defun sly-trace-dialog--format (fmt-string &rest args)
   (let* ((string (apply #'format fmt-string args))
          (indent (make-string (max 2
@@ -343,7 +291,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
     (insert char)))
 
 
-;;;; Handlers for the *trace-dialog* and *trace-detail* buffers
+;;;; Handlers for the *trace-dialog* buffer
 ;;;
 (defun sly-trace-dialog--open-specs (traced-specs)
   (cl-labels ((make-report-spec-fn
@@ -421,36 +369,52 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                      (setq sly-trace-dialog--stop-fetching t)))))
       (insert "\n\n"))))
 
-(defun sly-trace-dialog--open-detail (trace-tuple &optional no-pop)
-  (sly-with-popup-buffer ("*trace-detail*" :select (not no-pop)
-                            :mode 'sly-trace-dialog--detail-mode)
-    (cl-destructuring-bind (id _parent-id _spec args retlist backtrace external)
-        trace-tuple
-      (let ((headline (sly-trace-dialog--format-trace-entry id external)))
-        (setq headline (format "%s\n%s\n"
-                               headline
-                               (make-string (length headline) ?-)))
-        (insert headline))
-      (cl-loop for (type objects label)
-               in `((:arg ,args   "Called with args:")
-                    (:retval ,retlist "Returned values:"))
-               do (insert (format "\n%s\n" label))
-               (insert (cl-loop for object in objects
-                                for i from 0
-                                concat (format "   %s: %s\n" i
-                                               (sly-trace-dialog--format-part
-                                                (cl-first object)
-                                                (cl-second object)
-                                                id
-                                                type)))))
-      (when backtrace
-        (insert "\nBacktrace:\n"
-                (cl-loop for (i spec) in backtrace
-                         concat (format "   %s: %s\n" i spec)))))))
-
 
 ;;;; Rendering traces
 ;;;
+
+(define-button-type 'sly-trace-dialog-part :supertype 'sly-part
+  'sly-button-inspect #'(lambda (trace-id part-id type)
+                          (sly-eval-async
+                              `(swank-trace-dialog:inspect-trace-part ,trace-id ,part-id ,type)
+                            #'sly-open-inspector))
+  'skip t)
+
+(defun sly-trace-dialog-part-button (part-id part-text trace-id type)
+  (make-text-button part-text nil
+                    :type 'sly-trace-dialog-part
+                    'part-args (list trace-id part-id type)
+                    'part-label part-text)
+  part-text)
+
+(define-button-type 'sly-trace-dialog-spec :supertype 'sly-part
+  'skip t
+  'sly-button-inspect #'(lambda (trace-id)
+                          (sly-eval-async `(swank-trace-dialog:inspect-trace ,trace-id)
+                            #'sly-open-inspector))
+  'point-entered #'(lambda (before after)
+                     (let ((button (sly-button-at after nil 'no-error)))
+                       (when (and (not (sly-button-at before nil 'no-error))
+                                  button
+                                  sly-trace-dialog-autofollow-mode)
+                         ;; we can't quite `push-button' here, because
+                         ;; of the need for `save-selected-window'
+                         ;; 
+                         (let ((id (button-get button 'trace-id)))
+                           (sly-eval-async `(swank-trace-dialog:inspect-trace ,id)
+                             #'(lambda (results)
+                                 (save-selected-window
+                                   (sly-open-inspector results)))))))))
+
+(defun sly-trace-dialog-spec-button (label trace-id &rest props)
+  (apply #'make-text-button label nil
+         :type 'sly-trace-dialog-spec
+         'trace-id trace-id
+         'part-args (list trace-id)
+         'part-label (format "Trace entry: %s" trace-id)
+         props)
+  label)
+
 (defun sly-trace-dialog--draw-tree-lines (start offset direction)
   (save-excursion
     (let ((inhibit-point-motion-hooks t))
@@ -484,7 +448,6 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                                trace
                                button))))
 
-
 (defun sly-trace-dialog--insert-trace (trace)
   (let* ((id (sly-trace-dialog--trace-id trace))
          (parent (sly-trace-dialog--trace-parent trace))
@@ -495,15 +458,11 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
          (indent-summary (sly-trace-dialog--make-indent
                           (sly-trace-dialog--trace-depth trace)
                           "   "))
-         (autofollow-fn (sly-trace-dialog--make-autofollow-fn id))
-         (id-string (sly-make-action-button
-                     (format "%4s" id)
-                     #'(lambda (_button)
-                         (sly-eval-async
-                             `(swank-trace-dialog:report-trace-detail
-                               ,id)
-                           #'sly-trace-dialog--open-detail))))
-         (spec (sly-trace-dialog--trace-spec trace))
+         (id-string (sly-trace-dialog-spec-button
+                     (format "%4s" id) id))
+         (spec-button (sly-trace-dialog-spec-button
+                       (format "%s" (sly-trace-dialog--trace-spec trace))
+                       id 'face nil))
          (summary (cl-loop for (type objects marker) in
                            `((:arg    ,(sly-trace-dialog--trace-args trace)
                                       " > ")
@@ -513,7 +472,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                                            concat "      "
                                            concat indent-summary
                                            concat marker
-                                           concat (sly-trace-dialog--format-part
+                                           concat (sly-trace-dialog-part-button
                                                    (cl-first object)
                                                    (cl-second object)
                                                    id
@@ -530,17 +489,12 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
       (setf (sly-trace-dialog--trace-collapse-button-marker trace)
             (point-marker))
       (insert "-"))
-    (insert (format " %s\n" spec))
+    (insert " " spec-button "\n")
     (setf (sly-trace-dialog--trace-summary-beg trace) (point-marker))
     (insert summary)
     (setf (sly-trace-dialog--trace-end trace) (point-marker))
     (set-marker-insertion-type (sly-trace-dialog--trace-beg trace) t)
 
-    (add-text-properties (sly-trace-dialog--trace-beg trace)
-                         (sly-trace-dialog--trace-end trace)
-                         (list 'sly-trace-dialog--id id
-                               'point-entered autofollow-fn
-                               'point-left autofollow-fn))
     ;; respect brief mode and collapsed state
     ;;
     (cl-loop for condition in (list sly-trace-dialog-hide-details-mode

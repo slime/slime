@@ -261,4 +261,10 @@ program.")
         (swank::inspect-object obj)
         (error "No object found with ~a, ~a and ~a" trace-id part-id type))))
 
+(defslyfun inspect-trace (trace-id)
+  (let ((trace (find-trace trace-id)))
+    (if trace
+        (swank::inspect-object trace)
+        (error "No trace found with id ~a" trace-id))))
+
 (provide :swank-trace-dialog)
