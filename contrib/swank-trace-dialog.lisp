@@ -1,6 +1,5 @@
 (defpackage :swank-trace-dialog
-  (:use :cl)
-  (:import-from :swank :defslyfun :from-string :to-string)
+  (:use :cl :swank-api)
   (:export #:clear-trace-tree
            #:dialog-toggle-trace
            #:dialog-trace

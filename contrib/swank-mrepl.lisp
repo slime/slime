@@ -39,11 +39,11 @@
                  :out (make-mrepl-output-stream remote-id)
                  :in (make-mrepl-input-stream remote-id)
                  )))
-    (with-listener mrepl
-      (format *standard-output* "~&; SLY ~a (~a)~%"
-              *swank-wire-protocol-version*
-              mrepl)
-      (let ((target (maybe-redirect-global-io *emacs-connection*)))
+    (let ((target (maybe-redirect-global-io *emacs-connection*)))
+      (with-listener mrepl
+        (format *standard-output* "~&; SLY ~a (~a)~%"
+                *swank-wire-protocol-version*
+                mrepl)
         (cond ((and target
                     (not (eq mrepl target)))
                (format *standard-output* "~&; Global redirection setup elsewhere~%"))
@@ -443,3 +443,6 @@ Return the current redirection target, or nil"
       (format *standard-output* "~&; Reverted global IO direction~%"))))
 
 (provide :swank-mrepl)
+
+;; micro test on alisp
+#+nil(mp:process-run-function "bla" #'(lambda () (princ 'test) (force-output)))

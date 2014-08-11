@@ -1090,10 +1090,13 @@ point the thread terminates and CHANNEL is closed."
     (log-event "close-connection: ~a ...~%" condition)
     (format *log-output* "~&;; swank:close-connection: ~A~%"
             (escape-non-ascii (safe-condition-message condition)))
+    (let ((*emacs-connection* c))
+      (format *log-output* "~&;; closing ~a channels~%" (length (connection-channels c)))
+      (mapc #'close-channel (connection-channels c))
+      (format *log-output* "~&;; closing ~a listeners~%" (length (connection-listeners c)))
+      (mapc #'close-listener (connection-listeners c)))
     (stop-serving-requests c)
     (close (connection-socket-io c))
-    (mapc #'close-channel (connection-channels c))
-    (mapc #'close-listener (connection-listeners c))
     (setf *connections* (remove c *connections*))
     (run-hook *connection-closed-hook* c)
     (when (and condition (not (typep condition 'end-of-file)))
@@ -1107,9 +1110,10 @@ point the thread terminates and CHANNEL is closed."
 ;;  condition: ~A~%~
 ;;  type: ~S~%~
 ;;  style: ~S]~%"
-              (loop for (i f) in backtrace collect
+              (loop for (i f) in backtrace
+                    collect
                     (ignore-errors
-                      (format nil "~d: ~a" i (escape-non-ascii f))))
+                     (format nil "~d: ~a" i (escape-non-ascii f))))
               (escape-non-ascii (safe-condition-message condition) )
               (type-of condition)
               (connection-communication-style c)))
@@ -3850,51 +3854,52 @@ Collisions are caused because package information is ignored."
 
 
 ;;;; The "official" API
+
+(defpackage :swank-api (:use))
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (let ((api '(*emacs-connection*
-               default-connection
+  (let ((api '(#:*emacs-connection*
+               #:default-connection
                ;;
-               channel
-               channel-id
-               channel-thread-id
-               close-channel
-               define-channel-method
-               find-channel
-               send-to-remote-channel
+               #:channel
+               #:channel-id
+               #:channel-thread-id
+               #:close-channel
+               #:define-channel-method
+               #:find-channel
+               #:send-to-remote-channel
+               #:;;
+               #:listener
+               #:with-listener
+               #:flush-listener-streams
+               #:default-listener
+               #:close-listener
                ;;
-               listener
-               with-listener
-               flush-listener-streams
-               default-listener
-               close-listener
+               #:add-hook
+               #:*connection-closed-hook*
+               #:*after-init-hook*
+               #:*new-connection-hook*
+               #:*pre-reply-hook*
+               #:*after-toggle-trace-hook*
                ;;
-               add-hook
-               *connection-closed-hook*
-               *after-init-hook*
-               *new-connection-hook*
-               *pre-reply-hook*
-               *after-toggle-trace-hook*
+               #:defslyfun
+               #:destructure-case
+               #:log-event
+               #:process-requests
+               #:use-threads-p
+               #:wait-for-event
+               #:with-bindings
+               #:with-connection
+               #:with-top-level-restart
+               #:with-sly-interrupts
+               #:with-buffer-syntax
+               #:with-retry-restart
+               #:load-user-init-file
                ;;
-               defslyfun
-               destructure-case
-               log-event
-               process-requests
-               use-threads-p
-               wait-for-event
-               with-bindings
-               with-connection
-               with-top-level-restart
-               with-sly-interrupts
-               with-buffer-syntax
-               with-retry-restart
-               ;;
-               *swank-wire-protocol-version*
-               
-               )))
-    (eval `(defpackage #:swank-api
-             (:use)
-             (:import-from #:swank . ,api)
-             (:export . ,api)))))
+               #:*swank-wire-protocol-version*)))
+    (loop for sym in api
+          do (unintern (intern sym :swank-api) :swank-api)
+             (import (intern sym :swank) :swank-api)
+             (export (intern sym :swank) :swank-api))))
 
 
 ;;;; INIT, as called from the swank-loader.lisp and ASDF's loaders
