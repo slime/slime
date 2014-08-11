@@ -1112,7 +1112,7 @@ Fall back to `sly-init-using-swank-loader' if ASDF fails."
                    :swank)
                   (funcall
                    (read-from-string "swank:start-server")
-                   ,port-filename))
+                   ,(sly-to-lisp-filename port-filename)))
                  (t
                   ,(read (sly-init-using-swank-loader port-filename coding-system))))))
 
