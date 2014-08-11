@@ -5117,9 +5117,9 @@ The chosen buffer the default connection's it if exists."
                          sldb-continuations))))
 
 (defun sldb-confirm-buffer-kill ()
-  (and (y-or-n-p "Really kill sldb buffer and throw to toplevel?")
-       (sldb-quit)
-       t))
+  (when (y-or-n-p "Really kill sldb buffer and throw to toplevel?")
+    (ignore-errors (sldb-quit))
+    t))
 
 (defun sldb-setup (thread level condition restarts frame-specs conts)
   "Setup a new SLDB buffer.
@@ -5990,14 +5990,16 @@ was called originally."
        (mapcar #'(lambda (p)
                    (list p
                          `[,(if (eq sly-default-connection p) "*" " ")
-                           (,(file-name-nondirectory (sly-connection-name p))
+                           (,(file-name-nondirectory (or (sly-connection-name p)
+                                                         "unknown"))
                             action ,#'(lambda (_button)
                                         (and sly-connection-list-button-action
                                              (funcall sly-connection-list-button-action p))))
                            ,(first (process-contact p))
                            ,(format "%s" (second (process-contact p)))
                            ,(format "%s" (sly-pid p))
-                           ,(sly-lisp-implementation-type p)]))
+                           ,(or (sly-lisp-implementation-type p)
+                                "unknown")]))
                (reverse sly-net-processes)))
   (let ((p (point)))
     (tabulated-list-print)
