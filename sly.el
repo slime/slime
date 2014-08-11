@@ -5296,7 +5296,7 @@ If MORE is non-nil, more frames are on the Lisp stack."
    finally
    (if more
        (insert (sly-make-action-button
-                "\n --more--"
+                "\n --more--\n"
                 #'(lambda (button)
                     (let* ((inhibit-read-only t)
                            (count 40)
