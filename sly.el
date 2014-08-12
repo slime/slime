@@ -471,7 +471,7 @@ PROPERTIES specifies any default face properties."
 
 (defvar sly-popup-buffer-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "q") 'sly-quit-window)
+    (define-key map (kbd "q") 'quit-window)
     map))
 
 
