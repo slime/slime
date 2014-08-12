@@ -94,9 +94,8 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 (defun sly-trace-dialog-enable ()
   (sly-trace-dialog-shortcut-mode 1))
 
-(easy-menu-define sly-trace-dialog--menubar (list sly-trace-dialog-shortcut-mode-map
-                                                    sly-trace-dialog-mode-map)
-  "A menu for accessing some features of SLY's Trace Dialog"
+(easy-menu-define sly-trace-dialog--shortcut-menu nil
+  "Menu setting traces from anywhere in SLY."
   (let* ((in-dialog '(eq major-mode 'sly-trace-dialog-mode))
          (dialog-live `(and ,in-dialog
                             (memq sly-buffer-connection sly-net-processes)))
@@ -104,8 +103,16 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
     `("Trace"
       ["Toggle trace" sly-trace-dialog-toggle-trace ,connected]
       ["Trace complex spec" sly-trace-dialog-toggle-complex-trace ,connected]
-      ["Open Trace dialog" sly-trace-dialog (and ,connected (not ,in-dialog))]
-      "--"
+      ["Open Trace dialog" sly-trace-dialog (and ,connected (not ,in-dialog))])))
+
+(easy-menu-add-item sly-menu nil sly-trace-dialog--shortcut-menu "Documentation")
+
+(easy-menu-define sly-trace-dialog--menu sly-trace-dialog-mode-map
+  "Menu for SLY's Trace Dialog"
+  (let* ((in-dialog '(eq major-mode 'sly-trace-dialog-mode))
+         (dialog-live `(and ,in-dialog
+                            (memq sly-buffer-connection sly-net-processes))))
+    `("SLY-Trace"
       [ "Refresh traces and progress" sly-trace-dialog-fetch-status ,dialog-live]
       [ "Fetch next batch" sly-trace-dialog-fetch-traces ,dialog-live]
       [ "Clear all fetched traces" sly-trace-dialog-clear-fetched-traces ,dialog-live]

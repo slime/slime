@@ -56,6 +56,8 @@ emptied. See also `sly-mrepl-hook'")
 (defvar sly-mrepl--result-counter -1)
 (defvar sly-mrepl--output-mark nil)
 (defvar sly-mrepl--dedicated-stream nil)
+ ;; perhaps could be replaced by a afield
+(defvar sly-mrepl--last-prompt-overlay nil)
 
 (defvar sly-mrepl-mode-map
   (let ((map (make-sparse-keymap)))
@@ -90,7 +92,8 @@ emptied. See also `sly-mrepl-hook'")
            do (set (make-local-variable var) value))
   (set-marker-insertion-type sly-mrepl--output-mark nil)
   ;;(set (make-local-variable 'comint-get-old-input) 'ielm-get-old-input)
-  (set-syntax-table lisp-mode-syntax-table))
+  (set-syntax-table lisp-mode-syntax-table)
+  (set-keymap-parent sly-mrepl-mode-map nil))
 
 (sly-define-channel-type listener)
 
@@ -570,6 +573,28 @@ emptied. See also `sly-mrepl-hook'")
   (when (> (point) (sly-mrepl--mark))
     (let ((ppss (parse-partial-sexp (sly-mrepl--mark) (point))))
       (or (nth 3 ppss) (nth 4 ppss)))))
+
+
+;;;; Menu
+;;;;
+(easy-menu-define sly-mrepl--shortcut-menu nil
+  "Menu for accessing the mREPL anywhere in sly."
+  (let* ((C '(sly-connected-p)))
+    `("mREPL"
+      ["Go to default REPL" sly-mrepl ,C]
+      ["New REPL" sly-mrepl-new ,C]
+      ["Sync Package & Directory" sly-mrepl-sync-package-and-default-directory
+       (and sly-editing-mode ,C)])))
+
+(easy-menu-add-item sly-menu nil sly-mrepl--shortcut-menu "Documentation")
+
+(easy-menu-define sly-mrepl--menu sly-mrepl-mode-map
+  "Menu for SLY's MREPL"
+  (let* ((C '(sly-connected-p)))
+    `("SLY-mREPL"
+      [ " Complete symbol at point " sly-indent-and-complete-symbol ,C ]
+      [ " Interrupt " sly-interrupt ,C ]
+      [ " Isearch history backward " isearch-backward ,C])))
 
 
 (def-sly-selector-method ?m

@@ -6090,9 +6090,6 @@ was called originally."
     (define-key map ">" 'sly-inspector-fetch-all)
 
     (define-key map (kbd "q")     'sly-inspector-quit)
-    (define-key map (kbd ".")     'sly-inspector-goto-source)
-    (define-key map (kbd "i")     'sly-inspector-operate-on-point) ; not quite
-    (define-key map (kbd "M-RET") 'sly-unimplemented)
     map))
 
 (define-derived-mode sly-inspector-mode fundamental-mode
@@ -6612,8 +6609,7 @@ is setup, unless the user already set one explicitly."
 
 
 ;;;;; Pull-down menu
-
-(defvar sly-easy-menu
+(easy-menu-define sly-menu sly-mode-map "SLY"
   (let ((C '(sly-connected-p)))
     `("SLY"
       [ "Edit Definition..."       sly-edit-definition ,C ]
@@ -6669,13 +6665,9 @@ is setup, unless the user already set one explicitly."
        [ "Hyperspec..."            sly-hyperspec-lookup t ])
       "--"
       [ "Interrupt Command"        sly-interrupt ,C ]
-      [ "Abort Async. Command"     sly-quit ,C ]
-      [ "Sync Package & Directory" sly-sync-package-and-default-directory ,C]
-      )))
+      [ "Abort Async. Command"     sly-quit ,C ])))
 
-(defvar sly-sldb-easy-menu
-  ;; FIXME: some of these have to check if point in on a frame.
-  ;; 
+(easy-menu-define sly-sldb-menu sldb-mode-map "SLDB Menu"
   (let ((C '(sly-connected-p)))
     `("SLDB"
       [ "Next Frame" sldb-down t ]
@@ -6703,19 +6695,17 @@ is setup, unless the user already set one explicitly."
       [ "Quit (throw)" sldb-quit ,C ]
       [ "Break With Default Debugger" sldb-break-with-default-debugger ,C ])))
 
-(easy-menu-define menubar-sly sly-mode-map "SLY" sly-easy-menu)
-
-(defun sly-add-easy-menu ()
-  (easy-menu-add sly-easy-menu 'sly-mode-map))
-
-(add-hook 'sly-mode-hook 'sly-add-easy-menu)
-
-(defun sly-sldb-add-easy-menu ()
-  (easy-menu-define menubar-sly-sldb
-    sldb-mode-map "SLDB" sly-sldb-easy-menu)
-  (easy-menu-add sly-sldb-easy-menu 'sldb-mode-map))
-
-(add-hook 'sldb-mode-hook 'sly-sldb-add-easy-menu)
+(easy-menu-define sly-inspector-menu sly-inspector-mode-map "Menu for the SLY Inspector"
+  (let ((C '(sly-connected-p)))
+    `("SLY-Inspector"
+      [ "Pop Inspectee" sly-inspector-pop ,C ]
+      [ "Next Inspectee" sly-inspector-next ,C ]
+      [ "Describe this Inspectee" sly-inspector-describe ,C ]
+      [ "Eval in context" sly-inspector-eval ,C ]
+      [ "Show history" sly-inspector-history ,C ]
+      [ "Reinspect" sly-inspector-reinspect ,C ]
+      [ "Fetch all parts" sly-inspector-fetch-all ,C ]
+      [ "Quit" sly-inspector-quit ,C ])))
 
 
 ;;;; Utilities (no not Paul Graham style)
