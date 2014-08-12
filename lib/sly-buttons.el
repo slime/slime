@@ -16,7 +16,7 @@
 
 (defun sly-button-popup-part-menu (event)
   "Popup a menu for a `sly-part' button"
-  (interactive "e")
+  (interactive "@e")
   (let ((button (button-at (posn-point (event-end event)))))
     (popup-menu
      `(keymap
