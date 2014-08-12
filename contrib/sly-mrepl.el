@@ -173,6 +173,8 @@ emptied. See also `sly-mrepl-hook'")
 (defun sly-mrepl--mark () (process-mark (sly-mrepl--process)))
 
 (defmacro sly-mrepl--commiting-text (props &rest body)
+  (declare (debug (sexp &rest form))
+           (indent 1))
   (let ((start-sym (cl-gensym)))
     `(let ((,start-sym (marker-position (sly-mrepl--mark)))
            (inhibit-read-only t))
@@ -183,24 +185,35 @@ emptied. See also `sly-mrepl-hook'")
 
 (defun sly-mrepl--insert (string)
   (sly-mrepl--commiting-text ()
-   (comint-output-filter (sly-mrepl--process) string)))
+    (comint-output-filter (sly-mrepl--process) string)))
+
+(defvar sly-mrepl--pending-output nil
+  "Output that can't be inserted right now.")
+(make-variable-buffer-local 'sly-mrepl--pending-output)
 
 (defun sly-mrepl--insert-output (string)
-  (let ((inhibit-read-only t)
-        (start (marker-position sly-mrepl--output-mark)))
-    (save-excursion
-      (goto-char sly-mrepl--output-mark)
-      (cond ((and (zerop (current-column))
-                  (get-char-property start 'sly-mrepl--prompt))
-             ;; insert after marker then go back
-             (insert "\n")
-             (goto-char sly-mrepl--output-mark))
-            ((and (sly-mrepl--busy-p)
-                  (not (zerop (current-column))))
-             (insert-before-markers "\n")))
-      (insert-before-markers string)
-      (add-text-properties start sly-mrepl--output-mark
-                           '(read-only t front-sticky (read-only))))))
+  (cond ((and sly-mrepl--expect-sexp-mode string)
+         (let ((inhibit-read-only t)
+               (start (marker-position sly-mrepl--output-mark)))
+           (save-excursion
+             (goto-char sly-mrepl--output-mark)
+             (cond ((and (zerop (current-column))
+                         (get-char-property start 'sly-mrepl--prompt))
+                    ;; insert after marker then go back
+                    (insert "\n")
+                    (goto-char sly-mrepl--output-mark))
+                   ((and (sly-mrepl--busy-p)
+                         (not (zerop (current-column))))
+                    (insert-before-markers "\n")))
+             (insert-before-markers
+              (concat sly-mrepl--pending-output string))
+             (setq sly-mrepl--pending-output nil)
+             (add-text-properties start sly-mrepl--output-mark
+                                  '(read-only t front-sticky (read-only))))))
+        (t
+         (setq sly-mrepl--pending-output
+               (concat sly-mrepl--pending-output string))
+         (message "[sly] some output saved for later insertion"))))
 
 (defvar sly-mrepl--stacked-errors nil)
 (make-variable-buffer-local 'sly-mrepl--stacked-errors)
@@ -221,7 +234,7 @@ emptied. See also `sly-mrepl-hook'")
           (cl-assert (string= key (car sly-mrepl--stacked-errors)))))
     (pop sly-mrepl--stacked-errors)))
 
-(defun sly-mrepl--send-input ()
+(defun sly-mrepl--send-input-sexp ()
   (goto-char (point-max))
   (skip-chars-backward "\n\t\s")
   (delete-region (max (point)
@@ -346,9 +359,11 @@ emptied. See also `sly-mrepl-hook'")
   (with-current-buffer (sly-channel-get self 'buffer)
     (cl-ecase mode
       (:read (setq sly-mrepl--expect-sexp-mode nil)
-	     (message "[Listener waiting for input to read]"))
+	     (message "[sly] Listener waiting for input to read"))
       (:eval (setq sly-mrepl--expect-sexp-mode t)
-             (message "[Listener waiting for sexps to eval]")))))
+             (when sly-mrepl--pending-output
+               (sly-mrepl--insert-output "\n"))
+             (message "[sly] Listener waiting for sexps to eval")))))
 
 (defun sly-mrepl--busy-p ()
   (>= sly-mrepl--output-mark (sly-mrepl--mark)))
@@ -361,19 +376,19 @@ emptied. See also `sly-mrepl-hook'")
   (cond ((and
 	  sly-mrepl--expect-sexp-mode
           (sly-mrepl--busy-p))
-	 (message "REPL is busy"))
+	 (message "[sly] REPL is busy"))
         ((and sly-mrepl--expect-sexp-mode
 	      (or (sly-input-complete-p (sly-mrepl--mark) (point-max))
 		  end-of-input))
-	 (sly-mrepl--send-input)
+	 (sly-mrepl--send-input-sexp)
          (sly-mrepl--catch-up))
 	((not sly-mrepl--expect-sexp-mode)
 	 (unless end-of-input
 	   (newline))
-	 (sly-mrepl--send-input))
+         (comint-send-input 'no-newline))
         (t
 	 (newline-and-indent)
-         (message "[input not complete]")))
+         (message "[sly] Input not complete")))
   (sly-mrepl--recenter))
 
 (defun sly-mrepl-insert-input (pos)
@@ -572,7 +587,7 @@ emptied. See also `sly-mrepl-hook'")
                                                probe 'sly-mrepl--prompt)
                                               'sly-mrepl--prompt)))))
     (when interactive
-      (message "Guessed package \"%s\"" package))
+      (message "[sly] Guessed package \"%s\"" package))
     package))
 
 

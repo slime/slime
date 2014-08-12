@@ -36,9 +36,7 @@
                  'mrepl
                  :remote-id remote-id
                  :name (format nil "mrepl-remote-~a" remote-id)
-                 :out (make-mrepl-output-stream remote-id)
-                 :in (make-mrepl-input-stream remote-id)
-                 )))
+                 :out (make-mrepl-output-stream remote-id))))
     (let ((target (maybe-redirect-global-io *emacs-connection*)))
       (with-listener mrepl
         (format *standard-output* "~&; SLY ~a (~a)~%"
@@ -52,6 +50,9 @@
       (flush-listener-streams mrepl)
       (send-prompt mrepl)
       (list (channel-id mrepl) (channel-thread-id mrepl)))))
+
+(defmethod initialize-instance :before ((r mrepl) &key)
+  (setf (slot-value r 'swank::in) (make-mrepl-input-stream r)))
 
 (defslyfun eval-in-mrepl (remote-id string)
   "Like MREPL-EVAL, but not run in channel's thread."
@@ -213,8 +214,7 @@
               (loop with values
                     for form = (read in nil in)
                     until (eq form in)
-                    do
-                       (setq values (multiple-value-list (eval (setq + form))))
+                    do (setq values (multiple-value-list (eval (setq + form))))
                     finally
                        (return values))))
         (setf (cdr (assoc '*package* (slot-value repl 'swank::env)))
