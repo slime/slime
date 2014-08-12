@@ -5149,7 +5149,7 @@ CONTS is a list of pending Emacs continuations."
         (insert "\n\n" (sldb-in-face section "Restarts:") "\n")
         (setq sldb-restart-list-start-marker (point-marker))
         (sldb-insert-restarts restarts 0 sldb-initial-restart-limit)
-        (insert "\n" (sldb-in-face section "Backtrace:"))
+        (insert "\n" (sldb-in-face section "Backtrace:") "\n")
         (setq sldb-backtrace-start-marker (point-marker))
         (save-excursion
           (if frame-specs
@@ -5296,7 +5296,7 @@ If MORE is non-nil, more frames are on the Lisp stack."
    finally
    (if more
        (insert (sly-make-action-button
-                "\n --more--\n"
+                " --more--\n"
                 #'(lambda (button)
                     (let* ((inhibit-read-only t)
                            (count 40)
@@ -5355,19 +5355,20 @@ If MORE is non-nil, more frames are on the Lisp stack."
 (defun sldb-insert-frame (frame-spec)
   "Insert a frame for FRAME-SPEC."
   (let* ((number (car frame-spec))
-         (label (cadr frame-spec)))
-    (insert (sldb-frame-button label frame-spec
-                               (if (sldb-frame-restartable-p frame-spec)
-                                   'sldb-restartable-frame-line-face
-                                 'sldb-frame-line-face)))
-    (let ((just-inserted (button-at (1- (point)))))
-      (save-excursion
-        (goto-char (button-start just-inserted))
-        (insert
-         (propertize (format "\n %2d: " number)
-                     'keymap sldb-frame-map
-                     'nearby-frame-button just-inserted
-                     'face 'sldb-frame-label-face))))))
+         (label (cadr frame-spec))
+         (origin (point)))
+    (insert
+     (propertize (format " %2d: " number)
+                 'face 'sldb-frame-label-face)
+     (sldb-frame-button label frame-spec
+                        (if (sldb-frame-restartable-p frame-spec)
+                            'sldb-restartable-frame-line-face
+                          'sldb-frame-line-face))
+     "\n")
+    (add-text-properties origin (point)
+                         (list 'field number
+                               'keymap sldb-frame-map
+                               'nearby-frame-button (button-at (- (point) 2))))))
 
 
 ;;;;;; SLDB examining text props
@@ -5444,15 +5445,17 @@ If MORE is non-nil, more frames are on the Lisp stack."
          'part-label label props)
   label)
 
-(defun sldb-frame-details-visible-p (frame-button)
-  (not (= (button-end frame-button)
-          (field-end (button-start frame-button) 'escape))))
+(defun sldb-frame-details-region (frame-button)
+  "Get (BEG END) for FRAME-BUTTON's details, or nil if hidden"
+  (let ((beg (button-end frame-button))
+        (end (1- (field-end (button-start frame-button) 'escape))))
+    (unless (= beg end) (list beg end))))
 
 (defun sldb-toggle-details (frame-button)
   "Toggle display of details for the current frame.
 The details include local variable bindings and CATCH-tags."
   (interactive (list (sldb-frame-button-near-point)))
-  (if (sldb-frame-details-visible-p frame-button)
+  (if (sldb-frame-details-region frame-button)
       (sldb-hide-frame-details frame-button)
     (sldb-show-frame-details frame-button)))
 
@@ -5507,12 +5510,12 @@ The details include local variable bindings and CATCH-tags."
 (defun sldb-hide-frame-details (frame-button)
   (interactive (list (sldb-frame-button-near-point)))
   (let* ((inhibit-read-only t)
-         (delete-start (button-end frame-button))
-         (delete-end (field-end (button-start frame-button) 'escape)))
-    (when (and (<= delete-start (point))
-               (< (point) delete-end))
+         (to-delete (sldb-frame-details-region frame-button)))
+    (cl-assert to-delete)
+    (when (and (< (car to-delete) (point))
+               (< (point) (cadr to-delete)))
       (goto-char (button-start frame-button)))
-    (delete-region delete-start delete-end)))
+    (apply #'delete-region to-delete)))
 
 (defun sldb-disassemble (frame-number)
   "Disassemble the code for frame with FRAME-NUMBER."
@@ -5595,12 +5598,12 @@ The details include local variable bindings and CATCH-tags."
 (defun sldb-sugar-move (move-fn arg)
   (let ((current-frame-button (sldb-frame-button-near-point)))
     (when (and current-frame-button
-               (sldb-frame-details-visible-p current-frame-button))
+               (sldb-frame-details-region current-frame-button))
       (sldb-hide-frame-details current-frame-button)))
   (funcall move-fn arg)
   (let ((frame-button (sldb-frame-button-near-point)))
     (when frame-button
-      (sldb-show-frame-source frame-button)
+      (sldb-show-frame-source (button-get frame-button 'frame-number))
       (sldb-show-frame-details frame-button))))
 
 (defun sldb-details-up (arg)
