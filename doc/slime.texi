@@ -211,24 +211,14 @@ Contributed Packages
 
 * Loading Contribs::
 * REPL::
-* sly-mrepl::
-* inferior-sly-mode::
 * Compound Completion::
 * Fuzzy Completion::
 * sly-autodoc-mode::
-* ASDF::
-* Banner::
 * Editing Commands::
 * Fancy Inspector::
-* Presentations::
-* Typeout frames::
 * TRAMP::
-* Documentation Links::
-* Xref and Class Browser::
-* Highlight Edits::
 * Scratch Buffer::
 * SLY Trace Dialog::
-* sly-sprof::
 * sly-fancy::
 
 REPL: the ``top level''
@@ -667,23 +657,6 @@ description buffers do not receive focus automatically, and vice
 versa.
 
 @c -----------------------
-@node Inferior-lisp
-@subsection @code{*inferior-lisp*} buffer
-
-@SLY{} internally uses the @code{comint} package to start Lisp
-processes. This has a few user-visible consequences, some good and
-some not-so-terribly. To avoid confusion it is useful to understand
-the interactions.
-
-The buffer @code{*inferior-lisp*} contains the Lisp process's own
-top-level. This direct access to Lisp is useful for troubleshooting,
-and some degree of @SLY{} integration is available using the
-inferior-sly-mode.  Many people load the better integrated @SLY{}
-@REPL{} contrib module (@pxref{REPL}) and ignore
-the @code{*inferior-lisp*} buffer.  (@pxref{Loading Contribs} for
-information on how to enable the REPL.)
-
-@c -----------------------
 @node Multithreading
 @subsection Multithreading
 
@@ -786,7 +759,7 @@ Alternatively, if you want to assign or change a key binding in just a
 particular sly mode, you can use the @code{define-key} function
 in your @file{~/.emacs} file like this:
 @example
-(define-key sly-repl-mode-map (kbd "C-c ;")
+(define-key sly-mrepl-mode-map (kbd "C-c ;")
             'sly-insert-balanced-comments)
 @end example
 @noindent
@@ -1170,7 +1143,7 @@ Restart the @code{inferior-lisp} process.
 Synchronize the current package and working directory from Emacs to
 Lisp.
 
-@kbditem{C-c M-p, sly-repl-set-package}
+@kbditem{C-c M-p, sly-mrepl-set-package}
 Set the current package of the @acronym{REPL}.
 
 @cmditem{sly-cd}
@@ -1718,7 +1691,7 @@ buffers. An example use is to enable @code{sly-autodoc-mode}
 @vindex sly-connected-hook
 @item sly-connected-hook
 This hook is run when @SLY{} establishes a connection to a Lisp
-server. An example use is to create a Typeout frame (@xref{Typeout frames}.)
+server. An example use is to pop to a new @REPL{}.
 
 @vindex sldb-hook
 @item sldb-hook
@@ -2098,24 +2071,14 @@ particular packages do.
 @menu
 * Loading Contribs::
 * REPL::
-* sly-mrepl::
-* inferior-sly-mode::
 * Compound Completion::
 * Fuzzy Completion::
 * sly-autodoc-mode::
-* ASDF::
-* Banner::
 * Editing Commands::
 * Fancy Inspector::
-* Presentations::
-* Typeout frames::
 * TRAMP::
-* Documentation Links::
-* Xref and Class Browser::
-* Highlight Edits::
 * Scratch Buffer::
 * SLY Trace Dialog::
-* sly-sprof::
 * sly-fancy::
 @end menu
 
@@ -2153,7 +2116,7 @@ almost all of the popular contribs.  So, if you aren't sure what to
 choose start with:
 
 @example
-(setq sly-contribs '(sly-repl)) ; repl only
+(setq sly-contribs '(sly-mrepl)) ; repl only
 @end example
 
 If you like what you see try this:
@@ -2181,8 +2144,8 @@ manually repeat the @code{sly-setup} step for each of them.
 Short of restarting Emacs, a reasonable way of unloading contribs is
 by calling an Emacs Lisp function whose name is obtained by
 adding @code{-unload} to the contrib's name, for every contrib you
-wish to unload. So, to remove @code{sly-repl}, you must call
-@code{sly-repl-unload}. Because the unload function will only, if
+wish to unload. So, to remove @code{sly-mrepl}, you must call
+@code{sly-mrepl-unload}. Because the unload function will only, if
 ever, unload the Emacs Lisp side of the contrib, you may also need to
 restart your lisps.
 
@@ -2209,7 +2172,7 @@ output is inserted in the right place, and doesn't get mixed up with
 user input.
 @end itemize
 
-To load the REPL use @code{(add-to-list 'sly-contribs 'sly-repl)} in your
+To load the REPL use @code{(add-to-list 'sly-contribs 'sly-mrepl)} in your
 @code{.emacs}.
 
 @table @kbd
@@ -2239,37 +2202,10 @@ If used with a prefix argument, doesn't switch back afterwards.
 
 @table @kbd
 
-@kbditem{RET, sly-repl-return}
+@kbditem{RET, sly-mrepl-return}
 Evaluate the current input in Lisp if it is complete. If incomplete,
 open a new line and indent. If a prefix argument is given then the
 input is evaluated without checking for completeness.
-
-@kbditem{C-RET, sly-repl-closing-return}
-Close any unmatched parenthesis and then evaluate the current input in
-Lisp. Also bound to @kbd{M-RET}.
-
-@kbditem{TAB, sly-indent-and-complete-symbol}
-Indent the current line and perform symbol completion.
-
-@kbditem{C-j, sly-repl-newline-and-indent}
-Open and indent a new line.
-
-@kbditem{C-a, sly-repl-bol}
-Go to the beginning of the line, but stop at the @REPL{} prompt.
-
-@c @anchor{sly-interrupt}
-@kbditem{C-c C-c, sly-interrupt}
-Interrupt the Lisp process with @code{SIGINT}.
-
-@c @kbditem{C-c M-g, sly-quit}
-@c Quit @SLY{}.
-
-@kbditem{C-c M-o, sly-repl-clear-buffer}
-Clear the entire buffer, leaving only a prompt.
-
-@kbditem{C-c C-o, sly-repl-clear-output}
-Remove the output and result of the previous expression from the
-buffer.
 
 @end table
 
@@ -2288,35 +2224,7 @@ Bash.
 
 @table @kbd
 
-@kbditempair{C-<up>, C-<down>,
-             sly-repl-forward-input, sly-repl-backward-input}
-Go to the next/previous history item.
-
-@kbditempair{M-n, M-p, sly-repl-next-input, sly-repl-previous-input}
-Search the next/previous item in the command history using the current
-input as search pattern.  If @kbd{M-n}/@kbd{M-n} is typed two times in
-a row, the second invocation uses the same search pattern (even if the
-current input has changed).
-
-@kbditempair{M-s, M-r,
-sly-repl-next-matching-input, sly-repl-previous-matching-input}
-Search forward/reverse through command history with regex
-
-@c @code{sly-repl-@{next,previous@}-input}@*
-@c @code{sly-repl-@{next,previous@}-matching-input}@*
-@c @code{comint}-style input history commands.
-
-@kbditempair{C-c C-n, C-c C-p,
-sly-repl-next-prompt, sly-repl-previous-prompt}
-Move between the current and previous prompts in the @REPL{} buffer.
-Pressing RET on a line with old input copies that line to the newest
-prompt.
 @end table
-
-@vindex sly-repl-wrap-history
-The variable @code{sly-repl-wrap-history} controls wrap around
-behaviour, i.e. whether cycling should restart at the beginning of the
-history if the end is reached.
 
 @c -----------------------
 @comment  node-name,  next,  previous,  up
@@ -2335,84 +2243,7 @@ below, and you can also use the @code{help}
 shortcut to list them interactively.
 
 @table @kbd
-@item change-directory (aka !d, cd)
-Change the current directory.
-
-@item change-package (aka !p, in, in-package)
-Change the current package.
-
-@item compile-and-load (aka cl)
-Compile (if necessary) and load a lisp file.
-
-@item defparameter (aka !)
-Define a new global, special, variable.
-
-@item disconnect
-Disconnect all connections.
-
-@item help (aka ?)
-Display the help.
-
-@item pop-directory (aka -d)
-Pop the current directory.
-
-@item pop-package (aka -p)
-Pop the top of the package stack.
-
-@item push-directory (aka +d, pushd)
-Push a new directory onto the directory stack.
-
-@item push-package (aka +p)
-Push a package onto the package stack.
-
-@item pwd
-Show the current directory.
-
-@item quit
-Quit the current Lisp.
-
-@item resend-form
-Resend the last form.
-
-@item restart-inferior-lisp
-Restart *inferior-lisp* and reconnect @SLY{}.
-
-@item sayoonara
-Quit all Lisps and close all @SLY{} buffers.
-
 @end table
-
-@node sly-mrepl
-@section Multiple REPLs
-
-The @code{sly-mrepl} package adds support for multiple listener
-buffers.  The command @kbd{M-x sly-open-listener} creates a new
-buffer.  In a multi-threaded Lisp, each listener is associated with a
-separate thread.  In a single-threaded Lisp it's also possible to
-create multiple listener buffers but the commands are executed
-sequentially by the same process.
-
-@node inferior-sly-mode
-@section @code{inferior-sly-mode}
-
-The @code{inferior-sly-mode} is a minor mode is intended to use with
-the @code{*inferior-lisp*} lisp buffer.  It provides some of the
-@SLY{} commands, like symbol completion and documentation lookup. It
-also tracks the current directory of the Lisp process.  To install it,
-add something like this to user @file{.emacs}:
-
-@example
-(add-to-list 'sly-contribs 'inferior-sly)
-@end example
-
-@table @kbd
-@cmditem{inferior-sly-mode}
-Turns inferior-sly-mode on or off.
-@end table
-
-@vindex inferior-sly-mode-map
-The variable @code{inferior-sly-mode-map} contains the extra
-keybindings.
 
 @node Compound Completion
 @section Compound Completion
@@ -2580,68 +2411,6 @@ pressing SPC.
 If @code{sly-autodoc-use-multiline-p} is set to non-nil,
 allow long autodoc messages to resize echo area display.
 
-@node ASDF
-@section ASDF
-
-@acronym{ASDF} is a popular ``system construction tool''.  The package
-@code{sly-asdf} provides some commands to load and compile such
-systems from Emacs.  @acronym{ASDF} itself is not included with
-@SLY{}; you have to load that yourself into your Lisp.  In
-particular, you must load @acronym{ASDF} before you connect, otherwise
-you will get errors about missing symbols.
-
-@table @kbd
-@cmditem{sly-load-system NAME}
-Compile and load an ASDF system.  The default system name is taken
-from the first file matching *.asd in the current directory.
-@cmditem{sly-reload-system NAME}
-Recompile and load an ASDF system without recompiling its dependencies.
-@cmditem{sly-open-system NAME &optional LOAD}
-Open all files in a system, optionally load it if LOAD is non-nil.
-@cmditem{sly-browse-system NAME}
-Browse files in a system using Dired.
-@cmditem{sly-delete-system-fasls NAME}
-Delete FASLs produced by compiling a system.
-@cmditem{sly-rgrep-system NAME REGEXP}
-Run @code{rgrep} on the base directory of an ASDF system.
-@cmditem{sly-isearch-system NAME}
-Run @code{isearch-forward} on the files of an ASDF system.
-@cmditem{sly-query-replace-system NAME FROM TO &OPTIONAL DELIMITED}
-Run @code{query-replace} on an ASDF system.
-@end table
-The package also installs some new REPL shortcuts (@pxref{Shortcuts}):
-
-@table @kbd
-@item load-system
-Compile (as needed) and load an ASDF system.
-@item reload-system
-Recompile and load an ASDF system.
-@item compile-system
-Compile (but not load) an ASDF system.
-@item force-compile-system
-Recompile (but not load) an ASDF system.
-@item force-load-system
-Recompile and load an ASDF system.
-@item open-system
-Open all files in a system.
-@item browse-system
-Browse files in a system using Dired.
-@item delete-system-fasls
-Delete FASLs produced by compiling a system.
-@end table
-
-@node Banner
-@section Banner
-The package @code{sly-banner} installs a window header line (
-@inforef{Header Lines, , elisp}.) in the REPL buffer.  It also runs an
-animation at startup.
-
-@vindex sly-startup-animation
-@vindex sly-header-line-p
-By setting the variable @code{sly-startup-animation} to nil you can
-disable the animation respectively with the
-variable @code{sly-header-line-p} the header line.
-
 @node Editing Commands
 @section Editing Commands
 
@@ -2693,195 +2462,6 @@ the method object and a ``remove method'' action that you can invoke
 interactively.  The key-bindings are the same as for the basic
 inspector (@pxref{Inspector}).
 
-@node Presentations
-@section Presentations
-
-@cindex Presentations
-
-A ``presentation''@footnote{Presentations are a feature originating
-from the Lisp machines.  It was possible to define @code{present}
-methods specialized to various devices, e.g. to draw an object to
-bitmapped screen or to write some text to a character stream.} in
-@SLY{} is a region of text associated with a Lisp object.
-Right-clicking on the text brings up a menu with operations for the
-particular object.  Some operations, like inspecting, are available
-for all objects, but the object may also have specialized operations.
-For instance, pathnames have a dired operation.
-
-More importantly, it is possible to cut and paste presentations (i.e.,
-Lisp objects, not just their printed presentation), using all standard
-Emacs commands.  This way it is possible to cut and paste the results of
-previous computations in the REPL.  This is of particular importance for
-unreadable objects.
-
-The package @code{sly-presentations} installs presentations in the
-REPL, i.e. the results of evaluation commands become presentations.  In
-this way, presentations generalize the use of the standard Common Lisp
-REPL history variables @code{*}, @code{**}, @code{***}.  Example:
-
-@example
-CL-USER> (find-class 'standard-class)
-@emph{#<STANDARD-CLASS STANDARD-CLASS>}
-CL-USER>
-@end example
-
-Presentations appear in red color in the buffer.
-(In this manual, we indicate the presentations @emph{like this}.)
-Using standard Emacs
-commands, the presentation can be copied to a new input in the REPL:
-
-@example
-CL-USER> (eql '@emph{#<STANDARD-CLASS STANDARD-CLASS>}
-              '@emph{#<STANDARD-CLASS STANDARD-CLASS>})
-@emph{T}
-@end example
-
-Note that standard evaluation and quoting rules still apply.  So if a
-presentation is a list, it needs to be quoted in an evaluated context to
-avoid treating it as a function call:
-
-@example
-CL-USER> (list (find-class 'standard-class) 2 3 4)
-@emph{(#<STANDARD-CLASS STANDARD-CLASS> 2 3 4)}
-CL-USER> @emph{(#<STANDARD-CLASS STANDARD-CLASS> 2 3 4)}
-; Funcall of #<STANDARD-CLASS STANDARD-CLASS> which is a non-function.
-; Evaluation aborted.
-CL-USER> '@emph{(#<STANDARD-CLASS STANDARD-CLASS> 2 3 4)}
-(#<STANDARD-CLASS STANDARD-CLASS> 2 3 4)
-@end example
-
-When you copy an incomplete presentation or edit the text within a
-presentation, the presentation changes to plain text, losing the
-association with a Lisp object.  In the buffer, this is indicated by
-changing the color of the text from red to black.  This can be undone.
-
-Presentations are also available in the inspector (all inspectable parts
-are presentations) and the debugger (all local variables are
-presentations).  This makes it possible to evaluate expressions in the
-REPL using objects that appear in local variables of some active
-debugger frame; this can be more convenient than using @code{M-x
-sldb-eval-in-frame}.  @strong{Warning:} The presentations that stem from
-the inspector and debugger are only valid as long as the corresponding
-buffers are open.  Using them later can cause errors or confusing
-behavior.
-
-For some Lisp implementations you can also install the package
-@code{sly-presentation-streams}, which enables presentations on the
-Lisp @code{*standard-output*} stream and similar streams.  This means
-that not only results
-of computations, but also some objects that are printed to the standard
-output (as a side-effect of the computation) are associated with
-presentations.  Currently, all unreadable objects
-and pathnames get printed as presentations.
-
-@example
-CL-USER> (describe (find-class 'standard-object))
-@emph{#<STANDARD-CLASS STANDARD-OBJECT>} is an instance of
-    @emph{#<STANDARD-CLASS STANDARD-CLASS>}:
- The following slots have :INSTANCE allocation:
-  PLIST                   NIL
-  FLAGS                   1
-  DIRECT-METHODS          ((@emph{#<STANDARD-METHOD
-                              SWANK::ALL-SLOTS-FOR-INSPECTOR
-                              (STANDARD-OBJECT T)>}
-  ...
-@end example
-
-Again, this makes it possible to inspect and copy-paste these objects.
-
-In addition to the standard Emacs commands, there are several keyboard
-commands, a menu-bar menu, and a context menu to operate on
-presentations.  We describe the keyboard commands below; they are also
-shown in the menu-bar menu.
-
-@table @kbd
-@kbditem{C-c C-v SPC, sly-mark-presentation}
-If point is within a presentation, move point to the beginning of the
-presentation and mark to the end of the presentation.
-This makes it possible to copy the presentation.
-
-@kbditem{C-c C-v w, sly-copy-presentation-at-point-to-kill-ring}
-If point is within a presentation, copy the surrounding presentation
-to the kill ring.
-
-@kbditem{C-c C-v r, sly-copy-presentation-at-point-to-repl}
-If point is within a presentation, copy the surrounding presentation
-to the REPL.
-
-@kbditem{C-c C-v d, sly-describe-presentation-at-point}
-If point is within a presentation, describe the associated object.
-
-@kbditem{C-c C-v i, sly-inspect-presentation-at-point}
-If point is within a presentation, inspect the associated object with
-the @SLY{} inspector.
-
-@kbditem{C-c C-v n, sly-next-presentation}
-Move point to the next presentation in the buffer.
-
-@kbditem{C-c C-v p, sly-previous-presentation}
-Move point to the previous presentation in the buffer.
-
-@end table
-Similar operations are also possible from the context menu of every
-presentation.  Using @kbd{mouse-3} on a presentation, the context menu
-opens and offers various commands.  For some objects, specialized
-commands are also offered.  Users can define additional specialized
-commands by defining a method for
-@code{swank::menu-choices-for-presentation}.
-
-
-@strong{Warning:} On Lisp implementations without weak hash tables,
-all objects associated with presentations are protected from garbage
-collection.  If your Lisp image grows too large because of that,
-use @kbd{C-c C-v M-o} (@code{sly-clear-presentations}) to remove these
-associations.  You can also use the command @kbd{C-c M-o}
-(@code{sly-repl-clear-buffer}), which both clears the REPL buffer and
-removes all associations of objects with presentations.
-
-@strong{Warning:} Presentations can confuse new users.
-
-@example
-CL-USER> (cons 1 2)
-@emph{(1 . 2)}
-CL-USER> (eq '@emph{(1 . 2)} '@emph{(1 . 2)})
-@emph{T}
-@end example
-
-One could have expected @code{NIL} here, because it looks like two
-fresh cons cells are compared regarding object identity.
-However, in the example the presentation @code{@emph{(1 . 2)}} was copied twice
-to the REPL.  Thus @code{EQ} is really invoked with the same object,
-namely the cons cell that was returned by the first form entered in the
-REPL.
-
-@node Typeout frames
-@section Typeout frames
-
-@cindex Typeout Frame
-
-A ``typeout frame'' is a special Emacs frame which is used instead of
-the echo area (minibuffer) to display messages from @SLY{} commands.
-This is an optional feature. The advantage of a typeout frame over the
-echo area is that it can hold more text, it can be scrolled, and its
-contents don't disappear when you press a key. All potentially long
-messages are sent to the typeout frame, such as argument lists, macro
-expansions, and so on.
-
-@table @kbd
-@cmditem{sly-ensure-typeout-frame}
-Ensure that a typeout frame exists, creating one if necessary.
-@end table
-
-If the typeout frame is closed then the echo area will be used again
-as usual.
-
-To have a typeout frame created automatically at startup you should
-load the @code{sly-typeout-frame} package. (@pxref{Loading Contribs}.)
-
-The variable @code{sly-typeout-frame-properties} specifies the
-height and possibly other properties of the frame.  Its value is
-passed to @code{make-frame}. (@inforef{Creating Frames, ,elisp}.)
-
 @node TRAMP
 @section TRAMP
 
@@ -2890,46 +2470,6 @@ passed to @code{make-frame}. (@inforef{Creating Frames, ,elisp}.)
 The package @code{sly-tramp} provides some functions to set up
 filename translations for TRAMP. (@pxref{Setting up pathname
 translations})
-
-@node Documentation Links
-@section Documentation Links
-
-For certain error messages, SBCL includes references to the ANSI
-Standard or the SBCL User Manual.  The @code{sly-references} package
-turns those references into clickable links.  This makes finding the
-referenced section of the HyperSpec much easier.
-
-@node Xref and Class Browser
-@section Xref and Class Browser
-
-A rudimentary class browser is provided by
-the @code{sly-xref-browser} package.
-
-@table @kbd
-@cmditem{sly-browse-classes}
-This command asks for a class name and displays inheritance tree of
-for the class.
-
-@cmditem{sly-browse-xrefs}
-This command prompts for a symbol and the kind of cross reference,
-e.g. callers.  The cross reference tree rooted at the symbol is then
-then displayed.
-
-@end table
-
-
-@node Highlight Edits
-@section Highlight Edits
-
-@code{sly-highlight-edits} is a minor mode to highlight those
-regions in a Lisp source file which are modified.  This is useful to
-quickly find those functions which need to be recompiled (with
-@kbd{C-c C-c})
-
-@table @kbd
-@cmditem{sly-highlight-edits-mode}
-Turns @code{sly-highlight-edits-mode} on or off.
-@end table
 
 @node Scratch Buffer
 @section Scratch Buffer
@@ -3064,39 +2604,6 @@ values so you can concentrate on the calling logic. Additionally,
 @code{sly-trace-dialog-autofollow-mode} will automatically
 display additional detail about an entry when the cursor moves over
 it.
-
-@node sly-sprof
-@section @code{sly-sprof}
-
-@code{sly-sprof} is a package for integrating SBCL's statistical profiler, sb-sprof.
-
-The variable @code{sly-sprof-exclude-swank} controls whether to
-display swank functions. The default value is NIL.
-
-@table @kbd
-
-@cmditem{sly-sprof-start}
-Start profiling.
-
-@cmditem{sly-sprof-stop}
-Stop profiling.
-@cmditem{sly-sprof-report}
-Report results of the profiling.
-@end table
-
-The following keys are defined in sly-sprof-browser mode:
-@table @kbd
-
-@kbditem{RET, sly-sprof-browser-toggle}
-Expand / collapse function details (callers, calls to)
-@kbditem{v, sly-sprof-browser-view-source}
-View function sources.
-@kbditem{d, sly-sprof-browser-disassemble-function}
-Disassemble function.
-@kbditem{s, sly-sprof-toggle-swank-exclusion}
-Toggle exclusion of swank functions from the report.
-
-@end table
 
 @node sly-fancy
 @section Meta package: @code{sly-fancy}
@@ -3242,7 +2749,6 @@ keybinding (if there is one) refer to the function description.
 
 @c @fcnindex{inferior-sly-closing-return}
 @c @fcnindex{inferior-sly-indent-line}
-@c @fcnindex{inferior-sly-mode}
 @c @fcnindex{inferior-sly-return}
 @fcnindex{sly-abort-connection}
 @fcnindex{sly-apropos}
@@ -3275,7 +2781,6 @@ keybinding (if there is one) refer to the function description.
 @fcnindex{sly-connect}
 @fcnindex{sly-connection-list-make-default}
 @c @fcnindex{sly-connection-list-mode}
-@c @fcnindex{sly-copy-presentation-at-point}
 @fcnindex{sly-describe-function}
 @fcnindex{sly-describe-symbol}
 @fcnindex{sly-disassemble-symbol}
@@ -3341,7 +2846,6 @@ keybinding (if there is one) refer to the function description.
 @c @fcnindex{sly-ping}
 @fcnindex{sly-pop-find-definition-stack}
 @fcnindex{sly-pprint-eval-last-expression}
-@c @fcnindex{sly-presentation-menu}
 @c @fcnindex{sly-pretty-lambdas}
 @fcnindex{sly-previous-note}
 @fcnindex{sly-quit}
