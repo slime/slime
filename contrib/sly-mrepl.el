@@ -66,6 +66,8 @@ emptied. See also `sly-mrepl-hook'")
     (define-key map (kbd "TAB")     'sly-indent-and-complete-symbol)
     (define-key map (kbd "C-c C-b") 'sly-interrupt)
     (define-key map (kbd "C-c C-c") 'sly-interrupt)
+    (define-key map (kbd "M-p")     'comint-previous-input)
+    (define-key map (kbd "M-n")     'comint-next-input)
     map))
 
 (define-derived-mode sly-mrepl-mode comint-mode "mrepl"
@@ -188,9 +190,14 @@ emptied. See also `sly-mrepl-hook'")
         (start (marker-position sly-mrepl--output-mark)))
     (save-excursion
       (goto-char sly-mrepl--output-mark)
-      (when (and (sly-mrepl--busy-p)
-                 (not (zerop (current-column))))
-        (insert-before-markers "\n"))
+      (cond ((and (zerop (current-column))
+                  (get-char-property start 'sly-mrepl--prompt))
+             ;; insert after marker then go back
+             (insert "\n")
+             (goto-char sly-mrepl--output-mark))
+            ((and (sly-mrepl--busy-p)
+                  (not (zerop (current-column))))
+             (insert-before-markers "\n")))
       (insert-before-markers string)
       (add-text-properties start sly-mrepl--output-mark
                            '(read-only t front-sticky (read-only))))))
