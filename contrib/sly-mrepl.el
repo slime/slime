@@ -13,18 +13,25 @@
    ;; the `sly-inspector-part', `sldb-local-variable' and
    ;; `sly-trace-dialog-part' to include it.
    ;; 
-   (sly-button-define-part-action sly-mrepl-copy-to-repl "Copy to REPL" (kbd "M-RET"))
+   (sly-button-define-part-action sly-mrepl-copy-part-to-repl "Copy to REPL" (kbd "M-RET"))
+   (sly-button-define-part-action sly-mrepl-copy-call-to-repl "Copy call to REPL" (kbd "M-S-RET"))
    (button-type-put 'sly-inspector-part
-                    'sly-mrepl-copy-to-repl
-                    'sly-inspector-copy-down-to-repl)
+                    'sly-mrepl-copy-part-to-repl
+                    'sly-inspector-copy-part-to-repl)
    (button-type-put 'sldb-local-variable
-                    'sly-mrepl-copy-to-repl
-                    'sldb-copy-down-to-repl)
+                    'sly-mrepl-copy-part-to-repl
+                    'sldb-copy-part-to-repl)
+   (button-type-put 'sldb-frame
+                    'sly-mrepl-copy-call-to-repl
+                    'sldb-copy-call-to-repl)
    (eval-after-load 'sly-trace-dialog
      `(progn
         (button-type-put 'sly-trace-dialog-part
-                         'sly-mrepl-copy-to-repl
-                         'sly-trace-dialog-copy-down-to-repl)))
+                         'sly-mrepl-copy-part-to-repl
+                         'sly-trace-dialog-copy-part-to-repl)
+        (button-type-put 'sly-trace-dialog-spec
+                         'sly-mrepl-copy-call-to-repl
+                         'sly-trace-dialog-copy-call-to-repl)))
    ;; Make C-c ~ bring popup REPL
    ;;
    (define-key sly-editing-mode-map (kbd "C-c ~") 'sly-mrepl-sync-package-and-default-directory)
@@ -298,7 +305,7 @@ emptied. See also `sly-mrepl-hook'")
   'sly-button-inspect #'(lambda (object-idx value-idx)
                           (sly-mrepl--send `(:inspect-object ,object-idx
                                                              ,value-idx)))
-  'sly-mrepl-copy-to-repl 'sly-mrepl--copy-to-repl)
+  'sly-mrepl-copy-part-to-repl 'sly-mrepl--copy-to-repl)
 
 (defun sly-mrepl--copy-to-repl (&optional object-idx value-idx)
   (sly-mrepl--send `(:copy-to-repl ,object-idx ,value-idx)))
@@ -453,7 +460,7 @@ emptied. See also `sly-mrepl-hook'")
     (goto-char (point-max))))
 
 
-;;; copy-down-to-repl and inspection behaviour
+;;; copy-part-to-repl and inspection behaviour
 ;;;
 (defun sly-mrepl--eval-for-repl (note slyfun &rest args)
   (sly-eval-async
@@ -462,22 +469,44 @@ emptied. See also `sly-mrepl-hook'")
        (with-current-buffer (sly-mrepl--find-create (sly-connection))
          (sly-mrepl--copy-to-repl)))))
 
-(defun sly-inspector-copy-down-to-repl (number)
+(defun sly-inspector-copy-part-to-repl (number)
   "Evaluate the inspector slot at point via the REPL (to set `*')."
   (sly-mrepl--eval-for-repl (format "Returning inspector slot %s" number)
                             'swank:inspector-nth-part-or-lose number))
 
-(defun sldb-copy-down-to-repl (frame-id var-id)
+(defun sldb-copy-part-to-repl (frame-id var-id)
   "Evaluate the frame var at point via the REPL (to set `*')."
   (sly-mrepl--eval-for-repl
    (format "Returning var %s of frame %s" var-id frame-id)
    'swank-backend:frame-var-value frame-id var-id))
 
-(defun sly-trace-dialog-copy-down-to-repl (id part-id type)
+(defun sly-trace-dialog-copy-part-to-repl (id part-id type)
   "Eval the Trace Dialog entry under point in the REPL (to set *)"
   (sly-mrepl--eval-for-repl
    (format "Returning part %s (%s) of trace entry %s" part-id type id)
    'swank-trace-dialog::find-trace-part id part-id type))
+
+
+;;; copy-call-to-repl
+;;;
+(defun sly-mrepl--insert-call (call)
+  (with-current-buffer (sly-mrepl--find-create (sly-connection))
+    (when (< (point) (sly-mrepl--mark))
+      (goto-char (point-max)))
+    (insert call)))
+
+(defun sldb-copy-call-to-repl (frame-id)
+  (sly-eval-async `(swank-backend:frame-call ,frame-id)
+    #'sly-mrepl--insert-call))
+
+(defun sly-trace-dialog-copy-call-to-repl (trace-id spec nargs)
+  (let ((call (format "%s" `(,spec ,@(cl-loop for i from 0 below nargs
+                                              collect `(nth ,i /))))))
+    ;; FIXME: should be a hook when `:copy-to-repl' response arrives.
+    (sly-mrepl--insert-call call)
+    (sly-mrepl--eval-for-repl
+     (format "Returning args of trace %s" trace-id)
+     'swank-trace-dialog::trace-arguments trace-id)))
 
 
 ;;; Dedicated output stream

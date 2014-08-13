@@ -396,7 +396,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 
 (define-button-type 'sly-trace-dialog-spec :supertype 'sly-part
   'skip t
-  'sly-button-inspect #'(lambda (trace-id)
+  'sly-button-inspect #'(lambda (trace-id _spec _nargs)
                           (sly-eval-async `(swank-trace-dialog:inspect-trace ,trace-id)
                             #'sly-open-inspector))
   'point-entered #'(lambda (before after)
@@ -413,13 +413,16 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                                  (save-selected-window
                                    (sly-open-inspector results)))))))))
 
-(defun sly-trace-dialog-spec-button (label trace-id &rest props)
-  (apply #'make-text-button label nil
-         :type 'sly-trace-dialog-spec
-         'trace-id trace-id
-         'part-args (list trace-id)
-         'part-label (format "Trace entry: %s" trace-id)
-         props)
+(defun sly-trace-dialog-spec-button (label trace &rest props)
+  (let ((id (sly-trace-dialog--trace-id trace)))
+    (apply #'make-text-button label nil
+           :type 'sly-trace-dialog-spec
+           'trace-id id
+           'part-args (list id
+                            (sly-trace-dialog--trace-spec trace)
+                            (length (sly-trace-dialog--trace-args trace)))
+           'part-label (format "Trace entry: %s" id)
+           props))
   label)
 
 (defun sly-trace-dialog--draw-tree-lines (start offset direction)
@@ -466,10 +469,10 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                           (sly-trace-dialog--trace-depth trace)
                           "   "))
          (id-string (sly-trace-dialog-spec-button
-                     (format "%4s" id) id))
+                     (format "%4s" id) trace))
          (spec-button (sly-trace-dialog-spec-button
                        (format "%s" (sly-trace-dialog--trace-spec trace))
-                       id 'face nil))
+                       trace 'face nil))
          (summary (cl-loop for (type objects marker) in
                            `((:arg    ,(sly-trace-dialog--trace-args trace)
                                       " > ")

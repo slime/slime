@@ -5329,9 +5329,11 @@ If MORE is non-nil, more frames are on the Lisp stack."
     (define-key map "b"    'sldb-break-on-return)
 
     (define-key map "\C-c\C-c" 'sldb-recompile-frame-source)
+
+    (set-keymap-parent map sly-part-button-keymap)
     map))
 
-(define-button-type 'sldb-frame :supertype 'sly-button
+(define-button-type 'sldb-frame :supertype 'sly-part
   'keymap sldb-frame-map)
 
 (defun sldb-frame-button (label frame face &rest props)
@@ -5340,6 +5342,8 @@ If MORE is non-nil, more frames are on the Lisp stack."
          'field (car frame) 
          'frame-number (car frame) 
          'frame-string (cadr frame)
+         'part-args (list (car frame))
+         'part-label (cadr frame)
          'keymap sldb-frame-map
          props)
   label)

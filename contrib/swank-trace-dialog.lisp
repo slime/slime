@@ -73,6 +73,7 @@ program.")
 
 (defun completed-p (trace) (not (eq (retlist-of trace) 'still-inside)))
 
+;; FIXME: should probably be `find-trace-or-lose'
 (defun find-trace (id)
   (when (<= 0 id (1- (length *traces*)))
     (aref *traces* id)))
@@ -85,6 +86,9 @@ program.")
                    (:retval (swank::ensure-list (retlist-of trace)))))))
     (values (nth part-id l)
             (< part-id (length l)))))
+
+(defun trace-arguments (trace-id)
+  (values-list (args-of (find-trace trace-id))))
 
 (defun useful-backtrace ()
   (swank-backend:call-with-debugging-environment
