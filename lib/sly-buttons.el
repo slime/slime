@@ -22,7 +22,7 @@
      `(keymap
        (heading menu-item ,(button-get button 'part-label))
        (separator menu-item "----")
-       ,@(cdr sly-button-popup-part-menu-keymap)))))
+       ,@(cdr (button-get button 'part-menu-keymap))))))
 
 (defun sly-button-at (&optional pos type no-error)
   (let ((button (button-at (or pos
@@ -88,6 +88,7 @@
   'action 'sly-button-inspect
   'mouse-action 'sly-button-inspect
   'keymap  sly-part-button-keymap
+  'part-menu-keymap sly-button-popup-part-menu-keymap
   'help-echo "RET, mouse-2: Inspect object; mouse-3: Context menu"
   ;; these are ajust here for clarity
   ;; 

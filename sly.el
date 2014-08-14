@@ -5333,8 +5333,23 @@ If MORE is non-nil, more frames are on the Lisp stack."
     (set-keymap-parent map sly-part-button-keymap)
     map))
 
+(defvar sldb-frame-menu-map 
+  (let ((map (make-sparse-keymap)))
+    (define-key map [sldb-disassemble] '(menu-item "Dissassemble Frame" sldb-disassemble))
+    (define-key map [sldb-eval-in-frame] '(menu-item "Prompt For A Form To Eval In Frame" sldb-eval-in-frame))
+    (define-key map [sldb-pprint-eval-in-frame] '(menu-item "Eval In Frame And Pretty Print Result" sldb-pprint-eval-in-frame))
+    (define-key map [sldb-inspect-in-frame] '(menu-item "Inspect In Frame's Context" sldb-inspect-in-frame))
+    (define-key map [sldb-restart-frame] '(menu-item "Restart Frame" sldb-restart-frame))
+    (define-key map [sldb-return-from-frame] '(menu-item "Return From Frame" sldb-return-from-frame))
+    (define-key map [sldb-toggle-details] '(menu-item "Toggle Details" sldb-toggle-details))
+    (define-key map [sldb-show-frame-source] '(menu-item "Show Frame Source" sldb-show-frame-source))
+    (define-key map [sldb-goto-source] '(menu-item "Go To Frame Source" sldb-goto-source))
+    (set-keymap-parent map sly-button-popup-part-menu-keymap)
+    map))
+
 (define-button-type 'sldb-frame :supertype 'sly-part
-  'keymap sldb-frame-map)
+  'keymap sldb-frame-map
+  'part-menu-keymap sldb-frame-menu-map)
 
 (defun sldb-frame-button (label frame face &rest props)
   (apply #'make-text-button label nil :type 'sldb-frame
@@ -5344,7 +5359,6 @@ If MORE is non-nil, more frames are on the Lisp stack."
          'frame-string (cadr frame)
          'part-args (list (car frame))
          'part-label (cadr frame)
-         'keymap sldb-frame-map
          props)
   label)
 
@@ -5353,8 +5367,9 @@ If MORE is non-nil, more frames are on the Lisp stack."
     (button-get button 'frame-number)))
 
 (defun sldb-frame-button-near-point ()
-  (or (get-text-property (point) 'nearby-frame-button)
-      (sly-button-at (point) 'sldb-frame)))
+  (or (sly-button-at nil 'sldb-frame 'no-error)
+      (get-text-property (point) 'nearby-frame-button)
+      (error "No frame button here")))
 
 (defun sldb-insert-frame (frame-spec)
   "Insert a frame for FRAME-SPEC."
