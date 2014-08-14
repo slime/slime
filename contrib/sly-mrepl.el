@@ -97,7 +97,7 @@ emptied. See also `sly-mrepl-hook'")
                 (sly-mrepl--expect-sexp-mode t)
                 (sly-mrepl--result-counter -1)
                 (sly-mrepl--output-mark ,(point-marker))
-                (sly-mrepl--last-prompt-overlay ,(make-overlay 0 0))
+                (sly-mrepl--last-prompt-overlay ,(make-overlay 0 0 nil t))
                 (sly-find-buffer-package-function sly-mrepl-guess-package)
                 (sly-autodoc-inhibit-autodoc sly-mrepl-inside-string-or-comment-p))
            do (set (make-local-variable var) value))
@@ -207,15 +207,16 @@ emptied. See also `sly-mrepl-hook'")
            (save-excursion
              (goto-char sly-mrepl--output-mark)
              (cond ((and (or (sly-mrepl--busy-p)
-                            (get-char-property (1- start)
-                                               'sly-mrepl--prompt))
-                        (not (zerop (current-column))))
-                    (insert-before-markers "\n"))
-                   ((and (zerop (current-column))
-                         (sly-button-at start 'sly-mrepl-part 'no-error))
-                    (save-excursion (insert "\n"))))
+                             (get-char-property (1- start)
+                                                'sly-mrepl--prompt))
+                         (not (zerop (current-column))))
+                    (insert-before-markers "\n")))
              (insert-before-markers
               (concat sly-mrepl--pending-output string))
+             (cond ((and (not (zerop (current-column)))
+                         (or (sly-button-at (point) 'sly-mrepl-part 'no-error)
+                             (get-char-property (point) 'sly-mrepl--prompt)))
+                    (save-excursion (insert "\n"))))
              (setq sly-mrepl--pending-output nil)
              (add-text-properties start sly-mrepl--output-mark
                                   '(read-only t front-sticky (read-only))))))
@@ -223,26 +224,6 @@ emptied. See also `sly-mrepl-hook'")
          (setq sly-mrepl--pending-output
                (concat sly-mrepl--pending-output string))
          (message "[sly] some output saved for later insertion"))))
-
-(defvar sly-mrepl--stacked-errors nil)
-(make-variable-buffer-local 'sly-mrepl--stacked-errors)
-
-(sly-define-channel-method listener :freeze-prompt (key)
-  (with-current-buffer (sly-channel-get self 'buffer)
-    (push key sly-mrepl--stacked-errors)
-    (let ((inhibit-read-only t))
-      (add-text-properties (overlay-start sly-mrepl--last-prompt-overlay)
-                           (overlay-end sly-mrepl--last-prompt-overlay)
-                           `(face ,(sly-mrepl--prompt-face))))))
-
-(sly-define-channel-method listener :unfreeze-prompt (key)
-  (with-current-buffer (sly-channel-get self 'buffer)
-    (unwind-protect
-        (progn
-          (cl-assert sly-mrepl--stacked-errors)
-          (unless (string= key (car sly-mrepl--stacked-errors))
-            (warn "Unexpected :unfreeze-prompt message"))))
-    (pop sly-mrepl--stacked-errors)))
 
 (defun sly-mrepl--send-input-sexp ()
   (goto-char (point-max))
@@ -266,7 +247,9 @@ emptied. See also `sly-mrepl-hook'")
             (zerop (current-column)))
     (sly-mrepl--insert "\n")))
 
-(sly-define-channel-method listener :prompt (package prompt)
+(sly-define-channel-method listener :prompt (package prompt
+                                                     error-level
+                                                     &optional condition)
   (with-current-buffer (sly-channel-get self 'buffer)
     (when (and sly-mrepl--dedicated-stream
                (process-live-p sly-mrepl--dedicated-stream))
@@ -278,10 +261,16 @@ emptied. See also `sly-mrepl-hook'")
     (sly-mrepl--ensure-newline)
     (sly-mrepl--catch-up)
     (let ((beg (point)))
-      (sly-mrepl--insert (propertize (format "%s> " prompt)
-                                     'face (sly-mrepl--prompt-face)
-                                     'sly-mrepl--prompt package))
+      (sly-mrepl--insert (propertize
+                          (concat (if (cl-plusp error-level)
+                                      (format "[%d] " error-level))
+                                  prompt
+                                  "> ")
+                          'face (sly-mrepl--prompt-face error-level)
+                          'sly-mrepl--prompt package))
       (move-overlay sly-mrepl--last-prompt-overlay beg (point)))
+    (when condition
+      (sly-mrepl--insert-output (format "; Evaluation errored on %s" condition)))
     (sly-mrepl--recenter)
     (buffer-enable-undo)))
 
@@ -295,8 +284,8 @@ emptied. See also `sly-mrepl-hook'")
   "Face for the MREPL prompt when errors are on the stack."
   :group 'sly-mode-faces)
 
-(defun sly-mrepl--prompt-face ()
-  (if sly-mrepl--stacked-errors
+(defun sly-mrepl--prompt-face (&optional error-level)
+  (if (and error-level (cl-plusp error-level))
       'sly-mrepl-errored-prompt-face
     'sly-mrepl-normal-prompt-face))
 

@@ -11,9 +11,10 @@
 (in-package :swank-mrepl)
 
 (defclass mrepl (channel listener)
-  ((remote-id     :initarg  :remote-id :accessor mrepl-remote-id)
-   (mode       :initform :eval   :accessor mrepl-mode)
-   (tag        :initform nil))
+  ((remote-id   :initarg  :remote-id :accessor mrepl-remote-id)
+   (mode        :initform :eval   :accessor mrepl-mode)
+   (tag         :initform nil)
+   (pending-errors :initform nil :accessor mrepl-pending-errors))
   (:documentation "A listener implemented in terms of a channel.")
   (:default-initargs
    :initial-env `((cl:*package* . ,(find-package :COMMON-LISP-USER))
@@ -69,9 +70,7 @@
       (setf mode :drop)
       (unwind-protect
            (process-requests t)
-        (setf mode old-mode)))
-    (with-listener r
-      (send-prompt r))))
+        (setf mode old-mode)))))
 
 (define-channel-method :process ((c mrepl) string)
   (ecase (mrepl-mode c)
@@ -139,55 +138,58 @@
   (setf (mrepl-mode r) :teardown)
   (call-next-method))
 
-
 (defun mrepl-eval (repl string)
-  (let ((errored nil)
-        (aborted t)
-        (results))
+  (let ((aborted t)
+        (results)
+        (errored))
     (unwind-protect
          (handler-bind
              ((error #'(lambda (err)
-                         (when errored
-                           (send-to-remote-channel (mrepl-remote-id repl)
-                                     `(:unfreeze-prompt ,errored)))
-                         (setq aborted err errored (gensym))
-                         (send-to-remote-channel (mrepl-remote-id repl)
-                                                 `(:freeze-prompt ,errored)))))
-           (setq results (mread-eval-1 repl string)
+                         ;; ERRORED means we've been through this
+                         ;; handler before in this level of MREPL-EVAL
+                         (unless errored 
+                           (push err (mrepl-pending-errors repl))
+                           (setq aborted err errored err)
+                           (send-prompt repl errored)))))
+           (setq results (mrepl-eval-1 repl string)
+                 ;; If MREPL-EVAL-1 errored once but somehow
+                 ;; recovered, set ABORTED to nil
                  aborted nil))
-      (flush-listener-streams repl)
-      (when errored
-        (send-to-remote-channel (mrepl-remote-id repl)
-                                     `(:unfreeze-prompt ,errored)))
-      (cond (aborted
-             (unless (eq (mrepl-mode repl) :teardown)
+      (unless (eq (mrepl-mode repl) :teardown)
+        (flush-listener-streams repl)
+        (if errored
+            (pop (mrepl-pending-errors repl)))
+        (cond (aborted
                (send-to-remote-channel (mrepl-remote-id repl)
                                        `(:evaluation-aborted
-                                         ,(prin1-to-string aborted)))))
-            (t
-             (with-listener repl
-               (when results
-                 (setq /// //  // /  / results
-                       *** **  ** *  * (car results)
-                       +++ ++  ++ + )
-                 (vector-push-extend results *history*))
-               (send-to-remote-channel
-                (mrepl-remote-id repl)
-                `(:write-values ,(mapcar #'swank::to-line
-                                         results)))
-               (send-prompt repl)))))))
+                                         ,(prin1-to-string aborted))))
+              (t
+               (with-listener repl
+                 (when results
+                   (setq /// //  // /  / results
+                         *** **  ** *  * (car results)
+                         +++ ++  ++ + )
+                   (vector-push-extend results *history*))
+                 (send-to-remote-channel
+                  (mrepl-remote-id repl)
+                  `(:write-values ,(mapcar #'swank::to-line
+                                           results))))))
+        (send-prompt repl)))))
 
-(defun send-prompt (repl)
+(defun send-prompt (repl &optional condition)
   (send-to-remote-channel (mrepl-remote-id repl)
                           `(:prompt ,(package-name *package*)
-                                    ,(package-prompt *package*))))
+                                    ,(package-prompt *package*)
+                                    ,(length (mrepl-pending-errors repl))
+                                    ,@(when condition
+                                        (list (prin1-to-string condition))))))
 
 (defun mrepl-read (repl string)
   (with-slots (tag) repl
     (assert tag)
     (throw tag string)))
 
-(defun mread-eval-1 (repl string)
+(defun mrepl-eval-1 (repl string)
   "In REPL's environment, READ and EVAL forms in STRING."
   (with-sly-interrupts
     ;; Don't change REPL's protected environment here, use
