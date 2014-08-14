@@ -13,8 +13,10 @@
    ;; the `sly-inspector-part', `sldb-local-variable' and
    ;; `sly-trace-dialog-part' to include it.
    ;; 
-   (sly-button-define-part-action sly-mrepl-copy-part-to-repl "Copy to REPL" (kbd "M-RET"))
-   (sly-button-define-part-action sly-mrepl-copy-call-to-repl "Copy call to REPL" (kbd "M-S-RET"))
+   (sly-button-define-part-action sly-mrepl-copy-part-to-repl
+                                  "Copy to REPL" (kbd "M-RET"))
+   (sly-button-define-part-action sly-mrepl-copy-call-to-repl
+                                  "Copy call to REPL" (kbd "M-S-<return>"))
    (button-type-put 'sly-inspector-part
                     'sly-mrepl-copy-part-to-repl
                     'sly-inspector-copy-part-to-repl)

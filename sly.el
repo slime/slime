@@ -5352,6 +5352,12 @@ If MORE is non-nil, more frames are on the Lisp stack."
   'action 'sldb-toggle-details
   'mouse-action 'sldb-toggle-details)
 
+(defun sldb--guess-frame-name (frame)
+  (ignore-errors
+    (first (car (read-from-string
+                 (replace-regexp-in-string "#" ""
+                                           (cadr frame)))))))
+
 (defun sldb-frame-button (label frame face &rest props)
   (apply #'make-text-button label nil :type 'sldb-frame
          'face face
@@ -5359,8 +5365,7 @@ If MORE is non-nil, more frames are on the Lisp stack."
          'frame-number (car frame) 
          'frame-string (cadr frame)
          'part-args (list (car frame)
-                          (ignore-errors
-                            (first (car (read-from-string (cadr frame))))))
+                          (sldb--guess-frame-name frame))
          'part-label (cadr frame)
          props)
   label)
