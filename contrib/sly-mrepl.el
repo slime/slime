@@ -416,12 +416,18 @@ emptied. See also `sly-mrepl-hook'")
   (let* ((pos (if (eq (field-at-pos pos) 'sly-mrepl-input)
                   pos
                 (1+ pos))) 
-         (new-input (field-string-no-properties pos))
-         (offset (- (point) (field-beginning pos))))
-    (goto-char (sly-mrepl--mark))
-    (delete-region (point) (point-max))
-    (insert (sly-trim-whitespace new-input))
-    (goto-char (+ (sly-mrepl--mark) offset))))
+         (new-input (and
+                     (eq (field-at-pos (1+ pos)) 'sly-mrepl-input)
+                     (field-string-no-properties pos)))
+         (offset (and new-input
+                      (- (point) (field-beginning pos)))))
+    (cond (new-input
+           (goto-char (sly-mrepl--mark))
+           (delete-region (point) (point-max))
+           (insert (sly-trim-whitespace new-input))
+           (goto-char (+ (sly-mrepl--mark) offset)))
+          (t
+           (error "[sly] No input at point")))))
 
 (defun sly-mrepl--input-sender (_proc string)
   (sly-mrepl--send-string (substring-no-properties string)))
