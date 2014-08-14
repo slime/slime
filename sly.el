@@ -5313,7 +5313,6 @@ If MORE is non-nil, more frames are on the Lisp stack."
 (defvar sldb-frame-map 
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "t")   'sldb-toggle-details)
-    (define-key map (kbd "RET") 'sldb-toggle-details)
     (define-key map (kbd "v")   'sldb-show-frame-source)
     (define-key map (kbd ".")   'sldb-goto-source)
     (define-key map (kbd "D")   'sldb-disassemble)
@@ -5349,7 +5348,9 @@ If MORE is non-nil, more frames are on the Lisp stack."
 
 (define-button-type 'sldb-frame :supertype 'sly-part
   'keymap sldb-frame-map
-  'part-menu-keymap sldb-frame-menu-map)
+  'part-menu-keymap sldb-frame-menu-map
+  'action 'sldb-toggle-details
+  'mouse-action 'sldb-toggle-details)
 
 (defun sldb-frame-button (label frame face &rest props)
   (apply #'make-text-button label nil :type 'sldb-frame
@@ -5357,7 +5358,9 @@ If MORE is non-nil, more frames are on the Lisp stack."
          'field (car frame) 
          'frame-number (car frame) 
          'frame-string (cadr frame)
-         'part-args (list (car frame))
+         'part-args (list (car frame)
+                          (ignore-errors
+                            (first (car (read-from-string (cadr frame))))))
          'part-label (cadr frame)
          props)
   label)

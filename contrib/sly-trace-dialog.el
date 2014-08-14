@@ -97,8 +97,8 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 (easy-menu-define sly-trace-dialog--shortcut-menu nil
   "Menu setting traces from anywhere in SLY."
   (let* ((in-dialog '(eq major-mode 'sly-trace-dialog-mode))
-         (dialog-live `(and ,in-dialog
-                            (memq sly-buffer-connection sly-net-processes)))
+         (_dialog-live `(and ,in-dialog
+                             (memq sly-buffer-connection sly-net-processes)))
          (connected '(sly-connected-p)))
     `("Trace"
       ["Toggle trace" sly-trace-dialog-toggle-trace ,connected]
@@ -396,7 +396,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 
 (define-button-type 'sly-trace-dialog-spec :supertype 'sly-part
   'skip t
-  'sly-button-inspect #'(lambda (trace-id _spec _nargs)
+  'sly-button-inspect #'(lambda (trace-id _spec)
                           (sly-eval-async `(swank-trace-dialog:inspect-trace ,trace-id)
                             #'sly-open-inspector))
   'point-entered #'(lambda (before after)
@@ -419,8 +419,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
            :type 'sly-trace-dialog-spec
            'trace-id id
            'part-args (list id
-                            (sly-trace-dialog--trace-spec trace)
-                            (length (sly-trace-dialog--trace-args trace)))
+                            (sly-trace-dialog--trace-spec trace))
            'part-label (format "Trace entry: %s" id)
            props))
   label)

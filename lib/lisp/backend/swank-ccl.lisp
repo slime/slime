@@ -391,11 +391,6 @@
        (funcall if-found p context)))
    frame-number))
 
-(defimplementation frame-call (frame-number)
-  (with-frame (p context) frame-number
-    (with-output-to-string (stream)
-      (print-frame (list :frame p context) stream))))
-
 (defimplementation frame-var-value (frame var)
   (with-frame (p context) frame
     (cdr (nth var (ccl:frame-named-variables p context)))))

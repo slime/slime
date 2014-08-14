@@ -206,6 +206,14 @@
 			:id 0
 			:value (debugger:frame-var-value frame i)))))
 
+(defimplementation frame-arguments (index)
+  (let ((frame (nth-frame index)))
+    ;; (values-list (debugger::.actuals frame))
+    (values-list
+     (loop for i from 0 below (debugger:frame-number-vars frame)
+           unless (eq :local (debugger:frame-var-type frame i))
+             collect (debugger:frame-var-value frame i)))))
+
 (defimplementation frame-var-value (frame var)
   (let ((frame (nth-frame frame)))
     (debugger:frame-var-value frame var)))

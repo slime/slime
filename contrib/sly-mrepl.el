@@ -237,8 +237,7 @@ emptied. See also `sly-mrepl-hook'")
   (with-current-buffer (sly-channel-get self 'buffer)
     (unwind-protect
         (progn
-          (cl-assert sly-mrepl--stacked-errors)
-          (cl-assert (string= key (car sly-mrepl--stacked-errors)))))
+          (cl-assert sly-mrepl--stacked-errors)))
     (pop sly-mrepl--stacked-errors)))
 
 (defun sly-mrepl--send-input-sexp ()
@@ -302,13 +301,33 @@ emptied. See also `sly-mrepl-hook'")
     (recenter -1)))
 
 (define-button-type 'sly-mrepl-part :supertype 'sly-part
-  'sly-button-inspect #'(lambda (object-idx value-idx)
-                          (sly-mrepl--send `(:inspect-object ,object-idx
+  'sly-button-inspect #'(lambda (entry-idx value-idx)
+                          (sly-mrepl--send `(:inspect-object ,entry-idx
                                                              ,value-idx)))
-  'sly-mrepl-copy-part-to-repl 'sly-mrepl--copy-to-repl)
+  'sly-mrepl-copy-part-to-repl 'sly-mrepl--copy-part-to-repl)
 
-(defun sly-mrepl--copy-to-repl (&optional object-idx value-idx)
-  (sly-mrepl--send `(:copy-to-repl ,object-idx ,value-idx)))
+(defun sly-mrepl--copy-part-to-repl (entry-idx value-idx)
+  (sly-mrepl--copy-objects-to-repl `(,entry-idx ,value-idx)
+                                   (format "Returning value %s of history entry %s"
+                                           value-idx entry-idx)))
+
+(defvar sly-mrepl--copy-to-repl-after nil)
+
+(make-variable-buffer-local 'sly-mrepl--copy-to-repl-after)
+
+(defun sly-mrepl--copy-objects-to-repl (method-args note &optional callback)
+  (cl-assert (not sly-mrepl--copy-to-repl-after))
+  (setq sly-mrepl--copy-to-repl-after
+        #'(lambda (objects)
+            (when note
+              (save-excursion
+                (goto-char sly-mrepl--output-mark)
+                (unless (zerop (current-column))
+                  (sly-mrepl--insert-output "\n")))
+              (sly-mrepl--insert-output (concat "; " note)))
+            (when callback
+              (funcall callback objects))))
+  (sly-mrepl--send `(:copy-to-repl ,@method-args)))
 
 (defun sly-mrepl--make-result-button (label object-idx value-idx)
   (make-text-button label nil
@@ -337,17 +356,20 @@ emptied. See also `sly-mrepl-hook'")
   (when (> (sly-mrepl--mark) sly-mrepl--output-mark)
     (set-marker sly-mrepl--output-mark (sly-mrepl--mark))))
 
-(sly-define-channel-method listener :copy-to-repl (objects note)
+(sly-define-channel-method listener :copy-to-repl (objects)
   (with-current-buffer (sly-channel-get self 'buffer)
     (goto-char (sly-mrepl--mark))
     (let ((saved-text (buffer-substring (point) (point-max))))
       (delete-region (point) (point-max))
       (sly-mrepl--catch-up)
-      (sly-mrepl--insert-output (concat "; " note))
       (sly-mrepl--insert-returned-values objects)
       (pop-to-buffer (current-buffer))
       (goto-char (sly-mrepl--mark))
-      (insert saved-text))))
+      (insert saved-text)
+      (unwind-protect
+          (when sly-mrepl--copy-to-repl-after
+            (funcall sly-mrepl--copy-to-repl-after objects))
+        (setq sly-mrepl--copy-to-repl-after nil)))))
 
 (sly-define-channel-method listener :evaluation-aborted (&optional condition)
   (with-current-buffer (sly-channel-get self 'buffer)
@@ -462,51 +484,55 @@ emptied. See also `sly-mrepl-hook'")
 
 ;;; copy-part-to-repl and inspection behaviour
 ;;;
-(defun sly-mrepl--eval-for-repl (note slyfun &rest args)
+(defun sly-mrepl--eval-for-repl (note slyfun-and-args &optional callback)
   (sly-eval-async
-   `(swank-mrepl:globally-save-object ,note ',slyfun ,@args)
+   `(swank-mrepl:globally-save-object ',(car slyfun-and-args)
+                                      ,@(cdr slyfun-and-args))
    #'(lambda (_ignored)
        (with-current-buffer (sly-mrepl--find-create (sly-connection))
-         (sly-mrepl--copy-to-repl)))))
+         (sly-mrepl--copy-objects-to-repl nil note callback)))))
 
 (defun sly-inspector-copy-part-to-repl (number)
   "Evaluate the inspector slot at point via the REPL (to set `*')."
   (sly-mrepl--eval-for-repl (format "Returning inspector slot %s" number)
-                            'swank:inspector-nth-part-or-lose number))
+                            `(swank:inspector-nth-part-or-lose ,number)))
 
 (defun sldb-copy-part-to-repl (frame-id var-id)
   "Evaluate the frame var at point via the REPL (to set `*')."
   (sly-mrepl--eval-for-repl
    (format "Returning var %s of frame %s" var-id frame-id)
-   'swank-backend:frame-var-value frame-id var-id))
+   `(swank-backend:frame-var-value ,frame-id ,var-id)))
 
 (defun sly-trace-dialog-copy-part-to-repl (id part-id type)
   "Eval the Trace Dialog entry under point in the REPL (to set *)"
   (sly-mrepl--eval-for-repl
    (format "Returning part %s (%s) of trace entry %s" part-id type id)
-   'swank-trace-dialog::find-trace-part id part-id type))
+   `(swank-trace-dialog::find-trace-part ,id ,part-id ,type)))
 
 
 ;;; copy-call-to-repl
 ;;;
-(defun sly-mrepl--insert-call (call)
-  (with-current-buffer (sly-mrepl--find-create (sly-connection))
-    (when (< (point) (sly-mrepl--mark))
-      (goto-char (point-max)))
-    (insert call)))
+(defun sly-mrepl--insert-call (spec objects)
+  (when (< (point) (sly-mrepl--mark))
+    (goto-char (point-max)))
+  (insert (format "%s"
+                  `(,spec ,@(cl-loop for _o in objects
+                                     for i from 0
+                                     collect `(nth ,i /))))))
 
-(defun sldb-copy-call-to-repl (frame-id)
-  (sly-eval-async `(swank-backend:frame-call ,frame-id)
-    #'sly-mrepl--insert-call))
+(defun sldb-copy-call-to-repl (frame-id spec)
+  (sly-mrepl--eval-for-repl
+   (format "The actual arguments passed to frame %s" frame-id)
+   `(swank-backend:frame-arguments ,frame-id)
+   #'(lambda (objects)
+       (sly-mrepl--insert-call spec objects))))
 
-(defun sly-trace-dialog-copy-call-to-repl (trace-id spec nargs)
-  (let ((call (format "%s" `(,spec ,@(cl-loop for i from 0 below nargs
-                                              collect `(nth ,i /))))))
-    ;; FIXME: should be a hook when `:copy-to-repl' response arrives.
-    (sly-mrepl--insert-call call)
-    (sly-mrepl--eval-for-repl
-     (format "Returning args of trace %s" trace-id)
-     'swank-trace-dialog::trace-arguments trace-id)))
+(defun sly-trace-dialog-copy-call-to-repl (trace-id spec)
+  (sly-mrepl--eval-for-repl
+   (format "The actual arguments passed to trace %s" trace-id)
+   `(swank-trace-dialog::trace-arguments ,trace-id)
+   #'(lambda (objects)
+       (sly-mrepl--insert-call spec objects))))
 
 
 ;;; Dedicated output stream
@@ -599,6 +625,9 @@ emptied. See also `sly-mrepl-hook'")
   (interactive)
   (let ((package (sly-current-package)))
     (with-current-buffer (sly-mrepl)
+      (setq sly-mrepl--copy-to-repl-after
+            #'(lambda (_objects)
+                (sly-mrepl--insert-output "\n; Synchronizing package and dir")))
       (sly-mrepl--send `(:sync-package-and-default-directory
                          ,package
                          ,default-directory)))))

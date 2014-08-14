@@ -999,8 +999,10 @@ Return nil if the backend can't figure it out."
   (declare (ignore frame-number))
   nil)
 
-(definterface frame-call (frame-number)
-  "Return a string representing a call to the entry point of a frame.")
+(definterface frame-arguments (frame-number)
+  "Return the arguments passed to frame at FRAME-NUMBER as a values list.
+Default values of optional arguments not passed in by the user may or
+may not be returned.")
 
 (definterface return-from-frame (frame-number form)
   "Unwind the stack to the frame FRAME-NUMBER and return the value(s)
