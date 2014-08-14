@@ -2540,7 +2540,7 @@ PREDICATE is executed in the buffer to test."
 
 (defun sly-recompile-location (location)
   (save-excursion
-    (sly--move-to-source-location location)
+    (sly-move-to-source-location location)
     (sly-compile-defun)))
 
 (defun sly-recompile-locations (locations cont)
@@ -2548,7 +2548,7 @@ PREDICATE is executed in the buffer to test."
       `(swank:compile-multiple-strings-for-emacs
         ',(cl-loop for loc in locations collect
                    (save-excursion
-                     (sly--move-to-source-location loc)
+                     (sly-move-to-source-location loc)
                      (cl-destructuring-bind (start end)
                          (sly-region-for-defun-at-point)
                        (list (buffer-substring-no-properties start end)
@@ -2699,7 +2699,7 @@ This is quite an expensive operation so use carefully."
   (save-excursion
     (sly-goto-location-buffer (sly-location.buffer location))
     (save-excursion
-      (sly--move-to-source-location location)
+      (sly-move-to-source-location location)
       (list (or (buffer-file-name) (buffer-name))
             (save-restriction
               (widen)
@@ -2858,7 +2858,7 @@ Return nil if there's no useful source location."
              (cl-values pos (1+ pos)))))))
 
 (defun sly-choose-overlay-for-sexp (location)
-  (sly--move-to-source-location location)
+  (sly-move-to-source-location location)
   (skip-chars-forward "'#`")
   (let ((start (point)))
     (ignore-errors (sly-forward-sexp))
@@ -3186,7 +3186,7 @@ Don't move if there are multiple or no calls in the current defun."
       (beginning-of-defun))
     (sly-forward-source-path edit-path)))
 
-(defun sly--move-to-source-location (location &optional noerror)
+(defun sly-move-to-source-location (location &optional noerror)
   "Move to the source location LOCATION.  Several kinds of locations
 are supported:
 
@@ -3232,7 +3232,7 @@ are supported:
 
 (defun sly--display-source-location (source-location)
   (save-excursion
-    (sly--move-to-source-location source-location)
+    (sly-move-to-source-location source-location)
     (sly--highlight-sexp)
     (let ((pos (point)))
       (with-selected-window (display-buffer (current-buffer) t)
@@ -3240,7 +3240,7 @@ are supported:
         (recenter (if (= (current-column) 0) 1))))))
 
 (defun sly--pop-to-source-location (source-location &optional method)
-  (sly--move-to-source-location source-location)
+  (sly-move-to-source-location source-location)
   (sly--highlight-sexp)
   (cl-ecase method
     ((nil)     (switch-to-buffer (current-buffer)))

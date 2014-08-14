@@ -91,7 +91,7 @@ use `sly-export-symbol-representation-function'.")
 places the cursor at the start of the DEFPACKAGE form."
   (cl-labels ((try (location)
                    (when (sly-location-p location)
-                     (sly-goto-source-location location)
+                     (sly-move-to-source-location location)
                      t)))
     (or (try (sly-find-package-definition-rpc package))
 	(try (sly-find-package-definition-regexp package))
