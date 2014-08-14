@@ -336,13 +336,13 @@
 (defimplementation frame-restartable-p (frame)
   (handler-case (debugger:frame-retryable-p frame)
     (serious-condition (c)
-      (funcall (read-from-string "swank::background-message")
-               "~a ~a" frame (princ-to-string c))
+      (declare (ignore c))
+      ;; How to log this? Should we?
       nil)))
 
 (defimplementation restart-frame (frame-number)
   (let ((frame (nth-frame frame-number)))
-    (cond ((debugger:frame-retryable-p frame)
+    (cond ((frame-restartable-p frame)
            (apply #'debugger:frame-retry frame (debugger:frame-function frame)
                   (cdr (debugger:frame-expression frame))))
           (t "Frame is not retryable"))))

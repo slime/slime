@@ -179,21 +179,14 @@ position, or nil."
 
 
 (defun sly-activate-font-lock-magic ()
-  (if (featurep 'xemacs)
-      (let ((pattern `((sly-search-suppressed-forms
-                        (0 sly-reader-conditional-face t)))))
-        (dolist (sym '(lisp-font-lock-keywords
-                       lisp-font-lock-keywords-1
-                       lisp-font-lock-keywords-2))
-          (set sym (append (symbol-value sym) pattern))))
-      (font-lock-add-keywords
-       'lisp-mode
-       `((sly-search-suppressed-forms 0 ,''sly-reader-conditional-face t)))
+  (font-lock-add-keywords
+   'lisp-mode
+   `((sly-search-suppressed-forms 0 ,''sly-reader-conditional-face t)))
 
-      (add-hook 'lisp-mode-hook
-                #'(lambda ()
-                    (add-hook 'font-lock-extend-region-functions
-                              'sly-extend-region-for-font-lock t t)))))
+  (add-hook 'lisp-mode-hook
+            #'(lambda ()
+                (add-hook 'font-lock-extend-region-functions
+                          'sly-extend-region-for-font-lock t t))))
 
 (let ((byte-compile-warnings '()))
   (mapc #'byte-compile

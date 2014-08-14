@@ -204,14 +204,14 @@ emptied. See also `sly-mrepl-hook'")
                (start (marker-position sly-mrepl--output-mark)))
            (save-excursion
              (goto-char sly-mrepl--output-mark)
-             (cond ((and (zerop (current-column))
-                         (get-char-property start 'sly-mrepl--prompt))
-                    ;; insert after marker then go back
-                    (insert "\n")
-                    (goto-char sly-mrepl--output-mark))
-                   ((and (sly-mrepl--busy-p)
-                         (not (zerop (current-column))))
-                    (insert-before-markers "\n")))
+             (cond ((and (or (sly-mrepl--busy-p)
+                            (get-char-property (1- start)
+                                               'sly-mrepl--prompt))
+                        (not (zerop (current-column))))
+                    (insert-before-markers "\n"))
+                   ((and (zerop (current-column))
+                         (sly-button-at start 'sly-mrepl-part 'no-error))
+                    (save-excursion (insert "\n"))))
              (insert-before-markers
               (concat sly-mrepl--pending-output string))
              (setq sly-mrepl--pending-output nil)
@@ -237,7 +237,9 @@ emptied. See also `sly-mrepl-hook'")
   (with-current-buffer (sly-channel-get self 'buffer)
     (unwind-protect
         (progn
-          (cl-assert sly-mrepl--stacked-errors)))
+          (cl-assert sly-mrepl--stacked-errors)
+          (unless (string= key (car sly-mrepl--stacked-errors))
+            (warn "Unexpected :unfreeze-prompt message"))))
     (pop sly-mrepl--stacked-errors)))
 
 (defun sly-mrepl--send-input-sexp ()
@@ -320,10 +322,6 @@ emptied. See also `sly-mrepl-hook'")
   (setq sly-mrepl--copy-to-repl-after
         #'(lambda (objects)
             (when note
-              (save-excursion
-                (goto-char sly-mrepl--output-mark)
-                (unless (zerop (current-column))
-                  (sly-mrepl--insert-output "\n")))
               (sly-mrepl--insert-output (concat "; " note)))
             (when callback
               (funcall callback objects))))
@@ -627,7 +625,7 @@ emptied. See also `sly-mrepl-hook'")
     (with-current-buffer (sly-mrepl)
       (setq sly-mrepl--copy-to-repl-after
             #'(lambda (_objects)
-                (sly-mrepl--insert-output "\n; Synchronizing package and dir")))
+                (sly-mrepl--insert-output "; Synchronizing package and dir")))
       (sly-mrepl--send `(:sync-package-and-default-directory
                          ,package
                          ,default-directory)))))

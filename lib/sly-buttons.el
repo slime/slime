@@ -5,7 +5,6 @@
 (defvar sly-part-button-keymap
       (let ((map (make-sparse-keymap)))
         (set-keymap-parent map button-map)
-        (define-key map (kbd "RET") 'sly-button-inspect)
         (define-key map [down-mouse-3] 'sly-button-popup-part-menu)
         (define-key map [mouse-3] 'sly-button-popup-part-menu)
         map))
