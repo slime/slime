@@ -257,37 +257,34 @@ emptied. See also `sly-mrepl-hook'")
       ;; to `sly-mrepl--insert-output' to still see the correct value
       ;; for `sly-mrepl--output-mark' just before we set it.
       (accept-process-output))
-    (overlay-put sly-mrepl--last-prompt-overlay 'face nil)
+    (overlay-put sly-mrepl--last-prompt-overlay 'face 'bold)
     (sly-mrepl--ensure-newline)
     (sly-mrepl--catch-up)
     (let ((beg (point)))
-      (sly-mrepl--insert (propertize
-                          (concat (if (cl-plusp error-level)
-                                      (format "[%d] " error-level))
-                                  prompt
-                                  "> ")
-                          'face (sly-mrepl--prompt-face error-level)
-                          'sly-mrepl--prompt package))
+      (sly-mrepl--insert
+       (propertize
+        (concat
+         (when (cl-plusp error-level)
+           (concat (sly-make-action-button (format "[%d]" error-level)
+                                           #'(lambda (_button)
+                                               (when-let (b (sldb-find-buffer sly-current-thread))
+                                                 (pop-to-buffer b))))
+                   " "))
+         (propertize 
+          prompt
+          'face 'sly-mrepl-prompt-face)
+         "> ")
+        'sly-mrepl--prompt package))
       (move-overlay sly-mrepl--last-prompt-overlay beg (point)))
     (when condition
       (sly-mrepl--insert-output (format "; Evaluation errored on %s" condition)))
     (sly-mrepl--recenter)
     (buffer-enable-undo)))
 
-(defface sly-mrepl-normal-prompt-face
+(defface sly-mrepl-prompt-face
   `((t (:inherit comint-highlight-prompt)))
   "Face for the regular MREPL prompt."
   :group 'sly-mode-faces)
-
-(defface sly-mrepl-errored-prompt-face
-  `((t (:inherit font-lock-warning-face)))
-  "Face for the MREPL prompt when errors are on the stack."
-  :group 'sly-mode-faces)
-
-(defun sly-mrepl--prompt-face (&optional error-level)
-  (if (and error-level (cl-plusp error-level))
-      'sly-mrepl-errored-prompt-face
-    'sly-mrepl-normal-prompt-face))
 
 (defun sly-mrepl--recenter ()
   (when (get-buffer-window)
