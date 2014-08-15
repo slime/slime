@@ -247,39 +247,43 @@ emptied. See also `sly-mrepl-hook'")
             (zerop (current-column)))
     (sly-mrepl--insert "\n")))
 
+(defun sly-mrepl--insert-prompt (package prompt error-level condition)
+  (when (and sly-mrepl--dedicated-stream
+             (process-live-p sly-mrepl--dedicated-stream))
+    ;; This non-blocking call should be enough to allow asynch calls
+    ;; to `sly-mrepl--insert-output' to still see the correct value
+    ;; for `sly-mrepl--output-mark' just before we set it.
+    (accept-process-output sly-mrepl--dedicated-stream 0))
+  (overlay-put sly-mrepl--last-prompt-overlay 'face 'bold)
+  (sly-mrepl--ensure-newline)
+  (sly-mrepl--catch-up)
+  (let ((beg (point)))
+    (sly-mrepl--insert
+     (propertize
+      (concat
+       (when (cl-plusp error-level)
+         (concat (sly-make-action-button
+                  (format "[%d]" error-level)
+                  #'(lambda (_button)
+                      (when-let (b (sldb-find-buffer sly-current-thread))
+                        (pop-to-buffer b))))
+                 " "))
+       (propertize 
+        prompt
+        'face 'sly-mrepl-prompt-face)
+       "> ")
+      'sly-mrepl--prompt package))
+    (move-overlay sly-mrepl--last-prompt-overlay beg (point)))
+  (when condition
+    (sly-mrepl--insert-output (format "; Evaluation errored on %s" condition)))
+  (sly-mrepl--recenter)
+  (buffer-enable-undo))
+
 (sly-define-channel-method listener :prompt (package prompt
                                                      error-level
                                                      &optional condition)
   (with-current-buffer (sly-channel-get self 'buffer)
-    (when (and sly-mrepl--dedicated-stream
-               (process-live-p sly-mrepl--dedicated-stream))
-      ;; This non-blocking call should be enough to allow asynch calls
-      ;; to `sly-mrepl--insert-output' to still see the correct value
-      ;; for `sly-mrepl--output-mark' just before we set it.
-      (accept-process-output))
-    (overlay-put sly-mrepl--last-prompt-overlay 'face 'bold)
-    (sly-mrepl--ensure-newline)
-    (sly-mrepl--catch-up)
-    (let ((beg (point)))
-      (sly-mrepl--insert
-       (propertize
-        (concat
-         (when (cl-plusp error-level)
-           (concat (sly-make-action-button (format "[%d]" error-level)
-                                           #'(lambda (_button)
-                                               (when-let (b (sldb-find-buffer sly-current-thread))
-                                                 (pop-to-buffer b))))
-                   " "))
-         (propertize 
-          prompt
-          'face 'sly-mrepl-prompt-face)
-         "> ")
-        'sly-mrepl--prompt package))
-      (move-overlay sly-mrepl--last-prompt-overlay beg (point)))
-    (when condition
-      (sly-mrepl--insert-output (format "; Evaluation errored on %s" condition)))
-    (sly-mrepl--recenter)
-    (buffer-enable-undo)))
+    (sly-mrepl--insert-prompt package prompt error-level condition)))
 
 (defface sly-mrepl-prompt-face
   `((t (:inherit comint-highlight-prompt)))
@@ -334,7 +338,6 @@ emptied. See also `sly-mrepl-hook'")
                (sly-mrepl--insert (sly-mrepl--make-result-button value sly-mrepl--result-counter idx))))))
 
 (sly-define-channel-method listener :write-values (values)
-  (accept-process-output)
   (with-current-buffer (sly-channel-get self 'buffer)
     (sly-mrepl--insert-returned-values values)))
 
@@ -388,6 +391,7 @@ emptied. See also `sly-mrepl-hook'")
   (cl-assert (sly-connection))
   (cl-assert (process-live-p (sly-mrepl--process)) nil
              "No local live process, cannot use this REPL")
+  (accept-process-output)
   (cond ((and
 	  sly-mrepl--expect-sexp-mode
           (sly-mrepl--busy-p))
