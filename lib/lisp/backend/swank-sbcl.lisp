@@ -1139,6 +1139,12 @@ stack."
   #+#.(swank-backend::sbcl-with-restart-frame)
   (not (null (sb-debug:frame-has-debug-tag-p frame))))
 
+(defimplementation frame-arguments (frame)
+  (multiple-value-bind (name args)
+      (sb-debug::frame-call (nth-frame frame))
+    (declare (ignore name))
+    (values-list args)))
+
 ;;;; Code-location -> source-location translation
 
 ;;; If debug-block info is avaibale, we determine the file position of
