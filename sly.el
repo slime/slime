@@ -2326,7 +2326,6 @@ region that will be compiled.")
              sly-create-compilation-log
              sly-show-compilation-log
              sly-maybe-list-compiler-notes
-             sly-list-compiler-notes
              sly-maybe-show-xrefs-for-notes
              sly-goto-first-note))
 
@@ -2456,7 +2455,7 @@ to it depending on its sign."
       #'(lambda (result)
           (sly-compilation-finished result t)))))
 
-(defcustom sly-load-failed-fasl 'ask
+(defcustom sly-load-failed-fasl 'never
   "Which action to take when COMPILE-FILE set FAILURE-P to T.
 NEVER doesn't load the fasl
 ALWAYS loads the fasl
@@ -2512,24 +2511,9 @@ ASK asks the user."
     (save-excursion
       (save-restriction
         (widen)                  ; highlight notes on the whole buffer
-        (sly-remove-old-overlays)
-        (mapc #'sly-overlay-note (sly-merge-notes-for-display notes))))))
+        (sly-remove-notes (point-min) (point-max))
+        (mapc #'sly--add-in-buffer-note notes)))))
 
-(defvar sly-note-overlays '()
-  "List of overlays created by `sly-make-note-overlay'")
-
-(defun sly-remove-old-overlays ()
-  "Delete the existing note overlays."
-  (mapc #'delete-overlay sly-note-overlays)
-  (setq sly-note-overlays '()))
-
-(defun sly-filter-buffers (predicate)
-  "Return a list of where PREDICATE returns true.
-PREDICATE is executed in the buffer to test."
-  (cl-remove-if-not (lambda (%buffer)
-                      (with-current-buffer %buffer
-                        (funcall predicate)))
-                    (buffer-list)))
 
 ;;;;; Recompilation.
 
@@ -2558,28 +2542,6 @@ PREDICATE is executed in the buffer to test."
                                nil)))))
         ',sly-compilation-policy)
     cont))
-
-
-;;;;; Merging together compiler notes in the same location.
-
-(defun sly-merge-notes-for-display (notes)
-  "Merge together notes that refer to the same location.
-This operation is \"lossy\" in the broad sense but not for display purposes."
-  (mapcar #'sly-merge-notes
-          (sly-group-similar 'sly-notes-in-same-location-p notes)))
-
-(defun sly-merge-notes (notes)
-  "Merge NOTES together. Keep the highest severity, concatenate the messages."
-  (let* ((new-severity (cl-reduce #'sly-most-severe notes
-                                  :key #'sly-note.severity))
-         (new-message (mapconcat #'sly-note.message notes "\n")))
-    (let ((new-note (cl-copy-list (car notes))))
-      (setf (cl-getf new-note :message) new-message)
-      (setf (cl-getf new-note :severity) new-severity)
-      new-note)))
-
-(defun sly-notes-in-same-location-p (a b)
-  (equal (sly-note.location a) (sly-note.location b)))
 
 
 ;;;;; Compiler notes list
@@ -2630,7 +2592,8 @@ Each newlines and following indentation is replaced by a single space."
     (let ((inhibit-read-only t))
       (erase-buffer))
     (sly-insert-compilation-log notes)
-    (compilation-mode)))
+    (compilation-mode)
+    (sly-mode 1)))
 
 (defun sly-maybe-show-compilation-log (notes)
   "Display the log on failed compilations or if NOTES is non-nil."
@@ -2652,8 +2615,13 @@ Each newlines and following indentation is replaced by a single space."
                             :mode 'compilation-mode)
     (sly-insert-compilation-log notes)))
 
+(defvar sly-compilation-log--notes (make-hash-table)
+  "Hash-table (NOTE -> (BUFFER POSITION)) for finding notes in
+  the SLY compilation log")
+
 (defun sly-insert-compilation-log (notes)
   "Insert NOTES in format suitable for `compilation-mode'."
+  (clrhash sly-compilation-log--notes)
   (cl-multiple-value-bind (grouped-notes canonicalized-locs-table)
       (sly-group-and-sort-notes notes)
     (with-temp-message "Preparing compilation log..."
@@ -2661,13 +2629,21 @@ Each newlines and following indentation is replaced by a single space."
             (inhibit-modification-hooks t)) ; inefficient font-lock-hook
         (insert (format "cd %s\n%d compiler notes:\n\n"
                         default-directory (length notes)))
-        (dolist (notes grouped-notes)
-          (let ((loc (gethash (cl-first notes) canonicalized-locs-table))
-                (start (point)))
-            (insert (sly-canonicalized-location-to-string loc) ":")
-            (sly-insert-note-group notes)
-            (insert "\n")
-            (sly-make-note-overlay (cl-first notes) start (1- (point))))))
+        (cl-loop for notes in grouped-notes
+                 for loc = (gethash (cl-first notes) canonicalized-locs-table)
+                 for start = (point)
+                 do
+                 (cl-loop for note in notes
+                          do (puthash note
+                                      (cons (current-buffer) start)
+                                      sly-compilation-log--notes))
+                 (insert
+                  (sly--compilation-note-group-button
+                   (sly-canonicalized-location-to-string loc) notes)
+                  ":")
+                 (sly-insert-note-group notes)
+                 (insert "\n")
+                 (add-text-properties start (point) `(field ,notes))))
       (set (make-local-variable 'compilation-skip-threshold) 0)
       (setq next-error-last-buffer (current-buffer)))))
 
@@ -2716,22 +2692,6 @@ This is quite an expensive operation so use carefully."
                 line col))
     (format "Unknown location")))
 
-(defun sly-goto-note-in-compilation-log (note)
-  "Find `note' in the compilation log and display it."
-  (with-current-buffer (get-buffer (sly-buffer-name :compilation))
-    (let ((pos
-           (save-excursion
-             (goto-char (point-min))
-             (cl-loop for overlay = (sly-find-next-note)
-                      while overlay
-                      for other-note = (overlay-get overlay 'sly-note)
-                      when (sly-notes-in-same-location-p note other-note)
-                      return (overlay-start overlay)))))
-      (when pos
-        (with-selected-window (display-buffer (current-buffer) t)
-          (goto-char pos)
-          (recenter 0))))))
-
 (defun sly-group-and-sort-notes (notes)
   "First sort, then group NOTES according to their canonicalized locs."
   (let ((locs (make-hash-table :test #'eq)))
@@ -2773,59 +2733,15 @@ This is quite an expensive operation so use carefully."
 (defun sly-severity-label (severity)
   (cl-subseq (symbol-name severity) 1))
 
+
 
 ;;;;; Adding a single compiler note
-
-(defun sly-overlay-note (note)
-  "Add a compiler note to the buffer as an overlay.
-If an appropriate overlay for a compiler note in the same location
-already exists then the new information is merged into it. Otherwise a
-new overlay is created."
-  (cl-multiple-value-bind (start end) (sly-choose-overlay-region note)
-    (when start
-      (goto-char start)
-      (let ((severity (plist-get note :severity))
-            (message (plist-get note :message))
-            (overlay (sly-note-at-point)))
-        (if overlay
-            (sly-merge-note-into-overlay overlay severity message)
-          (sly-create-note-overlay note start end severity message))))))
-
+;;;;;
 (defun sly-make-note-overlay (note start end)
   (let ((overlay (make-overlay start end)))
     (overlay-put overlay 'sly-note note)
     (push overlay sly-note-overlays)
     overlay))
-
-(defun sly-create-note-overlay (note start end severity message)
-  "Create an overlay representing a compiler note.
-The overlay has several properties:
-  FACE       - to underline the relevant text.
-  SEVERITY   - for future reference :NOTE, :STYLE-WARNING, :WARNING, or :ERROR.
-  MOUSE-FACE - highlight the note when the mouse passes over.
-  HELP-ECHO  - a string describing the note, both for future reference
-               and for display as a tooltip (due to the special
-               property name)."
-  (let ((overlay (sly-make-note-overlay note start end)))
-    (cl-macrolet ((putp (name value) `(overlay-put overlay ,name ,value)))
-      (putp 'face (sly-severity-face severity))
-      (putp 'severity severity)
-      (putp 'mouse-face 'highlight)
-      (putp 'help-echo message)
-      overlay)))
-
-;; XXX Obsolete due to `sly-merge-notes-for-display' doing the
-;; work already -- unless we decide to put several sets of notes on a
-;; buffer without clearing in between, which only this handles.
-(defun sly-merge-note-into-overlay (overlay severity message)
-  "Merge another compiler note into an existing overlay.
-The help text describes both notes, and the highest of the severities
-is kept."
-  (cl-macrolet ((putp (name value) `(overlay-put overlay ,name ,value))
-                (getp (name)       `(overlay-get overlay ,name)))
-    (putp 'severity (sly-most-severe severity (getp 'severity)))
-    (putp 'face (sly-severity-face (getp 'severity)))
-    (putp 'help-echo (concat (getp 'help-echo) "\n" message))))
 
 (defun sly-choose-overlay-region (note)
   "Choose the start and end points for an overlay over NOTE.
@@ -2841,7 +2757,7 @@ Return nil if there's no useful source location."
                ((eq (sly-note.severity note) :read-error)
                 (sly-choose-overlay-for-read-error location))
                ((equal pos '(:eof))
-                (cl-values (1- (point-max)) (point-max)))
+                (list (1- (point-max)) (point-max)))
                (t
                 (sly-choose-overlay-for-sexp location))))))))
 
@@ -2851,9 +2767,9 @@ Return nil if there's no useful source location."
       (goto-char pos)
       (cond ((sly-symbol-at-point)
              ;; package not found, &c.
-             (cl-values (sly-symbol-start-pos) (sly-symbol-end-pos)))
+             (list (sly-symbol-start-pos) (sly-symbol-end-pos)))
             (t
-             (cl-values pos (1+ pos)))))))
+             (list pos (1+ pos)))))))
 
 (defun sly-choose-overlay-for-sexp (location)
   (sly-move-to-source-location location)
@@ -2861,24 +2777,23 @@ Return nil if there's no useful source location."
   (let ((start (point)))
     (ignore-errors (sly-forward-sexp))
     (if (sly-same-line-p start (point))
-        (cl-values start (point))
-      (cl-values (1+ start)
-                 (progn (goto-char (1+ start))
-                        (ignore-errors (forward-sexp 1))
-                        (point))))))
-
+        (list start (point))
+      (list (1+ start)
+            (progn (goto-char (1+ start))
+                   (ignore-errors (forward-sexp 1))
+                   (point))))))
 (defun sly-same-line-p (pos1 pos2)
   "Return t if buffer positions POS1 and POS2 are on the same line."
   (save-excursion (goto-char (min pos1 pos2))
                   (<= (max pos1 pos2) (line-end-position))))
 
 (defvar sly-severity-face-plist
-  '(:error         sly-error-face
-                   :read-error    sly-error-face
-                   :warning       sly-warning-face
-                   :redefinition  sly-style-warning-face
-                   :style-warning sly-style-warning-face
-                   :note          sly-note-face))
+  (list :error         'sly-error-face
+        :read-error    'sly-error-face
+        :warning       'sly-warning-face
+        :redefinition  'sly-style-warning-face
+        :style-warning 'sly-style-warning-face
+        :note          'sly-note-face))
 
 (defun sly-severity-face (severity)
   "Return the name of the font-lock face representing SEVERITY."
@@ -2896,12 +2811,6 @@ Return nil if there's no useful source location."
 (defun sly-most-severe (sev1 sev2)
   "Return the most servere of two conditions."
   (if (sly-severity< sev1 sev2) sev2 sev1))
-
-;; XXX: unused function
-(defun sly-visit-source-path (source-path)
-  "Visit a full source path including the top-level form."
-  (goto-char (point-min))
-  (sly-forward-source-path source-path))
 
 (defun sly-forward-positioned-source-path (source-path)
   "Move forward through a sourcepath from a fixed position.
@@ -3319,85 +3228,100 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
 
 
 ;;;;; Visiting and navigating the overlays of compiler notes
-
-(defun sly-next-note ()
+(defun sly-next-note (arg)
   "Go to and describe the next compiler note in the buffer."
-  (interactive)
-  (let ((here (point))
-        (note (sly-find-next-note)))
-    (if note
-        (sly-show-note note)
-      (goto-char here)
-      (message "No next note."))))
+  (interactive "p")
+  (let ((button (ignore-errors (forward-button arg))))
+    (if button
+        (push-button (point) 'use-mouse-action)
+      (message "No %s note" (if (cl-plusp arg) "next" "previous")))))
 
-(defun sly-previous-note ()
+(defun sly-previous-note (arg)
   "Go to and describe the previous compiler note in the buffer."
-  (interactive)
-  (let ((here (point))
-        (note (sly-find-previous-note)))
-    (if note
-        (sly-show-note note)
-      (goto-char here)
-      (message "No previous note."))))
+  (interactive "p")
+  (sly-next-note (- arg)))
 
-(defun sly-goto-first-note (&rest _)
+(defun sly-goto-first-note (&rest _notes)
   "Go to the first note in the buffer."
-  (let ((point (point)))
-    (goto-char (point-min))
-    (cond ((sly-find-next-note)
-           (sly-show-note (sly-note-at-point)))
-          (t (goto-char point)))))
-
-(defun sly-remove-notes ()
-  "Remove compiler-note annotations from the current buffer."
   (interactive)
-  (sly-remove-old-overlays))
+  (sly-previous-note (point-max)))
 
-(defun sly-show-note (overlay)
+(defun sly-remove-notes (beg end)
+  "Remove `sly-note' annotation buttons from BEG to END."
+  (interactive (if (region-active-p)
+                   (list (region-beginning) (region-end))
+                 (list (point-min) (point-max))))
+  (cl-loop for existing in (overlays-in beg end)
+           when (button-type-subtype-p (button-type existing)
+                                       'sly-in-buffer-note)
+           do (delete-overlay existing)))
+
+(defun sly-merge-notes (beg end)
+  "Merge `sly-note' annotation buttons from BEG to END into one."
+  (interactive "r")
+  (cl-loop for existing in (overlays-in beg end)
+           when (button-type-subtype-p (button-type existing)
+                                       'sly-in-buffer-note)
+           for start = (overlay-start existing)
+           for end = (overlay-end existing)
+           appending (button-get existing 'notes) into all-notes
+           minimizing start into min-start
+           maximizing end into max-end
+           do (delete-overlay existing)
+           finally (make-button min-start max-end :type 'sly-in-buffer-note
+                                'notes all-notes)))
+
+(defun sly-show-note (button)
   "Present the details of a compiler note to the user."
-  (sly-temporarily-highlight-note overlay)
-  (if (get-buffer-window (sly-buffer-name :compilation) t)
-      (sly-goto-note-in-compilation-log (overlay-get overlay 'sly-note)))
-  (let ((message (get-char-property (point) 'help-echo)))
-      (sly-message "%s" (if (zerop (length message)) "\"\"" message))))
+  (interactive)
+  (let ((notes (button-get button 'notes)))
+    (sly-flash-region (button-start button) (button-end button))
+    ;; If the compilation window is showing, try to land in a suitable
+    ;; place there, too...
+    ;;
+    (let* ((anchor (first notes))
+           (compilation-buffer (sly-buffer-name :compilation))
+           (compilation-window (get-buffer-window compilation-buffer t)))
+      (if compilation-window
+          (with-current-buffer compilation-buffer
+            (with-selected-window compilation-window
+              (let ((buffer-and-pos (gethash anchor sly-compilation-log--notes)))
+                (when buffer-and-pos
+                  (cl-assert (eq (car buffer-and-pos) (current-buffer)))
+                  (goto-char (cdr buffer-and-pos))
+                  (let ((field-end (field-end (1+ (point)))))
+                    (sly-flash-region (point) field-end)
+                    (sly-recenter field-end))))
+              (message "Showing note in %s" (current-buffer))))
+        ;; Else, do the next best thing, which is echo the messages.
+        ;;
+        (message (mapconcat #'sly-note.message notes "\n"))))))
 
-;; FIXME: could probably use flash region
-(defun sly-temporarily-highlight-note (overlay)
-  "Temporarily highlight a compiler note's overlay.
-The highlighting is designed to both make the relevant source more
-visible, and to highlight any further notes that are nested inside the
-current one.
+(define-button-type 'sly-note :sypertype 'sly-action)
+(define-button-type 'sly-in-buffer-note :supertype 'sly-note
+  'keymap (let ((map (copy-keymap button-map)))
+            (define-key map "RET" nil))
+  'mouse-action 'sly-show-note
+  'modification-hooks '(sly--in-buffer-note-modification))
+(define-button-type 'sly-compilation-note-group :supertype 'sly-note
+  'face nil)
 
-The highlighting is automatically undone with a timer."
-  (run-with-timer 0.2 nil
-                  #'overlay-put overlay 'face (overlay-get overlay 'face))
-  (overlay-put overlay 'face 'sly-highlight-face))
+(defun sly--in-buffer-note-modification (button after? _beg _end &optional _len)
+  (unless after? (delete-overlay button)))
 
-
-;;;;; Overlay lookup operations
+(defun sly--add-in-buffer-note  (note)
+  "Add NOTE as an `sly-in-buffer-note' button to the source buffer.
+Mergin handled by `sly-merge-notes'"
+  (cl-destructuring-bind (&optional beg end)
+      (sly-choose-overlay-region note)
+    (when beg
+      (make-button beg end :type 'sly-in-buffer-note 'notes (list note))
+      (sly-merge-notes beg end))))
 
-(defun sly-note-at-point ()
-  "Return the overlay for a note starting at point, otherwise NIL."
-  (cl-find (point) (sly-note-overlays-at-point)
-           :key 'overlay-start))
-
-(defun sly-note-overlay-p (overlay)
-  "Return true if OVERLAY represents a compiler note."
-  (overlay-get overlay 'sly-note))
-
-(defun sly-note-overlays-at-point ()
-  "Return a list of all note overlays that are under the point."
-  (cl-remove-if-not 'sly-note-overlay-p (overlays-at (point))))
-
-(defun sly-find-next-note ()
-  "Go to the next position with the `sly-note' text property.
-Retuns the note overlay if such a position is found, otherwise nil."
-  (sly-search-property 'sly-note nil #'sly-note-at-point))
-
-(defun sly-find-previous-note ()
-  "Go to the next position with the `sly-note' text property.
-Retuns the note overlay if such a position is found, otherwise nil."
-  (sly-search-property 'sly-note t #'sly-note-at-point))
+(defun sly--compilation-note-group-button  (label notes)
+  "Pepare notes as a `sly-compilation-note' button.
+For insertion in the `compilation-mode' buffer"
+  (make-text-button label nil :type 'sly-compilation-note-group 'notes notes))
 
 
 ;;;; Completion
@@ -5041,6 +4965,13 @@ Full list of frame-specific commands:
 
 
 ;;;;; SLDB buffer creation & update
+(defun sly-filter-buffers (predicate)
+  "Return a list of where PREDICATE returns true.
+PREDICATE is executed in the buffer to test."
+  (cl-remove-if-not (lambda (%buffer)
+                      (with-current-buffer %buffer
+                        (funcall predicate)))
+                    (buffer-list)))
 
 (defun sldb-buffers (&optional connection)
   "Return a list of all sldb buffers (belonging to CONNECTION.)"
@@ -6635,7 +6566,7 @@ is setup, unless the user already set one explicitly."
        [ "Next Note"               sly-next-note t ]
        [ "Previous Note"           sly-previous-note t ]
        [ "Remove Notes"            sly-remove-notes t ]
-       [ "List Notes"              sly-list-compiler-notes ,C ])
+       [ "List notes"              sly-show-compilation-log t ])
       ("Cross Reference"
        [ "Who Calls..."            sly-who-calls ,C ]
        [ "Who References... "      sly-who-references ,C ]
