@@ -668,9 +668,8 @@ Minimize point motion if possible."
 (defun sly-read-package-name (prompt &optional initial-value)
   "Read a package name from the minibuffer, prompting with PROMPT."
   (let ((completion-ignore-case t))
-    (completing-read prompt (sly-bogus-completion-alist
-                             (sly-eval
-                              `(swank:list-all-package-names t)))
+    (completing-read prompt (sly-eval
+                             `(swank:list-all-package-names t))
 		     nil t initial-value)))
 
 ;; Interface
@@ -3326,157 +3325,27 @@ For insertion in the `compilation-mode' buffer"
 
 ;;;; Completion
 
-;; XXX those long names are ugly to read; long names an indicator for
-;; bad factoring?
-
-(defvar sly-completions-buffer-name "*Completions*")
-
-;; FIXME: can probably use quit-window instead
-(make-variable-buffer-local
- (defvar sly-complete-saved-window-configuration nil
-   "Window configuration before we show the *Completions* buffer.
-This is buffer local in the buffer where the completion is
-performed."))
-
-(make-variable-buffer-local
- (defvar sly-completions-window nil
-   "The window displaying *Completions* after saving window configuration.
-If this window is no longer active or displaying the completions
-buffer then we can ignore `sly-complete-saved-window-configuration'."))
-
-(defun sly-complete-maybe-save-window-configuration ()
-  "Maybe save the current window configuration.
-Return true if the configuration was saved."
-  (unless (or sly-complete-saved-window-configuration
-              (get-buffer-window sly-completions-buffer-name))
-    (setq sly-complete-saved-window-configuration
-          (current-window-configuration))
-    t))
-
-(defun sly-complete-delay-restoration ()
-  (add-hook 'pre-command-hook
-            'sly-complete-maybe-restore-window-configuration
-            'append
-            'local))
-
-(defun sly-complete-forget-window-configuration ()
-  (setq sly-complete-saved-window-configuration nil)
-  (setq sly-completions-window nil))
-
-(defun sly-complete-restore-window-configuration ()
-  "Restore the window config if available."
-  (remove-hook 'pre-command-hook
-               'sly-complete-maybe-restore-window-configuration)
-  (when (and sly-complete-saved-window-configuration
-             (sly-completion-window-active-p))
-    (save-excursion (set-window-configuration
-                     sly-complete-saved-window-configuration))
-    (setq sly-complete-saved-window-configuration nil)
-    (when (buffer-live-p sly-completions-buffer-name)
-      (kill-buffer sly-completions-buffer-name))))
-
-(defun sly-complete-maybe-restore-window-configuration ()
-  "Restore the window configuration, if the following command
-terminates a current completion."
-  (remove-hook 'pre-command-hook
-               'sly-complete-maybe-restore-window-configuration)
-  (condition-case err
-      (cond ((cl-find last-command-event "()\"'`,# \r\n:")
-             (sly-complete-restore-window-configuration))
-            ((not (sly-completion-window-active-p))
-             (sly-complete-forget-window-configuration))
-            (t
-             (sly-complete-delay-restoration)))
-    (error
-     ;; Because this is called on the pre-command-hook, we mustn't let
-     ;; errors propagate.
-     (message "Error in sly-complete-restore-window-configuration: %S"
-              err))))
-
-(defun sly-completion-window-active-p ()
-  "Is the completion window currently active?"
-  (and (window-live-p sly-completions-window)
-       (equal (buffer-name (window-buffer sly-completions-window))
-              sly-completions-buffer-name)))
-
-(defun sly-display-completion-list (completions base)
-  (let ((savedp (sly-complete-maybe-save-window-configuration)))
-    (with-output-to-temp-buffer sly-completions-buffer-name
-      (display-completion-list completions)
-      (let ((offset (- (point) 1 (length base))))
-        (with-current-buffer standard-output
-          (setq completion-base-position offset)
-          (set-syntax-table lisp-mode-syntax-table))))
-    (when savedp
-      (setq sly-completions-window
-            (get-buffer-window sly-completions-buffer-name)))))
-
-(defun sly-display-or-scroll-completions (completions base)
-  (cond ((and (eq last-command this-command)
-              (sly-completion-window-active-p))
-         (sly-scroll-completions))
-        (t
-         (sly-display-completion-list completions base)))
-  (sly-complete-delay-restoration))
-
-(defun sly-scroll-completions ()
-  (let ((window sly-completions-window))
-    (with-current-buffer (window-buffer window)
-      (if (pos-visible-in-window-p (point-max) window)
-          (set-window-start window (point-min))
-        (save-selected-window
-          (select-window window)
-          (scroll-up))))))
-
 (defun sly-complete-symbol ()
   "Complete the symbol at point.
-
-Completion is performed by `sly-complete-symbol-function'."
+Sets `completion-at-point-functions' and calls `completion-at-point'."
   (interactive)
-  (funcall sly-complete-symbol-function))
+  (let ((completion-at-point-functions
+         (list sly-complete-symbol-function)))
+    (completion-at-point)))
 
 (defun sly-simple-complete-symbol ()
   "Complete the symbol at point.
 Perform completion more similar to Emacs' complete-symbol."
-  (or (sly-maybe-complete-as-filename)
-      (let* ((end (point))
-             (beg (sly-symbol-start-pos))
-             (prefix (buffer-substring-no-properties beg end))
-             (result (sly-simple-completions prefix)))
-        (cl-destructuring-bind (completions partial) result
-          (if (null completions)
-              (progn (sly-minibuffer-respecting-message
-                      "Can't find completion for \"%s\"" prefix)
-                     (ding)
-                     (sly-complete-restore-window-configuration))
-            (insert-and-inherit (substring partial (length prefix)))
-            (cond ((sly-length= completions 1)
-                   (sly-minibuffer-respecting-message "Sole completion")
-                   (sly-complete-restore-window-configuration))
-                  ;; Incomplete
-                  (t
-                   (when (member partial completions)
-                     (sly-minibuffer-respecting-message
-                      "Complete but not unique"))
-                   (sly-display-or-scroll-completions completions
-                                                        partial))))))))
-
-(defun sly-maybe-complete-as-filename ()
-  "If point is at a string starting with \", complete it as filename.
-Return nil if point is not at filename."
-  (when (save-excursion (re-search-backward "\"[^ \t\n]+\\="
-                                            (max (point-min)
-                                                 (- (point) 1000)) t))
-    (let ((comint-completion-addsuffix '("/" . "\"")))
-      (comint-replace-by-expanded-filename)
-      t)))
-
-(defun sly-minibuffer-respecting-message (format &rest format-args)
-  "Display TEXT as a message, without hiding any minibuffer contents."
-  (let ((text (format " [%s]" (apply #'format format format-args))))
-    (if (minibuffer-window-active-p (minibuffer-window))
-        (minibuffer-message text)
-      (message "%s" text))))
+  (let* ((end (point))
+         (beg (sly-symbol-start-pos))
+         (prefix (and beg
+                      (buffer-substring-no-properties beg end)))
+         (sly-current-thread t)
+         (result (and prefix
+                      (sly-eval
+                       `(swank:simple-completions ,prefix ',(sly-current-package))))))
+    (when result
+      (list beg end (car result)))))
 
 (defun sly-show-arglist ()
   (let ((op (ignore-errors
@@ -3490,20 +3359,22 @@ Return nil if point is not at filename."
           (when arglist
             (sly-message "%s" arglist)))))))
 
-(defun sly-indent-and-complete-symbol ()
+(defun sly-indent-and-complete-symbol (arg)
   "Indent the current line and perform symbol completion.
 First indent the line. If indenting doesn't move point, complete
 the symbol. If there's no symbol at the point, show the arglist
 for the most recently enclosed macro or function."
-  (interactive)
+  (interactive "P")
   (let ((pos (point)))
-    (unless (get-text-property (line-beginning-position) 'sly-repl-prompt)
-      (lisp-indent-line))
+    (indent-for-tab-command arg)
     (when (= pos (point))
       (cond ((save-excursion (re-search-backward "[^() \n\t\r]+\\=" nil t))
              (sly-complete-symbol))
             ((memq (char-before) '(?\t ?\ ))
              (sly-show-arglist))))))
+
+
+;;;; Minibuffer reading
 
 (defvar sly-minibuffer-map
   (let ((map (make-sparse-keymap)))
@@ -3531,18 +3402,6 @@ reading input.  The result is a string (\"\" if no input was given)."
   (let ((minibuffer-setup-hook (sly-minibuffer-setup-hook)))
     (read-from-minibuffer prompt initial-value sly-minibuffer-map
 			  nil (or history 'sly-minibuffer-history))))
-
-(defun sly-bogus-completion-alist (list)
-  "Make an alist out of list.
-The same elements go in the CAR, and nil in the CDR. To support the
-apparently very stupid `try-completions' interface, that wants an
-alist but ignores CDRs."
-  (mapcar (lambda (x) (cons x nil)) list))
-
-(defun sly-simple-completions (prefix)
-  (let ((sly-current-thread t))
-    (sly-eval
-     `(swank:simple-completions ,prefix ',(sly-current-package)))))
 
 
 ;;;; Edit definition
