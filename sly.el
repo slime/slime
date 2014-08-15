@@ -455,8 +455,6 @@ PROPERTIES specifies any default face properties."
     (define-key map (kbd "C-c M-m") 'sly-macroexpand-all)
     ;; Misc
     (define-key map (kbd "C-c C-u") 'sly-undefine-function)
-    (define-key map (kbd "C-M-.") 'sly-next-location)
-    (define-key map (kbd "C-M-,") 'sly-previous-location)
     map))
 
 (defvar sly-editing-mode-map
@@ -4417,6 +4415,19 @@ The most important commands:
      (sly-set-truncate-lines)
      ,@body))
 
+(defface sly-xref-face
+  '((t (:inherit font-lock-keyword-face)))
+  "Face for Xref buttons."
+  :group 'sly)
+
+(define-button-type 'sly-xref :supertype 'sly-action
+  'face 'sly-xref-face
+  'action #'(lambda (button)
+              (sly-xref--show-location (button-get button 'location))))
+
+(defun sly-xref-button (label location)
+  (make-text-button label nil :type 'sly-xref 'location location))
+
 (defun sly-insert-xrefs (xref-alist)
   "Insert XREF-ALIST in the current-buffer.
 XREF-ALIST is of the form ((GROUP . ((LABEL LOCATION) ...)) ...).
@@ -4424,33 +4435,28 @@ GROUP and LABEL are for decoration purposes.  LOCATION is a
 source-location."
   (cl-loop for (group . refs) in xref-alist do
            (sly-insert-propertized '(face bold) group "\n")
-           (cl-loop for (label location) in refs do
-                    (sly-insert-propertized
-                     (list 'sly-location location
-                           'face 'font-lock-keyword-face)
-                     "  " (sly-one-line-ify label) "\n")))
+           (cl-loop for (label location) in refs
+                    do
+                    (insert
+                     " "
+                     (sly-xref-button (sly-one-line-ify label) location)
+                    "\n")))
   ;; Remove the final newline to prevent accidental window-scrolling
   (backward-delete-char 1))
 
-(defun sly-xref-next-line ()
-  (interactive)
-  (sly-xref--show-location (sly-search-property 'sly-location)))
+(defun sly-xref-next-line (arg)
+  (interactive "p")
+  (when (forward-button arg) (push-button)))
 
-(defun sly-xref-prev-line ()
-  (interactive)
-  (sly-xref--show-location (sly-search-property 'sly-location t)))
+(defun sly-xref-prev-line (arg)
+  (interactive "p")
+  (when (backward-button arg) (push-button)))
 
 (defun sly-xref--show-location (loc)
   (cl-ecase (car loc)
     (:location (sly--display-source-location loc))
     (:error (message "%s" (cadr loc)))
     ((nil))))
-
-(defvar sly-next-location-function nil
-  "Function to call for going to the next location.")
-
-(defvar sly-previous-location-function nil
-  "Function to call for going to the previous location.")
 
 (defvar sly-xref-last-buffer nil
   "The most recent XREF results buffer.
@@ -4459,8 +4465,6 @@ This is used by `sly-goto-next-xref'")
 (defun sly-xref--show-buffer (xrefs _type _symbol package)
   (sly-with-xref-buffer (_type _symbol package)
     (sly-insert-xrefs xrefs)
-    (setq sly-next-location-function 'sly-goto-next-xref)
-    (setq sly-previous-location-function 'sly-goto-previous-xref)
     (setq sly-xref-last-buffer (current-buffer))
     (goto-char (point-min))))
 
@@ -4594,30 +4598,6 @@ This is used by `sly-goto-next-xref'")
   (interactive)
   (sly--display-source-location (sly-xref-location-at-point)))
 
-(defun sly-goto-next-xref (&optional backward)
-  "Goto the next cross-reference location."
-  (if (not (buffer-live-p sly-xref-last-buffer))
-      (error "No XREF buffer alive.")
-    (cl-multiple-value-bind (location pos)
-        (with-current-buffer sly-xref-last-buffer
-          (cl-values (sly-search-property 'sly-location backward)
-                     (point)))
-      (cond ((sly-location-p location)
-             (sly--pop-to-source-location location)
-             ;; We do this here because changing the location can take
-             ;; a while when Emacs needs to read a file from disk.
-             (with-current-buffer sly-xref-last-buffer
-               (goto-char pos)
-               (sly--highlight-line 0.35)))
-            ((null location)
-             (message (if backward "No previous xref" "No next xref.")))
-            (t ; error location
-             (sly-goto-next-xref backward))))))
-
-(defun sly-goto-previous-xref ()
-  "Goto the previous cross-reference location."
-  (sly-goto-next-xref t))
-
 (defun sly-search-property (prop &optional backward prop-value-fn)
   "Search the next text range where PROP is non-nil.
 Return the value of PROP.
@@ -4638,22 +4618,6 @@ If PROP-VALUE-FN is non-nil use it to extract PROP's value."
                       (bobp)))))
     (cond (prop-value)
           (t (goto-char start) nil))))
-
-(defun sly-next-location ()
-  "Go to the next location, depending on context.
-When displaying XREF information, this goes to the next reference."
-  (interactive)
-  (when (null sly-next-location-function)
-    (error "No context for finding locations."))
-  (funcall sly-next-location-function))
-
-(defun sly-previous-location ()
-  "Go to the previous location, depending on context.
-When displaying XREF information, this goes to the previous reference."
-  (interactive)
-  (when (null sly-previous-location-function)
-    (error "No context for finding locations."))
-  (funcall sly-previous-location-function))
 
 (defun sly-recompile-xref (&optional raw-prefix-arg)
   (interactive "P")
