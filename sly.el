@@ -1,5 +1,5 @@
 ;;; sly.el ---Superior Lisp Interaction Mode for Emacs-*-lexical-binding:t-*-
-;;; 
+;;;
 ;; Version: 1.0
 ;; URL: https://github.com/sly/sly
 ;; Package-Requires: ((cl-lib "0.5"))
@@ -778,7 +778,7 @@ MODE is the name of a major mode which will be enabled.
                  sly-buffer-connection ,connection-sym)
            (set-syntax-table lisp-mode-syntax-table)
            ,@body
-           
+
            (funcall (if ,select 'pop-to-buffer 'display-buffer)
                     (current-buffer))
            (current-buffer))))))
@@ -1111,7 +1111,8 @@ Fall back to `sly-init-using-swank-loader' if ASDF fails."
                    (read-from-string "swank:start-server")
                    ,(sly-to-lisp-filename port-filename)))
                  (t
-                  ,(read (sly-init-using-swank-loader port-filename coding-system))))))
+                  ,(read (sly-init-using-swank-loader port-filename
+                                                      coding-system))))))
 
 ;; XXX load-server & start-server used to be separated. maybe that was  better.
 (defun sly-init-using-swank-loader (port-filename _coding-system)
@@ -1281,7 +1282,8 @@ first line of the file."
          (proc (open-network-stream name nil host port))
          (buffer (sly-make-net-buffer (format " *%s*" name))))
     (push proc sly-net-processes)
-    (set-process-plist proc `(sly--net-connect-counter ,sly--net-connect-counter))
+    (set-process-plist proc `(sly--net-connect-counter
+                              ,sly--net-connect-counter))
     (set-process-buffer proc buffer)
     (set-process-filter proc 'sly-net-filter)
     (set-process-sentinel proc 'sly-net-sentinel)
@@ -1347,14 +1349,14 @@ EVAL'd by Lisp."
   (when (eq process sly-default-connection)
     (setq sly-default-connection nil))
   ;; Run hooks
-  ;; 
+  ;;
   (unless debug
     (run-hook-with-args 'sly-net-process-close-hooks process))
   ;; Kill the process (socket). Killing the buffer does it in case it
   ;; still exists (interactive `sly-disconnect' call, for instance),
   ;; but we first unset its sentinel otherwise we get a second
   ;; `sly-net-close' call.
-  ;; 
+  ;;
   (set-process-sentinel process nil)
   (when debug
     (set-process-filter process nil))
@@ -3265,7 +3267,8 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
       (if compilation-window
           (with-current-buffer compilation-buffer
             (with-selected-window compilation-window
-              (let ((buffer-and-pos (gethash anchor sly-compilation-log--notes)))
+              (let ((buffer-and-pos (gethash anchor
+                                             sly-compilation-log--notes)))
                 (when buffer-and-pos
                   (cl-assert (eq (car buffer-and-pos) (current-buffer)))
                   (goto-char (cdr buffer-and-pos))
@@ -3278,11 +3281,13 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
         (message (mapconcat #'sly-note.message notes "\n"))))))
 
 (define-button-type 'sly-note :sypertype 'sly-action)
+
 (define-button-type 'sly-in-buffer-note :supertype 'sly-note
   'keymap (let ((map (copy-keymap button-map)))
             (define-key map "RET" nil))
   'mouse-action 'sly-show-note
   'modification-hooks '(sly--in-buffer-note-modification))
+
 (define-button-type 'sly-compilation-note-group :supertype 'sly-note
   'face nil)
 
@@ -3341,7 +3346,8 @@ Perform completion more similar to Emacs' complete-symbol."
          (sly-current-thread t)
          (result (and prefix
                       (sly-eval
-                       `(swank:simple-completions ,prefix ',(sly-current-package))))))
+                       `(swank:simple-completions ,prefix
+                                                  ',(sly-current-package))))))
     (when result
       (list beg end (car result)))))
 
@@ -4162,7 +4168,7 @@ TODO"
     (define-key map (kbd ".")     'sly-xref-goto)
     (define-key map (kbd "i")     'sly-unimplemented)
     (define-key map (kbd "M-RET") 'sly-unimplemented)
-    
+
     map))
 
 (define-derived-mode sly-xref-mode lisp-mode "Xref"
@@ -4737,14 +4743,14 @@ argument is given, with CL:MACROEXPAND."
     (define-key map [backtab] 'backward-button)
 
     (define-key map "h"    'describe-mode)
-    
+
     (define-key map "n"    'sldb-down)
     (define-key map "p"    'sldb-up)
     (define-key map "\M-n" 'sldb-details-down)
     (define-key map "\M-p" 'sldb-details-up)
     (define-key map "<"    'sldb-beginning-of-backtrace)
     (define-key map ">"    'sldb-end-of-backtrace)
-        
+
     (define-key map "a"    'sldb-abort)
     (define-key map "c"    'sldb-continue)
     (define-key map "A"    'sldb-break-with-system-debugger)
@@ -4769,7 +4775,7 @@ Commands to invoke restarts:
    \\[sldb-invoke-restart-by-name]   - invoke restart by name
 
 Navigation commands:
-   \\[forward-button] - next interactive button 
+   \\[forward-button] - next interactive button
    \\[sldb-down]   - down
    \\[sldb-up]   - up
    \\[sldb-details-down] - down, with details
@@ -4876,10 +4882,11 @@ The chosen buffer the default connection's it if exists."
 (defun sldb-setup (thread level condition restarts frame-specs conts)
   "Setup a new SLDB buffer.
 CONDITION is a string describing the condition to debug.
-RESTARTS is a list of strings (NAME DESCRIPTION) for each available restart.
-FRAME-SPECS is a list of (NUMBER DESCRIPTION &optional PLIST) describing the initial
-portion of the backtrace. Frames are numbered from 0.
-CONTS is a list of pending Emacs continuations."
+RESTARTS is a list of strings (NAME DESCRIPTION) for each
+available restart.  FRAME-SPECS is a list of (NUMBER DESCRIPTION
+&optional PLIST) describing the initial portion of the
+backtrace. Frames are numbered from 0.  CONTS is a list of
+pending Emacs continuations."
   (with-current-buffer (sldb-get-buffer thread)
     (cl-assert (if (equal sldb-level level)
                    (equal sldb-condition condition)
@@ -5012,7 +5019,7 @@ RESTARTS should be a list ((NAME DESCRIPTION) ...)."
                  ": "  (sly-make-action-button (format "[%s]" name)
                                                #'(lambda (_button)
                                                    (sldb-invoke-restart number))
-                                               'restart-number number) 
+                                               'restart-number number)
                  " " (sldb-in-face restart string))
              (insert "\n"))
     (when (< end len)
@@ -5062,7 +5069,7 @@ If MORE is non-nil, more frames are on the Lisp stack."
                         (sldb-insert-frames frames more))))
                 'point-entered #'(lambda (_ new) (push-button new)))))))
 
-(defvar sldb-frame-map 
+(defvar sldb-frame-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "t")   'sldb-toggle-details)
     (define-key map (kbd "v")   'sldb-show-frame-source)
@@ -5084,17 +5091,19 @@ If MORE is non-nil, more frames are on the Lisp stack."
     (set-keymap-parent map sly-part-button-keymap)
     map))
 
-(defvar sldb-frame-menu-map 
+(defvar sldb-frame-menu-map
   (let ((map (make-sparse-keymap)))
-    (define-key map [sldb-disassemble] '(menu-item "Dissassemble Frame" sldb-disassemble))
-    (define-key map [sldb-eval-in-frame] '(menu-item "Prompt For A Form To Eval In Frame" sldb-eval-in-frame))
-    (define-key map [sldb-pprint-eval-in-frame] '(menu-item "Eval In Frame And Pretty Print Result" sldb-pprint-eval-in-frame))
-    (define-key map [sldb-inspect-in-frame] '(menu-item "Inspect In Frame's Context" sldb-inspect-in-frame))
-    (define-key map [sldb-restart-frame] '(menu-item "Restart Frame" sldb-restart-frame))
-    (define-key map [sldb-return-from-frame] '(menu-item "Return From Frame" sldb-return-from-frame))
-    (define-key map [sldb-toggle-details] '(menu-item "Toggle Details" sldb-toggle-details))
-    (define-key map [sldb-show-frame-source] '(menu-item "Show Frame Source" sldb-show-frame-source))
-    (define-key map [sldb-goto-source] '(menu-item "Go To Frame Source" sldb-goto-source))
+    (cl-macrolet ((item (label sym)
+                        `(define-key map [,sym] '(menu-item ,label ,sym))))
+      (item "Dissassemble Frame" sldb-disassemble)
+      (item "Prompt For A Form To Eval In Frame" sldb-eval-in-frame)
+      (item "Eval In Frame And Pretty Print Result" sldb-pprint-eval-in-frame)
+      (item "Inspect In Frame's Context" sldb-inspect-in-frame)
+      (item "Restart Frame" sldb-restart-frame)
+      (item "Return From Frame" sldb-return-from-frame)
+      (item "Toggle Details" sldb-toggle-details)
+      (item "Show Frame Source" sldb-show-frame-source)
+      (item "Go To Frame Source" sldb-goto-source))
     (set-keymap-parent map sly-button-popup-part-menu-keymap)
     map))
 
@@ -5113,8 +5122,8 @@ If MORE is non-nil, more frames are on the Lisp stack."
 (defun sldb-frame-button (label frame face &rest props)
   (apply #'make-text-button label nil :type 'sldb-frame
          'face face
-         'field (car frame) 
-         'frame-number (car frame) 
+         'field (car frame)
+         'frame-number (car frame)
          'frame-string (cadr frame)
          'part-args (list (car frame)
                           (sldb--guess-frame-name frame))
@@ -5144,10 +5153,11 @@ If MORE is non-nil, more frames are on the Lisp stack."
                             'sldb-restartable-frame-line-face
                           'sldb-frame-line-face))
      "\n")
-    (add-text-properties origin (point)
-                         (list 'field number
-                               'keymap sldb-frame-map
-                               'nearby-frame-button (button-at (- (point) 2))))))
+    (add-text-properties
+     origin (point)
+     (list 'field number
+           'keymap sldb-frame-map
+           'nearby-frame-button (button-at (- (point) 2))))))
 
 
 ;;;;;; SLDB examining text props
@@ -5260,29 +5270,35 @@ The details include local variable bindings and CATCH-tags."
                      (insert "\n"
                              indent2
                              (sldb-in-face local-name
-                               (concat name (if (zerop id) "" (format "#%d" id))))
+                               (concat name (if (zerop id)
+                                                ""
+                                              (format "#%d" id))))
                              " = "
-                             (sldb-local-variable-button value frame-number i))))
+                             (sldb-local-variable-button value
+                                                         frame-number
+                                                         i))))
           (when catches
             (insert "\n" indent1 (sldb-in-face section "Catch-tags:"))
             (dolist (tag catches)
               (sly-propertize-region `(catch-tag ,tag)
-                (insert "\n" indent2 (sldb-in-face catch-tag (format "%s" tag))))))
+                (insert "\n" indent2 (sldb-in-face catch-tag
+                                       (format "%s" tag))))))
           ;; The whole details field is propertized accordingly...
-          ;; 
+          ;;
           (add-text-properties (button-start frame-button) (point)
                                (list 'field (button-get frame-button 'field)
                                      'keymap sldb-frame-map
                                      'nearby-frame-button frame-button))
           ;; ...but we must remember to remove the 'keymap property from
           ;; any buttons inside the field
-          ;; 
+          ;;
           (cl-loop for pos = (point) then (button-start button)
                    for button = (previous-button pos)
                    while (and button
                               (> (button-start button)
                                  (button-start frame-button)))
-                   do (remove-text-properties (button-start button) (button-end button)
+                   do (remove-text-properties (button-start button)
+                                              (button-end button)
                                               '(keymap nil))))))
     (sly-recenter (field-end (button-start frame-button) 'escape))))
 
@@ -5769,20 +5785,22 @@ was called originally."
 (defun sly-update-connection-list ()
   (interactive)
   (set (make-local-variable 'tabulated-list-entries)
-       (mapcar #'(lambda (p)
-                   (list p
-                         `[,(if (eq sly-default-connection p) "*" " ")
-                           (,(file-name-nondirectory (or (sly-connection-name p)
-                                                         "unknown"))
-                            action ,#'(lambda (_button)
-                                        (and sly-connection-list-button-action
-                                             (funcall sly-connection-list-button-action p))))
-                           ,(first (process-contact p))
-                           ,(format "%s" (second (process-contact p)))
-                           ,(format "%s" (sly-pid p))
-                           ,(or (sly-lisp-implementation-type p)
-                                "unknown")]))
-               (reverse sly-net-processes)))
+       (mapcar
+        #'(lambda (p)
+            (list p
+                  `[,(if (eq sly-default-connection p) "*" " ")
+                    (,(file-name-nondirectory (or (sly-connection-name p)
+                                                  "unknown"))
+                     action
+                     ,#'(lambda (_button)
+                          (and sly-connection-list-button-action
+                               (funcall sly-connection-list-button-action p))))
+                    ,(first (process-contact p))
+                    ,(format "%s" (second (process-contact p)))
+                    ,(format "%s" (sly-pid p))
+                    ,(or (sly-lisp-implementation-type p)
+                         "unknown")]))
+        (reverse sly-net-processes)))
   (let ((p (point)))
     (tabulated-list-print)
     (goto-char p)))
@@ -5975,13 +5993,15 @@ If PREV resp. NEXT are true insert more-buttons as needed."
        ((:label string)
         (sly-inspector-fontify label string))
        ((:action string id)
-        (sly-make-action-button string
-                                #'(lambda (_button)
-                                    (let ((pos (sly-inspector-position)))
-                                      (sly-eval-async `(swank::inspector-call-nth-action ,id)
-                                        (lambda (parts)
-                                          (when parts
-                                            (sly-open-inspector parts pos))))))))))))
+        (sly-make-action-button
+         string
+         #'(lambda (_button)
+             (let ((pos (sly-inspector-position)))
+               (sly-eval-async
+                   `(swank::inspector-call-nth-action ,id)
+                 (lambda (parts)
+                   (when parts
+                     (sly-open-inspector parts pos))))))))))))
 
 (defun sly-inspector-position ()
   "Return a pair (Y-POSITION X-POSITION) representing the
@@ -6477,7 +6497,8 @@ is setup, unless the user already set one explicitly."
       [ "Quit (throw)" sldb-quit ,C ]
       [ "Break With Default Debugger" sldb-break-with-default-debugger ,C ])))
 
-(easy-menu-define sly-inspector-menu sly-inspector-mode-map "Menu for the SLY Inspector"
+(easy-menu-define sly-inspector-menu sly-inspector-mode-map
+  "Menu for the SLY Inspector"
   (let ((C '(sly-connected-p)))
     `("SLY-Inspector"
       [ "Pop Inspectee" sly-inspector-pop ,C ]
