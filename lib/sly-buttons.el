@@ -16,12 +16,14 @@
 (defun sly-button-popup-part-menu (event)
   "Popup a menu for a `sly-part' button"
   (interactive "@e")
-  (let ((button (button-at (posn-point (event-end event)))))
+  (let* ((button (button-at (posn-point (event-end event))))
+         (label (button-get button 'part-label))
+         (items (cdr (button-get button 'part-menu-keymap))))
     (popup-menu
      `(keymap
-       (heading menu-item ,(button-get button 'part-label))
-       (separator menu-item "----")
-       ,@(cdr (button-get button 'part-menu-keymap))))))
+       ,@(when label
+           `(,(truncate-string-to-width label 30 nil nil t)))
+       ,@items))))
 
 (defun sly-button-at (&optional pos type no-error)
   (let ((button (button-at (or pos

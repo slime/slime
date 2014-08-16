@@ -319,11 +319,11 @@ emptied. See also `sly-mrepl-hook'")
               (funcall callback objects))))
   (sly-mrepl--send `(:copy-to-repl ,@method-args)))
 
-(defun sly-mrepl--make-result-button (label object-idx value-idx)
+(defun sly-mrepl--make-result-button (label entry-idx value-idx)
   (make-text-button label nil
                     :type 'sly-mrepl-part
-                    'part-args (list object-idx value-idx)
-                    'part-label label)
+                    'part-args (list entry-idx value-idx)
+                    'part-label (format "REPL Result"))
   label)
 
 (defun sly-mrepl--insert-returned-values (values)

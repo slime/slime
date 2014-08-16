@@ -3413,8 +3413,13 @@ Return nil if there's no previous object."
   (with-buffer-syntax ()
     (describe-to-string (istate.object *istate*))))
 
+(defslyfun describe-inspector-part (index)
+  "Describe part INDEX of the currently inspected object."
+  (with-buffer-syntax ()
+    (describe-to-string (inspector-nth-part index))))
+
 (defslyfun pprint-inspector-part (index)
-  "Pretty-print the currently inspected object."
+  "Pretty-print part INDEX of the currently inspected object."
   (with-buffer-syntax ()
     (swank-pprint (list (inspector-nth-part index)))))
 

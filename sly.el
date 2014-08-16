@@ -3091,8 +3091,10 @@ Don't move if there are multiple or no calls in the current defun."
     (sly-forward-source-path edit-path)))
 
 (defun sly-move-to-source-location (location &optional noerror)
-  "Move to the source location LOCATION.  Several kinds of locations
-are supported:
+  "Move to the source location LOCATION.
+If NOERROR don't signal an error,  but return nil.
+
+Several kinds of locations are supported:
 
 <location> ::= (:location <buffer> <position> <hints>)
              | (:error <message>)
@@ -3119,9 +3121,11 @@ are supported:
               (error "Location is outside accessible part of buffer")))
        (goto-char pos)))
     ((:error message)
-     (if noerror
-         (sly-message "%s" message)
-       (error "%s" message)))))
+     (cond (noerror
+            (sly-message "%s" message)
+            nil)
+           (t
+            (error "%s" message))))))
 
 (defun sly--highlight-sexp (&optional start end)
   "Highlight the first sexp after point."
@@ -3134,14 +3138,14 @@ are supported:
                       (line-end-position)
                       timeout))
 
-(defun sly--display-source-location (source-location)
+(defun sly--display-source-location (source-location &optional noerror)
   (save-excursion
-    (sly-move-to-source-location source-location)
-    (sly--highlight-sexp)
-    (let ((pos (point)))
-      (with-selected-window (display-buffer (current-buffer) t)
-        (goto-char pos)
-        (recenter (if (= (current-column) 0) 1))))))
+    (when (sly-move-to-source-location source-location noerror)
+      (sly--highlight-sexp)
+      (let ((pos (point)))
+        (with-selected-window (display-buffer (current-buffer) t)
+          (goto-char pos)
+          (recenter (if (= (current-column) 0) 1)))))))
 
 (defun sly--pop-to-source-location (source-location &optional method)
   (sly-move-to-source-location source-location)
@@ -4180,7 +4184,9 @@ The most important commands:
 
 \\{sly-xref-mode-map}"
   (setq font-lock-defaults nil)
-  (setq delayed-mode-hooks nil))
+  (setq delayed-mode-hooks nil)
+  (setq buffer-read-only t)
+  (sly-mode))
 
 (defun sly-next-line/not-add-newlines ()
   (interactive)
@@ -4207,6 +4213,8 @@ The most important commands:
   "Face for Xref buttons."
   :group 'sly)
 
+;; TODO: make this a sly-part button that lets one
+;; inspect/describe/return function objects
 (define-button-type 'sly-xref :supertype 'sly-action
   'face 'sly-xref-face
   'action #'(lambda (button)
@@ -5080,6 +5088,7 @@ If MORE is non-nil, more frames are on the Lisp stack."
     (define-key map (kbd "i")   'sldb-inspect-in-frame)
     (define-key map (kbd "r")   'sldb-restart-frame)
     (define-key map (kbd "R")   'sldb-return-from-frame)
+    (define-key map (kbd "RET") 'sldb-toggle-details)
 
     (define-key map "s"    'sldb-step)
     (define-key map "x"    'sldb-next)
@@ -5095,15 +5104,15 @@ If MORE is non-nil, more frames are on the Lisp stack."
   (let ((map (make-sparse-keymap)))
     (cl-macrolet ((item (label sym)
                         `(define-key map [,sym] '(menu-item ,label ,sym))))
-      (item "Dissassemble Frame" sldb-disassemble)
-      (item "Prompt For A Form To Eval In Frame" sldb-eval-in-frame)
-      (item "Eval In Frame And Pretty Print Result" sldb-pprint-eval-in-frame)
-      (item "Inspect In Frame's Context" sldb-inspect-in-frame)
-      (item "Restart Frame" sldb-restart-frame)
-      (item "Return From Frame" sldb-return-from-frame)
+      (item "Dissassemble" sldb-disassemble)
+      (item "Eval In Context" sldb-eval-in-frame)
+      (item "Eval and Pretty Print In Context" sldb-pprint-eval-in-frame)
+      (item "Inspect In Context" sldb-inspect-in-frame)
+      (item "Restart" sldb-restart-frame)
+      (item "Return Value" sldb-return-from-frame)
       (item "Toggle Details" sldb-toggle-details)
-      (item "Show Frame Source" sldb-show-frame-source)
-      (item "Go To Frame Source" sldb-goto-source))
+      (item "Show Source" sldb-show-frame-source)
+      (item "Go To Source" sldb-goto-source))
     (set-keymap-parent map sly-button-popup-part-menu-keymap)
     map))
 
@@ -5127,7 +5136,7 @@ If MORE is non-nil, more frames are on the Lisp stack."
          'frame-string (cadr frame)
          'part-args (list (car frame)
                           (sldb--guess-frame-name frame))
-         'part-label (cadr frame)
+         'part-label (format "Frame %d" (car frame))
          props)
   label)
 
@@ -5227,11 +5236,11 @@ If MORE is non-nil, more frames are on the Lisp stack."
                                                                     ,var-id)
                             'sly-open-inspector)))
 
-(defun sldb-local-variable-button (label frame var-id &rest props)
+(defun sldb-local-variable-button (label frame-number var-id &rest props)
   (apply #'make-text-button label nil
          :type 'sldb-local-variable
-         'part-args (list frame var-id)
-         'part-label label props)
+         'part-args (list frame-number var-id)
+         'part-label (format "Local Variable %d" var-id) props)
   label)
 
 (defun sldb-frame-details-region (frame-button)
@@ -5878,7 +5887,7 @@ was called originally."
     (define-key map "l" 'sly-inspector-pop)
     (define-key map "n" 'sly-inspector-next)
     (define-key map " " 'sly-inspector-next)
-    (define-key map "d" 'sly-inspector-describe)
+    (define-key map "D" 'sly-inspector-describe-inspectee)
     (define-key map "e" 'sly-inspector-eval)
     (define-key map "h" 'sly-inspector-history)
     (define-key map "g" 'sly-inspector-reinspect)
@@ -5920,18 +5929,22 @@ was called originally."
   'sly-button-pretty-print
   #'(lambda (id)
       (sly-eval-describe `(swank:pprint-inspector-part ,id)))
+  'sly-button-describe
+  #'(lambda (id)
+      (sly-eval-describe `(swank:describe-inspector-part ,id)))
   'sly-button-show-source
   #'(lambda (id)
       (sly-eval-async
           `(swank:find-source-location-for-emacs '(:inspector ,id))
-        #'sly--display-source-location)))
+        #'(lambda (result)
+            (sly--display-source-location result 'noerror)))))
 
 (defun sly-inspector-part-button (label id &rest props)
   (apply #'make-text-button
          label nil
          :type 'sly-inspector-part
          'part-args (list id)
-         'part-label label
+         'part-label "Inspector Object"
          props)
   label)
 
@@ -6042,7 +6055,8 @@ position of point in the current buffer."
   (sly-eval-async `(swank:quit-inspector))
   (quit-window t))
 
-(defun sly-inspector-describe ()
+(defun sly-inspector-describe-inspectee ()
+  "Describe the currently inspected object"
   (interactive)
   (sly-eval-describe `(swank:describe-inspectee)))
 
