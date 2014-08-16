@@ -1231,7 +1231,7 @@ point the thread terminates and CHANNEL is closed."
             (thread (and ch (find-channel-thread ch))))
        (cond ((and ch thread)
               (send-event thread `(:emacs-channel-send ,ch ,msg)))
-             (channel
+             (ch
               (encode-message 
                (list :invalid-channel channel-id
                      "No suitable threads for channel")
