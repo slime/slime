@@ -621,7 +621,7 @@ Confirm that SUBFORM is correctly located."
       (setq sly-buffer-package ":cl-user")
       (sly-sync-to-top-level 5)
       (goto-char (point-max))
-      (sly-previous-note)
+      (sly-previous-note 1)
       (sly-check error-location-correct
         (equal (read (current-buffer)) subform))))
   (sly-check-top-level))
@@ -646,7 +646,7 @@ Confirm that SUBFORM is correctly located."
       (setq sly-buffer-package ":cl-user")
       (sly-sync-to-top-level 5)
       (goto-char (point-max))
-      (sly-previous-note)
+      (sly-previous-note 1)
       (sly-check error-location-correct
         (equal (read (current-buffer)) subform))))
   (sly-check-top-level))
