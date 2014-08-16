@@ -157,14 +157,15 @@
                  aborted nil))
       (unless (eq (mrepl-mode repl) :teardown)
         (flush-listener-streams repl)
-        (if errored
-            (pop (mrepl-pending-errors repl)))
-        (cond (aborted
-               (send-to-remote-channel (mrepl-remote-id repl)
-                                       `(:evaluation-aborted
-                                         ,(prin1-to-string aborted))))
-              (t
-               (with-listener repl
+        (with-listener repl
+          (if errored
+              (pop (mrepl-pending-errors repl)))
+          (cond (aborted
+                 (send-to-remote-channel (mrepl-remote-id repl)
+                                         `(:evaluation-aborted
+                                           ,(prin1-to-string aborted))))
+                (t
+                 
                  (when results
                    (setq /// //  // /  / results
                          *** **  ** *  * (car results)
@@ -173,8 +174,8 @@
                  (send-to-remote-channel
                   (mrepl-remote-id repl)
                   `(:write-values ,(mapcar #'swank::to-line
-                                           results))))))
-        (send-prompt repl)))))
+                                           results)))))
+          (send-prompt repl))))))
 
 (defun send-prompt (repl &optional condition)
   (send-to-remote-channel (mrepl-remote-id repl)
