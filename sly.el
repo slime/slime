@@ -2807,10 +2807,6 @@ Return nil if there's no useful source location."
   (< (cl-position sev1 sly-severity-order)
      (cl-position sev2 sly-severity-order)))
 
-(defun sly-most-severe (sev1 sev2)
-  "Return the most servere of two conditions."
-  (if (sly-severity< sev1 sev2) sev2 sev1))
-
 (defun sly-forward-positioned-source-path (source-path)
   "Move forward through a sourcepath from a fixed position.
 The point is assumed to already be at the outermost sexp, making the
@@ -3255,21 +3251,6 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
                                        'sly-in-buffer-note)
            do (delete-overlay existing)))
 
-(defun sly-merge-notes (beg end)
-  "Merge `sly-note' annotation buttons from BEG to END into one."
-  (interactive "r")
-  (cl-loop for existing in (overlays-in beg end)
-           when (button-type-subtype-p (button-type existing)
-                                       'sly-in-buffer-note)
-           for start = (overlay-start existing)
-           for end = (overlay-end existing)
-           appending (button-get existing 'notes) into all-notes
-           minimizing start into min-start
-           maximizing end into max-end
-           do (delete-overlay existing)
-           finally (make-button min-start max-end :type 'sly-in-buffer-note
-                                'notes all-notes)))
-
 (defun sly-show-note (button)
   "Present the details of a compiler note to the user."
   (interactive)
@@ -3309,13 +3290,30 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
   (unless after? (delete-overlay button)))
 
 (defun sly--add-in-buffer-note  (note)
-  "Add NOTE as an `sly-in-buffer-note' button to the source buffer.
-Mergin handled by `sly-merge-notes'"
+  "Add NOTE as an `sly-in-buffer-note' button to the source buffer."
   (cl-destructuring-bind (&optional beg end)
       (sly-choose-overlay-region note)
     (when beg
-      (make-button beg end :type 'sly-in-buffer-note 'notes (list note))
-      (sly-merge-notes beg end))))
+      (cl-loop for existing in (overlays-in beg end)
+               when (button-type-subtype-p (button-type existing)
+                                           'sly-in-buffer-note)
+               minimizing (overlay-start existing) into min-start
+               maximizing (overlay-end existing) into max-end
+               appending (button-get existing 'notes) into existing-notes
+               do (delete-overlay existing)
+               finally
+               (let ((all-notes (reverse
+                                 (cl-sort
+                                  (cons note existing-notes)
+                                  #'sly-severity<
+                                  :key #'sly-note.severity))))
+                 (make-button (min beg (or min-start (point-max)))
+                              (max end (or max-end (point-min)))
+                              :type 'sly-in-buffer-note
+                              'notes all-notes
+                              'face (sly-severity-face
+                                     (sly-note.severity
+                                      (first all-notes)))))))))
 
 (defun sly--compilation-note-group-button  (label notes)
   "Pepare notes as a `sly-compilation-note' button.
@@ -6796,9 +6794,7 @@ The returned bounds are either nil or non-empty."
 (cl-loop for sym in (list 'sly-def-connection-var
                           'sly-define-channel-type
                           'sly-define-channel-method
-                          'define-sly-contrib
-                          'sly-defun-if-undefined
-                          'sly-defmacro-if-undefined)
+                          'define-sly-contrib)
          for regexp = (format "(\\(%S\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"
                               sym)
          do (font-lock-add-keywords
