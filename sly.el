@@ -3347,13 +3347,16 @@ Perform completion more similar to Emacs' complete-symbol."
          (beg (sly-symbol-start-pos))
          (prefix (and beg
                       (buffer-substring-no-properties beg end)))
-         (sly-current-thread t)
+         
          (result (and prefix
-                      (sly-eval
-                       `(swank:simple-completions ,prefix
-                                                  ',(sly-current-package))))))
+                      (sly-simple-completions prefix))))
     (when result
       (list beg end (car result)))))
+
+(defun sly-simple-completions (prefix)
+  (let ((sly-current-thread t))
+    (sly-eval
+     `(swank:simple-completions ,prefix ',(sly-current-package)))))
 
 (defun sly-show-arglist ()
   (let ((op (ignore-errors
