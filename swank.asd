@@ -17,11 +17,11 @@
 ;; are disclaimed.
 
 (defsystem :swank
-  :serial t
   :components
   ((:module "lib"
     :components
     ((:module "lisp"
+      :serial t
       :components
       ((:file "swank-backend")
        ;; If/when we require ASDF3, we shall use :if-feature instead
@@ -34,6 +34,7 @@
        #+(or clisp clozure)
        (:file "metering")
        (:module "backend"
+        :serial t
         :components (#+allegro
                      (:file "swank-allegro")
                      #+armedbear
