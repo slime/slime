@@ -2869,10 +2869,15 @@ The result is a list of property lists."
     ;; PACKAGE.
     (let ((*buffer-package* (or package
                                 *swank-io-package*)))
-      (mapcan (listify #'briefly-describe-symbol-for-emacs)
-              (sort (remove-duplicates
-                     (apropos-symbols name external-only case-sensitive package))
-                    #'present-symbol-before-p)))))
+      (loop for (symbol . extra)
+              in (sort (remove-duplicates
+                        (apropos-symbols name external-only case-sensitive package)
+                        :key #'first)
+                       #'present-symbol-before-p
+                       :key #'first)
+            for short = (briefly-describe-symbol-for-emacs symbol)
+            when short
+              collect (append short extra)))))
 
 (defun briefly-describe-symbol-for-emacs (symbol)
   "Return a property list describing SYMBOL.
@@ -2883,7 +2888,10 @@ Like `describe-symbol-for-emacs' but with at most one line per item."
     (let ((desc (map-if #'stringp #'first-line
                         (describe-symbol-for-emacs symbol))))
       (if desc
-          (list* :designator (to-string symbol) desc)))))
+          (list* :designator (list (symbol-name symbol)
+                                   (package-name (symbol-package symbol))
+                                   (symbol-external-p symbol))
+                 desc)))))
 
 (defun map-if (test fn &rest lists)
   "Like (mapcar FN . LISTS) but only call FN on objects satisfying TEST.
@@ -2918,19 +2926,30 @@ that symbols accessible in the current package go first."
                      (string< (package-name px) (package-name py)))))))))
 
 (defun apropos-symbols (string external-only case-sensitive package)
-  (let ((packages (or package (remove (find-package :keyword)
-                                      (list-all-packages))))
-        (matcher  (swank-backend:make-apropos-matcher string
-                                                      case-sensitive
-                                                      (not package)))
-        (result))
+  (let* ((packages (or package (remove (find-package :keyword)
+                                       (list-all-packages))))
+         (symbol-name-fn
+           (lambda (symbol)
+             (cond ((not package)
+                    ;; include qualifier in search if user didn't pass
+                    ;; PACKAGE.
+                    (concatenate 'string
+                                 (package-name (symbol-package symbol))
+                                 (if (symbol-external-p symbol) ":" "::")
+                                 (symbol-name symbol)))
+                   (t
+                    (string symbol)))))
+         (matcher  (swank-backend:make-apropos-matcher string
+                                                       symbol-name-fn
+                                                       case-sensitive)))
     (with-package-iterator (next packages :external :internal)
-      (loop (multiple-value-bind (morep symbol) (next)
-              (cond ((not morep) (return))
-                    ((and (if external-only (symbol-external-p symbol) t)
-                          (funcall matcher symbol))
-                     (push symbol result))))))
-    result))
+      (loop for (morep symbol) = (multiple-value-list (next))
+            while morep
+            for (match end) = (and (or (not external-only)
+                                       (symbol-external-p symbol))
+                                   (multiple-value-list (funcall matcher symbol)))
+            when match
+              collect `(,symbol ,@(when end `(:bounds (,match ,end))))))))
 
 (defun call-with-describe-settings (fn)
   (let ((*print-readably* nil))

@@ -4105,49 +4105,81 @@ TODO"
       (set-syntax-table lisp-mode-syntax-table)
       (goto-char (point-min)))))
 
-(defvar sly-apropos-namespaces
-  '((:variable "Variable")
-    (:function "Function")
-    (:generic-function "Generic Function")
-    (:macro "Macro")
-    (:special-operator "Special Operator")
-    (:setf "Setf")
-    (:type "Type")
-    (:class "Class")
-    (:alien-type "Alien type")
-    (:alien-struct "Alien struct")
-    (:alien-union "Alien type")
-    (:alien-enum "Alien enum")))
+(define-button-type 'sly-apropos-symbol :supertype 'sly-part
+  'face nil
+  'action 'sly-button-show-source ;default action
+  'sly-button-inspect
+  #'(lambda (name _type)
+      (sly-inspect (format "(quote %s)" name)))
+  'sly-button-show-source
+  #'(lambda (name _type)
+      (sly-edit-definition name 'window))
+  'sly-button-describe
+  #'(lambda (name _type)
+      (sly-eval-describe `(swank:describe-symbol ,name))))
+
+(defun sly-apropos-designator-string (designator)
+  (cond ((listp designator)
+         (concat (cadr designator)
+                 (if (caddr designator) ":" "::")
+                 (propertize (car designator)
+                             'face 'sly-apropos-symbol)))
+        ((stringp designator)
+         designator)
+        (t
+         (error "unknown designator type"))))
+
+(defun sly-apropos-insert-symbol (designator item bounds)
+  (let ((start (point)))
+    (insert (make-text-button (sly-apropos-designator-string designator) nil
+                              'part-args (list item nil)
+                              'part-label "Symbol"
+                              :type 'sly-apropos-symbol))
+    (when bounds
+      (let ((ov (make-overlay (+ start (cl-first bounds))
+                              (+ start (cl-second bounds)))))
+        (overlay-put ov 'face 'highlight)))))
 
 (defun sly-print-apropos (plists)
-  (dolist (plist plists)
-    (let ((designator (plist-get plist :designator)))
-      (cl-assert designator)
-      (sly-insert-propertized `(face sly-apropos-symbol) designator))
-    (terpri)
-    (cl-loop for (prop value) on plist by #'cddr
-             unless (eq prop :designator) do
-             (let ((namespace (cadr (or (assq prop sly-apropos-namespaces)
-                                        (error "Unknown property: %S" prop))))
-                   (start (point)))
-               (princ "  ")
-               (sly-insert-propertized `(face sly-apropos-label) namespace)
-               (princ ": ")
-               (princ (cl-etypecase value
-                        (string value)
-                        ((member nil :not-documented) "(not documented)")))
-               (add-text-properties
-                start (point)
-                (list 'type prop 'action 'sly-call-describer
-                      'button t 'apropos-label namespace
-                      'item (plist-get plist :designator)))
-               (terpri)))))
+  (cl-loop
+   for plist in plists
+   for designator = (plist-get plist :designator)
+   for item = (substring-no-properties
+               (sly-apropos-designator-string designator))
+   do
+   (sly-apropos-insert-symbol designator item (plist-get plist :bounds))
+   (terpri)
+   (cl-loop for (prop value) on plist by #'cddr
+            for start = (point)
+            unless (memq prop '(:designator
+                                :package
+                                :bounds))
+            do
+            (let ((namespace (upcase-initials
+                              (replace-regexp-in-string
+                               "-" " " (substring (symbol-name prop) 1)))))
+              (princ "  ")
+              (insert (propertize namespace
+                                  'face 'sly-apropos-label))
+              (princ ": ")
+              (princ (cond ((and value
+                                 (not (eq value :not-documented)))
+                            value)
+                           (t
+                            "(not documented)")))
+              (add-text-properties
+               start (point)
+               (list 'action 'sly-button-describe
+                     'sly-button-describe
+                     #'(lambda (name type)
+                         (sly-eval-describe `(swank:describe-definition-for-emacs ,name
+                                                                                  ,type)))
+                     'part-args (list item prop)
+                     'button t 'apropos-label namespace))
+              (terpri)))))
 
-(defun sly-call-describer (arg)
-  (let* ((pos (if (markerp arg) arg (point)))
-         (type (get-text-property pos 'type))
-         (item (get-text-property pos 'item)))
-    (sly-eval-describe `(swank:describe-definition-for-emacs ,item ,type))))
+(defun sly-apropos-describe (name type)
+  (sly-eval-describe `(swank:describe-definition-for-emacs ,name ,type)))
 
 (defun sly-info ()
   "Open SLY manual"
@@ -4234,11 +4266,13 @@ source-location."
   (cl-loop for (group . refs) in xref-alist do
            (sly-insert-propertized '(face bold) group "\n")
            (cl-loop for (label location) in refs
+                    for start = (point)
                     do
                     (insert
                      " "
                      (sly-xref-button (sly-one-line-ify label) location)
-                    "\n")))
+                    "\n")
+                    (add-text-properties start (point) (list 'sly-location location))))
   ;; Remove the final newline to prevent accidental window-scrolling
   (backward-delete-char 1))
 
