@@ -578,10 +578,10 @@ string buffer position filename policy)")
                        (lambda (pattern arglist)
                          (and arglist (string-match pattern arglist))))))
 
-(def-sly-test (compile-defun (:fails-for "allegro" "lispworks" "clisp"))
-    (program subform)
+(def-sly-test compile-defun
+    (program expected)
     "Compile PROGRAM containing errors.
-Confirm that SUBFORM is correctly located."
+Confirm that the EXPECTED subform is correctly located."
     '(("(defun cl-user::foo () (cl-user::bar))" (cl-user::bar))
       ("(defun cl-user::foo ()
           #\\space
@@ -612,7 +612,7 @@ Confirm that SUBFORM is correctly located."
         "
        (cl-user::bar)))
   (sly-check-top-level)
-  (with-temp-buffer
+  (with-current-buffer (generate-new-buffer "*coiso*") 
     (lisp-mode)
     (insert program)
     (let ((font-lock-verbose nil))
@@ -621,18 +621,17 @@ Confirm that SUBFORM is correctly located."
       (setq sly-buffer-package ":cl-user")
       (sly-sync-to-top-level 5)
       (goto-char (point-max))
-      (sly-previous-note 1)
-      (sly-check error-location-correct
-        (equal (read (current-buffer)) subform))))
+      (sly-previous-note)
+      (should (equal expected (read (current-buffer))))))
   (sly-check-top-level))
 
 ;; This test ideally would be collapsed into the previous
 ;; compile-defun test, but only 1 case fails for ccl--and that's here
 (def-sly-test (compile-defun-with-reader-conditionals
-                 (:fails-for "allegro" "lispworks" "clisp" "ccl"))
-    (program subform)
+               (:fails-for "allegro" "lispworks" "clisp" "ccl"))
+    (program expected)
     "Compile PROGRAM containing errors.
-Confirm that SUBFORM is correctly located."
+Confirm that the EXPECTED subform is correctly located."
     '(("(defun foo ()
           #+#.'(:and) (/ 1 0))"
        (/ 1 0)))
@@ -646,9 +645,9 @@ Confirm that SUBFORM is correctly located."
       (setq sly-buffer-package ":cl-user")
       (sly-sync-to-top-level 5)
       (goto-char (point-max))
-      (sly-previous-note 1)
-      (sly-check error-location-correct
-        (equal (read (current-buffer)) subform))))
+      (sly-previous-note)
+      (should (equal expected
+                     (read (current-buffer))))))
   (sly-check-top-level))
 
 (def-sly-test (compile-file (:fails-for "allegro" "lispworks" "clisp"))
