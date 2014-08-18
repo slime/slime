@@ -1530,7 +1530,6 @@ entered nothing, returns NIL when user pressed C-g."
                                            ,prompt ,initial-value))
     (third (wait-for-event `(:emacs-return ,tag result)))))
 
-
 (defun process-form-for-emacs (form)
   "Returns a string which emacs will read as equivalent to
 FORM. FORM can contain lists, strings, characters, symbols and
@@ -2411,7 +2410,22 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
 (defslyfun invoke-nth-restart (index)
   (let ((restart (nth-restart index)))
     (when restart
-      (invoke-restart-interactively restart))))
+      (let* ((prompt nil)
+             (*query-io*
+               (make-two-way-stream
+                (make-input-stream
+                 (lambda ()
+                   (format nil "~a~%"
+                           (read-from-minibuffer-in-emacs
+                            (format nil "~a" (or prompt
+                                                 "[restart prompt] :"))))))
+                (make-output-stream
+                 #'(lambda (s)
+                     (setq prompt
+                           (concatenate 'string
+                                        (or prompt "")
+                                        s)))))))
+        (invoke-restart-interactively restart)))))
 
 (defslyfun sldb-abort ()
   (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
