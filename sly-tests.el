@@ -50,8 +50,7 @@
 Exits Emacs when finished. The exit code is the number of failed tests."
   (interactive)
   (let ((ert-debug-on-error nil)
-        (timeout 30)
-        (sly-background-message-function #'ignore))
+        (timeout 30))
     (sly)
     ;; Block until we are up and running.
     (lexical-let (timed-out)
@@ -76,10 +75,7 @@ Exits Emacs when finished. The exit code is the number of failed tests."
 
 (defun sly-skip-test (message)
   ;; ERT for Emacs 23 and earlier doesn't have `ert-skip'
-  (if (fboundp 'ert-skip)
-      (ert-skip message)
-    (message (concat "SKIPPING: " message))
-    (ert-pass)))
+  (ert-skip message))
 
 (eval-and-compile
   (defun sly-tests-auto-tags ()
@@ -194,8 +190,8 @@ conditions (assertions)."
   (let ((end (time-add (current-time) (seconds-to-time timeout))))
     (while (not (funcall predicate))
       (let ((now (current-time)))
-        (message "waiting for condition: %s [%s.%06d]" name
-                 (format-time-string "%H:%M:%S" now) (third now)))
+        (sly-message "waiting for condition: %s [%s.%06d]" name
+                     (format-time-string "%H:%M:%S" now) (third now)))
       (cond ((time-less-p end (current-time))
              (error "Timeout waiting for condition: %S" name))
             (t

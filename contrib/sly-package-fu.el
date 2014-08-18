@@ -271,16 +271,16 @@ symbol in the Lisp image if possible."
     (unless symbol (error "No symbol at point."))
     (cond (current-prefix-arg
 	   (if (cl-plusp (sly-frob-defpackage-form package :unexport symbol))
-	       (message "Symbol `%s' no longer exported form `%s'"
+	       (sly-message "Symbol `%s' no longer exported form `%s'"
                         symbol package)
-             (message "Symbol `%s' is not exported from `%s'"
+             (sly-message "Symbol `%s' is not exported from `%s'"
                       symbol package))
 	   (sly-unexport-symbol symbol package))
 	  (t
 	   (if (cl-plusp (sly-frob-defpackage-form package :export symbol))
-	       (message "Symbol `%s' now exported from `%s'"
+	       (sly-message "Symbol `%s' now exported from `%s'"
                         symbol package)
-             (message "Symbol `%s' already exported from `%s'"
+             (sly-message "Symbol `%s' already exported from `%s'"
                       symbol package))
 	   (sly-export-symbol symbol package)))))
 
@@ -290,7 +290,7 @@ symbol in the Lisp image if possible."
                                                  (sly-symbol-at-point))))
   (let* ((package (sly-current-package))
          (symbols (sly-eval `(swank:export-structure ,name ,package))))
-    (message "%s symbols exported from `%s'"
+    (sly-message "%s symbols exported from `%s'"
              (sly-frob-defpackage-form package :export symbols)
              package)))
 

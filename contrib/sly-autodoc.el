@@ -48,7 +48,7 @@
          (doc-and-reasons (sly-eval `(swank:autodoc '(,name ,sly-cursor-marker)))))
     (if (memq (car doc-and-reasons) '(:error :not-available))
         (error "Arglist not available: %a" (cadr doc-and-reasons))
-      (message "%s" (sly-autodoc--fontify-string (car doc-and-reasons))))))
+      (sly-message "%s" (sly-autodoc--fontify-string (car doc-and-reasons))))))
 
 
 ;;;; Autodocs (automatic context-sensitive help)

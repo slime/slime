@@ -326,8 +326,7 @@ so that the new text is present."
                          (buffer-substring sly-fuzzy-start
                                            sly-fuzzy-end)))
       (sly-fuzzy-done)
-      (beep)
-      (message "Target buffer has been modified!"))
+      (sly-error "Target buffer has been modified!"))
      (t
       (goto-char sly-fuzzy-start)
       (delete-region sly-fuzzy-start sly-fuzzy-end)

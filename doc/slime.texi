@@ -2758,7 +2758,6 @@ keybinding (if there is one) refer to the function description.
 @fcnindex{sly-autodoc-mode}
 @c @fcnindex{sly-autodoc-start-timer}
 @c @fcnindex{sly-background-activities-enabled-p}
-@c @fcnindex{sly-background-message}
 @c @fcnindex{sly-browse-classes}
 @c @fcnindex{sly-browse-xrefs}
 @fcnindex{sly-call-defun}

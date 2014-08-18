@@ -223,7 +223,7 @@ emptied. See also `sly-mrepl-hook'")
         (t
          (setq sly-mrepl--pending-output
                (concat sly-mrepl--pending-output string))
-         (message "[sly] some output saved for later insertion"))))
+         (sly-message "Some output saved for later insertion"))))
 
 (defun sly-mrepl--send-input-sexp ()
   (goto-char (point-max))
@@ -377,11 +377,11 @@ emptied. See also `sly-mrepl-hook'")
   (with-current-buffer (sly-channel-get self 'buffer)
     (cl-ecase mode
       (:read (setq sly-mrepl--expect-sexp-mode nil)
-	     (message "[sly] Listener waiting for input to read"))
+	     (sly-message "Listener waiting for input to read"))
       (:eval (setq sly-mrepl--expect-sexp-mode t)
              (when sly-mrepl--pending-output
                (sly-mrepl--insert-output "\n"))
-             (message "[sly] Listener waiting for sexps to eval")))))
+             (sly-message "Listener waiting for sexps to eval")))))
 
 (defun sly-mrepl--busy-p ()
   (>= sly-mrepl--output-mark (sly-mrepl--mark)))
@@ -395,7 +395,7 @@ emptied. See also `sly-mrepl-hook'")
   (cond ((and
 	  sly-mrepl--expect-sexp-mode
           (sly-mrepl--busy-p))
-	 (message "[sly] REPL is busy"))
+	 (sly-message "REPL is busy"))
         ((and sly-mrepl--expect-sexp-mode
 	      (or (sly-input-complete-p (sly-mrepl--mark) (point-max))
 		  end-of-input))
@@ -407,7 +407,7 @@ emptied. See also `sly-mrepl-hook'")
          (comint-send-input 'no-newline))
         (t
 	 (newline-and-indent)
-         (message "[sly] Input not complete")))
+         (sly-message "Input not complete")))
   (sly-mrepl--recenter))
 
 (defun sly-mrepl-insert-input (pos)
@@ -641,7 +641,7 @@ emptied. See also `sly-mrepl-hook'")
                                                probe 'sly-mrepl--prompt)
                                               'sly-mrepl--prompt)))))
     (when interactive
-      (message "[sly] Guessed package \"%s\"" package))
+      (sly-message "Guessed package \"%s\"" package))
     package))
 
 

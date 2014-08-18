@@ -715,8 +715,8 @@ other complicated function specs."
          (spec-string (if (fboundp 'sly-trace-query)
                           (sly-trace-query spec-string)
                         spec-string)))
-    (message "%s" (sly-eval `(swank-trace-dialog:dialog-toggle-trace
-                                (swank::from-string ,spec-string))))
+    (sly-message "%s" (sly-eval `(swank-trace-dialog:dialog-toggle-trace
+                                  (swank::from-string ,spec-string))))
     (run-hooks 'sly-trace-dialog-after-toggle-hook)))
 
 (defun sly-trace-dialog--update-existing-dialog ()

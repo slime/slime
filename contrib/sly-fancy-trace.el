@@ -60,7 +60,7 @@ The result is a string."
                    (sly-extract-context)
                    (sly-symbol-at-point)))
          (spec (sly-trace-query spec)))
-    (message "%s" (sly-eval `(swank:swank-toggle-trace ,spec)))))
+    (sly-message "%s" (sly-eval `(swank:swank-toggle-trace ,spec)))))
 
 ;; override sly-toggle-trace-fdefinition
 (define-key sly-prefix-map "\C-t" 'sly-toggle-fancy-trace)
