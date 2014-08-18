@@ -1,3 +1,9 @@
+2014-08-18  Mark Evenson  <evenson.not.org@gmail.com>
+
+   	* swank-abcl.lisp (frame-locals): Implement inspection of sldb
+ 	frame args.  Thanks to Theam Yong Chew.
+
+
 2014-08-01  Helmut Eller  <heller@common-lisp.net>
 
 	For CMUCL, make M-. work on condition classes.
@@ -78,6 +84,14 @@
 	* slime-tests.el (display-region):  Add tests for the situation
 	when (1- END) should be visible but not END.
 
+>>>>>>> variant B
+2014-07-03  Mark Evenson  <evenson.not.org@gmail.com>
+
+   	* swank-abcl.lisp (frame-locals): Implement inspection of sldb
+ 	frame args.  Thanks to Theam Yong Chew.
+
+####### Ancestor
+======= end
 2014-06-17  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sbcl.lisp (emacs-inspect sb-kernel:code-component):
