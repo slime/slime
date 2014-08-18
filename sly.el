@@ -2730,12 +2730,6 @@ This is quite an expensive operation so use carefully."
 
 ;;;;; Adding a single compiler note
 ;;;;;
-(defun sly-make-note-overlay (note start end)
-  (let ((overlay (make-overlay start end)))
-    (overlay-put overlay 'sly-note note)
-    (push overlay sly-note-overlays)
-    overlay))
-
 (defun sly-choose-overlay-region (note)
   "Choose the start and end points for an overlay over NOTE.
 If the location's sexp is a list spanning multiple lines, then the
@@ -5188,7 +5182,7 @@ If MORE is non-nil, more frames are on the Lisp stack."
   'action 'sldb-toggle-details
   'mouse-action 'sldb-toggle-details)
 
-(defun sldb--guess-frame-name (frame)
+(defun sldb--guess-frame-function (frame)
   (ignore-errors
     (first (car (read-from-string
                  (replace-regexp-in-string "#" ""
@@ -5201,7 +5195,7 @@ If MORE is non-nil, more frames are on the Lisp stack."
          'frame-number (car frame)
          'frame-string (cadr frame)
          'part-args (list (car frame)
-                          (sldb--guess-frame-name frame))
+                          (sldb--guess-frame-function frame))
          'part-label (format "Frame %d" (car frame))
          props)
   label)
