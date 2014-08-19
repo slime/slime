@@ -75,7 +75,10 @@ Exits Emacs when finished. The exit code is the number of failed tests."
 
 (defun sly-skip-test (message)
   ;; ERT for Emacs 23 and earlier doesn't have `ert-skip'
-  (ert-skip message))
+  (if (fboundp 'ert-skip)
+      (ert-skip message)
+    (message (concat "SKIPPING: " message))
+    (ert-pass)))
 
 (eval-and-compile
   (defun sly-tests-auto-tags ()
