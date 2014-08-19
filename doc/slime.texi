@@ -177,7 +177,6 @@ SLDB: the @SLY{} debugger
 
 Misc
 
-* sly-selector::
 * sly-macroexpansion-minor-mode::
 * Multiple connections::
 
@@ -750,10 +749,11 @@ documentation you would substitute @kbd{F1}.
 You can assign or change default key bindings globally using the
 @code{global-set-key} function in your @file{~/.emacs} file like this:
 @example
-(global-set-key "\C-c s" 'sly-selector)
+(global-set-key "\C-c s" 'sly-mrepl-new)
 @end example
 @noindent
-which binds @kbd{C-c s} to the function @code{sly-selector}.
+which binds @kbd{C-c s} to the function @code{sly-mrepl-new}, which
+creates a new @REPL{}.
 
 Alternatively, if you want to assign or change a key binding in just a
 particular sly mode, you can use the @code{define-key} function
@@ -1450,53 +1450,9 @@ Attach debugger (e.g. gdb) to the current lisp process.
 @chapter Misc
 
 @menu
-* sly-selector::
 * sly-macroexpansion-minor-mode::
 * Multiple connections::
 @end menu
-
-@c -----------------------
-@node sly-selector
-@section @code{sly-selector}
-
-The @code{sly-selector} command is for quickly switching to
-important buffers: the @REPL{}, @SLDB{}, the Lisp source you were just
-hacking, etc. Once invoked the command prompts for a single letter to
-specify which buffer it should display. Here are some of the options:
-
-@table @kbd
-@item ?
-A help buffer listing all @code{sly-selectors}'s available buffers.
-@item r
-The @REPL{} buffer for the current @SLY{} connection.
-@item d
-The most recently activated @SLDB{} buffer for the current connection.
-@item l
-The most recently visited @code{lisp-mode} source buffer.
-@item s
-The @code{*sly-scratch*} buffer (@pxref{sly-scratch}).
-@item c
-SLY connections buffer (@pxref{Multiple connections}).
-@item n
-Cycle to the next Lisp connection (@pxref{Multiple connections}).
-@item t
-SLY threads buffer (@pxref{Multiple connections}).
-@end table
-
-@code{sly-selector} doesn't have a key binding by default but we
-suggest that you assign it a global one. You can bind it to @kbd{C-c s}
-like this:
-
-@example
-(global-set-key "\C-cs" 'sly-selector)
-@end example
-
-@noindent
-And then you can switch to the @REPL{} from anywhere with @kbd{C-c s
-r}.
-
-The macro @code{def-sly-selector-method} can be used to define new
-buffers for @code{sly-selector} to find.
 
 @c -----------------------
 @node sly-macroexpansion-minor-mode
@@ -1551,19 +1507,13 @@ the ``connection list'' buffer:
 
 @table @kbd
 @kbditem{C-c C-x c, sly-list-connections}
-Pop up a buffer listing the established connections.  It is also
-available by the typing @kbd{c} from the @SLY{} selector
-(@ref{sly-selector}).
+Pop up a buffer listing the established connections. 
 
 @kbditem{C-c C-x n, sly-cycle-connections}
-Change current Lisp connection by cycling through all connections.  It
-is also available by the typing @kbd{n} from the SLY selector
-(@ref{sly-selector}).
+Change current Lisp connection by cycling through all connections.  
 
 @kbditem{C-c C-x t, sly-list-threads}
-Pop up a buffer listing the current threads.  It is also available by
-the typing @kbd{t} from the @SLY{} selector (@ref{sly-selector}).
-@end table
+Pop up a buffer listing the current threads.
 
 The buffer displayed by @code{sly-list-connections} gives a one-line
 summary of each connection. The summary shows the connection's serial
@@ -2893,7 +2843,6 @@ keybinding (if there is one) refer to the function description.
 @c @fcnindex{sly-restart-inferior-lisp-aux}
 @fcnindex{sly-scratch}
 @c @fcnindex{sly-select-lisp-implementation}
-@fcnindex{sly-selector}
 @c @fcnindex{sly-send-sigint}
 @c @fcnindex{sly-set-default-directory}
 @c @fcnindex{sly-set-package}

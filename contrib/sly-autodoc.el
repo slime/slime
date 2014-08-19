@@ -177,15 +177,13 @@ If it's not in the cache, the cache will be updated asynchronously."
 
 (make-variable-buffer-local (defvar sly-autodoc-mode nil))
 
-;; FIXME: use `define-minor-mode'.
-
 (define-minor-mode sly-autodoc-mode
   "Minor-mode enabling automatic arglist display."
   nil nil nil
   (cond (sly-autodoc-mode
          (set (make-local-variable 'eldoc-documentation-function) 'sly-autodoc)
          (set (make-local-variable 'eldoc-idle-delay) sly-autodoc-delay)
-         (set (make-local-variable 'eldoc-minor-mode-string) " Autodoc")
+         (set (make-local-variable 'eldoc-minor-mode-string) nil)
          (eldoc-mode 1))
         (t
          (eldoc-mode -1))))

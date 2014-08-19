@@ -498,29 +498,62 @@ PROPERTIES specifies any default face properties."
   (setq buffer-read-only t))
 
 
-;;;;;; Modeline
-(add-to-list 'minor-mode-alist
-             `(sly-mode (:eval (sly-modeline-string))))
+;;;;;; Mode-Line
+(defface sly-mode-line
+  '((t (:inherit which-func)))
+  "Face for package-name in SLY's mode line."
+  :group 'sly)
 
-(defun sly-modeline-string ()
-  "Return the string to display in the modeline.
-\"SLY\" only appears if we aren't connected.  If connected,
-include package-name, connection-name, and possibly some state
-information."
-  (let ((conn (sly-current-connection)))
-    ;; Bail out early in case there's no connection, so we won't
-    ;; implicitly invoke `sly-connection' which may query the user.
-    (if (not conn)
-        (and (symbol-value 'sly-mode) " SLY")
-      (let ((pkg   (sly-current-package)))
-        (concat " "
-                (if pkg
-                    (concat (sly-pretty-package-name pkg) " "))
-                ;; ignore errors for closed connections
-                (ignore-errors (sly-connection-name conn))
-                (sly-modeline-state-string conn))))))
+(defvar sly-mode-line-format `(:eval (sly--mode-line-format)))
 
-(defun sly-pretty-package-name (name)
+(put 'sly-mode-line-format 'risky-local-variable t)
+
+(defun sly--mode-line-format ()
+  (let* ((conn (sly-current-connection))
+         (conn (and (process-live-p conn) conn))
+         (name (or (and conn
+                        (sly-connection-name conn))
+                   "*"))
+         (pkg (sly-current-package))
+         (format-number (lambda (n) (cond ((and n (not (zerop n)))
+                                           (format "%d" n))
+                                          (n "-")
+                                          (t "*"))))
+         (package-name (and pkg
+                            (sly--pretty-package-name pkg)))
+         (pending (and conn
+                       (length (sly-rex-continuations conn))))
+         (sldbs (and conn (length (sldb-buffers conn)))))
+    `((:propertize "sly"
+                   face sly-mode-line
+                   keymap ,(let ((map (make-sparse-keymap)))
+                             (define-key map [mode-line down-mouse-1]
+                               sly-menu)
+                             map)
+                   mouse-face mode-line-highlightn
+                   help-echo "mouse-1: pop-up SLY menu"
+                   )
+      " "
+      ,package-name
+      "/"
+      (:propertize ,name
+                   face sly-mode-line
+                   keymap ,(let ((map (make-sparse-keymap)))
+                             (define-key map [mode-line mouse-1] 'sly-cycle-connections)
+                             (define-key map [mode-line mouse-2] 'sly-list-connections)
+                             (define-key map [mode-line mouse-3] 'sly-list-connections)
+                             map)
+                   mouse-face mode-line-highlight
+                   help-echo "mouse-1: cycle connections\nmouse-2, mouse-3: list connections")
+      "/"
+      ,(funcall format-number pending)
+      "/"
+      ,(funcall format-number sldbs))))
+
+(defun sly--refresh-mode-line ()
+  (force-mode-line-update t))
+
+(defun sly--pretty-package-name (name)
   "Return a pretty version of a package name NAME."
   (cond ((string-match "^#?:\\(.*\\)$" name)
          (match-string 1 name))
@@ -528,15 +561,8 @@ information."
          (match-string 1 name))
         (t name)))
 
-(defun sly-modeline-state-string (conn)
-  "Return a string possibly describing CONN's state."
-  (cond ((not (eq (process-status conn) 'open))
-         (format " %s" (process-status conn)))
-        ((let ((pending (length (sly-rex-continuations conn)))
-               (sldbs (length (sldb-buffers conn))))
-           (cond ((and (zerop sldbs) (zerop pending)) nil)
-                 ((zerop sldbs) (format " %s" pending))
-                 (t (format " %s/%s" pending sldbs)))))))
+(add-to-list 'mode-line-misc-info
+             `(sly-mode (" [" sly-mode-line-format "] ")))
 
 
 ;;;; Framework'ey bits
@@ -1580,13 +1606,27 @@ This doesn't mean it will connect right after SLY is loaded."
 (defun sly-cycle-connections ()
   "Change current sly connection, cycling through all connections."
   (interactive)
-  (let* ((tail (or (cdr (member (sly-current-connection)
-                                sly-net-processes))
-                   sly-net-processes))
-         (p (car tail)))
-    (sly-select-connection p)
-    (run-hooks 'sly-cycle-connections-hook)
-    (sly-message "Lisp: %s %s" (sly-connection-name p) (process-contact p))))
+  (cl-labels ((connection-full-name
+               (c)
+               (format "%s %s" (sly-connection-name c) (process-contact c))))
+    (cond ((not sly-net-processes)
+           (sly-error "No connections to cycle"))
+          ((null (cdr sly-net-processes))
+           (sly-message "Only one connection: %s" (connection-full-name (car sly-net-processes))))
+          (t
+           (let* ((tail (or (cdr (member (sly-current-connection)
+                                         sly-net-processes))
+                            sly-net-processes))
+                  (p (car tail)))
+             (sly-select-connection p)
+             (run-hooks 'sly-cycle-connections-hook)
+             (if (and sly-buffer-connection
+                      (not (eq sly-buffer-connection p)))
+                 (sly-message "switched to: %s but buffer remains in: %s"
+                              (connection-full-name p)
+                              (connection-full-name sly-buffer-connection))
+               (sly-message "switched to: %s" (connection-full-name p)))
+             (sly--refresh-mode-line))))))
 
 (cl-defmacro sly-with-connection-buffer ((&optional process) &rest body)
   "Execute BODY in the process-buffer of PROCESS.
@@ -2058,12 +2098,14 @@ Debugged requests are ignored."
              (sly-display-oneliner "; pipelined request... %S" form))
            (let ((id (cl-incf (sly-continuation-counter))))
              (sly-send `(:emacs-rex ,form ,package ,thread ,id))
-             (push (cons id continuation) (sly-rex-continuations))))
+             (push (cons id continuation) (sly-rex-continuations))
+             (sly--refresh-mode-line)))
           ((:return value id)
            (let ((rec (assq id (sly-rex-continuations))))
              (cond (rec (setf (sly-rex-continuations)
                               (remove rec (sly-rex-continuations)))
-                        (funcall (cdr rec) value))
+                        (funcall (cdr rec) value)
+                        (sly--refresh-mode-line))
                    (t
                     (error "Unexpected reply: %S %S" id value)))))
           ((:debug-activate thread level &optional select)
@@ -6205,137 +6247,6 @@ position of point in the current buffer."
             (t (error "Invalid chunks"))))))
 
 
-;;;; Buffer selector
-
-(defvar sly-selector-methods nil
-  "List of buffer-selection methods for the `sly-select' command.
-Each element is a list (KEY DESCRIPTION FUNCTION).
-DESCRIPTION is a one-line description of what the key selects.")
-
-(defvar sly-selector-other-window nil
-  "If non-nil use switch-to-buffer-other-window.")
-
-(defun sly-selector (&optional other-window)
-  "Select a new buffer by type, indicated by a single character.
-The user is prompted for a single character indicating the method by
-which to choose a new buffer. The `?' character describes the
-available methods.
-
-See `def-sly-selector-method' for defining new methods."
-  (interactive)
-  (sly-message "Select [%s]: "
-           (apply #'string (mapcar #'car sly-selector-methods)))
-  (let* ((sly-selector-other-window other-window)
-         (ch (save-window-excursion
-               (select-window (minibuffer-window))
-               (read-char)))
-         (method (cl-find ch sly-selector-methods :key #'car)))
-    (cond (method
-           (funcall (cl-third method)))
-          (t
-           (sly-message "No method for character: ?\\%c" ch)
-           (ding)
-           (sleep-for 1)
-           (discard-input)
-           (sly-selector)))))
-
-(defmacro def-sly-selector-method (key description &rest body)
-  "Define a new `sly-select' buffer selection method.
-
-KEY is the key the user will enter to choose this method.
-
-DESCRIPTION is a one-line sentence describing how the method
-selects a buffer.
-
-BODY is a series of forms which are evaluated when the selector
-is chosen. The returned buffer is selected with
-switch-to-buffer."
-  (let ((method `(lambda ()
-                   (let ((buffer (progn ,@body)))
-                     (cond ((not (get-buffer buffer))
-                            (sly-message "No such buffer: %S" buffer)
-                            (ding))
-                           ((get-buffer-window buffer)
-                            (select-window (get-buffer-window buffer)))
-                           (sly-selector-other-window
-                            (switch-to-buffer-other-window buffer))
-                           (t
-                            (switch-to-buffer buffer)))))))
-    `(setq sly-selector-methods
-           (cl-sort (cons (list ,key ,description ,method)
-                          (cl-remove ,key sly-selector-methods :key #'car))
-                    #'< :key #'car))))
-
-(def-sly-selector-method ?? "Selector help buffer."
-  (ignore-errors (kill-buffer "*Select Help*"))
-  (with-current-buffer (get-buffer-create "*Select Help*")
-    (insert "Select Methods:\n\n")
-    (cl-loop for (key line nil) in sly-selector-methods
-             do (insert (format "%c:\t%s\n" key line)))
-    (goto-char (point-min))
-    (help-mode)
-    (display-buffer (current-buffer) t))
-  (sly-selector)
-  (current-buffer))
-
-(cl-pushnew (list ?4 "Select in other window" (lambda () (sly-selector t)))
-            sly-selector-methods :key #'car)
-
-(def-sly-selector-method ?q "Abort."
-  (top-level))
-
-(def-sly-selector-method ?i
-  "*inferior-lisp* buffer."
-  (cond ((and (sly-connected-p) (sly-process))
-         (process-buffer (sly-process)))
-        (t
-         "*inferior-lisp*")))
-
-(def-sly-selector-method ?v
-  "*sly-events* buffer."
-  sly-event-buffer-name)
-
-(def-sly-selector-method ?l
-  "most recently visited lisp-mode buffer."
-  (sly-recently-visited-buffer 'lisp-mode))
-
-(def-sly-selector-method ?d
-  "*sldb* buffer for the current connection."
-  (or (sldb-get-default-buffer)
-      (error "No debugger buffer")))
-
-(def-sly-selector-method ?e
-  "most recently visited emacs-lisp-mode buffer."
-  (sly-recently-visited-buffer 'emacs-lisp-mode))
-
-(def-sly-selector-method ?c
-  "SLY connections buffer."
-  (sly-list-connections)
-  (sly-buffer-name :connections))
-
-(def-sly-selector-method ?n
-  "Cycle to the next Lisp connection."
-  (sly-cycle-connections)
-  (concat "*sly-repl "
-          (sly-connection-name (sly-current-connection))
-          "*"))
-
-(def-sly-selector-method ?t
-  "SLY threads buffer."
-  (sly-list-threads)
-  sly-threads-buffer-name)
-
-(defun sly-recently-visited-buffer (mode)
-  "Return the most recently visited buffer whose major-mode is MODE.
-Only considers buffers that are not already visible."
-  (cl-loop for buffer in (buffer-list)
-           when (and (with-current-buffer buffer (eq major-mode mode))
-                     (not (string-match "^ " (buffer-name buffer)))
-                     (null (get-buffer-window buffer 'visible)))
-           return buffer
-           finally (error "Can't find unshown buffer in %S" mode)))
-
-
 ;;;; Indentation
 
 (defun sly-update-indentation ()
@@ -6691,7 +6602,7 @@ current package is used."
                 ;; package is a string like ":cl-user"
                 ;; or "CL-USER", or "\"CL-USER\"".
                 (if package
-                    (sly-pretty-package-name package)
+                    (sly--pretty-package-name package)
                   "CL-USER"))
               (sly-cl-symbol-name s)))))
 

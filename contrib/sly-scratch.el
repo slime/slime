@@ -6,10 +6,7 @@
 (define-sly-contrib sly-scratch
   "Imitate Emacs' *scratch* buffer"
   (:authors "Helmut Eller  <heller@common-lisp.net>")
-  (:license "GPL")
-  (:on-load
-   (def-sly-selector-method ?s "*sly-scratch* buffer."
-     (sly-scratch-buffer))))
+  (:license "GPL"))
 
 
 ;;; Code

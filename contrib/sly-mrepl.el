@@ -99,7 +99,8 @@ emptied. See also `sly-mrepl-hook'")
                 (sly-mrepl--output-mark ,(point-marker))
                 (sly-mrepl--last-prompt-overlay ,(make-overlay 0 0 nil nil))
                 (sly-find-buffer-package-function sly-mrepl-guess-package)
-                (sly-autodoc-inhibit-autodoc sly-mrepl-inside-string-or-comment-p))
+                (sly-autodoc-inhibit-autodoc sly-mrepl-inside-string-or-comment-p)
+                (mode-line-process nil))
            do (set (make-local-variable var) value))
   (set-marker-insertion-type sly-mrepl--output-mark nil)
   ;;(set (make-local-variable 'comint-get-old-input) 'ielm-get-old-input)
@@ -272,7 +273,7 @@ emptied. See also `sly-mrepl-hook'")
         prompt
         'face 'sly-mrepl-prompt-face)
        "> ")
-      'sly-mrepl--prompt package))
+      'sly-mrepl--prompt (downcase package)))
     (move-overlay sly-mrepl--last-prompt-overlay beg (sly-mrepl--mark)))
   (when condition
     (sly-mrepl--insert-output (format "; Evaluation errored on %s" condition)))
@@ -671,12 +672,6 @@ emptied. See also `sly-mrepl-hook'")
       [ " Complete symbol at point " sly-indent-and-complete-symbol ,C ]
       [ " Interrupt " sly-interrupt ,C ]
       [ " Isearch history backward " isearch-backward ,C])))
-
-
-(def-sly-selector-method ?m
-  "First mrepl-buffer"
-  (or (sly-mrepl)
-      (error "No mrepl buffer (%s)" (sly-connection-name))))
 
 
 (defvar sly-mrepl--debug-overlays nil)
