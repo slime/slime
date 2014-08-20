@@ -28,10 +28,6 @@
   (print-unreadable-object (r stream :type t)
     (format stream "mrepl-~a-~a" (channel-id r) (mrepl-remote-id r))))
 
-(defun package-prompt (package)
-  (reduce (lambda (x y) (if (<= (length x) (length y)) x y))
-          (cons (package-name package) (package-nicknames package))))
-
 (defslyfun create-mrepl (remote-id)
   (let* ((mrepl (make-instance
                  'mrepl
@@ -180,7 +176,7 @@
 (defun send-prompt (repl &optional condition)
   (send-to-remote-channel (mrepl-remote-id repl)
                           `(:prompt ,(package-name *package*)
-                                    ,(package-prompt *package*)
+                                    ,(package-string-for-prompt *package*)
                                     ,(length (mrepl-pending-errors repl))
                                     ,@(when condition
                                         (list (prin1-to-string condition))))))

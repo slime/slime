@@ -3970,6 +3970,8 @@ Collisions are caused because package information is ignored."
                #:with-retry-restart
                #:load-user-init-file
                ;;
+               #:package-string-for-prompt
+               ;;
                #:*swank-wire-protocol-version*)))
     (loop for sym in api
           for swank-api-sym = (intern (string sym) :swank-api)
