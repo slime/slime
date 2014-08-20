@@ -122,7 +122,7 @@ emptied. See also `sly-mrepl-hook'")
                       (sly-channel.id sly-mrepl--local-channel)))
          (existing (get-buffer final-name)))
     (when existing
-      (warn "Trampling over existing sly-mrepl %s, sorry" existing)
+      (sly-warning "Trampling over existing sly-mrepl %s, sorry" existing)
       (kill-buffer existing))
     (rename-buffer final-name)))
 

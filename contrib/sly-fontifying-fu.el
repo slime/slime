@@ -93,7 +93,7 @@ Fontify CHECK-FOO like CHECK-TYPE."
            (setq result 'retry))
           (error
            (setq result nil)
-           (sly-display-warning
+           (sly-warning
             (concat "Caught error during fontification while searching for forms\n"
                     "that are suppressed by reader-conditionals. The error was: %S.")
             condition))))
@@ -150,7 +150,7 @@ position, or nil."
             (sly-compute-region-for-font-lock font-lock-beg font-lock-end))
           changedp)
       (error
-       (sly-display-warning
+       (sly-warning
         (concat "Caught error when trying to extend the region for fontification.\n"
                 "The error was: %S\n"
                 "Further: font-lock-beg=%d, font-lock-end=%d.")

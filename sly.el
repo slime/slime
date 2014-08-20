@@ -646,7 +646,7 @@ corresponding values in the CDR of VALUE."
   (let ((body (apply #'format format-string args)))
     (message (format "[sly] %s" body))))
 
-(defun sly-display-warning (format-string &rest args)
+(defun sly-warning (format-string &rest args)
   (display-warning '(sly warning) (apply #'format format-string args)))
 
 (defun sly-error (format-string &rest args)
