@@ -116,7 +116,9 @@
 (defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))
     (flet ((doc (kind &optional (sym symbol))
-             (or (documentation sym kind) :not-documented))
+             (or (ignore-errors
+                  (documentation sym kind))
+                 :not-documented))
            (maybe-push (property value)
              (when value
                (setf result (list* property value result)))))
