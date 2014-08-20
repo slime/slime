@@ -3820,7 +3820,7 @@ inserted in the current buffer."
   "Hook run after finishing a evalution.")
 
 (defun sly-display-eval-result (value)
-  (sly-message "%s" value))
+  (message "%s" value))
 
 (defun sly-eval-with-transcript (form)
   "Eval FORM in Lisp.  Display output, if any."
@@ -6441,8 +6441,7 @@ is setup, unless the user already set one explicitly."
        [ "Next Location"           sly-next-location t ])
       ("Editing"
        [ "Check Parens"            check-parens t]
-       [ "Update Indentation"      sly-update-indentation ,C]
-       [ "Select Buffer"           sly-selector t])
+       [ "Update Indentation"      sly-update-indentation ,C])
       ("Documentation"
        [ "Describe Symbol..."      sly-describe-symbol ,C ]
        [ "Lookup Documentation..." sly-documentation-lookup t ]
