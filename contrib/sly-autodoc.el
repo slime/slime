@@ -120,8 +120,10 @@ Return DOCUMENTATION."
   "Returns the cached arglist information as string, or nil.
 If it's not in the cache, the cache will be updated asynchronously."
   (interactive)
-  (unless (and sly-autodoc-inhibit-autodoc
-               (funcall sly-autodoc-inhibit-autodoc))
+  (unless (or (not (sly-current-connection))
+              (not (process-live-p (sly-current-connection)))
+              (and sly-autodoc-inhibit-autodoc
+                   (funcall sly-autodoc-inhibit-autodoc)))
     (save-excursion
       ;; Save match data just in case. This is automatically run in
       ;; background, so it'd be rather disastrous if it touched match

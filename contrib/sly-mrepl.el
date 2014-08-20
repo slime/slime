@@ -647,9 +647,11 @@ emptied. See also `sly-mrepl-hook'")
 
 
 (defun sly-mrepl-inside-string-or-comment-p ()
-  (when (> (point) (sly-mrepl--mark))
-    (let ((ppss (parse-partial-sexp (sly-mrepl--mark) (point))))
-      (or (nth 3 ppss) (nth 4 ppss)))))
+  (let ((mark (and (process-live-p (sly-mrepl--process))
+                   (sly-mrepl--mark))))
+    (when (and mark (> (point) mark))
+      (let ((ppss (parse-partial-sexp mark (point))))
+        (or (nth 3 ppss) (nth 4 ppss))))))
 
 
 ;;;; Menu
