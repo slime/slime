@@ -2939,6 +2939,26 @@ that symbols accessible in the current package go first."
                      (string< (symbol-name x) (symbol-name y))
                      (string< (package-name px) (package-name py)))))))))
 
+(defun make-cl-ppcre-matcher (pattern case-sensitive symbol-name-fn)
+  (lambda (symbol)
+    (funcall (read-from-string "cl-ppcre:scan")
+             (funcall (read-from-string "cl-ppcre:create-scanner")
+                                pattern
+                                :case-insensitive-mode (not case-sensitive))
+             (funcall symbol-name-fn symbol))))
+
+(defun make-plain-matcher (pattern case-sensitive symbol-name-fn)
+  (let ((chr= (if case-sensitive #'char= #'char-equal)))
+    (lambda (symbol)
+      (search pattern
+              (funcall symbol-name-fn symbol)
+              :test chr=))))
+
+(defparameter *try-cl-ppcre-for-apropos* t
+  "If non-NIL, maybe try CL-PPCRE for apropos requests.
+CL-PPCRE must be loaded. This option has no effect if the
+MAKE-APROPOS-MATCHER interface has been implemented.")
+
 (defun apropos-symbols (string external-only case-sensitive package)
   (let* ((packages (or package (remove (find-package :keyword)
                                        (list-all-packages))))
@@ -2953,9 +2973,21 @@ that symbols accessible in the current package go first."
                                  (symbol-name symbol)))
                    (t
                     (string symbol)))))
-         (matcher  (swank-backend:make-apropos-matcher string
+         (interface-unimplemented-p
+           (find 'swank-backend:make-apropos-matcher
+                 swank-backend::*unimplemented-interfaces*))
+         (matcher (cond ((and interface-unimplemented-p
+                              *try-cl-ppcre-for-apropos*
+                              (find-package :cl-ppcre))
+                         (make-cl-ppcre-matcher string case-sensitive symbol-name-fn))
+                        (interface-unimplemented-p
+                         (when *try-cl-ppcre-for-apropos*
+                           (background-message "Using plain apropos. Load CL-PPCRE for regexp version."))
+                         (make-plain-matcher string case-sensitive symbol-name-fn))
+                        (t
+                         (swank-backend:make-apropos-matcher string
                                                        symbol-name-fn
-                                                       case-sensitive)))
+                                                       case-sensitive)))))
     (with-package-iterator (next packages :external :internal)
       (loop for (morep symbol) = (multiple-value-list (next))
             while morep

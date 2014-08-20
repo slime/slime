@@ -869,37 +869,15 @@ TYPE can be any value returned by DESCRIBE-SYMBOL-FOR-EMACS.
 
 Return a documentation string, or NIL if none is available.")
 
-(defun make-cl-ppcre-matcher (pattern case-sensitive symbol-name-fn)
-  (lambda (symbol)
-    (funcall (read-from-string "cl-ppcre:scan")
-             (funcall (read-from-string "cl-ppcre:create-scanner")
-                       pattern
-                      :case-insensitive-mode (not case-sensitive))
-             (funcall symbol-name-fn symbol))))
-
-(defun make-plain-matcher (pattern case-sensitive symbol-name-fn)
-  (let ((chr= (if case-sensitive #'char= #'char-equal)))
-    (lambda (symbol)
-      (search pattern
-              (funcall symbol-name-fn symbol)
-              :test chr=))))
-
 (definterface make-apropos-matcher (pattern symbol-name-fn
                                             &optional
                                             case-sensitive)
-  "Produce a function that looks for PATTERN in symbol names.
+  "Produce unary function that looks for PATTERN in symbol names.
 SYMBOL-NAME-FN must be applied to symbol-names to produce the string
 where PATTERN should be searched for.  CASE-SENSITIVE indicates
 case-sensitivity. On a positive match, the function returned must
-return non-nil values, which may be pairs of indexes to highligh in
-the symbol designation's string."
-  (cond ((find-package :cl-ppcre)
-         (make-cl-ppcre-matcher pattern case-sensitive symbol-name-fn))
-        (t
-         (prog1
-             (make-plain-matcher pattern case-sensitive symbol-name-fn)
-           (funcall (find-symbol (string :background-message) :swank)
-                    "Using plain apropos. Load CL-PPCRE for regexp version.")))))
+return non-nil values, which may be pairs of indexes to highlight in
+the symbol designation's string.")
 
 
 
