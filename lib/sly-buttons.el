@@ -58,7 +58,13 @@
                (fn
                 (error (format "[sly] button %s doesn't have the `part-args' property"
                                button))))))
-     (define-key sly-part-button-keymap ,key ',action)
+     (define-key sly-part-button-keymap ,key
+       '(menu-item "" ,action
+                   :filter (lambda (cmd)
+                             (let ((button (sly-button-at)))
+                               (and button
+                                    (button-get button ',action)
+                                    cmd)))))
      (define-key sly-button-popup-part-menu-keymap
        [,action] '(menu-item ,label ,action
                              :visible (let ((button (sly-button-at)))
