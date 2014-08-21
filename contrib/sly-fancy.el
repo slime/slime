@@ -15,6 +15,7 @@
                      sly-package-fu
                      sly-fontifying-fu
                      sly-trace-dialog
-                     sly-indentation))
+                     sly-indentation
+                     sly-tramp))
 
 (provide 'sly-fancy)
