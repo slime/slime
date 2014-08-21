@@ -78,14 +78,24 @@
          props)
   label)
 
+(defface sly-action-face
+  `((t (:inherit warning)))
+  "Face for SLY buttons."
+  :group 'sly)
+
 (define-button-type 'sly-button)
 
 (define-button-type 'sly-action :supertype 'sly-button
-  'face 'sly-inspector-action-face
+  'face 'sly-action-face
   'mouse-face 'highlight)
 
+(defface sly-part-button-face
+  '((t (:inherit font-lock-constant-face)))
+  "Face for things which be interactively inspected, etc"
+  :group 'sly)
+
 (define-button-type 'sly-part :supertype 'sly-button
-  'face 'sly-inspectable-value-face
+  'face 'sly-part-button-face
   'action 'sly-button-inspect
   'mouse-action 'sly-button-inspect
   'keymap  sly-part-button-keymap

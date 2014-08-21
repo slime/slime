@@ -22,6 +22,8 @@ SLY News
 
 ### Other miscelaneous enhancements
 
+Faces have been revised.
+
 
 
 

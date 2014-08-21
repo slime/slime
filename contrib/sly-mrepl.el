@@ -220,7 +220,8 @@ emptied. See also `sly-mrepl-hook'")
                     (save-excursion (insert "\n"))))
              (setq sly-mrepl--pending-output nil)
              (add-text-properties start sly-mrepl--output-mark
-                                  '(read-only t front-sticky (read-only))))))
+                                  '(read-only t front-sticky (read-only)
+                                              face sly-mrepl-output-face)))))
         (t
          (setq sly-mrepl--pending-output
                (concat sly-mrepl--pending-output string))
@@ -270,9 +271,8 @@ emptied. See also `sly-mrepl-hook'")
                         (pop-to-buffer b))))
                  " "))
        (propertize 
-        prompt
-        'face 'sly-mrepl-prompt-face)
-       "> ")
+        (concat prompt "> ")
+        'face 'sly-mrepl-prompt-face))
       'sly-mrepl--prompt (downcase package)))
     (move-overlay sly-mrepl--last-prompt-overlay beg (sly-mrepl--mark)))
   (when condition
@@ -287,7 +287,19 @@ emptied. See also `sly-mrepl-hook'")
     (sly-mrepl--insert-prompt package prompt error-level condition)))
 
 (defface sly-mrepl-prompt-face
-  `((t (:inherit comint-highlight-prompt)))
+  `((t (:inherit font-lock-builtin-face)))
+  "Face for the regular MREPL prompt."
+  :group 'sly-mode-faces)
+
+(defface sly-mrepl-output-face
+  '((((class color)
+      (background dark))
+     (:foreground "VioletRed1"))
+    (((class color)
+      (background light))
+     (:foreground "steel blue"))
+    (t
+     (:bold t :italic t)))
   "Face for the regular MREPL prompt."
   :group 'sly-mode-faces)
 

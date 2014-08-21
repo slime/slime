@@ -27,7 +27,7 @@
 
 (autoload 'sly-editing-mode "sly" "SLY" t)
 
-(defvar sly-contribs nil
+(defvar sly-contribs '(sly-fancy)
   "A list of contrib packages to load with SLY.")
 
 (autoload 'sly-setup "sly"

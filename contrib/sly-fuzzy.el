@@ -9,6 +9,7 @@
   (:license "GPL")
   (:swank-dependencies swank-fuzzy)
   (:on-load
+   (setq sly-complete-symbol-function 'sly-fuzzy-complete-symbol)
    (define-key sly-mode-map "\C-c\M-i" 'sly-fuzzy-complete-symbol)))
 
 (defcustom sly-fuzzy-completion-in-place t
@@ -326,7 +327,7 @@ so that the new text is present."
                          (buffer-substring sly-fuzzy-start
                                            sly-fuzzy-end)))
       (sly-fuzzy-done)
-      (sly-error "Target buffer has been modified!"))
+      (sly-message "[sly fuzzy-insert] Target buffer has been modified!"))
      (t
       (goto-char sly-fuzzy-start)
       (delete-region sly-fuzzy-start sly-fuzzy-end)

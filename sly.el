@@ -89,7 +89,7 @@ This is used to load the supporting Common Lisp library, Swank.
 The default value is automatically computed from the location of the
 Emacs Lisp package."))
 
-(defvar sly-contribs nil
+(defvar sly-contribs '(sly-fancy)
   "A list of contrib packages to load with SLY.")
 (define-obsolete-variable-alias 'sly-setup-contribs
 'sly-contribs "2.3.2")
@@ -339,11 +339,6 @@ argument."
   "Face for compiler notes while selected."
   :group 'sly-mode-faces)
 
-(defface sly-inspectable-value-face
-  '((t (:inherit font-lock-builtin-face)))
-  "Face for things which can themselves be inspected."
-  :group 'sly-mode-faces)
-
 ;;;;; sldb
 
 (defgroup sly-debugger nil
@@ -378,12 +373,10 @@ PROPERTIES specifies any default face properties."
   (frame-line     "function names and arguments in the backtrace")
   (restartable-frame-line
    "frames which are surely restartable"
-   '(:inherit font-lock-function-name-face))
+   '(:inherit font-lock-constant-face))
   (non-restartable-frame-line
    "frames which are surely not restartable")
   (local-name     "local variable names")
-  (local-value    "local variable values"
-                  '(:inherit sly-inspectable-value-face))
   (catch-tag      "catch tags"))
 
 
@@ -500,7 +493,8 @@ PROPERTIES specifies any default face properties."
 
 ;;;;;; Mode-Line
 (defface sly-mode-line
-  '((t (:inherit which-func)))
+  '((t (:inherit font-lock-constant-face
+                 :weight bold)))
   "Face for package-name in SLY's mode line."
   :group 'sly)
 
@@ -534,8 +528,6 @@ PROPERTIES specifies any default face properties."
                    help-echo "mouse-1: pop-up SLY menu"
                    )
       " "
-      ,package-name
-      "/"
       (:propertize ,name
                    face sly-mode-line
                    keymap ,(let ((map (make-sparse-keymap)))
@@ -545,6 +537,8 @@ PROPERTIES specifies any default face properties."
                              map)
                    mouse-face mode-line-highlight
                    help-echo "mouse-1: cycle connections\nmouse-2, mouse-3: list connections")
+      "/"
+      ,(or package-name "*")
       "/"
       ,(funcall format-number pending)
       "/"
@@ -644,7 +638,7 @@ corresponding values in the CDR of VALUE."
 (defun sly-message (format-string &rest args)
   "Like `message', but use a prefix."
   (let ((body (apply #'format format-string args)))
-    (message (format "[sly] %s" body))))
+    (message "%s" (format "[sly] %s" body))))
 
 (defun sly-warning (format-string &rest args)
   (display-warning '(sly warning) (apply #'format format-string args)))
@@ -3446,6 +3440,13 @@ for the most recently enclosed macro or function."
             ((memq (char-before) '(?\t ?\ ))
              (sly-show-arglist))))))
 
+(defun sly-minibuffer-respecting-message (format &rest format-args)
+  "Display TEXT as a message, without hiding any minibuffer contents."
+  (let ((text (format " [%s]" (apply #'format format format-args))))
+    (if (minibuffer-window-active-p (minibuffer-window))
+        (minibuffer-message text)
+      (message "%s" text))))
+
 
 ;;;; Minibuffer reading
 
@@ -3820,6 +3821,7 @@ inserted in the current buffer."
   "Hook run after finishing a evalution.")
 
 (defun sly-display-eval-result (value)
+  ;; Use `message', not `sly-message'
   (message "%s" value))
 
 (defun sly-eval-with-transcript (form)
@@ -4097,7 +4099,7 @@ Return whatever swank:set-default-directory returns."
   (sly-eval-describe `(swank:describe-function ,symbol-name)))
 
 (defface sly-apropos-symbol
-  '((t (:inherit bold)))
+  '((t (:inherit sly-part-button-face)))
   "Face for the symbol name in Apropos output."
   :group 'sly)
 
@@ -4187,8 +4189,7 @@ TODO"
   (cond ((listp designator)
          (concat (cadr designator)
                  (if (caddr designator) ":" "::")
-                 (propertize (car designator)
-                             'face 'sly-apropos-symbol)))
+                 (car designator)))
         ((stringp designator)
          designator)
         (t
@@ -4197,6 +4198,7 @@ TODO"
 (defun sly-apropos-insert-symbol (designator item bounds)
   (let ((start (point)))
     (insert (make-text-button (sly-apropos-designator-string designator) nil
+                              'face 'sly-apropos-symbol
                               'part-args (list item nil)
                               'part-label "Symbol"
                               :type 'sly-apropos-symbol))
@@ -4308,20 +4310,19 @@ The most important commands:
      (sly-set-truncate-lines)
      ,@body))
 
-(defface sly-xref-face
-  '((t (:inherit font-lock-keyword-face)))
-  "Face for Xref buttons."
-  :group 'sly)
-
-;; TODO: make this a sly-part button that lets one
+;; TODO: make this a "proper" sly-part button that lets one
 ;; inspect/describe/return function objects
-(define-button-type 'sly-xref :supertype 'sly-action
-  'face 'sly-xref-face
-  'action #'(lambda (button)
-              (sly-xref--show-location (button-get button 'location))))
+
+(define-button-type 'sly-xref :supertype 'sly-part
+  'action 'sly-button-show-source ;default action
+  'sly-button-show-source #'(lambda (location)
+                              (sly-xref--show-location location)))
 
 (defun sly-xref-button (label location)
-  (make-text-button label nil :type 'sly-xref 'location location))
+  (make-text-button label nil
+                    :type 'sly-xref
+                    'part-args (list location)
+                    'part-label "Location"))
 
 (defun sly-insert-xrefs (xref-alist)
   "Insert XREF-ALIST in the current-buffer.
@@ -5951,29 +5952,9 @@ was called originally."
 ;;;; Inspector
 
 (defgroup sly-inspector nil
-  "Inspector faces."
+  "Options for the SLY inspector."
   :prefix "sly-inspector-"
   :group 'sly)
-
-(defface sly-inspector-topline-face
-  '((t ()))
-  "Face for top line describing object."
-  :group 'sly-inspector)
-
-(defface sly-inspector-label-face
-  '((t (:inherit font-lock-constant-face)))
-  "Face for labels in the inspector."
-  :group 'sly-inspector)
-
-(defface sly-inspector-action-face
-  '((t (:inherit font-lock-warning-face)))
-  "Face for labels of inspector actions."
-  :group 'sly-inspector)
-
-(defface sly-inspector-type-face
-  '((t (:inherit font-lock-type-face)))
-  "Face for type description in inspector."
-  :group 'sly-inspector)
 
 (defvar sly-inspector-mark-stack '())
 

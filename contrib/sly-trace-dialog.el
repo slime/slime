@@ -189,7 +189,6 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                                          t)))
               (move-overlay overlay (overlay-start overlay)
                             (1- (overlay-end overlay)))
-              ;; (overlay-put overlay 'face '(:background "darkslategrey"))
               overlay)))))
 
 (defun sly-trace-dialog--buffer-name ()
@@ -391,7 +390,10 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   (make-text-button part-text nil
                     :type 'sly-trace-dialog-part
                     'part-args (list trace-id part-id type)
-                    'part-label part-text)
+                    'part-label (format "%s %s"
+                                        (capitalize
+                                         (substring (symbol-name type) 1))
+                                        part-id))
   part-text)
 
 (define-button-type 'sly-trace-dialog-spec :supertype 'sly-part
@@ -471,7 +473,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                      (format "%4s" id) trace))
          (spec-button (sly-trace-dialog-spec-button
                        (format "%s" (sly-trace-dialog--trace-spec trace))
-                       trace 'face nil))
+                       trace))
          (summary (cl-loop for (type objects marker) in
                            `((:arg    ,(sly-trace-dialog--trace-args trace)
                                       " > ")

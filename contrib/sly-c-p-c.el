@@ -30,8 +30,7 @@ If false, move point to the end of the inserted text."
   "Expand abbreviations and complete the symbol at point."
   ;; NB: It is only the name part of the symbol that we actually want
   ;; to complete -- the package prefix, if given, is just context.
-  (or (sly-maybe-complete-as-filename)
-      (sly-expand-abbreviations-and-complete)))
+  (sly-expand-abbreviations-and-complete))
 
 ;; FIXME: factorize
 (defun sly-expand-abbreviations-and-complete ()
