@@ -4,6 +4,7 @@
 ;;
 (require 'sly)
 (require 'cl-lib)
+(require 'comint)
 
 (define-sly-contrib sly-mrepl
   "Multiple REPLs."
@@ -48,8 +49,9 @@
              (let ((sly-default-connection process))
                (sly-mrepl 'interactive))))))
 
-(require 'comint)
-
+
+;; User-visible variables
+;; 
 (defvar sly-mrepl-hook nil
   "Functions run after `sly-mrepl-new' sets up a REPL.")
 
@@ -58,15 +60,6 @@
 
 After running the contents of this hook its default value is
 emptied. See also `sly-mrepl-hook'")
-
-(defvar sly-mrepl--remote-channel nil)
-(defvar sly-mrepl--local-channel nil)
-(defvar sly-mrepl--expect-sexp-mode t)
-(defvar sly-mrepl--result-counter -1)
-(defvar sly-mrepl--output-mark nil)
-(defvar sly-mrepl--dedicated-stream nil)
- ;; perhaps could be replaced by a afield
-(defvar sly-mrepl--last-prompt-overlay nil)
 
 (defvar sly-mrepl-mode-map
   (let ((map (make-sparse-keymap)))
@@ -79,6 +72,42 @@ emptied. See also `sly-mrepl-hook'")
     (define-key map (kbd "M-n")     'comint-next-input)
     map))
 
+(defface sly-mrepl-prompt-face
+  `((t (:inherit font-lock-builtin-face)))
+  "Face for the regular MREPL prompt."
+  :group 'sly-mode-faces)
+
+(defface sly-mrepl-output-face
+  '((((class color)
+      (background dark))
+     (:foreground "VioletRed1"))
+    (((class color)
+      (background light))
+     (:foreground "steel blue"))
+    (t
+     (:bold t :italic t)))
+  "Face for the regular MREPL prompt."
+  :group 'sly-mode-faces)
+
+
+;; Internal variables
+;; 
+(defvar sly-mrepl--remote-channel nil)
+(defvar sly-mrepl--local-channel nil)
+(defvar sly-mrepl--expect-sexp-mode t)
+(defvar sly-mrepl--result-counter -1)
+(defvar sly-mrepl--output-mark nil)
+(defvar sly-mrepl--dedicated-stream nil)
+(defvar sly-mrepl--last-prompt-overlay nil)
+(defvar sly-mrepl--pending-output nil
+  "Output that can't be inserted right now.")
+(defvar sly-mrepl--copy-to-repl-after nil)
+(defvar sly-mrepl--dedicated-stream-hooks)
+(defvar sly-mrepl--history-separator "####\n")
+
+
+;; Major mode
+;; 
 (define-derived-mode sly-mrepl-mode comint-mode "mrepl"
   (sly-mode)
   (font-lock-mode -1)
@@ -96,6 +125,8 @@ emptied. See also `sly-mrepl-hook'")
                 (indent-line-function lisp-indent-line)
                 (sly-mrepl--expect-sexp-mode t)
                 (sly-mrepl--result-counter -1)
+                (sly-mrepl--pending-output nil)
+                (sly-mrepl--copy-to-repl-after nil)
                 (sly-mrepl--output-mark ,(point-marker))
                 (sly-mrepl--last-prompt-overlay ,(make-overlay 0 0 nil nil))
                 (sly-find-buffer-package-function sly-mrepl-guess-package)
@@ -107,8 +138,76 @@ emptied. See also `sly-mrepl-hook'")
   (set-syntax-table lisp-mode-syntax-table)
   (set-keymap-parent sly-mrepl-mode-map nil))
 
+
+;;; Channel methods
 (sly-define-channel-type listener)
 
+(sly-define-channel-method listener :write-values (values)
+  (with-current-buffer (sly-channel-get self 'buffer)
+    (sly-mrepl--insert-returned-values values)))
+
+(sly-define-channel-method listener :copy-to-repl (objects)
+  (with-current-buffer (sly-channel-get self 'buffer)
+    (goto-char (sly-mrepl--mark))
+    (let ((saved-text (buffer-substring (point) (point-max))))
+      (delete-region (point) (point-max))
+      (sly-mrepl--catch-up)
+      (sly-mrepl--insert-returned-values objects)
+      (pop-to-buffer (current-buffer))
+      (goto-char (sly-mrepl--mark))
+      (insert saved-text)
+      (unwind-protect
+          (when sly-mrepl--copy-to-repl-after
+            (funcall sly-mrepl--copy-to-repl-after objects))
+        (setq sly-mrepl--copy-to-repl-after nil)))))
+
+(sly-define-channel-method listener :evaluation-aborted (&optional condition)
+  (with-current-buffer (sly-channel-get self 'buffer)
+    (sly-mrepl--catch-up)
+    (sly-mrepl--insert-output (format "; Evaluation aborted on %s\n" condition))))
+
+(sly-define-channel-method listener :write-string (string)
+  (with-current-buffer (sly-channel-get self 'buffer)
+    (sly-mrepl--insert-output string 'sly-mrepl-output-face)))
+
+(sly-define-channel-method listener :inspect-object (parts)
+  (cl-assert (sly-channel-p self))
+  (sly-open-inspector parts))
+
+(sly-define-channel-method listener :set-read-mode (mode)
+  (with-current-buffer (sly-channel-get self 'buffer)
+    (cl-ecase mode
+      (:read (setq sly-mrepl--expect-sexp-mode nil)
+	     (sly-message "Listener waiting for input to read"))
+      (:eval (setq sly-mrepl--expect-sexp-mode t)
+             (when sly-mrepl--pending-output
+               (sly-mrepl--insert-output "\n"))
+             (sly-message "Listener waiting for sexps to eval")))))
+
+(sly-define-channel-method listener :prompt (package prompt
+                                                     error-level
+                                                     &optional condition)
+  (with-current-buffer (sly-channel-get self 'buffer)
+    (sly-mrepl--insert-prompt package prompt error-level condition)))
+
+(sly-define-channel-method listener :open-dedicated-output-stream (port _coding-system)
+  (with-current-buffer (sly-channel-get self 'buffer)
+    ;; HACK: no coding system
+    (set (make-local-variable 'sly-mrepl--dedicated-stream)
+         (sly-mrepl--open-dedicated-stream self port nil))))
+
+
+;;; Button type
+;;;
+(define-button-type 'sly-mrepl-part :supertype 'sly-part
+  'sly-button-inspect #'(lambda (entry-idx value-idx)
+                          (sly-mrepl--send `(:inspect-object ,entry-idx
+                                                             ,value-idx)))
+  'sly-mrepl-copy-part-to-repl 'sly-mrepl--copy-part-to-repl)
+
+
+;;; Internal functions
+;;; 
 (defun sly-mrepl--buffer-name (connection remote-id local-id )
   (format "*sly-mrepl-%s-%s %s*"
           (or remote-id "?")
@@ -125,50 +224,6 @@ emptied. See also `sly-mrepl-hook'")
       (sly-warning "Trampling over existing sly-mrepl %s, sorry" existing)
       (kill-buffer existing))
     (rename-buffer final-name)))
-
-(defun sly-mrepl-new ()
-  "Create a new listener window."
-  (interactive)
-  (let* ((local (sly-make-channel sly-listener-channel-methods))
-         ;; FIXME: Notice a subtle bug/feature than when invoking
-         ;; sly-mrepl-new in a buffer which has a connection, but not
-         ;; the default connection, the new REPL will be for that
-         ;; connection.
-         (connection (sly-connection))
-         (buffer (pop-to-buffer
-                  (generate-new-buffer
-                   (sly-mrepl--buffer-name connection
-                                           nil
-                                           (sly-channel.id local))))))
-    (with-current-buffer buffer
-      (sly-mrepl-mode)
-      (setq sly-buffer-connection connection)
-      (start-process (format "sly-pty-%s-%s"
-                             (process-get connection
-                                          'sly--net-connect-counter)
-                             (sly-channel.id local))
-                     (current-buffer)
-                     nil) 
-      (set-process-query-on-exit-flag (sly-mrepl--process) nil)
-      (setq header-line-format (format "Waiting for REPL creation ack for channel %d..."
-                                       (sly-channel.id local)))
-      (sly-channel-put local 'buffer (current-buffer))
-      (add-hook 'kill-buffer-hook 'sly-mrepl--teardown nil 'local)
-      (set (make-local-variable 'sly-mrepl--local-channel) local))
-    (sly-eval-async
-        `(swank-mrepl:create-mrepl ,(sly-channel.id local))
-      (lambda (result)
-        (cl-destructuring-bind (remote thread-id) result
-          (with-current-buffer buffer
-            (sly-mrepl-read-input-ring)
-            (setq header-line-format nil)
-            (setq sly-current-thread thread-id)
-            (set (make-local-variable 'sly-mrepl--remote-channel) remote)
-            (sly-mrepl--commit-buffer-name)
-            (unwind-protect
-                (run-hooks 'sly-mrepl-hook 'sly-mrepl-runonce-hook)
-              (set-default 'sly-mrepl-runonce-hook nil))))))
-    buffer))
 
 (defun sly-mrepl--teardown-repls (process)
   (cl-loop for buffer in (buffer-list)
@@ -201,10 +256,6 @@ emptied. See also `sly-mrepl-hook'")
 (defun sly-mrepl--break-output-p (pos)
   (and (not (eq ?\n (char-after pos)))
        (get-char-property pos 'sly-mrepl-break-output)))
-
-(defvar sly-mrepl--pending-output nil
-  "Output that can't be inserted right now.")
-(make-variable-buffer-local 'sly-mrepl--pending-output)
 
 (defun sly-mrepl--insert-output (string &optional face)
   (cond ((and sly-mrepl--expect-sexp-mode string)
@@ -286,47 +337,14 @@ emptied. See also `sly-mrepl-hook'")
   (sly-mrepl--recenter)
   (buffer-enable-undo))
 
-(sly-define-channel-method listener :prompt (package prompt
-                                                     error-level
-                                                     &optional condition)
-  (with-current-buffer (sly-channel-get self 'buffer)
-    (sly-mrepl--insert-prompt package prompt error-level condition)))
-
-(defface sly-mrepl-prompt-face
-  `((t (:inherit font-lock-builtin-face)))
-  "Face for the regular MREPL prompt."
-  :group 'sly-mode-faces)
-
-(defface sly-mrepl-output-face
-  '((((class color)
-      (background dark))
-     (:foreground "VioletRed1"))
-    (((class color)
-      (background light))
-     (:foreground "steel blue"))
-    (t
-     (:bold t :italic t)))
-  "Face for the regular MREPL prompt."
-  :group 'sly-mode-faces)
-
 (defun sly-mrepl--recenter ()
   (when (get-buffer-window)
     (recenter -1)))
-
-(define-button-type 'sly-mrepl-part :supertype 'sly-part
-  'sly-button-inspect #'(lambda (entry-idx value-idx)
-                          (sly-mrepl--send `(:inspect-object ,entry-idx
-                                                             ,value-idx)))
-  'sly-mrepl-copy-part-to-repl 'sly-mrepl--copy-part-to-repl)
 
 (defun sly-mrepl--copy-part-to-repl (entry-idx value-idx)
   (sly-mrepl--copy-objects-to-repl `(,entry-idx ,value-idx)
                                    (format "Returning value %s of history entry %s"
                                            value-idx entry-idx)))
-
-(defvar sly-mrepl--copy-to-repl-after nil)
-
-(make-variable-buffer-local 'sly-mrepl--copy-to-repl-after)
 
 (defun sly-mrepl--copy-objects-to-repl (method-args note &optional callback)
   (cl-assert (not sly-mrepl--copy-to-repl-after))
@@ -356,98 +374,9 @@ emptied. See also `sly-mrepl-hook'")
                (sly-mrepl--ensure-newline)
                (sly-mrepl--insert (sly-mrepl--make-result-button value sly-mrepl--result-counter idx))))))
 
-(sly-define-channel-method listener :write-values (values)
-  (with-current-buffer (sly-channel-get self 'buffer)
-    (sly-mrepl--insert-returned-values values)))
-
 (defun sly-mrepl--catch-up ()
   (when (> (sly-mrepl--mark) sly-mrepl--output-mark)
     (set-marker sly-mrepl--output-mark (sly-mrepl--mark))))
-
-(sly-define-channel-method listener :copy-to-repl (objects)
-  (with-current-buffer (sly-channel-get self 'buffer)
-    (goto-char (sly-mrepl--mark))
-    (let ((saved-text (buffer-substring (point) (point-max))))
-      (delete-region (point) (point-max))
-      (sly-mrepl--catch-up)
-      (sly-mrepl--insert-returned-values objects)
-      (pop-to-buffer (current-buffer))
-      (goto-char (sly-mrepl--mark))
-      (insert saved-text)
-      (unwind-protect
-          (when sly-mrepl--copy-to-repl-after
-            (funcall sly-mrepl--copy-to-repl-after objects))
-        (setq sly-mrepl--copy-to-repl-after nil)))))
-
-(sly-define-channel-method listener :evaluation-aborted (&optional condition)
-  (with-current-buffer (sly-channel-get self 'buffer)
-    (sly-mrepl--catch-up)
-    (sly-mrepl--insert-output (format "; Evaluation aborted on %s\n" condition))))
-
-(sly-define-channel-method listener :write-string (string)
-  (with-current-buffer (sly-channel-get self 'buffer)
-    (sly-mrepl--insert-output string 'sly-mrepl-output-face)))
-
-(sly-define-channel-method listener :inspect-object (parts)
-  (cl-assert (sly-channel-p self))
-  (sly-open-inspector parts))
-
-(sly-define-channel-method listener :set-read-mode (mode)
-  (with-current-buffer (sly-channel-get self 'buffer)
-    (cl-ecase mode
-      (:read (setq sly-mrepl--expect-sexp-mode nil)
-	     (sly-message "Listener waiting for input to read"))
-      (:eval (setq sly-mrepl--expect-sexp-mode t)
-             (when sly-mrepl--pending-output
-               (sly-mrepl--insert-output "\n"))
-             (sly-message "Listener waiting for sexps to eval")))))
-
-(defun sly-mrepl--busy-p ()
-  (>= sly-mrepl--output-mark (sly-mrepl--mark)))
-
-(defun sly-mrepl-return (&optional end-of-input)
-  (interactive "P")
-  (cl-assert (sly-connection))
-  (cl-assert (process-live-p (sly-mrepl--process)) nil
-             "No local live process, cannot use this REPL")
-  (accept-process-output)
-  (cond ((and
-	  sly-mrepl--expect-sexp-mode
-          (sly-mrepl--busy-p))
-	 (sly-message "REPL is busy"))
-        ((and sly-mrepl--expect-sexp-mode
-	      (or (sly-input-complete-p (sly-mrepl--mark) (point-max))
-		  end-of-input))
-	 (sly-mrepl--send-input-sexp)
-         (sly-mrepl--catch-up))
-	((not sly-mrepl--expect-sexp-mode)
-	 (unless end-of-input
-	   (newline))
-         (comint-send-input 'no-newline))
-        (t
-	 (newline-and-indent)
-         (sly-message "Input not complete")))
-  (sly-mrepl--recenter))
-
-(defun sly-mrepl-insert-input (pos)
-  (interactive (list (if (mouse-event-p last-input-event)
-                         (posn-point (event-end last-input-event))
-                       (point))))
-  (let* ((pos (if (eq (field-at-pos pos) 'sly-mrepl-input)
-                  pos
-                (1+ pos))) 
-         (new-input (and
-                     (eq (field-at-pos (1+ pos)) 'sly-mrepl-input)
-                     (field-string-no-properties pos)))
-         (offset (and new-input
-                      (- (point) (field-beginning pos)))))
-    (cond (new-input
-           (goto-char (sly-mrepl--mark))
-           (delete-region (point) (point-max))
-           (insert (sly-trim-whitespace new-input))
-           (goto-char (+ (sly-mrepl--mark) offset)))
-          (t
-           (error "[sly] No input at point")))))
 
 (defun sly-mrepl--input-sender (_proc string)
   (sly-mrepl--send-string (substring-no-properties string)))
@@ -478,132 +407,17 @@ emptied. See also `sly-mrepl-hook'")
   (or (sly-mrepl--find-buffer connection)
       (sly-mrepl-new)))
 
-(defun sly-mrepl (&optional interactive)
-  "Find or create the first useful REPL for the default connection."
-  (interactive (list t))
-  (let* ((buffer
-          (sly-mrepl--find-create)))
-    (when interactive
-      (pop-to-buffer buffer))
-    buffer))
+(defun sly-mrepl--busy-p ()
+  (>= sly-mrepl--output-mark (sly-mrepl--mark)))
 
-(defun sly-mrepl-pop-to-mrepl ()
-  (let* ((inferior-buffer (and (sly-process) (process-buffer (sly-process))))
-         (inferior-window (and inferior-buffer (get-buffer-window inferior-buffer t))))
-    (pop-to-buffer (sly-mrepl))
-    (when inferior-window
-      (bury-buffer inferior-buffer)
-      (delete-window inferior-window))
-    (goto-char (point-max))))
-
-
-;;; copy-part-to-repl and inspection behaviour
-;;;
-(defun sly-mrepl--eval-for-repl (note slyfun-and-args &optional callback)
-  (sly-eval-async
-   `(swank-mrepl:globally-save-object ',(car slyfun-and-args)
-                                      ,@(cdr slyfun-and-args))
-   #'(lambda (_ignored)
-       (with-current-buffer (sly-mrepl--find-create (sly-connection))
-         (sly-mrepl--copy-objects-to-repl nil note callback)))))
-
-(defun sly-inspector-copy-part-to-repl (number)
-  "Evaluate the inspector slot at point via the REPL (to set `*')."
-  (sly-mrepl--eval-for-repl (format "Returning inspector slot %s" number)
-                            `(swank:inspector-nth-part-or-lose ,number)))
-
-(defun sldb-copy-part-to-repl (frame-id var-id)
-  "Evaluate the frame var at point via the REPL (to set `*')."
-  (sly-mrepl--eval-for-repl
-   (format "Returning var %s of frame %s" var-id frame-id)
-   `(swank-backend:frame-var-value ,frame-id ,var-id)))
-
-(defun sly-trace-dialog-copy-part-to-repl (id part-id type)
-  "Eval the Trace Dialog entry under point in the REPL (to set *)"
-  (sly-mrepl--eval-for-repl
-   (format "Returning part %s (%s) of trace entry %s" part-id type id)
-   `(swank-trace-dialog::find-trace-part ,id ,part-id ,type)))
-
-
-;;; copy-call-to-repl
-;;;
-(defun sly-mrepl--insert-call (spec objects)
-  (when (< (point) (sly-mrepl--mark))
-    (goto-char (point-max)))
-  (insert (format "%s"
-                  `(,spec ,@(cl-loop for _o in objects
-                                     for i from 0
-                                     collect `(nth ,i /))))))
-
-(defun sldb-copy-call-to-repl (frame-id spec)
-  (sly-mrepl--eval-for-repl
-   (format "The actual arguments passed to frame %s" frame-id)
-   `(swank-backend:frame-arguments ,frame-id)
-   #'(lambda (objects)
-       (sly-mrepl--insert-call spec objects))))
-
-(defun sly-trace-dialog-copy-call-to-repl (trace-id spec)
-  (sly-mrepl--eval-for-repl
-   (format "The actual arguments passed to trace %s" trace-id)
-   `(swank-trace-dialog::trace-arguments ,trace-id)
-   #'(lambda (objects)
-       (sly-mrepl--insert-call spec objects))))
-
-
-;;; Dedicated output stream
-;;;
-(defun sly-mrepl--dedicated-stream-output-filter (process string)
-  (let ((channel (process-get process 'sly-mrepl--channel)))
-    (when channel 
-      (with-current-buffer (sly-channel-get channel 'buffer)
-        (when (and (cl-plusp (length string))
-                   (eq (process-status sly-buffer-connection) 'open))
-          (sly-mrepl--insert-output string 'sly-mrepl-output-face))))))
-
-(defvar sly-mrepl--dedicated-stream-hooks)
-
-(defun sly-mrepl--open-dedicated-stream (channel port coding-system)
-  (let* ((name (format "sly-dds-%s-%s"
-                       (process-get sly-buffer-connection
-                                    'sly--net-connect-counter)
-                       (sly-channel.id channel)))
-         (stream (open-network-stream name
-                                      (generate-new-buffer
-                                       (format " *%s*" name))
-                                      (car (process-contact sly-buffer-connection))
-                                      port))
-         (emacs-coding-system (car (cl-find coding-system
-                                            sly-net-valid-coding-systems
-                                            :key #'cl-third))))
-    (set-process-query-on-exit-flag stream nil)
-    (set-process-plist stream `(sly-mrepl--channel ,channel))
-    (set-process-filter stream 'sly-mrepl--dedicated-stream-output-filter)
-    (set-process-coding-system stream emacs-coding-system emacs-coding-system)
-    (when-let (secret (sly-secret))
-      (sly-net-send secret stream))
-    (run-hook-with-args 'sly-mrepl--dedicated-stream-hooks stream)
-    stream))
-
-(sly-define-channel-method listener :open-dedicated-output-stream (port _coding-system)
-  (with-current-buffer (sly-channel-get self 'buffer)
-    ;; HACK: no coding system
-    (set (make-local-variable 'sly-mrepl--dedicated-stream)
-         (sly-mrepl--open-dedicated-stream self port nil))))
-
-
-;;; Misc
-;;;
-(defvar sly-mrepl-history-separator "####\n")
-
-(defun sly-mrepl-read-input-ring ()
-  (let ((comint-input-ring-separator sly-mrepl-history-separator))
+(defun sly-mrepl--read-input-ring ()
+  (let ((comint-input-ring-separator sly-mrepl--history-separator))
     (comint-read-input-ring)))
-  
 
 (defun sly-mrepl--merge-and-save-history ()
   (let* ((current-ring (copy-tree comint-input-ring 'vectors-too))
          (index (ring-length current-ring))
-         (comint-input-ring-separator sly-mrepl-history-separator))
+         (comint-input-ring-separator sly-mrepl--history-separator))
 
     ;; this sets comint-input-ring from the file
     ;; 
@@ -634,20 +448,161 @@ emptied. See also `sly-mrepl-hook'")
   (when (sly-mrepl--process)
     (delete-process (sly-mrepl--process))))
 
-
-(defun sly-mrepl-sync-package-and-default-directory ()
-  "Set Lisp's package and directory to the values in current buffer."
-  (interactive)
-  (let ((package (sly-current-package)))
-    (with-current-buffer (sly-mrepl)
-      (setq sly-mrepl--copy-to-repl-after
-            #'(lambda (_objects)
-                (sly-mrepl--insert-output "; Synchronizing package and dir")))
-      (sly-mrepl--send `(:sync-package-and-default-directory
-                         ,package
-                         ,default-directory)))))
+(defun sly-mrepl--dedicated-stream-output-filter (process string)
+  (let ((channel (process-get process 'sly-mrepl--channel)))
+    (when channel 
+      (with-current-buffer (sly-channel-get channel 'buffer)
+        (when (and (cl-plusp (length string))
+                   (eq (process-status sly-buffer-connection) 'open))
+          (sly-mrepl--insert-output string 'sly-mrepl-output-face))))))
+
+(defun sly-mrepl--open-dedicated-stream (channel port coding-system)
+  (let* ((name (format "sly-dds-%s-%s"
+                       (process-get sly-buffer-connection
+                                    'sly--net-connect-counter)
+                       (sly-channel.id channel)))
+         (stream (open-network-stream name
+                                      (generate-new-buffer
+                                       (format " *%s*" name))
+                                      (car (process-contact sly-buffer-connection))
+                                      port))
+         (emacs-coding-system (car (cl-find coding-system
+                                            sly-net-valid-coding-systems
+                                            :key #'cl-third))))
+    (set-process-query-on-exit-flag stream nil)
+    (set-process-plist stream `(sly-mrepl--channel ,channel))
+    (set-process-filter stream 'sly-mrepl--dedicated-stream-output-filter)
+    (set-process-coding-system stream emacs-coding-system emacs-coding-system)
+    (when-let (secret (sly-secret))
+      (sly-net-send secret stream))
+    (run-hook-with-args 'sly-mrepl--dedicated-stream-hooks stream)
+    stream))
+
+(defun sly-mrepl--eval-for-repl (note slyfun-and-args &optional callback)
+  (sly-eval-async
+   `(swank-mrepl:globally-save-object ',(car slyfun-and-args)
+                                      ,@(cdr slyfun-and-args))
+   #'(lambda (_ignored)
+       (with-current-buffer (sly-mrepl--find-create (sly-connection))
+         (sly-mrepl--copy-objects-to-repl nil note callback)))))
+
+(defun sly-mrepl--insert-call (spec objects)
+  (when (< (point) (sly-mrepl--mark))
+    (goto-char (point-max)))
+  (insert (format "%s"
+                  `(,spec ,@(cl-loop for _o in objects
+                                     for i from 0
+                                     collect `(nth ,i /))))))
 
 
+;;; Interactive commands
+;;; 
+(defun sly-mrepl-return (&optional end-of-input)
+  (interactive "P")
+  (cl-assert (sly-connection))
+  (cl-assert (process-live-p (sly-mrepl--process)) nil
+             "No local live process, cannot use this REPL")
+  (accept-process-output)
+  (cond ((and
+	  sly-mrepl--expect-sexp-mode
+          (sly-mrepl--busy-p))
+	 (sly-message "REPL is busy"))
+        ((and sly-mrepl--expect-sexp-mode
+	      (or (sly-input-complete-p (sly-mrepl--mark) (point-max))
+		  end-of-input))
+	 (sly-mrepl--send-input-sexp)
+         (sly-mrepl--catch-up))
+	((not sly-mrepl--expect-sexp-mode)
+	 (unless end-of-input
+	   (newline))
+         (comint-send-input 'no-newline))
+        (t
+	 (newline-and-indent)
+         (sly-message "Input not complete")))
+  (sly-mrepl--recenter))
+
+(defun sly-mrepl (&optional interactive)
+  "Find or create the first useful REPL for the default connection."
+  (interactive (list t))
+  (let* ((buffer
+          (sly-mrepl--find-create)))
+    (when interactive
+      (pop-to-buffer buffer))
+    buffer))
+
+(defun sly-mrepl-pop-to-mrepl ()
+  (let* ((inferior-buffer (and (sly-process) (process-buffer (sly-process))))
+         (inferior-window (and inferior-buffer (get-buffer-window inferior-buffer t))))
+    (pop-to-buffer (sly-mrepl))
+    (when inferior-window
+      (bury-buffer inferior-buffer)
+      (delete-window inferior-window))
+    (goto-char (point-max))))
+
+(defun sly-mrepl-new ()
+  "Create a new listener window."
+  (interactive)
+  (let* ((local (sly-make-channel sly-listener-channel-methods))
+         ;; FIXME: Notice a subtle bug/feature than when invoking
+         ;; sly-mrepl-new in a buffer which has a connection, but not
+         ;; the default connection, the new REPL will be for that
+         ;; connection.
+         (connection (sly-connection))
+         (buffer (pop-to-buffer
+                  (generate-new-buffer
+                   (sly-mrepl--buffer-name connection
+                                           nil
+                                           (sly-channel.id local))))))
+    (with-current-buffer buffer
+      (sly-mrepl-mode)
+      (setq sly-buffer-connection connection)
+      (start-process (format "sly-pty-%s-%s"
+                             (process-get connection
+                                          'sly--net-connect-counter)
+                             (sly-channel.id local))
+                     (current-buffer)
+                     nil) 
+      (set-process-query-on-exit-flag (sly-mrepl--process) nil)
+      (setq header-line-format (format "Waiting for REPL creation ack for channel %d..."
+                                       (sly-channel.id local)))
+      (sly-channel-put local 'buffer (current-buffer))
+      (add-hook 'kill-buffer-hook 'sly-mrepl--teardown nil 'local)
+      (set (make-local-variable 'sly-mrepl--local-channel) local))
+    (sly-eval-async
+        `(swank-mrepl:create-mrepl ,(sly-channel.id local))
+      (lambda (result)
+        (cl-destructuring-bind (remote thread-id) result
+          (with-current-buffer buffer
+            (sly-mrepl--read-input-ring)
+            (setq header-line-format nil)
+            (setq sly-current-thread thread-id)
+            (set (make-local-variable 'sly-mrepl--remote-channel) remote)
+            (sly-mrepl--commit-buffer-name)
+            (unwind-protect
+                (run-hooks 'sly-mrepl-hook 'sly-mrepl-runonce-hook)
+              (set-default 'sly-mrepl-runonce-hook nil))))))
+    buffer))
+
+(defun sly-mrepl-insert-input (pos)
+  (interactive (list (if (mouse-event-p last-input-event)
+                         (posn-point (event-end last-input-event))
+                       (point))))
+  (let* ((pos (if (eq (field-at-pos pos) 'sly-mrepl-input)
+                  pos
+                (1+ pos))) 
+         (new-input (and
+                     (eq (field-at-pos (1+ pos)) 'sly-mrepl-input)
+                     (field-string-no-properties pos)))
+         (offset (and new-input
+                      (- (point) (field-beginning pos)))))
+    (cond (new-input
+           (goto-char (sly-mrepl--mark))
+           (delete-region (point) (point-max))
+           (insert (sly-trim-whitespace new-input))
+           (goto-char (+ (sly-mrepl--mark) offset)))
+          (t
+           (error "[sly] No input at point")))))
+
 (defun sly-mrepl-guess-package (&optional point interactive)
   (interactive (list (point) t))
   (let* ((point (or point (point)))
@@ -663,7 +618,53 @@ emptied. See also `sly-mrepl-hook'")
       (sly-message "Guessed package \"%s\"" package))
     package))
 
+(defun sly-mrepl-sync-package-and-default-directory ()
+  "Set Lisp's package and directory to the values in current buffer."
+  (interactive)
+  (let ((package (sly-current-package)))
+    (with-current-buffer (sly-mrepl)
+      (setq sly-mrepl--copy-to-repl-after
+            #'(lambda (_objects)
+                (sly-mrepl--insert-output "; Synchronizing package and dir")))
+      (sly-mrepl--send `(:sync-package-and-default-directory
+                         ,package
+                         ,default-directory)))))
+
 
+;;; "External" non-interactive functions for plugging into
+;;; other parts of SLY
+;;; 
+(defun sly-inspector-copy-part-to-repl (number)
+  "Evaluate the inspector slot at point via the REPL (to set `*')."
+  (sly-mrepl--eval-for-repl (format "Returning inspector slot %s" number)
+                            `(swank:inspector-nth-part-or-lose ,number)))
+
+(defun sldb-copy-part-to-repl (frame-id var-id)
+  "Evaluate the frame var at point via the REPL (to set `*')."
+  (sly-mrepl--eval-for-repl
+   (format "Returning var %s of frame %s" var-id frame-id)
+   `(swank-backend:frame-var-value ,frame-id ,var-id)))
+
+(defun sly-trace-dialog-copy-part-to-repl (id part-id type)
+  "Eval the Trace Dialog entry under point in the REPL (to set *)"
+  (sly-mrepl--eval-for-repl
+   (format "Returning part %s (%s) of trace entry %s" part-id type id)
+   `(swank-trace-dialog::find-trace-part ,id ,part-id ,type)))
+
+(defun sldb-copy-call-to-repl (frame-id spec)
+  (sly-mrepl--eval-for-repl
+   (format "The actual arguments passed to frame %s" frame-id)
+   `(swank-backend:frame-arguments ,frame-id)
+   #'(lambda (objects)
+       (sly-mrepl--insert-call spec objects))))
+
+(defun sly-trace-dialog-copy-call-to-repl (trace-id spec)
+  (sly-mrepl--eval-for-repl
+   (format "The actual arguments passed to trace %s" trace-id)
+   `(swank-trace-dialog::trace-arguments ,trace-id)
+   #'(lambda (objects)
+       (sly-mrepl--insert-call spec objects))))
+
 (defun sly-mrepl-inside-string-or-comment-p ()
   (let ((mark (and (process-live-p (sly-mrepl--process))
                    (sly-mrepl--mark))))
