@@ -878,7 +878,8 @@ used with a prefix argument (C-u), doesn't switch back afterwards."
 (defun slime-repl-input-line-beginning-position ()
   (save-excursion
     (goto-char slime-repl-input-start-mark)
-    (line-beginning-position)))
+    (let ((inhibit-field-text-motion t))
+      (line-beginning-position))))
 
 (defun slime-clear-repl-variables ()
   (interactive)
