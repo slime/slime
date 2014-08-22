@@ -196,6 +196,12 @@ emptied. See also `sly-mrepl-hook'")
     (set (make-local-variable 'sly-mrepl--dedicated-stream)
          (sly-mrepl--open-dedicated-stream self port nil))))
 
+(sly-define-channel-method listener :clear-repl-history ()
+  (with-current-buffer (sly-channel-get self 'buffer)
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (sly-mrepl--insert-output "; Cleared REPL history"))))
+
 
 ;;; Button type
 ;;;
@@ -275,7 +281,8 @@ emptied. See also `sly-mrepl-hook'")
              (setq sly-mrepl--pending-output nil)
              (add-text-properties start sly-mrepl--output-mark
                                   `(read-only t front-sticky (read-only)
-                                              face ,face)))))
+                                              face ,face
+                                              field sly-mrepl--output)))))
         (t
          (setq sly-mrepl--pending-output
                (concat sly-mrepl--pending-output string))
@@ -494,6 +501,10 @@ emptied. See also `sly-mrepl-hook'")
                                      for i from 0
                                      collect `(nth ,i /))))))
 
+(defun sly-mrepl--assert-mrepl ()
+  (unless (eq major-mode 'sly-mrepl-mode)
+    (sly-error "Not in a mREPL buffer")))
+
 
 ;;; Interactive commands
 ;;; 
@@ -587,6 +598,7 @@ emptied. See also `sly-mrepl-hook'")
   (interactive (list (if (mouse-event-p last-input-event)
                          (posn-point (event-end last-input-event))
                        (point))))
+  (sly-mrepl--assert-mrepl)
   (let* ((pos (if (eq (field-at-pos pos) 'sly-mrepl-input)
                   pos
                 (1+ pos))) 
@@ -629,6 +641,34 @@ emptied. See also `sly-mrepl-hook'")
       (sly-mrepl--send `(:sync-package-and-default-directory
                          ,package
                          ,default-directory)))))
+
+(defun sly-mrepl-clear-repl ()
+  "Clear all this REPL's output history.
+Doesn't clear input history."
+  (interactive)
+  (sly-mrepl--assert-mrepl)
+  (sly-mrepl--send `(:clear-repl-history)))
+
+(defun sly-mrepl-clear-recent-output ()
+  "Clear this REPL's output between current and last prompt."
+  (interactive)
+  (sly-mrepl--assert-mrepl)
+  (cl-loop for search-start =
+           (set-marker (make-marker)
+                       (1+ (overlay-start sly-mrepl--last-prompt-overlay))) then pos
+           for pos = (set-marker search-start
+                                 (previous-single-property-change search-start 'field))
+           while (and (marker-position pos)
+                      ;; FIXME: fragile (1- pos), use narrowing
+                      (not (get-text-property (1- pos) 'sly-mrepl--prompt))
+                      (> pos (point-min)))
+           when (eq (field-at-pos pos) 'sly-mrepl--output)
+           do (let ((inhibit-read-only t))
+                (delete-region (field-beginning pos)
+                               (1+ (field-end pos)))))
+  (sly-mrepl--insert-output (propertize "; Cleared recent output"
+                                        'sly-mrepl-break-output t))
+  (sly-message "Cleared recent output"))
 
 
 ;;; "External" non-interactive functions for plugging into
@@ -692,7 +732,10 @@ emptied. See also `sly-mrepl-hook'")
     `("SLY-mREPL"
       [ " Complete symbol at point " sly-indent-and-complete-symbol ,C ]
       [ " Interrupt " sly-interrupt ,C ]
-      [ " Isearch history backward " isearch-backward ,C])))
+      [ " Isearch history backward " isearch-backward ,C]
+      "----"
+      [ " Clear REPL" sly-mrepl-clear-repl ,C ]
+      [ " Clear last output" sly-mrepl-clear-recent-output ,C ])))
 
 
 (defvar sly-mrepl--debug-overlays nil)

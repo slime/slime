@@ -134,6 +134,17 @@
   (setf (mrepl-mode r) :teardown)
   (call-next-method))
 
+;; FIXME: duplication... use reinitialize-instance
+(define-channel-method :clear-repl-history ((r mrepl))
+  (with-listener r
+    (setf *history* (make-array 40 :fill-pointer 0
+                                   :adjustable t)
+          * nil ** nil *** nil
+          + nil ++ nil +++ nil
+          / nil // nil /// nil)
+    (send-to-remote-channel (mrepl-remote-id r) `(:clear-repl-history))
+    (send-prompt r)))
+
 (defun mrepl-eval (repl string)
   (let ((aborted t)
         (results)
