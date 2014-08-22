@@ -1,3 +1,7 @@
+2014-08-23  João Távora  <joaotavora@gmail.com>
+
+	* slime-fuzzy.el (slime-fuzzy-complete-symbol): Use `cl-defun` not `defun*`
+
 2014-08-22  João Távora  <joaotavora@gmail.com>
 
 	* slime-repl.el (slime-repl-input-line-beginning-position): Use
