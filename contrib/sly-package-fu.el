@@ -99,7 +99,7 @@ places the cursor at the start of the DEFPACKAGE form."
                                       (buffer-file-name)))
 	       (with-current-buffer (find-file-noselect package-file t)
 		 (sly-find-package-definition-regexp package))))
-	(error "Couldn't find source definition of package: %s" package))))
+	(sly-error "Couldn't find source definition of package: %s" package))))
 
 (defun sly-at-expression-p (pattern)
   (when (ignore-errors
