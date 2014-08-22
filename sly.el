@@ -4310,11 +4310,9 @@ The most important commands:
      (sly-set-truncate-lines)
      ,@body))
 
-;; TODO: make this a "proper" sly-part button that lets one
-;; inspect/describe/return function objects
-
-(define-button-type 'sly-xref :supertype 'sly-part
-  'action 'sly-button-show-source ;default action
+;; TODO: Have this button support more options, not just "show source"
+(define-button-type 'sly-xref :supertype 'sly-part 'action
+  'sly-button-show-source ;default action
   'sly-button-show-source #'(lambda (location)
                               (sly-xref--show-location location)))
 
