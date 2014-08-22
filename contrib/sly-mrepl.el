@@ -254,8 +254,11 @@ emptied. See also `sly-mrepl-hook'")
              (process-live-p sly-mrepl--dedicated-stream))
     ;; This non-blocking call should be enough to allow asynch calls
     ;; to `sly-mrepl--insert-output' to still see the correct value
-    ;; for `sly-mrepl--output-mark' just before we set it.
-    (accept-process-output sly-mrepl--dedicated-stream 0))
+    ;; for `sly-mrepl--output-mark' just before we call
+    ;; `sly-mrepl--catch-up'.
+    (while (accept-process-output sly-mrepl--dedicated-stream
+                                  0
+                                  (and (eq (window-system) 'w32) 1))))
   (overlay-put sly-mrepl--last-prompt-overlay 'face 'bold)
   (sly-mrepl--ensure-newline)
   (sly-mrepl--catch-up)
