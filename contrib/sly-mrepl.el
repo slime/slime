@@ -195,33 +195,36 @@ emptied. See also `sly-mrepl-hook'")
 
 (defun sly-mrepl--insert (string)
   (sly-mrepl--commiting-text ()
-    (comint-output-filter (sly-mrepl--process) string)))
+    (comint-output-filter (sly-mrepl--process)
+                          (propertize string 'sly-mrepl-break-output t))))
+
+(defun sly-mrepl--break-output-p (pos)
+  (and (not (eq ?\n (char-after pos)))
+       (get-char-property pos 'sly-mrepl-break-output)))
 
 (defvar sly-mrepl--pending-output nil
   "Output that can't be inserted right now.")
 (make-variable-buffer-local 'sly-mrepl--pending-output)
 
-(defun sly-mrepl--insert-output (string)
+(defun sly-mrepl--insert-output (string &optional face)
   (cond ((and sly-mrepl--expect-sexp-mode string)
          (let ((inhibit-read-only t)
                (start (marker-position sly-mrepl--output-mark)))
            (save-excursion
              (goto-char sly-mrepl--output-mark)
-             (cond ((and (or (sly-mrepl--busy-p)
-                             (get-char-property (1- start)
-                                                'sly-mrepl--prompt))
+             (cond ((and (not (bobp))
+                         (sly-mrepl--break-output-p (1- start))
                          (not (zerop (current-column))))
                     (insert-before-markers "\n")))
              (insert-before-markers
               (concat sly-mrepl--pending-output string))
              (cond ((and (not (zerop (current-column)))
-                         (or (sly-button-at (point) 'sly-mrepl-part 'no-error)
-                             (get-char-property (point) 'sly-mrepl--prompt)))
+                         (sly-mrepl--break-output-p (point)))
                     (save-excursion (insert "\n"))))
              (setq sly-mrepl--pending-output nil)
              (add-text-properties start sly-mrepl--output-mark
-                                  '(read-only t front-sticky (read-only)
-                                              face sly-mrepl-output-face)))))
+                                  `(read-only t front-sticky (read-only)
+                                              face ,face)))))
         (t
          (setq sly-mrepl--pending-output
                (concat sly-mrepl--pending-output string))
@@ -383,7 +386,7 @@ emptied. See also `sly-mrepl-hook'")
 
 (sly-define-channel-method listener :write-string (string)
   (with-current-buffer (sly-channel-get self 'buffer)
-    (sly-mrepl--insert-output string)))
+    (sly-mrepl--insert-output string 'sly-mrepl-output-face)))
 
 (sly-define-channel-method listener :inspect-object (parts)
   (cl-assert (sly-channel-p self))
@@ -555,7 +558,7 @@ emptied. See also `sly-mrepl-hook'")
       (with-current-buffer (sly-channel-get channel 'buffer)
         (when (and (cl-plusp (length string))
                    (eq (process-status sly-buffer-connection) 'open))
-          (sly-mrepl--insert-output string))))))
+          (sly-mrepl--insert-output string 'sly-mrepl-output-face))))))
 
 (defvar sly-mrepl--dedicated-stream-hooks)
 
