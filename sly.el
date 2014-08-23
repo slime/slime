@@ -4274,9 +4274,9 @@ TODO"
     (define-key map (kbd "q")     'quit-window)
     (define-key map (kbd "v")     'sly-xref-show)
     (define-key map (kbd ".")     'sly-xref-goto)
-    (define-key map (kbd "i")     'sly-unimplemented)
-    (define-key map (kbd "M-RET") 'sly-unimplemented)
 
+    (set-keymap-parent map button-buffer-map)
+    
     map))
 
 (define-derived-mode sly-xref-mode lisp-mode "Xref"
@@ -4849,12 +4849,6 @@ argument is given, with CL:MACROEXPAND."
 
 (defvar sldb-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map "\C-i" 'forward-button)
-    (define-key map [(shift tab)] 'backward-button)
-    (define-key map [backtab] 'backward-button)
-
-    (define-key map "h"    'describe-mode)
-
     (define-key map "n"    'sldb-down)
     (define-key map "p"    'sldb-up)
     (define-key map "\M-n" 'sldb-details-down)
@@ -4871,6 +4865,8 @@ argument is given, with CL:MACROEXPAND."
     (define-key map "C"    'sldb-inspect-condition)
     (define-key map ":"    'sly-interactive-eval)
     (define-key map "q"    'sldb-quit)
+
+    (set-keymap-parent map button-buffer-map)
     map))
 
 (define-derived-mode sldb-mode fundamental-mode "sldb"
@@ -5974,14 +5970,10 @@ was called originally."
     (define-key map "e" 'sly-inspector-eval)
     (define-key map "h" 'sly-inspector-history)
     (define-key map "g" 'sly-inspector-reinspect)
-    (define-key map "\C-i" 'forward-button)
-    ;; Emacs translates S-TAB
-    (define-key map [(shift tab)] 'backward-button)
-    ;; to BACKTAB on X.
-    (define-key map [backtab] 'backward-button)
     (define-key map ">" 'sly-inspector-fetch-all)
+    (define-key map "q" 'sly-inspector-quit)
 
-    (define-key map (kbd "q")     'sly-inspector-quit)
+    (set-keymap-parent map button-buffer-map)
     map))
 
 (define-derived-mode sly-inspector-mode fundamental-mode

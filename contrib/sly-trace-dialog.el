@@ -59,19 +59,13 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 ;;;
 (defvar sly-trace-dialog-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map [(shift tab)] 'backward-button)
-    (define-key map [backtab] 'backward-button)
-    (define-key map [tab] 'forward-button)
-    
     (define-key map (kbd "G") 'sly-trace-dialog-fetch-traces)
     (define-key map (kbd "C-k") 'sly-trace-dialog-clear-fetched-traces)
     (define-key map (kbd "g") 'sly-trace-dialog-fetch-status)
 
     (define-key map (kbd "q")     'quit-window)
-    (define-key map (kbd "v")     'sly-unimplemented)
-    (define-key map (kbd ".")     'sly-unimplemented)
-    (define-key map (kbd "i")     'sly-unimplemented)
-    (define-key map (kbd "M-RET") 'sly-unimplemented)
+
+    (set-keymap-parent map button-buffer-map)
     map))
 
 (define-derived-mode sly-trace-dialog-mode fundamental-mode
@@ -383,8 +377,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   'sly-button-inspect #'(lambda (trace-id part-id type)
                           (sly-eval-async
                               `(swank-trace-dialog:inspect-trace-part ,trace-id ,part-id ,type)
-                            #'sly-open-inspector))
-  'skip t)
+                            #'sly-open-inspector)))
 
 (defun sly-trace-dialog-part-button (part-id part-text trace-id type)
   (make-text-button part-text nil
@@ -397,7 +390,6 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   part-text)
 
 (define-button-type 'sly-trace-dialog-spec :supertype 'sly-part
-  'skip t
   'sly-button-inspect #'(lambda (trace-id _spec)
                           (sly-eval-async `(swank-trace-dialog:inspect-trace ,trace-id)
                             #'sly-open-inspector))
@@ -470,7 +462,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                           (sly-trace-dialog--trace-depth trace)
                           "   "))
          (id-string (sly-trace-dialog-spec-button
-                     (format "%4s" id) trace))
+                     (format "%4s" id) trace 'skip t))
          (spec-button (sly-trace-dialog-spec-button
                        (format "%s" (sly-trace-dialog--trace-spec trace))
                        trace))

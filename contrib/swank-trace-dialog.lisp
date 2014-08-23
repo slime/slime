@@ -10,16 +10,13 @@
            #:report-partial-tree
            #:report-specs
            #:report-total
-           #:report-trace-detail
            #:report-specs
            #:trace-format
            #:still-inside
            #:exited-non-locally
            #:*record-backtrace*
            #:*traces-per-report*
-           #:*dialog-trace-follows-trace*
-           #:find-trace-part
-           #:find-trace))
+           #:*dialog-trace-follows-trace*))
 
 (in-package :swank-trace-dialog)
 
@@ -31,6 +28,16 @@ program.")
 
 (defparameter *traces-per-report* 150
   "Number of traces to report to emacs in each batch.")
+
+(defparameter *dialog-trace-follows-trace* nil)
+
+(defvar *traced-specs* '())
+
+(defparameter *visitor-idx* 0)
+
+(defparameter *visitor-key* nil)
+
+(defvar *unfinished-traces* '())
 
 
 ;;;; `trace-entry' model
@@ -73,20 +80,6 @@ program.")
 
 (defun completed-p (trace) (not (eq (retlist-of trace) 'still-inside)))
 
-;; FIXME: should probably be `find-trace-or-lose'
-(defun find-trace (id)
-  (when (<= 0 id (1- (length *traces*)))
-    (aref *traces* id)))
-
-(defun find-trace-part (id part-id type)
-  (let* ((trace (find-trace id))
-         (l (and trace
-                 (ecase type
-                   (:arg (args-of trace))
-                   (:retval (swank::ensure-list (retlist-of trace)))))))
-    (values (nth part-id l)
-            (< part-id (length l)))))
-
 (defun trace-arguments (trace-id)
   (values-list (args-of (find-trace trace-id))))
 
@@ -105,9 +98,99 @@ program.")
         trace))
 
 
-;;;; Control of traced specs
-;;;
-(defvar *traced-specs* '())
+;;;; Helpers
+;;;; 
+(defun describe-trace-for-emacs (trace)
+  `(,(id-of trace)
+    ,(and (parent-of trace) (id-of (parent-of trace)))
+    ,(spec-of trace)
+    ,(loop for arg in (args-of trace)
+           for i from 0
+           collect (list i (swank::to-line arg)))
+    ,(loop for retval in (swank::ensure-list (retlist-of trace))
+           for i from 0
+           collect (list i (swank::to-line retval)))))
+
+
+;;;; slyfuns
+;;;;
+(defslyfun trace-format (format-spec &rest format-args)
+  "Make a string from FORMAT-SPEC and FORMAT-ARGS and as a trace."
+  (let* ((line (apply #'format nil format-spec format-args)))
+    (make-instance 'trace-entry :spec line
+                                :args format-args
+                                :parent (current-trace)
+                                :retlist nil)))
+
+(defslyfun trace-or-lose (id)
+  (when (<= 0 id (1- (length *traces*)))
+    (or (aref *traces* id)
+        (error "No trace with id ~a" id))))
+
+(defslyfun report-partial-tree (key)
+  (unless (equal key *visitor-key*)
+    (setq *visitor-idx* 0
+          *visitor-key* key))
+  (let* ((recently-finished
+           (loop with i = 0
+                 for trace in *unfinished-traces*
+                 while (< i *traces-per-report*)
+                 when (completed-p trace)
+                   collect trace
+                   and do
+                     (incf i)
+                     (setq *unfinished-traces*
+                           (remove trace *unfinished-traces*))))
+         (new (loop for i
+                      from (length recently-finished)
+                        below *traces-per-report*
+                    while (< *visitor-idx* (length *traces*))
+                    for trace = (aref *traces* *visitor-idx*)
+                    collect trace
+                    unless (completed-p trace)
+                      do (push trace *unfinished-traces*)
+                    do (incf *visitor-idx*))))
+    (list
+     (mapcar #'describe-trace-for-emacs
+             (append recently-finished new))
+     (- (length *traces*) *visitor-idx*)
+    key)))
+
+(defslyfun report-specs ()
+  (sort (copy-list *traced-specs*)
+        #'string<
+        :key #'princ-to-string))
+
+(defslyfun report-total ()
+  (length *traces*))
+
+(defslyfun clear-trace-tree ()
+  (setf *current-trace-by-thread* (clrhash *current-trace-by-thread*)
+        *visitor-key* nil
+        *unfinished-traces* nil)
+  (swank-backend:call-with-lock-held
+   *trace-lock*
+   #'(lambda () (setf (fill-pointer *traces*) 0)))
+  nil)
+
+(defslyfun trace-part-or-lose (id part-id type)
+  (let* ((trace (trace-or-lose id))
+         (l (ecase type
+              (:arg (args-of trace))
+              (:retval (swank::ensure-list (retlist-of trace))))))
+    (or (nth part-id l)
+        (error "Cannot find a trace part with id ~a and part-id ~a"
+               id part-id))))
+
+(defslyfun trace-arguments-or-lose (trace-id)
+  (values-list (args-of (trace-or-lose trace-id))))
+
+(defslyfun inspect-trace-part (trace-id part-id type)
+  (swank::inspect-object
+   (find-trace-part-or-lose trace-id part-id type)))
+
+(defslyfun inspect-trace (trace-id)
+  (swank::inspect-object (trace-or-lose trace-id)))
 
 (defslyfun dialog-trace (spec)
   (flet ((before-hook (args)
@@ -150,8 +233,11 @@ program.")
   (untrace)
   (mapcar #'dialog-untrace *traced-specs*))
 
-(defparameter *dialog-trace-follows-trace* nil)
 
+
+
+;;;; Hook onto emacs
+;;;; 
 (setq swank:*after-toggle-trace-hook*
       #'(lambda (spec traced-p)
           (when *dialog-trace-follows-trace*
@@ -162,112 +248,11 @@ program.")
                    (dialog-untrace spec)
                    "untraced for the trace dialog as well")))))
 
-
-;;;; A special kind of trace call
-;;;
-(defun trace-format (format-spec &rest format-args)
-  "Make a string from FORMAT-SPEC and FORMAT-ARGS and as a trace."
-  (let* ((line (apply #'format nil format-spec format-args)))
-    (make-instance 'trace-entry :spec line
-                                :args format-args
-                                :parent (current-trace)
-                                :retlist nil)))
-
-
-;;;; Reporting to emacs
-;;;
-(defparameter *visitor-idx* 0)
-
-(defparameter *visitor-key* nil)
-
-(defvar *unfinished-traces* '())
-
-(defun describe-trace-for-emacs (trace)
-  `(,(id-of trace)
-    ,(and (parent-of trace) (id-of (parent-of trace)))
-    ,(spec-of trace)
-    ,(loop for arg in (args-of trace)
-           for i from 0
-           collect (list i (swank::to-line arg)))
-    ,(loop for retval in (swank::ensure-list (retlist-of trace))
-           for i from 0
-           collect (list i (swank::to-line retval)))))
-
-(defslyfun report-partial-tree (key)
-  (unless (equal key *visitor-key*)
-    (setq *visitor-idx* 0
-          *visitor-key* key))
-  (let* ((recently-finished
-           (loop with i = 0
-                 for trace in *unfinished-traces*
-                 while (< i *traces-per-report*)
-                 when (completed-p trace)
-                   collect trace
-                   and do
-                     (incf i)
-                     (setq *unfinished-traces*
-                           (remove trace *unfinished-traces*))))
-         (new (loop for i
-                      from (length recently-finished)
-                        below *traces-per-report*
-                    while (< *visitor-idx* (length *traces*))
-                    for trace = (aref *traces* *visitor-idx*)
-                    collect trace
-                    unless (completed-p trace)
-                      do (push trace *unfinished-traces*)
-                    do (incf *visitor-idx*))))
-    (list
-     (mapcar #'describe-trace-for-emacs
-             (append recently-finished new))
-     (- (length *traces*) *visitor-idx*)
-    key)))
-
-(defslyfun report-trace-detail (trace-id)
-  (swank::call-with-bindings
-   swank::*inspector-printer-bindings*
-   #'(lambda ()
-       (let ((trace (find-trace trace-id)))
-         (when trace
-           (append
-            (describe-trace-for-emacs trace)
-            (list (backtrace-of trace)
-                  (swank::to-line trace))))))))
-
-(defslyfun report-specs ()
-  (sort (copy-list *traced-specs*)
-        #'string<
-        :key #'princ-to-string))
-
-(defslyfun report-total ()
-  (length *traces*))
-
-(defslyfun clear-trace-tree ()
-  (setf *current-trace-by-thread* (clrhash *current-trace-by-thread*)
-        *visitor-key* nil
-        *unfinished-traces* nil)
-  (swank-backend:call-with-lock-held
-   *trace-lock*
-   #'(lambda () (setf (fill-pointer *traces*) 0)))
-  nil)
-
 ;; HACK: `swank::*inspector-history*' is unbound by default and needs
 ;; a reset in that case so that it won't error `swank::inspect-object'
 ;; before any other object is inspected in the sly session.
 ;;
 (unless (boundp 'swank::*inspector-history*)
   (swank::reset-inspector))
-
-(defslyfun inspect-trace-part (trace-id part-id type)
-  (multiple-value-bind (obj found)
-      (find-trace-part trace-id part-id type)
-    (if found
-        (swank::inspect-object obj)
-        (error "No object found with ~a, ~a and ~a" trace-id part-id type))))
-
-(defslyfun inspect-trace (trace-id)
-  (let ((trace (find-trace trace-id)))
-    (if trace
-        (swank::inspect-object trace)
-        (error "No trace found with id ~a" trace-id))))
 
 (provide :swank-trace-dialog)

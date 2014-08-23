@@ -27,7 +27,7 @@
    (button-type-put 'sldb-frame
                     'sly-mrepl-copy-call-to-repl
                     'sldb-copy-call-to-repl)
-   (eval-after-load 'sly-trace-dialog
+   (eval-after-load "sly-trace-dialog"
      `(progn
         (button-type-put 'sly-trace-dialog-part
                          'sly-mrepl-copy-part-to-repl
@@ -689,7 +689,7 @@ Doesn't clear input history."
   "Eval the Trace Dialog entry under point in the REPL (to set *)"
   (sly-mrepl--eval-for-repl
    (format "Returning part %s (%s) of trace entry %s" part-id type id)
-   `(swank-trace-dialog::find-trace-part ,id ,part-id ,type)))
+   `(swank-trace-dialog:trace-part-or-lose ,id ,part-id ,type)))
 
 (defun sldb-copy-call-to-repl (frame-id spec)
   (sly-mrepl--eval-for-repl
@@ -701,7 +701,7 @@ Doesn't clear input history."
 (defun sly-trace-dialog-copy-call-to-repl (trace-id spec)
   (sly-mrepl--eval-for-repl
    (format "The actual arguments passed to trace %s" trace-id)
-   `(swank-trace-dialog::trace-arguments ,trace-id)
+   `(swank-trace-dialog:trace-arguments-or-lose ,trace-id)
    #'(lambda (objects)
        (sly-mrepl--insert-call spec objects))))
 
