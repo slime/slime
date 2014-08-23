@@ -609,10 +609,25 @@ corresponding values in the CDR of VALUE."
 ;;;;; Very-commonly-used functions
 
 ;; Interface
-(defun sly-buffer-name (type &optional hidden)
+(cl-defun sly-buffer-name (type &key connection hidden suffix)
   (cl-assert (keywordp type))
-  (concat (if hidden " " "")
-          (format "*sly-%s*" (substring (symbol-name type) 1))))
+  (mapconcat #'identity
+             `(,@(if hidden `(" "))
+               "*sly-"
+               ,(downcase (substring (symbol-name type) 1))
+               ,@(if connection
+                     `(" for "
+                       ,(sly-connection-name
+                         (if (eq connection t)
+                             (sly-current-connection)
+                           connection))))
+               ,@(if suffix
+                     `(" ("
+                       ,suffix
+                       ")"))
+               "*")
+             ""))
+
 
 ;; Interface
 (defun sly-message (format-string &rest args)
@@ -718,6 +733,11 @@ Assumes all insertions are made at point."
   "Insert all arguments rigidly indented."
   (sly-with-rigid-indentation nil
     (apply #'insert strings)))
+
+(defun sly-compose (&rest functions)
+  "Compose unary FUNCTIONS right-associatively, returning a function"
+  #'(lambda (x)
+      (cl-reduce #'funcall functions :initial-value x :from-end t)))
 
 (defun sly-curry (fun &rest args)
   "Partially apply FUN to ARGS.  The result is a new function."
@@ -1323,7 +1343,7 @@ EVAL'd by Lisp."
                    'utf-8-unix))
          (string (concat (sly-net-encode-length (length payload))
                          payload)))
-    (sly-log-event sexp)
+    (sly-log-event sexp proc)
     (process-send-string proc string)))
 
 (defun sly-safe-encoding-p (coding-system string)
@@ -1377,7 +1397,7 @@ EVAL'd by Lisp."
     (while (sly-net-have-input-p)
       (let ((event (sly-net-read-or-lose process))
             (ok nil))
-        (sly-log-event event)
+        (sly-log-event event process)
         (unwind-protect
             (save-current-buffer
               (sly-dispatch-event event process)
@@ -1397,7 +1417,8 @@ EVAL'd by Lisp."
 
 (defun sly-handle-net-read-error (error)
   (let ((packet (buffer-string)))
-    (sly-with-popup-buffer ((sly-buffer-name :error))
+    (sly-with-popup-buffer ((sly-buffer-name :error
+                                             :connection (get-buffer-process (current-buffer))))
       (princ (format "%s\nin packet:\n%s" (error-message-string error) packet))
       (goto-char (point-min)))
     (cond ((y-or-n-p "Skip this packet? ")
@@ -1743,6 +1764,9 @@ This is automatically synchronized from Lisp.")
       (run-hooks 'sly-connected-hook)
       (when-let (fun (plist-get args ':init-function))
         (funcall fun)))
+    ;; Give the events buffer its final name
+    (with-current-buffer (sly-events-buffer connection)
+      (rename-buffer (sly-buffer-name :events :connection connection)))
     (sly-message "Connected. %s" (sly-random-words-of-encouragement))))
 
 (defun sly-check-version (version conn)
@@ -2127,7 +2151,8 @@ Debugged requests are ignored."
           ((:ping thread tag)
            (sly-send `(:emacs-pong ,thread ,tag)))
           ((:reader-error packet condition)
-           (sly-with-popup-buffer ((sly-buffer-name :error))
+           (sly-with-popup-buffer ((sly-buffer-name :error
+                                                    :connection sly-dispatching-connection))
              (princ (format "Invalid protocol message:\n%s\n\n%s"
                             condition packet))
              (goto-char (point-min)))
@@ -2248,13 +2273,10 @@ Debugged requests are ignored."
 (defvar sly-outline-mode-in-events-buffer nil
   "*Non-nil means use outline-mode in *sly-events*.")
 
-(defvar sly-event-buffer-name (sly-buffer-name :events)
-  "The name of the sly event buffer.")
-
-(defun sly-log-event (event)
-  "Record the fact that EVENT occurred."
+(defun sly-log-event (event process)
+  "Record the fact that EVENT occurred in PROCESS."
   (when sly-log-events
-    (with-current-buffer (sly-events-buffer)
+    (with-current-buffer (sly-events-buffer process)
       ;; trim?
       (when (> (buffer-size) 100000)
         (goto-char (/ (buffer-size) 2))
@@ -2275,17 +2297,22 @@ Debugged requests are ignored."
 	(pp-escape-newlines t))
     (pp event buffer)))
 
-(defun sly-events-buffer ()
+(defun sly-events-buffer (process)
   "Return or create the event log buffer."
-  (or (get-buffer sly-event-buffer-name)
-      (let ((buffer (get-buffer-create sly-event-buffer-name)))
+  (or (process-get process 'sly-events-buffer)
+      (let ((buffer (get-buffer-create
+                     (sly-buffer-name :events
+                                      :suffix (format "%s" process)))))
         (with-current-buffer buffer
           (buffer-disable-undo)
           (set (make-local-variable 'outline-regexp) "^(")
           (set (make-local-variable 'comment-start) ";")
           (set (make-local-variable 'comment-end) "")
           (when sly-outline-mode-in-events-buffer
-            (outline-minor-mode)))
+            (outline-minor-mode))
+          (set (make-local-variable 'sly-buffer-connection) process)
+          (sly-mode 1))
+        (process-put process 'sly-events-buffer buffer)
         buffer)))
 
 
@@ -4142,7 +4169,8 @@ TODO"
 (defun sly-show-apropos (plists string package summary)
   (if (null plists)
       (sly-message "No apropos matches for %S" string)
-    (sly-with-popup-buffer ((sly-buffer-name :apropos)
+    (sly-with-popup-buffer ((sly-buffer-name :apropos
+                                             :connection t)
                             :package package :connection t
                             :mode 'sly-apropos-mode)
       (if (boundp 'header-line-format)
@@ -4285,7 +4313,8 @@ The most important commands:
                                    &body body)
   "Execute BODY in a xref buffer, then show that buffer."
   (declare (indent 1))
-  `(sly-with-popup-buffer ((sly-buffer-name :xref)
+  `(sly-with-popup-buffer ((sly-buffer-name :xref
+                                            :connection t)
                            :package ,package
                            :connection t
                            :select t
@@ -4949,7 +4978,8 @@ The chosen buffer the default connection's it if exists."
   "Find or create a sldb-buffer for THREAD."
   (let ((connection (or connection (sly-connection))))
     (or (sldb-find-buffer thread connection)
-        (let ((name (format "*sldb %s/%s*" (sly-connection-name) thread)))
+        (let ((name (sly-buffer-name :sldb :connection connection
+                                     :suffix (format "thread %d" thread))))
           (with-current-buffer (generate-new-buffer name)
             (setq sly-buffer-connection connection
                   sly-current-thread thread)
@@ -5672,7 +5702,6 @@ was called originally."
 
 ;;;; Thread control panel
 
-(defvar sly-threads-buffer-name (sly-buffer-name :threads))
 (defvar sly-threads-buffer-timer nil)
 
 (defcustom sly-threads-update-interval nil
@@ -5685,10 +5714,11 @@ was called originally."
 (defun sly-list-threads ()
   "Display a list of threads."
   (interactive)
-  (let ((name sly-threads-buffer-name))
+  (let ((name (sly-buffer-name :threads
+                               :connection t)))
     (sly-with-popup-buffer (name :connection t
                                  :mode 'sly-thread-control-mode)
-      (sly-update-threads-buffer)
+      (sly-update-threads-buffer (current-buffer))
       (goto-char (point-min))
       (when sly-threads-update-interval
         (when sly-threads-buffer-timer
@@ -5697,7 +5727,8 @@ was called originally."
               (run-with-timer
                sly-threads-update-interval
                sly-threads-update-interval
-               'sly-update-threads-buffer))))))
+               'sly-update-threads-buffer
+               (current-buffer)))))))
 
 (defun sly-quit-threads-buffer ()
   (when sly-threads-buffer-timer
@@ -5705,11 +5736,14 @@ was called originally."
   (quit-window t)
   (sly-eval-async `(swank:quit-thread-browser)))
 
-(defun sly-update-threads-buffer ()
+(defun sly-update-threads-buffer (&optional buffer)
   (interactive)
-  (with-current-buffer sly-threads-buffer-name
+  (with-current-buffer (or buffer
+                           (current-buffer))
     (sly-eval-async '(swank:list-threads)
-      'sly-display-threads)))
+      #'(lambda (threads)
+          (with-current-buffer (current-buffer)
+            (sly--display-threads threads))))))
 
 (defun sly-move-point (position)
   "Move point in the current buffer and in the window the buffer is displayed."
@@ -5718,20 +5752,19 @@ was called originally."
     (when window
       (set-window-point window position))))
 
-(defun sly-display-threads (threads)
-  (with-current-buffer sly-threads-buffer-name
-    (let* ((inhibit-read-only t)
-           (old-thread-id (get-text-property (point) 'thread-id))
-           (old-line (line-number-at-pos))
-           (old-column (current-column)))
-      (erase-buffer)
-      (sly-insert-threads threads)
-      (let ((new-line (cl-position old-thread-id (cdr threads)
-                                   :key #'car :test #'equal)))
-        (goto-char (point-min))
-        (forward-line (or new-line old-line))
-        (move-to-column old-column)
-        (sly-move-point (point))))))
+(defun sly--display-threads (threads)
+  (let* ((inhibit-read-only t)
+         (old-thread-id (get-text-property (point) 'thread-id))
+         (old-line (line-number-at-pos))
+         (old-column (current-column)))
+    (erase-buffer)
+    (sly-insert-threads threads)
+    (let ((new-line (cl-position old-thread-id (cdr threads)
+                                 :key #'car :test #'equal)))
+      (goto-char (point-min))
+      (forward-line (or new-line old-line))
+      (move-to-column old-column)
+      (sly-move-point (point)))))
 
 (defun sly-transpose-lists (list-of-lists)
   (let ((ncols (length (car list-of-lists))))
@@ -5967,12 +6000,15 @@ was called originally."
   (sly-mode 1))
 
 (defun sly-inspector-buffer ()
-  (or (get-buffer (sly-buffer-name :inspector))
-      (sly-with-popup-buffer ((sly-buffer-name :inspector)
-                              :mode 'sly-inspector-mode)
-        (setq sly-inspector-mark-stack '())
-        (buffer-disable-undo)
-        (current-buffer))))
+  (let ((name (sly-buffer-name :inspector
+                               :connection t)))
+    (or (get-buffer name)
+        (sly-with-popup-buffer (name
+                                :mode 'sly-inspector-mode
+                                :connection t)
+          (setq sly-inspector-mark-stack '())
+          (buffer-disable-undo)
+          (current-buffer)))))
 
 (define-button-type 'sly-inspector-part :supertype 'sly-part
   'sly-button-inspect
@@ -6014,7 +6050,6 @@ KILL-BUFFER hooks for the inspector buffer."
   (with-current-buffer (sly-inspector-buffer)
     (when hook
       (add-hook 'kill-buffer-hook hook t t))
-    (setq sly-buffer-connection (sly-current-connection))
     (let ((inhibit-read-only t))
       (erase-buffer)
       (pop-to-buffer (current-buffer))

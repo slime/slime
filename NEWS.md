@@ -28,6 +28,10 @@ SLY is intrudes less than SLIME in the Emacs namespace, and uses more
 standard idoms. Macros like `with-struct` and `sly-define-keys` have
 been removed.
 
+Buffer names have been consolidated: every buffer name related to SLY
+obeys the same structure, stating the type, connection name and any
+pertinent additional info.
+
 
 
 

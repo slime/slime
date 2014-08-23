@@ -186,8 +186,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
               overlay)))))
 
 (defun sly-trace-dialog--buffer-name ()
-  (format "*traces for %s*"
-          (sly-connection-name sly-default-connection)))
+  (sly-buffer-name :traces :connection sly-default-connection))
 
 (defun sly-trace-dialog--live-dialog (&optional buffer-or-name)
   (let ((buffer-or-name (or buffer-or-name

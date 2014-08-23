@@ -920,7 +920,7 @@ Confirm that the EXPECTED subform is correctly located."
     (string-match name (buffer-name buffer))))
 
 (defun sly-inspector-visible-p ()
-  (sly-buffer-visible-p (sly-buffer-name :inspector)))
+  (sly-buffer-visible-p (sly-buffer-name :inspector :connection t)))
 
 (defun sly-execute-as-command (name)
   "Execute `name' as if it was done by the user through the

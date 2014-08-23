@@ -214,22 +214,9 @@ emptied. See also `sly-mrepl-hook'")
 
 ;;; Internal functions
 ;;; 
-(defun sly-mrepl--buffer-name (connection remote-id local-id )
-  (format "*sly-mrepl-%s-%s %s*"
-          (or remote-id "?")
-          local-id
-          (sly-connection-name connection)))
-
-(defun sly-mrepl--commit-buffer-name ()
-  (let* ((final-name (sly-mrepl--buffer-name
-                      sly-buffer-connection
-                      sly-mrepl--remote-channel
-                      (sly-channel.id sly-mrepl--local-channel)))
-         (existing (get-buffer final-name)))
-    (when existing
-      (sly-warning "Trampling over existing sly-mrepl %s, sorry" existing)
-      (kill-buffer existing))
-    (rename-buffer final-name)))
+(defun sly-mrepl--buffer-name (connection &optional handle)
+  (sly-buffer-name :mrepl :connection connection
+                   :suffix handle))
 
 (defun sly-mrepl--teardown-repls (process)
   (cl-loop for buffer in (buffer-list)
@@ -396,23 +383,25 @@ emptied. See also `sly-mrepl-hook'")
   (sly-send-to-remote-channel sly-mrepl--remote-channel msg))
 
 (defun sly-mrepl--find-buffer (&optional connection)
-  "Find the default `sly-mrepl' buffer for CONNECTION."
+  "Find the shortest-named (default) `sly-mrepl' buffer for CONNECTION."
   ;; CONNECTION defaults to the `sly-default-connection' passing
   ;; through `sly-connection'. Seems to work OK...
   ;; 
-  (let ((connection (or connection
-                        (let ((sly-buffer-connection nil)
-                              (sly-dispatching-connection nil))
-                          (sly-connection)))))
-    (cl-find-if (lambda (x)
-                  (with-current-buffer x
-                    (and (eq major-mode 'sly-mrepl-mode)
-                         (eq sly-buffer-connection connection))))
-                (buffer-list))))
+  (let* ((connection (or connection
+                         (let ((sly-buffer-connection nil)
+                               (sly-dispatching-connection nil))
+                           (sly-connection))))
+         (repls (cl-remove-if-not (lambda (x)
+                                    (with-current-buffer x
+                                      (and (eq major-mode 'sly-mrepl-mode)
+                                           (eq sly-buffer-connection connection))))
+                                  (buffer-list)))
+         (sorted (cl-sort repls #'< :key (sly-compose #'length #'buffer-name))))
+    (first sorted)))
 
-(defun sly-mrepl--find-create (&optional connection)
+(defun sly-mrepl--find-create (connection)
   (or (sly-mrepl--find-buffer connection)
-      (sly-mrepl-new)))
+      (sly-mrepl-new connection)))
 
 (defun sly-mrepl--busy-p ()
   (>= sly-mrepl--output-mark (sly-mrepl--mark)))
@@ -532,38 +521,44 @@ emptied. See also `sly-mrepl-hook'")
          (sly-message "Input not complete")))
   (sly-mrepl--recenter))
 
-(defun sly-mrepl (&optional interactive)
+(defun sly-mrepl (&optional pop-to-buffer)
   "Find or create the first useful REPL for the default connection."
   (interactive (list t))
   (let* ((buffer
-          (sly-mrepl--find-create)))
-    (when interactive
+          (sly-mrepl--find-create (sly-current-connection))))
+    (when pop-to-buffer
       (pop-to-buffer buffer))
     buffer))
 
 (defun sly-mrepl-pop-to-mrepl ()
   (let* ((inferior-buffer (and (sly-process) (process-buffer (sly-process))))
          (inferior-window (and inferior-buffer (get-buffer-window inferior-buffer t))))
-    (pop-to-buffer (sly-mrepl))
+    (sly-mrepl 'pop-to-buffer)
     (when inferior-window
       (bury-buffer inferior-buffer)
       (delete-window inferior-window))
     (goto-char (point-max))))
 
-(defun sly-mrepl-new ()
-  "Create a new listener window."
-  (interactive)
+(defun sly-mrepl-new (connection &optional handle)
+  "Create and setup a new REPL buffer for CONNECTION.
+CONNECTION defaults to the current SLY connection.  If such a
+buffer already exists, or a prefix arg is given, prompt for a
+handle to distinguish the new buffer from the existing."
+  (interactive
+   ;; FIXME: Notice a subtle bug/feature than when calling
+   ;; interactively in a buffer which has a connection, but not the
+   ;; default connection, the new REPL will be for that connection.
+   (let ((connection (sly-connection)))
+     (list connection
+           (if (or (get-buffer (sly-mrepl--buffer-name connection))
+                   current-prefix-arg)
+               (sly-read-from-minibuffer
+                "Nickname for this new REPL? ")))))
+  (when (and handle
+             (get-buffer (sly-mrepl--buffer-name connection handle)))
+    (sly-error "Sorry, a MREPL with that handle already exists"))
   (let* ((local (sly-make-channel sly-listener-channel-methods))
-         ;; FIXME: Notice a subtle bug/feature than when invoking
-         ;; sly-mrepl-new in a buffer which has a connection, but not
-         ;; the default connection, the new REPL will be for that
-         ;; connection.
-         (connection (sly-connection))
-         (buffer (pop-to-buffer
-                  (generate-new-buffer
-                   (sly-mrepl--buffer-name connection
-                                           nil
-                                           (sly-channel.id local))))))
+         (buffer (pop-to-buffer (sly-mrepl--buffer-name connection handle))))
     (with-current-buffer buffer
       (sly-mrepl-mode)
       (setq sly-buffer-connection connection)
@@ -588,7 +583,6 @@ emptied. See also `sly-mrepl-hook'")
             (setq header-line-format nil)
             (setq sly-current-thread thread-id)
             (set (make-local-variable 'sly-mrepl--remote-channel) remote)
-            (sly-mrepl--commit-buffer-name)
             (unwind-protect
                 (run-hooks 'sly-mrepl-hook 'sly-mrepl-runonce-hook)
               (set-default 'sly-mrepl-runonce-hook nil))))))

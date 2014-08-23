@@ -90,7 +90,7 @@ Return DOCUMENTATION."
 
 (defun sly-autodoc--fontify-string (string)
   "Fontify STRING as `font-lock-mode' does in Lisp mode."
-  (with-current-buffer (get-buffer-create (sly-buffer-name :fontify 'hidden))
+  (with-current-buffer (get-buffer-create (sly-buffer-name :fontify :hidden t))
     (erase-buffer)
     (unless (eq major-mode 'lisp-mode)
       ;; Just calling (lisp-mode) will turn sly-mode on in that buffer,
