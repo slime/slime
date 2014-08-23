@@ -19,7 +19,7 @@
                                                           (point-max)))))))
 
 (define-sly-ert-test basic-repl-setup ()
-  (with-current-buffer (sly-mrepl-new)
+  (with-current-buffer (sly-mrepl-new (sly-current-connection))
     (sly-mrepl-tests--assert-prompt)
     (kill-buffer (current-buffer))))
 

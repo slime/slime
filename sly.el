@@ -1766,7 +1766,11 @@ This is automatically synchronized from Lisp.")
         (funcall fun)))
     ;; Give the events buffer its final name
     (with-current-buffer (sly-events-buffer connection)
-      (rename-buffer (sly-buffer-name :events :connection connection)))
+      (let ((events-buffer-name (sly-buffer-name :events :connection connection)))
+        ;; Trample over any existing buffers on reconnection
+        (when (get-buffer events-buffer-name)
+          (kill-buffer events-buffer-name))
+        (rename-buffer (sly-buffer-name :events :connection connection))))
     (sly-message "Connected. %s" (sly-random-words-of-encouragement))))
 
 (defun sly-check-version (version conn)
