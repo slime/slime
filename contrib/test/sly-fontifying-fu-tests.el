@@ -1,5 +1,5 @@
 (require 'sly-fontifying-fu)
-(require 'sly-tests)
+(require 'sly-tests "lib/sly-tests")
 
 (def-sly-test font-lock-magic (buffer-content)
     "Some testing for the font-lock-magic. *YES* should be

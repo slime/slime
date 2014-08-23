@@ -9,7 +9,7 @@ LISP=sbcl
 
 LOAD_PATH=-L .
 
-ELFILES := sly.el sly-autoloads.el sly-tests.el $(wildcard lib/*.el)
+ELFILES := sly.el sly-autoloads.el $(wildcard lib/*.el)
 ELCFILES := $(ELFILES:.el=.elc)
 
 default: compile contrib-compile
@@ -49,7 +49,7 @@ SELECTOR=t
 
 check: compile
 	${EMACS} -Q --batch $(LOAD_PATH)				\
-		--eval "(require 'sly-tests)"				\
+		--eval "(require 'sly-tests \"lib/sly-tests\")"	        \
 		--eval "(sly-setup)"					\
 		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
 		--eval '(sly-batch-test (quote $(SELECTOR)))'
@@ -60,7 +60,7 @@ check: compile
 # are fixed.
 test: compile
 	${EMACS} -Q -nw $(LOAD_PATH)					\
-		--eval "(require 'sly-tests)"				\
+		--eval "(require 'sly-tests \"lib/sly-tests\")"	        \
 		--eval "(sly-setup)"					\
 		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
 		--eval '(sly-batch-test (quote $(SELECTOR)))'

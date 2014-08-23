@@ -1,5 +1,5 @@
 (require 'sly-autodoc)
-(require 'sly-tests)
+(require 'sly-tests "lib/sly-tests")
 (require 'cl-lib)
 
 (defun sly-autodoc-to-string ()

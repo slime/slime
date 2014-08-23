@@ -1,5 +1,5 @@
 (require 'sly-c-p-c)
-(require 'sly-tests)
+(require 'sly-tests "lib/sly-tests")
 
 (def-sly-test complete-symbol*
     (prefix expected-completions)

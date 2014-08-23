@@ -1,5 +1,5 @@
 (require 'sly-mrepl)
-(require 'sly-tests)
+(require 'sly-tests "lib/sly-tests")
 (require 'cl-lib)
 
 

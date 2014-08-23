@@ -1,5 +1,5 @@
 (require 'sly-parse)
-(require 'sly-tests)
+(require 'sly-tests "lib/sly-tests")
 
 (defun sly-check-buffer-form (result-form)
   (sly-test-expect

@@ -1,5 +1,5 @@
 (require 'sly-indentation)
-(require 'sly-tests)
+(require 'sly-tests "lib/sly-tests")
 
 (define-common-lisp-style "common-lisp-indent-test"
     ;; Used to specify a few complex indentation specs for testing.
