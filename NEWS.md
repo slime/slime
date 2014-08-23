@@ -32,6 +32,19 @@ Buffer names have been consolidated: every buffer name related to SLY
 obeys the same structure, stating the type, connection name and any
 pertinent additional info.
 
+### Anti-NEWS
+
+Connectivity to SLIME's SWANK is tricky. (TODO: Explain)
+
+The `slime-presentations` has been removed. The consistent button
+interface is better.
+
+The `slime-c-p-c` contrib has been removed. It contained a lot of
+non-standard window-managing code. `sly-fuzzy`, formerly `slime-fuzzy`
+does, too but less, also does compound completion, and seems more
+useful. I'd rather focus efforts there.
+
+
 
 
 
