@@ -4196,12 +4196,14 @@ TODO"
          (error "unknown designator type"))))
 
 (defun sly-apropos-insert-symbol (designator item bounds)
-  (let ((start (point)))
-    (insert (make-text-button (sly-apropos-designator-string designator) nil
-                              'face 'sly-apropos-symbol
-                              'part-args (list item nil)
-                              'part-label "Symbol"
-                              :type 'sly-apropos-symbol))
+  (let ((start (point))
+        (label (sly-apropos-designator-string designator)))
+    (make-text-button label nil
+                      'face 'sly-apropos-symbol
+                      'part-args (list item nil)
+                      'part-label "Symbol"
+                      :type 'sly-apropos-symbol)
+    (insert label)
     (when bounds
       (let ((ov (make-overlay (+ start (cl-first bounds))
                               (+ start (cl-second bounds)))))
