@@ -20,9 +20,13 @@ SLY News
   https://github.com/slime/slime/pull/175
   https://github.com/slime/slime/pull/145
 
-### Other miscelaneous enhancements
+### Other miscelaneous enhancements over SLIME
 
 Faces have been revised.
+
+SLY is intrudes less than SLIME in the Emacs namespace, and uses more
+standard idoms. Macros like `with-struct` and `sly-define-keys` have
+been removed.
 
 
 

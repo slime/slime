@@ -606,26 +606,6 @@ corresponding values in the CDR of VALUE."
 	       '()
 	     `((t (error "Elisp destructure-case failed: %S" ,tmp))))))))
 
-(cl-defmacro with-struct ((conc-name &rest slots) struct &body body)
-  "Like with-slots but works only for structs.
-\(fn (CONC-NAME &rest SLOTS) STRUCT &body BODY)"
-  (declare (indent 2)
-           (debug (sexp sexp &rest form)))
-  (let ((struct-var (cl-gensym "struct"))
-        (reader (lambda (slot)
-                  (intern (concat (symbol-name conc-name)
-                                  (symbol-name slot))))))
-    `(let ((,struct-var ,struct))
-       (cl-symbol-macrolet
-           ,(mapcar (lambda (slot)
-                      (cl-etypecase slot
-                        (symbol `(,slot (,(funcall reader slot) ,struct-var)))
-                        (cons `(,(cl-first slot)
-                                (,(funcall reader (cl-second slot))
-                                 ,struct-var)))))
-                    slots)
-         . ,body))))
-
 ;;;;; Very-commonly-used functions
 
 ;; Interface
@@ -2500,8 +2480,11 @@ ASK asks the user."
     (ask (y-or-n-p "Compilation failed.  Load fasl file anyway? "))))
 
 (defun sly-compilation-finished (result &optional stringp)
-  (with-struct (sly-compilation-result. notes duration successp
-                                          loadp faslfile) result
+  (let ((notes (sly-compilation-result.notes result))
+        (duration (sly-compilation-result.duration result))
+        (successp (sly-compilation-result.successp result))
+        (faslfile (sly-compilation-result.faslfile result))
+        (loadp (sly-compilation-result.loadp result)))
     (setf sly-last-compilation-result result)
     (sly-show-note-counts notes duration (cond ((not loadp) successp)
                                                (t (and faslfile successp)))
@@ -2627,15 +2610,13 @@ Each newlines and following indentation is replaced by a single space."
 (defun sly-maybe-show-compilation-log (notes)
   "Display the log on failed compilations or if NOTES is non-nil."
   (sly-create-compilation-log notes)
-  (with-struct (sly-compilation-result. notes duration successp)
-      sly-last-compilation-result
-    (unless successp
-      (with-current-buffer (sly-buffer-name :compilation)
-        (let ((inhibit-read-only t))
-          (goto-char (point-max))
-          (insert "Compilation " (if successp "succeeded." "failed."))
-          (goto-char (point-min))
-          (display-buffer (current-buffer)))))))
+  (unless (sly-compilation-result.successp sly-last-compilation-result)
+    (with-current-buffer (sly-buffer-name :compilation)
+      (let ((inhibit-read-only t))
+        (goto-char (point-max))
+        (insert "Compilation failed.")
+        (goto-char (point-min))
+        (display-buffer (current-buffer))))))
 
 (defun sly-show-compilation-log (notes)
   "Create and display the compilation log buffer."
@@ -6822,8 +6803,6 @@ The returned bounds are either nil or non-empty."
 (sly-setup)
 
 ;; Local Variables:
-;; outline-regexp: ";;;;+"
-;; indent-tabs-mode: nil
-;; coding: latin-1-unix
+;; coding: utf-8
 ;; End:
 ;;; sly.el ends here
