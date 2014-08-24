@@ -1,5 +1,4 @@
 (require 'sly)
-(require 'sly-c-p-c)
 (require 'sly-parse)
 
 (define-sly-contrib sly-package-fu

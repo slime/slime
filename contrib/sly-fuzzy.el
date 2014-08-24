@@ -495,7 +495,8 @@ so that the user can see it on the screen."
   "Aborts the completion process, setting the completions slot in
 the target buffer back to its original contents."
   (interactive)
-  (when sly-fuzzy-target-buffer
+  (when (and sly-fuzzy-target-buffer
+             (buffer-live-p sly-fuzzy-target-buffer))
     (sly-fuzzy-done)))
 
 (defun sly-fuzzy-select ()
