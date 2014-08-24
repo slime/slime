@@ -1,14 +1,8 @@
 (require 'sly-parse)
 (require 'sly-tests "lib/sly-tests")
 
-(defun sly-check-buffer-form (result-form)
-  (sly-test-expect
-   (format "Buffer form correct in `%s' (at %d)" (buffer-string) (point))
-   result-form
-   (sly-parse-form-upto-point 10)))
-
 (def-sly-test form-up-to-point.1
-    (buffer-sexpr result-form &optional skip-trailing-test-p)
+    (buffer-sexpr result-form &optional skip-trailing-test-p skip-test-p)
     ""
     '(("(char= #\\(*HERE*"
        ("char=" "#\\(" swank::%cursor-marker%))
@@ -27,7 +21,7 @@
 	("x" "y") swank::%cursor-marker%))
       ("(defun foo (x y*HERE*"
        ("defun" "foo"
-	e("x" "y" swank::%cursor-marker%)))
+	("x" "y" swank::%cursor-marker%)))
       ("(apply 'foo*HERE*"
        ("apply" "'foo" swank::%cursor-marker%))
       ("(apply #'foo*HERE*"
@@ -35,7 +29,7 @@
       ("(declare ((vector bit *HERE*"
        ("declare" (("vector" "bit" "" swank::%cursor-marker%))))
       ("(with-open-file (*HERE*"
-       e("with-open-file" ("" swank::%cursor-marker%)))
+       ("with-open-file" ("" swank::%cursor-marker%)))
       ("(((*HERE*"
        ((("" swank::%cursor-marker%))))
       ("(defun #| foo #| *HERE*"
@@ -47,18 +41,22 @@
       ("`(remove-if ,(lambda (x)*HERE*"
        ("remove-if" ("lambda" ("x") swank::%cursor-marker%)))
       ("`(remove-if ,@(lambda (x)*HERE*"
-       ("remove-if" ("lambda" ("x") swank::%cursor-marker%))))
-  (sly-skip-test "TODO: skip for now, but analyse this failure!")
+       ("remove-if" ("lambda" ("x") swank::%cursor-marker%))
+       nil
+       t))
   (sly-check-top-level)
+  (when skip-test-p
+    (sly-skip-test "Skipping test (would otherwise fail"))
   (with-temp-buffer
     (lisp-mode)
     (insert buffer-sexpr)
     (search-backward "*HERE*")
     (delete-region (match-beginning 0) (match-end 0))
-    (sly-check-buffer-form result-form)
+    (should (equal result-form
+                   (sly-parse-form-upto-point 10)))
     (unless skip-trailing-test-p
       (insert ")") (backward-char)
-      (sly-check-buffer-form result-form))
-    ))
+      (should (equal result-form
+                     (sly-parse-form-upto-point 10))))))
 
 (provide 'sly-parse-tests)

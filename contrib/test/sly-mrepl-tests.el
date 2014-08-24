@@ -18,9 +18,23 @@
                                                                   20))
                                                           (point-max)))))))
 
+(defun sly-mrepl-tests--assert-dedicated-stream ()
+  (let ((dedicated-stream nil))
+    (cl-loop 
+     repeat 5
+     when (and sly-mrepl--dedicated-stream
+               (processp sly-mrepl--dedicated-stream)
+               (process-live-p sly-mrepl--dedicated-stream))
+     do (setq dedicated-stream t)
+     (cl-return)
+     do (sleep-for 0 300))
+    (or dedicated-stream
+        (ert-fail "Dedicated stream not setup correctly"))))
+
 (define-sly-ert-test basic-repl-setup ()
   (with-current-buffer (sly-mrepl-new (sly-current-connection))
     (sly-mrepl-tests--assert-prompt)
+    (sly-mrepl-tests--assert-dedicated-stream)
     (kill-buffer (current-buffer))))
 
 
