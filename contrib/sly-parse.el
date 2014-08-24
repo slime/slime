@@ -31,7 +31,7 @@
         (cl-decf depth)
         (push (nreverse cursexp) (car sexps)))
        ;; Start of a new sexp?
-       ((looking-at "\\s'*\\s(")
+       ((looking-at "\\(\\s'\\|@\\)*\\s(")
         (let ((subpt (match-end 0)))
           (ignore-errors
             (forward-sexp)
@@ -74,6 +74,8 @@ that the character is not escaped."
 
 (defconst sly-cursor-marker 'swank::%cursor-marker%)
 
+;; FIXME: stop this madness and just use `syntax-ppss'
+;; 
 (defun sly-parse-form-upto-point (&optional max-levels)
   (save-restriction
     ;; Don't parse more than 500 lines before point, so we don't spend

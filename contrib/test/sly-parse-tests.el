@@ -2,7 +2,7 @@
 (require 'sly-tests "lib/sly-tests")
 
 (def-sly-test form-up-to-point.1
-    (buffer-sexpr result-form &optional skip-trailing-test-p skip-test-p)
+    (buffer-sexpr result-form &optional skip-trailing-test-p)
     ""
     '(("(char= #\\(*HERE*"
        ("char=" "#\\(" swank::%cursor-marker%))
@@ -41,12 +41,8 @@
       ("`(remove-if ,(lambda (x)*HERE*"
        ("remove-if" ("lambda" ("x") swank::%cursor-marker%)))
       ("`(remove-if ,@(lambda (x)*HERE*"
-       ("remove-if" ("lambda" ("x") swank::%cursor-marker%))
-       nil
-       t))
+       ("remove-if" ("lambda" ("x") swank::%cursor-marker%))))
   (sly-check-top-level)
-  (when skip-test-p
-    (sly-skip-test "Skipping test (would otherwise fail"))
   (with-temp-buffer
     (lisp-mode)
     (insert buffer-sexpr)
