@@ -5143,8 +5143,9 @@ RESTARTS should be a list ((NAME DESCRIPTION) ...)."
              do (insert
                  " " (sldb-in-face restart-number (number-to-string number))
                  ": "  (sly-make-action-button (format "[%s]" name)
-                                               #'(lambda (_button)
-                                                   (sldb-invoke-restart number))
+                                               (let ((n number))
+                                                 #'(lambda (_button)
+                                                     (sldb-invoke-restart n)))
                                                'restart-number number)
                  " " (sldb-in-face restart string))
              (insert "\n"))
