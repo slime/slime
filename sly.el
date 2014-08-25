@@ -6059,6 +6059,7 @@ KILL-BUFFER hooks for the inspector buffer."
   (with-current-buffer (sly-inspector-buffer)
     (when hook
       (add-hook 'kill-buffer-hook hook t t))
+    (setq sly-buffer-connection (sly-current-connection))
     (let ((inhibit-read-only t))
       (erase-buffer)
       (pop-to-buffer (current-buffer))
