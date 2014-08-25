@@ -594,4 +594,39 @@ nullified."
 configuration was changed, we nullify our saved configuration."
   (setq sly-fuzzy-saved-window-configuration nil))
 
+
+;;; Emulation of the old "c-p-c" contrib
+;;;
+
+(defun sly-c-p-c-symbol-completions (prefix)
+  (let ((sly-current-thread t))
+    (car
+     (sly-eval
+      `(swank:completions ,prefix ',(sly-current-package))))))
+
+(defun sly-c-p-c-char-name-completions (prefix)
+  (let ((sly-current-thread t))
+    (car
+     (sly-eval
+      `(swank:completions-for-character ,prefix)))))
+
+(defun sly-c-p-c-complete-symbol ()
+  "Complete the symbol at point.
+Perform completion more similar to Emacs' complete-symbol."
+  (let* ((end (point))
+         (beg (sly-symbol-start-pos))
+         (fn (cond ((and beg
+                         (save-excursion
+                           (goto-char beg)
+                           (looking-at "#\\\\")))
+                    (setq beg (+ 2 beg)) ;;HACK
+                    'sly-c-p-c-char-name-completions)
+                   (beg
+                    'sly-c-p-c-symbol-completions)
+                   (t
+                    nil))))
+    (and fn
+         (list beg end
+               (funcall fn (buffer-substring-no-properties beg end))))))
+
 (provide 'sly-fuzzy)

@@ -109,7 +109,7 @@ emptied. See also `sly-mrepl-hook'")
 ;; Major mode
 ;; 
 (define-derived-mode sly-mrepl-mode comint-mode "mrepl"
-  (sly-mode)
+  (sly-mode 1)
   (font-lock-mode -1)
   (cl-loop for (var value)
            in `((comint-use-prompt-regexp nil)

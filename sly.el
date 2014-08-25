@@ -288,7 +288,7 @@ argument."
   "*Function to perform symbol completion."
   :group 'sly-mode
   :type '(choice (const :tag "Simple" sly-simple-complete-symbol)
-                 (const :tag "Compound" sly-complete-symbol*)
+                 (const :tag "Compound style" sly-c-p-c-complete-symbol)
                  (const :tag "Fuzzy" sly-fuzzy-complete-symbol)))
 
 ;;;;; sly-mode-faces
@@ -3420,7 +3420,6 @@ Perform completion more similar to Emacs' complete-symbol."
          (beg (sly-symbol-start-pos))
          (prefix (and beg
                       (buffer-substring-no-properties beg end)))
-         
          (result (and prefix
                       (sly-simple-completions prefix))))
     (when result
