@@ -2303,21 +2303,26 @@ Debugged requests are ignored."
 
 (defun sly-events-buffer (process)
   "Return or create the event log buffer."
-  (or (process-get process 'sly-events-buffer)
-      (let ((buffer (get-buffer-create
-                     (sly-buffer-name :events
-                                      :suffix (format "%s" process)))))
-        (with-current-buffer buffer
-          (buffer-disable-undo)
-          (set (make-local-variable 'outline-regexp) "^(")
-          (set (make-local-variable 'comment-start) ";")
-          (set (make-local-variable 'comment-end) "")
-          (when sly-outline-mode-in-events-buffer
-            (outline-minor-mode))
-          (set (make-local-variable 'sly-buffer-connection) process)
-          (sly-mode 1))
-        (process-put process 'sly-events-buffer buffer)
-        buffer)))
+  (let ((probe (process-get process 'sly-events-buffer)))
+    (or (and (buffer-live-p probe)
+             probe)
+        (let ((buffer (get-buffer-create
+                       (apply #'sly-buffer-name
+                              :events
+                              (if (sly-connection-name process)
+                                  `(:connection ,process)
+                                `(:suffix ,(format "%s" process)))))))
+          (with-current-buffer buffer
+            (buffer-disable-undo)
+            (set (make-local-variable 'outline-regexp) "^(")
+            (set (make-local-variable 'comment-start) ";")
+            (set (make-local-variable 'comment-end) "")
+            (when sly-outline-mode-in-events-buffer
+              (outline-minor-mode))
+            (set (make-local-variable 'sly-buffer-connection) process)
+            (sly-mode 1))
+          (process-put process 'sly-events-buffer buffer)
+          buffer))))
 
 
 ;;;;; Cleanup after a quit
