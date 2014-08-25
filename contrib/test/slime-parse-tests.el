@@ -27,7 +27,7 @@
 	("x" "y") swank::%cursor-marker%))
       ("(defun foo (x y*HERE*"
        ("defun" "foo"
-	e("x" "y" swank::%cursor-marker%)))
+	("x" "y" swank::%cursor-marker%)))
       ("(apply 'foo*HERE*"
        ("apply" "'foo" swank::%cursor-marker%))
       ("(apply #'foo*HERE*"
@@ -35,7 +35,7 @@
       ("(declare ((vector bit *HERE*"
        ("declare" (("vector" "bit" "" swank::%cursor-marker%))))
       ("(with-open-file (*HERE*"
-       e("with-open-file" ("" swank::%cursor-marker%)))
+       ("with-open-file" ("" swank::%cursor-marker%)))
       ("(((*HERE*"
        ((("" swank::%cursor-marker%))))
       ("(defun #| foo #| *HERE*"
@@ -48,7 +48,6 @@
        ("remove-if" ("lambda" ("x") swank::%cursor-marker%)))
       ("`(remove-if ,@(lambda (x)*HERE*"
        ("remove-if" ("lambda" ("x") swank::%cursor-marker%))))
-  (slime-skip-test "TODO: skip for now, but analyse this failure!")
   (slime-check-top-level)
   (with-temp-buffer
     (lisp-mode)
