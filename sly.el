@@ -58,7 +58,7 @@
 ;;;; Dependencies and setup
 (require 'cl-lib)
 
-(eval-when-compile (require 'cl)) ; defsetf, lexical-let
+(eval-when-compile (require 'cl)) ;defsetf
 
 (eval-and-compile
   (if (version< emacs-version "24.3")
@@ -1901,10 +1901,10 @@ This is set only in buffers bound to specific packages."))
 ;;; you need to, but the others are usually more convenient.
 
 (cl-defmacro sly-rex ((&rest saved-vars)
-                        (sexp &optional
-                              (package '(sly-current-package))
-                              (thread 'sly-current-thread))
-                        &rest continuations)
+                      (sexp &optional
+                            (package '(sly-current-package))
+                            (thread 'sly-current-thread))
+                      &rest continuations)
   "(sly-rex (VAR ...) (SEXP &optional PACKAGE THREAD) CLAUSES ...)
 
 Remote EXecute SEXP.
@@ -1929,10 +1929,10 @@ versions cannot deal with that."
            (debug (sexp (form &optional sexp sexp)
                         &rest (sexp &rest form))))
   (let ((result (cl-gensym)))
-    `(lexical-let ,(cl-loop for var in saved-vars
-                            collect (cl-etypecase var
-                                      (symbol (list var var))
-                                      (cons var)))
+    `(let ,(cl-loop for var in saved-vars
+                    collect (cl-etypecase var
+                              (symbol (list var var))
+                              (cons var)))
        (sly-dispatch-event
         (list :emacs-rex ,sexp ,package ,thread
               (lambda (,result)
@@ -3477,7 +3477,7 @@ for the most recently enclosed macro or function."
   "History list of expressions read from the minibuffer.")
 
 (defun sly-minibuffer-setup-hook ()
-  (cons (lexical-let ((package (sly-current-package))
+  (cons (let ((package (sly-current-package))
                       (connection (sly-connection)))
           (lambda ()
             (setq sly-buffer-package package)
@@ -3956,7 +3956,7 @@ in Lisp when committed with \\[sly-edit-value-commit]."
    (list (sly-read-from-minibuffer "Edit value (evaluated): "
 				     (sly-sexp-at-point))))
   (sly-eval-async `(swank:value-for-editing ,form-string)
-    (lexical-let ((form-string form-string)
+    (let ((form-string form-string)
                   (package (sly-current-package)))
       (lambda (result)
         (sly-edit-value-callback form-string result
@@ -3994,7 +3994,7 @@ in Lisp when committed with \\[sly-edit-value-commit]."
   (if (null sly-edit-form-string)
       (error "Not editing a value.")
     (let ((value (buffer-substring-no-properties (point-min) (point-max))))
-      (lexical-let ((buffer (current-buffer)))
+      (let ((buffer (current-buffer)))
         (sly-eval-async `(swank:commit-edited-value ,sly-edit-form-string
                                                       ,value)
           (lambda (_)
@@ -4680,7 +4680,7 @@ NB: Does not affect sly-eval-macroexpand-expression"
   (interactive)
   (let* ((bounds (or (sly-bounds-of-sexp-at-point)
                      (error "No sexp at point"))))
-    (lexical-let* ((start (copy-marker (car bounds)))
+    (let* ((start (copy-marker (car bounds)))
                    (end (copy-marker (cdr bounds)))
                    (point (point))
                    (package (sly-current-package))
@@ -5698,7 +5698,7 @@ was called originally."
    (list (sldb-frame-number-at-point) current-prefix-arg))
   (sly-eval-async
       `(swank:frame-source-location ,frame-number)
-    (lexical-let ((policy (sly-compute-policy raw-prefix-arg)))
+    (let ((policy (sly-compute-policy raw-prefix-arg)))
       (lambda (source-location)
         (destructure-case source-location
           ((:error message)
@@ -6174,14 +6174,14 @@ position of point in the current buffer."
 (defun sly-inspector-reinspect ()
   (interactive)
   (sly-eval-async `(swank:inspector-reinspect)
-    (lexical-let ((point (sly-inspector-position)))
+    (let ((point (sly-inspector-position)))
       (lambda (parts)
         (sly-open-inspector parts point)))))
 
 (defun sly-inspector-toggle-verbose ()
   (interactive)
   (sly-eval-async `(swank:inspector-toggle-verbose)
-    (lexical-let ((point (sly-inspector-position)))
+    (let ((point (sly-inspector-position)))
       (lambda (parts)
         (sly-open-inspector parts point)))))
 
@@ -6673,7 +6673,7 @@ and skips comments."
                       (:and #'cl-every)
                       (:or #'cl-some)
                       (:not
-                       (lexical-let ((feature-expression e))
+                       (let ((feature-expression e))
                          (lambda (f l)
                            (cond
                             ((sly-length= l 0) t)
