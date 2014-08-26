@@ -341,7 +341,8 @@ emptied. See also `sly-mrepl-hook'")
                                            value-idx entry-idx)))
 
 (defun sly-mrepl--copy-objects-to-repl (method-args note &optional callback)
-  (cl-assert (not sly-mrepl--copy-to-repl-after))
+  (when sly-mrepl--copy-to-repl-after
+    (sly-warning "A previous copy-to-repl operation has failed."))
   (setq sly-mrepl--copy-to-repl-after
         #'(lambda (objects)
             (when note
