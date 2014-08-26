@@ -374,9 +374,8 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 
 (define-button-type 'sly-trace-dialog-part :supertype 'sly-part
   'sly-button-inspect #'(lambda (trace-id part-id type)
-                          (sly-eval-async
-                              `(swank-trace-dialog:inspect-trace-part ,trace-id ,part-id ,type)
-                            #'sly-open-inspector)))
+                          (sly-eval-for-inspector
+                           `(swank-trace-dialog:inspect-trace-part ,trace-id ,part-id ,type))))
 
 (defun sly-trace-dialog-part-button (part-id part-text trace-id type)
   (make-text-button part-text nil
@@ -401,10 +400,9 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                          ;; of the need for `save-selected-window'
                          ;; 
                          (let ((id (button-get button 'trace-id)))
-                           (sly-eval-async `(swank-trace-dialog:inspect-trace ,id)
-                             #'(lambda (results)
-                                 (save-selected-window
-                                   (sly-open-inspector results)))))))))
+                           (sly-eval-for-inspector
+                            `(swank-trace-dialog:inspect-trace ,id)
+                            :save-selected-window t))))))
 
 (defun sly-trace-dialog-spec-button (label trace &rest props)
   (let ((id (sly-trace-dialog--trace-id trace)))

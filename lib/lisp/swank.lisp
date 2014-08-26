@@ -3509,6 +3509,10 @@ Return nil if there's no previous object."
     (reset-inspector)
     (inspect-object (frame-var-value frame var))))
 
+(defslyfun eval-for-inspector (name slave-slyfun &rest args)
+  (declare (ignore name))
+  (apply slave-slyfun args))
+
 ;;;;; Lists
 
 (defmethod emacs-inspect ((o cons))

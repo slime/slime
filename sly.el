@@ -5350,10 +5350,10 @@ If MORE is non-nil, more frames are on the Lisp stack."
 
 ;;;;;; SLDB toggle details
 (define-button-type 'sldb-local-variable :supertype 'sly-part
-  'sly-button-inspect #'(lambda (frame-id var-id)
-                          (sly-eval-async `(swank:inspect-frame-var ,frame-id
-                                                                    ,var-id)
-                            'sly-open-inspector)))
+  'sly-button-inspect
+  #'(lambda (frame-id var-id)
+      (sly-eval-for-inspector `(swank:inspect-frame-var ,frame-id
+                                                        ,var-id)) ))
 
 (defun sldb-local-variable-button (label frame-number var-id &rest props)
   (apply #'make-text-button label nil
@@ -5481,14 +5481,12 @@ The details include local variable bindings and CATCH-tags."
                 (sly-read-from-minibuffer
                       "Inspect in frame (evaluated): "
                       (sly-sexp-at-point))))
-  (sly-eval-async `(swank:inspect-in-frame ,string ,frame-number)
-    'sly-open-inspector))
+  (sly-eval-for-inspector `(swank:inspect-in-frame ,string ,frame-number)))
 
 (defun sldb-inspect-condition ()
   "Inspect the current debugger condition."
   (interactive)
-  (sly-eval-async '(swank:inspect-current-condition)
-    'sly-open-inspector))
+  (sly-eval-for-inspector '(swank:inspect-current-condition)))
 
 (defun sldb-print-condition ()
   (interactive)
@@ -5975,14 +5973,33 @@ was called originally."
   :prefix "sly-inspector-"
   :group 'sly)
 
-(defvar sly-inspector-mark-stack '())
+(cl-defun sly-eval-for-inspector (slyfun-and-args
+                                  &key (error-message "Couldn't inspect")
+                                  restore-point
+                                  save-selected-window)
+  (if (cl-some #'listp slyfun-and-args)
+      (sly-warning "`sly-eval-for-inspector' not meant to be passed a generic form"))
+  (let ((pos (and (eq major-mode 'sly-inspector-mode)
+                  (sly-inspector-position))))
+    (sly-eval-async `(swank:eval-for-inspector "default"
+                                               ',(car slyfun-and-args)
+                                               ,@(cdr slyfun-and-args))
+      (lambda (results)
+        (let ((opener (lambda ()
+                        (sly-open-inspector results (and restore-point pos)))))
+          (cond (results
+                 (if save-selected-window
+                     (save-selected-window (funcall opener))
+                   (funcall opener)))
+                (t
+                 (sly-message error-message))))))))
 
 (defun sly-inspect (string)
   "Eval an expression and inspect the result."
   (interactive
    (list (sly-read-from-minibuffer "Inspect value (evaluated): "
-				     (sly-sexp-at-point))))
-  (sly-eval-async `(swank:init-inspector ,string) 'sly-open-inspector))
+                                   (sly-sexp-at-point))))
+  (sly-eval-for-inspector `(swank:init-inspector ,string)))
 
 (defvar sly-inspector-mode-map
   (let ((map (make-sparse-keymap)))
@@ -6015,18 +6032,13 @@ was called originally."
         (sly-with-popup-buffer (name
                                 :mode 'sly-inspector-mode
                                 :connection t)
-          (setq sly-inspector-mark-stack '())
           (buffer-disable-undo)
           (current-buffer)))))
 
 (define-button-type 'sly-inspector-part :supertype 'sly-part
   'sly-button-inspect
   #'(lambda (id)
-      (sly-eval-async `(swank:inspect-nth-part ,id)
-        (lambda (parts)
-          (when parts
-            (sly-open-inspector parts))))
-      (push (sly-inspector-position) sly-inspector-mark-stack))
+      (sly-eval-for-inspector `(swank:inspect-nth-part ,id)))
   'sly-button-pretty-print
   #'(lambda (id)
       (sly-eval-describe `(swank:pprint-inspector-part ,id)))
@@ -6110,12 +6122,8 @@ If PREV resp. NEXT are true insert more-buttons as needed."
         (sly-make-action-button
          string
          #'(lambda (_button)
-             (let ((pos (sly-inspector-position)))
-               (sly-eval-async
-                   `(swank::inspector-call-nth-action ,id)
-                 (lambda (parts)
-                   (when parts
-                     (sly-open-inspector parts pos))))))))))))
+             (sly-eval-for-inspector `(swank::inspector-call-nth-action ,id)
+                                     :restore-point t))))))))
 
 (defun sly-inspector-position ()
   "Return a pair (Y-POSITION X-POSITION) representing the
@@ -6131,24 +6139,12 @@ position of point in the current buffer."
 (defun sly-inspector-pop ()
   "Reinspect the previous object."
   (interactive)
-  (sly-eval-async
-      `(swank:inspector-pop)
-    (lambda (result)
-      (cond (result
-             (sly-open-inspector result (pop sly-inspector-mark-stack)))
-            (t
-             (sly-message "No previous object")
-             (ding))))))
+  (sly-eval-for-inspector `(swank:inspector-pop) :error-message "No previous object"))
 
 (defun sly-inspector-next ()
   "Inspect the next object in the history."
   (interactive)
-  (let ((result (sly-eval `(swank:inspector-next))))
-    (cond (result
-	   (push (sly-inspector-position) sly-inspector-mark-stack)
-	   (sly-open-inspector result))
-	  (t (sly-message "No next object")
-	     (ding)))))
+  (sly-eval-for-inspector `(swank:inspector-next) :error-message "No next object"))
 
 (defun sly-inspector-quit ()
   "Quit the inspector and kill the buffer."
@@ -6173,17 +6169,11 @@ position of point in the current buffer."
 
 (defun sly-inspector-reinspect ()
   (interactive)
-  (sly-eval-async `(swank:inspector-reinspect)
-    (let ((point (sly-inspector-position)))
-      (lambda (parts)
-        (sly-open-inspector parts point)))))
+  (sly-eval-for-inspector `(swank:inspector-reinspect)))
 
 (defun sly-inspector-toggle-verbose ()
   (interactive)
-  (sly-eval-async `(swank:inspector-toggle-verbose)
-    (let ((point (sly-inspector-position)))
-      (lambda (parts)
-        (sly-open-inspector parts point)))))
+  (sly-eval-for-inspector `(swank:inspector-toggle-verbose)))
 
 (defun sly-inspector-insert-more-button (index previous)
   (insert (sly-make-action-button
