@@ -187,7 +187,7 @@ program.")
 
 (defslyfun inspect-trace-part (trace-id part-id type)
   (swank::inspect-object
-   (find-trace-part-or-lose trace-id part-id type)))
+   (trace-part-or-lose trace-id part-id type)))
 
 (defslyfun inspect-trace (trace-id)
   (swank::inspect-object (trace-or-lose trace-id)))
