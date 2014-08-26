@@ -1,3 +1,16 @@
+2014-08-26  Helmut Eller  <heller@common-lisp.net>
+
+	SBCL's reader changed recently. Fix some issues caused by that.
+
+	* swank-source-path-parser.lisp (make-source-recording-readtable):
+	Wrap the sharp-dot "#." reader before wrapping the dispatch macro
+	"#" because with the new reader get-dispatch-macro-character
+	doesn't work if "#" is wrapped first.  Suggested by Paulo Madeira.
+	(skip-whitespace): New helper.
+	(read-source-form): Use it.  Skipping over whitespace is a slight
+	improvement and seems fairly conservative.
+	* slime-tests.el ([test] find-definition.2-2): New test.
+
 2014-08-18  Mark Evenson  <evenson.not.org@gmail.com>
 
 	* swank-abcl.lisp: Adjust MOP symbols to publically exported

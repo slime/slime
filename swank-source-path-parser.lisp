@@ -32,12 +32,12 @@
   (assert (not (get-macro-character #\\ rt))))
 
 (defun make-sharpdot-reader (orig-sharpdot-reader)
-  #'(lambda (s c n)
-      ;; We want things like M-. to work regardless of any #.-fu in
-      ;; the source file that is to be visited. (For instance, when a
-      ;; file contains #. forms referencing constants that do not
-      ;; currently exist in the image.)
-      (ignore-errors (funcall orig-sharpdot-reader s c n))))
+  (lambda (s c n)
+    ;; We want things like M-. to work regardless of any #.-fu in
+    ;; the source file that is to be visited. (For instance, when a
+    ;; file contains #. forms referencing constants that do not
+    ;; currently exist in the image.)
+    (ignore-errors (funcall orig-sharpdot-reader s c n))))
 
 (defun make-source-recorder (fn source-map)
   "Return a macro character function that does the same as FN, but
@@ -48,31 +48,33 @@ before and after of calling FN in the hashtable SOURCE-MAP."
 	  (values (multiple-value-list (funcall fn stream char)))
 	  (end (file-position stream)))
       #+(or)
-      (format t "[~D \"~{~A~^, ~}\" ~D ~D ~S]~%" 
+      (format t "[~D \"~{~A~^, ~}\" ~D ~D ~S]~%"
 	      start values end (char-code char) char)
       (unless (null values)
 	(push (cons start end) (gethash (car values) source-map)))
       (values-list values))))
 
-(defun make-source-recording-readtable (readtable source-map) 
+(defun make-source-recording-readtable (readtable source-map)
+  (declare (type readtable readtable) (type hash-table source-map))
   "Return a source position recording copy of READTABLE.
 The source locations are stored in SOURCE-MAP."
-  (flet ((install-special-sharpdot-reader (*readtable*)
-	   (let ((old-reader (ignore-errors
-			       (get-dispatch-macro-character #\# #\.))))
-	     (when old-reader
-	       (set-dispatch-macro-character #\# #\.
-		 (make-sharpdot-reader old-reader))))))
-    (let* ((tab (copy-readtable readtable))
-	   (*readtable* tab))
-      (dotimes (code 128)
-	(let ((char (code-char code)))
-	  (multiple-value-bind (fn term) (get-macro-character char tab)
-	    (when fn
-	      (set-macro-character char (make-source-recorder fn source-map) 
-				   term tab)))))
-      (install-special-sharpdot-reader tab)
-      tab)))
+  (flet ((install-special-sharpdot-reader (rt)
+	   (let ((fun (ignore-errors
+			(get-dispatch-macro-character #\# #\. rt))))
+	     (when fun
+	       (let ((wrapper (make-sharpdot-reader fun)))
+		 (set-dispatch-macro-character #\# #\. wrapper rt)))))
+	 (install-wrappers (rt)
+	   (dotimes (code 128)
+	     (let ((char (code-char code)))
+	       (multiple-value-bind (fun nt) (get-macro-character char rt)
+		 (when fun
+		   (let ((wrapper (make-source-recorder fun source-map)))
+		     (set-macro-character char wrapper nt rt))))))))
+    (let ((rt (copy-readtable readtable)))
+      (install-special-sharpdot-reader rt)
+      (install-wrappers rt)
+      rt)))
 
 (defun read-and-record-source-map (stream)
   "Read the next object from STREAM.
@@ -88,6 +90,9 @@ subexpressions of the object to stream positions."
       (push (cons start end) (gethash form source-map)))
     (values form source-map)))
 
+(defun skip-whitespace (stream)
+  (peek-char t stream))
+
 (defun skip-toplevel-forms (n stream)
   (let ((*read-suppress* t))
     (dotimes (i n)
@@ -97,9 +102,10 @@ subexpressions of the object to stream positions."
   "Read the Nth toplevel form number with source location recording.
 Return the form and the source-map."
   (skip-toplevel-forms n stream)
+  (skip-whitespace stream)
   (let ((*read-suppress* nil))
     (read-and-record-source-map stream)))
-  
+
 (defun source-path-stream-position (path stream)
   "Search the source-path PATH in STREAM and return its position."
   (check-source-path path)
@@ -146,4 +152,3 @@ of the deepest (i.e. smallest) possible form is returned."
 	  until (and positions (null (cdr positions)))
 	  finally (destructuring-bind ((start . end)) positions
 		    (return (values start end))))))
-
