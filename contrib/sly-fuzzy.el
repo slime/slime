@@ -117,6 +117,12 @@ temporarily during completion.")
   (select-window (get-buffer-window (sly-get-fuzzy-buffer)))
   (call-interactively 'isearch-forward))
 
+(defvar sly-fuzzy-target-original-point nil)
+
+(defun sly-fuzzy-target-post-command-hook ()
+  (unless (eq (point) sly-fuzzy-target-original-point)
+    (save-excursion (sly-fuzzy-abort))))
+
 (define-minor-mode sly-fuzzy-target-buffer-completions-mode
   "This minor mode is intented to override key bindings during
 fuzzy completions in the target buffer. Most of the bindings will
@@ -124,7 +130,18 @@ do an implicit select in the completion window and let the
 keypress be processed in the target buffer."
   nil
   nil
-  sly-target-buffer-fuzzy-completions-map)
+  sly-target-buffer-fuzzy-completions-map
+  (cond (sly-fuzzy-target-buffer-completions-mode
+         (set (make-local-variable 'sly-fuzzy-target-original-point)
+              (point))
+         (add-hook 'post-command-hook
+                   'sly-fuzzy-target-post-command-hook
+                   'append
+                   'local))
+        (t
+         (remove-hook 'post-command-hook
+                      'sly-fuzzy-target-post-command-hook
+                      'local))))
 
 (add-to-list 'minor-mode-alist
              '(sly-fuzzy-target-buffer-completions-mode
@@ -592,6 +609,7 @@ nullified."
 (defun sly-fuzzy-window-configuration-change ()
   "Called on window-configuration-change-hook.  Since the window
 configuration was changed, we nullify our saved configuration."
+  
   (setq sly-fuzzy-saved-window-configuration nil))
 
 
