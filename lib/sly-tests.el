@@ -468,6 +468,17 @@ confronted with nasty #.-fu."
        "
        "SWANK"
        "[ \t]*(defun .foo. "
+       )
+      ("#.(prog1 nil (defvar *foobar* 42))
+
+       ;; some comment
+       (defun .foo. (x)
+         (+ x #.*foobar*))
+
+       #.(prog1 nil (makunbound '*foobar*))
+       "
+       "SWANK"
+       "[ \t]*(defun .foo. "
        ))
   (let ((sly-buffer-package buffer-package))
     (with-temp-buffer
