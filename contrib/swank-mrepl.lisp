@@ -6,10 +6,11 @@
   (:use :cl :swank-api)
   (:export #:create-mrepl
            #:globally-save-object
-           #:eval-in-mrepl))
-
+           #:eval-for-mrepl))
 (in-package :swank-mrepl)
 
+
+;;; MREPL models
 (defclass mrepl (channel listener)
   ((remote-id   :initarg  :remote-id :accessor mrepl-remote-id)
    (mode        :initform :eval   :accessor mrepl-mode)
@@ -28,39 +29,20 @@
   (print-unreadable-object (r stream :type t)
     (format stream "mrepl-~a-~a" (channel-id r) (mrepl-remote-id r))))
 
-(defslyfun create-mrepl (remote-id)
-  (let* ((mrepl (make-instance
-                 'mrepl
-                 :remote-id remote-id
-                 :name (format nil "mrepl-remote-~a" remote-id)
-                 :out (make-mrepl-output-stream remote-id))))
-    (let ((target (maybe-redirect-global-io *emacs-connection*)))
-      (with-listener mrepl
-        (format *standard-output* "~&; SLY ~a (~a)~%"
-                *swank-wire-protocol-version*
-                mrepl)
-        (cond ((and target
-                    (not (eq mrepl target)))
-               (format *standard-output* "~&; Global redirection setup elsewhere~%"))
-              ((not target)
-               (format *standard-output* "~&; Global redirection not setup~%"))))
-      (flush-listener-streams mrepl)
-      (send-prompt mrepl)
-      (list (channel-id mrepl) (channel-thread-id mrepl)))))
-
 (defmethod initialize-instance :before ((r mrepl) &key)
   (setf (slot-value r 'swank::in) (make-mrepl-input-stream r)))
 
-(defslyfun eval-in-mrepl (remote-id string)
-  "Like MREPL-EVAL, but not run in channel's thread."
-  (mrepl-eval (find-channel remote-id) string))
-
+
+;;; Helpers
+;;; 
 (defvar *history* nil)
 
-;;; FIXME: Dropping events should be moved to the library, and this
-;;; :DROP nonsense dropped, hence the deliberate SWANK::.
+(defvar *saved-objects* nil)
+
 (defmethod swank::drop-unprocessed-events ((r mrepl))
   "Empty REPL of events, then send prompt to Emacs."
+  ;; FIXME: Dropping events should be moved to the library, and this
+  ;; :DROP nonsense dropped, hence the deliberate SWANK::.
   (with-slots (mode) r
     (let ((old-mode mode))
       (setf mode :drop)
@@ -68,24 +50,11 @@
            (process-requests t)
         (setf mode old-mode)))))
 
-(define-channel-method :process ((c mrepl) string)
-  (ecase (mrepl-mode c)
-    (:eval (mrepl-eval c string))
-    (:read (mrepl-read c string))
-    (:drop)))
-
 (defun mrepl-get-history-entry (entry-idx)
   (aref *history* entry-idx))
 
 (defun mrepl-get-object-from-history (entry-idx value-idx)
   (nth value-idx (mrepl-get-history-entry entry-idx)))
-
-(define-channel-method :inspect-object ((r mrepl) entry-idx value-idx)
-  (with-listener r
-    (send-to-remote-channel
-       (mrepl-remote-id r)
-       `(:inspect-object
-         ,(swank::inspect-object (mrepl-get-object-from-history entry-idx value-idx))))))
 
 (defun copy-values-to-repl (repl values)
   ;; FIXME: Notice some duplication to MREPL-EVAL.
@@ -95,55 +64,6 @@
   (send-to-remote-channel (mrepl-remote-id repl)
                           `(:copy-to-repl ,(mapcar #'swank::to-line values)))
   (send-prompt repl))
-
-(define-channel-method :sync-package-and-default-directory ((r mrepl)
-                                                            package-name
-                                                            directory)
-  (with-listener r
-    (let ((package (swank::guess-package package-name)))
-      (swank:set-default-directory directory)
-      (and package (setq *package* package))
-      (copy-values-to-repl r (list *package* *default-pathname-defaults*)))))
-
-(defvar *saved-objects* nil)
-
-(defslyfun globally-save-object (slave-slyfun &rest args)
-  "Apply SLYFUN to ARGS and save the value.
- The saved value should be visible to all threads and retrieved via a
- :COPY-TO-REPL message."
-  (setq *saved-objects* (multiple-value-list (apply slave-slyfun args)))
-  t)
-
-(define-channel-method :copy-to-repl ((r mrepl) &optional entry-idx value-idx)
-  (with-listener r
-    (let ((objects
-            (cond ((and entry-idx value-idx)
-                   (list (mrepl-get-object-from-history entry-idx value-idx)))
-                  (entry-idx
-                   (mrepl-get-history-entry entry-idx))
-                  (value-idx
-                   (error "Doesn't make sense"))
-                  (t
-                   *saved-objects*))))
-      (copy-values-to-repl r objects))))
-
-;; FIXME: this should be a `:before' spec and closing the channel in
-;; swank.lisp's :teardown method should suffice.
-;; 
-(define-channel-method :teardown ((r mrepl))
-  (setf (mrepl-mode r) :teardown)
-  (call-next-method))
-
-;; FIXME: duplication... use reinitialize-instance
-(define-channel-method :clear-repl-history ((r mrepl))
-  (with-listener r
-    (setf *history* (make-array 40 :fill-pointer 0
-                                   :adjustable t)
-          * nil ** nil *** nil
-          + nil ++ nil +++ nil
-          / nil // nil /// nil)
-    (send-to-remote-channel (mrepl-remote-id r) `(:clear-repl-history))
-    (send-prompt r)))
 
 (defun mrepl-eval (repl string)
   (let ((aborted t)
@@ -224,13 +144,139 @@
         (setf (cdr (assoc '*package* (slot-value repl 'swank::env)))
               *package*)))))
 
+(defun set-mode (repl new-mode)
+  (with-slots (mode remote-id) repl
+    (unless (eq mode new-mode)
+      (send-to-remote-channel remote-id `(:set-read-mode ,new-mode)))
+    (setf mode new-mode)))
+
+(defun read-input (repl)
+  (with-slots (mode tag remote-id) repl
+    (force-output)
+    (let ((old-mode mode)
+          (old-tag tag))
+      (setf tag (cons nil nil))
+      (set-mode repl :read)
+      (unwind-protect
+           (catch tag (process-requests nil))
+        (setf tag old-tag)
+        (set-mode repl old-mode)))))
+
+
+;;; Channel methods
+;;;
+(define-channel-method :copy-to-repl ((r mrepl) &optional entry-idx value-idx)
+  (with-listener r
+    (let ((objects
+            (cond ((and entry-idx value-idx)
+                   (list (mrepl-get-object-from-history entry-idx value-idx)))
+                  (entry-idx
+                   (mrepl-get-history-entry entry-idx))
+                  (value-idx
+                   (error "Doesn't make sense"))
+                  (t
+                   *saved-objects*))))
+      (copy-values-to-repl r objects))))
+
+(define-channel-method :sync-package-and-default-directory ((r mrepl)
+                                                            package-name
+                                                            directory)
+  (with-listener r
+    (let ((package (swank::guess-package package-name)))
+      (swank:set-default-directory directory)
+      (and package (setq *package* package))
+      (copy-values-to-repl r (list *package* *default-pathname-defaults*)))))
+
+(define-channel-method :inspect-object ((r mrepl) entry-idx value-idx)
+  (with-listener r
+    (send-to-remote-channel
+       (mrepl-remote-id r)
+       `(:inspect-object
+         ,(swank::inspect-object (mrepl-get-object-from-history entry-idx value-idx))))))
+
+(define-channel-method :process ((c mrepl) string)
+  (ecase (mrepl-mode c)
+    (:eval (mrepl-eval c string))
+    (:read (mrepl-read c string))
+    (:drop)))
+
+(define-channel-method :teardown ((r mrepl))
+  ;; FIXME: this should be a `:before' spec and closing the channel in
+  ;; swank.lisp's :teardown method should suffice.
+  ;; 
+  (setf (mrepl-mode r) :teardown)
+  (call-next-method))
+
+(define-channel-method :clear-repl-history ((r mrepl))
+  (with-listener r
+    ;; FIXME: duplication... use reinitialize-instance
+    (setf *history* (make-array 40 :fill-pointer 0
+                                   :adjustable t)
+          * nil ** nil *** nil
+          + nil ++ nil +++ nil
+          / nil // nil /// nil)
+    (send-to-remote-channel (mrepl-remote-id r) `(:clear-repl-history))
+    (send-prompt r)))
+
+
+;;; slyfuns
+;;;
+(defslyfun create-mrepl (remote-id)
+  (let* ((mrepl (make-instance
+                 'mrepl
+                 :remote-id remote-id
+                 :name (format nil "mrepl-remote-~a" remote-id)
+                 :out (make-mrepl-output-stream remote-id))))
+    (let ((target (maybe-redirect-global-io *emacs-connection*)))
+      (with-listener mrepl
+        (format *standard-output* "~&; SLY ~a (~a)~%"
+                *swank-wire-protocol-version*
+                mrepl)
+        (cond ((and target
+                    (not (eq mrepl target)))
+               (format *standard-output* "~&; Global redirection setup elsewhere~%"))
+              ((not target)
+               (format *standard-output* "~&; Global redirection not setup~%"))))
+      (flush-listener-streams mrepl)
+      (send-prompt mrepl)
+      (list (channel-id mrepl) (channel-thread-id mrepl)))))
+
+(defslyfun globally-save-object (slave-slyfun &rest args)
+  "Apply SLYFUN to ARGS and save the value.
+ The saved value should be visible to all threads and retrieved via a
+ :COPY-TO-REPL message."
+  (setq *saved-objects* (multiple-value-list (apply slave-slyfun args)))
+  t)
+
+(defslyfun eval-for-mrepl (remote-id slave-slyfun &rest args)
+  "Call SLAVE-SLYFUN with ARGS in the MREPL of REMOTE-ID.
+Both the target MREPL's thread and environment are considered."
+  (let ((mrepl (find-channel remote-id)))
+    (assert mrepl)
+    (assert
+     (eq (swank-backend:thread-id
+          (swank-backend:current-thread)) 
+         (channel-thread-id mrepl))
+     nil
+     "This SLYFUN can only be called from threads belonging to MREPL")
+    (with-listener mrepl
+      (apply slave-slyfun args))))
+
+(defslyfun inspect-entry (remote-id entry-idx value-idx)
+  (eval-for-mrepl remote-id
+                  'swank::inspect-object
+                  (mrepl-get-object-from-history entry-idx value-idx)))
+
+
+;;;; Dedicated stream
+;;;;
 (defparameter *use-dedicated-output-stream* t
   "When T, dedicate a second stream for sending output to Emacs.")
 
 (defparameter *dedicated-output-stream-port* 0
   "Which port we should use for the dedicated output stream.")
 
-(defparameter *dedicated-output-stream-buffering*
+ (defparameter *dedicated-output-stream-buffering*
   (if (eq swank:*communication-style* :spawn) t nil)
   "The buffering scheme that should be used for the output stream.
 Valid values are nil, t, :line")
@@ -273,24 +319,6 @@ deliver output to Emacs."
       (when socket
         (swank-backend:close-socket socket)))))
 
-(defun set-mode (repl new-mode)
-  (with-slots (mode remote-id) repl
-    (unless (eq mode new-mode)
-      (send-to-remote-channel remote-id `(:set-read-mode ,new-mode)))
-    (setf mode new-mode)))
-
-(defun read-input (repl)
-  (with-slots (mode tag remote-id) repl
-    (force-output)
-    (let ((old-mode mode)
-          (old-tag tag))
-      (setf tag (cons nil nil))
-      (set-mode repl :read)
-      (unwind-protect
-           (catch tag (process-requests nil))
-        (setf tag old-tag)
-        (set-mode repl old-mode)))))
-
 
 ;;;; Globally redirect IO to Emacs
 ;;;
@@ -315,7 +343,6 @@ deliver output to Emacs."
 ;;; *CURRENT-STANDARD-INPUT*, etc. We never shadow the "current"
 ;;; variables, so they can always be assigned to affect a global
 ;;; change.
-
 (defparameter *globally-redirect-io* t
   "When non-nil globally redirect all standard streams to Emacs.")
 
@@ -323,6 +350,22 @@ deliver output to Emacs."
   "A plist to save and restore redirected stream objects.
 E.g. the value for '*standard-output* holds the stream object
 for *standard-output* before we install our redirection.")
+
+(defvar *standard-output-streams*
+  '(*standard-output* *error-output* *trace-output*)
+  "The symbols naming standard output streams.")
+
+(defvar *standard-input-streams*
+  '(*standard-input*)
+  "The symbols naming standard input streams.")
+
+(defvar *standard-io-streams*
+  '(*debug-io* *query-io* *terminal-io*)
+  "The symbols naming standard io streams.")
+
+(defvar *target-listener-for-redirection* nil
+  "The listener to which standard I/O streams are globally redirected.
+NIL if streams are not globally redirected.")
 
 (defun setup-stream-indirection (stream-var &optional stream)
   "Setup redirection scaffolding for a global stream variable.
@@ -358,18 +401,6 @@ dynamic binding."
   (let ((basename (subseq (symbol-name variable-symbol) 1)))
     (intern (format nil "*~A-~A" (string prefix) basename) :swank)))
 
-(defvar *standard-output-streams*
-  '(*standard-output* *error-output* *trace-output*)
-  "The symbols naming standard output streams.")
-
-(defvar *standard-input-streams*
-  '(*standard-input*)
-  "The symbols naming standard input streams.")
-
-(defvar *standard-io-streams*
-  '(*debug-io* *query-io* *terminal-io*)
-  "The symbols naming standard io streams.")
-
 (defun init-global-stream-redirection ()
   (cond (*saved-global-streams*
          (warn "Streams already redirected."))
@@ -403,10 +434,6 @@ Assigns *CURRENT-<STREAM>* for all standard streams."
     (dolist (io *standard-io-streams*)
       (set (prefixed-var '#:current io)
            *terminal-io*))))
-
-(defvar *target-listener-for-redirection* nil
-  "The listener to which standard I/O streams are globally redirected.
-NIL if streams are not globally redirected.")
 
 (defun revert-global-io-redirection ()
   "Set *CURRENT-<STREAM>* to *REAL-<STREAM>* for all standard streams."
@@ -447,6 +474,3 @@ Return the current redirection target, or nil"
       (format *standard-output* "~&; Reverted global IO direction~%"))))
 
 (provide :swank-mrepl)
-
-;; micro test on alisp
-#+nil(mp:process-run-function "bla" #'(lambda () (princ 'test) (force-output)))

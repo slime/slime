@@ -170,10 +170,6 @@ emptied. See also `sly-mrepl-hook'")
   (with-current-buffer (sly-channel-get self 'buffer)
     (sly-mrepl--insert-output string 'sly-mrepl-output-face)))
 
-(sly-define-channel-method listener :inspect-object (parts)
-  (cl-assert (sly-channel-p self))
-  (sly-open-inspector parts))
-
 (sly-define-channel-method listener :set-read-mode (mode)
   (with-current-buffer (sly-channel-get self 'buffer)
     (cl-ecase mode
@@ -207,8 +203,10 @@ emptied. See also `sly-mrepl-hook'")
 ;;;
 (define-button-type 'sly-mrepl-part :supertype 'sly-part
   'sly-button-inspect #'(lambda (entry-idx value-idx)
-                          (sly-mrepl--send `(:inspect-object ,entry-idx
-                                                             ,value-idx)))
+                          (sly-eval-for-inspector `(swank-mrepl:inspect-entry
+                                                    ,sly-mrepl--remote-channel
+                                                    ,entry-idx
+                                                    ,value-idx)))
   'sly-mrepl-copy-part-to-repl 'sly-mrepl--copy-part-to-repl)
 
 
