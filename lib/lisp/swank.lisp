@@ -2710,14 +2710,16 @@ managed to load it.")
   (:method ((method (eql :asdf)) module)
     (funcall (intern "LOAD-SYSTEM" :asdf) module)))
 
+(defun add-to-load-path-1 (path load-path-var)
+  (pushnew path (symbol-value load-path-var) :test #'equal))
+
 (defgeneric add-to-load-path (method path)
   (:documentation
    "Using METHOD, consider PATH when searching for modules.")
-  ;; FIXME: evil or reasonable use of eval?
   (:method ((method (eql :swank-loader)) path)
-    (eval `(pushnew ,path ,(intern "*LOAD-PATH*" :swank-loader))))
+    (add-to-load-path-1 path (intern "*LOAD-PATH*" :swank-loader)))
   (:method ((method (eql :asdf)) path)
-    (eval `(pushnew ,path ,(intern "*CENTRAL-REGISTRY*" :asdf)))))
+    (add-to-load-path-1 path (intern "*CENTRAL-REGISTRY*" :asdf))))
 
 (defvar *add-to-load-path* nil)
 
