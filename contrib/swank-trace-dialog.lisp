@@ -57,6 +57,7 @@ program.")
 
    (spec       :initarg  :spec      :accessor spec-of
                :initform (error "must provide a spec"))
+   (function   :initarg  :function  :accessor function-of)
    (args       :initarg  :args      :accessor args-of
                :initform (error "must provide args"))
    (parent     :initarg  :parent    :reader   parent-of
@@ -81,7 +82,7 @@ program.")
 (defun completed-p (trace) (not (eq (retlist-of trace) 'still-inside)))
 
 (defun trace-arguments (trace-id)
-  (values-list (args-of (find-trace trace-id))))
+  (values-list (args-of (trace-or-lose trace-id))))
 
 (defun useful-backtrace ()
   (swank-backend:call-with-debugging-environment
@@ -192,29 +193,36 @@ program.")
 (defslyfun inspect-trace (trace-id)
   (swank::inspect-object (trace-or-lose trace-id)))
 
+(defslyfun trace-location (trace-id)
+  (swank-backend:find-source-location (function-of (trace-or-lose trace-id))))
+
 (defslyfun dialog-trace (spec)
-  (flet ((before-hook (args)
-           (setf (current-trace) (make-instance 'trace-entry
-                                                :spec      spec
-                                                :args      args
-                                                :parent    (current-trace))))
-         (after-hook (retlist)
-           (let ((trace (current-trace)))
-             (when trace
-               ;; the current trace might have been wiped away if the
-               ;; user cleared the tree in the meantime. no biggie,
-               ;; don't do anything.
-               ;;
-               (setf (retlist-of trace) retlist
-                     (current-trace) (parent-of trace))))))
-    (when (dialog-traced-p spec)
-      (warn "~a is apparently already traced! Untracing and retracing." spec)
-      (dialog-untrace spec))
-    (swank-backend:wrap spec 'trace-dialog
-                        :before #'before-hook
-                        :after #'after-hook)
-    (pushnew spec *traced-specs*)
-    (format nil "~a is now traced for trace dialog" spec)))
+  (let ((function nil))
+    (flet ((before-hook (args)
+             (setf (current-trace) (make-instance 'trace-entry
+                                     :spec      spec
+                                     :function  (or function
+                                                    spec)
+                                     :args      args
+                                     :parent    (current-trace))))
+           (after-hook (retlist)
+             (let ((trace (current-trace)))
+               (when trace
+                 ;; the current trace might have been wiped away if the
+                 ;; user cleared the tree in the meantime. no biggie,
+                 ;; don't do anything.
+                 ;;
+                 (setf (retlist-of trace) retlist
+                       (current-trace) (parent-of trace))))))
+      (when (dialog-traced-p spec)
+        (warn "~a is apparently already traced! Untracing and retracing." spec)
+        (dialog-untrace spec))
+      (setq function
+            (swank-backend:wrap spec 'trace-dialog
+                                :before #'before-hook
+                                :after #'after-hook))
+      (pushnew spec *traced-specs*)
+      (format nil "~a is now traced for trace dialog" spec))))
 
 (defslyfun dialog-untrace (spec)
   (swank-backend:unwrap spec 'trace-dialog)

@@ -388,9 +388,15 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   part-text)
 
 (define-button-type 'sly-trace-dialog-spec :supertype 'sly-part
+  'action 'sly-button-show-source
   'sly-button-inspect #'(lambda (trace-id _spec)
                           (sly-eval-async `(swank-trace-dialog:inspect-trace ,trace-id)
                             #'sly-open-inspector))
+  'sly-button-show-source #'(lambda (trace-id _spec)
+                              (sly-eval-async
+                                  `(swank-trace-dialog:trace-location ,trace-id)
+                                #'(lambda (location)
+                                    (sly--display-source-location location 'noerror))))
   'point-entered #'(lambda (before after)
                      (let ((button (sly-button-at after nil 'no-error)))
                        (when (and (not (sly-button-at before nil 'no-error))
@@ -459,7 +465,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                           (sly-trace-dialog--trace-depth trace)
                           "   "))
          (id-string (sly-trace-dialog-spec-button
-                     (format "%4s" id) trace 'skip t))
+                     (format "%4s" id) trace 'skip t 'action 'sly-button-inspect))
          (spec-button (sly-trace-dialog-spec-button
                        (format "%s" (sly-trace-dialog--trace-spec trace))
                        trace))

@@ -71,10 +71,11 @@
                                         (and button
                                              (button-get button ',action)))))))
 
-(sly-button-define-part-action sly-button-inspect      "Inspect"      (kbd "i"))
-(sly-button-define-part-action sly-button-describe     "Describe"     (kbd "d"))
-(sly-button-define-part-action sly-button-pretty-print "Pretty Print" (kbd "p"))
-(sly-button-define-part-action sly-button-show-source  "Show Source"  (kbd "v"))
+(sly-button-define-part-action sly-button-inspect      "Inspect"       (kbd "i"))
+(sly-button-define-part-action sly-button-describe     "Describe"      (kbd "d"))
+(sly-button-define-part-action sly-button-pretty-print "Pretty Print"  (kbd "p"))
+(sly-button-define-part-action sly-button-show-source  "Show Source"   (kbd "v"))
+(sly-button-define-part-action sly-button-goto-source  "Go To Source"  (kbd "."))
 
 (defun sly-make-action-button (label action &rest props)
   (apply #'make-text-button

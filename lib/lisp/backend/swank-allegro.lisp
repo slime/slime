@@ -1032,8 +1032,7 @@ to do this, this factors in the length of the inserted header itself."
                       (when after
                         (funcall after (if completed
                                            retlist
-                                           :exited-non-locally)))))))
-    allegro-spec))
+                                           :exited-non-locally)))))))))
 
 (defimplementation unwrap (spec indicator)
   (let ((allegro-spec (process-fspec-for-allegro spec)))

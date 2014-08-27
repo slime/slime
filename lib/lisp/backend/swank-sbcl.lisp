@@ -1906,7 +1906,8 @@ stack."
                                        (symbol-value 'sb-int:arg-list)))
                           `(sbcl-wrap ',spec ,before ,after ,replace
                                       (symbol-value 'sb-int:basic-definition)
-                                      (symbol-value 'sb-int:arg-list)))))
+                                      (symbol-value 'sb-int:arg-list))))
+  (symbol-function spec))
 
 (defimplementation unwrap (spec indicator)
   (sb-int:unencapsulate spec indicator))

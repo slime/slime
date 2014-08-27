@@ -1549,7 +1549,11 @@ Implementations intercept calls to SPEC and call, in this order:
 
 * the AFTER callback, if it's provided, with a single set to the list
   of values returned by the previous call, or, if that call exited
-  non-locally, a single descriptive symbol, like :EXITED-NON-LOCALLY."
+  non-locally, a single descriptive symbol, like :EXITED-NON-LOCALLY.
+
+The return value of implementation should be the
+implementation-specific function object that SPEC describes, suitable
+to be passed to the FIND-SOURCE-LOCATION interface."
   (declare (ignore indicator))
   (assert (symbolp spec) nil
           "The default implementation for WRAP allows only simple names")
@@ -1572,8 +1576,8 @@ Implementations intercept calls to SPEC and call, in this order:
                                                  retlist
                                                  :exited-non-locally))))))))
     (setf (get spec 'sly-wrap) (list saved replacement))
-    (setf (symbol-function spec) replacement))
-  spec)
+    (setf (symbol-function spec) replacement)
+    saved))
 
 (definterface unwrap (spec indicator)
   "Remove from SPEC any wrappings tagged with INDICATOR."

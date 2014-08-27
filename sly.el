@@ -3189,14 +3189,16 @@ Several kinds of locations are supported:
 (defun sly--pop-to-source-location (source-location &optional method)
   (sly-move-to-source-location source-location)
   (sly--highlight-sexp)
-  (cl-ecase method
-    ((nil)     (switch-to-buffer (current-buffer)))
-    (window    (pop-to-buffer (current-buffer) t))
-    (delete-current (let ((original (selected-window)))
-                      (pop-to-buffer (current-buffer) t)
-                      (unless (eq original (selected-window))
-                        (delete-window original))))
-    (frame     (let ((pop-up-frames t)) (pop-to-buffer (current-buffer) t)))))
+  (let ((saved-point (point)))
+    (cl-ecase method
+      ((nil)     (switch-to-buffer (current-buffer)))
+      (window    (pop-to-buffer (current-buffer) t))
+      (delete-current (let ((original (selected-window)))
+                        (pop-to-buffer (current-buffer) t)
+                        (unless (eq original (selected-window))
+                          (delete-window original))))
+      (frame     (let ((pop-up-frames t)) (pop-to-buffer (current-buffer) t))))
+    (goto-char saved-point)))
 
 (defun sly-location-offset (location)
   "Return the position, as character number, of LOCATION."
@@ -4289,9 +4291,6 @@ TODO"
     (define-key map (kbd "C-c C-k") 'sly-recompile-all-xrefs)
 
     (define-key map (kbd "q")     'quit-window)
-    (define-key map (kbd "v")     'sly-xref-show)
-    (define-key map (kbd ".")     'sly-xref-goto)
-
     (set-keymap-parent map button-buffer-map)
     
     map))
@@ -4331,10 +4330,13 @@ The most important commands:
      ,@body))
 
 ;; TODO: Have this button support more options, not just "show source"
+;; and "goto-source"
 (define-button-type 'sly-xref :supertype 'sly-part 'action
-  'sly-button-show-source ;default action
+  'sly-button-goto-source ;default action
   'sly-button-show-source #'(lambda (location)
-                              (sly-xref--show-location location)))
+                              (sly-xref--show-location location))
+  'sly-button-goto-source #'(lambda (location)
+                              (sly--pop-to-source-location location 'delete-current)))
 
 (defun sly-xref-button (label location)
   (make-text-button label nil
