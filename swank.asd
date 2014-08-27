@@ -73,23 +73,17 @@
 (defsystem :swank-util
   :components ((:file "contrib/swank-util")))
 
-(defsystem :swank-repl
-  :components ((:file "contrib/swank-repl")))
+(defsystem :swank-arglists
+  :components ((:file "contrib/swank-arglists")))
 
 (defsystem :swank-c-p-c
   :components ((:file "contrib/swank-c-p-c")))
-
-(defsystem :swank-arglists
-  :components ((:file "contrib/swank-arglists")))
 
 (defsystem :swank-fuzzy
   :components ((:file "contrib/swank-fuzzy")))
 
 (defsystem :swank-fancy-inspector
   :components ((:file "contrib/swank-fancy-inspector")))
-
-(defsystem :swank-presentations
-  :components ((:file "contrib/swank-presentations")))
 
 (defsystem :swank-asdf
   :components ((:file "contrib/swank-asdf")))
@@ -99,9 +93,6 @@
 
 (defsystem :swank-hyperdoc
   :components ((:file "contrib/swank-hyperdoc")))
-
-(defsystem :swank-sbcl-exts
-  :components ((:file "contrib/swank-sbcl-exts")))
 
 (defsystem :swank-mrepl
   :components ((:file "contrib/swank-mrepl")))
@@ -114,21 +105,6 @@
 
 (defsystem :swank-indentation
   :components ((:file "contrib/swank-indentation")))
-
-(defsystem :swank-listener-hooks
-  :components ((:file "contrib/swank-listener-hooks")))
-
-(defsystem :swank-media
-  :components ((:file "contrib/swank-media")))
-
-(defsystem :swank-motd
-  :components ((:file "contrib/swank-motd")))
-
-(defsystem :swank-snapshot
-  :components ((:file "contrib/swank-snapshot")))
-
-(defsystem :swank-sprof
-  :components ((:file "contrib/swank-sprof")))
 
 (asdf:defsystem :swank-contribs
     :depends-on
