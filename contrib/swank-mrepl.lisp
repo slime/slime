@@ -152,7 +152,7 @@
 
 (defun read-input (repl)
   (with-slots (mode tag remote-id) repl
-    (force-output)
+    (flush-listener-streams repl)
     (let ((old-mode mode)
           (old-tag tag))
       (setf tag (cons nil nil))

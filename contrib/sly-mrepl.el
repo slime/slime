@@ -94,7 +94,7 @@ emptied. See also `sly-mrepl-hook'")
 ;; 
 (defvar sly-mrepl--remote-channel nil)
 (defvar sly-mrepl--local-channel nil)
-(defvar sly-mrepl--expect-sexp-mode t)
+(defvar sly-mrepl--read-mode nil)
 (defvar sly-mrepl--result-counter -1)
 (defvar sly-mrepl--output-mark nil)
 (defvar sly-mrepl--dedicated-stream nil)
@@ -123,7 +123,7 @@ emptied. See also `sly-mrepl-hook'")
                 (comint-input-ring-size  1500)
                 (comint-prompt-read-only t)
                 (indent-line-function lisp-indent-line)
-                (sly-mrepl--expect-sexp-mode t)
+                (sly-mrepl--read-mode nil)
                 (sly-mrepl--result-counter -1)
                 (sly-mrepl--pending-output nil)
                 (sly-mrepl--copy-to-repl-after nil)
@@ -172,13 +172,22 @@ emptied. See also `sly-mrepl-hook'")
 
 (sly-define-channel-method listener :set-read-mode (mode)
   (with-current-buffer (sly-channel-get self 'buffer)
-    (cl-ecase mode
-      (:read (setq sly-mrepl--expect-sexp-mode nil)
-	     (sly-message "Listener waiting for input to read"))
-      (:eval (setq sly-mrepl--expect-sexp-mode t)
-             (when sly-mrepl--pending-output
-               (sly-mrepl--insert-output "\n"))
-             (sly-message "Listener waiting for sexps to eval")))))
+    (sly-mrepl--accept-process-output)
+    (let ((inhibit-read-only t))
+      (cl-ecase mode
+        (:read (setq sly-mrepl--read-mode (point))
+               (add-text-properties (1- (point)) (point)
+                                    `(rear-nonsticky t))
+               (sly-message "Listener waiting for input to read"))
+        (:eval (if sly-mrepl--read-mode
+                   (add-text-properties (1- sly-mrepl--read-mode) (point)
+                                        `(face bold read-only t))
+                 (sly-warning "Expected `sly-mrepl--read-mode' to be set!"))
+               (sly-mrepl--catch-up)
+               (setq sly-mrepl--read-mode nil)
+               (when sly-mrepl--pending-output
+                 (sly-mrepl--insert-output "\n"))
+               (sly-message "Listener waiting for sexps to eval"))))))
 
 (sly-define-channel-method listener :prompt (package prompt
                                                      error-level
@@ -249,7 +258,7 @@ emptied. See also `sly-mrepl-hook'")
        (get-char-property pos 'sly-mrepl-break-output)))
 
 (defun sly-mrepl--insert-output (string &optional face)
-  (cond ((and sly-mrepl--expect-sexp-mode string)
+  (cond ((and (not sly-mrepl--read-mode) string)
          (let ((inhibit-read-only t)
                (start (marker-position sly-mrepl--output-mark)))
            (save-excursion
@@ -295,7 +304,7 @@ emptied. See also `sly-mrepl-hook'")
             (zerop (current-column)))
     (sly-mrepl--insert "\n")))
 
-(defun sly-mrepl--insert-prompt (package prompt error-level condition)
+(defun sly-mrepl--accept-process-output ()
   (when (and sly-mrepl--dedicated-stream
              (process-live-p sly-mrepl--dedicated-stream))
     ;; This non-blocking call should be enough to allow asynch calls
@@ -304,7 +313,10 @@ emptied. See also `sly-mrepl-hook'")
     ;; `sly-mrepl--catch-up'.
     (while (accept-process-output sly-mrepl--dedicated-stream
                                   0
-                                  (and (eq (window-system) 'w32) 1))))
+                                  (and (eq (window-system) 'w32) 1)))))
+
+(defun sly-mrepl--insert-prompt (package prompt error-level condition)
+  (sly-mrepl--accept-process-output)
   (overlay-put sly-mrepl--last-prompt-overlay 'face 'bold)
   (sly-mrepl--ensure-newline)
   (sly-mrepl--catch-up)
@@ -504,15 +516,15 @@ emptied. See also `sly-mrepl-hook'")
              "No local live process, cannot use this REPL")
   (accept-process-output)
   (cond ((and
-	  sly-mrepl--expect-sexp-mode
+	  (not sly-mrepl--read-mode)
           (sly-mrepl--busy-p))
 	 (sly-message "REPL is busy"))
-        ((and sly-mrepl--expect-sexp-mode
+        ((and (not sly-mrepl--read-mode)
 	      (or (sly-input-complete-p (sly-mrepl--mark) (point-max))
 		  end-of-input))
 	 (sly-mrepl--send-input-sexp)
          (sly-mrepl--catch-up))
-	((not sly-mrepl--expect-sexp-mode)
+	(sly-mrepl--read-mode
 	 (unless end-of-input
 	   (newline))
          (comint-send-input 'no-newline))
