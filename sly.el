@@ -3506,15 +3506,25 @@ for the most recently enclosed macro or function."
             (set-syntax-table lisp-mode-syntax-table)))
         minibuffer-setup-hook))
 
-(defun sly-read-from-minibuffer (prompt &optional initial-value history)
+(defun sly-read-from-minibuffer (prompt &optional initial-value history allow-empty)
   "Read a string from the minibuffer, prompting with PROMPT.
-If INITIAL-VALUE is non-nil, it is inserted into the minibuffer before
-reading input.  The result is a string (\"\" if no input was given)."
+If INITIAL-VALUE is non-nil, it is inserted into the minibuffer
+before reading input.  The result is a string (\"\" if no input
+was given and ALLOW-EMPTY is non-nil)."
   (let ((minibuffer-setup-hook (sly-minibuffer-setup-hook)))
-    (read-from-minibuffer (concat "[sly] " prompt)
-                          initial-value
-                          sly-minibuffer-map
-                          nil (or history 'sly-minibuffer-history))))
+    (cl-loop
+     for i from 0
+     for read = (read-from-minibuffer
+                 (concat "[sly] " (when (cl-plusp i)
+                                    "[can't be blank] ")
+                         prompt)
+                 (and (zerop i)
+                      initial-value)
+                 sly-minibuffer-map
+                 nil (or history 'sly-minibuffer-history))
+     when (or (> (length read) 0)
+              allow-empty)
+     return read)))
 
 
 ;;;; Edit definition
@@ -3832,7 +3842,7 @@ the display stuff that we neither need nor want."
 
 (defun sly-read-from-minibuffer-for-swank (thread tag prompt initial-value)
   (let ((answer (condition-case nil
-                    (sly-read-from-minibuffer prompt initial-value)
+                    (sly-read-from-minibuffer prompt initial-value t)
                   (quit nil))))
     (sly-dispatch-event `(:emacs-return ,thread ,tag ,answer))))
 
@@ -3913,6 +3923,7 @@ inserted in the current buffer."
                                     :connection t
                                     :select sly-description-autofocus
                                     :mode 'lisp-mode)
+      (read-only-mode 1)
       (princ string)
       (goto-char (point-min)))))
 
@@ -5869,6 +5880,8 @@ was called originally."
 \\{sly-thread-control-mode-map}"
   (when sly-truncate-lines
     (set (make-local-variable 'truncate-lines) t))
+  (read-only-mode 1)
+  (sly-mode 1)
   (setq buffer-undo-list t))
 
 (defun sly-thread-kill ()
@@ -6138,7 +6151,7 @@ KILL-BUFFER hooks for the inspector buffer."
     (let ((inhibit-read-only t))
       (erase-buffer)
       (pop-to-buffer (current-buffer))
-      (cl-destructuring-bind (&key id title content serial) inspected-parts
+      (cl-destructuring-bind (&key id title content) inspected-parts
         (cl-macrolet ((fontify (face string)
                                `(sly-inspector-fontify ,face ,string)))
           (insert (sly-inspector-part-button title id 'skip t))

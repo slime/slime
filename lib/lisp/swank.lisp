@@ -3343,7 +3343,8 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
   (list :title (prepare-title istate)
         :id (assign-index (istate.object istate) (istate.parts istate))
         :content (prepare-range istate 0 500)
-        :serial (istate.serial istate)))
+        ;; :serial (istate.serial istate)
+        ))
 
 (defun prepare-title (istate)
   (if (inspector-verbose-p (current-inspector))

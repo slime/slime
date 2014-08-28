@@ -24,6 +24,9 @@
    (button-type-put 'sldb-local-variable
                     'sly-mrepl-copy-part-to-repl
                     'sldb-copy-part-to-repl)
+   (button-type-put 'sly-apropos-symbol
+                    'sly-mrepl-copy-part-to-repl
+                    'sly-apropos-copy-symbol-to-repl)
    (button-type-put 'sldb-frame
                     'sly-mrepl-copy-call-to-repl
                     'sldb-copy-call-to-repl)
@@ -528,7 +531,7 @@ emptied. See also `sly-mrepl-hook'")
 	 (unless end-of-input
            (goto-char (point-max))
 	   (newline))
-         (let ((comint-input-filter (lambda (s) nil)))
+         (let ((comint-input-filter (lambda (_s) nil)))
            (comint-send-input 'no-newline)))
         (t
 	 (newline-and-indent)
@@ -692,6 +695,11 @@ Doesn't clear input history."
   (sly-mrepl--eval-for-repl
    (format "Returning var %s of frame %s" var-id frame-id)
    `(swank-backend:frame-var-value ,frame-id ,var-id)))
+
+(defun sly-apropos-copy-symbol-to-repl (name _type)
+  (sly-mrepl--eval-for-repl
+   (format "Returning symbol %s" name)
+   `(common-lisp:identity ',(first (read-from-string name)))))
 
 (defun sly-trace-dialog-copy-part-to-repl (id part-id type)
   "Eval the Trace Dialog entry under point in the REPL (to set *)"
