@@ -1197,7 +1197,7 @@ Second, a boolean value telling whether the returned string can be cached."
     (call/truncated-output-to-string
      75 (lambda (s)
           (without-printing-errors (:object value :stream s)
-            (format s "~A ~A~S" symbol *echo-area-prefix* value))))))
+            (format s "~A ~A~S" symbol "=> " value))))))
 
 
 (defslyfun complete-form (raw-form)
