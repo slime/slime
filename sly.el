@@ -6085,7 +6085,7 @@ KILL-BUFFER hooks for the inspector buffer."
     (let ((inhibit-read-only t))
       (erase-buffer)
       (pop-to-buffer (current-buffer))
-      (cl-destructuring-bind (&key id title content) inspected-parts
+      (cl-destructuring-bind (&key id title content serial) inspected-parts
         (cl-macrolet ((fontify (face string)
                                `(sly-inspector-fontify ,face ,string)))
           (insert (sly-inspector-part-button title id 'skip t))

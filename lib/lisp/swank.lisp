@@ -207,9 +207,15 @@ Backend code should treat the connection structure as opaque.")
   ;; and an environment (an alist of bindings)
   ;;
   (listeners '() :type list)
-  ;; Cache of macro-indentation information that has been sent to Emacs.
-  ;; This is used for preparing deltas to update Emacs's knowledge.
-  ;; Maps: symbol -> indentation-specification
+  ;; A list of INSPECTOR objects. Each inspector has its own history
+  ;; of inspected objects. An inspector might also be tied to a
+  ;; specific thread.
+  ;; 
+  (inspectors '() :type list)
+  ;;Cache of macro-indentation information that
+  ;; has been sent to Emacs.  This is used for preparing deltas to
+  ;; update Emacs's knowledge.  Maps: symbol ->
+  ;; indentation-specification
   ;; 
   (indentation-cache (make-hash-table :test 'eq) :type hash-table)
   ;; The list of packages represented in the cache:
@@ -479,7 +485,7 @@ corresponding values in the CDR of VALUE."
 (defmethod drop-unprocessed-events (channel)
   ;; FIXME: perhaps this should incorporate most
   ;; behaviour from it's :after spec currently in swank-mrepl.lisp)
-  )
+  (declare (ignore channel)))
 
 (defun find-channel (id)
   (find id (channels) :key #'channel-id))
@@ -3260,8 +3266,8 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
 
 
 ;;;; Inspecting
-
-(defvar *inspector-verbose* nil)
+(defvar *inspector* nil
+  "The currently active inspector bound by EVAL-FOR-INSPECTOR.")
 
 (defvar *inspector-printer-bindings*
   '((*print-lines*        . 1)
@@ -3274,22 +3280,42 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
     (*print-circle* . t)
     (*print-array*  . nil)))
 
+(defclass inspector ()
+  ((verbose-p :initform nil :accessor inspector-verbose-p)
+   (history :initform (make-array 10 :adjustable t :fill-pointer 0) :accessor inspector-%history)
+   (name :initarg :name :initform (error "Name this INSPECTOR!") :accessor inspector-name)))
+
+(defmethod initialize-instance :after ((i inspector) &key name)
+  (assert (not (find-inspector name)) nil "Already have an inspector named ~a" name)
+  (push i (connection-inspectors *emacs-connection*)))
+
+(defun find-inspector (name)
+  (find name (connection-inspectors *emacs-connection*)
+        :key #'inspector-name :test #'string=))
+
 (defstruct inspector-state)
 (defstruct (istate (:conc-name istate.) (:include inspector-state))
   object
-  (verbose *inspector-verbose*)
   (parts (make-array 10 :adjustable t :fill-pointer 0))
   (actions (make-array 10 :adjustable t :fill-pointer 0))
-  metadata-plist
+  metadata
   content
-  next previous)
+  serial)
 
-(defvar *istate* nil)
-(defvar *inspector-history*)
+(defun current-inspector ()
+  (or *inspector*
+      (find-inspector "default")
+      (make-instance 'inspector :name "default")))
+
+(defun current-istate ()
+  (let* ((inspector (current-inspector))
+         (history (inspector-%history inspector)))
+    (and (plusp (length history))
+         (aref history (1- (length history))))))
 
 (defun reset-inspector ()
-  (setq *istate* nil
-        *inspector-history* (make-array 10 :adjustable t :fill-pointer 0)))
+  (setf (inspector-%history (current-inspector))
+        (make-array 10 :adjustable t :fill-pointer 0)))
 
 (defslyfun init-inspector (string)
   (with-buffer-syntax ()
@@ -3297,39 +3323,24 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
       (reset-inspector)
       (inspect-object (eval (read-from-string string))))))
 
-(defun ensure-istate-metadata (o indicator default)
-  (with-struct (istate. object metadata-plist) *istate*
-    (assert (eq object o))
-    (let ((data (getf metadata-plist indicator default)))
-      (setf (getf metadata-plist indicator) data)
-      data)))
-
 (defun inspect-object (o)
-  (let* ((prev *istate*)
-         (istate (make-istate :object o :previous prev
-                              :verbose (cond (prev (istate.verbose prev))
-                                             (t *inspector-verbose*)))))
-    (setq *istate* istate)
-    (setf (istate.content istate) (emacs-inspect/istate istate))
-    (unless (find o *inspector-history*)
-      (vector-push-extend o *inspector-history*))
-    (let ((previous (istate.previous istate)))
-      (if previous (setf (istate.next previous) istate)))
+  (let* ((inspector (current-inspector))
+         (history (inspector-%history inspector))
+         (istate (make-istate :object o
+                              :content (emacs-inspect o))))
+    (vector-push-extend istate history)
+    (vector-push-extend :break-history history)
+    (decf (fill-pointer history))
     (istate>elisp istate)))
-
-(defun emacs-inspect/istate (istate)
-  (with-bindings (if (istate.verbose istate)
-                     *inspector-verbose-printer-bindings*
-                     *inspector-printer-bindings*)
-    (emacs-inspect (istate.object istate))))
 
 (defun istate>elisp (istate)
   (list :title (prepare-title istate)
         :id (assign-index (istate.object istate) (istate.parts istate))
-        :content (prepare-range istate 0 500)))
+        :content (prepare-range istate 0 500)
+        :serial (istate.serial istate)))
 
 (defun prepare-title (istate)
-  (if (istate.verbose istate)
+  (if (inspector-verbose-p (current-inspector))
       (with-bindings *inspector-verbose-printer-bindings*
         (to-string (istate.object istate)))
       (with-string-stream (stream :length 200
@@ -3380,7 +3391,9 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
 (defun print-part-to-string (value)
   (let* ((*print-readably* nil)
          (string (to-line value))
-         (pos (position value *inspector-history*)))
+         (pos (position value
+                        (inspector-%history (current-inspector))
+                        :key #'istate.object)))
     (if pos
         (format nil "@~D=~A" pos string)
         string)))
@@ -3394,7 +3407,7 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
 (defslyfun inspector-nth-part (index)
   "Return the current inspector's INDEXth part.
 The second value indicates if that part exists at all."
-  (let* ((parts (istate.parts *istate*))
+  (let* ((parts (istate.parts (current-istate)))
          (foundp (< index (length parts))))
     (values (and foundp (aref parts index))
             foundp)))
@@ -3411,10 +3424,10 @@ The second value indicates if that part exists at all."
     (inspect-object (inspector-nth-part index))))
 
 (defslyfun inspector-range (from to)
-  (prepare-range *istate* from to))
+  (prepare-range (current-istate) from to))
 
 (defslyfun inspector-call-nth-action (index &rest args)
-  (destructuring-bind (fun refreshp) (aref (istate.actions *istate*) index)
+  (destructuring-bind (fun refreshp) (aref (istate.actions (current-istate)) index)
     (apply fun args)
     (if refreshp
         (inspector-reinspect)
@@ -3425,31 +3438,39 @@ The second value indicates if that part exists at all."
   "Inspect the previous object.
 Return nil if there's no previous object."
   (with-buffer-syntax ()
-    (cond ((istate.previous *istate*)
-           (setq *istate* (istate.previous *istate*))
-           (istate>elisp *istate*))
-          (t nil))))
+    (let* ((history (inspector-%history (current-inspector))))
+      (when (> (length history) 1)
+        (decf (fill-pointer history))
+        (aref history (fill-pointer history))
+        (istate>elisp (current-istate))))))
 
 (defslyfun inspector-next ()
   "Inspect the next element in the history of inspected objects.."
   (with-buffer-syntax ()
-    (cond ((istate.next *istate*)
-           (setq *istate* (istate.next *istate*))
-           (istate>elisp *istate*))
-          (t nil))))
+    (let* ((history (inspector-%history (current-inspector))))
+      (when (and (< (fill-pointer history)
+                    (array-dimension history 0))
+                 (istate-p (aref history (fill-pointer history))))
+        (incf (fill-pointer history))
+        (istate>elisp (current-istate))))))
 
 (defslyfun inspector-reinspect ()
-  (let ((istate *istate*))
-    (setf (istate.content istate) (emacs-inspect/istate istate))
+  (let ((istate (current-istate)))
+    (setf (istate.content istate)
+          (with-bindings (if (inspector-verbose-p (current-inspector))
+                             *inspector-verbose-printer-bindings*
+                             *inspector-printer-bindings*)
+            (emacs-inspect (istate.object istate))))
     (istate>elisp istate)))
 
 (defslyfun inspector-toggle-verbose ()
   "Toggle verbosity of inspected object."
-  (setf (istate.verbose *istate*) (not (istate.verbose *istate*)))
-  (istate>elisp *istate*))
+  (setf (inspector-verbose-p (current-inspector))
+        (not (inspector-verbose-p (current-inspector))))
+  (istate>elisp (current-istate)))
 
 (defslyfun inspector-eval (string)
-  (let* ((obj (istate.object *istate*))
+  (let* ((obj (istate.object (current-istate)))
          (context (eval-context obj))
          (form (with-buffer-syntax ((cdr (assoc '*package* context)))
                  (read-from-string string)))
@@ -3463,20 +3484,9 @@ Return nil if there's no previous object."
 
 (defslyfun inspector-history ()
   (with-output-to-string (out)
-    (let ((newest (loop for s = *istate* then next
-                        for next = (istate.next s)
-                        if (not next) return s)))
-      (format out "--- next/prev chain ---")
-      (loop for s = newest then (istate.previous s) while s do
-            (let ((val (istate.object s)))
-              (format out "~%~:[  ~; *~]@~d "
-                      (eq s *istate*)
-                      (position val *inspector-history*))
-              (print-unreadable-object (val out :type t :identity t)))))
-    (format out "~%~%--- all visited objects ---")
-    (loop for val across *inspector-history* for i from 0 do
-          (format out "~%~2,' d " i)
-          (print-unreadable-object (val out :type t :identity t)))))
+      (pprint
+       (inspector-%history (current-inspector))
+       out)))
 
 (defslyfun quit-inspector ()
   (reset-inspector)
@@ -3485,7 +3495,7 @@ Return nil if there's no previous object."
 (defslyfun describe-inspectee ()
   "Describe the currently inspected object."
   (with-buffer-syntax ()
-    (describe-to-string (istate.object *istate*))))
+    (describe-to-string (istate.object (current-istate)))))
 
 (defslyfun describe-inspector-part (index)
   "Describe part INDEX of the currently inspected object."
@@ -3514,8 +3524,9 @@ Return nil if there's no previous object."
     (inspect-object (frame-var-value frame var))))
 
 (defslyfun eval-for-inspector (name slave-slyfun &rest args)
-  (declare (ignore name))
-  (apply slave-slyfun args))
+  (let ((*inspector* (or (find-inspector name)
+                         (make-instance 'inspector :name name))))
+    (apply slave-slyfun args)))
 
 ;;;;; Lists
 
