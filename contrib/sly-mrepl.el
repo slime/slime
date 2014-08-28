@@ -526,8 +526,10 @@ emptied. See also `sly-mrepl-hook'")
          (sly-mrepl--catch-up))
 	(sly-mrepl--read-mode
 	 (unless end-of-input
+           (goto-char (point-max))
 	   (newline))
-         (comint-send-input 'no-newline))
+         (let ((comint-input-filter (lambda (s) nil)))
+           (comint-send-input 'no-newline)))
         (t
 	 (newline-and-indent)
          (sly-message "Input not complete")))
