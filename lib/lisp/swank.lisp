@@ -3302,6 +3302,13 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
   content
   serial)
 
+(defun ensure-istate-metadata (o indicator default)
+  (with-struct (istate. object metadata) (current-istate)
+    (assert (eq object o))
+    (let ((data (getf metadata indicator default)))
+      (setf (getf metadata indicator) data)
+      data)))
+
 (defun current-inspector ()
   (or *inspector*
       (find-inspector "default")
@@ -3320,15 +3327,14 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
 (defslyfun init-inspector (string)
   (with-buffer-syntax ()
     (with-retry-restart (:msg "Retry SLY inspection request.")
-      (reset-inspector)
       (inspect-object (eval (read-from-string string))))))
 
 (defun inspect-object (o)
   (let* ((inspector (current-inspector))
          (history (inspector-%history inspector))
-         (istate (make-istate :object o
-                              :content (emacs-inspect o))))
+         (istate (make-istate :object o)))
     (vector-push-extend istate history)
+    (setf (istate.content istate) (emacs-inspect o))
     (vector-push-extend :break-history history)
     (decf (fill-pointer history))
     (istate>elisp istate)))
@@ -3457,10 +3463,7 @@ Return nil if there's no previous object."
 (defslyfun inspector-reinspect ()
   (let ((istate (current-istate)))
     (setf (istate.content istate)
-          (with-bindings (if (inspector-verbose-p (current-inspector))
-                             *inspector-verbose-printer-bindings*
-                             *inspector-printer-bindings*)
-            (emacs-inspect (istate.object istate))))
+          (emacs-inspect (istate.object istate)))
     (istate>elisp istate)))
 
 (defslyfun inspector-toggle-verbose ()
@@ -3524,8 +3527,9 @@ Return nil if there's no previous object."
     (inspect-object (frame-var-value frame var))))
 
 (defslyfun eval-for-inspector (name slave-slyfun &rest args)
-  (let ((*inspector* (or (find-inspector name)
-                         (make-instance 'inspector :name name))))
+  (let ((*inspector* (and name
+                          (or (find-inspector name)
+                              (make-instance 'inspector :name name)))))
     (apply slave-slyfun args)))
 
 ;;;;; Lists
@@ -3627,6 +3631,13 @@ Return NIL if LIST is circular."
      (k 0 (array-total-size array)))))
 
 ;;;;; Chars
+
+(defmethod emacs-inspect :around (object)
+  (declare (ignore object))
+  (with-bindings (if (inspector-verbose-p (current-inspector))
+                     *inspector-verbose-printer-bindings*
+                     *inspector-printer-bindings*)
+    (call-next-method)))
 
 (defmethod emacs-inspect ((char character))
   (append

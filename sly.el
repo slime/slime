@@ -652,6 +652,25 @@ corresponding values in the CDR of VALUE."
                            (or (cl-position ?\n string) most-positive-fixnum)
                            (1- (window-width (minibuffer-window))))))
 
+(defvar sly-complete-symbol-function 'ido-completing-read)
+
+(defun sly-completing-read (prompt choices &optional
+                                   predicate
+                                   require-match
+                                   initial-input
+                                   hist
+                                   def
+                                   inherit-input-method)
+  (funcall sly-completing-read-function
+           prompt
+           choices
+           predicate
+           require-match
+           initial-input
+           hist
+           def
+           inherit-input-method))
+
 (defun sly-recenter (target)
   "Try to make the region between point and TARGET visible.
 Minimize point motion if possible."
@@ -674,7 +693,7 @@ Minimize point motion if possible."
 (defun sly-read-package-name (prompt &optional initial-value)
   "Read a package name from the minibuffer, prompting with PROMPT."
   (let ((completion-ignore-case t))
-    (completing-read (concat "[sly] " prompt)
+    (sly-completing-read (concat "[sly] " prompt)
                      (sly-eval
                       `(swank:list-all-package-names t))
 		     nil t initial-value)))
@@ -881,7 +900,7 @@ The rules for selecting the arguments are rather complicated:
   (let ((table sly-lisp-implementations))
     (cond ((not current-prefix-arg) (sly-lisp-options))
           ((eq current-prefix-arg '-)
-           (let ((key (completing-read
+           (let ((key (sly-completing-read
                        "Lisp name: " (mapcar (lambda (x)
                                                (list (symbol-name (car x))))
                                              table)
@@ -2146,7 +2165,7 @@ Debugged requests are ignored."
            (let ((hook (when (and thread tag)
                          (sly-curry #'sly-send
                                     `(:emacs-return ,thread ,tag nil)))))
-             (sly-open-inspector what nil hook)))
+             (sly--open-inspector what nil hook)))
           ((:background-message message)
            (sly-message "[background-message] %s" message))
           ((:debug-condition thread message)
@@ -5586,7 +5605,7 @@ Interactively get the number from a button at point."
 
 (defun sldb-invoke-restart-by-name (restart-name)
   (interactive (list (let ((completion-ignore-case t))
-                       (completing-read "Restart: " sldb-restarts nil t
+                       (sly-completing-read "Restart: " sldb-restarts nil t
                                         ""
                                         'sldb-invoke-restart-by-name))))
   (sldb-invoke-restart (cl-position restart-name sldb-restarts
@@ -5641,7 +5660,7 @@ Return the net process, or nil."
                               (sly-connection-name p) (sly-pid p))))
          (candidates (mapcar (lambda (p) (cons (funcall to-string p) p))
                              sly-net-processes)))
-    (cdr (assoc (completing-read prompt candidates
+    (cdr (assoc (sly-completing-read prompt candidates
                                  nil t (funcall to-string initial-value))
                 candidates))))
 
@@ -5986,17 +6005,20 @@ was called originally."
 (cl-defun sly-eval-for-inspector (slyfun-and-args
                                   &key (error-message "Couldn't inspect")
                                   restore-point
-                                  save-selected-window)
+                                  save-selected-window
+                                  (inspector-name sly--this-inspector-name))
   (if (cl-some #'listp slyfun-and-args)
       (sly-warning "`sly-eval-for-inspector' not meant to be passed a generic form"))
   (let ((pos (and (eq major-mode 'sly-inspector-mode)
                   (sly-inspector-position))))
-    (sly-eval-async `(swank:eval-for-inspector "default"
+    (sly-eval-async `(swank:eval-for-inspector ,inspector-name
                                                ',(car slyfun-and-args)
                                                ,@(cdr slyfun-and-args))
       (lambda (results)
         (let ((opener (lambda ()
-                        (sly-open-inspector results (and restore-point pos)))))
+                        (sly--open-inspector results
+                                             :point (and restore-point pos)
+                                             :inspector-name inspector-name))))
           (cond (results
                  (if save-selected-window
                      (save-selected-window (funcall opener))
@@ -6004,12 +6026,41 @@ was called originally."
                 (t
                  (sly-message error-message))))))))
 
-(defun sly-inspect (string)
+(defvar sly--this-inspector-name nil
+  "Buffer-local inspector name (a string), or nil")
+
+(defun sly-read-inspector-name ()
+  (let* ((names (loop for b in (buffer-list)
+                      when (with-current-buffer b
+                             (and (eq sly-buffer-connection
+                                      (sly-current-connection))
+                                  (eq major-mode 'sly-inspector-mode)))
+                      when (buffer-local-value 'sly--this-inspector-name b)
+                      collect it))
+         (result (sly-completing-read "Inspect name: " (cons "default"
+                                                               names)
+                         nil nil nil nil "default")))
+    (unless (string= result "default")
+      result)))
+
+(defun sly-maybe-read-inspector-name ()
+  (or (and current-prefix-arg
+           (sly-read-inspector-name))
+      sly--this-inspector-name))
+
+(defun sly-inspect (string &optional inspector-name)
   "Eval an expression and inspect the result."
   (interactive
-   (list (sly-read-from-minibuffer "Inspect value (evaluated): "
-                                   (sly-sexp-at-point))))
-  (sly-eval-for-inspector `(swank:init-inspector ,string)))
+   (let* ((name (sly-maybe-read-inspector-name))
+          (string (sly-read-from-minibuffer
+                   (concat "Inspect value"
+                           (and name
+                                (format " in inspector \"%s\"" name))
+                           " (evaluated): ")
+                   (sly-sexp-at-point))))
+     (list string name)))
+  (sly-eval-for-inspector `(swank:init-inspector ,string)
+                          :inspector-name inspector-name))
 
 (defvar sly-inspector-mode-map
   (let ((map (make-sparse-keymap)))
@@ -6035,9 +6086,10 @@ was called originally."
   (setq buffer-read-only t)
   (sly-mode 1))
 
-(defun sly-inspector-buffer ()
+(defun sly--inspector-buffer (inspector-name)
   (let ((name (sly-buffer-name :inspector
-                               :connection t)))
+                               :connection t
+                               :suffix inspector-name)))
     (or (get-buffer name)
         (sly-with-popup-buffer (name
                                 :mode 'sly-inspector-mode
@@ -6074,14 +6126,15 @@ was called originally."
 (defmacro sly-inspector-fontify (face string)
   `(sly-add-face ',(intern (format "sly-inspector-%s-face" face)) ,string))
 
-(defun sly-open-inspector (inspected-parts &optional point hook)
+(cl-defun sly--open-inspector (inspected-parts &key point kill-hook inspector-name)
   "Display INSPECTED-PARTS in a new inspector window.
-Optionally set point to POINT. If HOOK is provided, it is added to local
+Optionally set point to POINT. If KILL-HOOK is provided, it is added to local
 KILL-BUFFER hooks for the inspector buffer."
-  (with-current-buffer (sly-inspector-buffer)
-    (when hook
-      (add-hook 'kill-buffer-hook hook t t))
+  (with-current-buffer (sly--inspector-buffer inspector-name)
+    (when kill-hook
+      (add-hook 'kill-buffer-hook kill-hook t t))
     (setq sly-buffer-connection (sly-current-connection))
+    (set (make-local-variable 'sly--this-inspector-name) inspector-name)
     (let ((inhibit-read-only t))
       (erase-buffer)
       (pop-to-buffer (current-buffer))
@@ -6177,9 +6230,10 @@ position of point in the current buffer."
   (interactive)
   (sly-eval-describe `(swank:inspector-history)))
 
-(defun sly-inspector-reinspect ()
-  (interactive)
-  (sly-eval-for-inspector `(swank:inspector-reinspect)))
+(defun sly-inspector-reinspect (&optional inspector-name)
+  (interactive (list (sly-maybe-read-inspector-name)))
+  (sly-eval-for-inspector `(swank:inspector-reinspect)
+                          :inspector-name inspector-name))
 
 (defun sly-inspector-toggle-verbose ()
   (interactive)
@@ -6379,7 +6433,7 @@ is setup, unless the user already set one explicitly."
 (defun sly-read-contrib-name ()
   (let ((names (cl-loop for c in (sly-all-contribs) collect
                         (symbol-name (sly-contrib-name c)))))
-    (intern (completing-read "Contrib: " names nil t))))
+    (intern (sly-completing-read "Contrib: " names nil t))))
 
 (defun sly-enable-contrib (name)
   (interactive (list (sly-read-contrib-name)))
