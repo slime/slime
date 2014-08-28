@@ -1866,29 +1866,31 @@ Errors are trapped and invoke our debugger."
                                     `(:abort ,(prin1-to-string condition)))
                                ,id)))))
 
-(defvar *echo-area-prefix* "=> "
-  "A prefix that `format-values-for-echo-area' should use.")
-
-(defun format-values-for-echo-area (values)
+(defun format-values-for-emacs (values)
   (with-buffer-syntax ()
     (let ((*print-readably* nil))
       (cond ((null values) "; No value")
             ((and (integerp (car values)) (null (cdr values)))
              (let ((i (car values)))
-               (format nil "~A~D (~a bit~:p, #x~X, #o~O, #b~B)"
-                       *echo-area-prefix*
+               (format nil "~D (~a bit~:p, #x~X, #o~O, #b~B)"
                        i (integer-length i) i i i)))
-            (t (format nil "~a~{~S~^, ~}" *echo-area-prefix* values))))))
+            (t
+             (let ((strings (loop for v in values
+                                  collect (format nil "~S" v))))
+               (if (some #'(lambda (s) (find #\Newline s))
+                         strings)
+                   (format nil "~{~a~^~%~}" strings)
+                   (format nil "~{~a~^, ~}" strings))))))))
 
 (defmacro values-to-string (values)
-  `(format-values-for-echo-area (multiple-value-list ,values)))
+  `(format-values-for-emacs (multiple-value-list ,values)))
 
 (defslyfun interactive-eval (string)
   (with-buffer-syntax ()
     (with-retry-restart (:msg "Retry SLY interactive evaluation request.")
       (let ((values (multiple-value-list (eval (from-string string)))))
         (finish-output)
-        (format-values-for-echo-area values)))))
+        (format-values-for-emacs values)))))
 
 (defslyfun eval-and-grab-output (string)
   (with-buffer-syntax ()
@@ -1917,7 +1919,7 @@ last form."
 (defslyfun interactive-eval-region (string)
   (with-buffer-syntax ()
     (with-retry-restart (:msg "Retry SLY interactive evaluation request.")
-      (format-values-for-echo-area (eval-region string)))))
+      (format-values-for-emacs (eval-region string)))))
 
 (defslyfun re-evaluate-defvar (form)
   (with-buffer-syntax ()
@@ -2471,7 +2473,7 @@ has changed, ignore the request."
       (funcall print values))))
 
 (defslyfun eval-string-in-frame (string frame package)
-  (eval-in-frame-aux frame string package #'format-values-for-echo-area))
+  (eval-in-frame-aux frame string package #'format-values-for-emacs))
 
 (defslyfun pprint-eval-string-in-frame (string frame package)
   (eval-in-frame-aux frame string package #'swank-pprint))

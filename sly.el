@@ -790,9 +790,9 @@ MODE is the name of a major mode which will be enabled.
                  sly-buffer-connection ,connection-sym)
            (set-syntax-table lisp-mode-syntax-table)
            ,@body
-
            (funcall (if ,select 'pop-to-buffer 'display-buffer)
-                    (current-buffer))
+                    (current-buffer)
+                    `(display-buffer-reuse-window . ((inhibit-same-window . t))))
            (current-buffer))))))
 
 ;;;;; Filename translation
@@ -3840,7 +3840,14 @@ inserted in the current buffer."
 
 (defun sly-display-eval-result (value)
   ;; Use `message', not `sly-message'
-  (message "%s" value))
+  (with-temp-buffer 
+    (insert value)
+    (goto-char (point-min))
+    (end-of-line 1)
+    (if (or (< (1+ (point)) (point-max))
+            (>= (- (point) (point-min)) (frame-width)))
+        (sly-show-description value (sly-current-package))
+      (message "=> %s" value))))
 
 (defun sly-eval-with-transcript (form)
   "Eval FORM in Lisp.  Display output, if any."
@@ -3885,7 +3892,8 @@ inserted in the current buffer."
   (let ((bufname (sly-buffer-name :description)))
     (sly-with-popup-buffer (bufname :package package
                                     :connection t
-                                    :select sly-description-autofocus)
+                                    :select sly-description-autofocus
+                                    :mode 'lisp-mode)
       (princ string)
       (goto-char (point-min)))))
 
