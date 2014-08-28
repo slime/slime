@@ -1,6 +1,6 @@
 ;;; sly.el ---Superior Lisp Interaction Mode for Emacs-*-lexical-binding:t-*-
 ;;;
-;; Version: 1.0
+;; Version: 1.0.0-alpha
 ;; URL: https://github.com/sly/sly
 ;; Package-Requires: ((cl-lib "0.5"))
 ;; Keywords: languages, lisp, sly
@@ -652,7 +652,7 @@ corresponding values in the CDR of VALUE."
                            (or (cl-position ?\n string) most-positive-fixnum)
                            (1- (window-width (minibuffer-window))))))
 
-(defvar sly-complete-symbol-function 'ido-completing-read)
+(defvar sly-completing-read-function 'ido-completing-read)
 
 (defun sly-completing-read (prompt choices &optional
                                    predicate

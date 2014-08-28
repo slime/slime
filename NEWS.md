@@ -1,7 +1,8 @@
 SLY News
---------
+========
 
-## SLY 1.0-Alpha (21-08-2014)
+SLY 1.0.0-alpha
+---------------
 
 ### On par with SLIME 2.9
 
