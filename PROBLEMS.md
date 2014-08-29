@@ -1,10 +1,11 @@
-Known problems with SLY                                   -*- outline -*-
+Known problems with SLY
+-----------------------
 
-* Common to all backends
+## Common to all backends
 
-** Caution: network security
+### Caution: network security
 
-The `M-x sly' command has Lisp listen on a TCP socket and wait for
+The `M-x sly` command has Lisp listen on a TCP socket and wait for
 Emacs to connect, which typically takes on the order of one second. If
 someone else were to connect to this socket then they could use the
 SLY protocol to control the Lisp process.
@@ -12,50 +13,50 @@ SLY protocol to control the Lisp process.
 The listen socket is bound on the loopback interface in all Lisps that
 support this. This way remote hosts are unable to connect.
 
-** READ-CHAR-NO-HANG is broken
+### READ-CHAR-NO-HANG is broken
 
-READ-CHAR-NO-HANG doesn't work properly for sly-input-streams.  Due
+`READ-CHAR-NO-HANG` doesn't work properly for sly-input-streams.  Due
 to the way we request input from Emacs it's not possible to repeatedly
-poll for input.  To get any input you have to call READ-CHAR (or a
-function which calls READ-CHAR).
+poll for input.  To get any input you have to call `READ-CHAR` (or a
+function which calls `READ-CHAR`).
 
-* Backend-specific problems
+## Backend-specific problems
 
-** CMUCL
+### CMUCL
 
-The default communication style :SIGIO is reportedly unreliable with
+The default communication style `:SIGIO` is reportedly unreliable with
 certain libraries (like libSDL) and certain platforms (like Solaris on
 Sparc). It generally works very well on x86 so it remains the default.
 
-** SBCL
+### SBCL
 
 The latest released version of SBCL at the time of packaging should
 work.  Older or newer SBCLs may or may not work.  Do not use
 multithreading with unpatched 2.4 Linux kernels.  There are also
 problems with kernel versions 2.6.5 - 2.6.10.
 
-The (v)iew-source command in the debugger can only locate exact source
-forms for code compiled at (debug 2) or higher. The default level is
-lower and SBCL itself is compiled at a lower setting. Thus only
-defun-granularity is available with default policies.
+The (v)iew-source command can only locate exact source forms for code
+compiled at (debug 2) or higher. The default level is lower and SBCL
+itself is compiled at a lower setting. Thus only defun-granularity is
+available with default policies.
 
-** LispWorks
+### LispWorks
 
 On Windows, SLY hangs when calling foreign functions or certain
 other functions.  The reason for this problem is unknown.
 
 We only support latin1 encoding.  (Unicode wouldn't be hard to add.)
 
-** Allegro CL
+### Allegro CL
 
 Interrupting Allegro with C-c C-b can be slow.  This is caused by the
 a relatively large process-quantum: 2 seconds by default.  Allegro
-responds much faster if mp:*default-process-quantum* is set to 0.1.
+responds much faster if `MP:*DEFAULT-PROCESS-QUANTUM*` is set to 0.1.
 
-** CLISP
+### CLISP
 
 We require version 2.49 or higher. We also require socket support, so
-you may have to start CLISP with "clisp -K full".
+you may have to start CLISP with `clisp -K full`.
 
 Under Windows, interrupting (with C-c C-b) doesn't work.  Emacs sends
 a SIGINT signal, but the signal is either ignored or CLISP exits
@@ -71,24 +72,12 @@ Function arguments and local variables aren't displayed properly in
 the backtrace.  Changes to CLISP's C code are needed to fix this
 problem.  Interpreted code is usually easer to debug.
 
-M-. (find-definition) only works if the fasl file is in the same
+`M-.` (find-definition) only works if the fasl file is in the same
 directory as the source file.
 
 The arglist doesn't include the proper names only "fake symbols" like
-`arg1'.
+`arg1`.
 
-** Armed Bear Common Lisp
+### Armed Bear Common Lisp
 
 The ABCL support is still new and experimental.
-
-** Corman Common Lisp
-
-We require version 2.51 or higher, with several patches (available at
-http://www.grumblesmurf.org/lisp/corman-patches).
-
-The only communication style currently supported is NIL.
-
-Interrupting (with C-c C-b) doesn't work.
-
-The tracing, stepping and XREF commands are not implemented along with
-some debugger functionality.
