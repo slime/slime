@@ -644,14 +644,16 @@ handle to distinguish the new buffer from the existing."
 (defun sly-mrepl-sync-package-and-default-directory ()
   "Set Lisp's package and directory to the values in current buffer."
   (interactive)
-  (let ((package (sly-current-package)))
+  (let ((package (sly-current-package))
+        (directory default-directory))
     (with-current-buffer (sly-mrepl)
+      (cd directory)
       (setq sly-mrepl--copy-to-repl-after
             #'(lambda (_objects)
                 (sly-mrepl--insert-output "; Synchronizing package and dir")))
       (sly-mrepl--send `(:sync-package-and-default-directory
                          ,package
-                         ,default-directory)))))
+                         ,(sly-to-lisp-filename directory))))))
 
 (defun sly-mrepl-clear-repl ()
   "Clear all this REPL's output history.
