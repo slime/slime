@@ -5,7 +5,6 @@
 (require 'sly)
 (require 'cl-lib)
 (require 'comint)
-
 (define-sly-contrib sly-mrepl
   "Multiple REPLs."
   (:swank-dependencies swank-mrepl)
@@ -43,7 +42,7 @@
    (define-key sly-editing-mode-map (kbd "C-c ~") 'sly-mrepl-sync-package-and-default-directory)
    ;; Insinuate ourselves in hooks
    ;;
-   (add-hook 'sly-connected-hook 'sly-mrepl-pop-to-mrepl)
+   (add-hook 'sly-connected-hook 'sly-mrepl-on-connection)
    (add-hook 'sly-net-process-close-hooks 'sly-mrepl--teardown-repls)
    ;; The connection list is also tweaked
    ;;
@@ -74,6 +73,8 @@ emptied. See also `sly-mrepl-hook'")
     (define-key map (kbd "M-p")     'comint-previous-input)
     (define-key map (kbd "M-n")     'comint-next-input)
     map))
+
+(defvar sly-mrepl-pop-sylvester 'on-connection)
 
 (defface sly-mrepl-prompt-face
   `((t (:inherit font-lock-builtin-face)))
@@ -562,10 +563,12 @@ emptied. See also `sly-mrepl-hook'")
       (pop-to-buffer buffer))
     buffer))
 
-(defun sly-mrepl-pop-to-mrepl ()
+(defun sly-mrepl-on-connection ()
   (let* ((inferior-buffer (and (sly-process) (process-buffer (sly-process))))
          (inferior-window (and inferior-buffer (get-buffer-window inferior-buffer t))))
-    (sly-mrepl 'pop-to-buffer)
+    (let ((sly-mrepl-pop-sylvester (or (eq sly-mrepl-pop-sylvester 'on-connection)
+                                       sly-mrepl-pop-sylvester)))
+      (sly-mrepl 'pop-to-buffer))
     (when inferior-window
       (bury-buffer inferior-buffer)
       (delete-window inferior-window))
@@ -586,39 +589,45 @@ handle to distinguish the new buffer from the existing."
                    current-prefix-arg)
                (sly-read-from-minibuffer
                 "Nickname for this new REPL? ")))))
-  (when (and handle
-             (get-buffer (sly-mrepl--buffer-name connection handle)))
-    (sly-error "Sorry, a MREPL with that handle already exists"))
-  (let* ((local (sly-make-channel sly-listener-channel-methods))
-         (buffer (pop-to-buffer (sly-mrepl--buffer-name connection handle))))
-    (with-current-buffer buffer
-      (sly-mrepl-mode)
-      (setq sly-buffer-connection connection)
-      (start-process (format "sly-pty-%s-%s"
-                             (process-get connection
-                                          'sly--net-connect-counter)
-                             (sly-channel.id local))
-                     (current-buffer)
-                     nil) 
-      (set-process-query-on-exit-flag (sly-mrepl--process) nil)
-      (setq header-line-format (format "Waiting for REPL creation ack for channel %d..."
-                                       (sly-channel.id local)))
-      (sly-channel-put local 'buffer (current-buffer))
-      (add-hook 'kill-buffer-hook 'sly-mrepl--teardown nil 'local)
-      (set (make-local-variable 'sly-mrepl--local-channel) local))
-    (sly-eval-async
-        `(swank-mrepl:create-mrepl ,(sly-channel.id local))
-      (lambda (result)
-        (cl-destructuring-bind (remote thread-id) result
-          (with-current-buffer buffer
-            (sly-mrepl--read-input-ring)
-            (setq header-line-format nil)
-            (setq sly-current-thread thread-id)
-            (set (make-local-variable 'sly-mrepl--remote-channel) remote)
-            (unwind-protect
-                (run-hooks 'sly-mrepl-hook 'sly-mrepl-runonce-hook)
-              (set-default 'sly-mrepl-runonce-hook nil))))))
-    buffer))
+  (let* ((name (sly-mrepl--buffer-name connection handle))
+         (existing (get-buffer name)))
+    (when (and handle existing)
+      (sly-error "Sorry, a MREPL with that handle already exists"))
+    (let* ((local (sly-make-channel sly-listener-channel-methods))
+           (buffer (pop-to-buffer name)))
+      (with-current-buffer buffer
+        (sly-mrepl-mode)
+        (when (and (not existing)
+                   (eq sly-mrepl-pop-sylvester t))
+          (sly-mrepl--insert-output
+           (concat (sly-mrepl-random-sylvester) "\n;\n") 
+           'sly-mrepl-output-face))
+        (setq sly-buffer-connection connection)
+        (start-process (format "sly-pty-%s-%s"
+                               (process-get connection
+                                            'sly--net-connect-counter)
+                               (sly-channel.id local))
+                       (current-buffer)
+                       nil) 
+        (set-process-query-on-exit-flag (sly-mrepl--process) nil)
+        (setq header-line-format (format "Waiting for REPL creation ack for channel %d..."
+                                         (sly-channel.id local)))
+        (sly-channel-put local 'buffer (current-buffer))
+        (add-hook 'kill-buffer-hook 'sly-mrepl--teardown nil 'local)
+        (set (make-local-variable 'sly-mrepl--local-channel) local))
+      (sly-eval-async
+          `(swank-mrepl:create-mrepl ,(sly-channel.id local))
+        (lambda (result)
+          (cl-destructuring-bind (remote thread-id) result
+            (with-current-buffer buffer
+              (sly-mrepl--read-input-ring)
+              (setq header-line-format nil)
+              (setq sly-current-thread thread-id)
+              (set (make-local-variable 'sly-mrepl--remote-channel) remote)
+              (unwind-protect
+                  (run-hooks 'sly-mrepl-hook 'sly-mrepl-runonce-hook)
+                (set-default 'sly-mrepl-runonce-hook nil))))))
+      buffer)))
 
 (defun sly-mrepl-insert-input (pos)
   (interactive (list (if (mouse-event-p last-input-event)
@@ -799,5 +808,31 @@ Doesn't clear input history."
   (remove-hook 'after-change-functions 'sly-mrepl--debug 'local)
   (remove-hook 'post-command-hook 'sly-mrepl--debug 'local))
 
+
+
+;;; Sylvesters
+;;; 
+(defvar  sly-mrepl--sylvesters
+  (with-temp-buffer
+    (insert-file-contents-literally
+     (expand-file-name "sylvesters.txt"
+                       (file-name-directory load-file-name)))
+    (cl-loop while (< (point) (point-max))
+             for start = (point)
+             do (search-forward "\n\n" nil 'noerror)
+             collect (buffer-substring-no-properties start (- (point) 2)))))
+
+(defun sly-mrepl-random-sylvester ()
+  (let* ((sylvester (nth (random (length sly-mrepl--sylvesters))
+                         sly-mrepl--sylvesters))
+         (woe (sly-random-words-of-encouragement))
+         (uncommented
+          (replace-regexp-in-string "@@\\(.*\\)@@"
+                                    (lambda (match)
+                                      (concat woe
+                                              (format " (art by %s)"
+                                                      (match-string 1 match))))
+                                    sylvester)))
+    (concat "; " (replace-regexp-in-string "\n" "\n; " uncommented))))
 
 (provide 'sly-mrepl)
