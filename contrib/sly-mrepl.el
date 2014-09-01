@@ -251,6 +251,21 @@ emptied. See also `sly-mrepl-hook'")
                             (append '(read-only t front-sticky (read-only))
                                     ,props)))))
 
+(defun sly-mrepl--call-with-repl (connection fn)
+  (with-current-buffer (sly-mrepl--find-create connection)
+    (cl-loop
+     while (not (buffer-local-value 'sly-mrepl--remote-channel
+                                    (current-buffer)))
+     do
+     (sly-warning "Waiting for a REPL to be setup for %s"
+                  (sly-connection-name connection))
+     (sit-for 0.5))
+    (funcall fn)))
+
+(defmacro sly-mrepl--with-repl-for (connection &rest body)
+  (declare (indent 1))
+  `(sly-mrepl--call-with-repl ,connection #'(lambda () ,@body)))
+
 (defun sly-mrepl--insert (string)
   (sly-mrepl--commiting-text ()
     (comint-output-filter (sly-mrepl--process)
@@ -494,7 +509,7 @@ emptied. See also `sly-mrepl-hook'")
    `(swank-mrepl:globally-save-object ',(car slyfun-and-args)
                                       ,@(cdr slyfun-and-args))
    #'(lambda (_ignored)
-       (with-current-buffer (sly-mrepl--find-create (sly-connection))
+       (sly-mrepl--with-repl-for (sly-connection)
          (sly-mrepl--copy-objects-to-repl nil note callback)))))
 
 (defun sly-mrepl--insert-call (spec objects)
@@ -646,7 +661,7 @@ handle to distinguish the new buffer from the existing."
   (interactive)
   (let ((package (sly-current-package))
         (directory default-directory))
-    (with-current-buffer (sly-mrepl)
+    (sly-mrepl--with-repl-for (sly-connection)
       (cd directory)
       (setq sly-mrepl--copy-to-repl-after
             #'(lambda (_objects)

@@ -2194,7 +2194,7 @@ Debugged requests are ignored."
           ((:emacs-channel-send id msg)
            (sly-send `(:emacs-channel-send ,id ,msg)))
           ((:invalid-channel channel-id reason)
-           (error "Invalid remote channel %d: %s" channel-id reason))))))
+           (error "Invalid remote channel %s: %s" channel-id reason))))))
 
 (defun sly-send (sexp)
   "Send SEXP directly over the wire on the current connection."
