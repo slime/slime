@@ -1,3 +1,8 @@
+2014-09-01  João Távora  <joaotavora@gmail.com>
+
+	* slime-autodoc.el (eldoc-display-message-no-interference-p):
+	Always activate advice.
+
 2014-08-25  João Távora  <joaotavora@gmail.com>
 
 	* test/slime-parse-tests.el (form-up-to-point.1): Remove spurious

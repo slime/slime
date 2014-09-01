@@ -216,7 +216,7 @@ display multiline arglist"
               (slime-show-arglist))))))
 
 (defadvice eldoc-display-message-no-interference-p
-    (after slime-autodoc-message-ok-p)
+    (after slime-autodoc-message-ok-p activate)
   (when slime-autodoc-mode
     (setq ad-return-value
           (and ad-return-value
