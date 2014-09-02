@@ -1,3 +1,12 @@
+2014-09-02  Helmut Eller  <heller@common-lisp.net>
+
+	Allow partially visible lines when scrolling.
+	[github issue #186]
+
+	* slime.el (slime--adjust-window-start)
+	(slime--adjust-window-point): Relax the assertion to allow
+	partially vsible lines.
+
 2014-08-26  Helmut Eller  <heller@common-lisp.net>
 
 	SBCL's reader changed recently. Fix some issues caused by that.

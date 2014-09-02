@@ -5690,7 +5690,7 @@ This is 0 if START and END at the same line."
     (cl-assert (pos-visible-in-window-p start))
     (cl-assert (or (pos-visible-in-window-p last)
                    (> region-height window-height)))
-    (cl-assert (pos-visible-in-window-p (1- (window-end nil t))))))
+    (cl-assert (pos-visible-in-window-p (1- (window-end nil t)) nil t))))
 
 ;; move POS to visible region
 (defun slime--adjust-window-point (pos)
@@ -5701,7 +5701,7 @@ This is 0 if START and END at the same line."
         (t
          (goto-char (1- (window-end nil t)))
          (move-to-column 0)))
-  (cl-assert (pos-visible-in-window-p (point))))
+  (cl-assert (pos-visible-in-window-p (point) nil t)))
 
 (defun slime--display-region (start end)
   "Make the region from START to END visible.
