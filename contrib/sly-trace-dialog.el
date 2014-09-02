@@ -739,7 +739,9 @@ With optional CLEAR-AND-FETCH prefix arg, clear the current tree
 and fetch a first batch of traces."
   (interactive "P")
   (with-current-buffer
-      (pop-to-buffer (sly-trace-dialog--ensure-buffer))
+      ;; FIXME: refactor with `sly-with-popup-buffer'
+      (pop-to-buffer (sly-trace-dialog--ensure-buffer)
+                     `(display-buffer-reuse-window . ((inhibit-same-window . t))))
     (sly-trace-dialog-fetch-status)
     (when (or clear-and-fetch
               (null sly-trace-dialog--fetch-key))

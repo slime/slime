@@ -6019,25 +6019,29 @@ was called originally."
                                   &key (error-message "Couldn't inspect")
                                   restore-point
                                   save-selected-window
-                                  (inspector-name sly--this-inspector-name))
+                                  (inspector-name sly--this-inspector-name)
+                                  opener)
   (if (cl-some #'listp slyfun-and-args)
       (sly-warning "`sly-eval-for-inspector' not meant to be passed a generic form"))
   (let ((pos (and (eq major-mode 'sly-inspector-mode)
                   (sly-inspector-position))))
-    (sly-eval-async `(swank:eval-for-inspector ,inspector-name
-                                               ',(car slyfun-and-args)
-                                               ,@(cdr slyfun-and-args))
-      (lambda (results)
-        (let ((opener (lambda ()
-                        (sly--open-inspector results
-                                             :point (and restore-point pos)
-                                             :inspector-name inspector-name))))
-          (cond (results
-                 (if save-selected-window
-                     (save-selected-window (funcall opener))
-                   (funcall opener)))
-                (t
-                 (sly-message error-message))))))))
+    (sly-eval-async `(swank:eval-for-inspector
+                      ,sly--this-inspector-name ; current inspector, if any
+                      ,inspector-name   ; target inspector, if any
+                      ',(car slyfun-and-args)
+                      ,@(cdr slyfun-and-args))
+      (or opener
+          (lambda (results)
+            (let ((opener (lambda ()
+                            (sly--open-inspector results
+                                                 :point (and restore-point pos)
+                                                 :inspector-name inspector-name))))
+              (cond (results
+                     (if save-selected-window
+                         (save-selected-window (funcall opener))
+                       (funcall opener)))
+                    (t
+                     (sly-message error-message)))))))))
 
 (defvar sly--this-inspector-name nil
   "Buffer-local inspector name (a string), or nil")
@@ -6050,7 +6054,7 @@ was called originally."
                                   (eq major-mode 'sly-inspector-mode)))
                       when (buffer-local-value 'sly--this-inspector-name b)
                       collect it))
-         (result (sly-completing-read "Inspect name: " (cons "default"
+         (result (sly-completing-read "Inspector name: " (cons "default"
                                                                names)
                          nil nil nil nil "default")))
     (unless (string= result "default")
@@ -6113,7 +6117,8 @@ was called originally."
 (define-button-type 'sly-inspector-part :supertype 'sly-part
   'sly-button-inspect
   #'(lambda (id)
-      (sly-eval-for-inspector `(swank:inspect-nth-part ,id)))
+      (sly-eval-for-inspector `(swank:inspect-nth-part ,id)
+                              :inspector-name (sly-maybe-read-inspector-name)))
   'sly-button-pretty-print
   #'(lambda (id)
       (sly-eval-describe `(swank:pprint-inspector-part ,id)))
@@ -6150,7 +6155,11 @@ KILL-BUFFER hooks for the inspector buffer."
     (set (make-local-variable 'sly--this-inspector-name) inspector-name)
     (let ((inhibit-read-only t))
       (erase-buffer)
-      (pop-to-buffer (current-buffer))
+      ;; FIXME: very ugly refactor with `sly-with-popup-buffer'
+      (pop-to-buffer
+       (current-buffer)
+       `(display-buffer-reuse-window
+         . ((inhibit-same-window . ,(not (eq 'sly-inspector-mode major-mode))))))
       (cl-destructuring-bind (&key id title content) inspected-parts
         (cl-macrolet ((fontify (face string)
                                `(sly-inspector-fontify ,face ,string)))
@@ -6285,13 +6294,13 @@ position of point in the current buffer."
   (cl-destructuring-bind (from to)
       (sly-inspector-next-range chunk limit prev)
     (cond ((and from to)
-           (sly-eval-async
-               `(swank:inspector-range ,from ,to)
-             (sly-rcurry (lambda (chunk2 chunk1 limit prev cont)
-                             (sly-inspector-fetch
-                              (sly-inspector-join-chunks chunk1 chunk2)
-                              limit prev cont))
-                           chunk limit prev cont)))
+           (sly-eval-for-inspector
+            `(swank:inspector-range ,from ,to)
+            :opener (sly-rcurry (lambda (chunk2 chunk1 limit prev cont)
+                                  (sly-inspector-fetch
+                                   (sly-inspector-join-chunks chunk1 chunk2)
+                                   limit prev cont))
+                                chunk limit prev cont)))
           (t (funcall cont chunk)))))
 
 (defun sly-inspector-next-range (chunk limit prev)

@@ -332,6 +332,16 @@ to T unless you want to debug swank internals.")
 
 ;;;; Utilities
 
+;; stolen from Hunchentoot
+(eval-when (:compile-toplevel :execute :load-toplevel)
+  (defmacro defvar-unbound (name &optional (doc-string ""))
+    "Convenience macro to declare unbound special variables with a
+documentation string."
+    `(progn
+       (defvar ,name)
+       (setf (documentation ',name 'variable) ,doc-string)
+       ',name)))
+
 
 ;;;;; Logging
 
@@ -3266,8 +3276,23 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
 
 
 ;;;; Inspecting
-(defvar *inspector* nil
-  "The currently active inspector bound by EVAL-FOR-INSPECTOR.")
+(defvar-unbound *current-inspector*
+    "Current inspector, bound by EVAL-FOR-INSPECTOR, maybe to nil.")
+
+(defvar-unbound *target-inspector*
+    "Target inspector, bound by EVAL-FOR-INSPECTOR, maybe to nil.")
+
+(defun current-inspector ()
+  (or (and (boundp '*current-inspector*)
+           *current-inspector*)
+      (find-inspector "default")
+      (make-instance 'inspector :name "default")))
+
+(defun target-inspector ()
+  (or (and (boundp '*target-inspector*)
+           *target-inspector*)
+      (current-inspector)))
+
 
 (defvar *inspector-printer-bindings*
   '((*print-lines*        . 1)
@@ -3284,6 +3309,10 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
   ((verbose-p :initform nil :accessor inspector-verbose-p)
    (history :initform (make-array 10 :adjustable t :fill-pointer 0) :accessor inspector-%history)
    (name :initarg :name :initform (error "Name this INSPECTOR!") :accessor inspector-name)))
+
+(defmethod print-object ((i inspector) s)
+  (print-unreadable-object (i s :type t) 
+    (format s "~a/~a" (inspector-name i) (length (inspector-%history i)))))
 
 (defmethod initialize-instance :after ((i inspector) &key name)
   (assert (not (find-inspector name)) nil "Already have an inspector named ~a" name)
@@ -3309,14 +3338,8 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
       (setf (getf metadata indicator) data)
       data)))
 
-(defun current-inspector ()
-  (or *inspector*
-      (find-inspector "default")
-      (make-instance 'inspector :name "default")))
-
-(defun current-istate ()
-  (let* ((inspector (current-inspector))
-         (history (inspector-%history inspector)))
+(defun current-istate (&optional (inspector (current-inspector)))
+  (let* ((history (inspector-%history inspector)))
     (and (plusp (length history))
          (aref history (1- (length history))))))
 
@@ -3330,7 +3353,7 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
       (inspect-object (eval (read-from-string string))))))
 
 (defun inspect-object (o)
-  (let* ((inspector (current-inspector))
+  (let* ((inspector (target-inspector))
          (history (inspector-%history inspector))
          (istate (make-istate :object o)))
     (vector-push-extend istate history)
@@ -3527,10 +3550,16 @@ Return nil if there's no previous object."
     (reset-inspector)
     (inspect-object (frame-var-value frame var))))
 
-(defslyfun eval-for-inspector (name slave-slyfun &rest args)
-  (let ((*inspector* (and name
-                          (or (find-inspector name)
-                              (make-instance 'inspector :name name)))))
+(defslyfun eval-for-inspector (current
+                               target
+                               slave-slyfun &rest args)
+  "Call SLAVE-SLYFUN with ARGS in CURRENT inspector, open in TARGET."
+  (let ((*current-inspector* (and current
+                                  (or (find-inspector current)
+                                      (make-instance 'inspector :name current))))
+        (*target-inspector* (and target
+                                 (or (find-inspector target)
+                                     (make-instance 'inspector :name target)))))
     (apply slave-slyfun args)))
 
 ;;;;; Lists
