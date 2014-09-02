@@ -3357,7 +3357,11 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
          (history (inspector-%history inspector))
          (istate (make-istate :object o)))
     (vector-push-extend istate history)
-    (setf (istate.content istate) (emacs-inspect o))
+    (let ((*current-inspector* inspector))
+      ;; HACK! because EMACS-INSPECT may call ENSURE-ISTATE-METADATA
+      ;; which expects its object to be the current istate's objects.
+      (setf (istate.content istate)
+            (emacs-inspect o)))
     (vector-push-extend :break-history history)
     (decf (fill-pointer history))
     (istate>elisp istate)))
