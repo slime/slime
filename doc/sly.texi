@@ -3,6 +3,8 @@
 @setfilename sly.info
 
 @documentencoding UTF-8
+@codequoteundirected on
+@codequotebacktick on
 
 @dircategory Emacs
 @direntry
