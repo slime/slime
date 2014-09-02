@@ -1,5 +1,14 @@
 2014-09-02  Helmut Eller  <heller@common-lisp.net>
 
+	Factor out the backquote test.
+
+	* slime-tests.el (slime-test--compile-defun): New helper.
+	([test] compile-defun, compile-defun-with-reader-conditionals):
+	Use it.
+	([test] compile-defun-with-backquote): New.
+
+2014-09-02  Helmut Eller  <heller@common-lisp.net>
+
 	Allow partially visible lines when scrolling.
 	[github issue #186]
 

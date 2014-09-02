@@ -628,6 +628,22 @@ string buffer position filename policy)")
                        (lambda (pattern arglist)
                          (and arglist (string-match pattern arglist))))))
 
+(defun slime-test--compile-defun (program subfrom)
+  (slime-check-top-level)
+  (with-temp-buffer
+    (lisp-mode)
+    (insert program)
+    (let ((font-lock-verbose nil))
+      (setq slime-buffer-package ":swank")
+      (slime-compile-string (buffer-string) 1)
+      (setq slime-buffer-package ":cl-user")
+      (slime-sync-to-top-level 5)
+      (goto-char (point-max))
+      (slime-previous-note)
+      (slime-check error-location-correct
+        (equal (read (current-buffer)) subform))))
+  (slime-check-top-level))
+
 (def-slime-test (compile-defun (:fails-for "allegro" "lispworks" "clisp"))
     (program subform)
     "Compile PROGRAM containing errors.
@@ -645,9 +661,6 @@ Confirm that SUBFORM is correctly located."
              (cl-user::bar))"
        (cl-user::bar))
       ("(defun cl-user::foo ()
-           (list `(1 ,(random 10) 2 ,@(random 10) 3 ,(cl-user::bar))))"
-       (cl-user::bar))
-      ("(defun cl-user::foo ()
           \"\\\" bla bla \\\"\"
           (cl-user::bar))"
        (cl-user::bar))
@@ -661,20 +674,7 @@ Confirm that SUBFORM is correctly located."
 
         "
        (cl-user::bar)))
-  (slime-check-top-level)
-  (with-temp-buffer
-    (lisp-mode)
-    (insert program)
-    (let ((font-lock-verbose nil))
-      (setq slime-buffer-package ":swank")
-      (slime-compile-string (buffer-string) 1)
-      (setq slime-buffer-package ":cl-user")
-      (slime-sync-to-top-level 5)
-      (goto-char (point-max))
-      (slime-previous-note)
-      (slime-check error-location-correct
-        (equal (read (current-buffer)) subform))))
-  (slime-check-top-level))
+  (slime-test--compile-defun program subform))
 
 ;; This test ideally would be collapsed into the previous
 ;; compile-defun test, but only 1 case fails for ccl--and that's here
@@ -686,20 +686,20 @@ Confirm that SUBFORM is correctly located."
     '(("(defun foo ()
           #+#.'(:and) (/ 1 0))"
        (/ 1 0)))
-  (slime-check-top-level)
-  (with-temp-buffer
-    (lisp-mode)
-    (insert program)
-    (let ((font-lock-verbose nil))
-      (setq slime-buffer-package ":swank")
-      (slime-compile-string (buffer-string) 1)
-      (setq slime-buffer-package ":cl-user")
-      (slime-sync-to-top-level 5)
-      (goto-char (point-max))
-      (slime-previous-note)
-      (slime-check error-location-correct
-        (equal (read (current-buffer)) subform))))
-  (slime-check-top-level))
+  (slime-test--compile-defun program subform))
+
+;; SBCL used to pass this one but since they changed the
+;; backquote/unquote reader it fails.
+(def-slime-test (compile-defun-with-backquote
+                 (:fails-for "allegro" "lispworks" "clisp" "sbcl"))
+    (program subform)
+    "Compile PROGRAM containing errors.
+Confirm that SUBFORM is correctly located."
+    '(("(defun cl-user::foo ()
+           (list `(1 ,(random 10) 2 ,@(make-list (random 10)) 3
+                     ,(cl-user::bar))))"
+       (cl-user::bar)))
+  (slime-test--compile-defun program subform))
 
 (def-slime-test (compile-file (:fails-for "allegro" "lispworks" "clisp"))
     (string)
