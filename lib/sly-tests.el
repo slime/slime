@@ -651,14 +651,14 @@ Confirm that the EXPECTED subform is correctly located."
 ;; SBCL used to pass this one but since they changed the
 ;; backquote/unquote reader it fails.
 (def-sly-test (compile-defun-with-backquote
-                 (:fails-for "allegro" "lispworks" "clisp" "sbcl"))
-    (program subform)
-    "Compile PROGRAM containing errors.
+               (:fails-for "allegro" "lispworks" "clisp"))
+  (program subform)
+  "Compile PROGRAM containing errors.
 Confirm that SUBFORM is correctly located."
-    '(("(defun cl-user::foo ()
+  '(("(defun cl-user::foo ()
            (list `(1 ,(random 10) 2 ,@(make-list (random 10)) 3
                      ,(cl-user::bar))))"
-       (cl-user::bar)))
+     (cl-user::bar)))
   (sly-test--compile-defun program subform))
 
 (def-sly-test (compile-file (:fails-for "allegro" "lispworks" "clisp"))
