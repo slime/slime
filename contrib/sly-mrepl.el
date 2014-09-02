@@ -601,7 +601,7 @@ handle to distinguish the new buffer from the existing."
         (when (and (not existing)
                    (eq sly-mrepl-pop-sylvester t))
           (sly-mrepl--insert-output
-           (concat (sly-mrepl-random-sylvester) "\n;\n") 
+           (concat ";\n" (sly-mrepl-random-sylvester) "\n;\n") 
            'sly-mrepl-output-face))
         (setq sly-buffer-connection connection)
         (start-process (format "sly-pty-%s-%s"
@@ -828,12 +828,7 @@ Doesn't clear input history."
                          sly-mrepl--sylvesters))
          (woe (sly-random-words-of-encouragement))
          (uncommented
-          (replace-regexp-in-string "@@\\(.*\\)@@"
-                                    (lambda (match)
-                                      (concat woe
-                                              (format " (art by %s)"
-                                                      (match-string 1 match))))
-                                    sylvester)))
+          (replace-regexp-in-string "@@@@" woe sylvester)))
     (concat "; " (replace-regexp-in-string "\n" "\n; " uncommented))))
 
 (provide 'sly-mrepl)
