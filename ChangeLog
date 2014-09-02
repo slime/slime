@@ -1,3 +1,9 @@
+2014-09-02  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* doc/slime.texi: use plain rather than typographical quotes in
+	code blocks so that examples from the PDF manual can be copy and
+	pasted directly.
+
 2014-09-02  Helmut Eller  <heller@common-lisp.net>
 
 	Factor out the backquote test.
