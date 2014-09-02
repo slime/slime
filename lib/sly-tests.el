@@ -588,8 +588,24 @@ string buffer position filename policy)")
                        (lambda (pattern arglist)
                          (and arglist (string-match pattern arglist))))))
 
-(def-sly-test compile-defun
-    (program expected)
+(defun sly-test--compile-defun (program subfrom)
+  (sly-check-top-level)
+  (with-temp-buffer
+    (lisp-mode)
+    (insert program)
+    (let ((font-lock-verbose nil))
+      (setq sly-buffer-package ":swank")
+      (sly-compile-string (buffer-string) 1)
+      (setq sly-buffer-package ":cl-user")
+      (sly-sync-to-top-level 5)
+      (goto-char (point-max))
+      (sly-previous-note)
+      (sly-check error-location-correct
+        (equal (read (current-buffer)) subform))))
+  (sly-check-top-level))
+
+(def-sly-test (compile-defun (:fails-for "allegro" "lispworks" "clisp"))
+    (program subform)
     "Compile PROGRAM containing errors.
 Confirm that the EXPECTED subform is correctly located."
     '(("(defun cl-user::foo () (cl-user::bar))" (cl-user::bar))
@@ -605,9 +621,6 @@ Confirm that the EXPECTED subform is correctly located."
              (cl-user::bar))"
        (cl-user::bar))
       ("(defun cl-user::foo ()
-           (list `(1 ,(random 10) 2 ,@(random 10) 3 ,(cl-user::bar))))"
-       (cl-user::bar))
-      ("(defun cl-user::foo ()
           \"\\\" bla bla \\\"\"
           (cl-user::bar))"
        (cl-user::bar))
@@ -621,19 +634,7 @@ Confirm that the EXPECTED subform is correctly located."
 
         "
        (cl-user::bar)))
-  (sly-check-top-level)
-  (with-current-buffer (generate-new-buffer "*coiso*") 
-    (lisp-mode)
-    (insert program)
-    (let ((font-lock-verbose nil))
-      (setq sly-buffer-package ":swank")
-      (sly-compile-string (buffer-string) 1)
-      (setq sly-buffer-package ":cl-user")
-      (sly-sync-to-top-level 5)
-      (goto-char (point-max))
-      (sly-previous-note)
-      (should (equal expected (read (current-buffer))))))
-  (sly-check-top-level))
+  (sly-test--compile-defun program subform))
 
 ;; This test ideally would be collapsed into the previous
 ;; compile-defun test, but only 1 case fails for ccl--and that's here
@@ -645,20 +646,20 @@ Confirm that the EXPECTED subform is correctly located."
     '(("(defun foo ()
           #+#.'(:and) (/ 1 0))"
        (/ 1 0)))
-  (sly-check-top-level)
-  (with-temp-buffer
-    (lisp-mode)
-    (insert program)
-    (let ((font-lock-verbose nil))
-      (setq sly-buffer-package ":swank")
-      (sly-compile-string (buffer-string) 1)
-      (setq sly-buffer-package ":cl-user")
-      (sly-sync-to-top-level 5)
-      (goto-char (point-max))
-      (sly-previous-note)
-      (should (equal expected
-                     (read (current-buffer))))))
-  (sly-check-top-level))
+  (sly-test--compile-defun program subform))
+
+;; SBCL used to pass this one but since they changed the
+;; backquote/unquote reader it fails.
+(def-sly-test (compile-defun-with-backquote
+                 (:fails-for "allegro" "lispworks" "clisp" "sbcl"))
+    (program subform)
+    "Compile PROGRAM containing errors.
+Confirm that SUBFORM is correctly located."
+    '(("(defun cl-user::foo ()
+           (list `(1 ,(random 10) 2 ,@(make-list (random 10)) 3
+                     ,(cl-user::bar))))"
+       (cl-user::bar)))
+  (sly-test--compile-defun program subform))
 
 (def-sly-test (compile-file (:fails-for "allegro" "lispworks" "clisp"))
     (string)
