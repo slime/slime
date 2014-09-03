@@ -524,7 +524,7 @@ PROPERTIES specifies any default face properties."
                              (define-key map [mode-line down-mouse-1]
                                sly-menu)
                              map)
-                   mouse-face mode-line-highlightn
+                   mouse-face mode-line-highlight
                    help-echo "mouse-1: pop-up SLY menu"
                    )
       " "
@@ -3207,16 +3207,17 @@ Several kinds of locations are supported:
 
 (defun sly--pop-to-source-location (source-location &optional method)
   (sly-move-to-source-location source-location)
-  (sly--highlight-sexp)
   (let ((saved-point (point)))
     (cl-ecase method
       ((nil)     (switch-to-buffer (current-buffer)))
       (window    (pop-to-buffer (current-buffer) t))
-      (delete-current (let ((original (selected-window)))
+      (delete-current (let ((original (selected-window))
+                            (inhibit-redisplay t))
                         (pop-to-buffer (current-buffer) t)
                         (unless (eq original (selected-window))
                           (delete-window original))))
       (frame     (let ((pop-up-frames t)) (pop-to-buffer (current-buffer) t))))
+    (sly--highlight-sexp)
     (goto-char saved-point)))
 
 (defun sly-location-offset (location)
