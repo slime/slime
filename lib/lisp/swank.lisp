@@ -3003,7 +3003,7 @@ MAKE-APROPOS-MATCHER interface has been implemented.")
          (matcher (cond ((and interface-unimplemented-p
                               attempt-cl-ppcre
                               (find-package :cl-ppcre))
-                         (background-message "Using CL-PPCRE for regexp \"~a\"" pattern)
+                         (background-message "Using CL-PPCRE for apropos on regexp \"~a\"" pattern)
                          (make-cl-ppcre-matcher pattern case-sensitive symbol-name-fn))
                         (interface-unimplemented-p
                          (when attempt-cl-ppcre

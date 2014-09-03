@@ -630,10 +630,13 @@ corresponding values in the CDR of VALUE."
 
 
 ;; Interface
+(defvar sly--last-message nil)
+
 (defun sly-message (format-string &rest args)
   "Like `message', but use a prefix."
   (let ((body (apply #'format format-string args)))
-    (message "%s" (format "[sly] %s" body))))
+    (setq sly--last-message (format "[sly] %s" body))
+    (message "%s" sly--last-message)))
 
 (defun sly-warning (format-string &rest args)
   (display-warning '(sly warning) (apply #'format format-string args)))
@@ -4216,19 +4219,24 @@ TODO"
   (sly-mode))
 
 (defun sly-show-apropos (plists string package summary)
-  (if (null plists)
-      (sly-message "No apropos matches for %S" string)
-    (sly-with-popup-buffer ((sly-buffer-name :apropos
-                                             :connection t)
-                            :package package :connection t
-                            :mode 'sly-apropos-mode)
-      (if (boundp 'header-line-format)
-          (setq header-line-format summary)
-        (insert summary "\n\n"))
-      (sly-set-truncate-lines)
-      (sly-print-apropos plists)
-      (set-syntax-table lisp-mode-syntax-table)
-      (goto-char (point-min)))))
+  (cond ((null plists)
+         (when (string-match "[background].*apropos" sly--last-message)
+           (run-with-timer 1 nil
+                           #'(lambda (msg) (message msg))
+			   sly--last-message))
+         (sly-message "No apropos matches for %S" string))
+        (t
+         (sly-with-popup-buffer ((sly-buffer-name :apropos
+                                                  :connection t)
+                                 :package package :connection t
+                                 :mode 'sly-apropos-mode)
+           (if (boundp 'header-line-format)
+               (setq header-line-format summary)
+             (insert summary "\n\n"))
+           (sly-set-truncate-lines)
+           (sly-print-apropos plists)
+           (set-syntax-table lisp-mode-syntax-table)
+           (goto-char (point-min))))))
 
 (define-button-type 'sly-apropos-symbol :supertype 'sly-part
   'face nil
