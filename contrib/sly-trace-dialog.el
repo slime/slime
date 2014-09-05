@@ -79,7 +79,11 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 (defvar sly-trace-dialog-shortcut-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c T") 'sly-trace-dialog)
-    (define-key map (kbd "C-c M-t") 'sly-trace-dialog-toggle-trace)
+    (define-key map (kbd "C-c C-t") 'sly-trace-dialog-toggle-trace)
+    (define-key map (kbd "C-c M-t")
+      (if (featurep 'sly-fancy-trace)
+          'sly-toggle-fancy-trace
+          'sly-toggle-trace-fdefinition))
     map))
 
 (define-minor-mode sly-trace-dialog-shortcut-mode
@@ -391,8 +395,8 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 (define-button-type 'sly-trace-dialog-spec :supertype 'sly-part
   'action 'sly-button-show-source
   'sly-button-inspect #'(lambda (trace-id _spec)
-                          (sly-eval-async `(swank-trace-dialog:inspect-trace ,trace-id)
-                            #'sly-open-inspector))
+                          (sly-eval-for-inspector `(swank-trace-dialog:inspect-trace ,trace-id)
+                                                  :inspector-name "trace-entries"))
   'sly-button-show-source #'(lambda (trace-id _spec)
                               (sly-eval-async
                                   `(swank-trace-dialog:trace-location ,trace-id)
@@ -409,7 +413,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                          (let ((id (button-get button 'trace-id)))
                            (sly-eval-for-inspector
                             `(swank-trace-dialog:inspect-trace ,id)
-                            :inspector-name (sly-maybe-read-inspector-name)
+                            :inspector-name "trace-entries"
                             :save-selected-window t))))))
 
 (defun sly-trace-dialog-spec-button (label trace &rest props)

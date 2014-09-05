@@ -778,12 +778,12 @@ Assumes all insertions are made at point."
 
 ;; Interface
 (cl-defmacro sly-with-popup-buffer ((name &key package connection select
+                                          same-window-p
                                           mode)
                                     &body body)
   "Similar to `with-output-to-temp-buffer'.
 Bind standard-output and initialize some buffer-local variables.
 Restore window configuration when closed.
-
 NAME is the name of the buffer to be created.
 PACKAGE is the value `sly-buffer-package'.
 CONNECTION is the value for `sly-buffer-connection',
@@ -793,7 +793,9 @@ MODE is the name of a major mode which will be enabled.
 "
   (declare (indent 1))
   (let ((package-sym (cl-gensym "package-"))
-        (connection-sym (cl-gensym "connection-")))
+        (connection-sym (cl-gensym "connection-"))
+        (same-window-if-same-mode-form
+         `(eq major-mode ,mode)))
     `(let ((,package-sym ,(if (eq package t)
                               `(sly-current-package)
                             package))
@@ -814,7 +816,11 @@ MODE is the name of a major mode which will be enabled.
            ,@body
            (funcall (if ,select 'pop-to-buffer 'display-buffer)
                     (current-buffer)
-                    `(display-buffer-reuse-window . ((inhibit-same-window . t))))
+                    (cons 'display-buffer-reuse-window
+                          (if ,(cond (same-window-p same-window-p)
+                                     (mode same-window-if-same-mode-form))
+                              '((inhibit-same-window . nil))
+                            '((inhibit-same-window . t)))))
            (current-buffer))))))
 
 ;;;;; Filename translation
@@ -6112,17 +6118,6 @@ was called originally."
   (setq buffer-read-only t)
   (sly-mode 1))
 
-(defun sly--inspector-buffer (inspector-name)
-  (let ((name (sly-buffer-name :inspector
-                               :connection t
-                               :suffix inspector-name)))
-    (or (get-buffer name)
-        (sly-with-popup-buffer (name
-                                :mode 'sly-inspector-mode
-                                :connection t)
-          (buffer-disable-undo)
-          (current-buffer)))))
-
 (define-button-type 'sly-inspector-part :supertype 'sly-part
   'sly-button-inspect
   #'(lambda (id)
@@ -6157,33 +6152,33 @@ was called originally."
   "Display INSPECTED-PARTS in a new inspector window.
 Optionally set point to POINT. If KILL-HOOK is provided, it is added to local
 KILL-BUFFER hooks for the inspector buffer."
-  (with-current-buffer (sly--inspector-buffer inspector-name)
+  (sly-with-popup-buffer ((sly-buffer-name :inspector
+                                           :connection t
+                                           :suffix inspector-name)
+                          :mode 'sly-inspector-mode
+                          :same-window-p (and (eq major-mode 'sly-inspector-mode)
+                                              (or (null inspector-name)
+                                                  (eq sly--this-inspector-name inspector-name)))
+                          :connection t)
     (when kill-hook
       (add-hook 'kill-buffer-hook kill-hook t t))
-    (setq sly-buffer-connection (sly-current-connection))
     (set (make-local-variable 'sly--this-inspector-name) inspector-name)
-    (let ((inhibit-read-only t))
-      (erase-buffer)
-      ;; FIXME: very ugly refactor with `sly-with-popup-buffer'
-      (pop-to-buffer
-       (current-buffer)
-       `(display-buffer-reuse-window
-         . ((inhibit-same-window . ,(not (eq 'sly-inspector-mode major-mode))))))
-      (cl-destructuring-bind (&key id title content) inspected-parts
-        (cl-macrolet ((fontify (face string)
-                               `(sly-inspector-fontify ,face ,string)))
-          (insert (sly-inspector-part-button title id 'skip t))
-          (while (eq (char-before) ?\n)
-            (backward-delete-char 1))
-          (insert "\n" (fontify label "--------------------") "\n")
-          (save-excursion
-            (sly-inspector-insert-content content))
-          (when point
-            (cl-check-type point cons)
-            (ignore-errors
-              (goto-char (point-min))
-              (forward-line (1- (car point)))
-              (move-to-column (cdr point)))))))))
+    (cl-destructuring-bind (&key id title content) inspected-parts
+      (cl-macrolet ((fontify (face string)
+                             `(sly-inspector-fontify ,face ,string)))
+        (insert (sly-inspector-part-button title id 'skip t))
+        (while (eq (char-before) ?\n)
+          (backward-delete-char 1))
+        (insert "\n" (fontify label "--------------------") "\n")
+        (save-excursion
+          (sly-inspector-insert-content content))
+        (when point
+          (cl-check-type point cons)
+          (ignore-errors
+            (goto-char (point-min))
+            (forward-line (1- (car point)))
+            (move-to-column (cdr point))))))
+    (buffer-disable-undo)))
 
 (defvar sly-inspector-limit 500)
 
