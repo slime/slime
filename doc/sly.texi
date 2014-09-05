@@ -6,7 +6,7 @@
 
 @dircategory Emacs
 @direntry
-* SLY: (sly).    Superior Lisp Interaction Mode for Emacs.
+* SLY: (sly).    Common-Lisp IDE
 @end direntry
 @c %**end of header
 
@@ -101,8 +101,8 @@ This file has been placed in the public domain.
 @node Top
 @top SLY
 
-@SLY{} is the ``Superior Lisp Interaction Mode for Emacs''. This is
-the manual for version @value{SLYVER}. (Last updated @value{UPDATED})
+@SLY{} is a Common Lisp IDE for Emacs. This is the manual for version
+@value{SLYVER}. (Last updated @value{UPDATED})
 
 @insertcopying
 @end ifnottex
@@ -232,7 +232,7 @@ REPL: the ``top level''
 @node Introduction
 @chapter Introduction
 
-@SLY{} is the ``Superior Lisp Interaction Mode for Emacs.''
+@SLY{} is a Common Lisp IDE for Emacs.
 
 @SLY{} extends Emacs with support for interactive programming in
 Common Lisp. The features are centered around @code{sly-mode}, an
@@ -2453,8 +2453,9 @@ most popular packages.
 
 @unnumberedsec Hackers of the good hack
 
-@SLY{} is an Extension of @acronym{SLIM} by Eric Marsden. At the
-time of writing, the authors and code-contributors of @SLY{} are:
+@SLY{} is a fork of SLIME which is itself an Extension
+of @acronym{SLIM} by Eric Marsden. At the time of writing, the authors
+and code-contributors of @SLY{} are:
 
 @include contributors.texi
 
