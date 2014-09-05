@@ -783,13 +783,15 @@ Assumes all insertions are made at point."
                                     &body body)
   "Similar to `with-output-to-temp-buffer'.
 Bind standard-output and initialize some buffer-local variables.
-Restore window configuration when closed.
-NAME is the name of the buffer to be created.
-PACKAGE is the value `sly-buffer-package'.
-CONNECTION is the value for `sly-buffer-connection',
- if nil, no explicit connection is associated with
- the buffer.  If t, the current connection is taken.
-MODE is the name of a major mode which will be enabled.
+Restore window configuration when closed.  NAME is the name of
+the buffer to be created.  PACKAGE is the value
+`sly-buffer-package'.  CONNECTION is the value for
+`sly-buffer-connection', if nil, no explicit connection is
+associated with the buffer.  If t, the current connection is
+taken.  MODE is the name of a major mode which will be enabled.
+SELECT (unevaluated) indicates the buffer should be switched to.
+SAME-WINDOW-P (unevaluated) is a form indicating if the popup
+*can* happen in the same window.
 "
   (declare (indent 1))
   (let ((package-sym (cl-gensym "package-"))
@@ -6050,11 +6052,10 @@ was called originally."
             (let ((opener (lambda ()
                             (sly--open-inspector results
                                                  :point (and restore-point pos)
-                                                 :inspector-name inspector-name))))
+                                                 :inspector-name inspector-name
+                                                 :switch (not save-selected-window)))))
               (cond (results
-                     (if save-selected-window
-                         (save-selected-window (funcall opener))
-                       (funcall opener)))
+                     (funcall opener))
                     (t
                      (sly-message error-message)))))))))
 
@@ -6148,14 +6149,18 @@ was called originally."
 (defmacro sly-inspector-fontify (face string)
   `(sly-add-face ',(intern (format "sly-inspector-%s-face" face)) ,string))
 
-(cl-defun sly--open-inspector (inspected-parts &key point kill-hook inspector-name)
+(cl-defun sly--open-inspector (inspected-parts &key point kill-hook inspector-name (switch t))
   "Display INSPECTED-PARTS in a new inspector window.
-Optionally set point to POINT. If KILL-HOOK is provided, it is added to local
-KILL-BUFFER hooks for the inspector buffer."
+Optionally set point to POINT. If KILL-HOOK is provided, it is
+added to local KILL-BUFFER hooks for the inspector
+buffer. INSPECTOR-NAME is the name of the target inspector, or
+nil if the default one is to be used. SWITCH indicates the
+buffer should be switched to (defaults to t)"
   (sly-with-popup-buffer ((sly-buffer-name :inspector
                                            :connection t
                                            :suffix inspector-name)
                           :mode 'sly-inspector-mode
+                          :select switch
                           :same-window-p (and (eq major-mode 'sly-inspector-mode)
                                               (or (null inspector-name)
                                                   (eq sly--this-inspector-name inspector-name)))
