@@ -1,11 +1,21 @@
 [![Build Status](https://travis-ci.org/capitaomorte/sly.png?branch=master)](https://travis-ci.org/capitaomorte/sly)
 
-Overview
---------
+```
+          _____    __   __  __        
+         / ___/   / /   \ \/ /               |\      _,,,---,,_
+         \__ \   / /     \  /                /,`.-'`'    -.  ;-;;,_
+        ___/ /  / /___   / /                |,4-  ) )-,_..;\ (  `'-'
+       /____/  /_____/  /_/                '---''(_/--'  `-'\_)
 
-SLY is a Common Lisp IDE and a fork of [SLIME][1].
+```
 
-Read the [NEWS.md][6] file for the latest news.
+SLY is a Common Lisp IDE for Emacs.
+
+See it in action [this screencast][7]. SLY is currently **alpha** status but
+read the [NEWS.md][6] file for the latest news.
+
+SLY is a fork of [SLIME][1], which is the work of Eric Marsden, Luke Gorrie,
+Helmut Eller Tobias, C. Rittweiler and [many-others][8].
 
 Quick setup instructions
 ------------------------
@@ -37,7 +47,7 @@ Licence
 -------
 
 SLY is free software. All files, unless explicitly stated otherwise, are
-public domain.
+public domain. ASCII artwork by Felix Lee and others.
 
 Contributing
 ------------
@@ -49,6 +59,8 @@ file for instructions on how to contribute.
 [4]: https://github.com/capitaomorte/sly/issues
 [5]: https://github.com/capitaomorte/sly/blob/master/CONTRIBUTING.md
 [6]: https://github.com/capitaomorte/sly/blob/master/NEWS.md
+[7]: https://www.youtube.com/watch?v=xqWkVvubnSI
+[8]: http://common-lisp.net/project/slime/doc/html/Credits.html#Credits
 
 <!-- Local Variables: -->
 <!-- fill-column: 80 -->
