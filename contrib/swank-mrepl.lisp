@@ -77,7 +77,8 @@
                          (unless errored 
                            (push err (mrepl-pending-errors repl))
                            (setq aborted err errored err)
-                           (send-prompt repl errored)))))
+                           (with-listener repl
+                             (send-prompt repl errored))))))
            (setq results (mrepl-eval-1 repl string)
                  ;; If MREPL-EVAL-1 errored once but somehow
                  ;; recovered, set ABORTED to nil
