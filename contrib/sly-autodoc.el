@@ -202,7 +202,7 @@ display multiline arglist"
                   t))))
 
 (defadvice eldoc-display-message-no-interference-p
-    (after sly-autodoc-message-ok-p)
+    (after sly-autodoc-message-ok-p activate)
   (when sly-autodoc-mode
     (setq ad-return-value
           (and ad-return-value
