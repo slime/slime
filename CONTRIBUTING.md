@@ -22,7 +22,7 @@ retrieve information from the running Common Lisp system.
 * `contrib/*`: Lisp related code for fancy add-ons to SLY.
 
 
-## Architecture changes betwen SLY and SLIME
+## Architecture
 
 As of time of writing (SLY 1.0, SLIME 2.9) there aren't many big
 differences between the two, except for the following list. If it's
@@ -31,21 +31,28 @@ you're interested in stayed the same.
 
 ### SWANK-loading method
 
-- SLIME immediately tells the Lisp process started by Emacs to use its
-  own "swank-loader.lisp" to compile and load all possibly available
-  lisp under its directory (including contrib's) before the SWANK
-  server is created with `SWANK:CREATE-SERVER`.
+SLIME immediately tells the Lisp process started by Emacs to use its
+own "swank-loader.lisp" to compile and load all possibly available
+lisp under its directory (including contrib's) before the SWANK server
+is created with `SWANK:CREATE-SERVER`.
 
-- SLY, by default, looks for ASDF capabilities in process and, if
-  they're available loads, SWANK like a regular ASDF
-  system. Supporting Lisp code for contribs is loaded on demand by
-  `sly-load-contribs`.
+In SLY, the elisp variable `sly-init-function` is set to
+`sly-init-using-asdf` by default, meaning that `M-x sly` will try to
+load SWANK via `ASDF:LOAD-SYSTEM`.
 
-- Additionally, SLY will fallback to it's own version of
-  `swank-loader.lisp` if it can't find ASDF in the Lisp process. This
-  version of `swank-loader.lisp` also supports on-demand loading of
-  contrib's code, so that any of the two methods is transparent from
-  Emacs's perspective.
+Contribs are also represented as ASDF system, so subsequent contrib
+requests also load these on-demand via `ASDF:LOAD-SYSTEM` rather than
+always forcing them on the user's Lisp runtime.
+
+The previous item allows the developer to write completely independent
+third-party extensions to SLY, with both SLY and SWANK. See the URL
+http://github.com/capitaomorte/sly-hello-world for an example
+extension.
+
+Additionally, if SLY detects that ASDF is not available in the Lisp
+runtime, it will fallback to the old `swank-loader.lisp` mechanism,
+which has also been revised to support the previous two use cases. Any
+of the two methods is transparent from Emacs's perspective.
 
 ### mREPL
 
