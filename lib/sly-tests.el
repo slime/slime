@@ -588,7 +588,7 @@ string buffer position filename policy)")
                        (lambda (pattern arglist)
                          (and arglist (string-match pattern arglist))))))
 
-(defun sly-test--compile-defun (program subfrom)
+(defun sly-test--compile-defun (program subform)
   (sly-check-top-level)
   (with-temp-buffer
     (lisp-mode)
@@ -646,10 +646,11 @@ Confirm that the EXPECTED subform is correctly located."
     '(("(defun foo ()
           #+#.'(:and) (/ 1 0))"
        (/ 1 0)))
-  (sly-test--compile-defun program subform))
+  (sly-test--compile-defun program expected))
 
-;; SBCL used to pass this one but since they changed the
-;; backquote/unquote reader it fails.
+;; SBCL used to pass this one but since 1.2.2 the backquote/unquote
+;; reader was changed. See
+;; https://bugs.launchpad.net/sbcl/+bug/1361502q
 (def-sly-test (compile-defun-with-backquote
                (:fails-for "allegro" "lispworks" "clisp"))
   (program subform)
