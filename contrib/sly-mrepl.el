@@ -7,6 +7,7 @@
 (require 'comint)
 (define-sly-contrib sly-mrepl
   "Multiple REPLs."
+  (:license "GPL")
   (:swank-dependencies swank-mrepl)
   (:on-load
    ;; Define a new "part action" for the `sly-part' buttons and change
