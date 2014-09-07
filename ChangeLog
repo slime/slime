@@ -1,5 +1,13 @@
 2014-09-07  Helmut Eller  <heller@common-lisp.net>
 
+	Replace cl-values with list because that's shorter.
+
+	* slime.el (slime-group-and-sort-notes,
+	(slime-insert-compilation-log)
+	(slime-goto-next-xref): Use list.
+
+2014-09-07  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-cmucl.lisp, swank-scl.lisp (*source-snippet-size*):
 	Remove redundant definitions.
 

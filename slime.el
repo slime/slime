@@ -2743,7 +2743,7 @@ Each newlines and following indentation is replaced by a single space."
 
 (defun slime-insert-compilation-log (notes)
   "Insert NOTES in format suitable for `compilation-mode'."
-  (cl-multiple-value-bind (grouped-notes canonicalized-locs-table)
+  (cl-destructuring-bind (grouped-notes canonicalized-locs-table)
       (slime-group-and-sort-notes notes)
     (with-temp-message "Preparing compilation log..."
       (let ((inhibit-read-only t)
@@ -2827,23 +2827,23 @@ This is quite an expensive operation so use carefully."
               (when (slime-location-p loc)
                 (puthash note (slime-canonicalized-location loc) locs))))
           notes)
-    (cl-values (slime-group-similar
-                (lambda (n1 n2)
-                  (equal (gethash n1 locs nil) (gethash n2 locs t)))
-                (let* ((bottom most-negative-fixnum)
-                       (+default+ (list "" bottom bottom)))
-                  (sort notes
-                        (lambda (n1 n2)
-                          (cl-destructuring-bind (filename1 line1 col1)
-                              (gethash n1 locs +default+)
-                            (cl-destructuring-bind (filename2 line2 col2)
-                                (gethash n2 locs +default+)
-                              (cond ((string-lessp filename1 filename2) t)
-                                    ((string-lessp filename2 filename1) nil)
-                                    ((< line1 line2) t)
-                                    ((> line1 line2) nil)
-                                    (t (< col1 col2)))))))))
-               locs)))
+    (list (slime-group-similar
+           (lambda (n1 n2)
+             (equal (gethash n1 locs nil) (gethash n2 locs t)))
+           (let* ((bottom most-negative-fixnum)
+                  (+default+ (list "" bottom bottom)))
+             (sort notes
+                   (lambda (n1 n2)
+                     (cl-destructuring-bind ((filename1 line1 col1)
+                                             (filename2 line2 col2))
+                         (list (gethash n1 locs +default+)
+                               (gethash n2 locs +default+))
+                       (cond ((string-lessp filename1 filename2) t)
+                             ((string-lessp filename2 filename1) nil)
+                             ((< line1 line2) t)
+                             ((> line1 line2) nil)
+                             (t (< col1 col2))))))))
+          locs)))
 
 (defun slime-note.severity (note)
   (plist-get note :severity))
@@ -4741,10 +4741,10 @@ This is used by `slime-goto-next-xref'")
   "Goto the next cross-reference location."
   (if (not (buffer-live-p slime-xref-last-buffer))
       (error "No XREF buffer alive.")
-    (cl-multiple-value-bind (location pos)
+    (cl-destructuring-bind (location pos)
         (with-current-buffer slime-xref-last-buffer
-          (cl-values (slime-search-property 'slime-location backward)
-                     (point)))
+          (list (slime-search-property 'slime-location backward)
+                (point)))
       (cond ((slime-location-p location)
              (slime-pop-to-location location)
              ;; We do this here because changing the location can take
