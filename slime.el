@@ -1155,7 +1155,7 @@ Return true if we have been given permission to continue."
                               slime-net-processes
                               :key #'slime-inferior-process)))
            (when conn
-             (slime-net-close conn))))
+             (slime-net-close conn)))
          (get-buffer-process buffer))
         (t (slime-start-lisp program program-args env directory
                              (generate-new-buffer-name buffer)))))
