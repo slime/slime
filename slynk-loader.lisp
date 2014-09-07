@@ -32,7 +32,7 @@
                  :defaults (or *load-pathname* *default-pathname-defaults*))
   "The directory where to look for the source.")
 
-(defvar *load-path* '()
+(defvar *load-path* nil
   "A list of directories to search for modules.")
 
 (defparameter *sysdep-files*

@@ -15,7 +15,8 @@
    #:slynk-reader-error
    #:slynk-reader-error.packet
    #:slynk-reader-error.cause
-   #:write-message))
+   #:write-message
+   #:*translating-swank-to-slynk*))
 
 (in-package :slynk-rpc)
 
@@ -66,45 +67,60 @@
           (t
            (error "Short read: length=~D  count=~D" length count)))))
 
-;; FIXME: no one ever tested this and will probably not work.
-(defparameter *validate-input* nil
-  "Set to true to require input that strictly conforms to the protocol")
+(defparameter *translating-swank-to-slynk* t
+  "Set to true to ensure SWANK*::SYMBOL is interned SLYNK*::SYMBOL.
+Set by default to T to ensure that bootstrapping can occur from
+clients sending strings like this on the wire. 
+
+   (:EMACS-REX (SWANK:CONNECTION-INFO) NIL T 1)
+
+*before* the slynk-retro.lisp contrib kicks in and renames SLYNK*
+packages to SWANK*. After this happens, this variable is set to NIL,
+since the translation is no longer necessary.
+
+The user that is completely sure that Slynk will always be contacted
+by SLY clients **without** the sly-retro.el contrib, can also set this
+to NIL in her ~/.swankrc. Generally best left alone.")
 
 (defun read-form (string package)
   (with-standard-io-syntax
     (let ((*package* package))
-      (if *validate-input*
-          (validating-read string)
+      (if *translating-swank-to-slynk*
+          (with-input-from-string (*standard-input* string)
+            (translating-read))
           (read-from-string string)))))
 
-(defun validating-read (string)
-  (with-input-from-string (*standard-input* string)
-    (simple-read)))
-
-(defun simple-read ()
-   "Read a form that conforms to the protocol, otherwise signal an error."
-   (let ((c (read-char)))
-     (case c
-       (#\" (with-output-to-string (*standard-output*)
-              (loop for c = (read-char) do
-                    (case c
-                      (#\" (return))
-                      (#\\ (write-char (read-char)))
-                      (t (write-char c))))))
-       (#\( (loop collect (simple-read)
-                  while (ecase (read-char)
-                          (#\) nil)
-                          (#\space t))))
-       (#\' `(quote ,(simple-read)))
-       (t (let ((string (with-output-to-string (*standard-output*)
-                          (loop for ch = c then (read-char nil nil) do
-                                (case ch
-                                  ((nil) (return))
-                                  (#\\ (write-char (read-char)))
-                                  ((#\space #\)) (unread-char ch)(return))
-                                  (t (write-char ch)))))))
-            (cond ((digit-char-p c) (parse-integer string))
-                  ((intern string))))))))
+(defun maybe-convert-package-designator (string)
+  (let ((colon-pos (position #\: string))
+        (search (search "SWANK" string :test #'char-equal)))
+    (if (and search colon-pos)
+        (nstring-upcase (replace string "SLYNK"))
+        string)))
+ 
+(defun translating-read ()
+  "Read a form that conforms to the protocol, otherwise signal an error."
+  (let ((c (read-char)))
+    (case c
+      (#\" (with-output-to-string (*standard-output*)
+             (loop for c = (read-char) do
+               (case c
+                 (#\" (return))
+                 (#\\ (write-char (read-char)))
+                 (t (write-char c))))))
+      (#\( (loop collect (translating-read)
+                 while (ecase (read-char)
+                         (#\) nil)
+                         (#\space t))))
+      (#\' `(quote ,(translating-read)))
+      (t (let ((string (with-output-to-string (*standard-output*)
+                         (loop for ch = c then (read-char nil nil) do
+                           (case ch
+                             ((nil) (return))
+                             (#\\ (write-char (read-char)))
+                             ((#\space #\)) (unread-char ch)(return))
+                             (t (write-char ch)))))))
+           (read-from-string
+            (maybe-convert-package-designator string)))))))
 
 
 ;;;;; Output

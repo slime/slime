@@ -104,7 +104,10 @@
   :components ((:file "contrib/slynk-clipboard")))
 
 (defsystem :slynk-indentation
-  :components ((:file "contrib/slynk-indentation")))
+    :components ((:file "contrib/slynk-indentation")))
+
+(defsystem :slynk-retro
+  :components ((:file "contrib/slynk-retro")))
 
 (asdf:defsystem :slynk-contribs
     :depends-on

@@ -89,7 +89,7 @@ This is used to load the supporting Common Lisp library, Slynk.
 The default value is automatically computed from the location of the
 Emacs Lisp package."))
 
-(defvar sly-contribs '(sly-fancy)
+(defvar sly-contribs '(sly-fancy sly-retro)
   "A list of contrib packages to load with SLY.")
 (define-obsolete-variable-alias 'sly-setup-contribs
 'sly-contribs "2.3.2")
@@ -1364,11 +1364,18 @@ first line of the file."
   (cl-third (sly-find-coding-system coding-system)))
 
 ;;; Interface
+(defvar sly-net-send-translator nil
+  "If non-nil, function to translate outgoing sexps for the wire.")
+
 (defun sly-net-send (sexp proc)
   "Send a SEXP to Lisp over the socket PROC.
 This is the lowest level of communication. The sexp will be READ and
 EVAL'd by Lisp."
-  (let* ((payload (encode-coding-string
+  (let* ((sexp (if (and sly-net-send-translator
+                        (fboundp sly-net-send-translator))
+                   (funcall sly-net-send-translator sexp)
+                 sexp))
+         (payload (encode-coding-string
                    (concat (sly-prin1-to-string sexp) "\n")
                    'utf-8-unix))
          (string (concat (sly-net-encode-length (length payload))

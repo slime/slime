@@ -2739,7 +2739,8 @@ managed to load it.")
   (:method ((method (eql :asdf)) path)
     (add-to-load-path-1 path (intern "*CENTRAL-REGISTRY*" :asdf))))
 
-(defvar *add-to-load-path* nil)
+(defvar *slynk-require-hook* '()
+  "Functions run after SLYNK-REQUIRE. Called with new modules.")
 
 (defslyfun slynk-require (modules)
   "Load each module in MODULES.
@@ -2748,7 +2749,9 @@ MODULES is a list of strings designators or a single string
 designator. Returns a list of all modules available."
   (dolist (module (ensure-list modules))
     (funcall #'require-module *module-loading-method* module)
-    (pushnew (string-upcase module) *modules* :test #'equal))
+    (pushnew (string-upcase module) *modules* :test #'equal)
+    (loop for fn in *slynk-require-hook*
+          do (funcall fn modules)))
   *modules*)
 
 (defslyfun slynk-add-load-paths (paths)
@@ -4036,7 +4039,9 @@ Collisions are caused because package information is ignored."
                ;;
                #:package-string-for-prompt
                ;;
-               #:*slynk-wire-protocol-version*)))
+               #:*slynk-wire-protocol-version*
+               ;;
+               #:*slynk-require-hook*)))
     (loop for sym in api
           for slynk-api-sym = (intern (string sym) :slynk-api)
           for slynk-sym = (intern (string sym) :slynk)
