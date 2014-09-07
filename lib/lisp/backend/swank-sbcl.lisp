@@ -1709,10 +1709,10 @@ stack."
   ;; file is loaded -- so first we need a dummy definition that will be
   ;; overridden by swank-gray.lisp.
   (defclass swank-backend::sly-output-stream
-      (fundamental-character-output-stream)
+      (sb-gray:fundamental-character-output-stream)
     ())
   (defmethod swank-backend::stream-force-output
-      :around ((stream sly-output-stream))
+      :around ((stream swank-backend::sly-output-stream))
     (handler-case
         (sb-sys:with-deadline (:seconds 0.1)
           (call-next-method))
