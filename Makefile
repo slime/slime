@@ -48,7 +48,7 @@ compile: $(ELCFILES)
 SELECTOR=t
 
 check: compile
-	${EMACS} -Q --batch $(LOAD_PATH)				\
+	$(EMACS) -Q --batch $(LOAD_PATH)				\
 		--eval "(require 'slime-tests)"				\
 		--eval "(slime-setup)"					\
 		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
@@ -59,11 +59,23 @@ check: compile
 # FIXME: Not terribly useful until bugs in ert-run-tests-interactively
 # are fixed.
 test: compile
-	${EMACS} -Q -nw $(LOAD_PATH)					\
+	$(EMACS) -Q -nw $(LOAD_PATH)					\
 		--eval "(require 'slime-tests)"				\
 		--eval "(slime-setup)"					\
 		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
 		--eval '(slime-batch-test (quote $(SELECTOR)))'
+
+compile-swank:
+	echo '(load "swank-loader.lisp")' '(swank-loader:init :setup nil)' \
+	| $(LISP)
+
+run-swank:
+	{ echo \
+	'(load "swank-loader.lisp")' \
+	'(swank-loader:init)' \
+	'(swank:create-server)' \
+	&& cat; } \
+	| $(LISP)
 
 elpa-slime:
 	echo "Not implemented yet: elpa-slime target" && exit 255
@@ -76,12 +88,14 @@ FASLREGEX = .*\.\(fasl\|ufasl\|sse2f\|lx32fsl\|abcl\|fas\|lib\|trace\)$$
 
 clean-fasls:
 	find . -regex '$(FASLREGEX)' -exec rm -v {} \;
+	[ -d ~/.slime/fasl ] && rm -rf ~/.slime/fasl
+
 clean: clean-fasls
 	find . -iname '*.elc' -exec rm {} \;
 
 
 # Contrib stuff. Should probably also go to contrib/
-# 
+#
 MAKECONTRIB=$(MAKE) -C contrib EMACS="$(EMACS)" LISP="$(LISP)"
 contrib-check-% check-%:
 	$(MAKECONTRIB) $(@:contrib-%=%)
