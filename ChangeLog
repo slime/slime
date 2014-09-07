@@ -1,5 +1,10 @@
 2014-09-07  Helmut Eller  <heller@common-lisp.net>
 
+	* Makefile (compile-swank, run-swank): New targets.
+	(clean-fasls): Also remove ~/.slime/fasl/.
+
+2014-09-07  Helmut Eller  <heller@common-lisp.net>
+
 	Clear all tests out at the beginning.
 
 	* slime-tests.el (slime-tests--undefine-all): New function.
