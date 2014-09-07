@@ -762,12 +762,6 @@ This is a workaround for a CMUCL bug: XREF records are cumulative."
   "When true don't handle errors while looking for definitions.
 This is useful when debugging the definition-finding code.")
 
-(defvar *source-snippet-size* 256
-  "Maximum number of characters in a snippet of source code.
-Snippets at the beginning of definitions are used to tell Emacs what
-the definitions looks like, so that it can accurately find them by
-text search.")
-
 (defmacro safe-definition-finding (&body body)
   "Execute BODY and return the source-location it returns.
 If an error occurs and `*debug-definition-finding*' is false, then
