@@ -1,14 +1,17 @@
 ;;;;                  -*- indent-tabs-mode: nil; outline-regexp: ";;;;;* "; -*-
 ;;;
-;;; swank-allegro.lisp --- Allegro CL specific code for SLY. 
+;;; swank-allegro.lisp --- Allegro CL specific code for SLY.
 ;;;
 ;;; Created 2003
 ;;;
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
-;;;  
+;;;
 
-(in-package :swank-backend)
+(defpackage swank-allegro
+  (:use cl swank-backend))
+
+(in-package swank-allegro)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :sock)
@@ -724,7 +727,7 @@ to do this, this factors in the length of the inserted header itself."
   ;; If the profiler is restarted when the data from the previous
   ;; session is not reported yet, the user is warned via Y-OR-N-P.
   ;; As the CL:Y-OR-N-P question is (for some reason) not directly
-  ;; sent to the Slime user, the function CL:Y-OR-N-P is temporarily
+  ;; sent to the Sly user, the function CL:Y-OR-N-P is temporarily
   ;; overruled.
   `(let* ((pkg       (find-package :common-lisp))
           (saved-pdl (excl::package-definition-lock pkg))

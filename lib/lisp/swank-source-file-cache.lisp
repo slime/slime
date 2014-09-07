@@ -20,7 +20,20 @@
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
 
-(in-package :swank-backend)
+(defpackage swank-source-file-cache
+  (:use cl swank-backend)
+  (:import-from swank-backend
+		defimplementation buffer-first-change)
+  (:export
+   get-source-code
+   source-cache-get ;FIXME: isn't it odd that both are exported?
+
+   *source-snippet-size*
+   read-snippet
+   read-snippet-from-string
+   ))
+
+(in-package swank-source-file-cache)
 
 (defvar *cache-sourcecode* t
   "When true complete source files are cached.
@@ -119,4 +132,3 @@ If POSITION is given, set the STREAM's file position first."
   (let* ((string (make-string n))
          (chars  (read-sequence string stream)))
     (subseq string 0 chars)))
-

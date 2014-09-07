@@ -13,7 +13,10 @@
 ;;; The LLGPL is also available online at
 ;;; http://opensource.franz.com/preamble.html
 
-(in-package :swank-backend)
+(defpackage swank-ccl
+  (:use cl swank-backend))
+
+(in-package swank-ccl)
 
 (eval-when (:compile-toplevel :execute :load-toplevel)
   (assert (and (= ccl::*openmcl-major-version* 1)

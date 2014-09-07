@@ -8,9 +8,10 @@
 
 ;;; Administrivia
 
-(in-package :swank-backend)
+(defpackage swank-ecl
+  (:use cl swank-backend))
 
-
+(in-package swank-ecl)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun ecl-version ()

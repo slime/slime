@@ -1,14 +1,17 @@
 ;;;; -*- indent-tabs-mode: nil; outline-regexp: ";;;;;*"; -*-
 ;;;
-;;; swank-abcl.lisp --- Armedbear CL specific code for SLY. 
+;;; swank-abcl.lisp --- Armedbear CL specific code for SLY.
 ;;;
 ;;; Adapted from swank-acl.lisp, Andras Simon, 2004
 ;;;
 ;;; This code has been placed in the Public Domain.  All warranties
-;;; are disclaimed. 
-;;;  
+;;; are disclaimed.
+;;;
 
-(in-package :swank-backend)
+(defpackage swank-abcl
+  (:use cl swank-backend))
+
+(in-package swank-abcl)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :collect) ;just so that it doesn't spoil the flying letters

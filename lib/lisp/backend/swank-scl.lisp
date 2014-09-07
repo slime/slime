@@ -6,7 +6,10 @@
 ;;; are disclaimed.
 ;;;
 
-(in-package :swank-backend)
+(defpackage swank-scl
+  (:use cl swank-backend swank-source-path-parser swank-source-file-cache))
+
+(in-package swank-scl)
 
 
 
