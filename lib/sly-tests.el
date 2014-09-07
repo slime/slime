@@ -80,6 +80,14 @@ Exits Emacs when finished. The exit code is the number of failed tests."
     (message (concat "SKIPPING: " message))
     (ert-pass)))
 
+(defun sly-tests--undefine-all ()
+  (dolist (test (ert-select-tests t t))
+    (let ((sym (ert-test-name test)))
+      (cl-assert (eq (get sym 'ert--test) test))
+      (remprop sym 'ert--test))))
+
+(sly-tests--undefine-all)
+
 (eval-and-compile
   (defun sly-tests-auto-tags ()
     (append '(sly)
