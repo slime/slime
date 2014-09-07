@@ -98,10 +98,11 @@ places the cursor at the start of the DEFPACKAGE form."
                      t)))
     (or (try (slime-find-package-definition-rpc package))
 	(try (slime-find-package-definition-regexp package))
-	(try (when-let (package-file (slime-find-possible-package-file
-                                      (buffer-file-name)))
-	       (with-current-buffer (find-file-noselect package-file t)
-		 (slime-find-package-definition-regexp package))))
+	(try (let ((package-file (slime-find-possible-package-file
+				  (buffer-file-name))))
+	       (when package-file
+		 (with-current-buffer (find-file-noselect package-file t)
+		   (slime-find-package-definition-regexp package)))))
 	(error "Couldn't find source definition of package: %s" package))))
 
 (defun slime-at-expression-p (pattern)

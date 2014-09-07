@@ -209,9 +209,10 @@ conditions (assertions)."
 
 ;; XXX: unused function
 (defun slime-check-sldb-level (expected)
-  (let ((sldb-level (when-let (sldb (sldb-get-default-buffer))
-                      (with-current-buffer sldb
-                        sldb-level))))
+  (let ((sldb-level (let ((sldb (sldb-get-default-buffer)))
+		      (if sldb
+			  (with-current-buffer sldb
+			    sldb-level)))))
     (slime-check ("SLDB level (%S) is %S" expected sldb-level)
       (equal expected sldb-level))))
 
@@ -223,9 +224,10 @@ conditions (assertions)."
     (should (equal expected actual))))
 
 (defun sldb-level ()
-  (when-let (sldb (sldb-get-default-buffer))
-    (with-current-buffer sldb
-      sldb-level)))
+  (let ((sldb (sldb-get-default-buffer)))
+    (if sldb
+	(with-current-buffer sldb
+	  sldb-level))))
 
 (defun slime-sldb-level= (level)
   (equal level (sldb-level)))
@@ -1145,9 +1147,8 @@ on *DEBUGGER-HOOK*."
                                                (cl:setq condition c)
                                                (cl:continue))))
                                   ,expr))
-                         (cl:and (cl:typep condition 'cl:condition)
-                                 (cl:string (cl:type-of condition)))))))
-    (slime-test-expect "Debugger invoked" "END-OF-FILE" value)))
+                         (cl:and (cl:typep condition 'cl:end-of-file))))))
+    (slime-test-expect "Debugger invoked" t value)))
 
 (def-slime-test interrupt-at-toplevel
     ()

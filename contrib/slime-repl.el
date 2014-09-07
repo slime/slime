@@ -203,8 +203,9 @@ current repl's (as per slime-output-buffer) window."
     (slime-set-query-on-exit-flag stream)
     (set-process-filter stream 'slime-output-filter)
     (set-process-coding-system stream emacs-coding-system emacs-coding-system)
-    (when-let (secret (slime-secret))
-      (slime-net-send secret stream))
+    (let ((secret (slime-secret)))
+      (when secret
+	(slime-net-send secret stream)))
     (run-hook-with-args 'slime-open-stream-hooks stream)
     stream))
 

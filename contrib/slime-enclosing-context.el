@@ -35,13 +35,12 @@
   (and (slime-lookup-binding-op op binding-type) t))
 
 (defun slime-binding-op-body-pos (op)
-  (when-let (special-lambda-list (slime-lookup-binding-op op))
-    (cl-position '&body special-lambda-list)))
+  (let ((special-lambda-list (slime-lookup-binding-op op)))
+    (if special-lambda-list (cl-position '&body special-lambda-list))))
 
 (defun slime-binding-op-bindings-pos (op)
-  (when-let (special-lambda-list (slime-lookup-binding-op op))
-    (cl-position '&bindings special-lambda-list)))
-
+  (let ((special-lambda-list (slime-lookup-binding-op op)))
+    (if special-lambda-list (cl-position '&bindings special-lambda-list))))
 
 (defun slime-enclosing-bound-names ()
   "Returns all bound function names as first value, and the

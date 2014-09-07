@@ -657,14 +657,6 @@ This list of flushed between commands."))
 ;;;
 ;;;;; Syntactic sugar
 
-(cl-defmacro when-let ((var value) &rest body)
-  "Evaluate VALUE, if the result is non-nil bind it to VAR and eval BODY.
-
-\(fn (VAR VALUE) &rest BODY)"
-  (declare (indent 1))
-  `(let ((,var ,value))
-     (when ,var ,@body)))
-
 (defmacro destructure-case (value &rest patterns)
   (declare (indent 1))
   "Dispatch VALUE to one of PATTERNS.
@@ -1123,12 +1115,13 @@ DIRECTORY change to this directory before starting the process.
 
 (defun slime-bytecode-stale-p ()
   "Return true if slime.elc is older than slime.el."
-  (when-let (libfile (locate-library "slime"))
-    (let* ((basename (file-name-sans-extension libfile))
-           (sourcefile (concat basename ".el"))
-           (bytefile (concat basename ".elc")))
-      (and (file-exists-p bytefile)
-           (file-newer-than-file-p sourcefile bytefile)))))
+  (let ((libfile (locate-library "slime")))
+    (when libfile
+      (let* ((basename (file-name-sans-extension libfile))
+             (sourcefile (concat basename ".el"))
+             (bytefile (concat basename ".elc")))
+        (and (file-exists-p bytefile)
+             (file-newer-than-file-p sourcefile bytefile))))))
 
 (defun slime-recompile-bytecode ()
   "Recompile and reload slime."
@@ -1158,10 +1151,11 @@ Return true if we have been given permission to continue."
   (cond ((not (comint-check-proc buffer))
          (slime-start-lisp program program-args env directory buffer))
         ((slime-reinitialize-inferior-lisp-p program program-args env buffer)
-         (when-let (conn (cl-find (get-buffer-process buffer)
-                                  slime-net-processes
-                                  :key #'slime-inferior-process))
-           (slime-net-close conn))
+         (let ((conn (cl-find (get-buffer-process buffer)
+                              slime-net-processes
+                              :key #'slime-inferior-process)))
+           (when conn
+             (slime-net-close conn))))
          (get-buffer-process buffer))
         (t (slime-start-lisp program program-args env directory
                              (generate-new-buffer-name buffer)))))
@@ -1393,8 +1387,9 @@ first line of the file."
     (slime-set-query-on-exit-flag proc)
     (when (fboundp 'set-process-coding-system)
       (set-process-coding-system proc 'binary 'binary))
-    (when-let (secret (slime-secret))
-      (slime-net-send secret proc))
+    (let ((secret (slime-secret)))
+      (when secret
+        (slime-net-send secret proc)))
     proc))
 
 (defun slime-make-net-buffer (name)
@@ -1830,16 +1825,17 @@ This is automatically synchronized from Lisp.")
         (setf (slime-machine-instance) instance))
       (cl-destructuring-bind (&key coding-systems) encoding
         (setf (slime-connection-coding-systems) coding-systems)))
-    (let ((args (when-let (p (slime-inferior-process))
-                  (slime-inferior-lisp-args p))))
-      (when-let (name (plist-get args ':name))
-        (unless (string= (slime-lisp-implementation-name) name)
-          (setf (slime-connection-name)
-                (slime-generate-connection-name (symbol-name name)))))
+    (let ((args (let ((p (slime-inferior-process)))
+                  (if p (slime-inferior-lisp-args p)))))
+      (let ((name (plist-get args ':name)))
+        (when name
+          (unless (string= (slime-lisp-implementation-name) name)
+            (setf (slime-connection-name)
+                  (slime-generate-connection-name (symbol-name name))))))
       (slime-load-contribs)
       (run-hooks 'slime-connected-hook)
-      (when-let (fun (plist-get args ':init-function))
-        (funcall fun)))
+      (let ((fun (plist-get args ':init-function)))
+        (when fun (funcall fun))))
     (message "Connected. %s" (slime-random-words-of-encouragement))))
 
 (defun slime-check-version (version conn)
@@ -3001,9 +2997,10 @@ first element of the source-path redundant."
   (ignore-errors
     (slime-forward-sexp)
     (beginning-of-defun))
-  (when-let (source-path (cdr source-path))
-    (down-list 1)
-    (slime-forward-source-path source-path)))
+  (let ((source-path (cdr source-path)))
+    (when source-path
+      (down-list 1)
+      (slime-forward-source-path source-path))))
 
 (defun slime-forward-source-path (source-path)
   (let ((origin (point)))
@@ -3316,14 +3313,12 @@ are supported:
         (slime-goto-location-position
          (slime-location.position location))
       (error (goto-char 0)))
-    (let ((hints (slime-location.hints location)))
-      (when-let (snippet (cl-getf hints :snippet))
-        (slime-isearch snippet))
-      (when-let (snippet (cl-getf hints :edit-path))
-        (slime-search-edit-path snippet))
-      (when-let (fname (cl-getf hints :call-site))
-        (slime-search-call-site fname))
-      (when (cl-getf hints :align)
+    (cl-destructuring-bind (&key snippet edit-path call-site align)
+        (slime-location.hints location)
+      (when snippet (slime-isearch snippet))
+      (when edit-path (slime-search-edit-path edit-path))
+      (when call-site (slime-search-call-site call-site))
+      (when align
         (slime-forward-sexp)
         (beginning-of-sexp)))
     (point)))
@@ -4723,10 +4718,11 @@ This is used by `slime-goto-next-xref'")
     (save-excursion
       (goto-char (point-min))
       (while (ignore-errors (slime-next-line/not-add-newlines) t)
-        (when-let (loc (get-text-property (point) 'slime-location))
-          (let* ((dspec (slime-xref-dspec-at-point))
-                 (xref  (make-slime-xref :dspec dspec :location loc)))
-            (push xref xrefs)))))
+        (let ((loc (get-text-property (point) 'slime-location)))
+          (when loc
+            (let* ((dspec (slime-xref-dspec-at-point))
+                   (xref  (make-slime-xref :dspec dspec :location loc)))
+              (push xref xrefs))))))
     (nreverse xrefs)))
 
 (defun slime-goto-xref ()
@@ -5333,25 +5329,26 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
 
 (defun sldb-exit (thread _level &optional stepping)
   "Exit from the debug level LEVEL."
-  (when-let (sldb (sldb-find-buffer thread))
-    (with-current-buffer sldb
-      (cond (stepping
-             (setq sldb-level nil)
-             (run-with-timer 0.4 nil 'sldb-close-step-buffer sldb))
-            ((not (eq sldb (window-buffer (selected-window))))
-             ;; A different window selection means an indirect,
-             ;; non-interactive exit, we just kill the sldb buffer.
-             (kill-buffer))
-            (t
-             ;; An interactive exit should restore configuration per
-             ;; `quit-window's protocol. FIXME: remove
-             ;; `previous-window' hack when dropping Emacs23 support
-             (let ((previous-window (window-parameter (selected-window)
-                                                      'sldb-restore)))
-               (quit-window t)
-               (if (and (not (>= emacs-major-version 24))
-                        (window-live-p previous-window))
-                   (select-window previous-window))))))))
+  (let ((sldb (sldb-find-buffer thread)))
+    (when sldb
+      (with-current-buffer sldb
+        (cond (stepping
+               (setq sldb-level nil)
+               (run-with-timer 0.4 nil 'sldb-close-step-buffer sldb))
+              ((not (eq sldb (window-buffer (selected-window))))
+               ;; A different window selection means an indirect,
+               ;; non-interactive exit, we just kill the sldb buffer.
+               (kill-buffer))
+              (t
+               ;; An interactive exit should restore configuration per
+               ;; `quit-window's protocol. FIXME: remove
+               ;; `previous-window' hack when dropping Emacs23 support
+               (let ((previous-window (window-parameter (selected-window)
+                                                        'sldb-restore)))
+                 (quit-window t)
+                 (if (and (not (>= emacs-major-version 24))
+                          (window-live-p previous-window))
+                     (select-window previous-window)))))))))
 
 (defun sldb-close-step-buffer (buffer)
   (when (buffer-live-p buffer)

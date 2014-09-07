@@ -1,3 +1,9 @@
+2014-09-07  Helmut Eller  <heller@common-lisp.net>
+
+	Get rid of when-let as it conflicts with a definition subr-x.el
+
+	* slime.el (when-let): Deleted. Update all uses accordingly.
+
 2014-09-02  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* doc/slime.texi: use plain rather than typographical quotes in
