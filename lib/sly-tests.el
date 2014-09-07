@@ -650,7 +650,7 @@ Confirm that the EXPECTED subform is correctly located."
 
 ;; SBCL used to pass this one but since 1.2.2 the backquote/unquote
 ;; reader was changed. See
-;; https://bugs.launchpad.net/sbcl/+bug/1361502q
+;; https://bugs.launchpad.net/sbcl/+bug/1361502
 (def-sly-test (compile-defun-with-backquote
                (:fails-for "allegro" "lispworks" "clisp"))
   (program subform)

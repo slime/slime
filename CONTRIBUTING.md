@@ -1,21 +1,74 @@
 # The SLY Hacker's Handbook
 
+## Reporting bugs
+
+The most important thing when reporting bugs is making sure that the
+developer has a way to reproduce it. To do this, he needs to rule out
+interference from external factors like other Emacs extensions or
+other Lisp-side code. Here's a great example of a bug report
+
+```
+$ emacs --version
+Emacs 24.3
+$ sbcl --version
+SBCL 1.2.1
+$ cd sly
+sly $ emacs -Q -L . -l sly-autoloads --eval '(setq inferior-lisp-program "sbcl")' -f sly
+
+I get the REPL but when I try to X, I get Y
+OR
+I don't get the REPL at all because frankinbogen!
+```
+
+
+## Coding style
+
+This section is very empty, in the meantime try to be sensible and
+emulate or improve on SLY's existing style.
+
+### Commit messages
+
+ChangeLog files are gone! However, the syntax of ChangeLogs is very
+useful to everybody and Emacs supports it perfectly:
+
+* in Emacs, for every snippet that you've changed, type `C-x 4 a` (or
+  `add-change-log-entry-other-window`)
+
+* Emacs will open up a ChangeLog buffer, but this is just a dummy
+  buffer that you can ignore. However, the content inside it should be
+  pasted (sans indentation) to the commit message.
+
+* As an added bonus, if you are using Emacs >= 24.4 and `vc-dir` to
+  prepare your commits, Emacs does that for you automatically.
+
+The benefits of this format are great. One can still use `M-x
+vc-print-log` in a source file and browse through its ChangeLog
+without the hassle of ChangeLog conflicts.
+
+### General philosophy
+
+I keep a sentence of the previous Coding Guide that I like very much.
+
+> Remember that to rewrite a program better is the sincerest form of
+> code appreciation. When you can see a way to rewrite a part of SLY
+> better, please do so!
+
 
 ## Lisp code file structure
 
-The Lisp code is organised into these files:
+The Lisp code is organized into these files:
 
 * `lib/lisp/swank-backend.lisp`: Definition of the interface to non-portable
 features.  Stand-alone.
 
-* `lib/lisp/backebd/swank-<cmucl|...>.lisp`: Backend implementation
+* `lib/lisp/backebd/swank-<cmucl|...>.lisp`: Back-end implementation
 for a specific Common Lisp system.  Uses swank-backend.lisp.
 
 * `lib/lisp/swank.lisp`: The top-level server program, built from the other
 components.  Uses swank-backend.lisp as an interface to the actual
 backends.
 
-* `sly.el`: The the Emacs frontend that the user actually interacts
+* `sly.el`: The Emacs front-end that the user actually interacts
 with and that connects to the SWANK server to send expressions to, and
 retrieve information from the running Common Lisp system.
 
@@ -42,7 +95,7 @@ load SWANK via `ASDF:LOAD-SYSTEM`.
 
 Contribs are also represented as ASDF system, so subsequent contrib
 requests also load these on-demand via `ASDF:LOAD-SYSTEM` rather than
-always forcing them on the user's Lisp runtime.
+always forcing them on the user's Lisp run-time.
 
 The previous item allows the developer to write completely independent
 third-party extensions to SLY, with both SLY and SWANK. See the URL
@@ -50,7 +103,7 @@ http://github.com/capitaomorte/sly-hello-world for an example
 extension.
 
 Additionally, if SLY detects that ASDF is not available in the Lisp
-runtime, it will fallback to the old `swank-loader.lisp` mechanism,
+run-time, it will fallback to the old `swank-loader.lisp` mechanism,
 which has also been revised to support the previous two use cases. Any
 of the two methods is transparent from Emacs's perspective.
 
@@ -60,13 +113,13 @@ of the two methods is transparent from Emacs's perspective.
 `sly-mrepl`, which is a much enhanced version of it and the default
 REPL for SLY. The main difference to the popular `slime-repl` contrib
 is that `sly-mrepl` is based on Emacs's own `comint.el` so that that
-SLY does not need to worry about funcionality like history navigation
+SLY does not need to worry about functionality like history navigation
 and persistent history, which are consistent with other Emacs modes
 based on `comint.el`.
 
-`sly-mrepl` allows multiple REPL's through the use of channels, which
+`sly-mrepl` allows multiple REPLs through the use of channels, which
 are abstraction pioneered in SLIME. Channels are like separate
-mailboxes in the Lisp runtime, and it's slightly different from the
+mailboxes in the Lisp run-time, and it's slightly different from the
 regular `:emacs-rex` RPC calls in that they directly invoke a remote
 method but expect no reply. Switch to the `*sly-events*` buffer to see
 what's going on.
@@ -75,7 +128,7 @@ what's going on.
 
 SLIME's age and historical compatibility with XEmacs means it
 reinvented (and possibly invented) many buffer/window/display managing
-techniques that are avaiable today in GNU Emacs's core. Interactive
+techniques that are available today in GNU Emacs's core. Interactive
 buttons, display-related and completion-code have all been pruned as
 much as possible and now reuse Emacs' own libraries.
 
@@ -83,24 +136,11 @@ Hopefully this will make SLY's code focus on SLY's "business logic"
 and easier to read. 
 
 
-## Coding style
-
-I have yet to write this, in the meantime try to be sensible and
-emulate or improve on SLY's existing style.
-
-I also just keep a sentence of the previous Coding Guide that I like
-very much.
-
-> Remember that to rewrite a program better is the sincerest form of
-> code appreciation. When you can see a way to rewrite a part of SLY
-> better, please do so!
-
-
 ## Pull requests
 
 * Read [how to properly contribute to open source projects on Github][1].
 * Use a topic branch to easily amend a pull request later, if necessary.
-* Commit messages should use the syntax of GNU ChangLog entries.
+* Commit messages should use the syntax of GNU ChangeLog entries.
 * Open a [pull request][2] that relates to *only* one subject with a
   clear title and description in grammatically correct, complete
   sentences.

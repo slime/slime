@@ -6,6 +6,9 @@ SLY 1.0.0-alpha
 
 ### On par with upcoming SLIME 2.10
 
+SLY contains all the bugfixes and backend enhancements contributed to
+SLIME.
+
 ### Completely redesigned REPL
 
 The `sly-mrepl` contrib is a extensively redesigned
@@ -15,7 +18,7 @@ Multiple independent REPL's can be created with the `sly-mrepl-new`
 command.
 
 `sly-mrepl` is fully based on Emacs's `comint.el` and as such has a
-more familar interface for history navigation. `C-r` and `C-M-r`, when
+more familiar interface for history navigation. `C-r` and `C-M-r`, when
 used at the prompt, should provide a bash/zsh-like experience.
 
 The prompt gives a visual indication of long-running evaluations that
@@ -31,27 +34,27 @@ Every return part can be inspected and re-returned as the last value.
 
 Output redirection is automatically setup. The first REPL created is
 the target for all threads' output onto the standard output
-streams. REPLs created afterwards only see their own output. To turn
+streams. REPLs created afterward only see their own output. To turn
 it off configure the SWANK-side variable
-`SWANK-MREPL:*GLOBALLY-REDIRECT-IO*`. Any mREPL created after that
-will not gather other threads' output, and threads assocaited with a
+`SWANK-MREPL:*GLOBALLY-REDIRECT-IO*`. Any REPL created after that
+will not gather other threads' output, and threads associated with a
 REPL will output nowhere.
 
 Dedicated stream for output is automatically set up. Configure the
 `SWANK-MREPL:*USE-DEDICATED-OUTPUT-STREAM*` if it doesn't suit you.
 
-There is saner scrolling behaviour as provided by the `comint.el`
+There is saner scrolling behavior as provided by the `comint.el`
 subtrate. The variables `comint-scroll-show-maximum-output`,
 `comint-scroll-to-bottom-on-input` and
 `comint-scroll-to-bottom-on-output` (which see) are set to `nil` by
 default, but the user might reconfigure them to her liking in the
 `sly-mrepl-hook`.
 
-There are sylvesters.
+There are Sylvesters. See `sly-mrepl-pop-sylvester`.
 
 ### Regexp-capable M-x sly-apropos
 
-If SLY detects that [`cl-ppcre`](http://weitz.de/cl-ppcre/) is
+If SLY detects that [`cl-purr`](http://weitz.de/cl-ppcre/) is
 available in the Lisp side it will try to use it for "apropos"
 searches, otherwise the user is hinted at this possibility. As regexp
 searches are slower, this is only triggered if the pattern is a valid
@@ -71,12 +74,12 @@ By default, SLY enables the `sly-fancy` meta-contrib. This contains
 ### SLY uses ASDF and loads contribs on demand.
 
 If the user sets `sly-contribs` to `sly-mrepl` she can be sure that no
-Lisp code related to other contribs appears in your runtime. Even if
+Lisp code related to other contribs appears in your run-time. Even if
 ASDF is unavailable, an improved version of the `swank-loader.lisp`
 program will also behave non-intrusively.
 
-This change also enables plugin-developers to write completely
-independent third-party extensions like
+This change also enables developers to write completely independent
+third-party extensions like
 [in this example](http://github.com/capitaomorte/sly-hello-world).
 
 See the CONTRIBUTING.md file for more details on architecture changes.
@@ -108,19 +111,19 @@ Interactive commands for inspecting Lisp objects can be prefixed with
 streams are kept. An idea by Olof-Joachim Frahm
 (http://macrolet.net/).
 
-### Copy functionall call to REPL
+### Copy function call to REPL
 
 An experimental feature, from the Trace Dialog or SLDB buffers, a new
 button-action called "Copy call to REPL" is offered.
 
 If SLY can calculate the arguments and the function symbol of the
 function call represented in the backtrace of trace entry, it will
-return them to the REPL, along with an uncommited input line that
+return them to the REPL, along with an uncommitted input line that
 refers back to them and calls the function.
 
-### Other miscelaneous enhancements over SLIME
+### Other miscellaneous enhancements over SLIME
 
-Faces have been revised and are based on Emac's standard
+Faces have been revised and are based on Emacs's standard
 faces. Hopefully, SLY will remain readable even when the user
 switches themes.
 
@@ -132,9 +135,9 @@ selecting a restart that signals another error.
 Interactive expression evaluation will use a separate buffer when the
 results is too big to fit in the echo area.
 
-SLY's modeline string is placed at the right side of the modeline.
+SLY's mode-line string is placed at the right side of the mode-line.
 
-SLY intrudes less than SLIME in the Emacs namespace, and uses more
+SLY intrudes less than SLIME in the Emacs name-space, and uses more
 standard idoms. Macros like `with-struct` and `sly-define-keys` have
 been removed.
 
@@ -149,14 +152,12 @@ completion by default, but it can customized via
 Messages and warnings prefix themselves accordingly with "[sly]".
 
 Fixed source locations when recompiling from an xref buffer.  This is
-oustanding https://github.com/slime/slime/pull/175 pull-request in
+outstanding https://github.com/slime/slime/pull/175 pull-request in
 SLIME. Thanks Bart Botta.
 
 Fixed bugs in `contrib/sly-package-fu.el`. This is the outstanding
 https://github.com/slime/slime/pull/145 pull-request in SLIME. Thanks
 Leo Liu.
-
-
 
 ### Anti-NEWS
 
@@ -179,7 +180,7 @@ interface is better.
 The `slime-c-p-c` contrib has been removed, as it contained a lot of
 non-standard window-managing code. Its functionality has been merged
 into `sly-fuzzy` and setting `sly-complete-symbol-function` to
-`sly-c-p-c-complete-symbol` should give you the previous behaviour.
+`sly-c-p-c-complete-symbol` should give you the previous behavior.
 
 
 
