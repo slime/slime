@@ -6,7 +6,10 @@
 ;;;
 ;;; This is the CMUCL implementation of the `swank-backend' package.
 
-(in-package :swank-backend)
+(defpackage swank-cmucl
+  (:use cl swank-backend swank-source-path-parser swank-source-file-cache))
+
+(in-package swank-cmucl)
 
 (import-swank-mop-symbols :pcl '(:slot-definition-documentation))
 
@@ -22,7 +25,7 @@
 ;;; promptly delete them from here. It is enough to be compatible with
 ;;; the latest release.
 
-(in-package :lisp)
+(in-package lisp)
 
 ;;; `READ-SEQUENCE' with large sequences has problems in 18e. This new
 ;;; definition works better.
@@ -64,7 +67,7 @@
 
   )
 
-(in-package :swank-backend)
+(in-package swank-cmucl)
 
 ;;; UTF8
 

@@ -34,7 +34,10 @@
 
 ;;; [1] http://cvs.sourceforge.net/viewcvs.py/clocc/clocc/src/tools/metering/
 
-(in-package :swank-backend)
+(defpackage swank-clisp
+  (:use cl swank-backend))
+
+(in-package swank-clisp)
 
 (eval-when (:compile-toplevel)
   (unless (string< "2.44" (lisp-implementation-version))
@@ -42,7 +45,9 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   ;;(use-package "SOCKET")
-  (use-package "GRAY"))
+  ;;(use-package "GRAY")
+  (import-from :gray *gray-stream-symbols* :swank-backend)
+  )
 
 ;;;; if this lisp has the complete CLOS then we use it, otherwise we
 ;;;; build up a "fake" swank-mop and then override the methods in the
@@ -56,14 +61,14 @@
                                         :clos))))
     "True in those CLISP images which have a complete MOP implementation."))
 
-#+#.(cl:if swank-backend::*have-mop* '(cl:and) '(cl:or))
+#+#.(cl:if swank-clisp::*have-mop* '(cl:and) '(cl:or))
 (progn
   (import-swank-mop-symbols :clos '(:slot-definition-documentation))
 
   (defun swank-mop:slot-definition-documentation (slot)
     (clos::slot-definition-documentation slot)))
 
-#-#.(cl:if swank-backend::*have-mop* '(and) '(or))
+#-#.(cl:if swank-clisp::*have-mop* '(and) '(or))
 (defclass swank-mop:standard-slot-definition ()
   ()
   (:documentation
@@ -180,14 +185,14 @@
   (let ((streams (mapcar (lambda (s) (list* s :input nil)) streams)))
     (loop
      (cond ((check-slime-interrupts) (return :interrupt))
-           (timeout 
+           (timeout
             (socket:socket-status streams 0 0)
-            (return (loop for (s _ . x) in streams
+            (return (loop for (s nil . x) in streams
                           if x collect s)))
            (t
             (with-simple-restart (socket-status "Return from socket-status.")
               (socket:socket-status streams 0 500000))
-            (let ((ready (loop for (s _ . x) in streams
+            (let ((ready (loop for (s nil . x) in streams
                                if x collect s)))
               (when ready (return ready))))))))
 
@@ -196,7 +201,7 @@
   (assert (member timeout '(nil t)))
   (loop
    (cond ((check-slime-interrupts) (return :interrupt))
-         (t 
+         (t
           (let ((ready (remove-if-not #'input-available-p streams)))
             (when ready (return ready)))
           (when timeout (return nil))

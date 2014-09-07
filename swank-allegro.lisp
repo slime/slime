@@ -1,14 +1,17 @@
 ;;;;                  -*- indent-tabs-mode: nil; outline-regexp: ";;;;;* "; -*-
 ;;;
-;;; swank-allegro.lisp --- Allegro CL specific code for SLIME. 
+;;; swank-allegro.lisp --- Allegro CL specific code for SLIME.
 ;;;
 ;;; Created 2003
 ;;;
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
-;;;  
+;;;
 
-(in-package :swank-backend)
+(defpackage swank-allegro
+  (:use cl swank-backend))
+
+(in-package swank-allegro)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :sock)

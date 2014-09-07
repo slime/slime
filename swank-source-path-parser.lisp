@@ -23,7 +23,16 @@
 
 ;;; Taken from swank-cmucl.lisp, by Helmut Eller
 
-(in-package :swank-backend)
+(defpackage swank-source-path-parser
+  (:use cl)
+  (:export
+   read-source-form
+   source-path-string-position
+   source-path-file-position
+   source-path-source-position
+   ))
+
+(in-package swank-source-path-parser)
 
 ;; Some test to ensure the required conformance
 (let ((rt (copy-readtable nil)))

@@ -1,5 +1,15 @@
 2014-09-07  Helmut Eller  <heller@common-lisp.net>
 
+	Use one package per backend to make interfaces more explicit.
+
+	* swank-abcl.lisp, swank-allergo.lisp, swank-ccl.lisp,
+	swank-clisp.lisp, swank-ecl.lisp, swank-lispworks,
+	swank-sbcl.lisp, swank-scl.lisp, swank-source-file-cache.lisp,
+	swank-source-path-parser.lisp: Use packages.
+	* swank-backend.lisp: Export some more stuff.
+
+2014-09-07  Helmut Eller  <heller@common-lisp.net>
+
 	Get rid of when-let as it conflicts with a definition subr-x.el
 
 	* slime.el (when-let): Deleted. Update all uses accordingly.
