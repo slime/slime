@@ -567,7 +567,7 @@ PROPERTIES specifies any default face properties."
 ;;;
 ;;;;; Syntactic sugar
 
-(cl-defmacro when-let ((var value) &rest body)
+(cl-defmacro sly--when-let ((var value) &rest body)
   "Evaluate VALUE, if the result is non-nil bind it to VAR and eval BODY.
 
 \(fn (VAR VALUE) &rest BODY)"
@@ -1038,7 +1038,7 @@ DIRECTORY change to this directory before starting the process.
 
 (defun sly-bytecode-stale-p ()
   "Return true if sly.elc is older than sly.el."
-  (when-let (libfile (locate-library "sly"))
+  (sly--when-let (libfile (locate-library "sly"))
     (let* ((basename (file-name-sans-extension libfile))
            (sourcefile (concat basename ".el"))
            (bytefile (concat basename ".elc")))
@@ -1073,7 +1073,7 @@ Return true if we have been given permission to continue."
   (cond ((not (comint-check-proc buffer))
          (sly-start-lisp program program-args env directory buffer))
         ((sly-reinitialize-inferior-lisp-p program program-args env buffer)
-         (when-let (conn (cl-find (get-buffer-process buffer)
+         (sly--when-let (conn (cl-find (get-buffer-process buffer)
                                   sly-net-processes
                                   :key #'sly-inferior-process))
            (sly-net-close conn "Killing existing connection first"))
@@ -1332,7 +1332,7 @@ first line of the file."
     (set-process-query-on-exit-flag proc (not sly-kill-without-query-p))
     (when (fboundp 'set-process-coding-system)
       (set-process-coding-system proc 'binary 'binary))
-    (when-let (secret (sly-secret))
+    (sly--when-let (secret (sly-secret))
       (sly-net-send secret proc))
     proc))
 
@@ -1784,15 +1784,15 @@ This is automatically synchronized from Lisp.")
         (setf (sly-machine-instance) instance))
       (cl-destructuring-bind (&key coding-systems) encoding
         (setf (sly-connection-coding-systems) coding-systems)))
-    (let ((args (when-let (p (sly-inferior-process))
+    (let ((args (sly--when-let (p (sly-inferior-process))
                   (sly-inferior-lisp-args p))))
-      (when-let (name (plist-get args ':name))
+      (sly--when-let (name (plist-get args ':name))
         (unless (string= (sly-lisp-implementation-name) name)
           (setf (sly-connection-name)
                 (sly-generate-connection-name (symbol-name name)))))
       (sly-load-contribs)
       (run-hooks 'sly-connected-hook)
-      (when-let (fun (plist-get args ':init-function))
+      (sly--when-let (fun (plist-get args ':init-function))
         (funcall fun)))
     ;; Give the events buffer its final name
     (with-current-buffer (sly-events-buffer connection)
@@ -2885,7 +2885,7 @@ first element of the source-path redundant."
   (ignore-errors
     (sly-forward-sexp)
     (beginning-of-defun))
-  (when-let (source-path (cdr source-path))
+  (sly--when-let (source-path (cdr source-path))
     (down-list 1)
     (sly-forward-source-path source-path)))
 
@@ -3240,11 +3240,11 @@ Several kinds of locations are supported:
          (sly-location.position location))
       (error (goto-char 0)))
     (let ((hints (sly-location.hints location)))
-      (when-let (snippet (cl-getf hints :snippet))
+      (sly--when-let (snippet (cl-getf hints :snippet))
         (sly-isearch snippet))
-      (when-let (snippet (cl-getf hints :edit-path))
+      (sly--when-let (snippet (cl-getf hints :edit-path))
         (sly-search-edit-path snippet))
-      (when-let (fname (cl-getf hints :call-site))
+      (sly--when-let (fname (cl-getf hints :call-site))
         (sly-search-call-site fname))
       (when (cl-getf hints :align)
         (sly-forward-sexp)
@@ -4555,7 +4555,7 @@ This is used by `sly-goto-next-xref'")
     (save-excursion
       (goto-char (point-min))
       (while (ignore-errors (sly-next-line/not-add-newlines) t)
-        (when-let (loc (get-text-property (point) 'sly-location))
+        (sly--when-let (loc (get-text-property (point) 'sly-location))
           (let* ((dspec (sly-xref-dspec-at-point))
                  (xref  (make-sly-xref :dspec dspec :location loc)))
             (push xref xrefs)))))
@@ -5143,7 +5143,7 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
 
 (defun sldb-exit (thread _level &optional stepping)
   "Exit from the debug level LEVEL."
-  (when-let (sldb (sldb-find-buffer thread))
+  (sly--when-let (sldb (sldb-find-buffer thread))
     (with-current-buffer sldb
       (setq kill-buffer-query-functions
             (remove 'sldb-confirm-buffer-kill kill-buffer-query-functions))

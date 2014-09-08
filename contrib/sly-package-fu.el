@@ -94,8 +94,9 @@ places the cursor at the start of the DEFPACKAGE form."
                      t)))
     (or (try (sly-find-package-definition-rpc package))
 	(try (sly-find-package-definition-regexp package))
-	(try (when-let (package-file (sly-find-possible-package-file
-                                      (buffer-file-name)))
+	(try (sly--when-let
+                 (package-file (sly-find-possible-package-file
+                                (buffer-file-name)))
 	       (with-current-buffer (find-file-noselect package-file t)
 		 (sly-find-package-definition-regexp package))))
 	(sly-error "Couldn't find source definition of package: %s" package))))
