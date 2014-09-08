@@ -54,7 +54,7 @@ There are Sylvesters. See `sly-mrepl-pop-sylvester`.
 
 ### Regexp-capable M-x sly-apropos
 
-If SLY detects that [`cl-purr`](http://weitz.de/cl-ppcre/) is
+If SLY detects that [`cl-ppcre`](http://weitz.de/cl-ppcre/) is
 available in the Lisp side it will try to use it for "apropos"
 searches, otherwise the user is hinted at this possibility. As regexp
 searches are slower, this is only triggered if the pattern is a valid
@@ -90,13 +90,11 @@ The SLY-DB, Inspector, XREF and Apropos buffers have been
 redesigned to use a common class of push button with consistent
 interfaces.
 
-This means, for instance, that the `v`, `i` and `p` commands
-("view-source", "inspect" and "print") are available in every one of
-these buffers' interactive parts, unless they don't really make sense
-for the represented object.
-
-Buttons representing Lisp-side objects offer the same right-click menu
-and keybindings, for all operations applicable to represented object.
+This means, for instance, that the `i` and `p` commands ("inspect" and
+"pretty-print") are available in every one of these buffers'
+interactive parts. The `v` ("view-source") command is only available
+where it makes sense for the represented object. These is known as a
+button's "part-action".
 
 The same interfaces are also available in the "mREPL" and "Trace
 Dialog" buffers.
@@ -113,8 +111,8 @@ streams are kept. An idea by Olof-Joachim Frahm
 
 ### Copy function call to REPL
 
-An experimental feature, from the Trace Dialog or SLY-DB buffers, a new
-button-action called "Copy call to REPL" is offered.
+An experimental feature: from the Trace Dialog or SLY-DB buffers, a
+new button action called "Copy call to REPL" is offered and bound to 
 
 If SLY can calculate the arguments and the function symbol of the
 function call represented in the backtrace of trace entry, it will
@@ -186,12 +184,3 @@ The `slime-c-p-c` contrib has been removed, as it contained a lot of
 non-standard window-managing code. Its functionality has been merged
 into `sly-fuzzy` and setting `sly-complete-symbol-function` to
 `sly-c-p-c-complete-symbol` should give you the previous behavior.
-
-
-
-
-
-
-
-
-
