@@ -51,8 +51,6 @@
            label-value-line*
            with-symbol
            ;; package helper for backend
-           *gray-stream-symbols*
-           import-from
            import-to-swank-mop
            import-swank-mop-symbols
 	   ;;
@@ -217,36 +215,11 @@ EXCEPT is a list of symbol names which should be ignored."
         (import real-symbol :swank-mop)
         (export real-symbol :swank-mop)))))
 
-(defvar *gray-stream-symbols*
-  '(:fundamental-character-output-stream
-    :stream-write-char
-    :stream-write-string
-    :stream-fresh-line
-    :stream-force-output
-    :stream-finish-output
-    :fundamental-character-input-stream
-    :stream-read-char
-    :stream-peek-char
-    :stream-read-line
-    ;; STREAM-FILE-POSITION is not available on all implementations, or
-    ;; partially under a different name.
-    ; :stream-file-posiion
-    :stream-listen
-    :stream-unread-char
-    :stream-clear-input
-    :stream-line-column
-    :stream-read-char-no-hang
-    ;; STREAM-LINE-LENGTH is an extension to gray streams that's apparently
-    ;; supported by CMUCL, OpenMCL, SBCL and SCL.
-    #+(or cmu openmcl sbcl scl)
-    :stream-line-length))
-
-(defun import-from (package symbol-names &optional (to-package *package*))
-  "Import the list of SYMBOL-NAMES found in the package PACKAGE."
-  (dolist (name symbol-names)
-    (multiple-value-bind (symbol found) (find-symbol (string name) package)
-      (assert found () "Symbol ~A not found in package ~A" name package)
-      (import symbol to-package))))
+(definterface gray-package-name ()
+  "Return a package-name that contains the Gray stream symbols.
+This will be used like so:
+  (defpackage foo
+    (:import-from #.(gray-import-form) . #.*gray-stream-symbols*)")
 
 
 ;;;; Utilities

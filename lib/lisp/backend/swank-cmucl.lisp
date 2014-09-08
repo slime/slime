@@ -11,6 +11,9 @@
 
 (in-package swank-cmucl)
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (require 'gray-streams))
+
 (import-swank-mop-symbols :pcl '(:slot-definition-documentation))
 
 (defun swank-mop:slot-definition-documentation (slot)
@@ -285,124 +288,9 @@ specific functions.")
 
 
 ;;;; Stream handling
-;;; XXX: How come we don't use Gray streams in CMUCL too? -luke (15/May/2004)
 
-(defimplementation make-output-stream (write-string)
-  (make-sly-output-stream write-string))
-
-(defimplementation make-input-stream (read-string)
-  (make-sly-input-stream read-string))
-
-(defstruct (sly-output-stream
-             (:include lisp::lisp-stream
-                       (lisp::misc #'sos/misc)
-                       (lisp::out #'sos/write-char)
-                       (lisp::sout #'sos/write-string))
-             (:conc-name sos.)
-             (:print-function %print-sly-output-stream)
-             (:constructor make-sly-output-stream (output-fn)))
-  (output-fn nil :type function)
-  (buffer (make-string 4000) :type string)
-  (index 0 :type kernel:index)
-  (column 0 :type kernel:index))
-
-(defun %print-sly-output-stream (s stream d)
-  (declare (ignore d))
-  (print-unreadable-object (s stream :type t :identity t)))
-
-(defun sos/write-char (stream char)
-  (let ((pending-output nil))
-    (system:without-interrupts 
-      (let ((buffer (sos.buffer stream))
-            (index (sos.index stream)))
-        (setf (schar buffer index) char)
-        (setf (sos.index stream) (1+ index))
-        (incf (sos.column stream))
-        (when (char= #\newline char)
-          (setf (sos.column stream) 0)
-          #+(or)(setq pending-output (sos/reset-buffer stream))
-          )
-        (when (= index (1- (length buffer)))
-          (setq pending-output (sos/reset-buffer stream)))))
-    (when pending-output
-      (funcall (sos.output-fn stream) pending-output)))
-  char)
-
-(defun sos/write-string (stream string start end)
-  (loop for i from start below end 
-        do (sos/write-char stream (aref string i))))
-
-(defun sos/flush (stream)
-  (let ((string (sos/reset-buffer stream)))
-    (when string
-      (funcall (sos.output-fn stream) string))
-    nil))
-
-(defun sos/reset-buffer (stream)
-  (system:without-interrupts 
-    (let ((end (sos.index stream)))
-      (unless (zerop end)
-        (prog1 (subseq (sos.buffer stream) 0 end)
-          (setf (sos.index stream) 0))))))
-
-(defun sos/misc (stream operation &optional arg1 arg2)
-  (declare (ignore arg1 arg2))
-  (case operation
-    ((:force-output :finish-output) (sos/flush stream))
-    (:charpos (sos.column stream))
-    (:line-length 75)
-    (:file-position nil)
-    (:element-type 'base-char)
-    (:get-command nil)
-    (:close nil)
-    (t (format *terminal-io* "~&~Astream: ~S~%" stream operation))))
-
-(defstruct (sly-input-stream
-             (:include string-stream
-                       (lisp::in #'sis/in)
-                       (lisp::misc #'sis/misc))
-             (:conc-name sis.)
-             (:print-function %print-sly-output-stream)
-             (:constructor make-sly-input-stream (input-fn)))
-  (input-fn nil :type function)
-  (buffer   ""  :type string)
-  (index    0   :type kernel:index))
-
-(defun sis/in (stream eof-errorp eof-value)
-  (let ((index (sis.index stream))
-	(buffer (sis.buffer stream)))
-    (when (= index (length buffer))
-      (let ((string (funcall (sis.input-fn stream))))
-        (cond ((zerop (length string))
-               (return-from sis/in
-                 (if eof-errorp
-                     (error 'end-of-file :stream stream)
-                     eof-value)))
-              (t
-               (setf buffer string)
-               (setf (sis.buffer stream) buffer)
-               (setf index 0)))))
-    (prog1 (aref buffer index)
-      (setf (sis.index stream) (1+ index)))))
-
-(defun sis/misc (stream operation &optional arg1 arg2)
-  (declare (ignore arg2))
-  (ecase operation
-    (:file-position nil)
-    (:file-length nil)
-    (:unread (setf (aref (sis.buffer stream) 
-			 (decf (sis.index stream)))
-		   arg1))
-    (:clear-input 
-     (setf (sis.index stream) 0
-			(sis.buffer stream) ""))
-    (:listen (< (sis.index stream) (length (sis.buffer stream))))
-    (:charpos nil)
-    (:line-length nil)
-    (:get-command nil)
-    (:element-type 'base-char)
-    (:close nil)
-    (:interactive-p t)))
+(defimplementation gray-package-name ()
+  "EXT")
 
 
 ;;;; Compilation Commands

@@ -36,15 +36,15 @@
   "A list of directories to search for modules.")
 
 (defparameter *sysdep-files*
-  #+cmu '(swank-source-path-parser swank-source-file-cache (backend swank-cmucl))
-  #+scl '(swank-source-path-parser swank-source-file-cache (backend swank-scl))
+  #+cmu '(swank-source-path-parser swank-source-file-cache (backend swank-cmucl) swank-gray)
+  #+scl '(swank-source-path-parser swank-source-file-cache (backend swank-scl) swank-gray)
   #+sbcl '(swank-source-path-parser swank-source-file-cache
            (backend swank-sbcl) swank-gray)
   #+clozure '(metering (backend swank-ccl) swank-gray)
   #+lispworks '((backend swank-lispworks) swank-gray)
   #+allegro '((backend swank-allegro) swank-gray)
   #+clisp '(xref metering (backend swank-clisp) swank-gray)
-  #+armedbear '((backend swank-abcl))
+  #+armedbear '((backend swank-abcl) swank-gray)
   #+cormanlisp '((backend swank-corman) swank-gray)
   #+ecl '(swank-source-path-parser swank-source-file-cache
           (backend swank-ecl) swank-gray))

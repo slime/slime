@@ -16,16 +16,13 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :collect) ;just so that it doesn't spoil the flying letters
   (require :pprint)
+  (require :gray-streams)
   (assert (>= (read-from-string (subseq (lisp-implementation-version) 0 4))
               0.22)
           () "This file needs ABCL version 0.22 or newer"))
 
-(defimplementation make-output-stream (write-string)
-  (ext:make-sly-output-stream write-string))
-
-(defimplementation make-input-stream (read-string)
-  (ext:make-sly-input-stream read-string  
-                               (make-synonym-stream '*standard-output*)))
+(defimplementation gray-package-name ()
+  "GRAY-STREAMS")
 
 (defimplementation call-with-compilation-hooks (function)
   (funcall function))

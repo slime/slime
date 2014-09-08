@@ -20,7 +20,8 @@
   (require 'lldb)
   )
 
-(import-from :excl *gray-stream-symbols* :swank-backend)
+(defimplementation gray-package-name ()
+  "EXCL")
 
 ;;; swank-mop
 

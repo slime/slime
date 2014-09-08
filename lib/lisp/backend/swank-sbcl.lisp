@@ -20,10 +20,9 @@
   (require 'sb-bsd-sockets)
   (require 'sb-introspect)
   (require 'sb-posix)
-  (require 'sb-cltl2)
-  (import-from :sb-gray *gray-stream-symbols* :swank-backend))
+  (require 'sb-cltl2))
 
-(declaim (optimize (debug 2) 
+(declaim (optimize (debug 2)
                    (sb-c::insert-step-conditions 0)
                    (sb-c::insert-debug-catch 0)))
 
@@ -50,6 +49,9 @@
 
 (defun swank-mop:slot-definition-documentation (slot)
   (sb-pcl::documentation slot t))
+
+(defimplementation gray-package-name ()
+  "SB-GRAY")
 
 ;;; Connection info
 
@@ -1711,7 +1713,7 @@ stack."
   (defclass swank-backend::sly-output-stream
       (sb-gray:fundamental-character-output-stream)
     ())
-  (defmethod swank-backend::stream-force-output
+  (defmethod sb-gray:stream-force-output
       :around ((stream swank-backend::sly-output-stream))
     (handler-case
         (sb-sys:with-deadline (:seconds 0.1)

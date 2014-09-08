@@ -14,8 +14,10 @@
 (in-package swank-lispworks)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (require "comm")
-  (import-from :stream *gray-stream-symbols* :swank-backend))
+  (require "comm"))
+
+(defimplementation gray-package-name ()
+  "STREAM")
 
 (import-swank-mop-symbols :clos '(:slot-definition-documentation
                                   :slot-boundp-using-class

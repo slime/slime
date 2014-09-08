@@ -43,11 +43,8 @@
   (unless (string< "2.44" (lisp-implementation-version))
     (error "Need at least CLISP version 2.44")))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  ;;(use-package "SOCKET")
-  ;;(use-package "GRAY")
-  (import-from :gray *gray-stream-symbols* :swank-backend)
-  )
+(defimplementation gray-package-name ()
+  "GRAY")
 
 ;;;; if this lisp has the complete CLOS then we use it, otherwise we
 ;;;; build up a "fake" swank-mop and then override the methods in the
