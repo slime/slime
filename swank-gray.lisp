@@ -8,7 +8,41 @@
 ;;; are disclaimed.
 ;;;
 
-(in-package :swank-backend)
+(in-package swank-backend)
+
+#.(progn
+    (defvar *gray-stream-symbols*
+    '(fundamental-character-output-stream
+      stream-write-char
+      stream-write-string
+      stream-fresh-line
+      stream-force-output
+      stream-finish-output
+      fundamental-character-input-stream
+      stream-read-char
+      stream-peek-char
+      stream-read-line
+      ;; STREAM-FILE-POSITION is not available on all implementations, or
+      ;; partially under a different name.
+                                        ; :stream-file-posiion
+      stream-listen
+      stream-unread-char
+      stream-clear-input
+      stream-line-column
+      stream-read-char-no-hang
+      ;; STREAM-LINE-LENGTH is an extension to gray streams that's apparently
+      ;; supported by CMUCL, OpenMCL, SBCL and SCL.
+      ;; FIXME: ist actually needed?
+      #+(or cmu openmcl sbcl scl)
+      stream-line-length))
+    nil)
+
+(defpackage swank-gray
+  (:use cl swank-backend)
+  (:import-from #.(gray-package-name) . #.*gray-stream-symbols*)
+  (:export . #.*gray-stream-symbols*))
+
+(in-package swank-gray)
 
 (defclass slime-output-stream (fundamental-character-output-stream)
   ((output-fn :initarg :output-fn)

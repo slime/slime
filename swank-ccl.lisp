@@ -23,7 +23,8 @@
                (>= ccl::*openmcl-minor-version* 4))
           () "This file needs CCL version 1.4 or newer"))
 
-(import-from :ccl *gray-stream-symbols* :swank-backend)
+(defimplementation gray-package-name ()
+  "CCL")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (multiple-value-bind (ok err) (ignore-errors (require 'xref))

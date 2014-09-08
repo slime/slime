@@ -1,3 +1,21 @@
+2014-09-08  Helmut Eller  <heller@common-lisp.net>
+
+	Use a separate package for swank-gray.lisp.
+	Use gray streams also for CMUCL, SCL, and ABCL.
+
+	* swank-backend.lisp (gray-package-name): New interface function.
+	(import-from): Deleted. No longer used.
+	(*gray-stream-symbols*): Moved to swank-gray.lisp.
+	* swank-abcl.lisp, swank-cmucl.lisp, swank-scl.lisp
+	(gray-package-name): Implemented and delete old implementations of
+	make-input-stream and make-output-stream.
+	* swank-allegro.lisp, swank-ccl.lisp, swank-clisp, swank-ecl.lisp,
+	swan-lispworks.lisp, swank-sbcl.lisp,  (gray-package-name):
+	Implemented.
+	* swank-gray.lisp: Make and use swank-gray package for this file.
+	* swank-loader.lisp (*sysdep-files*): Load swank-gray for CMUCL,
+	SCL, and ABCL.
+
 2014-09-07  Helmut Eller  <heller@common-lisp.net>
 
 	Replace cl-values with list because that's shorter.

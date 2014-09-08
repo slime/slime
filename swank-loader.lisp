@@ -32,15 +32,17 @@
   "The directory where to look for the source.")
 
 (defparameter *sysdep-files*
-  #+cmu '(swank-source-path-parser swank-source-file-cache swank-cmucl)
-  #+scl '(swank-source-path-parser swank-source-file-cache swank-scl)
+  #+cmu '(swank-source-path-parser swank-source-file-cache
+          swank-cmucl swank-gray)
+  #+scl '(swank-source-path-parser swank-source-file-cache
+          swank-scl swank-gray)
   #+sbcl '(swank-source-path-parser swank-source-file-cache
            swank-sbcl swank-gray)
   #+clozure '(metering swank-ccl swank-gray)
   #+lispworks '(swank-lispworks swank-gray)
   #+allegro '(swank-allegro swank-gray)
   #+clisp '(xref metering swank-clisp swank-gray)
-  #+armedbear '(swank-abcl)
+  #+armedbear '(swank-abcl swank-gray)
   #+cormanlisp '(swank-corman swank-gray)
   #+ecl '(swank-source-path-parser swank-source-file-cache
           swank-ecl swank-gray))
