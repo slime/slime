@@ -55,6 +55,9 @@
 
 ;; User-visible variables
 ;;
+(defvar sly-mrepl-mode-hook '(sly-mrepl--ensure-no-font-lock)
+  "Functions run after `sly-mrepl-mode' is set up")
+
 (defvar sly-mrepl-hook nil
   "Functions run after `sly-mrepl-new' sets up a REPL.")
 
@@ -235,6 +238,9 @@ emptied. See also `sly-mrepl-hook'")
   (sly-buffer-name :mrepl :connection connection
                    :suffix handle))
 
+;; HACK for Emacs 24.3: See issue #1.
+(defun sly-mrepl--ensure-no-font-lock () (font-lock-mode -1))
+
 (defun sly-mrepl--teardown-repls (process)
   (cl-loop for buffer in (buffer-list)
            when (buffer-live-p buffer)
@@ -309,19 +315,20 @@ emptied. See also `sly-mrepl-hook'")
 
 (defun sly-mrepl--send-input-sexp ()
   (goto-char (point-max))
-  (skip-chars-backward "\n\t\s")
-  (delete-region (max (point)
-                      (sly-mrepl--mark))
-                 (point-max))
+  (save-excursion
+    (skip-chars-backward "\n\t\s")
+    (delete-region (max (point)
+                        (sly-mrepl--mark))
+                   (point-max)))
   (buffer-disable-undo)
   (overlay-put sly-mrepl--last-prompt-overlay 'face 'highlight)
   (sly-mrepl--commiting-text
-   `(field sly-mrepl-input
-           keymap ,(let ((map (make-sparse-keymap)))
-                     (define-key map (kbd "RET") 'sly-mrepl-insert-input)
-                     (define-key map [mouse-2] 'sly-mrepl-insert-input)
-                     map))
-   (comint-send-input)))
+      `(field sly-mrepl-input
+              keymap ,(let ((map (make-sparse-keymap)))
+                        (define-key map (kbd "RET") 'sly-mrepl-insert-input)
+                        (define-key map [mouse-2] 'sly-mrepl-insert-input)
+                        map))
+    (comint-send-input)))
 
 (defun sly-mrepl--ensure-newline ()
   (unless (save-excursion
