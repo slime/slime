@@ -1,5 +1,12 @@
 2014-09-09  Helmut Eller  <heller@common-lisp.net>
 
+	Make the ugly deadlock workaround even more ugly.
+
+	* swank-sbcl.lisp (stream-force-output): Create swank-gray package
+	early enough.
+
+2014-09-09  Helmut Eller  <heller@common-lisp.net>
+
 	Remove non-used optional gray stream methods.
 
 	* swank-gray.lisp (stream-read-char-will-hang-p)
