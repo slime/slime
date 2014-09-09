@@ -575,7 +575,7 @@ PROPERTIES specifies any default face properties."
   `(let ((,var ,value))
      (when ,var ,@body)))
 
-(defmacro destructure-case (value &rest patterns)
+(defmacro sly-dcase (value &rest patterns)
   (declare (indent 1)
            (debug (sexp &rest (sexp &rest form))))
   "Dispatch VALUE to one of PATTERNS.
@@ -604,7 +604,7 @@ corresponding values in the CDR of VALUE."
 		   patterns)
 	 ,@(if (eq (caar (last patterns)) t)
 	       '()
-	     `((t (error "Elisp destructure-case failed: %S" ,tmp))))))))
+	     `((t (error "Elisp sly-dcase failed: %S" ,tmp))))))))
 
 ;;;;; Very-commonly-used functions
 
@@ -1948,7 +1948,7 @@ PACKAGE is evaluated and Lisp binds *BUFFER-PACKAGE* to this package.
 The default value is (sly-current-package).
 
 CLAUSES is a list of patterns with same syntax as
-`destructure-case'.  The result of the evaluation of SEXP is
+`sly-dcase'.  The result of the evaluation of SEXP is
 dispatched on CLAUSES.  The result is either a sexp of the
 form (:ok VALUE) or (:abort CONDITION).  CLAUSES is executed
 asynchronously.
@@ -1966,7 +1966,7 @@ versions cannot deal with that."
        (sly-dispatch-event
         (list :emacs-rex ,sexp ,package ,thread
               (lambda (,result)
-                (destructure-case ,result
+                (sly-dcase ,result
                   ,@continuations)))))))
 
 ;;; Interface
@@ -2124,7 +2124,7 @@ Debugged requests are ignored."
 (defun sly-dispatch-event (event &optional process)
   (let ((sly-dispatching-connection (or process (sly-connection))))
     (or (run-hook-with-args-until-success 'sly-event-hooks event)
-        (destructure-case event
+        (sly-dcase event
           ((:emacs-rex form package thread continuation)
            (when (and (sly-use-sigint-for-interrupt) (sly-busy-p))
              (sly-display-oneliner "; pipelined request... %S" form))
@@ -2820,7 +2820,7 @@ region around the first element is used.
 Return nil if there's no useful source location."
   (let ((location (sly-note.location note)))
     (when location
-      (destructure-case location
+      (sly-dcase location
         ((:error _))                 ; do nothing
         ((:location file pos _hints)
          (cond ((eq (car file) ':source-form) nil)
@@ -3030,7 +3030,7 @@ you should check twice before modifying.")
 
 
 (defun sly-goto-location-buffer (buffer)
-  (destructure-case buffer
+  (sly-dcase buffer
     ((:file filename)
      (let ((filename (sly-from-lisp-filename filename)))
        (sly-check-location-filename-sanity filename)
@@ -3063,7 +3063,7 @@ you should check twice before modifying.")
        (goto-char (point-min))))))
 
 (defun sly-goto-location-position (position)
-  (destructure-case position
+  (sly-dcase position
     ((:position pos)
      (goto-char 1)
      (forward-char (- (1- pos) (sly-eol-conversion-fixup (1- pos)))))
@@ -3180,7 +3180,7 @@ Several kinds of locations are supported:
              | (:function-name <string>)
              | (:source-path <list> <start-position>)
              | (:method <name string> <specializers> . <qualifiers>)"
-  (destructure-case location
+  (sly-dcase location
     ((:location buffer _position _hints)
      (sly-goto-location-buffer buffer)
      (let ((pos (sly-location-offset location)))
@@ -3645,7 +3645,7 @@ FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
 
 (defun sly-xref-group (xref)
   (cond ((sly-xref-has-location-p xref)
-         (destructure-case (sly-location.buffer (sly-xref.location xref))
+         (sly-dcase (sly-location.buffer (sly-xref.location xref))
            ((:file filename) filename)
            ((:buffer bufname)
             (let ((buffer (get-buffer bufname)))
@@ -3666,9 +3666,9 @@ locations."
   (if (not (sly-xref-has-location-p original-xref))
       (list original-xref)
     (let ((loc (sly-xref.location original-xref)))
-      (destructure-case (sly-location.buffer loc)
+      (sly-dcase (sly-location.buffer loc)
         ((:etags-file tags-file)
-         (destructure-case (sly-location.position loc)
+         (sly-dcase (sly-location.position loc)
            ((:tag &rest tags)
             (visit-tags-table tags-file)
             (mapcar (lambda (xref)
@@ -3828,7 +3828,7 @@ This is for use in the implementation of COMMON-LISP:ED."
       (setq sly-ed-frame (make-frame)))
     (select-frame sly-ed-frame))
   (when what
-    (destructure-case what
+    (sly-dcase what
       ((:filename file &key line column position bytep)
        (find-file (sly-from-lisp-filename file))
        (when line (sly-goto-line line))
@@ -5182,7 +5182,7 @@ EXTRAS is currently used for the stepper."
 (defun sldb-dispatch-extras (extras)
   ;; this is (mis-)used for the stepper
   (dolist (extra extras)
-    (destructure-case extra
+    (sly-dcase extra
       ((:show-frame-source n)
        (sldb-show-frame-source n))
       (t
@@ -5397,7 +5397,7 @@ If MORE is non-nil, more frames are on the Lisp stack."
   (sly-eval-async
       `(swank:frame-source-location ,frame-number)
     (lambda (source-location)
-      (destructure-case source-location
+      (sly-dcase source-location
         ((:error message)
          (sly-message "%s" message)
          (ding))
@@ -5755,7 +5755,7 @@ was called originally."
       `(swank:frame-source-location ,frame-number)
     (let ((policy (sly-compute-policy raw-prefix-arg)))
       (lambda (source-location)
-        (destructure-case source-location
+        (sly-dcase source-location
           ((:error message)
            (sly-message "%s" message)
            (ding))
@@ -6207,7 +6207,7 @@ If PREV resp. NEXT are true insert more-buttons as needed."
 (defun sly-inspector-insert-ispec (ispec)
   (insert
    (if (stringp ispec) ispec
-     (destructure-case ispec
+     (sly-dcase ispec
        ((:value string id)
         (sly-inspector-part-button string id))
        ((:label string)

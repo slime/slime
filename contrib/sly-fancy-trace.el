@@ -20,7 +20,7 @@ The result is a string."
         ((symbolp spec)    ; `sly-extract-context' can return symbols.
          (sly-read-from-minibuffer "(Un)trace: " (prin1-to-string spec)))
         (t
-         (destructure-case spec
+         (sly-dcase spec
            ((setf n)
             (sly-read-from-minibuffer "(Un)trace: " (prin1-to-string spec)))
            ((:defun n)

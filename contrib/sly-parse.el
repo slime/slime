@@ -279,7 +279,7 @@ Point is placed before the first expression in the list."
                               '(:defun :defgeneric :defmethod
                                        :defmacro :define-compiler-macro)))))
         (error "Not in a definition")
-      (destructure-case toplevel
+      (sly-dcase toplevel
         (((:defun :defgeneric) symbol)
          (format "#'%s" symbol))
         (((:defmacro :define-modify-macro) symbol)
