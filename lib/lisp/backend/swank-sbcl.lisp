@@ -1710,11 +1710,14 @@ stack."
   ;; SLY-OUTPUT-STREAM, and be done, but that class doesn't exist when this
   ;; file is loaded -- so first we need a dummy definition that will be
   ;; overridden by swank-gray.lisp.
-  (defclass swank-backend::sly-output-stream
+  #.(unless (find-package 'swank-gray) (make-package 'swank-gray) nil)
+  (eval-when (:load-toplevel :execute)
+    (unless (find-package 'swank-gray) (make-package 'swank-gray) nil))
+  (defclass swank-gray::slime-output-stream
       (sb-gray:fundamental-character-output-stream)
     ())
   (defmethod sb-gray:stream-force-output
-      :around ((stream swank-backend::sly-output-stream))
+      :around ((stream swank-gray::slime-output-stream))
     (handler-case
         (sb-sys:with-deadline (:seconds 0.1)
           (call-next-method))
