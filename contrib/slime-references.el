@@ -142,7 +142,7 @@ See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
 ;;;;; Hook into SLDB
 
 (defun sldb-maybe-insert-references (extra)
-  (destructure-case extra
+  (slime-dcase extra
     ((:references references) (slime-insert-references references) t)
     (t nil)))
 

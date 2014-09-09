@@ -1,5 +1,19 @@
 2014-09-09  Helmut Eller  <heller@common-lisp.net>
 
+	Rename destructure-case -> slime-dcase.
+
+	That keeps the namespace clean, even though it's unlikely that
+	anybody else would have used that name.
+	Do the analog destructure-case -> dcase renaming on the CL side
+	to keep the names similar.
+
+	* slime.el (slime-dcase): Renamed from destructure-case. Update
+	users accordingly.
+	* swank.lisp (dcase): Renamed from destructure-case. Update users
+	accordingly.
+
+2014-09-09  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-backend.lisp (gray-package-name): Fix docstring.
 
 2014-09-09  Helmut Eller  <heller@common-lisp.net>

@@ -429,7 +429,7 @@ Useful for low level debugging."
 
 ;;;;; Helper macros
 
-(defmacro destructure-case (value &rest patterns)
+(defmacro dcase (value &body patterns)
   "Dispatch VALUE to one of PATTERNS.
 A cross between `case' and `destructuring-bind'.
 The pattern syntax is:
@@ -452,7 +452,7 @@ corresponding values in the CDR of VALUE."
                                ,@body)))))
          ,@(if (eq (caar (last patterns)) t)
                '()
-               `((t (error "destructure-case failed: ~S" ,tmp))))))))
+               `((t (error "dcase failed: ~S" ,tmp))))))))
 
 
 ;;;; Interrupt handling 
@@ -612,7 +612,7 @@ recently established one."
           (t (sentinel-serve msg)))))
 
 (defun sentinel-serve (msg)
-  (destructure-case msg
+  (dcase msg
     ((:add-connection conn)
      (push conn *connections*))
     ((:close-connection connection condition backtrace)
@@ -933,7 +933,7 @@ The processing is done in the extent of the toplevel restart."
                             (:emacs-channel-send . _))
                        timeout)
     (when timeout? (return))
-    (destructure-case event
+    (dcase event
       ((:emacs-rex &rest args) (apply #'eval-for-emacs args))
       ((:emacs-channel-send channel (selector &rest args))
        (channel-send channel selector args))))))
@@ -1054,7 +1054,7 @@ The processing is done in the extent of the toplevel restart."
 (defun dispatch-event (connection event)
   "Handle an event triggered either by Emacs or within Lisp."
   (log-event "dispatch-event: ~s~%" event)
-  (destructure-case event
+  (dcase event
     ((:emacs-rex form package thread-id id)
      (let ((thread (thread-for-evaluation connection thread-id)))
        (cond (thread
@@ -1444,7 +1444,7 @@ converted to lower case."
 	   (send-to-emacs `(:eval ,(current-thread-id) ,tag 
 				  ,(process-form-for-emacs form)))
 	   (let ((value (caddr (wait-for-event `(:emacs-return ,tag result)))))
-	     (destructure-case value
+	     (dcase value
 	       ((:ok value) value)
                ((:error kind . data) (error "~a: ~{~a~}" kind data))
 	       ((:abort) (abort))))))))
@@ -2126,7 +2126,7 @@ after Emacs causes a restart to be invoked."
            (list :debug-activate (current-thread-id) level nil))
           (loop 
            (handler-case 
-               (destructure-case (wait-for-event 
+               (dcase (wait-for-event 
                                   `(or (:emacs-rex . _)
                                        (:sldb-return ,(1+ level))))
                  ((:emacs-rex &rest args) (apply #'eval-for-emacs args))
@@ -2960,7 +2960,7 @@ If non-nil, called with two arguments SPEC and TRACED-P." )
   (find-source-location (value-spec-ref spec)))
 
 (defun value-spec-ref (spec)
-  (destructure-case spec
+  (dcase spec
     ((:string string package)
      (with-buffer-syntax (package)
        (eval (read-from-string string))))
@@ -3176,7 +3176,7 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
   (let ((newline '#.(string #\newline)))
     (etypecase part
       (string (list part))
-      (cons (destructure-case part
+      (cons (dcase part
               ((:newline) (list newline))
               ((:value obj &optional str) 
                (list (value-part obj str (istate.parts istate))))
@@ -3585,7 +3585,7 @@ after each command.")
      (handle-indentation-cache-request connection (receive)))))
 
 (defun handle-indentation-cache-request (connection request)
-  (destructure-case request
+  (dcase request
     ((:sync-indentation package)
      (let ((fullp (need-full-indentation-update-p connection)))
        (perform-indentation-update connection fullp package)))

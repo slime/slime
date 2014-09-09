@@ -11,7 +11,7 @@
    (add-hook 'slime-event-hooks 'slime-dispatch-media-event)))
 
 (defun slime-dispatch-media-event (event)
-  (destructure-case event
+  (slime-dcase event
     ((:write-image image string)
      (let ((image (find-image image)))
        (slime-media-insert-image image string))

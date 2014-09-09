@@ -20,7 +20,7 @@ The result is a string."
         ((symbolp spec)    ; `slime-extract-context' can return symbols.
          (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string spec)))
         (t
-         (destructure-case spec
+         (slime-dcase spec
            ((setf n)
             (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string spec)))
            ((:defun n)

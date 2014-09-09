@@ -657,7 +657,7 @@ This list of flushed between commands."))
 ;;;
 ;;;;; Syntactic sugar
 
-(defmacro destructure-case (value &rest patterns)
+(defmacro slime-dcase (value &rest patterns)
   (declare (indent 1))
   "Dispatch VALUE to one of PATTERNS.
 A cross between `case' and `destructuring-bind'.
@@ -685,7 +685,7 @@ corresponding values in the CDR of VALUE."
 		   patterns)
 	 ,@(if (eq (caar (last patterns)) t)
 	       '()
-	     `((t (error "Elisp destructure-case failed: %S" ,tmp))))))))
+	     `((t (error "slime-dcase failed: %S" ,tmp))))))))
 
 (defmacro slime-define-keys (keymap &rest key-command)
   "Define keys in KEYMAP. Each KEY-COMMAND is a list of (KEY COMMAND)."
@@ -1980,7 +1980,7 @@ PACKAGE is evaluated and Lisp binds *BUFFER-PACKAGE* to this package.
 The default value is (slime-current-package).
 
 CLAUSES is a list of patterns with same syntax as
-`destructure-case'.  The result of the evaluation of SEXP is
+`slime-dcase'.  The result of the evaluation of SEXP is
 dispatched on CLAUSES.  The result is either a sexp of the
 form (:ok VALUE) or (:abort CONDITION).  CLAUSES is executed
 asynchronously.
@@ -1996,7 +1996,7 @@ versions cannot deal with that."
        (slime-dispatch-event
         (list :emacs-rex ,sexp ,package ,thread
               (lambda (,result)
-                (destructure-case ,result
+                (slime-dcase ,result
                   ,@continuations)))))))
 
 ;;; Interface
@@ -2154,7 +2154,7 @@ Debugged requests are ignored."
 (defun slime-dispatch-event (event &optional process)
   (let ((slime-dispatching-connection (or process (slime-connection))))
     (or (run-hook-with-args-until-success 'slime-event-hooks event)
-        (destructure-case event
+        (slime-dcase event
           ((:emacs-rex form package thread continuation)
            (when (and (slime-use-sigint-for-interrupt) (slime-busy-p))
              (slime-display-oneliner "; pipelined request... %S" form))
@@ -2921,7 +2921,7 @@ region around the first element is used.
 Return nil if there's no useful source location."
   (let ((location (slime-note.location note)))
     (when location
-      (destructure-case location
+      (slime-dcase location
         ((:error _))                 ; do nothing
         ((:location file pos _hints)
          (cond ((eq (car file) ':source-form) nil)
@@ -3143,7 +3143,7 @@ you should check twice before modifying.")
 
 
 (defun slime-goto-location-buffer (buffer)
-  (destructure-case buffer
+  (slime-dcase buffer
     ((:file filename)
      (let ((filename (slime-from-lisp-filename filename)))
        (slime-check-location-filename-sanity filename)
@@ -3176,7 +3176,7 @@ you should check twice before modifying.")
        (goto-char (point-min))))))
 
 (defun slime-goto-location-position (position)
-  (destructure-case position
+  (slime-dcase position
     ((:position pos)
      (goto-char 1)
      (forward-char (- (1- pos) (slime-eol-conversion-fixup (1- pos)))))
@@ -3291,7 +3291,7 @@ are supported:
              | (:function-name <string>)
              | (:source-path <list> <start-position>)
              | (:method <name string> <specializers> . <qualifiers>)"
-  (destructure-case location
+  (slime-dcase location
     ((:location buffer _position _hints)
      (slime-goto-location-buffer buffer)
      (let ((pos (slime-location-offset location)))
@@ -3808,7 +3808,7 @@ FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
 
 (defun slime-xref-group (xref)
   (cond ((slime-xref-has-location-p xref)
-         (destructure-case (slime-location.buffer (slime-xref.location xref))
+         (slime-dcase (slime-location.buffer (slime-xref.location xref))
            ((:file filename) filename)
            ((:buffer bufname)
             (let ((buffer (get-buffer bufname)))
@@ -3836,9 +3836,9 @@ locations."
   (if (not (slime-xref-has-location-p original-xref))
       (list original-xref)
     (let ((loc (slime-xref.location original-xref)))
-      (destructure-case (slime-location.buffer loc)
+      (slime-dcase (slime-location.buffer loc)
         ((:etags-file tags-file)
-         (destructure-case (slime-location.position loc)
+         (slime-dcase (slime-location.position loc)
            ((:tag &rest tags)
             (visit-tags-table tags-file)
             (mapcar (lambda (xref)
@@ -3998,7 +3998,7 @@ This is for use in the implementation of COMMON-LISP:ED."
       (setq slime-ed-frame (make-frame)))
     (select-frame slime-ed-frame))
   (when what
-    (destructure-case what
+    (slime-dcase what
       ((:filename file &key line column position bytep)
        (find-file (slime-from-lisp-filename file))
        (when line (slime-goto-line line))
@@ -5375,7 +5375,7 @@ EXTRAS is currently used for the stepper."
 (defun sldb-dispatch-extras (extras)
   ;; this is (mis-)used for the stepper
   (dolist (extra extras)
-    (destructure-case extra
+    (slime-dcase extra
       ((:show-frame-source n)
        (sldb-show-frame-source n))
       (t
@@ -5648,7 +5648,7 @@ This is 0 if START and END at the same line."
   (slime-eval-async
       `(swank:frame-source-location ,frame-number)
     (lambda (source-location)
-      (destructure-case source-location
+      (slime-dcase source-location
         ((:error message)
          (message "%s" message)
          (ding))
@@ -6057,7 +6057,7 @@ was called originally."
       `(swank:frame-source-location ,(sldb-frame-number-at-point))
     (lexical-let ((policy (slime-compute-policy raw-prefix-arg)))
       (lambda (source-location)
-        (destructure-case source-location
+        (slime-dcase source-location
           ((:error message)
            (message "%s" message)
            (ding))
@@ -6438,7 +6438,7 @@ If PREV resp. NEXT are true insert more-buttons as needed."
 (defun slime-inspector-insert-ispec (ispec)
   (if (stringp ispec)
       (insert ispec)
-    (destructure-case ispec
+    (slime-dcase ispec
       ((:value string id)
        (slime-propertize-region
            (list 'slime-part-number id
