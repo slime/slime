@@ -1,3 +1,10 @@
+2014-09-09  Helmut Eller  <heller@common-lisp.net>
+
+	Remove non-used optional gray stream methods.
+
+	* swank-gray.lisp (stream-read-char-will-hang-p)
+	(stream-line-length): Deleted.
+
 2014-09-08  Helmut Eller  <heller@common-lisp.net>
 
 	Use a separate package for swank-gray.lisp.
