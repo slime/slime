@@ -1,5 +1,9 @@
 2014-09-09  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-backend.lisp (gray-package-name): Fix docstring.
+
+2014-09-09  Helmut Eller  <heller@common-lisp.net>
+
 	Make the ugly deadlock workaround even more ugly.
 
 	* swank-sbcl.lisp (stream-force-output): Create swank-gray package
