@@ -219,7 +219,7 @@ EXCEPT is a list of symbol names which should be ignored."
   "Return a package-name that contains the Gray stream symbols.
 This will be used like so:
   (defpackage foo
-    (:import-from #.(gray-import-form) . #.*gray-stream-symbols*)")
+    (:import-from #.(gray-package-name) . #.*gray-stream-symbols*)")
 
 
 ;;;; Utilities
