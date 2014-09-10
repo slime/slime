@@ -1,3 +1,7 @@
+2014-09-10  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-sbcl.lisp (frame-call): Muffle unreachable code warnings.
+
 2014-09-09  Helmut Eller  <heller@common-lisp.net>
 
 	Rename destructure-case -> slime-dcase.
