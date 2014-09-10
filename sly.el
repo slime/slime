@@ -1843,7 +1843,7 @@ This is automatically synchronized from Lisp.")
                (sly-message "switched to: %s" (connection-full-name p)))
              (sly--refresh-mode-line))))))
 
-(defun sly-disconnect (interactive)
+(defun sly-disconnect (&optional interactive)
   "Close the current connection."
   (interactive (list t))
   (let ((connection (if interactive
