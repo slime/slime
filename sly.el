@@ -4408,7 +4408,8 @@ The most important commands:
   (make-text-button label nil
                     :type 'sly-xref
                     'part-args (list location)
-                    'part-label "Location"))
+                    'part-label "Location")
+  label)
 
 (defun sly-insert-xrefs (xref-alist)
   "Insert XREF-ALIST in the current-buffer.
