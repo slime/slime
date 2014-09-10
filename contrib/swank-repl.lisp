@@ -5,6 +5,7 @@
 
 (defpackage swank-repl
   (:use cl swank-backend)
+  (:export *send-repl-results-function*)
   (:import-from
    swank
 

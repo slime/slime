@@ -20,6 +20,7 @@
                          'slime-after-change-function 'append t)))
    (add-hook 'slime-event-hooks 'slime-dispatch-presentation-event)
    (setq slime-write-string-function 'slime-presentation-write)
+   (add-hook 'slime-connected-hook 'slime-presentations-on-connected)
    (add-hook 'slime-repl-return-hooks 'slime-presentation-on-return-pressed)
    (add-hook 'slime-repl-current-input-hooks 'slime-presentation-current-input)
    (add-hook 'slime-open-stream-hooks 'slime-presentation-on-stream-open)
@@ -869,5 +870,8 @@ even on Common Lisp implementations without weak hash tables."
   (slime-insert-presentation
    (sldb-in-face local-value value)
    `(:frame-var ,slime-current-thread ,(car frame) ,index) t))
+
+(defun slime-presentations-on-connected ()
+  (slime-eval-async `(swank:init-presentations)))
 
 (provide 'slime-presentations)

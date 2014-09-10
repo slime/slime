@@ -1,5 +1,20 @@
 2014-09-10  Helmut Eller  <heller@common-lisp.net>
 
+	Make presentations work, well compile, with swank-repl package.
+
+	* swank-repl.lisp: Export *send-repl-results-function*.
+	* swank-presentations.lisp (init-presentations): Move to function
+	so that *send-repl-results-function* is not clobbered as side
+	effect of compiling swank-presentation-streams.lisp
+	* swank-presentation-streams.lisp (init-presentation-streams):
+	Move to function so that *send-repl-results-function* is not
+	clobbered as side effect of compiling.
+	* slime-presentations.el (slime-presentations-on-connected): New.
+	* slime-presentation-streams.el
+	(slime-presentation-streams-on-connected): New.
+
+2014-09-10  Helmut Eller  <heller@common-lisp.net>
+
 	Only test contribs that actually have tests.
 
 	* Makefile (CONTRIB_TESTS): New variable.

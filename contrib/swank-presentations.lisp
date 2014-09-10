@@ -11,6 +11,9 @@
 
 (in-package :swank)
 
+(eval-when (:compile-toplevel :load-toplevel)
+  (swank-require :swank-repl))
+
 ;;;; Recording and accessing results of computations
 
 (defvar *record-repl-results* t
@@ -236,8 +239,8 @@ The secondary value indicates the absence of an entry."
       (reset-inspector))
     (inspect-object what)))
 
-;; FIXME: actually defined in swank-repl.lisp
-(defvar *send-repl-results-function*)
-(setq *send-repl-results-function* 'present-repl-results)
+(defslimefun init-presentations ()
+  ;; FIXME: import/use swank-repl to avoid package qualifier.
+  (setq swank-repl:*send-repl-results-function* 'present-repl-results))
 
 (provide :swank-presentations)

@@ -10,7 +10,8 @@
 
 (in-package :swank)
 
-(swank-require :swank-presentations)
+(eval-when (:compile-toplevel :load-toplevel)
+  (swank-require :swank-presentations))
 
 ;; This file contains a mechanism for printing to the slime repl so
 ;; that the printed result remembers what object it is associated
@@ -316,6 +317,9 @@ says that I am starting to print an object with this id. The second says I am fi
 
 ;; Hook into SWANK.
 
-(setq *send-repl-results-function* 'present-repl-results-via-presentation-streams)
+(defslimefun init-presentation-streams ()
+  ;; FIXME: import/use swank-repl to avoid package qualifier.
+  (setq swank-repl:*send-repl-results-function*
+	'present-repl-results-via-presentation-streams))
 
 (provide :swank-presentation-streams)
