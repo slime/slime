@@ -50,8 +50,15 @@
 (defun swank-mop:slot-definition-documentation (slot)
   (sb-pcl::documentation slot t))
 
+;; stream support
+
 (defimplementation gray-package-name ()
   "SB-GRAY")
+
+;; Pretty printer calls this, apparently
+(defmethod sb-gray:stream-line-length
+    ((s sb-gray:fundamental-character-input-stream))
+  nil)
 
 ;;; Connection info
 
@@ -1713,11 +1720,11 @@ stack."
   #.(unless (find-package 'swank-gray) (make-package 'swank-gray) nil)
   (eval-when (:load-toplevel :execute)
     (unless (find-package 'swank-gray) (make-package 'swank-gray) nil))
-  (defclass swank-gray::slime-output-stream
+  (defclass swank-gray::sly-output-stream
       (sb-gray:fundamental-character-output-stream)
     ())
   (defmethod sb-gray:stream-force-output
-      :around ((stream swank-gray::slime-output-stream))
+      :around ((stream swank-gray::sly-output-stream))
     (handler-case
         (sb-sys:with-deadline (:seconds 0.1)
           (call-next-method))
