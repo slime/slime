@@ -41,6 +41,7 @@
    ;; Make C-c ~ bring popup REPL
    ;;
    (define-key sly-editing-mode-map (kbd "C-c ~") 'sly-mrepl-sync-package-and-default-directory)
+   (define-key sly-editing-mode-map (kbd "C-c C-z") 'sly-mrepl)
    ;; Insinuate ourselves in hooks
    ;;
    (add-hook 'sly-connected-hook 'sly-mrepl-on-connection)
