@@ -1609,50 +1609,6 @@ This doesn't mean it will connect right after SLY is loaded."
                  (const always)
                  (const ask)))
 
-(defun sly-auto-select-connection ()
-  (let* ((c0 (car sly-net-processes))
-         (c (cond ((eq sly-auto-select-connection 'always) c0)
-                  ((and (eq sly-auto-select-connection 'ask)
-                        (y-or-n-p
-                         (format "No default connection selected.  %s %s? "
-                                 "Switch to" (sly-connection-name c0))))
-                   c0))))
-    (when c
-      (sly-select-connection c)
-      (sly-message "Switching to connection: %s" (sly-connection-name c))
-      c)))
-
-(defun sly-select-connection (process)
-  "Make PROCESS the default connection."
-  (setq sly-default-connection process))
-
-(defvar sly-cycle-connections-hook nil)
-
-(defun sly-cycle-connections ()
-  "Change current sly connection, cycling through all connections."
-  (interactive)
-  (cl-labels ((connection-full-name
-               (c)
-               (format "%s %s" (sly-connection-name c) (process-contact c))))
-    (cond ((not sly-net-processes)
-           (sly-error "No connections to cycle"))
-          ((null (cdr sly-net-processes))
-           (sly-message "Only one connection: %s" (connection-full-name (car sly-net-processes))))
-          (t
-           (let* ((tail (or (cdr (member (sly-current-connection)
-                                         sly-net-processes))
-                            sly-net-processes))
-                  (p (car tail)))
-             (sly-select-connection p)
-             (run-hooks 'sly-cycle-connections-hook)
-             (if (and sly-buffer-connection
-                      (not (eq sly-buffer-connection p)))
-                 (sly-message "switched to: %s but buffer remains in: %s"
-                              (connection-full-name p)
-                              (connection-full-name sly-buffer-connection))
-               (sly-message "switched to: %s" (connection-full-name p)))
-             (sly--refresh-mode-line))))))
-
 (cl-defmacro sly-with-connection-buffer ((&optional process) &rest body)
   "Execute BODY in the process-buffer of PROCESS.
 If PROCESS is not specified, `sly-connection' is used.
@@ -1825,7 +1781,7 @@ This is automatically synchronized from Lisp.")
   (when (eq process sly-default-connection)
     (when sly-net-processes
       (sly-select-connection (car sly-net-processes))
-      (sly-message "Default connection closed; switched to #%S (%S)"
+      (sly-message "Default connection closed; default is now #%S (%S)"
                (sly-connection-number)
                (sly-connection-name)))))
 
@@ -1833,10 +1789,65 @@ This is automatically synchronized from Lisp.")
 
 ;;;;; Commands on connections
 
+(defun sly-prompt-for-connection (&optional prompt)
+  (let* ((connection-names (cl-loop for process in
+                                    (sort sly-net-processes
+                                          #'(lambda (p1 _p2)
+                                              (eq p1 (sly-current-connection))))
+                                    collect (sly-connection-name process)))
+         (connection-name (sly-completing-read
+                           (or prompt "Connection: ")
+                           connection-names))
+         (choice-pos (cl-position connection-name connection-names)))
+    (cl-assert choice-pos)
+    (nth choice-pos sly-net-processes)))
+
+(defun sly-auto-select-connection ()
+  (let* ((c0 (car sly-net-processes))
+         (c (cond ((eq sly-auto-select-connection 'always) c0)
+                  ((and (eq sly-auto-select-connection 'ask)
+                        (sly-prompt-for-connection "Choose a new default connection: "))))))
+    (when c
+      (sly-select-connection c)
+      (sly-message "Switching to connection: %s" (sly-connection-name c))
+      c)))
+
+(defun sly-select-connection (process)
+  "Make PROCESS the default connection."
+  (setq sly-default-connection process))
+
+(defvar sly-cycle-connections-hook nil)
+
+(defun sly-cycle-connections ()
+  "Change current sly connection, cycling through all connections."
+  (interactive)
+  (cl-labels ((connection-full-name
+               (c)
+               (format "%s %s" (sly-connection-name c) (process-contact c))))
+    (cond ((not sly-net-processes)
+           (sly-error "No connections to cycle"))
+          ((null (cdr sly-net-processes))
+           (sly-message "Only one connection: %s" (connection-full-name (car sly-net-processes))))
+          (t
+           (let* ((tail (or (cdr (member (sly-current-connection)
+                                         sly-net-processes))
+                            sly-net-processes))
+                  (p (car tail)))
+             (sly-select-connection p)
+             (run-hooks 'sly-cycle-connections-hook)
+             (if (and sly-buffer-connection
+                      (not (eq sly-buffer-connection p)))
+                 (sly-message "switched to: %s but buffer remains in: %s"
+                              (connection-full-name p)
+                              (connection-full-name sly-buffer-connection))
+               (sly-message "switched to: %s" (connection-full-name p)))
+             (sly--refresh-mode-line))))))
+
 (defun sly-disconnect ()
   "Close the current connection."
   (interactive)
-  (sly-net-close (sly-connection) "Disconnecting"))
+  (let ((connection (sly-prompt-for-connection "Connection to disconnect: ")))
+    (sly-net-close connection "Disconnecting")))
 
 (defun sly-disconnect-all ()
   "Disconnect all connections."
@@ -4740,7 +4751,6 @@ NB: Does not affect sly-eval-macroexpand-expression"
     (let* ((start (copy-marker (car bounds)))
                    (end (copy-marker (cdr bounds)))
                    (point (point))
-                   (package (sly-current-package))
                    (buffer (current-buffer)))
       (sly-eval-async
           `(,expander ,(buffer-substring-no-properties start end))
@@ -4834,7 +4844,8 @@ argument is given, with CL:MACROEXPAND."
 (defun sly-quit-lisp (&optional kill)
   "Quit lisp, kill the inferior process and associated buffers."
   (interactive "P")
-  (sly-quit-lisp-internal (sly-connection) 'sly-quit-sentinel kill))
+  (let ((connection (sly-prompt-for-connection)))
+    (sly-quit-lisp-internal connection 'sly-quit-sentinel kill)))
 
 (defun sly-quit-lisp-internal (connection sentinel kill)
   (let ((sly-dispatching-connection connection))
