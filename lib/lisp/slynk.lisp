@@ -38,7 +38,7 @@
            #:*readtable-alist*
            #:*globally-redirect-io*
            #:*global-debugger*
-           #:*sldb-quit-restart*
+           #:*sly-db-quit-restart*
            #:*backtrace-printer-bindings*
            #:*default-worker-thread-bindings*
            #:*macroexpand-printer-bindings*
@@ -52,9 +52,9 @@
            #:frame-source-location
            #:gdb-initial-commands
            #:restart-frame
-           #:sldb-step
-           #:sldb-break
-           #:sldb-break-on-return
+           #:sly-db-step
+           #:sly-db-break
+           #:sly-db-break-on-return
            #:default-directory
            #:set-default-directory
            #:quit-lisp
@@ -1027,15 +1027,15 @@ if the file doesn't exist; otherwise the first line of the file."
 
 ;;;;; Event Processing
 
-(defvar *sldb-quit-restart* nil
-  "The restart that will be invoked when the user calls sldb-quit.")
+(defvar *sly-db-quit-restart* nil
+  "The restart that will be invoked when the user calls sly-db-quit.")
 
 ;; Establish a top-level restart and execute BODY.
 ;; Execute K if the restart is invoked.
 (defmacro with-top-level-restart ((connection k) &body body)
   `(with-connection (,connection)
      (restart-case
-         (let ((*sldb-quit-restart* (find-restart 'abort)))
+         (let ((*sly-db-quit-restart* (find-restart 'abort)))
            ,@body)
        (abort (&optional v)
          :report "Return to SLY's top level."
@@ -1047,7 +1047,7 @@ if the file doesn't exist; otherwise the first line of the file."
   "Read and process :emacs-rex requests.
 The processing is done in the extent of the toplevel restart."
   (with-connection (connection)
-    (cond (*sldb-quit-restart*
+    (cond (*sly-db-quit-restart*
            (process-requests timeout))
           (t
            (tagbody
@@ -1487,7 +1487,7 @@ event was found."
             ;; A Sly request from Emacs is pending; make sure to
             ;; redirect IO to the REPL buffer.
             (with-simple-restart (process-input "Continue reading input.")
-              (let ((*sldb-quit-restart* (find-restart 'process-input)))
+              (let ((*sly-db-quit-restart* (find-restart 'process-input)))
                 (with-default-listener (connection)
                   (handle-requests connection t)))))
            ((member stdin ready)
@@ -2241,40 +2241,40 @@ after Emacs causes a restart to be invoked."
 (defvar *slynk-debugger-condition* nil
   "The condition being debugged.")
 
-(defvar *sldb-level* 0
+(defvar *sly-db-level* 0
   "The current level of recursive debugging.")
 
-(defvar *sldb-initial-frames* 20
+(defvar *sly-db-initial-frames* 20
   "The initial number of backtrace frames to send to Emacs.")
 
-(defvar *sldb-restarts* nil
+(defvar *sly-db-restarts* nil
   "The list of currenlty active restarts.")
 
-(defvar *sldb-stepping-p* nil
+(defvar *sly-db-stepping-p* nil
   "True during execution of a step command.")
 
 (defun debug-in-emacs (condition)
   (let ((*slynk-debugger-condition* condition)
-        (*sldb-restarts* (compute-restarts condition))
-        (*sldb-quit-restart* (and *sldb-quit-restart*
-                                  (find-restart *sldb-quit-restart*)))
+        (*sly-db-restarts* (compute-restarts condition))
+        (*sly-db-quit-restart* (and *sly-db-quit-restart*
+                                  (find-restart *sly-db-quit-restart*)))
         (*package* (or (and (boundp '*buffer-package*)
                             (symbol-value '*buffer-package*))
                        *package*))
-        (*sldb-level* (1+ *sldb-level*))
-        (*sldb-stepping-p* nil))
+        (*sly-db-level* (1+ *sly-db-level*))
+        (*sly-db-stepping-p* nil))
     (force-user-output)
     (call-with-debugging-environment
      (lambda ()
-       (sldb-loop *sldb-level*)))))
+       (sly-db-loop *sly-db-level*)))))
 
-(defun sldb-loop (level)
+(defun sly-db-loop (level)
   (unwind-protect
        (loop
-        (with-simple-restart (abort "Return to sldb level ~D." level)
+        (with-simple-restart (abort "Return to sly-db level ~D." level)
           (send-to-emacs
            (list* :debug (current-thread-id) level
-                  (debugger-info-for-emacs 0 *sldb-initial-frames*)))
+                  (debugger-info-for-emacs 0 *sly-db-initial-frames*)))
           (send-to-emacs
            (list :debug-activate (current-thread-id) level nil))
           (loop
@@ -2282,20 +2282,20 @@ after Emacs causes a restart to be invoked."
                (destructure-case (wait-for-event
                                   `(or (:emacs-rex . _)
                                        (:emacs-channel-send . _)
-                                       (:sldb-return ,(1+ level))))
+                                       (:sly-db-return ,(1+ level))))
                  ((:emacs-rex &rest args) (apply #'eval-for-emacs args))
                  ((:emacs-channel-send channel (selector &rest args))
                   (channel-send channel selector args))
-                 ((:sldb-return _) (declare (ignore _)) (return nil)))
-             (sldb-condition (c)
-               (handle-sldb-condition c))))))
+                 ((:sly-db-return _) (declare (ignore _)) (return nil)))
+             (sly-db-condition (c)
+               (handle-sly-db-condition c))))))
     (send-to-emacs `(:debug-return
-                     ,(current-thread-id) ,level ,*sldb-stepping-p*))
-    (wait-for-event `(:sldb-return ,(1+ level)) t) ; clean event-queue
+                     ,(current-thread-id) ,level ,*sly-db-stepping-p*))
+    (wait-for-event `(:sly-db-return ,(1+ level)) t) ; clean event-queue
     (when (> level 1)
-      (send-event (current-thread) `(:sldb-return ,level)))))
+      (send-event (current-thread) `(:sly-db-return ,level)))))
 
-(defun handle-sldb-condition (condition)
+(defun handle-sly-db-condition (condition)
   "Handle an internal debugger condition.
 Rather than recursively debug the debugger (a dangerous idea!), these
 conditions are simply reported."
@@ -2327,12 +2327,12 @@ conditions are simply reported."
   (string-trim #(#\newline #\space #\tab)
                (%%condition-message condition)))
 
-(defvar *sldb-condition-printer* #'%condition-message
-  "Function called to print a condition to an SLDB buffer.")
+(defvar *sly-db-condition-printer* #'%condition-message
+  "Function called to print a condition to an SLY-DB buffer.")
 
 (defun safe-condition-message (condition)
   "Print condition to a string, handling any errors during printing."
-  (funcall *sldb-condition-printer* condition))
+  (funcall *sly-db-condition-printer* condition))
 
 (defun debugger-condition-for-emacs ()
   (list (safe-condition-message *slynk-debugger-condition*)
@@ -2344,9 +2344,9 @@ conditions are simply reported."
   "Return a list of restarts for *slynk-debugger-condition* in a
 format suitable for Emacs."
   (let ((*print-right-margin* most-positive-fixnum))
-    (loop for restart in *sldb-restarts* collect
+    (loop for restart in *sly-db-restarts* collect
           (list (format nil "~:[~;*~]~a"
-                        (eq restart *sldb-quit-restart*)
+                        (eq restart *sly-db-quit-restart*)
                         (restart-name restart))
                 (with-output-to-string (stream)
                   (without-printing-errors (:object restart
@@ -2354,9 +2354,9 @@ format suitable for Emacs."
                                             :msg "<<error printing restart>>")
                     (princ restart stream)))))))
 
-;;;;; SLDB entry points
+;;;;; SLY-DB entry points
 
-(defslyfun sldb-break-with-default-debugger (dont-unwind)
+(defslyfun sly-db-break-with-default-debugger (dont-unwind)
   "Invoke the default debugger."
   (cond (dont-unwind
          (invoke-default-debugger *slynk-debugger-condition*))
@@ -2423,7 +2423,7 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
         *pending-continuations*))
 
 (defun nth-restart (index)
-  (nth index *sldb-restarts*))
+  (nth index *sly-db-restarts*))
 
 (defslyfun invoke-nth-restart (index)
   (let ((restart (nth-restart index)))
@@ -2445,10 +2445,10 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
                                         s)))))))
         (invoke-restart-interactively restart)))))
 
-(defslyfun sldb-abort ()
-  (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
+(defslyfun sly-db-abort ()
+  (invoke-restart (find 'abort *sly-db-restarts* :key #'restart-name)))
 
-(defslyfun sldb-continue ()
+(defslyfun sly-db-continue ()
   (continue))
 
 (defun coerce-to-condition (datum args)
@@ -2465,25 +2465,25 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
 (defslyfun throw-to-toplevel ()
   "Invoke the ABORT-REQUEST restart abort an RPC from Emacs.
 If we are not evaluating an RPC then ABORT instead."
-  (let ((restart (or (and *sldb-quit-restart*
-                          (find-restart *sldb-quit-restart*))
+  (let ((restart (or (and *sly-db-quit-restart*
+                          (find-restart *sly-db-quit-restart*))
                      (car (last (compute-restarts))))))
     (cond (restart (invoke-restart restart))
-          (t (format nil "Restart not active [~s]" *sldb-quit-restart*)))))
+          (t (format nil "Restart not active [~s]" *sly-db-quit-restart*)))))
 
-(defslyfun invoke-nth-restart-for-emacs (sldb-level n)
+(defslyfun invoke-nth-restart-for-emacs (sly-db-level n)
   "Invoke the Nth available restart.
-SLDB-LEVEL is the debug level when the request was made. If this
+SLY-DB-LEVEL is the debug level when the request was made. If this
 has changed, ignore the request."
-  (when (= sldb-level *sldb-level*)
+  (when (= sly-db-level *sly-db-level*)
     (invoke-nth-restart n)))
 
-(defun wrap-sldb-vars (form)
-  `(let ((*sldb-level* ,*sldb-level*))
+(defun wrap-sly-db-vars (form)
+  `(let ((*sly-db-level* ,*sly-db-level*))
      ,form))
 
 (defun eval-in-frame-aux (frame string package print)
-  (let* ((form (wrap-sldb-vars (parse-string string package)))
+  (let* ((form (wrap-sly-db-vars (parse-string string package)))
          (values (multiple-value-list (eval-in-frame form frame))))
     (with-buffer-syntax (package)
       (funcall print values))))
@@ -2515,34 +2515,34 @@ TAGS has is a list of strings."
                   :id id
                   :value (to-line value *print-right-margin*))))))
 
-(defslyfun sldb-disassemble (index)
+(defslyfun sly-db-disassemble (index)
   (with-output-to-string (*standard-output*)
     (disassemble-frame index)))
 
-(defslyfun sldb-return-from-frame (index string)
+(defslyfun sly-db-return-from-frame (index string)
   (let ((form (from-string string)))
     (to-string (multiple-value-list (return-from-frame index form)))))
 
-(defslyfun sldb-break (name)
+(defslyfun sly-db-break (name)
   (with-buffer-syntax ()
-    (sldb-break-at-start (read-from-string name))))
+    (sly-db-break-at-start (read-from-string name))))
 
 (defmacro define-stepper-function (name backend-function-name)
   `(defslyfun ,name (frame)
-     (cond ((sldb-stepper-condition-p *slynk-debugger-condition*)
-            (setq *sldb-stepping-p* t)
+     (cond ((sly-db-stepper-condition-p *slynk-debugger-condition*)
+            (setq *sly-db-stepping-p* t)
             (,backend-function-name))
            ((find-restart 'continue)
             (activate-stepping frame)
-            (setq *sldb-stepping-p* t)
+            (setq *sly-db-stepping-p* t)
             (continue))
            (t
             (error "Not currently single-stepping, ~
 and no continue restart available.")))))
 
-(define-stepper-function sldb-step sldb-step-into)
-(define-stepper-function sldb-next sldb-step-next)
-(define-stepper-function sldb-out  sldb-step-out)
+(define-stepper-function sly-db-step sly-db-step-into)
+(define-stepper-function sly-db-next sly-db-step-next)
+(define-stepper-function sly-db-out  sly-db-step-out)
 
 (defslyfun toggle-break-on-signals ()
   (setq *break-on-signals* (not *break-on-signals*))
@@ -3156,7 +3156,7 @@ If non-nil, called with two arguments SPEC and TRACED-P." )
        (eval (read-from-string string))))
     ((:inspector part)
      (inspector-nth-part part))
-    ((:sldb frame var)
+    ((:sly-db frame var)
      (frame-var-value frame var))))
 
 (defvar *find-definitions-right-trim* ",:.>")

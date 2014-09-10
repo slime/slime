@@ -194,7 +194,7 @@ conditions (assertions)."
     (sly-at-top-level-p)))
 
 (defun sly-at-top-level-p ()
-  (and (not (sldb-get-default-buffer))
+  (and (not (sly-db-get-default-buffer))
        (null (sly-rex-continuations))))
 
 (defun sly-wait-condition (name predicate timeout)
@@ -214,13 +214,13 @@ conditions (assertions)."
   (sly-wait-condition "top-level" #'sly-at-top-level-p timeout))
 
 ;; XXX: unused function
-(defun sly-check-sldb-level (expected)
-  (let ((sldb-level (let ((sldb (sldb-get-default-buffer)))
-		      (if sldb
-			  (with-current-buffer sldb
-			    sldb-level)))))
-    (sly-check ("SLDB level (%S) is %S" expected sldb-level)
-      (equal expected sldb-level))))
+(defun sly-check-sly-db-level (expected)
+  (let ((sly-db-level (let ((sly-db (sly-db-get-default-buffer)))
+		      (if sly-db
+			  (with-current-buffer sly-db
+			    sly-db-level)))))
+    (sly-check ("SLY-DB level (%S) is %S" expected sly-db-level)
+      (equal expected sly-db-level))))
 
 (defun sly-test-expect (_name expected actual &optional test)
   (when (stringp expected) (setq expected (substring-no-properties expected)))
@@ -229,14 +229,14 @@ conditions (assertions)."
       (should (funcall test expected actual))
     (should (equal expected actual))))
 
-(defun sldb-level ()
-  (let ((sldb (sldb-get-default-buffer)))
-    (if sldb
-	(with-current-buffer sldb
-	  sldb-level))))
+(defun sly-db-level ()
+  (let ((sly-db (sly-db-get-default-buffer)))
+    (if sly-db
+	(with-current-buffer sly-db
+	  sly-db-level))))
 
-(defun sly-sldb-level= (level)
-  (equal level (sldb-level)))
+(defun sly-sly-db-level= (level)
+  (equal level (sly-db-level)))
 
 (eval-when-compile
  (defvar sly-test-symbols
@@ -747,24 +747,24 @@ Confirm that SUBFORM is correctly located."
                 (debug-hook-max-depth 0))
     (let ((debug-hook
            (lambda ()
-             (with-current-buffer (sldb-get-default-buffer)
-               (when (> sldb-level debug-hook-max-depth)
-                 (setq debug-hook-max-depth sldb-level)
-                 (if (= sldb-level depth)
+             (with-current-buffer (sly-db-get-default-buffer)
+               (when (> sly-db-level debug-hook-max-depth)
+                 (setq debug-hook-max-depth sly-db-level)
+                 (if (= sly-db-level depth)
                      ;; We're at maximum recursion - time to unwind
-                     (sldb-quit)
+                     (sly-db-quit)
                    ;; Going down - enter another recursive debug
                    ;; Recursively debug.
                    (sly-eval-async '(error))))))))
-      (let ((sldb-hook (cons debug-hook sldb-hook)))
+      (let ((sly-db-hook (cons debug-hook sly-db-hook)))
         (sly-eval-async '(error))
         (sly-sync-to-top-level 5)
         (sly-check ("Maximum depth reached (%S) is %S."
                       debug-hook-max-depth depth)
           (= debug-hook-max-depth depth))))))
 
-(def-sly-test unwind-to-previous-sldb-level (level2 level1)
-  "Test recursive debugging and returning to lower SLDB levels."
+(def-sly-test unwind-to-previous-sly-db-level (level2 level1)
+  "Test recursive debugging and returning to lower SLY-DB levels."
   '((2 1) (4 2))
   (sly-check-top-level)
   (lexical-let ((level2 level2)
@@ -773,23 +773,23 @@ Confirm that SUBFORM is correctly located."
                 (max-depth 0))
     (let ((debug-hook
            (lambda ()
-             (with-current-buffer (sldb-get-default-buffer)
-               (setq max-depth (max sldb-level max-depth))
+             (with-current-buffer (sly-db-get-default-buffer)
+               (setq max-depth (max sly-db-level max-depth))
                (ecase state
                  (enter
-                  (cond ((= sldb-level level2)
+                  (cond ((= sly-db-level level2)
                          (setq state 'leave)
-                         (sldb-invoke-restart (sldb-first-abort-restart)))
+                         (sly-db-invoke-restart (sly-db-first-abort-restart)))
                         (t
-                         (sly-eval-async `(cl:aref cl:nil ,sldb-level)))))
+                         (sly-eval-async `(cl:aref cl:nil ,sly-db-level)))))
                  (leave
-                  (cond ((= sldb-level level1)
+                  (cond ((= sly-db-level level1)
                          (setq state 'ok)
-                         (sldb-quit))
+                         (sly-db-quit))
                         (t
-                         (sldb-invoke-restart (sldb-first-abort-restart))
+                         (sly-db-invoke-restart (sly-db-first-abort-restart))
                          ))))))))
-      (let ((sldb-hook (cons debug-hook sldb-hook)))
+      (let ((sly-db-hook (cons debug-hook sly-db-hook)))
         (sly-eval-async `(cl:aref cl:nil 0))
         (sly-sync-to-top-level 15)
         (sly-check-top-level)
@@ -798,9 +798,9 @@ Confirm that SUBFORM is correctly located."
         (sly-check ("Final state reached.")
           (eq state 'ok))))))
 
-(defun sldb-first-abort-restart ()
+(defun sly-db-first-abort-restart ()
   (let ((case-fold-search t))
-    (cl-position-if (lambda (x) (string-match "abort" (car x))) sldb-restarts)))
+    (cl-position-if (lambda (x) (string-match "abort" (car x))) sly-db-restarts)))
 
 (def-sly-test loop-interrupt-quit
     ()
@@ -811,9 +811,9 @@ Confirm that SUBFORM is correctly located."
   (accept-process-output nil 1)
   (sly-check "In eval state." (sly-busy-p))
   (sly-interrupt)
-  (sly-wait-condition "First interrupt" (lambda () (sly-sldb-level= 1)) 5)
-  (with-current-buffer (sldb-get-default-buffer)
-    (sldb-quit))
+  (sly-wait-condition "First interrupt" (lambda () (sly-sly-db-level= 1)) 5)
+  (with-current-buffer (sly-db-get-default-buffer)
+    (sly-db-quit))
   (sly-sync-to-top-level 5)
   (sly-check-top-level))
 
@@ -826,16 +826,16 @@ Confirm that SUBFORM is correctly located."
   (sleep-for 1)
   (sly-wait-condition "running" #'sly-busy-p 5)
   (sly-interrupt)
-  (sly-wait-condition "First interrupt" (lambda () (sly-sldb-level= 1)) 5)
-  (with-current-buffer (sldb-get-default-buffer)
-    (sldb-continue))
+  (sly-wait-condition "First interrupt" (lambda () (sly-sly-db-level= 1)) 5)
+  (with-current-buffer (sly-db-get-default-buffer)
+    (sly-db-continue))
   (sly-wait-condition "running" (lambda ()
                                     (and (sly-busy-p)
-                                         (not (sldb-get-default-buffer)))) 5)
+                                         (not (sly-db-get-default-buffer)))) 5)
   (sly-interrupt)
-  (sly-wait-condition "Second interrupt" (lambda () (sly-sldb-level= 1)) 5)
-  (with-current-buffer (sldb-get-default-buffer)
-    (sldb-quit))
+  (sly-wait-condition "Second interrupt" (lambda () (sly-sly-db-level= 1)) 5)
+  (with-current-buffer (sly-db-get-default-buffer)
+    (sly-db-quit))
   (sly-sync-to-top-level 5)
   (sly-check-top-level))
 
@@ -845,7 +845,7 @@ Confirm that SUBFORM is correctly located."
     '(())
   (sly-check-top-level)
   (lexical-let ((done nil))
-    (let ((sldb-hook (lambda () (sldb-continue) (setq done t))))
+    (let ((sly-db-hook (lambda () (sly-db-continue) (setq done t))))
       (sly-interactive-eval
        "(progn\
  (cerror \"foo\" \"restart\")\
@@ -868,7 +868,7 @@ Confirm that SUBFORM is correctly located."
                 (setf (cdr x) x))"))
   (sly-check-top-level)
   (lexical-let ((done nil))
-    (let ((sldb-hook (lambda () (sldb-continue) (setq done t))))
+    (let ((sly-db-hook (lambda () (sly-db-continue) (setq done t))))
       (sly-interactive-eval
        (format "(with-standard-io-syntax (cerror \"foo\" \"%s\" %s) (+ 1 2))"
                format-control format-argument))
@@ -894,11 +894,11 @@ Confirm that SUBFORM is correctly located."
   (sly-interrupt)
   (sly-wait-condition "Debugger visible"
                         (lambda ()
-                          (and (sly-sldb-level= 1)
-                               (get-buffer-window (sldb-get-default-buffer))))
+                          (and (sly-sly-db-level= 1)
+                               (get-buffer-window (sly-db-get-default-buffer))))
                         30)
-  (with-current-buffer (sldb-get-default-buffer)
-    (sldb-quit))
+  (with-current-buffer (sly-db-get-default-buffer)
+    (sly-db-quit))
   (sly-sync-to-top-level 5))
 
 (def-sly-test (interrupt-encode-message (:style :sigio))
@@ -911,11 +911,11 @@ Confirm that SUBFORM is correctly located."
   (sly-eval-async '(cl:/ 1 0))
   (sly-wait-condition "Debugger visible"
                         (lambda ()
-                          (and (sly-sldb-level= 1)
-                               (get-buffer-window (sldb-get-default-buffer))))
+                          (and (sly-sly-db-level= 1)
+                               (get-buffer-window (sly-db-get-default-buffer))))
                         30)
-  (with-current-buffer (sldb-get-default-buffer)
-    (sldb-quit))
+  (with-current-buffer (sly-db-get-default-buffer)
+    (sly-db-quit))
   (sly-sync-to-top-level 5))
 
 (def-sly-test inspector
@@ -1041,7 +1041,7 @@ the buffer's undo-list."
 
 (def-sly-test break
     (times exp)
-    "Test whether BREAK invokes SLDB."
+    "Test whether BREAK invokes SLY-DB."
     (let ((exp1 '(break)))
       `((1 ,exp1) (2 ,exp1) (3 ,exp1)))
   (accept-process-output nil 0.2)
@@ -1055,14 +1055,14 @@ the buffer's undo-list."
   (dotimes (_i times)
     (sly-wait-condition "Debugger visible"
                           (lambda ()
-                            (and (sly-sldb-level= 1)
+                            (and (sly-sly-db-level= 1)
                                  (get-buffer-window
-                                  (sldb-get-default-buffer))))
+                                  (sly-db-get-default-buffer))))
                           3)
-    (with-current-buffer (sldb-get-default-buffer)
-      (sldb-continue))
-    (sly-wait-condition "sldb closed"
-                          (lambda () (not (sldb-get-default-buffer)))
+    (with-current-buffer (sly-db-get-default-buffer)
+      (sly-db-continue))
+    (sly-wait-condition "sly-db closed"
+                          (lambda () (not (sly-db-get-default-buffer)))
                           0.5))
   (sly-sync-to-top-level 1))
 
@@ -1097,7 +1097,7 @@ on *DEBUGGER-HOOK*."
   ;; FIXME: sly-wait-condition returns immediately if the test returns true
   (sly-wait-condition "Checking that Debugger does not popup"
                         (lambda ()
-                          (not (sldb-get-default-buffer)))
+                          (not (sly-db-get-default-buffer)))
                         3)
   (sly-sync-to-top-level 5))
 
@@ -1129,11 +1129,11 @@ on *DEBUGGER-HOOK*."
     (sly-wait-condition
      "Debugger visible"
      (lambda ()
-       (and (sly-sldb-level= 1)
-            (get-buffer-window (sldb-get-default-buffer))))
+       (and (sly-sly-db-level= 1)
+            (get-buffer-window (sly-db-get-default-buffer))))
      5)
-    (with-current-buffer (sldb-get-default-buffer)
-      (sldb-quit))
+    (with-current-buffer (sly-db-get-default-buffer)
+      (sly-db-quit))
     (sly-sync-to-top-level 5)))
 
 (def-sly-test interrupt-in-debugger (interrupts continues)
@@ -1141,7 +1141,7 @@ on *DEBUGGER-HOOK*."
 INTERRUPTS ... number of nested interrupts
 CONTINUES  ... how often the continue restart should be invoked"
     '((1 0) (2 1) (4 2))
-  (sly-check "No debugger" (not (sldb-get-default-buffer)))
+  (sly-check "No debugger" (not (sly-db-get-default-buffer)))
   (when (and (eq (sly-communication-style) :spawn)
              (not (featurep 'sly-repl)))
     (sly-eval-async '(slynk::without-sly-interrupts
@@ -1151,17 +1151,17 @@ CONTINUES  ... how often the continue restart should be invoked"
     (sly-interrupt)
     (let ((level (1+ i)))
       (sly-wait-condition (format "Debug level %d reachend" level)
-                            (lambda () (equal (sldb-level) level))
+                            (lambda () (equal (sly-db-level) level))
                             2)))
   (dotimes (i continues)
-    (with-current-buffer (sldb-get-default-buffer)
-      (sldb-continue))
+    (with-current-buffer (sly-db-get-default-buffer)
+      (sly-db-continue))
     (let ((level (- interrupts (1+ i))))
       (sly-wait-condition (format "Return to debug level %d" level)
-                            (lambda () (equal (sldb-level) level))
+                            (lambda () (equal (sly-db-level) level))
                             2)))
-  (with-current-buffer (sldb-get-default-buffer)
-    (sldb-quit))
+  (with-current-buffer (sly-db-get-default-buffer)
+    (sly-db-quit))
   (sly-sync-to-top-level 1))
 
 (def-sly-test flow-control
@@ -1170,17 +1170,17 @@ CONTINUES  ... how often the continue restart should be invoked"
     `((400 0.03 3))
   (when noninteractive
     (sly-skip-test "test is currently unstable"))
-  (sly-check "No debugger" (not (sldb-get-default-buffer)))
+  (sly-check "No debugger" (not (sly-db-get-default-buffer)))
   (sly-eval-async `(slynk:flow-control-test ,n ,delay))
   (sleep-for 0.2)
   (dotimes (_i interrupts)
     (sly-interrupt)
-    (sly-wait-condition "In debugger" (lambda () (sly-sldb-level= 1)) 5)
-    (sly-check "In debugger" (sly-sldb-level= 1))
-    (with-current-buffer (sldb-get-default-buffer)
-      (sldb-continue))
-    (sly-wait-condition "No debugger" (lambda () (sly-sldb-level= nil)) 3)
-    (sly-check "Debugger closed" (sly-sldb-level= nil)))
+    (sly-wait-condition "In debugger" (lambda () (sly-sly-db-level= 1)) 5)
+    (sly-check "In debugger" (sly-sly-db-level= 1))
+    (with-current-buffer (sly-db-get-default-buffer)
+      (sly-db-continue))
+    (sly-wait-condition "No debugger" (lambda () (sly-sly-db-level= nil)) 3)
+    (sly-check "Debugger closed" (sly-sly-db-level= nil)))
   (sly-sync-to-top-level 8))
 
 (def-sly-test sbcl-world-lock

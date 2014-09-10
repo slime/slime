@@ -338,11 +338,11 @@
   (setq *debugger-hook* function)
   (setq sys::*invoke-debugger-hook* (make-invoke-debugger-hook function)))
 
-(defvar *sldb-topframe*)
+(defvar *sly-db-topframe*)
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let* ((magic-token (intern "SLYNK-DEBUGGER-HOOK" 'slynk))
-         (*sldb-topframe* 
+         (*sly-db-topframe* 
           (second (member magic-token (sys:backtrace)
                           :key (lambda (frame) 
                                  (first (sys:frame-to-list frame)))))))
@@ -351,7 +351,7 @@
 (defun backtrace (start end)
   "A backtrace without initial SLYNK frames."
   (let ((backtrace (sys:backtrace)))
-    (subseq (or (member *sldb-topframe* backtrace) backtrace)
+    (subseq (or (member *sly-db-topframe* backtrace) backtrace)
             start end)))
 
 (defun nth-frame (index)

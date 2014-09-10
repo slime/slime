@@ -339,7 +339,7 @@ Return NIL if the symbol is unbound."
   (setq *debugger-hook* function)
   (setf (env:environment) (sly-env function '())))
 
-(defvar *sldb-top-frame*)
+(defvar *sly-db-top-frame*)
 
 (defun interesting-frame-p (frame)
   (cond ((or (dbg::call-frame-p frame)
@@ -362,7 +362,7 @@ Return NIL if the symbol is unbound."
        frame)))
 
 (defun nth-frame (index)
-  (nth-next-frame *sldb-top-frame* index))
+  (nth-next-frame *sly-db-top-frame* index))
 
 (defun find-top-frame ()
   "Return the most suitable top-frame for the debugger."
@@ -383,7 +383,7 @@ Return NIL if the symbol is unbound."
   
 (defimplementation call-with-debugging-environment (fn)
   (dbg::with-debugger-stack ()
-    (let ((*sldb-top-frame* (find-top-frame)))
+    (let ((*sly-db-top-frame* (find-top-frame)))
       (funcall fn))))
 
 (defimplementation compute-backtrace (start end)

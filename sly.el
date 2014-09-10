@@ -339,30 +339,30 @@ argument."
   "Face for compiler notes while selected."
   :group 'sly-mode-faces)
 
-;;;;; sldb
+;;;;; sly-db
 
 (defgroup sly-debugger nil
   "Backtrace options and fontification."
-  :prefix "sldb-"
+  :prefix "sly-db-"
   :group 'sly)
 
-(defmacro define-sldb-faces (&rest faces)
-  "Define the set of SLDB faces.
+(defmacro define-sly-db-faces (&rest faces)
+  "Define the set of SLY-DB faces.
 Each face specifiation is (NAME DESCRIPTION &optional PROPERTIES).
-NAME is a symbol; the face will be called sldb-NAME-face.
+NAME is a symbol; the face will be called sly-db-NAME-face.
 DESCRIPTION is a one-liner for the customization buffer.
 PROPERTIES specifies any default face properties."
   `(progn ,@(cl-loop for face in faces
-                     collect `(define-sldb-face ,@face))))
+                     collect `(define-sly-db-face ,@face))))
 
-(defmacro define-sldb-face (name description &optional default)
-  (let ((facename (intern (format "sldb-%s-face" (symbol-name name)))))
+(defmacro define-sly-db-face (name description &optional default)
+  (let ((facename (intern (format "sly-db-%s-face" (symbol-name name)))))
     `(defface ,facename
        (list (list t ,default))
        ,(format "Face for %s." description)
        :group 'sly-debugger)))
 
-(define-sldb-faces
+(define-sly-db-faces
   (topline        "the top line describing the error")
   (condition      "the condition class")
   (section        "the labels of major sections in the debugger buffer")
@@ -517,7 +517,7 @@ PROPERTIES specifies any default face properties."
                             (sly--pretty-package-name pkg)))
          (pending (and conn
                        (length (sly-rex-continuations conn))))
-         (sldbs (and conn (length (sldb-buffers conn)))))
+         (sly-dbs (and conn (length (sly-db-buffers conn)))))
     `((:propertize "sly"
                    face sly-mode-line
                    keymap ,(let ((map (make-sparse-keymap)))
@@ -542,7 +542,7 @@ PROPERTIES specifies any default face properties."
       "/"
       ,(funcall format-number pending)
       "/"
-      ,(funcall format-number sldbs))))
+      ,(funcall format-number sly-dbs))))
 
 (defun sly--refresh-mode-line ()
   (force-mode-line-update t))
@@ -2087,17 +2087,17 @@ or nil if nothing suitable can be found.")
 
 ;; UNUSED
 (defun sly-debugged-connection-p (conn)
-  ;; This previously was (AND (SLDB-DEBUGGED-CONTINUATIONS CONN) T),
-  ;; but an SLDB buffer may exist without having continuations
+  ;; This previously was (AND (SLY-DB-DEBUGGED-CONTINUATIONS CONN) T),
+  ;; but an SLY-DB buffer may exist without having continuations
   ;; attached to it, e.g. the one resulting from `sly-interrupt'.
-  (cl-loop for b in (sldb-buffers)
+  (cl-loop for b in (sly-db-buffers)
            thereis (with-current-buffer b
                      (eq sly-buffer-connection conn))))
 
 (defun sly-busy-p (&optional conn)
   "True if Lisp has outstanding requests.
 Debugged requests are ignored."
-  (let ((debugged (sldb-debugged-continuations (or conn (sly-connection)))))
+  (let ((debugged (sly-db-debugged-continuations (or conn (sly-connection)))))
     (cl-remove-if (lambda (id)
                     (memq id debugged))
                   (sly-rex-continuations)
@@ -2155,13 +2155,13 @@ Debugged requests are ignored."
                     (error "Unexpected reply: %S %S" id value)))))
           ((:debug-activate thread level &optional select)
            (cl-assert thread)
-           (sldb-activate thread level select))
+           (sly-db-activate thread level select))
           ((:debug thread level condition restarts frames conts)
            (cl-assert thread)
-           (sldb-setup thread level condition restarts frames conts))
+           (sly-db-setup thread level condition restarts frames conts))
           ((:debug-return thread level stepping)
            (cl-assert thread)
-           (sldb-exit thread level stepping))
+           (sly-db-exit thread level stepping))
           ((:emacs-interrupt thread)
            (sly-send `(:emacs-interrupt ,thread)))
           ((:read-from-minibuffer thread tag prompt initial-value)
@@ -2228,7 +2228,7 @@ Debugged requests are ignored."
   "Clear all pending continuations and erase connection buffer."
   (interactive)
   (setf (sly-rex-continuations) '())
-  (mapc #'kill-buffer (sldb-buffers))
+  (mapc #'kill-buffer (sly-db-buffers))
   (sly-with-connection-buffer ()
     (erase-buffer)))
 
@@ -4873,12 +4873,12 @@ argument is given, with CL:MACROEXPAND."
     (sly-message "Connection closed.")))
 
 
-;;;; Debugger (SLDB)
+;;;; Debugger (SLY-DB)
 
-(defvar sldb-hook nil
+(defvar sly-db-hook nil
   "Hook run on entry to the debugger.")
 
-(defcustom sldb-initial-restart-limit 6
+(defcustom sly-db-initial-restart-limit 6
   "Maximum number of restarts to display initially."
   :group 'sly-debugger
   :type 'integer)
@@ -4891,41 +4891,41 @@ argument is given, with CL:MACROEXPAND."
   (mapcar #'make-variable-buffer-local variables))
 
 (sly-make-variables-buffer-local
- (defvar sldb-condition nil
+ (defvar sly-db-condition nil
    "A list (DESCRIPTION TYPE) describing the condition being debugged.")
 
- (defvar sldb-restarts nil
+ (defvar sly-db-restarts nil
    "List of (NAME DESCRIPTION) for each available restart.")
 
- (defvar sldb-level nil
+ (defvar sly-db-level nil
    "Current debug level (recursion depth) displayed in buffer.")
 
- (defvar sldb-backtrace-start-marker nil
+ (defvar sly-db-backtrace-start-marker nil
    "Marker placed at the first frame of the backtrace.")
 
- (defvar sldb-restart-list-start-marker nil
+ (defvar sly-db-restart-list-start-marker nil
    "Marker placed at the first restart in the restart list.")
 
- (defvar sldb-continuations nil
+ (defvar sly-db-continuations nil
    "List of ids for pending continuation."))
 
-;;;;; SLDB macros
+;;;;; SLY-DB macros
 
 ;; some macros that we need to define before the first use
 
-(defmacro sldb-in-face (name string)
-  "Return STRING propertised with face sldb-NAME-face."
+(defmacro sly-db-in-face (name string)
+  "Return STRING propertised with face sly-db-NAME-face."
   (declare (indent 1))
-  (let ((facename (intern (format "sldb-%s-face" (symbol-name name))))
+  (let ((facename (intern (format "sly-db-%s-face" (symbol-name name))))
 	(var (cl-gensym "string")))
     `(let ((,var ,string))
        (sly-add-face ',facename ,var)
        ,var)))
 
 
-;;;;; sldb-mode
+;;;;; sly-db-mode
 
-(defvar sldb-mode-syntax-table
+(defvar sly-db-mode-syntax-table
   (let ((table (copy-syntax-table lisp-mode-syntax-table)))
     ;; We give < and > parenthesis syntax, so that #< ... > is treated
     ;; as a balanced expression.  This enables autodoc-mode to match
@@ -4936,96 +4936,96 @@ argument is given, with CL:MACROEXPAND."
     (modify-syntax-entry ?< "(" table)
     (modify-syntax-entry ?> ")" table)
     table)
-  "Syntax table for SLDB mode.")
+  "Syntax table for SLY-DB mode.")
 
-(defvar sldb-mode-map
+(defvar sly-db-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map "n"    'sldb-down)
-    (define-key map "p"    'sldb-up)
-    (define-key map "\M-n" 'sldb-details-down)
-    (define-key map "\M-p" 'sldb-details-up)
-    (define-key map "<"    'sldb-beginning-of-backtrace)
-    (define-key map ">"    'sldb-end-of-backtrace)
+    (define-key map "n"    'sly-db-down)
+    (define-key map "p"    'sly-db-up)
+    (define-key map "\M-n" 'sly-db-details-down)
+    (define-key map "\M-p" 'sly-db-details-up)
+    (define-key map "<"    'sly-db-beginning-of-backtrace)
+    (define-key map ">"    'sly-db-end-of-backtrace)
 
-    (define-key map "a"    'sldb-abort)
-    (define-key map "c"    'sldb-continue)
-    (define-key map "A"    'sldb-break-with-system-debugger)
-    (define-key map "B"    'sldb-break-with-default-debugger)
-    (define-key map "P"    'sldb-print-condition)
-    (define-key map "I"    'sldb-invoke-restart-by-name)
-    (define-key map "C"    'sldb-inspect-condition)
+    (define-key map "a"    'sly-db-abort)
+    (define-key map "c"    'sly-db-continue)
+    (define-key map "A"    'sly-db-break-with-system-debugger)
+    (define-key map "B"    'sly-db-break-with-default-debugger)
+    (define-key map "P"    'sly-db-print-condition)
+    (define-key map "I"    'sly-db-invoke-restart-by-name)
+    (define-key map "C"    'sly-db-inspect-condition)
     (define-key map ":"    'sly-interactive-eval)
-    (define-key map "q"    'sldb-quit)
+    (define-key map "q"    'sly-db-quit)
 
     (set-keymap-parent map button-buffer-map)
     map))
 
-(define-derived-mode sldb-mode fundamental-mode "sldb"
+(define-derived-mode sly-db-mode fundamental-mode "sly-db"
   "Superior lisp debugger mode.
 In addition to ordinary SLY commands, the following are
-available:\\<sldb-mode-map>
+available:\\<sly-db-mode-map>
 
 Commands to invoke restarts:
-   \\[sldb-quit]   - quit
-   \\[sldb-abort]   - abort
-   \\[sldb-continue]   - continue
-   \\[sldb-invoke-restart-0]-\\[sldb-invoke-restart-9] - restart shortcuts
-   \\[sldb-invoke-restart-by-name]   - invoke restart by name
+   \\[sly-db-quit]   - quit
+   \\[sly-db-abort]   - abort
+   \\[sly-db-continue]   - continue
+   \\[sly-db-invoke-restart-0]-\\[sly-db-invoke-restart-9] - restart shortcuts
+   \\[sly-db-invoke-restart-by-name]   - invoke restart by name
 
 Navigation commands:
    \\[forward-button] - next interactive button
-   \\[sldb-down]   - down
-   \\[sldb-up]   - up
-   \\[sldb-details-down] - down, with details
-   \\[sldb-details-up] - up, with details
-   \\[sldb-beginning-of-backtrace]   - beginning of backtrace
-   \\[sldb-end-of-backtrace]   - end of backtrace
+   \\[sly-db-down]   - down
+   \\[sly-db-up]   - up
+   \\[sly-db-details-down] - down, with details
+   \\[sly-db-details-up] - up, with details
+   \\[sly-db-beginning-of-backtrace]   - beginning of backtrace
+   \\[sly-db-end-of-backtrace]   - end of backtrace
 
-Commands to examine and operate on the selected frame:\\<sldb-frame-map>
-   \\[sldb-show-frame-source]   - show frame source
-   \\[sldb-goto-source]   - go to frame source
-   \\[sldb-toggle-details] - toggle details
-   \\[sldb-disassemble]   - dissassemble frame
-   \\[sldb-eval-in-frame]   - prompt for a form to eval in frame
-   \\[sldb-pprint-eval-in-frame]   - eval in frame and pretty print result
-   \\[sldb-inspect-in-frame]   - inspect in frame's context
-   \\[sldb-restart-frame]   - restart frame
-   \\[sldb-return-from-frame]   - return from frame
+Commands to examine and operate on the selected frame:\\<sly-db-frame-map>
+   \\[sly-db-show-frame-source]   - show frame source
+   \\[sly-db-goto-source]   - go to frame source
+   \\[sly-db-toggle-details] - toggle details
+   \\[sly-db-disassemble]   - dissassemble frame
+   \\[sly-db-eval-in-frame]   - prompt for a form to eval in frame
+   \\[sly-db-pprint-eval-in-frame]   - eval in frame and pretty print result
+   \\[sly-db-inspect-in-frame]   - inspect in frame's context
+   \\[sly-db-restart-frame]   - restart frame
+   \\[sly-db-return-from-frame]   - return from frame
 
-Miscellaneous commands:\\<sldb-mode-map>
-   \\[sldb-step]   - step
-   \\[sldb-break-with-default-debugger]   - switch to native debugger
-   \\[sldb-break-with-system-debugger]   - switch to system debugger (gdb)
+Miscellaneous commands:\\<sly-db-mode-map>
+   \\[sly-db-step]   - step
+   \\[sly-db-break-with-default-debugger]   - switch to native debugger
+   \\[sly-db-break-with-system-debugger]   - switch to system debugger (gdb)
    \\[sly-interactive-eval]   - eval
-   \\[sldb-inspect-condition]   - inspect signalled condition
+   \\[sly-db-inspect-condition]   - inspect signalled condition
 
 Full list of commands:
 
-\\{sldb-mode-map}
+\\{sly-db-mode-map}
 
 Full list of frame-specific commands:
 
-\\{sldb-frame-map}"
+\\{sly-db-frame-map}"
   (erase-buffer)
-  (set-syntax-table sldb-mode-syntax-table)
+  (set-syntax-table sly-db-mode-syntax-table)
   (sly-set-truncate-lines)
-  ;; Make original sly-connection "sticky" for SLDB commands in this buffer
+  ;; Make original sly-connection "sticky" for SLY-DB commands in this buffer
   (setq sly-buffer-connection (sly-connection))
   (setq buffer-read-only t)
   (sly-mode 1))
 
 ;; Keys 0-9 are shortcuts to invoke particular restarts.
 (dotimes (number 10)
-  (let ((fname (intern (format "sldb-invoke-restart-%S" number)))
+  (let ((fname (intern (format "sly-db-invoke-restart-%S" number)))
         (docstring (format "Invoke restart numbered %S." number)))
     (eval `(defun ,fname ()
              ,docstring
              (interactive)
-             (sldb-invoke-restart ,number)))
-    (define-key sldb-mode-map (number-to-string number) fname)))
+             (sly-db-invoke-restart ,number)))
+    (define-key sly-db-mode-map (number-to-string number) fname)))
 
 
-;;;;; SLDB buffer creation & update
+;;;;; SLY-DB buffer creation & update
 (defun sly-filter-buffers (predicate)
   "Return a list of where PREDICATE returns true.
 PREDICATE is executed in the buffer to test."
@@ -5034,89 +5034,89 @@ PREDICATE is executed in the buffer to test."
                         (funcall predicate)))
                     (buffer-list)))
 
-(defun sldb-buffers (&optional connection)
-  "Return a list of all sldb buffers (belonging to CONNECTION.)"
+(defun sly-db-buffers (&optional connection)
+  "Return a list of all sly-db buffers (belonging to CONNECTION.)"
   (if connection
       (sly-filter-buffers (lambda ()
                               (and (eq sly-buffer-connection connection)
-                                   (eq major-mode 'sldb-mode))))
-    (sly-filter-buffers (lambda () (eq major-mode 'sldb-mode)))))
+                                   (eq major-mode 'sly-db-mode))))
+    (sly-filter-buffers (lambda () (eq major-mode 'sly-db-mode)))))
 
-(defun sldb-find-buffer (thread &optional connection)
+(defun sly-db-find-buffer (thread &optional connection)
   (let ((connection (or connection (sly-connection))))
     (cl-find-if (lambda (buffer)
                   (with-current-buffer buffer
                     (and (eq sly-buffer-connection connection)
                          (eq sly-current-thread thread))))
-                (sldb-buffers))))
+                (sly-db-buffers))))
 
-(defun sldb-get-default-buffer ()
-  "Get a sldb buffer.
+(defun sly-db-get-default-buffer ()
+  "Get a sly-db buffer.
 The chosen buffer the default connection's it if exists."
-  (car (sldb-buffers sly-default-connection)))
+  (car (sly-db-buffers sly-default-connection)))
 
-(defun sldb-get-buffer (thread &optional connection)
-  "Find or create a sldb-buffer for THREAD."
+(defun sly-db-get-buffer (thread &optional connection)
+  "Find or create a sly-db-buffer for THREAD."
   (let ((connection (or connection (sly-connection))))
-    (or (sldb-find-buffer thread connection)
-        (let ((name (sly-buffer-name :sldb :connection connection
+    (or (sly-db-find-buffer thread connection)
+        (let ((name (sly-buffer-name :sly-db :connection connection
                                      :suffix (format "thread %d" thread))))
           (with-current-buffer (generate-new-buffer name)
             (setq sly-buffer-connection connection
                   sly-current-thread thread)
             (current-buffer))))))
 
-(defun sldb-debugged-continuations (connection)
-  "Return the all debugged continuations for CONNECTION across SLDB buffers."
-  (cl-loop for b in (sldb-buffers)
+(defun sly-db-debugged-continuations (connection)
+  "Return the all debugged continuations for CONNECTION across SLY-DB buffers."
+  (cl-loop for b in (sly-db-buffers)
            append (with-current-buffer b
                     (and (eq sly-buffer-connection connection)
-                         sldb-continuations))))
+                         sly-db-continuations))))
 
-(defun sldb-confirm-buffer-kill ()
-  (when (y-or-n-p "Really kill sldb buffer and throw to toplevel?")
-    (ignore-errors (sldb-quit))
+(defun sly-db-confirm-buffer-kill ()
+  (when (y-or-n-p "Really kill sly-db buffer and throw to toplevel?")
+    (ignore-errors (sly-db-quit))
     t))
 
-(defun sldb-setup (thread level condition restarts frame-specs conts)
-  "Setup a new SLDB buffer.
+(defun sly-db-setup (thread level condition restarts frame-specs conts)
+  "Setup a new SLY-DB buffer.
 CONDITION is a string describing the condition to debug.
 RESTARTS is a list of strings (NAME DESCRIPTION) for each
 available restart.  FRAME-SPECS is a list of (NUMBER DESCRIPTION
 &optional PLIST) describing the initial portion of the
 backtrace. Frames are numbered from 0.  CONTS is a list of
 pending Emacs continuations."
-  (with-current-buffer (sldb-get-buffer thread)
-    (cl-assert (if (equal sldb-level level)
-                   (equal sldb-condition condition)
+  (with-current-buffer (sly-db-get-buffer thread)
+    (cl-assert (if (equal sly-db-level level)
+                   (equal sly-db-condition condition)
                  t)
-               () "Bug: sldb-level is equal but condition differs\n%s\n%s"
-               sldb-condition condition)
-    (unless (equal sldb-level level)
+               () "Bug: sly-db-level is equal but condition differs\n%s\n%s"
+               sly-db-condition condition)
+    (unless (equal sly-db-level level)
       (let ((inhibit-read-only t))
-        (sldb-mode)
+        (sly-db-mode)
         (add-to-list (make-local-variable 'kill-buffer-query-functions)
-                     'sldb-confirm-buffer-kill)
+                     'sly-db-confirm-buffer-kill)
         (setq sly-current-thread thread)
-        (setq sldb-level level)
-        (setq mode-name (format "sldb[%d]" sldb-level))
-        (setq sldb-condition condition)
-        (setq sldb-restarts restarts)
-        (setq sldb-continuations conts)
-        (sldb-insert-condition condition)
-        (insert "\n\n" (sldb-in-face section "Restarts:") "\n")
-        (setq sldb-restart-list-start-marker (point-marker))
-        (sldb-insert-restarts restarts 0 sldb-initial-restart-limit)
-        (insert "\n" (sldb-in-face section "Backtrace:") "\n")
-        (setq sldb-backtrace-start-marker (point-marker))
+        (setq sly-db-level level)
+        (setq mode-name (format "sly-db[%d]" sly-db-level))
+        (setq sly-db-condition condition)
+        (setq sly-db-restarts restarts)
+        (setq sly-db-continuations conts)
+        (sly-db-insert-condition condition)
+        (insert "\n\n" (sly-db-in-face section "Restarts:") "\n")
+        (setq sly-db-restart-list-start-marker (point-marker))
+        (sly-db-insert-restarts restarts 0 sly-db-initial-restart-limit)
+        (insert "\n" (sly-db-in-face section "Backtrace:") "\n")
+        (setq sly-db-backtrace-start-marker (point-marker))
         (save-excursion
           (if frame-specs
-              (sldb-insert-frames (sldb-prune-initial-frames frame-specs) t)
+              (sly-db-insert-frames (sly-db-prune-initial-frames frame-specs) t)
             (insert "[No backtrace]")))
-        (run-hooks 'sldb-hook)
+        (run-hooks 'sly-db-hook)
         (set-syntax-table lisp-mode-syntax-table)))
-    (pop-to-buffer (current-buffer) '(sldb--display-in-prev-sldb-window))
-    (set-window-parameter (selected-window) 'sldb (current-buffer))
+    (pop-to-buffer (current-buffer) '(sly-db--display-in-prev-sly-db-window))
+    (set-window-parameter (selected-window) 'sly-db (current-buffer))
     (sly-recenter (point-min))
     (when (and sly-stack-eval-tags
                ;; (y-or-n-p "Enter recursive edit? ")
@@ -5124,11 +5124,11 @@ pending Emacs continuations."
       (sly-message "Entering recursive edit..")
       (recursive-edit))))
 
-(defun sldb--display-in-prev-sldb-window (buffer _alist)
+(defun sly-db--display-in-prev-sly-db-window (buffer _alist)
   (let ((window
          (get-window-with-predicate
           #'(lambda (w)
-              (let ((value (window-parameter w 'sldb)))
+              (let ((value (window-parameter w 'sly-db)))
                 (and value
                      (not (buffer-live-p value))))))))
     (when window
@@ -5136,77 +5136,77 @@ pending Emacs continuations."
       (set-window-buffer window buffer)
       window)))
 
-(defun sldb-activate (thread level select)
+(defun sly-db-activate (thread level select)
   "Display the debugger buffer for THREAD.
 If LEVEL isn't the same as in the buffer reinitialize the buffer."
-  (or (let ((buffer (sldb-find-buffer thread)))
+  (or (let ((buffer (sly-db-find-buffer thread)))
         (when buffer
           (with-current-buffer buffer
-            (when (equal sldb-level level)
+            (when (equal sly-db-level level)
               (when select (pop-to-buffer (current-buffer)))
               t))))
-      (sldb-reinitialize thread level)))
+      (sly-db-reinitialize thread level)))
 
-(defun sldb-reinitialize (thread level)
+(defun sly-db-reinitialize (thread level)
   (sly-rex (thread level)
       ('(slynk:debugger-info-for-emacs 0 10)
        nil thread)
     ((:ok result)
-     (apply #'sldb-setup thread level result))))
+     (apply #'sly-db-setup thread level result))))
 
-(defvar sldb-exit-hook nil
+(defvar sly-db-exit-hook nil
   "Hooks run in the debugger buffer just before exit")
 
-(defun sldb-exit (thread _level &optional stepping)
+(defun sly-db-exit (thread _level &optional stepping)
   "Exit from the debug level LEVEL."
-  (sly--when-let (sldb (sldb-find-buffer thread))
-    (with-current-buffer sldb
+  (sly--when-let (sly-db (sly-db-find-buffer thread))
+    (with-current-buffer sly-db
       (setq kill-buffer-query-functions
-            (remove 'sldb-confirm-buffer-kill kill-buffer-query-functions))
-      (run-hooks 'sldb-exit-hook)
+            (remove 'sly-db-confirm-buffer-kill kill-buffer-query-functions))
+      (run-hooks 'sly-db-exit-hook)
       (cond (stepping
-             (setq sldb-level nil)
-             (run-with-timer 0.4 nil 'sldb-close-step-buffer sldb))
-            ((not (eq sldb (window-buffer (selected-window))))
+             (setq sly-db-level nil)
+             (run-with-timer 0.4 nil 'sly-db-close-step-buffer sly-db))
+            ((not (eq sly-db (window-buffer (selected-window))))
              ;; A different window selection means an indirect,
-             ;; non-interactive exit, we just kill the sldb buffer.
+             ;; non-interactive exit, we just kill the sly-db buffer.
              (kill-buffer))
             (t
              (quit-window t))))))
 
-(defun sldb-close-step-buffer (buffer)
+(defun sly-db-close-step-buffer (buffer)
   (when (buffer-live-p buffer)
     (with-current-buffer buffer
-      (when (not sldb-level)
+      (when (not sly-db-level)
         (quit-window t)))))
 
 
-;;;;;; SLDB buffer insertion
+;;;;;; SLY-DB buffer insertion
 
-(defun sldb-insert-condition (condition)
+(defun sly-db-insert-condition (condition)
   "Insert the text for CONDITION.
 CONDITION should be a list (MESSAGE TYPE EXTRAS).
 EXTRAS is currently used for the stepper."
   (cl-destructuring-bind (msg type extras) condition
-    (insert (sldb-in-face topline msg)
+    (insert (sly-db-in-face topline msg)
             "\n"
-            (sldb-in-face condition type))
-    (sldb-dispatch-extras extras)))
+            (sly-db-in-face condition type))
+    (sly-db-dispatch-extras extras)))
 
-(defvar sldb-extras-hooks)
+(defvar sly-db-extras-hooks)
 
-(defun sldb-dispatch-extras (extras)
+(defun sly-db-dispatch-extras (extras)
   ;; this is (mis-)used for the stepper
   (dolist (extra extras)
     (sly-dcase extra
       ((:show-frame-source n)
-       (sldb-show-frame-source n))
+       (sly-db-show-frame-source n))
       (t
-       (or (run-hook-with-args-until-success 'sldb-extras-hooks extra)
+       (or (run-hook-with-args-until-success 'sly-db-extras-hooks extra)
            ;;(error "Unhandled extra element:" extra)
            )))))
 
-(defun sldb-insert-restarts (restarts start count)
+(defun sly-db-insert-restarts (restarts start count)
   "Insert RESTARTS and add the needed text props
 RESTARTS should be a list ((NAME DESCRIPTION) ...)."
   (let* ((len (length restarts))
@@ -5214,13 +5214,13 @@ RESTARTS should be a list ((NAME DESCRIPTION) ...)."
     (cl-loop for (name string) in (cl-subseq restarts start end)
              for number from start
              do (insert
-                 " " (sldb-in-face restart-number (number-to-string number))
+                 " " (sly-db-in-face restart-number (number-to-string number))
                  ": "  (sly-make-action-button (format "[%s]" name)
                                                (let ((n number))
                                                  #'(lambda (_button)
-                                                     (sldb-invoke-restart n)))
+                                                     (sly-db-invoke-restart n)))
                                                'restart-number number)
-                 " " (sldb-in-face restart string))
+                 " " (sly-db-in-face restart string))
              (insert "\n"))
     (when (< end len)
       (insert (sly-make-action-button
@@ -5229,14 +5229,14 @@ RESTARTS should be a list ((NAME DESCRIPTION) ...)."
                    (let ((inhibit-read-only t))
                      (delete-region (button-start button)
                                     (1+ (button-end button)))
-                     (sldb-insert-restarts restarts end nil)))
+                     (sly-db-insert-restarts restarts end nil)))
                'point-entered #'(lambda (_ new) (push-button new)))
               "\n"))))
 
-(defun sldb-frame-restartable-p (frame-spec)
+(defun sly-db-frame-restartable-p (frame-spec)
   (and (plist-get (caddr frame-spec) :restartable) t))
 
-(defun sldb-prune-initial-frames (frame-specs)
+(defun sly-db-prune-initial-frames (frame-specs)
   "Return the prefix of FRAMES-SPECS to initially present to the user.
 Regexp heuristics are used to avoid showing SLYNK-internal frames."
   (let* ((case-fold-search t)
@@ -5246,12 +5246,12 @@ Regexp heuristics are used to avoid showing SLYNK-internal frames."
                  collect frame-spec)
         frame-specs)))
 
-(defun sldb-insert-frames (frame-specs more)
+(defun sly-db-insert-frames (frame-specs more)
   "Insert frames for FRAME-SPECS into buffer.
 If MORE is non-nil, more frames are on the Lisp stack."
   (cl-loop
    for frame-spec in frame-specs
-   do (sldb-insert-frame frame-spec)
+   do (sly-db-insert-frame frame-spec)
    finally
    (if more
        (insert (sly-make-action-button
@@ -5266,150 +5266,150 @@ If MORE is non-nil, more frames are on the Lisp stack."
                       (delete-region (button-start button)
                                      (button-end button))
                       (save-excursion
-                        (sldb-insert-frames frames more))))
+                        (sly-db-insert-frames frames more))))
                 'point-entered #'(lambda (_ new) (push-button new)))))))
 
-(defvar sldb-frame-map
+(defvar sly-db-frame-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "t")   'sldb-toggle-details)
-    (define-key map (kbd "v")   'sldb-show-frame-source)
-    (define-key map (kbd ".")   'sldb-goto-source)
-    (define-key map (kbd "D")   'sldb-disassemble)
-    (define-key map (kbd "e")   'sldb-eval-in-frame)
-    (define-key map (kbd "d")   'sldb-pprint-eval-in-frame)
-    (define-key map (kbd "i")   'sldb-inspect-in-frame)
-    (define-key map (kbd "r")   'sldb-restart-frame)
-    (define-key map (kbd "R")   'sldb-return-from-frame)
-    (define-key map (kbd "RET") 'sldb-toggle-details)
+    (define-key map (kbd "t")   'sly-db-toggle-details)
+    (define-key map (kbd "v")   'sly-db-show-frame-source)
+    (define-key map (kbd ".")   'sly-db-goto-source)
+    (define-key map (kbd "D")   'sly-db-disassemble)
+    (define-key map (kbd "e")   'sly-db-eval-in-frame)
+    (define-key map (kbd "d")   'sly-db-pprint-eval-in-frame)
+    (define-key map (kbd "i")   'sly-db-inspect-in-frame)
+    (define-key map (kbd "r")   'sly-db-restart-frame)
+    (define-key map (kbd "R")   'sly-db-return-from-frame)
+    (define-key map (kbd "RET") 'sly-db-toggle-details)
 
-    (define-key map "s"    'sldb-step)
-    (define-key map "x"    'sldb-next)
-    (define-key map "o"    'sldb-out)
-    (define-key map "b"    'sldb-break-on-return)
+    (define-key map "s"    'sly-db-step)
+    (define-key map "x"    'sly-db-next)
+    (define-key map "o"    'sly-db-out)
+    (define-key map "b"    'sly-db-break-on-return)
 
-    (define-key map "\C-c\C-c" 'sldb-recompile-frame-source)
+    (define-key map "\C-c\C-c" 'sly-db-recompile-frame-source)
 
     (set-keymap-parent map sly-part-button-keymap)
     map))
 
-(defvar sldb-frame-menu-map
+(defvar sly-db-frame-menu-map
   (let ((map (make-sparse-keymap)))
     (cl-macrolet ((item (label sym)
                         `(define-key map [,sym] '(menu-item ,label ,sym))))
-      (item "Dissassemble" sldb-disassemble)
-      (item "Eval In Context" sldb-eval-in-frame)
-      (item "Eval and Pretty Print In Context" sldb-pprint-eval-in-frame)
-      (item "Inspect In Context" sldb-inspect-in-frame)
-      (item "Restart" sldb-restart-frame)
-      (item "Return Value" sldb-return-from-frame)
-      (item "Toggle Details" sldb-toggle-details)
-      (item "Show Source" sldb-show-frame-source)
-      (item "Go To Source" sldb-goto-source))
+      (item "Dissassemble" sly-db-disassemble)
+      (item "Eval In Context" sly-db-eval-in-frame)
+      (item "Eval and Pretty Print In Context" sly-db-pprint-eval-in-frame)
+      (item "Inspect In Context" sly-db-inspect-in-frame)
+      (item "Restart" sly-db-restart-frame)
+      (item "Return Value" sly-db-return-from-frame)
+      (item "Toggle Details" sly-db-toggle-details)
+      (item "Show Source" sly-db-show-frame-source)
+      (item "Go To Source" sly-db-goto-source))
     (set-keymap-parent map sly-button-popup-part-menu-keymap)
     map))
 
-(define-button-type 'sldb-frame :supertype 'sly-part
-  'keymap sldb-frame-map
-  'part-menu-keymap sldb-frame-menu-map
-  'action 'sldb-toggle-details
-  'mouse-action 'sldb-toggle-details)
+(define-button-type 'sly-db-frame :supertype 'sly-part
+  'keymap sly-db-frame-map
+  'part-menu-keymap sly-db-frame-menu-map
+  'action 'sly-db-toggle-details
+  'mouse-action 'sly-db-toggle-details)
 
-(defun sldb--guess-frame-function (frame)
+(defun sly-db--guess-frame-function (frame)
   (ignore-errors
     (first (car (read-from-string
                  (replace-regexp-in-string "#" ""
                                            (cadr frame)))))))
 
-(defun sldb-frame-button (label frame face &rest props)
-  (apply #'make-text-button label nil :type 'sldb-frame
+(defun sly-db-frame-button (label frame face &rest props)
+  (apply #'make-text-button label nil :type 'sly-db-frame
          'face face
          'field (car frame)
          'frame-number (car frame)
          'frame-string (cadr frame)
          'part-args (list (car frame)
-                          (sldb--guess-frame-function frame))
+                          (sly-db--guess-frame-function frame))
          'part-label (format "Frame %d" (car frame))
          props)
   label)
 
-(defun sldb-frame-number-at-point ()
-  (let ((button (sldb-frame-button-near-point)))
+(defun sly-db-frame-number-at-point ()
+  (let ((button (sly-db-frame-button-near-point)))
     (button-get button 'frame-number)))
 
-(defun sldb-frame-button-near-point ()
-  (or (sly-button-at nil 'sldb-frame 'no-error)
+(defun sly-db-frame-button-near-point ()
+  (or (sly-button-at nil 'sly-db-frame 'no-error)
       (get-text-property (point) 'nearby-frame-button)
       (error "No frame button here")))
 
-(defun sldb-insert-frame (frame-spec)
+(defun sly-db-insert-frame (frame-spec)
   "Insert a frame for FRAME-SPEC."
   (let* ((number (car frame-spec))
          (label (cadr frame-spec))
          (origin (point)))
     (insert
      (propertize (format " %2d: " number)
-                 'face 'sldb-frame-label-face)
-     (sldb-frame-button label frame-spec
-                        (if (sldb-frame-restartable-p frame-spec)
-                            'sldb-restartable-frame-line-face
-                          'sldb-frame-line-face))
+                 'face 'sly-db-frame-label-face)
+     (sly-db-frame-button label frame-spec
+                        (if (sly-db-frame-restartable-p frame-spec)
+                            'sly-db-restartable-frame-line-face
+                          'sly-db-frame-line-face))
      "\n")
     (add-text-properties
      origin (point)
      (list 'field number
-           'keymap sldb-frame-map
+           'keymap sly-db-frame-map
            'nearby-frame-button (button-at (- (point) 2))))))
 
 
-;;;;;; SLDB examining text props
-(defun sldb-goto-last-frame ()
+;;;;;; SLY-DB examining text props
+(defun sly-db-goto-last-frame ()
   (goto-char (point-max))
   (while (not (get-text-property (point) 'frame))
     (goto-char (previous-single-property-change (point) 'frame))
     ;; Recenter to bottom of the window; -2 to account for the
-    ;; empty last line displayed in sldb buffers.
+    ;; empty last line displayed in sly-db buffers.
     (recenter -2)))
 
-(defun sldb-beginning-of-backtrace ()
+(defun sly-db-beginning-of-backtrace ()
   "Goto the first frame."
   (interactive)
-  (goto-char sldb-backtrace-start-marker))
+  (goto-char sly-db-backtrace-start-marker))
 
 
-;;;;; SLDB commands
-(defun sldb-cycle ()
+;;;;; SLY-DB commands
+(defun sly-db-cycle ()
   "Cycle between restart list and backtrace."
   (interactive)
   (let ((pt (point)))
-    (cond ((< pt sldb-restart-list-start-marker)
-           (goto-char sldb-restart-list-start-marker))
-          ((< pt sldb-backtrace-start-marker)
-           (goto-char sldb-backtrace-start-marker))
+    (cond ((< pt sly-db-restart-list-start-marker)
+           (goto-char sly-db-restart-list-start-marker))
+          ((< pt sly-db-backtrace-start-marker)
+           (goto-char sly-db-backtrace-start-marker))
           (t
-           (goto-char sldb-restart-list-start-marker)))))
+           (goto-char sly-db-restart-list-start-marker)))))
 
-(defun sldb-end-of-backtrace ()
+(defun sly-db-end-of-backtrace ()
   "Fetch the entire backtrace and go to the last frame."
   (interactive)
-  (sldb-fetch-all-frames)
-  (sldb-goto-last-frame))
+  (sly-db-fetch-all-frames)
+  (sly-db-goto-last-frame))
 
-(defun sldb-fetch-all-frames ()
+(defun sly-db-fetch-all-frames ()
   (let ((inhibit-read-only t)
         (inhibit-point-motion-hooks t))
-    (sldb-goto-last-frame)
-    (let ((last (sldb-frame-number-at-point)))
+    (sly-db-goto-last-frame)
+    (let ((last (sly-db-frame-number-at-point)))
       (goto-char (next-single-char-property-change (point) 'frame))
       (delete-region (point) (point-max))
       (save-excursion
-        (sldb-insert-frames (sly-eval `(slynk:backtrace ,(1+ last) nil))
+        (sly-db-insert-frames (sly-eval `(slynk:backtrace ,(1+ last) nil))
                             nil)))))
 
 
-;;;;;; SLDB show source
-(defun sldb-show-frame-source (frame-number)
+;;;;;; SLY-DB show source
+(defun sly-db-show-frame-source (frame-number)
   "Highlight FRAME-NUMBER's expression in a source code buffer."
-  (interactive (list (sldb-frame-number-at-point)))
+  (interactive (list (sly-db-frame-number-at-point)))
   (sly-eval-async
       `(slynk:frame-source-location ,frame-number)
     (lambda (source-location)
@@ -5421,37 +5421,37 @@ If MORE is non-nil, more frames are on the Lisp stack."
          (sly--display-source-location source-location))))))
 
 
-;;;;;; SLDB toggle details
-(define-button-type 'sldb-local-variable :supertype 'sly-part
+;;;;;; SLY-DB toggle details
+(define-button-type 'sly-db-local-variable :supertype 'sly-part
   'sly-button-inspect
   #'(lambda (frame-id var-id)
       (sly-eval-for-inspector `(slynk:inspect-frame-var ,frame-id
                                                         ,var-id)) ))
 
-(defun sldb-local-variable-button (label frame-number var-id &rest props)
+(defun sly-db-local-variable-button (label frame-number var-id &rest props)
   (apply #'make-text-button label nil
-         :type 'sldb-local-variable
+         :type 'sly-db-local-variable
          'part-args (list frame-number var-id)
          'part-label (format "Local Variable %d" var-id) props)
   label)
 
-(defun sldb-frame-details-region (frame-button)
+(defun sly-db-frame-details-region (frame-button)
   "Get (BEG END) for FRAME-BUTTON's details, or nil if hidden"
   (let ((beg (button-end frame-button))
         (end (1- (field-end (button-start frame-button) 'escape))))
     (unless (= beg end) (list beg end))))
 
-(defun sldb-toggle-details (frame-button)
+(defun sly-db-toggle-details (frame-button)
   "Toggle display of details for the current frame.
 The details include local variable bindings and CATCH-tags."
-  (interactive (list (sldb-frame-button-near-point)))
-  (if (sldb-frame-details-region frame-button)
-      (sldb-hide-frame-details frame-button)
-    (sldb-show-frame-details frame-button)))
+  (interactive (list (sly-db-frame-button-near-point)))
+  (if (sly-db-frame-details-region frame-button)
+      (sly-db-hide-frame-details frame-button)
+    (sly-db-show-frame-details frame-button)))
 
-(defun sldb-show-frame-details (frame-button)
+(defun sly-db-show-frame-details (frame-button)
   "Show details for FRAME-BUTTON"
-  (interactive (list (sldb-frame-button-near-point)))
+  (interactive (list (sly-db-frame-button-near-point)))
   (cl-destructuring-bind (locals catches)
       (sly-eval `(slynk:frame-locals-and-catch-tags
                   ,(button-get frame-button 'frame-number)))
@@ -5462,7 +5462,7 @@ The details include local variable bindings and CATCH-tags."
         (let ((indent1 "      ")
               (indent2 "        "))
           (insert "\n" indent1
-                  (sldb-in-face section (if locals "Locals:" "[No Locals]")))
+                  (sly-db-in-face section (if locals "Locals:" "[No Locals]")))
           (cl-loop for i from 0
                    for var in locals
                    with frame-number = (button-get frame-button 'frame-number)
@@ -5470,25 +5470,25 @@ The details include local variable bindings and CATCH-tags."
                    (cl-destructuring-bind (&key name id value) var
                      (insert "\n"
                              indent2
-                             (sldb-in-face local-name
+                             (sly-db-in-face local-name
                                (concat name (if (zerop id)
                                                 ""
                                               (format "#%d" id))))
                              " = "
-                             (sldb-local-variable-button value
+                             (sly-db-local-variable-button value
                                                          frame-number
                                                          i))))
           (when catches
-            (insert "\n" indent1 (sldb-in-face section "Catch-tags:"))
+            (insert "\n" indent1 (sly-db-in-face section "Catch-tags:"))
             (dolist (tag catches)
               (sly-propertize-region `(catch-tag ,tag)
-                (insert "\n" indent2 (sldb-in-face catch-tag
+                (insert "\n" indent2 (sly-db-in-face catch-tag
                                        (format "%s" tag))))))
           ;; The whole details field is propertized accordingly...
           ;;
           (add-text-properties (button-start frame-button) (point)
                                (list 'field (button-get frame-button 'field)
-                                     'keymap sldb-frame-map
+                                     'keymap sly-db-frame-map
                                      'nearby-frame-button frame-button))
           ;; ...but we must remember to remove the 'keymap property from
           ;; any buttons inside the field
@@ -5503,72 +5503,72 @@ The details include local variable bindings and CATCH-tags."
                                               '(keymap nil))))))
     (sly-recenter (field-end (button-start frame-button) 'escape))))
 
-(defun sldb-hide-frame-details (frame-button)
-  (interactive (list (sldb-frame-button-near-point)))
+(defun sly-db-hide-frame-details (frame-button)
+  (interactive (list (sly-db-frame-button-near-point)))
   (let* ((inhibit-read-only t)
-         (to-delete (sldb-frame-details-region frame-button)))
+         (to-delete (sly-db-frame-details-region frame-button)))
     (cl-assert to-delete)
     (when (and (< (car to-delete) (point))
                (< (point) (cadr to-delete)))
       (goto-char (button-start frame-button)))
     (apply #'delete-region to-delete)))
 
-(defun sldb-disassemble (frame-number)
+(defun sly-db-disassemble (frame-number)
   "Disassemble the code for frame with FRAME-NUMBER."
-  (interactive (list (sldb-frame-number-at-point)))
-  (sly-eval-async `(slynk:sldb-disassemble ,frame-number)
+  (interactive (list (sly-db-frame-number-at-point)))
+  (sly-eval-async `(slynk:sly-db-disassemble ,frame-number)
     (lambda (result)
       (sly-show-description result nil))))
 
 
-;;;;;; SLDB eval and inspect
+;;;;;; SLY-DB eval and inspect
 
-(defun sldb-eval-in-frame (frame-number string package)
+(defun sly-db-eval-in-frame (frame-number string package)
   "Prompt for an expression and evaluate it in the selected frame."
-  (interactive (sldb-frame-eval-interactive "Eval in frame (%s)> "))
+  (interactive (sly-db-frame-eval-interactive "Eval in frame (%s)> "))
   (sly-eval-async `(slynk:eval-string-in-frame ,string ,frame-number ,package)
     (if current-prefix-arg
         'sly-write-string
       'sly-display-eval-result)))
 
-(defun sldb-pprint-eval-in-frame (frame-number string package)
+(defun sly-db-pprint-eval-in-frame (frame-number string package)
   "Prompt for an expression, evaluate in selected frame, pretty-print result."
-  (interactive (sldb-frame-eval-interactive "Eval in frame (%s)> "))
+  (interactive (sly-db-frame-eval-interactive "Eval in frame (%s)> "))
   (sly-eval-async
       `(slynk:pprint-eval-string-in-frame ,string ,frame-number ,package)
     (lambda (result)
       (sly-show-description result nil))))
 
-(defun sldb-frame-eval-interactive (fstring)
-  (let* ((frame-number (sldb-frame-number-at-point))
+(defun sly-db-frame-eval-interactive (fstring)
+  (let* ((frame-number (sly-db-frame-number-at-point))
          (pkg (sly-eval `(slynk:frame-package-name ,frame-number))))
     (list frame-number
           (let ((sly-buffer-package pkg))
             (sly-read-from-minibuffer (format fstring pkg)))
           pkg)))
 
-(defun sldb-inspect-in-frame (frame-number string)
+(defun sly-db-inspect-in-frame (frame-number string)
   "Prompt for an expression and inspect it in the selected frame."
   (interactive (list
-                (sldb-frame-number-at-point)
+                (sly-db-frame-number-at-point)
                 (sly-read-from-minibuffer
                       "Inspect in frame (evaluated): "
                       (sly-sexp-at-point))))
   (sly-eval-for-inspector `(slynk:inspect-in-frame ,string ,frame-number)))
 
-(defun sldb-inspect-condition ()
+(defun sly-db-inspect-condition ()
   "Inspect the current debugger condition."
   (interactive)
   (sly-eval-for-inspector '(slynk:inspect-current-condition)))
 
-(defun sldb-print-condition ()
+(defun sly-db-print-condition ()
   (interactive)
   (sly-eval-describe `(slynk:sdlb-print-condition)))
 
 
-;;;;;; SLDB movement
+;;;;;; SLY-DB movement
 
-(defun sldb-down (arg)
+(defun sly-db-down (arg)
   "Move down ARG frames. With negative ARG, move up."
   (interactive "p")
   (cl-loop
@@ -5584,87 +5584,87 @@ The details include local variable bindings and CATCH-tags."
        when prop-value do (goto-char next-change)
        until prop-value)))
 
-(defun sldb-up (arg)
+(defun sly-db-up (arg)
   "Move up ARG frames. With negative ARG, move down."
   (interactive "p")
-  (sldb-down (- (or arg 1))))
+  (sly-db-down (- (or arg 1))))
 
-(defun sldb-sugar-move (move-fn arg)
-  (let ((current-frame-button (sldb-frame-button-near-point)))
+(defun sly-db-sugar-move (move-fn arg)
+  (let ((current-frame-button (sly-db-frame-button-near-point)))
     (when (and current-frame-button
-               (sldb-frame-details-region current-frame-button))
-      (sldb-hide-frame-details current-frame-button)))
+               (sly-db-frame-details-region current-frame-button))
+      (sly-db-hide-frame-details current-frame-button)))
   (funcall move-fn arg)
-  (let ((frame-button (sldb-frame-button-near-point)))
+  (let ((frame-button (sly-db-frame-button-near-point)))
     (when frame-button
-      (sldb-show-frame-source (button-get frame-button 'frame-number))
-      (sldb-show-frame-details frame-button))))
+      (sly-db-show-frame-source (button-get frame-button 'frame-number))
+      (sly-db-show-frame-details frame-button))))
 
-(defun sldb-details-up (arg)
+(defun sly-db-details-up (arg)
   "Move up ARG frames and show details."
   (interactive "p")
-  (sldb-sugar-move 'sldb-up arg))
+  (sly-db-sugar-move 'sly-db-up arg))
 
-(defun sldb-details-down (arg)
+(defun sly-db-details-down (arg)
   "Move down ARG frames and show details."
   (interactive "p")
-  (sldb-sugar-move 'sldb-down arg))
+  (sly-db-sugar-move 'sly-db-down arg))
 
 
-;;;;;; SLDB restarts
+;;;;;; SLY-DB restarts
 
-(defun sldb-quit ()
+(defun sly-db-quit ()
   "Quit to toplevel."
   (interactive)
-  (cl-assert sldb-restarts () "sldb-quit called outside of sldb buffer")
+  (cl-assert sly-db-restarts () "sly-db-quit called outside of sly-db buffer")
   (sly-rex () ('(slynk:throw-to-toplevel))
-    ((:ok x) (error "sldb-quit returned [%s]" x))
+    ((:ok x) (error "sly-db-quit returned [%s]" x))
     ((:abort _))))
 
-(defun sldb-continue ()
+(defun sly-db-continue ()
   "Invoke the \"continue\" restart."
   (interactive)
-  (cl-assert sldb-restarts () "sldb-continue called outside of sldb buffer")
+  (cl-assert sly-db-restarts () "sly-db-continue called outside of sly-db buffer")
   (sly-rex ()
-      ('(slynk:sldb-continue))
+      ('(slynk:sly-db-continue))
     ((:ok _)
      (sly-message "No restart named continue")
      (ding))
     ((:abort _))))
 
-(defun sldb-abort ()
+(defun sly-db-abort ()
   "Invoke the \"abort\" restart."
   (interactive)
-  (sly-eval-async '(slynk:sldb-abort)
+  (sly-eval-async '(slynk:sly-db-abort)
     (lambda (v) (sly-message "Restart returned: %S" v))))
 
-(defun sldb-invoke-restart (restart-number)
+(defun sly-db-invoke-restart (restart-number)
   "Invoke the restart number NUMBER.
 Interactively get the number from a button at point."
   (interactive (button-get (sly-button-at (point)) 'restart-number))
   (sly-rex ()
-      ((list 'slynk:invoke-nth-restart-for-emacs sldb-level restart-number))
+      ((list 'slynk:invoke-nth-restart-for-emacs sly-db-level restart-number))
     ((:ok value) (sly-message "Restart returned: %s" value))
     ((:abort _))))
 
-(defun sldb-invoke-restart-by-name (restart-name)
+(defun sly-db-invoke-restart-by-name (restart-name)
   (interactive (list (let ((completion-ignore-case t))
-                       (sly-completing-read "Restart: " sldb-restarts nil t
+                       (sly-completing-read "Restart: " sly-db-restarts nil t
                                         ""
-                                        'sldb-invoke-restart-by-name))))
-  (sldb-invoke-restart (cl-position restart-name sldb-restarts
+                                        'sly-db-invoke-restart-by-name))))
+  (sly-db-invoke-restart (cl-position restart-name sly-db-restarts
                                     :test 'string= :key 'first)))
 
-(defun sldb-break-with-default-debugger (&optional dont-unwind)
+(defun sly-db-break-with-default-debugger (&optional dont-unwind)
   "Enter default debugger."
   (interactive "P")
   (sly-rex ()
-      ((list 'slynk:sldb-break-with-default-debugger
+      ((list 'slynk:sly-db-break-with-default-debugger
              (not (not dont-unwind)))
        nil sly-current-thread)
     ((:abort _))))
 
-(defun sldb-break-with-system-debugger (&optional lightweight)
+(defun sly-db-break-with-system-debugger (&optional lightweight)
   "Enter system debugger (gdb)."
   (interactive "P")
   (sly-attach-gdb sly-buffer-connection lightweight))
@@ -5708,48 +5708,48 @@ Return the net process, or nil."
                                  nil t (funcall to-string initial-value))
                 candidates))))
 
-(defun sldb-step (frame-number)
+(defun sly-db-step (frame-number)
   "Step to next basic-block boundary."
-  (interactive (list (sldb-frame-number-at-point)))
-  (sly-eval-async `(slynk:sldb-step ,frame-number)))
+  (interactive (list (sly-db-frame-number-at-point)))
+  (sly-eval-async `(slynk:sly-db-step ,frame-number)))
 
-(defun sldb-next (frame-number)
+(defun sly-db-next (frame-number)
   "Step over call."
-  (interactive (list (sldb-frame-number-at-point)))
-  (sly-eval-async `(slynk:sldb-next ,frame-number)))
+  (interactive (list (sly-db-frame-number-at-point)))
+  (sly-eval-async `(slynk:sly-db-next ,frame-number)))
 
-(defun sldb-out (frame-number)
+(defun sly-db-out (frame-number)
   "Resume stepping after returning from this function."
-  (interactive (list (sldb-frame-number-at-point)))
-  (sly-eval-async `(slynk:sldb-out ,frame-number)))
+  (interactive (list (sly-db-frame-number-at-point)))
+  (sly-eval-async `(slynk:sly-db-out ,frame-number)))
 
-(defun sldb-break-on-return (frame-number)
+(defun sly-db-break-on-return (frame-number)
   "Set a breakpoint at the current frame.
 The debugger is entered when the frame exits."
-  (interactive (list (sldb-frame-number-at-point)))
-  (sly-eval-async `(slynk:sldb-break-on-return ,frame-number)
+  (interactive (list (sly-db-frame-number-at-point)))
+  (sly-eval-async `(slynk:sly-db-break-on-return ,frame-number)
     (lambda (msg) (sly-message "%s" msg))))
 
-(defun sldb-break (name)
+(defun sly-db-break (name)
   "Set a breakpoint at the start of the function NAME."
   (interactive (list (sly-read-symbol-name "Function: " t)))
-  (sly-eval-async `(slynk:sldb-break ,name)
+  (sly-eval-async `(slynk:sly-db-break ,name)
     (lambda (msg) (sly-message "%s" msg))))
 
-(defun sldb-return-from-frame (frame-number string)
+(defun sly-db-return-from-frame (frame-number string)
   "Reads an expression in the minibuffer and causes the function to
 return that value, evaluated in the context of the frame."
-  (interactive (list (sldb-frame-number-at-point)
+  (interactive (list (sly-db-frame-number-at-point)
                      (sly-read-from-minibuffer "Return from frame: ")))
   (sly-rex ()
-      ((list 'slynk:sldb-return-from-frame frame-number string))
+      ((list 'slynk:sly-db-return-from-frame frame-number string))
     ((:ok value) (sly-message "%s" value))
     ((:abort _))))
 
-(defun sldb-restart-frame (frame-number)
+(defun sly-db-restart-frame (frame-number)
   "Causes the frame to restart execution with the same arguments as it
 was called originally."
-  (interactive (list (sldb-frame-number-at-point)))
+  (interactive (list (sly-db-frame-number-at-point)))
   (sly-rex ()
       ((list 'slynk:restart-frame frame-number))
     ((:ok value) (sly-message "%s" value))
@@ -5762,11 +5762,11 @@ was called originally."
     (lambda (msg) (sly-message "%s" msg))))
 
 
-;;;;;; SLDB recompilation commands
+;;;;;; SLY-DB recompilation commands
 
-(defun sldb-recompile-frame-source (frame-number &optional raw-prefix-arg)
+(defun sly-db-recompile-frame-source (frame-number &optional raw-prefix-arg)
   (interactive
-   (list (sldb-frame-number-at-point) current-prefix-arg))
+   (list (sly-db-frame-number-at-point) current-prefix-arg))
   (sly-eval-async
       `(slynk:frame-source-location ,frame-number)
     (let ((policy (sly-compute-policy raw-prefix-arg)))
@@ -6553,33 +6553,33 @@ is setup, unless the user already set one explicitly."
       [ "Interrupt Command"        sly-interrupt ,C ]
       [ "Abort Async. Command"     sly-quit ,C ])))
 
-(easy-menu-define sly-sldb-menu sldb-mode-map "SLDB Menu"
+(easy-menu-define sly-sly-db-menu sly-db-mode-map "SLY-DB Menu"
   (let ((C '(sly-connected-p)))
-    `("SLDB"
-      [ "Next Frame" sldb-down t ]
-      [ "Previous Frame" sldb-up t ]
-      [ "Toggle Frame Details" sldb-toggle-details t ]
-      [ "Next Frame (Details)" sldb-details-down t ]
-      [ "Previous Frame (Details)" sldb-details-up t ]
+    `("SLY-DB"
+      [ "Next Frame" sly-db-down t ]
+      [ "Previous Frame" sly-db-up t ]
+      [ "Toggle Frame Details" sly-db-toggle-details t ]
+      [ "Next Frame (Details)" sly-db-details-down t ]
+      [ "Previous Frame (Details)" sly-db-details-up t ]
       "--"
       [ "Eval Expression..." sly-interactive-eval ,C ]
-      [ "Eval in Frame..." sldb-eval-in-frame ,C ]
-      [ "Eval in Frame (pretty print)..." sldb-pprint-eval-in-frame ,C ]
-      [ "Inspect In Frame..." sldb-inspect-in-frame ,C ]
-      [ "Inspect Condition Object" sldb-inspect-condition ,C ]
+      [ "Eval in Frame..." sly-db-eval-in-frame ,C ]
+      [ "Eval in Frame (pretty print)..." sly-db-pprint-eval-in-frame ,C ]
+      [ "Inspect In Frame..." sly-db-inspect-in-frame ,C ]
+      [ "Inspect Condition Object" sly-db-inspect-condition ,C ]
       "--"
-      [ "Restart Frame" sldb-restart-frame ,C ]
-      [ "Return from Frame..." sldb-return-from-frame ,C ]
+      [ "Restart Frame" sly-db-restart-frame ,C ]
+      [ "Return from Frame..." sly-db-return-from-frame ,C ]
       ("Invoke Restart"
-       [ "Continue" sldb-continue ,C ]
-       [ "Abort"    sldb-abort ,C ]
-       [ "Step"      sldb-step ,C ]
-       [ "Step next" sldb-next ,C ]
-       [ "Step out"  sldb-out ,C ]
+       [ "Continue" sly-db-continue ,C ]
+       [ "Abort"    sly-db-abort ,C ]
+       [ "Step"      sly-db-step ,C ]
+       [ "Step next" sly-db-next ,C ]
+       [ "Step out"  sly-db-out ,C ]
        )
       "--"
-      [ "Quit (throw)" sldb-quit ,C ]
-      [ "Break With Default Debugger" sldb-break-with-default-debugger ,C ])))
+      [ "Quit (throw)" sly-db-quit ,C ]
+      [ "Break With Default Debugger" sly-db-break-with-default-debugger ,C ])))
 
 (easy-menu-define sly-inspector-menu sly-inspector-mode-map
   "Menu for the SLY Inspector"

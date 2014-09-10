@@ -43,8 +43,8 @@ This file has been placed in the public domain.
 @acronym{SLY}
 @end macro
 
-@macro SLDB
-@acronym{SLDB}
+@macro SLY-DB
+@acronym{SLY-DB}
 @end macro
 
 @macro REPL
@@ -169,7 +169,7 @@ User-interface conventions
 * Multithreading::
 * Key bindings::
 
-SLDB: the @SLY{} debugger
+SLY-DB: the @SLY{} debugger
 
 * Examining frames::
 * Restarts::
@@ -1293,15 +1293,15 @@ skipped for the current Lisp connection.
 
 @c -----------------------
 @node Debugger
-@chapter SLDB: the SLY debugger
+@chapter SLY-DB: the SLY debugger
 
 @cindex Debugger
 
-@SLY{} has a custom Emacs-based debugger called @SLDB{}. Conditions
-signalled in the Lisp system invoke @SLDB{} in Emacs by way of the
+@SLY{} has a custom Emacs-based debugger called @SLY-DB{}. Conditions
+signalled in the Lisp system invoke @SLY-DB{} in Emacs by way of the
 Lisp @code{*DEBUGGER-HOOK*}.
 
-@SLDB{} pops up a buffer when a condition is signalled. The buffer
+@SLY-DB{} pops up a buffer when a condition is signalled. The buffer
 displays a description of the condition, a list of restarts, and a
 backtrace. Commands are offered for invoking restarts, examining the
 backtrace, and poking around in stack frames.
@@ -1321,29 +1321,29 @@ backtrace, and poking around in stack frames.
 Commands for examining the stack frame at point.
 
 @table @kbd
-@kbditem{t, sldb-toggle-details}
+@kbditem{t, sly-db-toggle-details}
 Toggle display of local variables and @code{CATCH} tags.
 
-@kbditem{v, sldb-show-source}
+@kbditem{v, sly-db-show-source}
 View the frame's current source expression. The expression is
 presented in the Lisp source file's buffer.
 
-@kbditem{e, sldb-eval-in-frame}
+@kbditem{e, sly-db-eval-in-frame}
 Evaluate an expression in the frame. The expression can refer to the
 available local variables in the frame.
 
-@kbditem{d, sldb-pprint-eval-in-frame}
+@kbditem{d, sly-db-pprint-eval-in-frame}
 Evaluate an expression in the frame and pretty-print the result in a
 temporary buffer.
 
-@kbditem{D, sldb-disassemble}
+@kbditem{D, sly-db-disassemble}
 Disassemble the frame's function. Includes information such as the
 instruction pointer within the frame.
 
-@kbditem{i, sldb-inspect-in-frame}
+@kbditem{i, sly-db-inspect-in-frame}
 Inspect the result of evaluating an expression in the frame.
 
-@kbditem{C-c C-c, sldb-recompile-frame-source}
+@kbditem{C-c C-c, sly-db-recompile-frame-source}
 Recompile frame. @kbd{C-u C-c C-c} for recompiling with maximum debug settings.
 
 @end table
@@ -1353,16 +1353,16 @@ Recompile frame. @kbd{C-u C-c C-c} for recompiling with maximum debug settings.
 @section Invoking restarts
 
 @table @kbd
-@kbditem{a, sldb-abort}
+@kbditem{a, sly-db-abort}
 Invoke the @code{ABORT} restart.
 
-@anchor{sldb-quit}
-@kbditem{q, sldb-quit}
+@anchor{sly-db-quit}
+@kbditem{q, sly-db-quit}
 ``Quit'' -- For @SLY{} evaluation requests, invoke a restart which
 restores to a known program state. For errors in other threads, see
-@ref{SLYNK:*SLDB-QUIT-RESTART*}.
+@ref{SLYNK:*SLY-DB-QUIT-RESTART*}.
 
-@kbditem{c, sldb-continue}
+@kbditem{c, sly-db-continue}
 Invoke the @code{CONTINUE} restart.
 
 @item 0 ... 9
@@ -1377,19 +1377,19 @@ them in the buffer.
 @section Navigating between frames
 
 @table @kbd
-@kbditempair{n,p,sldb-down,sldb-up}
+@kbditempair{n,p,sly-db-down,sly-db-up}
 Move between frames.
 
-@kbditempair{M-n, M-p, sldb-details-down, sldb-details-up}
+@kbditempair{M-n, M-p, sly-db-details-down, sly-db-details-up}
 Move between frames ``with sugar'': hide the details of the original
 frame and display the details and source code of the next. Sugared
 motion makes you see the details and source code for the current frame
 only.
 
-@kbditem{>, sldb-end-of-backtrace}
+@kbditem{>, sly-db-end-of-backtrace}
 Fetch the entire backtrace and go to the last frame.
 
-@kbditem{<, sldb-beginning-of-backtrace}
+@kbditem{<, sly-db-beginning-of-backtrace}
 Goto the first frame.
 
 @end table
@@ -1403,15 +1403,15 @@ Stepping is not available in all implementations and works very
 differently in those in which it is available.
 
 @table @kbd
-@kbditem{s, sldb-step}
+@kbditem{s, sly-db-step}
 Step to the next expression in the frame.  For CMUCL that means, set a
 breakpoint at all those code locations in the current code block which
 are reachable from the current code location.
 
-@kbditem{x, sldb-next}
+@kbditem{x, sly-db-next}
 Step to the next form in the current function.
 
-@kbditem{o, sldb-out}
+@kbditem{o, sly-db-out}
 Stop single-stepping temporarily, but resume it once the current
 function returns.
 
@@ -1421,26 +1421,26 @@ function returns.
 @section Miscellaneous Commands
 
 @table @kbd
-@kbditem{r, sldb-restart-frame}
+@kbditem{r, sly-db-restart-frame}
 Restart execution of the frame with the same arguments it was
 originally called with. (This command is not available in all
 implementations.)
 
-@kbditem{R, sldb-return-from-frame}
+@kbditem{R, sly-db-return-from-frame}
 Return from the frame with a value entered in the minibuffer. (This
 command is not available in all implementations.)
 
 
-@kbditem{B, sldb-break-with-default-debugger}
-Exit @SLDB{} and debug the condition using the Lisp system's default
+@kbditem{B, sly-db-break-with-default-debugger}
+Exit @SLY-DB{} and debug the condition using the Lisp system's default
 debugger.
 
-@kbditem{C, sldb-inspect-condition}
+@kbditem{C, sly-db-inspect-condition}
 Inspect the condition currently being debugged.
 
 @kbditem{:, sly-interactive-eval}
 Evaluate an expression entered in the minibuffer.
-@kbditem{A, sldb-break-with-system-debugger}
+@kbditem{A, sly-db-break-with-system-debugger}
 Attach debugger (e.g. gdb) to the current lisp process.
 
 @end table
@@ -1496,7 +1496,7 @@ Some buffers are tied to specific Lisp processes. Each Lisp connection
 has its own @acronym{REPL} buffer, and all expressions entered or
 @SLY{} commands invoked in that buffer are sent to the associated
 connection. Other buffers created by @SLY{} are similarly tied to
-the connections they originate from, including @SLDB{} buffers,
+the connections they originate from, including @SLY-DB{} buffers,
 apropos result listings, and so on. These buffers are the result of
 some interaction with a Lisp process, so commands in them always go
 back to that same process.
@@ -1640,12 +1640,12 @@ buffers. An example use is to enable @code{sly-autodoc-mode}
 This hook is run when @SLY{} establishes a connection to a Lisp
 server. An example use is to pop to a new @REPL{}.
 
-@vindex sldb-hook
-@item sldb-hook
-This hook is run after @SLDB{} is invoked. The hook functions are
-called from the @SLDB{} buffer after it is initialized. An example use
-is to add @code{sldb-print-condition} to this hook, which makes all
-conditions debugged with @SLDB{} be recorded in the @REPL{} buffer.
+@vindex sly-db-hook
+@item sly-db-hook
+This hook is run after @SLY-DB{} is invoked. The hook functions are
+called from the @SLY-DB{} buffer after it is initialized. An example use
+is to add @code{sly-db-print-condition} to this hook, which makes all
+conditions debugged with @SLY-DB{} be recorded in the @REPL{} buffer.
 
 @end table
 
@@ -1751,33 +1751,33 @@ globally set to @code{SLYNK:SLYNK-DEBUGGER-HOOK} and thus for @SLY{}
 to handle all debugging in the Lisp image. This is for debugging
 multithreaded and callback-driven applications.
 
-@anchor{SLYNK:*SLDB-QUIT-RESTART*}
-@vindex SLYNK:*SLDB-QUIT-RESTART*
-@item SLYNK:*SLDB-QUIT-RESTART*
+@anchor{SLYNK:*SLY-DB-QUIT-RESTART*}
+@vindex SLYNK:*SLY-DB-QUIT-RESTART*
+@item SLYNK:*SLY-DB-QUIT-RESTART*
 This variable names the restart that is invoked when pressing @kbd{q}
-(@pxref{sldb-quit}) in @SLDB{}. For @SLY{} evaluation requests this
+(@pxref{sly-db-quit}) in @SLY-DB{}. For @SLY{} evaluation requests this
 is @emph{unconditionally} bound to a restart that returns to a safe
 point. This variable is supposed to customize what @kbd{q} does if an
 application's thread lands into the debugger (see
 @code{SLYNK:*GLOBAL-DEBUGGER*}).
 @example
-(setf slynk:*sldb-quit-restart* 'sb-thread:terminate-thread)
+(setf slynk:*sly-db-quit-restart* 'sb-thread:terminate-thread)
 @end example
 
 @vindex SLYNK:*BACKTRACE-PRINTER-BINDINGS*
 @vindex SLYNK:*MACROEXPAND-PRINTER-BINDINGS*
-@vindex SLYNK:*SLDB-PRINTER-BINDINGS*
+@vindex SLYNK:*SLY-DB-PRINTER-BINDINGS*
 @vindex SLYNK:*SLYNK-PPRINT-BINDINGS*
 @item SLYNK:*BACKTRACE-PRINTER-BINDINGS*
 @itemx SLYNK:*MACROEXPAND-PRINTER-BINDINGS*
-@itemx SLYNK:*SLDB-PRINTER-BINDINGS*
+@itemx SLYNK:*SLY-DB-PRINTER-BINDINGS*
 @itemx SLYNK:*SLYNK-PPRINT-BINDINGS*
 These variables can be used to customize the printer in various
 situations.  The values of the variables are association lists of
 printer variable names with the corresponding value.  E.g., to enable
-the pretty printer for formatting backtraces in @SLDB{}, you can use:
+the pretty printer for formatting backtraces in @SLY-DB{}, you can use:
 @example
-(push '(*print-pretty* . t) slynk:*sldb-printer-bindings*).
+(push '(*print-pretty* . t) slynk:*sly-db-printer-bindings*).
 @end example
 
 @vindex SLYNK:*USE-DEDICATED-OUTPUT-STREAM*
@@ -2108,7 +2108,7 @@ Emacs Lisp, which gives more Emacs-integration than the traditional
 
 @itemize @bullet
 @item
-Conditions signalled in @REPL{} expressions are debugged with @SLDB{}.
+Conditions signalled in @REPL{} expressions are debugged with @SLY-DB{}.
 @item
 Return values are distinguished from printed output by separate Emacs
 faces (colours).
@@ -2505,83 +2505,83 @@ keybinding (if there is one) refer to the function description.
 
 @table @code
 @fcnindex{common-lisp-hyperspec-format}
-@fcnindex{sldb-abort}
-@c @fcnindex{sldb-activate}
-@c @fcnindex{sldb-add-face}
-@c @fcnindex{sldb-backward-frame}
-@c @fcnindex{sldb-beginning-of-backtrace}
-@c @fcnindex{sldb-break}
-@c @fcnindex{sldb-break-on-return}
-@fcnindex{sldb-break-with-default-debugger}
-@c @fcnindex{sldb-buffers}
-@c @fcnindex{sldb-catch-tags}
-@fcnindex{sldb-continue}
-@c @fcnindex{sldb-debugged-continuations}
-@c @fcnindex{sldb-default-action}
-@c @fcnindex{sldb-default-action/mouse}
-@c @fcnindex{sldb-delete-overlays}
-@c @fcnindex{sldb-details-down}
-@c @fcnindex{sldb-details-up}
-@fcnindex{sldb-disassemble}
-@c @fcnindex{sldb-dispatch-extras}
-@c @fcnindex{sldb-down}
-@c @fcnindex{sldb-end-of-backtrace}
-@fcnindex{sldb-eval-in-frame}
-@c @fcnindex{sldb-exit}
-@c @fcnindex{sldb-fetch-all-frames}
-@c @fcnindex{sldb-fetch-more-frames}
-@c @fcnindex{sldb-find-buffer}
-@c @fcnindex{sldb-format-reference-node}
-@c @fcnindex{sldb-format-reference-source}
-@c @fcnindex{sldb-forward-frame}
-@c @fcnindex{sldb-frame-details-visible-p}
-@c @fcnindex{sldb-frame-locals}
-@c @fcnindex{sldb-frame-number-at-point}
-@c @fcnindex{sldb-frame-region}
-@c @fcnindex{sldb-get-buffer}
-@c @fcnindex{sldb-get-default-buffer}
-@c @fcnindex{sldb-goto-last-frame}
-@c @fcnindex{sldb-help-summary}
-@c @fcnindex{sldb-hide-frame-details}
-@c @fcnindex{sldb-highlight-sexp}
-@c @fcnindex{sldb-insert-condition}
-@c @fcnindex{sldb-insert-frame}
-@c @fcnindex{sldb-insert-frames}
-@c @fcnindex{sldb-insert-locals}
-@c @fcnindex{sldb-insert-references}
-@c @fcnindex{sldb-insert-restarts}
-@c @fcnindex{sldb-inspect-condition}
-@fcnindex{sldb-inspect-in-frame}
-@c @fcnindex{sldb-inspect-var}
-@c @fcnindex{sldb-invoke-restart}
-@c @fcnindex{sldb-level}
-@c @fcnindex{sldb-list-catch-tags}
-@c @fcnindex{sldb-list-locals}
-@c @fcnindex{sldb-lookup-reference}
-@c @fcnindex{sldb-maybe-recenter-region}
-@c @fcnindex{sldb-mode-hook}
-@c @fcnindex{sldb-next}
-@c @fcnindex{sldb-out}
-@fcnindex{sldb-pprint-eval-in-frame}
-@c @fcnindex{sldb-previous-frame-number}
-@c @fcnindex{sldb-print-condition}
-@c @fcnindex{sldb-prune-initial-frames}
-@fcnindex{sldb-quit}
-@c @fcnindex{sldb-reference-properties}
-@c @fcnindex{sldb-restart-at-point}
-@fcnindex{sldb-restart-frame}
-@fcnindex{sldb-return-from-frame}
-@c @fcnindex{sldb-setup}
-@c @fcnindex{sldb-show-frame-details}
-@c @fcnindex{sldb-show-frame-source}
-@fcnindex{sldb-show-source}
-@fcnindex{sldb-step}
-@c @fcnindex{sldb-sugar-move}
-@fcnindex{sldb-toggle-details}
-@c @fcnindex{sldb-up}
-@c @fcnindex{sldb-var-number-at-point}
-@c @fcnindex{sldb-xemacs-emulate-point-entered-hook}
-@c @fcnindex{sldb-xemacs-post-command-hook}
+@fcnindex{sly-db-abort}
+@c @fcnindex{sly-db-activate}
+@c @fcnindex{sly-db-add-face}
+@c @fcnindex{sly-db-backward-frame}
+@c @fcnindex{sly-db-beginning-of-backtrace}
+@c @fcnindex{sly-db-break}
+@c @fcnindex{sly-db-break-on-return}
+@fcnindex{sly-db-break-with-default-debugger}
+@c @fcnindex{sly-db-buffers}
+@c @fcnindex{sly-db-catch-tags}
+@fcnindex{sly-db-continue}
+@c @fcnindex{sly-db-debugged-continuations}
+@c @fcnindex{sly-db-default-action}
+@c @fcnindex{sly-db-default-action/mouse}
+@c @fcnindex{sly-db-delete-overlays}
+@c @fcnindex{sly-db-details-down}
+@c @fcnindex{sly-db-details-up}
+@fcnindex{sly-db-disassemble}
+@c @fcnindex{sly-db-dispatch-extras}
+@c @fcnindex{sly-db-down}
+@c @fcnindex{sly-db-end-of-backtrace}
+@fcnindex{sly-db-eval-in-frame}
+@c @fcnindex{sly-db-exit}
+@c @fcnindex{sly-db-fetch-all-frames}
+@c @fcnindex{sly-db-fetch-more-frames}
+@c @fcnindex{sly-db-find-buffer}
+@c @fcnindex{sly-db-format-reference-node}
+@c @fcnindex{sly-db-format-reference-source}
+@c @fcnindex{sly-db-forward-frame}
+@c @fcnindex{sly-db-frame-details-visible-p}
+@c @fcnindex{sly-db-frame-locals}
+@c @fcnindex{sly-db-frame-number-at-point}
+@c @fcnindex{sly-db-frame-region}
+@c @fcnindex{sly-db-get-buffer}
+@c @fcnindex{sly-db-get-default-buffer}
+@c @fcnindex{sly-db-goto-last-frame}
+@c @fcnindex{sly-db-help-summary}
+@c @fcnindex{sly-db-hide-frame-details}
+@c @fcnindex{sly-db-highlight-sexp}
+@c @fcnindex{sly-db-insert-condition}
+@c @fcnindex{sly-db-insert-frame}
+@c @fcnindex{sly-db-insert-frames}
+@c @fcnindex{sly-db-insert-locals}
+@c @fcnindex{sly-db-insert-references}
+@c @fcnindex{sly-db-insert-restarts}
+@c @fcnindex{sly-db-inspect-condition}
+@fcnindex{sly-db-inspect-in-frame}
+@c @fcnindex{sly-db-inspect-var}
+@c @fcnindex{sly-db-invoke-restart}
+@c @fcnindex{sly-db-level}
+@c @fcnindex{sly-db-list-catch-tags}
+@c @fcnindex{sly-db-list-locals}
+@c @fcnindex{sly-db-lookup-reference}
+@c @fcnindex{sly-db-maybe-recenter-region}
+@c @fcnindex{sly-db-mode-hook}
+@c @fcnindex{sly-db-next}
+@c @fcnindex{sly-db-out}
+@fcnindex{sly-db-pprint-eval-in-frame}
+@c @fcnindex{sly-db-previous-frame-number}
+@c @fcnindex{sly-db-print-condition}
+@c @fcnindex{sly-db-prune-initial-frames}
+@fcnindex{sly-db-quit}
+@c @fcnindex{sly-db-reference-properties}
+@c @fcnindex{sly-db-restart-at-point}
+@fcnindex{sly-db-restart-frame}
+@fcnindex{sly-db-return-from-frame}
+@c @fcnindex{sly-db-setup}
+@c @fcnindex{sly-db-show-frame-details}
+@c @fcnindex{sly-db-show-frame-source}
+@fcnindex{sly-db-show-source}
+@fcnindex{sly-db-step}
+@c @fcnindex{sly-db-sugar-move}
+@fcnindex{sly-db-toggle-details}
+@c @fcnindex{sly-db-up}
+@c @fcnindex{sly-db-var-number-at-point}
+@c @fcnindex{sly-db-xemacs-emulate-point-entered-hook}
+@c @fcnindex{sly-db-xemacs-post-command-hook}
 
 
 @c @fcnindex{inferior-sly-closing-return}

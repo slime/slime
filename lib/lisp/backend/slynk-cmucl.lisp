@@ -1477,16 +1477,16 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 
 ;;;; Debugging
 
-(defvar *sldb-stack-top*)
+(defvar *sly-db-stack-top*)
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (unix:unix-sigsetmask 0)
-  (let* ((*sldb-stack-top* (or debug:*stack-top-hint* (di:top-frame)))
+  (let* ((*sly-db-stack-top* (or debug:*stack-top-hint* (di:top-frame)))
 	 (debug:*stack-top-hint* nil)
          (kernel:*current-level* 0))
     (handler-bind ((di::unhandled-condition
 		    (lambda (condition)
-                      (error 'sldb-condition
+                      (error 'sly-db-condition
                              :original-condition condition))))
       (unwind-protect
            (progn
@@ -1500,7 +1500,7 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
     (di:no-debug-info () nil)))
 
 (defun nth-frame (index)
-  (do ((frame *sldb-stack-top* (frame-down frame))
+  (do ((frame *sly-db-stack-top* (frame-down frame))
        (i index (1- i)))
       ((zerop i) frame)))
 
@@ -1579,7 +1579,7 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 (defimplementation activate-stepping (frame)
   (set-step-breakpoints (nth-frame frame)))
 
-(defimplementation sldb-break-on-return (frame)
+(defimplementation sly-db-break-on-return (frame)
   (break-on-return (nth-frame frame)))
 
 ;;; We set the breakpoint in the caller which might be a bit confusing.
@@ -1770,7 +1770,7 @@ Try to create a informative message."
          (brk nil "Function start breakpoint"))
         (t (brk nil "Breakpoint: ~A in ~A" breakpoint frame))))))
 
-(defimplementation sldb-break-at-start (fname)
+(defimplementation sly-db-break-at-start (fname)
   (let ((debug-fun (di:function-debug-function (coerce fname 'function))))
     (cond ((not debug-fun)
            `(:error ,(format nil "~S has no debug-function" fname)))

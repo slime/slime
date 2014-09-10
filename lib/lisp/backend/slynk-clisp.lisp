@@ -363,9 +363,9 @@ Return NIL if the symbol is unbound."
 (defun trim-whitespace (string)
   (string-trim #(#\newline #\space #\tab) string))
 
-(defvar *sldb-backtrace*)
+(defvar *sly-db-backtrace*)
 
-(defun sldb-backtrace ()
+(defun sly-db-backtrace ()
   "Return a list ((ADDRESS . DESCRIPTION) ...) of frames."
   (let* ((modes '((:all-stack-elements 1)
                   (:all-frames 2)
@@ -385,15 +385,15 @@ Return NIL if the symbol is unbound."
   (let* (;;(sys::*break-count* (1+ sys::*break-count*))
          ;;(sys::*driver* debugger-loop-fn)
          ;;(sys::*fasoutput-stream* nil)
-         (*sldb-backtrace*
+         (*sly-db-backtrace*
           (let* ((f (sys::the-frame))
-                 (bt (sldb-backtrace))
+                 (bt (sly-db-backtrace))
                  (rest (member f bt)))
             (if rest (nthcdr 8 rest) bt))))
     (funcall debugger-loop-fn)))
 
 (defun nth-frame (index)
-  (nth index *sldb-backtrace*))
+  (nth index *sly-db-backtrace*))
 
 (defun boring-frame-p (frame)
   (member (frame-type frame) '(stack-value bind-var bind-env
@@ -438,7 +438,7 @@ Return NIL if the symbol is unbound."
                   *frame-prefixes*)))
 
 (defimplementation compute-backtrace (start end)
-  (let* ((bt *sldb-backtrace*)
+  (let* ((bt *sly-db-backtrace*)
          (len (length bt)))
     (loop for f in (subseq bt start (min (or end len) len))
           collect f)))
@@ -516,7 +516,7 @@ Return NIL if the symbol is unbound."
          (let ((name (venv-ref (frame-venv frame) i)))
            (multiple-value-bind (v c) (ignore-errors (sys::eval-at frame name))
              (if c
-                 (format-sldb-condition c)
+                 (format-sly-db-condition c)
                  v))))
         ((member (frame-type frame) '(compiled-fun sys-fun fun special-op))
          (let ((str (nth i (%parse-stack-values frame))))

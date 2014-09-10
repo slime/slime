@@ -157,14 +157,14 @@
 
 ;;;; Debugger
 
-(defvar *sldb-topframe*)
+(defvar *sly-db-topframe*)
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
-  (let ((*sldb-topframe* (find-topframe))
+  (let ((*sly-db-topframe* (find-topframe))
         (excl::*break-hook* nil))
     (funcall debugger-loop-fn)))
 
-(defimplementation sldb-break-at-start (fname)
+(defimplementation sly-db-break-at-start (fname)
   ;; :print-before is kind of mis-used but we just want to stuff our
   ;; break form somewhere. This does not work for setf, :before and
   ;; :after methods, which need special syntax in the trace call, see
@@ -192,7 +192,7 @@
           (t (next-frame next)))))
 
 (defun nth-frame (index)
-  (do ((frame *sldb-topframe* (next-frame frame))
+  (do ((frame *sly-db-topframe* (next-frame frame))
        (i index (1- i)))
       ((zerop i) frame)))
 

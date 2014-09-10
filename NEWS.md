@@ -86,7 +86,7 @@ See the CONTRIBUTING.md file for more details on architecture changes.
 
 ### More consistent interface
 
-The SLDB, Inspector, XREF and Apropos buffers have been
+The SLY-DB, Inspector, XREF and Apropos buffers have been
 redesigned to use a common class of push button with consistent
 interfaces.
 
@@ -113,7 +113,7 @@ streams are kept. An idea by Olof-Joachim Frahm
 
 ### Copy function call to REPL
 
-An experimental feature, from the Trace Dialog or SLDB buffers, a new
+An experimental feature, from the Trace Dialog or SLY-DB buffers, a new
 button-action called "Copy call to REPL" is offered.
 
 If SLY can calculate the arguments and the function symbol of the
@@ -129,7 +129,7 @@ switches themes.
 
 Popping up windows and buffers has been much improved. Windows are
 reused if the buffer names match or are similar, meaning that no
-longer will the SLDB "jump around" in multi-window configurations when
+longer will the SLY-DB "jump around" in multi-window configurations when
 selecting a restart that signals another error.
 
 Interactive expression evaluation will use a separate buffer when the

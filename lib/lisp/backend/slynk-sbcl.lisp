@@ -1041,7 +1041,7 @@ Return a list of the form (NAME LOCATION)."
 
 ;;; Notice that SB-EXT:*INVOKE-DEBUGGER-HOOK* is slightly stronger
 ;;; than just a hook into BREAK. In particular, it'll make
-;;; (LET ((*DEBUGGER-HOOK* NIL)) ..error..) drop into SLDB rather
+;;; (LET ((*DEBUGGER-HOOK* NIL)) ..error..) drop into SLY-DB rather
 ;;; than the native debugger. That should probably be considered a
 ;;; feature.
 
@@ -1084,11 +1084,11 @@ Return a list of the form (NAME LOCATION)."
             ref)
            (t (symbol-name ref))))))
 
-(defvar *sldb-stack-top*)
+(defvar *sly-db-stack-top*)
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
-  (let ((*sldb-stack-top*
+  (let ((*sly-db-stack-top*
           (if (and (not *debug-slynk-backend*)
                    sb-debug:*stack-top-hint*)
               #+#.(slynk-backend:with-symbol 'resolve-stack-top-hint 'sb-debug)
@@ -1099,7 +1099,7 @@ Return a list of the form (NAME LOCATION)."
         (sb-debug:*stack-top-hint* nil))
     (handler-bind ((sb-di:debug-condition
                      (lambda (condition)
-                       (signal 'sldb-condition
+                       (signal 'sly-db-condition
                                :original-condition condition))))
       (funcall debugger-loop-fn))))
 
@@ -1108,13 +1108,13 @@ Return a list of the form (NAME LOCATION)."
   (defimplementation activate-stepping (frame)
     (declare (ignore frame))
     (sb-impl::enable-stepping))
-  (defimplementation sldb-stepper-condition-p (condition)
+  (defimplementation sly-db-stepper-condition-p (condition)
     (typep condition 'sb-ext:step-form-condition))
-  (defimplementation sldb-step-into ()
+  (defimplementation sly-db-step-into ()
     (invoke-restart 'sb-ext:step-into))
-  (defimplementation sldb-step-next ()
+  (defimplementation sly-db-step-next ()
     (invoke-restart 'sb-ext:step-next))
-  (defimplementation sldb-step-out ()
+  (defimplementation sly-db-step-out ()
     (invoke-restart 'sb-ext:step-out)))
 
 (defimplementation call-with-debugger-hook (hook fun)
@@ -1131,7 +1131,7 @@ Return a list of the form (NAME LOCATION)."
       (call-with-break-hook hook fun))))
 
 (defun nth-frame (index)
-  (do ((frame *sldb-stack-top* (sb-di:frame-down frame))
+  (do ((frame *sly-db-stack-top* (sb-di:frame-down frame))
        (i index (1- i)))
       ((zerop i) frame)))
 
