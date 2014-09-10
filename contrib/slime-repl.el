@@ -545,11 +545,12 @@ joined together."))
 (defun slime-repl-eval-string (string)
   (slime-rex ()
       ((if slime-repl-auto-right-margin
-           `(swank:listener-eval ,string
-                                 :window-width
-                                 ,(with-current-buffer (slime-output-buffer)
-                                    (window-width)))
-         `(swank:listener-eval ,string))
+           `(swank-repl:listener-eval
+	     ,string
+	     :window-width
+	     ,(with-current-buffer (slime-output-buffer)
+		(window-width)))
+         `(swank-repl:listener-eval ,string))
        (slime-lisp-package))
     ((:ok result)
      (slime-repl-insert-result result))
@@ -884,7 +885,7 @@ used with a prefix argument (C-u), doesn't switch back afterwards."
 
 (defun slime-clear-repl-variables ()
   (interactive)
-  (slime-eval-async `(swank:clear-repl-variables)))
+  (slime-eval-async `(swank-repl:clear-repl-variables)))
 
 (defvar slime-repl-clear-buffer-hook)
 
@@ -1508,7 +1509,7 @@ expansion will be added to the REPL's history.)"
       (let ((marker (copy-marker (buffer-size)))
             (target (incf slime-last-output-target-id)))
         (puthash target marker slime-output-target-to-marker)
-        (slime-eval `(swank:redirect-trace-output ,target))))
+        (slime-eval `(swank-repl:redirect-trace-output ,target))))
     ;; Note: We would like the entries in
     ;; slime-output-target-to-marker to disappear when the buffers are
     ;; killed.  We cannot just make the hash-table ":weakness 'value"
@@ -1574,10 +1575,10 @@ expansion will be added to the REPL's history.)"
            (error "Not in a function definition")))))))
 
 (defun slime-repl-copy-down-to-repl (slimefun &rest args)
-  (slime-eval-async `(swank:listener-save-value ',slimefun ,@args)
+  (slime-eval-async `(swank-repl:listener-save-value ',slimefun ,@args)
     #'(lambda (_ignored)
         (with-current-buffer (slime-repl)
-          (slime-eval-async '(swank:listener-get-value)
+          (slime-eval-async '(swank-repl:listener-get-value)
             #'(lambda (_ignored)
                 (slime-repl-insert-prompt)))))))
 
@@ -1709,7 +1710,7 @@ expansion will be added to the REPL's history.)"
   (destructuring-bind (package prompt)
       (let ((slime-current-thread t)
 	    (cs (slime-repl-choose-coding-system)))
-	(slime-eval `(swank:create-repl nil :coding-system ,cs)))
+	(slime-eval `(swank-repl:create-repl nil :coding-system ,cs)))
     (setf (slime-lisp-package) package)
     (setf (slime-lisp-package-prompt-string) prompt))
   (slime-hide-inferior-lisp-buffer)
