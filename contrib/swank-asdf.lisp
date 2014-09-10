@@ -353,7 +353,7 @@ install a recent release of ASDF and in your ~~/.swank.lisp specify:
           for asd-file = (asdf:system-definition-pathname dependency)
           when asd-file
           collect (list dependency
-                        (swank-backend::make-location
+                        (swank-backend:make-location
                          `(:file ,(namestring asd-file))
                          `(:position 1)
                          `(:snippet ,(format nil "(defsystem :~A" dependency)

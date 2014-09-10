@@ -1,3 +1,10 @@
+2014-09-10  Helmut Eller  <heller@common-lisp.net>
+
+	Fix some fallout of the new package structure.
+
+	* swank-presentation-streams.lisp: Use swank-sbcl:: instead of
+	swank-backend::.
+
 2014-09-01  João Távora  <joaotavora@gmail.com>
 
 	* slime-autodoc.el (eldoc-display-message-no-interference-p):
