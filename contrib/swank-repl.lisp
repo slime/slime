@@ -64,9 +64,10 @@
    defslimefun
 
    ;; FIXME: those should be exported from swank-repl only, but how to
-   ;; that whithout breaking init files?
+   ;; do that whithout breaking init files?
    *use-dedicated-output-stream*
    *dedicated-output-stream-port*
+   *globally-redirect-io*
 
    ))
 
@@ -201,9 +202,10 @@ This is an optimized way for Lisp to deliver output to Emacs."
               (*query-io*        . ,(@ user-io))
               (*terminal-io*     . ,(@ user-io))))
       (maybe-redirect-global-io conn)
+      (add-hook *connection-closed-hook* 'update-redirection-after-close)
       (typecase conn
 	(multithreaded-connection
-	 (setf (mconn.repl-thread conn) 
+	 (setf (mconn.repl-thread conn)
 	       (spawn-repl-thread conn "repl-thread"))))
       (list (package-name *package*)
             (package-string-for-prompt *package*)))))
@@ -443,7 +445,5 @@ NIL if streams are not globally redirected.")
         ;; No more connections, revert to the real streams.
         (progn (revert-global-io-redirection)
                (setq *global-stdio-connection* nil)))))
-
-(add-hook *connection-closed-hook* 'update-redirection-after-close)
 
 (provide :swank-repl)

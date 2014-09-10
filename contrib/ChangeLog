@@ -1,5 +1,9 @@
 2014-09-10  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-repl.lisp: Import *globally-redirect-io* from swank.
+
+2014-09-10  Helmut Eller  <heller@common-lisp.net>
+
 	Make the test filename for presentations match the contrib.
 
 	* test/slime-presentations-tests.el Renamed from
