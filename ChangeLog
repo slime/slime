@@ -1,3 +1,12 @@
+2014-09-10  Helmut Eller  <heller@common-lisp.net>
+
+	Fix gray stream issue for SBCL
+
+	The pretty printer seems to call the non-standard
+	stream-line-length generic function.
+
+	* swank-sbcl.lisp (sb-gray:stream-line-length): Implement default.
+
 2014-09-09  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-backend.lisp (gray-package-name): Fix docstring.

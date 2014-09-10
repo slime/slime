@@ -50,8 +50,15 @@
 (defun swank-mop:slot-definition-documentation (slot)
   (sb-pcl::documentation slot t))
 
+;; stream support
+
 (defimplementation gray-package-name ()
   "SB-GRAY")
+
+;; Pretty printer calls this, apparently
+(defmethod sb-gray:stream-line-length
+    ((s sb-gray:fundamental-character-input-stream))
+  nil)
 
 ;;; Connection info
 
