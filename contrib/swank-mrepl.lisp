@@ -10,7 +10,7 @@
 	       channel-id
 	       define-channel-method
 	       defslimefun 
-	       destructure-case
+	       dcase
 	       log-event
 	       process-requests
 	       send-to-remote-channel
@@ -66,7 +66,7 @@
   (swank-backend:spawn 
    (lambda ()
      (with-connection (connection)
-       (destructure-case (swank-backend:receive)
+       (dcase (swank-backend:receive)
 	 ((:serve-channel c)
 	  (loop
 	   (with-top-level-restart (connection (drop-unprocessed-events c))

@@ -163,7 +163,7 @@ Otherwise NIL is returned."
 		   finally
                    (return (values initial main final)))))
 	 (generate-main-clause (clause arglist)
-	   (destructure-case clause
+	   (dcase clause
              ((&provided (&optional arg) . body)
               (let ((gensym (gensym "PROVIDED-ARG+")))
 		`(dolist (,gensym (arglist.provided-args ,arglist))

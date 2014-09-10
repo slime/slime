@@ -561,7 +561,7 @@ joined together."))
   (with-current-buffer (slime-output-buffer)
     (save-excursion
       (when result
-        (destructure-case result
+        (slime-dcase result
           ((:values &rest strings)
            (cond ((null strings)
                   (slime-repl-emit-result "; No value\n" t))
@@ -1561,7 +1561,7 @@ expansion will be added to the REPL's history.)"
     (let ((toplevel (slime-parse-toplevel-form)))
       (if (symbolp toplevel)
           (error "Not in a function definition")
-        (destructure-case toplevel
+        (slime-dcase toplevel
           (((:defun :defgeneric :defmacro :define-compiler-macro) symbol)
            (insert-call symbol))
           ((:defmethod symbol &rest args)
@@ -1717,7 +1717,7 @@ expansion will be added to the REPL's history.)"
   (slime-init-output-buffer (slime-connection)))
 
 (defun slime-repl-event-hook-function (event)
-  (destructure-case event
+  (slime-dcase event
     ((:write-string output &optional target)
      (slime-write-string output target)
      t)

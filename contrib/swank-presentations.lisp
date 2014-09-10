@@ -65,7 +65,7 @@ The secondary value indicates the absence of an entry."
          (t
           (values object foundp)))))
     (cons
-     (destructure-case id
+     (dcase id
        ((:frame-var thread-id frame index)
         (declare (ignore thread-id)) ; later
         (handler-case

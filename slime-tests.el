@@ -415,7 +415,7 @@ after quitting Slime's temp buffer."
 (defun slime-test--display-region-eval-arg (line window-height)
   (cl-etypecase line
     (number line)
-    (cons (destructure-case line
+    (cons (slime-dcase line
 	    ((+h line)
 	     (+ (slime-test--display-region-eval-arg line window-height)
 		window-height))

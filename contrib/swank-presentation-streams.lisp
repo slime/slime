@@ -66,17 +66,18 @@ be sensitive and remember what object it is in the repl if predicate is true"
 ;;; Get pretty printer patches for SBCL at load (not compile) time.
 #+sbcl
 (eval-when (:load-toplevel)
-  (handler-bind ((simple-error 
-		  (lambda (c) 
+  (handler-bind ((simple-error
+		  (lambda (c)
 		    (declare (ignore c))
 		    (let ((clobber-it (find-restart 'sb-kernel::clobber-it)))
 		      (when clobber-it (invoke-restart clobber-it))))))
     (sb-ext:without-package-locks
-      (swank-backend::with-debootstrapping
-	(load (make-pathname 
+      (swank-sbcl::with-debootstrapping
+	(load (make-pathname
 	       :name "sbcl-pprint-patch"
 	       :type "lisp"
-	       :directory (pathname-directory swank-loader:*source-directory*)))))))
+	       :directory (pathname-directory
+			   swank-loader:*source-directory*)))))))
 
 (let ((last-stream nil)
       (last-answer nil))

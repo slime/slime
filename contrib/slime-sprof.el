@@ -214,7 +214,7 @@
       (slime-eval-async
        `(swank:swank-sprof-source-location ,index)
        (lambda (source-location)
-         (destructure-case source-location
+         (slime-dcase source-location
            ((:error message)
             (message "%s" message)
             (ding))
