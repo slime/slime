@@ -10,44 +10,44 @@
 (def-slime-test form-up-to-point.1
     (buffer-sexpr result-form &optional skip-trailing-test-p)
     ""
-    '(("(char= #\\(*HERE*"
-       ("char=" "#\\(" swank::%cursor-marker%))
+    `(("(char= #\\(*HERE*"
+       ("char=" "#\\(" ,slime-cursor-marker))
       ("(char= #\\( *HERE*"
-       ("char=" "#\\(" "" swank::%cursor-marker%))
+       ("char=" "#\\(" "" ,slime-cursor-marker))
       ("(char= #\\) *HERE*"
-       ("char=" "#\\)" "" swank::%cursor-marker%))
+       ("char=" "#\\)" "" ,slime-cursor-marker))
       ("(char= #\\*HERE*"
-       ("char=" "#\\" swank::%cursor-marker%) t)
+       ("char=" "#\\" ,slime-cursor-marker) t)
       ("(defun*HERE*"
-       ("defun" swank::%cursor-marker%))
+       ("defun" ,slime-cursor-marker))
       ("(defun foo*HERE*"
-       ("defun" "foo" swank::%cursor-marker%))
+       ("defun" "foo" ,slime-cursor-marker))
       ("(defun foo (x y)*HERE*"
        ("defun" "foo"
-	("x" "y") swank::%cursor-marker%))
+	("x" "y") ,slime-cursor-marker))
       ("(defun foo (x y*HERE*"
        ("defun" "foo"
-	("x" "y" swank::%cursor-marker%)))
+	("x" "y" ,slime-cursor-marker)))
       ("(apply 'foo*HERE*"
-       ("apply" "'foo" swank::%cursor-marker%))
+       ("apply" "'foo" ,slime-cursor-marker))
       ("(apply #'foo*HERE*"
-       ("apply" "#'foo" swank::%cursor-marker%))
+       ("apply" "#'foo" ,slime-cursor-marker))
       ("(declare ((vector bit *HERE*"
-       ("declare" (("vector" "bit" "" swank::%cursor-marker%))))
+       ("declare" (("vector" "bit" "" ,slime-cursor-marker))))
       ("(with-open-file (*HERE*"
-       ("with-open-file" ("" swank::%cursor-marker%)))
+       ("with-open-file" ("" ,slime-cursor-marker)))
       ("(((*HERE*"
-       ((("" swank::%cursor-marker%))))
+       ((("" ,slime-cursor-marker))))
       ("(defun #| foo #| *HERE*"
-       ("defun" "" swank::%cursor-marker%))
+       ("defun" "" ,slime-cursor-marker))
       ("(defun #-(and) (bar) f*HERE*"
-       ("defun" "f" swank::%cursor-marker%))
+       ("defun" "f" ,slime-cursor-marker))
       ("(remove-if #'(lambda (x)*HERE*"
-       ("remove-if" ("lambda" ("x") swank::%cursor-marker%)))
+       ("remove-if" ("lambda" ("x") ,slime-cursor-marker)))
       ("`(remove-if ,(lambda (x)*HERE*"
-       ("remove-if" ("lambda" ("x") swank::%cursor-marker%)))
+       ("remove-if" ("lambda" ("x") ,slime-cursor-marker)))
       ("`(remove-if ,@(lambda (x)*HERE*"
-       ("remove-if" ("lambda" ("x") swank::%cursor-marker%))))
+       ("remove-if" ("lambda" ("x") ,slime-cursor-marker))))
   (slime-check-top-level)
   (with-temp-buffer
     (lisp-mode)

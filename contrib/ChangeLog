@@ -1,5 +1,11 @@
 2014-09-10  Helmut Eller  <heller@common-lisp.net>
 
+	* test/slime-parse-tests.el (form-up-to-point.1): Don't
+	hardcode swank::%cursor-marker% use the slime-cursor-marker
+	constant instead.
+
+2014-09-10  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-repl.lisp: Put swank-repl into its own package.
 	* slime-repl.el, test/slime-repl-tests.el: Use swank-repl:
 	instead of swank: where needed.
