@@ -1,5 +1,12 @@
 2014-09-10  Helmut Eller  <heller@common-lisp.net>
 
+	Make the test filename for presentations match the contrib.
+
+	* test/slime-presentations-tests.el Renamed from
+	slime-presentation-tests.el.
+
+2014-09-10  Helmut Eller  <heller@common-lisp.net>
+
 	Make presentations work, well compile, with swank-repl package.
 
 	* swank-repl.lisp: Export *send-repl-results-function*.
