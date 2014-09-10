@@ -1843,10 +1843,12 @@ This is automatically synchronized from Lisp.")
                (sly-message "switched to: %s" (connection-full-name p)))
              (sly--refresh-mode-line))))))
 
-(defun sly-disconnect ()
+(defun sly-disconnect (interactive)
   "Close the current connection."
-  (interactive)
-  (let ((connection (sly-prompt-for-connection "Connection to disconnect: ")))
+  (interactive (list t))
+  (let ((connection (if interactive
+                        (sly-prompt-for-connection "Connection to disconnect: ")
+                      (sly-current-connection))))
     (sly-net-close connection "Disconnecting")))
 
 (defun sly-disconnect-all ()
@@ -4842,10 +4844,12 @@ argument is given, with CL:MACROEXPAND."
 (defun sly-quit ()
   (error "Not implemented properly.  Use `sly-interrupt' instead."))
 
-(defun sly-quit-lisp (&optional kill)
+(defun sly-quit-lisp (&optional kill interactive)
   "Quit lisp, kill the inferior process and associated buffers."
-  (interactive "P")
-  (let ((connection (sly-prompt-for-connection)))
+  (interactive (list current-prefix-arg t))
+  (let ((connection (if interactive
+                        (sly-prompt-for-connection "Connection to quit: ")
+                      (sly-current-connection))))
     (sly-quit-lisp-internal connection 'sly-quit-sentinel kill)))
 
 (defun sly-quit-lisp-internal (connection sentinel kill)
