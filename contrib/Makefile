@@ -7,6 +7,7 @@ LISP=sbcl
 
 LOAD_PATH=-L . -L ..
 CONTRIBS = $(patsubst slime-%.el,%,$(wildcard slime-*.el))
+CONTRIB_TESTS = $(patsubst test/slime-%-tests.el,%,$(wildcard test/slime-*.el))
 SLIME_VERSION=$(shell grep "Version:" ../slime.el | grep -E -o "[0-9.]+$$")
 
 ELFILES := $(shell find . -type f -iname "*.el")
@@ -61,9 +62,9 @@ $(CONTRIBS:%=elpa-%): compile
 
 elpa-all: $(CONTRIBS:%=elpa-%)
 
-$(CONTRIBS:%=check-%): CONTRIB_NAME=$(patsubst check-%,slime-%,$@)
-$(CONTRIBS:%=check-%): SELECTOR=(quote (tag contrib))
-$(CONTRIBS:%=check-%): compile
+$(CONTRIB_TESTS:%=check-%): CONTRIB_NAME=$(patsubst check-%,slime-%,$@)
+$(CONTRIB_TESTS:%=check-%): SELECTOR=(quote (tag contrib))
+$(CONTRIB_TESTS:%=check-%): compile
 	$(EMACS) -Q --batch $(LOAD_PATH) -L test                        \
 	        --eval "(require (quote slime))"                        \
 	        --eval "(slime-setup (quote ($(CONTRIB_NAME))))"        \
@@ -76,4 +77,4 @@ $(CONTRIBS:%=check-%): compile
 	        --eval "(setq inferior-lisp-program \"$(LISP)\")"       \
 	        --eval "(slime-batch-test $(SELECTOR))"
 
-check-all: $(CONTRIBS:%=check-%)
+check-all: $(CONTRIB_TESTS:%=check-%)

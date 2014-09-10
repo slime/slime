@@ -1,5 +1,11 @@
 2014-09-10  Helmut Eller  <heller@common-lisp.net>
 
+	Only test contribs that actually have tests.
+
+	* Makefile (CONTRIB_TESTS): New variable.
+
+2014-09-10  Helmut Eller  <heller@common-lisp.net>
+
 	* test/slime-parse-tests.el (form-up-to-point.1): Don't
 	hardcode swank::%cursor-marker% use the slime-cursor-marker
 	constant instead.
