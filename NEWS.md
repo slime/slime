@@ -44,7 +44,7 @@ Dedicated stream for output is automatically set up. Configure the
 `SWANK-MREPL:*USE-DEDICATED-OUTPUT-STREAM*` if it doesn't suit you.
 
 There is saner scrolling behavior as provided by the `comint.el`
-subtrate. The variables `comint-scroll-show-maximum-output`,
+substrate. The variables `comint-scroll-show-maximum-output`,
 `comint-scroll-to-bottom-on-input` and
 `comint-scroll-to-bottom-on-output` (which see) are set to `nil` by
 default, but the user might reconfigure them to her liking in the
@@ -150,6 +150,11 @@ completion by default, but it can customized via
 `sly-complete-symbol-function`.
 
 Messages and warnings prefix themselves accordingly with "[sly]".
+
+SLY asks the user to confirm the Lisp to kill with `M-x sly-quit` or
+disconnect with `M-x sly-disconnect`. It doesn't ask any irrelevant
+questions when there is no selected connection beforehand. Github
+issue #5.
 
 Fixed source locations when recompiling from an xref buffer.  This is
 outstanding https://github.com/slime/slime/pull/175 pull-request in
