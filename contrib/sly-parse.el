@@ -72,7 +72,7 @@ that the character is not escaped."
           t)
       nil)))
 
-(defconst sly-cursor-marker 'swank::%cursor-marker%)
+(defconst sly-cursor-marker 'slynk::%cursor-marker%)
 
 ;; FIXME: stop this madness and just use `syntax-ppss'
 ;; 
@@ -86,7 +86,7 @@ that the character is not escaped."
       (let ((suffix (list sly-cursor-marker)))
         (cond ((sly-compare-char-syntax #'char-after "(" t)
                ;; We're at the start of some expression, so make sure
-               ;; that SWANK::%CURSOR-MARKER% will come after that
+               ;; that SLYNK::%CURSOR-MARKER% will come after that
                ;; expression. If the expression is not balanced, make
                ;; still sure that the marker does *not* come directly
                ;; after the preceding expression.

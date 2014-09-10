@@ -1,5 +1,5 @@
-(defpackage :swank-trace-dialog
-  (:use :cl :swank-api)
+(defpackage :slynk-trace-dialog
+  (:use :cl :slynk-api)
   (:export #:clear-trace-tree
            #:dialog-toggle-trace
            #:dialog-trace
@@ -18,7 +18,7 @@
            #:*traces-per-report*
            #:*dialog-trace-follows-trace*))
 
-(in-package :swank-trace-dialog)
+(in-package :slynk-trace-dialog)
 
 (defparameter *record-backtrace* nil
   "Record a backtrace of the last 20 calls for each trace.
@@ -45,7 +45,7 @@ program.")
 (defvar *traces* (make-array 1000 :fill-pointer 0
                                   :adjustable t))
 
-(defvar *trace-lock* (swank-backend:make-lock :name "swank-trace-dialog lock"))
+(defvar *trace-lock* (slynk-backend:make-lock :name "slynk-trace-dialog lock"))
 
 (defvar *current-trace-by-thread* (make-hash-table))
 
@@ -69,7 +69,7 @@ program.")
   (declare (ignore initargs))
   (if (parent-of entry)
       (nconc (children-of (parent-of entry)) (list entry)))
-  (swank-backend:call-with-lock-held
+  (slynk-backend:call-with-lock-held
    *trace-lock*
    #'(lambda ()
        (setf (slot-value entry 'id) (fill-pointer *traces*))
@@ -85,17 +85,17 @@ program.")
   (values-list (args-of (trace-or-lose trace-id))))
 
 (defun useful-backtrace ()
-  (swank-backend:call-with-debugging-environment
+  (slynk-backend:call-with-debugging-environment
    #'(lambda ()
        (loop for i from 0
-             for frame in (swank-backend:compute-backtrace 0 20)
-             collect (list i (swank::frame-to-string frame))))))
+             for frame in (slynk-backend:compute-backtrace 0 20)
+             collect (list i (slynk::frame-to-string frame))))))
 
 (defun current-trace ()
-  (gethash (swank-backend:current-thread) *current-trace-by-thread*))
+  (gethash (slynk-backend:current-thread) *current-trace-by-thread*))
 
 (defun (setf current-trace) (trace)
-  (setf (gethash (swank-backend:current-thread) *current-trace-by-thread*)
+  (setf (gethash (slynk-backend:current-thread) *current-trace-by-thread*)
         trace))
 
 
@@ -107,10 +107,10 @@ program.")
     ,(spec-of trace)
     ,(loop for arg in (args-of trace)
            for i from 0
-           collect (list i (swank::to-line arg)))
-    ,(loop for retval in (swank::ensure-list (retlist-of trace))
+           collect (list i (slynk::to-line arg)))
+    ,(loop for retval in (slynk::ensure-list (retlist-of trace))
            for i from 0
-           collect (list i (swank::to-line retval)))))
+           collect (list i (slynk::to-line retval)))))
 
 
 ;;;; slyfuns
@@ -169,7 +169,7 @@ program.")
   (setf *current-trace-by-thread* (clrhash *current-trace-by-thread*)
         *visitor-key* nil
         *unfinished-traces* nil)
-  (swank-backend:call-with-lock-held
+  (slynk-backend:call-with-lock-held
    *trace-lock*
    #'(lambda () (setf (fill-pointer *traces*) 0)))
   nil)
@@ -178,7 +178,7 @@ program.")
   (let* ((trace (trace-or-lose id))
          (l (ecase type
               (:arg (args-of trace))
-              (:retval (swank::ensure-list (retlist-of trace))))))
+              (:retval (slynk::ensure-list (retlist-of trace))))))
     (or (nth part-id l)
         (error "Cannot find a trace part with id ~a and part-id ~a"
                id part-id))))
@@ -187,14 +187,14 @@ program.")
   (values-list (args-of (trace-or-lose trace-id))))
 
 (defslyfun inspect-trace-part (trace-id part-id type)
-  (swank::inspect-object
+  (slynk::inspect-object
    (trace-part-or-lose trace-id part-id type)))
 
 (defslyfun inspect-trace (trace-id)
-  (swank::inspect-object (trace-or-lose trace-id)))
+  (slynk::inspect-object (trace-or-lose trace-id)))
 
 (defslyfun trace-location (trace-id)
-  (swank-backend:find-source-location (function-of (trace-or-lose trace-id))))
+  (slynk-backend:find-source-location (function-of (trace-or-lose trace-id))))
 
 (defslyfun dialog-trace (spec)
   (let ((function nil))
@@ -218,14 +218,14 @@ program.")
         (warn "~a is apparently already traced! Untracing and retracing." spec)
         (dialog-untrace spec))
       (setq function
-            (swank-backend:wrap spec 'trace-dialog
+            (slynk-backend:wrap spec 'trace-dialog
                                 :before #'before-hook
                                 :after #'after-hook))
       (pushnew spec *traced-specs*)
       (format nil "~a is now traced for trace dialog" spec))))
 
 (defslyfun dialog-untrace (spec)
-  (swank-backend:unwrap spec 'trace-dialog)
+  (slynk-backend:unwrap spec 'trace-dialog)
   (setq *traced-specs* (remove spec *traced-specs* :test #'equal))
   (format nil "~a is now untraced for trace dialog" spec))
 
@@ -246,7 +246,7 @@ program.")
 
 ;;;; Hook onto emacs
 ;;;; 
-(setq swank:*after-toggle-trace-hook*
+(setq slynk:*after-toggle-trace-hook*
       #'(lambda (spec traced-p)
           (when *dialog-trace-follows-trace*
             (cond (traced-p
@@ -256,11 +256,11 @@ program.")
                    (dialog-untrace spec)
                    "untraced for the trace dialog as well")))))
 
-;; HACK: `swank::*inspector-history*' is unbound by default and needs
-;; a reset in that case so that it won't error `swank::inspect-object'
+;; HACK: `slynk::*inspector-history*' is unbound by default and needs
+;; a reset in that case so that it won't error `slynk::inspect-object'
 ;; before any other object is inspected in the sly session.
 ;;
-(unless (boundp 'swank::*inspector-history*)
-  (swank::reset-inspector))
+(unless (boundp 'slynk::*inspector-history*)
+  (slynk::reset-inspector))
 
-(provide :swank-trace-dialog)
+(provide :slynk-trace-dialog)

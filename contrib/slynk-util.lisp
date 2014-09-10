@@ -1,8 +1,8 @@
-;;; swank-util.lisp --- stuff of questionable utility
+;;; slynk-util.lisp --- stuff of questionable utility
 ;;
 ;; License: public domain
 
-(in-package :swank)
+(in-package :slynk)
 
 (defmacro do-symbols* ((var &optional (package '*package*) result-form)
                        &body body)
@@ -60,4 +60,4 @@ boundp fboundp generic-function class macro special-operator package"
       (when (find-package symbol)       (flip #\p))
       result)))
 
-(provide :swank-util)
+(provide :slynk-util)

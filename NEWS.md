@@ -35,13 +35,13 @@ Every return part can be inspected and re-returned as the last value.
 Output redirection is automatically setup. The first REPL created is
 the target for all threads' output onto the standard output
 streams. REPLs created afterward only see their own output. To turn
-it off configure the SWANK-side variable
-`SWANK-MREPL:*GLOBALLY-REDIRECT-IO*`. Any REPL created after that
+it off configure the SLYNK-side variable
+`SLYNK-MREPL:*GLOBALLY-REDIRECT-IO*`. Any REPL created after that
 will not gather other threads' output, and threads associated with a
 REPL will output nowhere.
 
 Dedicated stream for output is automatically set up. Configure the
-`SWANK-MREPL:*USE-DEDICATED-OUTPUT-STREAM*` if it doesn't suit you.
+`SLYNK-MREPL:*USE-DEDICATED-OUTPUT-STREAM*` if it doesn't suit you.
 
 There is saner scrolling behavior as provided by the `comint.el`
 substrate. The variables `comint-scroll-show-maximum-output`,
@@ -61,7 +61,7 @@ searches are slower, this is only triggered if the pattern is a valid
 regular-expression.
 
 This is the default implementation of the new
-`SWANK-BACKEND:MAKE-APROPOS-MATCHER` interface that particular
+`SLYNK-BACKEND:MAKE-APROPOS-MATCHER` interface that particular
 implementations may wish to override.
 
 ### Contribs enabled by default
@@ -75,7 +75,7 @@ By default, SLY enables the `sly-fancy` meta-contrib. This contains
 
 If the user sets `sly-contribs` to `sly-mrepl` she can be sure that no
 Lisp code related to other contribs appears in your run-time. Even if
-ASDF is unavailable, an improved version of the `swank-loader.lisp`
+ASDF is unavailable, an improved version of the `slynk-loader.lisp`
 program will also behave non-intrusively.
 
 This change also enables developers to write completely independent
@@ -171,11 +171,11 @@ support Emacs 24.4.
 
 There is very limited backward compatibility SLIME and only in the
 SLIME->SLY direction, meaning a contrib-less SLIME may connect to a
-SWANK server started by SLY, but any other combination will probably
+SLYNK server started by SLY, but any other combination will probably
 fail beyond very basic functionality.
 
 The portable profiling commands have been removed from the SLY menu
-`metering.lisp` and the profiling interfaces in `swank-backend.lisp`
+`metering.lisp` and the profiling interfaces in `slynk-backend.lisp`
 have been kept. SLY 1.0.0 will hopefully have a better integrated
 portable profiler.
 

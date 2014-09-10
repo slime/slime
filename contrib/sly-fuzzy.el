@@ -7,7 +7,7 @@
             "Tobias C. Rittweiler <tcr@freebits.de>"
             "Attila Lendvai <attila.lendvai@gmail.com>")
   (:license "GPL")
-  (:swank-dependencies swank-fuzzy)
+  (:slynk-dependencies slynk-fuzzy)
   (:on-load
    (setq sly-complete-symbol-function 'sly-fuzzy-complete-symbol)
    (define-key sly-mode-map "\C-c\M-i" 'sly-fuzzy-complete-symbol)))
@@ -19,12 +19,12 @@ opposed to moving the point to the completion buffer."
   :type 'boolean)
 
 (defcustom sly-fuzzy-completion-limit 300
-  "Only return and present this many symbols from swank."
+  "Only return and present this many symbols from slynk."
   :group 'sly-mode
   :type 'integer)
 
 (defcustom sly-fuzzy-completion-time-limit-in-msec 1500
-  "Limit the time spent (given in msec) in swank while gathering
+  "Limit the time spent (given in msec) in slynk while gathering
 comletitions."
   :group 'sly-mode
   :type 'integer)
@@ -61,7 +61,7 @@ The descriptive text and headers are above this.")
 (defvar sly-fuzzy-last nil
     "The position of the last completion in the completions buffer.
 If the time limit has exhausted during generation possible completion
-choices inside SWANK, an indication is printed below this.")
+choices inside SLYNK, an indication is printed below this.")
 (defvar sly-fuzzy-current-completion nil
   "The current completion object.  If this is the same before and
 after point moves in the completions buffer, the text is not
@@ -233,7 +233,7 @@ Complete listing of keybindings with *Fuzzy Completions*:
   (let ((prefix (cl-etypecase prefix
                   (symbol (symbol-name prefix))
                   (string prefix))))
-    (sly-eval `(swank:fuzzy-completions ,prefix
+    (sly-eval `(slynk:fuzzy-completions ,prefix
                                         ,(or default-package
                                              (sly-current-package))
                                         :limit ,sly-fuzzy-completion-limit
@@ -245,7 +245,7 @@ Complete listing of keybindings with *Fuzzy Completions*:
 `completion' as the completion for `prefix'."
   (let ((no-properties (copy-sequence prefix)))
     (set-text-properties 0 (length no-properties) nil no-properties)
-    (sly-eval `(swank:fuzzy-completion-selected ,no-properties
+    (sly-eval `(slynk:fuzzy-completion-selected ,no-properties
                                                   ',completion))))
 
 (defun sly-fuzzy-indent-and-complete-symbol ()
@@ -620,13 +620,13 @@ configuration was changed, we nullify our saved configuration."
   (let ((sly-current-thread t))
     (car
      (sly-eval
-      `(swank:completions ,prefix ',(sly-current-package))))))
+      `(slynk:completions ,prefix ',(sly-current-package))))))
 
 (defun sly-c-p-c-char-name-completions (prefix)
   (let ((sly-current-thread t))
     (car
      (sly-eval
-      `(swank:completions-for-character ,prefix)))))
+      `(slynk:completions-for-character ,prefix)))))
 
 (defun sly-c-p-c-complete-symbol ()
   "Complete the symbol at point.

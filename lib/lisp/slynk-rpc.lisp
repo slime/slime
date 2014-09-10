@@ -1,6 +1,6 @@
 ;;; -*- indent-tabs-mode: nil; coding: latin-1-unix -*-
 ;;;
-;;; swank-rpc.lisp  -- Pass remote calls and responses between lisp systems.
+;;; slynk-rpc.lisp  -- Pass remote calls and responses between lisp systems.
 ;;;
 ;;; Created 2010, Terje Norderhaug <terje@in-progress.com>
 ;;;
@@ -8,39 +8,39 @@
 ;;; are disclaimed.
 ;;;
 
-(defpackage #:swank-rpc
+(defpackage #:slynk-rpc
   (:use :cl)
   (:export 
    #:read-message
-   #:swank-reader-error
-   #:swank-reader-error.packet
-   #:swank-reader-error.cause
+   #:slynk-reader-error
+   #:slynk-reader-error.packet
+   #:slynk-reader-error.cause
    #:write-message))
 
-(in-package :swank-rpc)
+(in-package :slynk-rpc)
 
 
 ;;;;; Input
 
-(define-condition swank-reader-error (reader-error)
+(define-condition slynk-reader-error (reader-error)
   ((packet :type string :initarg :packet 
-           :reader swank-reader-error.packet)
+           :reader slynk-reader-error.packet)
    (cause :type reader-error :initarg :cause 
-          :reader swank-reader-error.cause)))
+          :reader slynk-reader-error.cause)))
 
 (defun read-message (stream package)
   (let ((packet (read-packet stream)))
     (handler-case (values (read-form packet package))
       (reader-error (c)
-        (error 'swank-reader-error 
+        (error 'slynk-reader-error 
                :packet packet :cause c)))))
 
 (defun read-packet (stream)
   (let* ((length (parse-header stream))
          (octets (read-chunk stream length)))
-    (handler-case (swank-backend:utf8-to-string octets)
+    (handler-case (slynk-backend:utf8-to-string octets)
       (error (c) 
-        (error 'swank-reader-error 
+        (error 'slynk-reader-error 
                :packet (asciify octets)
                :cause c)))))
 
@@ -111,7 +111,7 @@
 
 (defun write-message (message package stream)
   (let* ((string (prin1-to-string-for-emacs message package))
-         (octets (handler-case (swank-backend:string-to-utf8 string)
+         (octets (handler-case (slynk-backend:string-to-utf8 string)
                    (error (c) (encoding-error c string))))
          (length (length octets)))
     (write-header stream length)
@@ -120,7 +120,7 @@
 
 ;; FIXME: for now just tell emacs that we and an encoding problem.
 (defun encoding-error (condition string)
-  (swank-backend:string-to-utf8
+  (slynk-backend:string-to-utf8
    (prin1-to-string-for-emacs
     `(:reader-error
       ,(asciify string)

@@ -394,12 +394,12 @@ conditions (assertions)."
 after quitting Sly's temp buffer."
         (sly-buffer-narrowed-p))
 
-      (let ((sly-buffer-package "SWANK")
+      (let ((sly-buffer-package "SLYNK")
             (symbol '*buffer-package*))
         (sly-edit-definition (symbol-name symbol))
-        (sly-check ("Checking that we've got M-. into swank.lisp. %S" symbol)
+        (sly-check ("Checking that we've got M-. into slynk.lisp. %S" symbol)
           (string= (file-name-nondirectory (buffer-file-name))
-                   "swank.lisp"))
+                   "slynk.lisp"))
         (sly-pop-find-definition-stack)
         (sly-check ("Checking that we've got back.")
           (and (eq (current-buffer) tmpbuffer)
@@ -441,12 +441,12 @@ after quitting Sly's temp buffer."
 
 (def-sly-test find-definition
     (name buffer-package snippet)
-    "Find the definition of a function or macro in swank.lisp."
-    '(("start-server" "SWANK" "(defun start-server ")
-      ("swank::start-server" "CL-USER" "(defun start-server ")
-      ("swank:start-server" "CL-USER" "(defun start-server ")
-      ("swank::connection" "CL-USER" "(defstruct (connection")
-      ("swank::*emacs-connection*" "CL-USER" "(defvar \\*emacs-connection\\*")
+    "Find the definition of a function or macro in slynk.lisp."
+    '(("start-server" "SLYNK" "(defun start-server ")
+      ("slynk::start-server" "CL-USER" "(defun start-server ")
+      ("slynk:start-server" "CL-USER" "(defun start-server ")
+      ("slynk::connection" "CL-USER" "(defstruct (connection")
+      ("slynk::*emacs-connection*" "CL-USER" "(defvar \\*emacs-connection\\*")
       )
   (switch-to-buffer "*scratch*")        ; not buffer of definition
   (sly-check-top-level)
@@ -456,8 +456,8 @@ after quitting Sly's temp buffer."
         (sly-buffer-package buffer-package))
     (sly-edit-definition name)
     ;; Postconditions
-    (sly-check ("Definition of `%S' is in swank.lisp." name)
-      (string= (file-name-nondirectory (buffer-file-name)) "swank.lisp"))
+    (sly-check ("Definition of `%S' is in slynk.lisp." name)
+      (string= (file-name-nondirectory (buffer-file-name)) "slynk.lisp"))
     (sly-check ("Looking at '%s'." snippet) (looking-at snippet))
     (sly-pop-find-definition-stack)
     (sly-check "Returning from definition restores original buffer/position."
@@ -476,7 +476,7 @@ confronted with nasty #.-fu."
 
        #.(prog1 nil (makunbound '*foobar*))
        "
-       "SWANK"
+       "SLYNK"
        "[ \t]*(defun .foo. "
        )
       ("#.(prog1 nil (defvar *foobar* 42))
@@ -487,7 +487,7 @@ confronted with nasty #.-fu."
 
        #.(prog1 nil (makunbound '*foobar*))
        "
-       "SWANK"
+       "SLYNK"
        "[ \t]*(defun .foo. "
        ))
   (let ((sly-buffer-package buffer-package))
@@ -495,7 +495,7 @@ confronted with nasty #.-fu."
       (insert buffer-content)
       (sly-check-top-level)
       (sly-eval
-       `(swank:compile-string-for-emacs
+       `(slynk:compile-string-for-emacs
          ,buffer-content
          ,(buffer-name)
          '((:position 0) (:line 1 1))
@@ -513,7 +513,7 @@ confronted with nasty #.-fu."
                              "ecl"))
     (name source regexp)
     "Extra tests for defstruct."
-    '(("swank::foo-struct"
+    '(("slynk::foo-struct"
        "(progn
   (defun foo-fun ())
   (defstruct (foo-struct (:constructor nil) (:predicate nil)))
@@ -522,9 +522,9 @@ confronted with nasty #.-fu."
   (switch-to-buffer "*scratch*")
     (with-temp-buffer
       (insert source)
-      (let ((sly-buffer-package "SWANK"))
+      (let ((sly-buffer-package "SLYNK"))
         (sly-eval
-         `(swank:compile-string-for-emacs
+         `(slynk:compile-string-for-emacs
            ,source
            ,(buffer-name)
            '((:position 0) (:line 1 1))
@@ -547,12 +547,12 @@ confronted with nasty #.-fu."
                       "cl:compiler-macro" "cl:compiler-macro-function")
                      "cl:compile"))
       ("cl:foobar" (nil ""))
-      ("swank::compile-file" (("swank::compile-file"
-                               "swank::compile-file-for-emacs"
-                               "swank::compile-file-if-needed"
-                               "swank::compile-file-output"
-                               "swank::compile-file-pathname")
-                              "swank::compile-file"))
+      ("slynk::compile-file" (("slynk::compile-file"
+                               "slynk::compile-file-for-emacs"
+                               "slynk::compile-file-if-needed"
+                               "slynk::compile-file-output"
+                               "slynk::compile-file-pathname")
+                              "slynk::compile-file"))
       ("cl:m-v-l" (nil "")))
   (let ((completions (sly-simple-completions prefix)))
     (sly-test-expect "Completion set" expected-completions completions)))
@@ -579,20 +579,20 @@ confronted with nasty #.-fu."
     (function-name expected-arglist)
     "Lookup the argument list for FUNCTION-NAME.
 Confirm that EXPECTED-ARGLIST is displayed."
-    '(("swank::operator-arglist" "(swank::operator-arglist name package)")
-      ("swank::compute-backtrace" "(swank::compute-backtrace start end)")
-      ("swank::emacs-connected" "(swank::emacs-connected)")
-      ("swank::compile-string-for-emacs"
-       "(swank::compile-string-for-emacs \
+    '(("slynk::operator-arglist" "(slynk::operator-arglist name package)")
+      ("slynk::compute-backtrace" "(slynk::compute-backtrace start end)")
+      ("slynk::emacs-connected" "(slynk::emacs-connected)")
+      ("slynk::compile-string-for-emacs"
+       "(slynk::compile-string-for-emacs \
 string buffer position filename policy)")
-      ("swank::connection-socket-io"
-       "(swank::connection-socket-io \
+      ("slynk::connection-socket-io"
+       "(slynk::connection-socket-io \
 \\(struct\\(ure\\)?\\|object\\|instance\\|x\\|connection\\))")
       ("cl:lisp-implementation-type" "(cl:lisp-implementation-type)")
       ("cl:class-name"
        "(cl:class-name \\(class\\|object\\|instance\\|structure\\))"))
-  (let ((arglist (sly-eval `(swank:operator-arglist ,function-name
-                                                      "swank"))))
+  (let ((arglist (sly-eval `(slynk:operator-arglist ,function-name
+                                                      "slynk"))))
     (sly-test-expect "Argument list is as expected"
                        expected-arglist (and arglist (downcase arglist))
                        (lambda (pattern arglist)
@@ -604,7 +604,7 @@ string buffer position filename policy)")
     (lisp-mode)
     (insert program)
     (let ((font-lock-verbose nil))
-      (setq sly-buffer-package ":swank")
+      (setq sly-buffer-package ":slynk")
       (sly-compile-string (buffer-string) 1)
       (setq sly-buffer-package ":cl-user")
       (sly-sync-to-top-level 5)
@@ -681,7 +681,7 @@ Confirm that SUBFORM is correctly located."
       (insert string))
     (let ((cell (cons nil nil)))
       (sly-eval-async
-       `(swank:compile-file-for-emacs ,filename nil)
+       `(slynk:compile-file-for-emacs ,filename nil)
        (sly-rcurry (lambda (result cell)
                        (setcar cell t)
                        (setcdr cell result))
@@ -903,10 +903,10 @@ Confirm that SUBFORM is correctly located."
 
 (def-sly-test (interrupt-encode-message (:style :sigio))
     ()
-    "Test interrupt processing during swank::encode-message"
+    "Test interrupt processing during slynk::encode-message"
     '(())
   (sly-eval-async '(cl:loop :for i :from 0
-                              :do (swank::background-message "foo ~d" i)))
+                              :do (slynk::background-message "foo ~d" i)))
   (sleep-for 1)
   (sly-eval-async '(cl:/ 1 0))
   (sly-wait-condition "Debugger visible"
@@ -962,7 +962,7 @@ the buffer's undo-list."
        "(qwertz"
        "(list :yxcv (list :qwertz '(:a :b :c)))"))
   (sly-check-top-level)
-  (setq sly-buffer-package ":swank")
+  (setq sly-buffer-package ":slynk")
   (with-temp-buffer
     (lisp-mode)
     (dolist (def macro-defs)
@@ -1004,7 +1004,7 @@ the buffer's undo-list."
 (def-sly-test indentation (buffer-content point-markers)
         "Check indentation update to work correctly."
     '(("
-\(in-package :swank)
+\(in-package :slynk)
 
 \(defmacro with-lolipop (&body body)
   `(progn ,@body))
@@ -1050,7 +1050,7 @@ the buffer's undo-list."
    `(cl:eval (cl:read-from-string
               ,(prin1-to-string `(dotimes (i ,times)
                                    (unless (= i 0)
-                                     (swank::sleep-for 1))
+                                     (slynk::sleep-for 1))
                                    ,exp)))))
   (dotimes (_i times)
     (sly-wait-condition "Debugger visible"
@@ -1144,8 +1144,8 @@ CONTINUES  ... how often the continue restart should be invoked"
   (sly-check "No debugger" (not (sldb-get-default-buffer)))
   (when (and (eq (sly-communication-style) :spawn)
              (not (featurep 'sly-repl)))
-    (sly-eval-async '(swank::without-sly-interrupts
-                        (swank::receive)))
+    (sly-eval-async '(slynk::without-sly-interrupts
+                        (slynk::receive)))
     (sit-for 0.2))
   (dotimes (i interrupts)
     (sly-interrupt)
@@ -1171,7 +1171,7 @@ CONTINUES  ... how often the continue restart should be invoked"
   (when noninteractive
     (sly-skip-test "test is currently unstable"))
   (sly-check "No debugger" (not (sldb-get-default-buffer)))
-  (sly-eval-async `(swank:flow-control-test ,n ,delay))
+  (sly-eval-async `(slynk:flow-control-test ,n ,delay))
   (sleep-for 0.2)
   (dotimes (_i interrupts)
     (sly-interrupt)
@@ -1190,14 +1190,14 @@ In SBCL, the compiler grabs a lock which can be problematic because
 no method dispatch code can be generated for other threads.
 This test will fail more likely before dispatch caches are warmed up."
     '((10 0.03)
-      ;;((cl:+ swank::send-counter-limit 10) 0.03)
+      ;;((cl:+ slynk::send-counter-limit 10) 0.03)
       )
   (sly-test-expect "no error"
 		     123
 		     (sly-eval
 		      `(cl:let ((cl:*macroexpand-hook*
 				 (cl:lambda (fun form env)
-					    (swank:flow-control-test ,n ,delay)
+					    (slynk:flow-control-test ,n ,delay)
 					    (cl:funcall fun form env))))
 			       (cl:eval '(cl:macrolet ((foo () 123))
 					   (foo)))))))
@@ -1213,7 +1213,7 @@ This test will fail more likely before dispatch caches are warmed up."
                 (sly-connect "localhost"
                                ;; Here we assume that the request will
                                ;; be evaluated in its own thread.
-                               (sly-eval `(swank:create-server
+                               (sly-eval `(slynk:create-server
                                              :port 0 ; use random port
                                              :style :spawn
                                              :dont-close nil)))))
@@ -1258,7 +1258,7 @@ Reconnect afterwards."
 ;;;;
 (defvar sly-test-check-repl-forms
   `((unless (and (featurep 'sly-mrepl)
-                 (assq 'swank-mrepl sly-required-modules))
+                 (assq 'slynk-mrepl sly-required-modules))
       (die "`sly-repl' contrib not properly setup"))
     (let ((mrepl-buffer (sly-mrepl--find-buffer)))
       (unless mrepl-buffer
@@ -1272,8 +1272,8 @@ Reconnect afterwards."
           (die (format "MREPL prompt: %s" (buffer-string))))))))
 
 (defvar sly-test-check-asdf-loader-forms
-  `((when (sly-eval '(cl:and (cl:find-package :swank-loader) t))
-      (die "Didn't expect SLY to be loaded with swank-loader.lisp"))))
+  `((when (sly-eval '(cl:and (cl:find-package :slynk-loader) t))
+      (die "Didn't expect SLY to be loaded with slynk-loader.lisp"))))
 
 (cl-defun sly-test-recipe-test-for
     (&key preflight
@@ -1356,19 +1356,19 @@ Reconnect afterwards."
                 (require 'sly)
                 (sly-setup '(sly-fancy)))))
 
-(define-sly-ert-test swank-loader-fallback ()
-  "Test `sly-init-using-swank-loader'"
+(define-sly-ert-test slynk-loader-fallback ()
+  "Test `sly-init-using-slynk-loader'"
   ;; TODO: another useful test would be to test
-  ;; `sly-init-using-asdf's fallback to swank-loader.lisp."
+  ;; `sly-init-using-asdf's fallback to slynk-loader.lisp."
   (sly-test-recipe-test-for
    :preflight `((add-to-list 'load-path ,sly-path)
                 (setq inferior-lisp-program ,inferior-lisp-program)
                 (require 'sly-autoloads)
                 (setq sly-contribs '(sly-fancy))
-                (setq sly-init-function 'sly-init-using-swank-loader)
+                (setq sly-init-function 'sly-init-using-slynk-loader)
                 (sly-setup '(sly-fancy)))
-   :landing `((unless (sly-eval '(cl:and (cl:find-package :swank-loader) t))
-                (die "Expected SLY to be loaded with swank-loader.lisp"))
+   :landing `((unless (sly-eval '(cl:and (cl:find-package :slynk-loader) t))
+                (die "Expected SLY to be loaded with slynk-loader.lisp"))
               ,@sly-test-check-repl-forms)))
 
 

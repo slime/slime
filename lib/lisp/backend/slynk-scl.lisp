@@ -6,18 +6,18 @@
 ;;; are disclaimed.
 ;;;
 
-(defpackage swank-scl
-  (:use cl swank-backend swank-source-path-parser swank-source-file-cache))
+(defpackage slynk-scl
+  (:use cl slynk-backend slynk-source-path-parser slynk-source-file-cache))
 
-(in-package swank-scl)
+(in-package slynk-scl)
 
 
 
-;;; swank-mop
+;;; slynk-mop
 
-(import-swank-mop-symbols :clos '(:slot-definition-documentation))
+(import-slynk-mop-symbols :clos '(:slot-definition-documentation))
 
-(defun swank-mop:slot-definition-documentation (slot)
+(defun slynk-mop:slot-definition-documentation (slot)
   (documentation slot t))
 
 
@@ -137,7 +137,7 @@
                    (c::warning        #'handle-notification-condition))
       (funcall function))))
 
-(defimplementation swank-compile-file (input-file output-file 
+(defimplementation slynk-compile-file (input-file output-file 
                                        load-p external-format
                                        &key policy)
   (declare (ignore policy))
@@ -156,7 +156,7 @@
                                         (file-write-date input-file))
                       (not (load output-file)))))))))
 
-(defimplementation swank-compile-string (string &key buffer position filename
+(defimplementation slynk-compile-string (string &key buffer position filename
                                                 policy)
   (declare (ignore filename policy))
   (with-compilation-hooks ()
@@ -174,7 +174,7 @@
 ;;;;; Trapping notes
 ;;;
 ;;; We intercept conditions from the compiler and resignal them as
-;;; `swank:compiler-condition's.
+;;; `slynk:compiler-condition's.
 
 (defun handle-notification-condition (condition)
   "Handle a condition caused by a compiler warning."
@@ -424,7 +424,7 @@
 ;;; for the location. Once we have the source-path we can pull up the
 ;;; source file and `READ' our way through to the right position. The
 ;;; main source-code groveling work is done in
-;;; `swank-source-path-parser.lisp'.
+;;; `slynk-source-path-parser.lisp'.
 
 (defvar *debug-definition-finding* nil
   "When true don't handle errors while looking for definitions.
@@ -1021,7 +1021,7 @@ Signal an error if no constructor can be found."
   (ext:quit))
 
 ;;; source-path-{stream,file,string,etc}-position moved into 
-;;; swank-source-path-parser
+;;; slynk-source-path-parser
 
 
 ;;;; Debugging

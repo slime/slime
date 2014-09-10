@@ -1,4 +1,4 @@
-;;; swank-c-p-c.lisp -- ILISP style Compound Prefix Completion
+;;; slynk-c-p-c.lisp -- ILISP style Compound Prefix Completion
 ;;
 ;; Author: Luke Gorrie  <luke@synap.se>
 ;;         Edi Weitz  <edi@agharta.de>
@@ -10,10 +10,10 @@
 ;;
 
 
-(in-package :swank)
+(in-package :slynk)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (swank-require :swank-util))
+  (slynk-require :slynk-util))
 
 (defslyfun completions (string default-package-name)
   "Return a list of completions for a symbol designator STRING.  
@@ -291,4 +291,4 @@ For example:
          (completions (sort completion-set #'string<)))
     (list completions (longest-compound-prefix completions #\_))))
 
-(provide :swank-c-p-c)
+(provide :slynk-c-p-c)

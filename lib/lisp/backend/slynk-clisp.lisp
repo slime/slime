@@ -1,6 +1,6 @@
 ;;;; -*- indent-tabs-mode: nil -*-
 
-;;;; SWANK support for CLISP.
+;;;; SLYNK support for CLISP.
 
 ;;;; Copyright (C) 2003, 2004 W. Jenkner, V. Sedach
 
@@ -20,8 +20,8 @@
 ;;;; MA 02111-1307, USA.
 
 ;;; This is work in progress, but it's already usable.  Many things
-;;; are adapted from other swank-*.lisp, in particular from
-;;; swank-allegro (I don't use allegro at all, but it's the shortest
+;;; are adapted from other slynk-*.lisp, in particular from
+;;; slynk-allegro (I don't use allegro at all, but it's the shortest
 ;;; one and I found Helmut Eller's code there enlightening).
 
 ;;; This code will work better with recent versions of CLISP (say, the
@@ -34,10 +34,10 @@
 
 ;;; [1] http://cvs.sourceforge.net/viewcvs.py/clocc/clocc/src/tools/metering/
 
-(defpackage swank-clisp
-  (:use cl swank-backend))
+(defpackage slynk-clisp
+  (:use cl slynk-backend))
 
-(in-package swank-clisp)
+(in-package slynk-clisp)
 
 (eval-when (:compile-toplevel)
   (unless (string< "2.44" (lisp-implementation-version))
@@ -47,7 +47,7 @@
   "GRAY")
 
 ;;;; if this lisp has the complete CLOS then we use it, otherwise we
-;;;; build up a "fake" swank-mop and then override the methods in the
+;;;; build up a "fake" slynk-mop and then override the methods in the
 ;;;; inspector.
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -58,18 +58,18 @@
                                         :clos))))
     "True in those CLISP images which have a complete MOP implementation."))
 
-#+#.(cl:if swank-clisp::*have-mop* '(cl:and) '(cl:or))
+#+#.(cl:if slynk-clisp::*have-mop* '(cl:and) '(cl:or))
 (progn
-  (import-swank-mop-symbols :clos '(:slot-definition-documentation))
+  (import-slynk-mop-symbols :clos '(:slot-definition-documentation))
 
-  (defun swank-mop:slot-definition-documentation (slot)
+  (defun slynk-mop:slot-definition-documentation (slot)
     (clos::slot-definition-documentation slot)))
 
-#-#.(cl:if swank-clisp::*have-mop* '(and) '(or))
-(defclass swank-mop:standard-slot-definition ()
+#-#.(cl:if slynk-clisp::*have-mop* '(and) '(or))
+(defclass slynk-mop:standard-slot-definition ()
   ()
   (:documentation
-   "Dummy class created so that swank.lisp will compile and load."))
+   "Dummy class created so that slynk.lisp will compile and load."))
 
 (let ((getpid (or (find-symbol "PROCESS-ID" :system)
                   ;; old name prior to 2005-03-01, clisp <= 2.33.2
@@ -249,7 +249,7 @@
     (and args (apply #'ext:make-encoding args))))
 
 
-;;;; Swank functions
+;;;; Slynk functions
 
 (defimplementation arglist (fname)
   (block nil
@@ -570,26 +570,26 @@ Return two values: NAME and VALUE"
 ;;;; Profiling
 
 (defimplementation profile (fname)
-  (eval `(swank-monitor:monitor ,fname)))         ;monitor is a macro
+  (eval `(slynk-monitor:monitor ,fname)))         ;monitor is a macro
 
 (defimplementation profiled-functions ()
-  swank-monitor:*monitored-functions*)
+  slynk-monitor:*monitored-functions*)
 
 (defimplementation unprofile (fname)
-  (eval `(swank-monitor:unmonitor ,fname)))       ;unmonitor is a macro
+  (eval `(slynk-monitor:unmonitor ,fname)))       ;unmonitor is a macro
 
 (defimplementation unprofile-all ()
-  (swank-monitor:unmonitor))
+  (slynk-monitor:unmonitor))
 
 (defimplementation profile-report ()
-  (swank-monitor:report-monitoring))
+  (slynk-monitor:report-monitoring))
 
 (defimplementation profile-reset ()
-  (swank-monitor:reset-all-monitoring))
+  (slynk-monitor:reset-all-monitoring))
 
 (defimplementation profile-package (package callers-p methods)
   (declare (ignore callers-p methods))
-  (swank-monitor:monitor-all package))
+  (slynk-monitor:monitor-all package))
 
 ;;;; Handle compiler conditions (find out location of error etc.)
 
@@ -674,7 +674,7 @@ Execute BODY with NAME's function slot set to FUNCTION."
           :message (princ-to-string condition)
           :location (compiler-note-location)))
 
-(defimplementation swank-compile-file (input-file output-file
+(defimplementation slynk-compile-file (input-file output-file
                                        load-p external-format
                                        &key policy)
   (declare (ignore policy))
@@ -689,7 +689,7 @@ Execute BODY with NAME's function slot set to FUNCTION."
                     (and load-p 
                          (not (load fasl-file)))))))))
 
-(defimplementation swank-compile-string (string &key buffer position filename
+(defimplementation slynk-compile-string (string &key buffer position filename
                                          policy)
   (declare (ignore filename policy))
   (with-compilation-hooks ()
@@ -720,12 +720,12 @@ Execute BODY with NAME's function slot set to FUNCTION."
       (push (fspec-location symbol symbol) xrefs))
     xrefs))
 
-(when (find-package :swank-loader)
-  (setf (symbol-function (intern "USER-INIT-FILE" :swank-loader))
+(when (find-package :slynk-loader)
+  (setf (symbol-function (intern "USER-INIT-FILE" :slynk-loader))
         (lambda ()
           (let ((home (user-homedir-pathname)))
             (and (ext:probe-directory home)
-                 (probe-file (format nil "~A/.swank.lisp"
+                 (probe-file (format nil "~A/.slynk.lisp"
                                      (namestring (truename home)))))))))
 
 ;;; Don't set *debugger-hook* to nil on break.

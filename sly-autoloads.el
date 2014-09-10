@@ -15,13 +15,13 @@
 ;;; Code:
 
 (autoload 'sly "sly"
-  "Start a Lisp subprocess and connect to its Swank server." t)
+  "Start a Lisp subprocess and connect to its Slynk server." t)
 
 (autoload 'sly-mode "sly"
   "SLY: The Superior Lisp Interaction (Minor) Mode for Emacs." t)
 
 (autoload 'sly-connect "sly"
-  "Connect to a running Swank server." t)
+  "Connect to a running Slynk server." t)
 
 (autoload 'hyperspec-lookup "hyperspec" nil t)
 

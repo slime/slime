@@ -14,7 +14,7 @@
 inspecting details of traced functions. Invoke this dialog with C-c T."
   (:authors "João Távora <joaotavora@gmail.com>")
   (:license "GPL")
-  (:swank-dependencies swank-trace-dialog)
+  (:slynk-dependencies slynk-trace-dialog)
   (:on-load (add-hook 'sly-mode-hook 'sly-trace-dialog-enable))
   (:on-unload (remove-hook 'sly-mode-hook 'sly-trace-dialog-enable)))
 
@@ -303,7 +303,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                    (sly-eval-async
                        `(cl:progn
                          ,form
-                         (swank-trace-dialog:report-specs))
+                         (slynk-trace-dialog:report-specs))
                      #'(lambda (results)
                          (sly-trace-dialog--open-specs results))))))
     (sly-trace-dialog--refresh
@@ -316,7 +316,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
        "\n" (make-string 50 ? )
        (sly-make-action-button
         "[untrace all]"
-        (make-report-spec-fn `(swank-trace-dialog:dialog-untrace-all)))
+        (make-report-spec-fn `(slynk-trace-dialog:dialog-untrace-all)))
        "\n\n")
       (cl-loop for spec in traced-specs
                do (insert
@@ -324,7 +324,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                    (sly-make-action-button
                     "[untrace]"
                     (make-report-spec-fn
-                     `(swank-trace-dialog:dialog-untrace ',spec)))
+                     `(slynk-trace-dialog:dialog-untrace ',spec)))
                    (format " %s" spec)
                    "\n")))))
 
@@ -379,7 +379,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 (define-button-type 'sly-trace-dialog-part :supertype 'sly-part
   'sly-button-inspect #'(lambda (trace-id part-id type)
                           (sly-eval-for-inspector
-                           `(swank-trace-dialog:inspect-trace-part ,trace-id ,part-id ,type)
+                           `(slynk-trace-dialog:inspect-trace-part ,trace-id ,part-id ,type)
                            :inspector-name (sly-maybe-read-inspector-name))))
 
 (defun sly-trace-dialog-part-button (part-id part-text trace-id type)
@@ -395,11 +395,11 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 (define-button-type 'sly-trace-dialog-spec :supertype 'sly-part
   'action 'sly-button-show-source
   'sly-button-inspect #'(lambda (trace-id _spec)
-                          (sly-eval-for-inspector `(swank-trace-dialog:inspect-trace ,trace-id)
+                          (sly-eval-for-inspector `(slynk-trace-dialog:inspect-trace ,trace-id)
                                                   :inspector-name "trace-entries"))
   'sly-button-show-source #'(lambda (trace-id _spec)
                               (sly-eval-async
-                                  `(swank-trace-dialog:trace-location ,trace-id)
+                                  `(slynk-trace-dialog:trace-location ,trace-id)
                                 #'(lambda (location)
                                     (sly--display-source-location location 'noerror))))
   'point-entered #'(lambda (before after)
@@ -412,7 +412,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                          ;; 
                          (let ((id (button-get button 'trace-id)))
                            (sly-eval-for-inspector
-                            `(swank-trace-dialog:inspect-trace ,id)
+                            `(slynk-trace-dialog:inspect-trace ,id)
                             :inspector-name "trace-entries"
                             :save-selected-window t))))))
 
@@ -650,7 +650,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                       (not (prog1 sly-trace-dialog--stop-fetching
                              (setq sly-trace-dialog--stop-fetching nil)))
                       (cl-plusp remaining))
-             (sly-eval-async `(swank-trace-dialog:report-partial-tree
+             (sly-eval-async `(slynk-trace-dialog:report-partial-tree
                                  ',reply-key)
                #'(lambda (results) (sly-trace-dialog--on-new-results
                                     results
@@ -662,13 +662,13 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 (defun sly-trace-dialog-fetch-specs ()
   "Refresh just list of traced specs."
   (interactive)
-  (sly-eval-async `(swank-trace-dialog:report-specs)
+  (sly-eval-async `(slynk-trace-dialog:report-specs)
     #'sly-trace-dialog--open-specs))
 
 (defun sly-trace-dialog-fetch-progress ()
   (interactive)
   (sly-eval-async
-      '(swank-trace-dialog:report-total)
+      '(slynk-trace-dialog:report-total)
     #'(lambda (total)
         (sly-trace-dialog--update-progress
          total))))
@@ -685,14 +685,14 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   (when (or (not interactive)
             (y-or-n-p "Clear all collected and fetched traces?"))
     (sly-eval-async
-        '(swank-trace-dialog:clear-trace-tree)
+        '(slynk-trace-dialog:clear-trace-tree)
       #'(lambda (_ignored)
           (sly-trace-dialog--clear-local-tree)))))
 
 (defun sly-trace-dialog-fetch-traces (&optional recurse)
   (interactive "P")
   (setq sly-trace-dialog--stop-fetching nil)
-  (sly-eval-async `(swank-trace-dialog:report-partial-tree
+  (sly-eval-async `(slynk-trace-dialog:report-partial-tree
                       ',sly-trace-dialog--fetch-key)
     #'(lambda (results) (sly-trace-dialog--on-new-results results
                                                             recurse))))
@@ -707,10 +707,10 @@ When USING-CONTEXT-P, attempt to decipher lambdas. methods and
 other complicated function specs."
   (interactive "P")
   ;; Notice the use of "spec strings" here as opposed to the
-  ;; proper cons specs we use on the swank side.
+  ;; proper cons specs we use on the slynk side.
   ;;
   ;; Notice the conditional use of `sly-trace-query' found in
-  ;; swank-fancy-trace.el
+  ;; slynk-fancy-trace.el
   ;;
   (let* ((spec-string (if using-context-p
                           (sly-extract-context)
@@ -718,8 +718,8 @@ other complicated function specs."
          (spec-string (if (fboundp 'sly-trace-query)
                           (sly-trace-query spec-string)
                         spec-string)))
-    (sly-message "%s" (sly-eval `(swank-trace-dialog:dialog-toggle-trace
-                                  (swank::from-string ,spec-string))))
+    (sly-message "%s" (sly-eval `(slynk-trace-dialog:dialog-toggle-trace
+                                  (slynk::from-string ,spec-string))))
     (run-hooks 'sly-trace-dialog-after-toggle-hook)))
 
 (defun sly-trace-dialog--update-existing-dialog ()

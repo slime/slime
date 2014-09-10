@@ -23,7 +23,7 @@ compile: $(ELCFILES)
 #
 $(CONTRIBS:%=elpa-%): CONTRIB=$(@:elpa-%=%)
 $(CONTRIBS:%=elpa-%): CONTRIB_EL=$(CONTRIB:%=sly-%.el)
-$(CONTRIBS:%=elpa-%): CONTRIB_CL=$(CONTRIB:%=swank-%.lisp)
+$(CONTRIBS:%=elpa-%): CONTRIB_CL=$(CONTRIB:%=slynk-%.lisp)
 $(CONTRIBS:%=elpa-%): CONTRIB_VERSION=$(shell (                          \
 	                                  grep "Version:" $(CONTRIB_EL)  \
 	                                  || echo $(SLY_VERSION)       \

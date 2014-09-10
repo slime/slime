@@ -143,7 +143,7 @@ Setup Tuning
 
 * Basic customization::
 * Multiple Lisps::
-* Loading Swank faster::
+* Loading Slynk faster::
 
 Using @SLY{} mode
 
@@ -191,7 +191,7 @@ Emacs-side
 
 * Hooks::
 
-Lisp-side (Swank)
+Lisp-side (Slynk)
 
 * Communication style::
 * Other configurables::
@@ -417,7 +417,7 @@ work correctly for a Lisp process started by @SLY{}.
 
 @SLY{} is started with the Emacs command @kbd{M-x sly}. This uses
 the @code{inferior-lisp} package to start a Lisp process, loads and
-starts the Lisp-side server (known as ``Swank''), and establishes a
+starts the Lisp-side server (known as ``Slynk''), and establishes a
 socket connection between Emacs and Lisp. Finally a @REPL{} buffer is
 created where you can enter Lisp expressions for evaluation.
 
@@ -438,7 +438,7 @@ For contrib modules @pxref{Loading Contribs}.
 @menu
 * Basic customization::
 * Multiple Lisps::
-* Loading Swank faster::
+* Loading Slynk faster::
 @end menu
 
 @node Basic customization
@@ -521,11 +521,11 @@ the coding system for the connection.  (@pxref{sly-net-coding-system})x
 @item INIT
 should be a function which takes two arguments: a filename and a
 character encoding.  The function should return a Lisp expression as a
-string which instructs Lisp to start the Swank server and to write the
+string which instructs Lisp to start the Slynk server and to write the
 port number to the file.  At startup, @SLY{} starts the Lisp process
 and sends the result of this function to Lisp's standard input.  As
 default, @code{sly-init-command} is used.  An example is shown in
-@ref{init-example,,Loading Swank faster}.
+@ref{init-example,,Loading Slynk faster}.
 @item INIT-FUNCTION
 should be a function which takes no arguments.  It is called after
 the connection is established. (See also @ref{sly-connected-hook}.)
@@ -539,8 +539,8 @@ specifies a list of environment variables for the subprocess. E.g.
 initializes @code{SBCL_HOME} in the subprocess.
 @end table
 
-@node Loading Swank faster
-@subsection Loading Swank faster
+@node Loading Slynk faster
+@subsection Loading Slynk faster
 
 For SBCL, we recommend that you create a custom core file with socket
 support and @acronym{POSIX} bindings included because those modules
@@ -560,15 +560,15 @@ After that, add something like this to your @file{.emacs}:
       '((sbcl ("sbcl" "--core" "sbcl.core-for-sly"))))
 @end lisp
 
-For maximum startup speed you can include the Swank server directly in
+For maximum startup speed you can include the Slynk server directly in
 a core file.  The disadvantage of this approach is that the setup is a
 bit more involved and that you need to create a new core file when you
 want to update @SLY{} or @acronym{SBCL}.  The steps to execute are:
 
 @example
 shell$ sbcl
-* (load ".../sly/swank-loader.lisp")
-* (swank-loader:dump-image "sbcl.core-with-swank")
+* (load ".../sly/slynk-loader.lisp")
+* (slynk-loader:dump-image "sbcl.core-with-slynk")
 @end example
 
 @noindent
@@ -577,9 +577,9 @@ Then add this to your @file{.emacs}:
 @anchor{init-example}
 @lisp
 (setq sly-lisp-implementations
-      '((sbcl ("sbcl" "--core" "sbcl.core-with-swank")
+      '((sbcl ("sbcl" "--core" "sbcl.core-with-slynk")
               :init (lambda (port-file _)
-                      (format "(swank:start-server %S)\n" port-file)))))
+                      (format "(slynk:start-server %S)\n" port-file)))))
 @end lisp
 
 @noindent
@@ -672,15 +672,15 @@ of a let bound special variable in one thread has no effect on the
 binding of the variables with the same name in other threads.  This
 makes it sometimes difficult to change the printer or reader behaviour
 for new threads.  The variable
-@code{swank:*default-worker-thread-bindings*} was introduced for such
+@code{slynk:*default-worker-thread-bindings*} was introduced for such
 situations: instead of modifying the global value of a variable, add a
-binding the @code{swank:*default-worker-thread-bindings*}.  E.g., with
+binding the @code{slynk:*default-worker-thread-bindings*}.  E.g., with
 the following code, new threads will read floating point values as
 doubles by default:
 
 @example
 (push '(*read-default-float-format* . double-float)
-       swank:*default-worker-thread-bindings*).
+       slynk:*default-worker-thread-bindings*).
 @end example
 
 
@@ -1167,7 +1167,7 @@ objects.
 
 The inspector can easily be specialized for the objects in your own
 programs. For details see the @code{inspect-for-emacs} generic
-function in @file{swank-backend.lisp}.
+function in @file{slynk-backend.lisp}.
 
 @table @kbd
 
@@ -1192,7 +1192,7 @@ Evaluate an expression in the context of the inspected object.
 
 @kbditem{v, sly-inspector-toggle-verbose}
 Toggle between verbose and terse mode. Default is determined by
-`swank:*inspector-verbose*'.
+`slynk:*inspector-verbose*'.
 
 @kbditem{l, sly-inspector-pop}
 Go back to the previous object (return from @kbd{RET}).
@@ -1259,7 +1259,7 @@ arglists. You can find out which symbols are involved in collisions
 with:
 
 @example
-(swank:print-indentation-lossage)
+(slynk:print-indentation-lossage)
 @end example
 
 If a collision causes you irritation, don't have a nervous breakdown,
@@ -1360,7 +1360,7 @@ Invoke the @code{ABORT} restart.
 @kbditem{q, sldb-quit}
 ``Quit'' -- For @SLY{} evaluation requests, invoke a restart which
 restores to a known program state. For errors in other threads, see
-@ref{SWANK:*SLDB-QUIT-RESTART*}.
+@ref{SLYNK:*SLDB-QUIT-RESTART*}.
 
 @kbditem{c, sldb-continue}
 Invoke the @code{CONTINUE} restart.
@@ -1542,7 +1542,7 @@ Quit the connection list (kill buffer, restore window configuration).
 Restart the Lisp process for the connection at point.
 
 @cmditem{sly-connect}
-Connect to a running Swank server.
+Connect to a running Slynk server.
 
 @cmditem{sly-disconnect}
 Disconnect all connections.
@@ -1651,10 +1651,10 @@ conditions debugged with @SLDB{} be recorded in the @REPL{} buffer.
 
 @c -----------------------
 @node Lisp-side
-@section Lisp-side (Swank)
+@section Lisp-side (Slynk)
 
-The Lisp server side of @SLY{} (known as ``Swank'') offers several
-variables to configure. The initialization file @file{~/.swank.lisp}
+The Lisp server side of @SLY{} (known as ``Slynk'') offers several
+variables to configure. The initialization file @file{~/.slynk.lisp}
 is automatically evaluated at startup and can be used to set these
 variables.
 
@@ -1666,9 +1666,9 @@ variables.
 @c -----------------------
 @node Communication style
 @subsection Communication style
-@vindex SWANK:*COMMUNICATION-STYLE*
+@vindex SLYNK:*COMMUNICATION-STYLE*
 
-The most important configurable is @code{SWANK:*COMMUNICATION-STYLE*},
+The most important configurable is @code{SLYNK:*COMMUNICATION-STYLE*},
 which specifies the mechanism by which Lisp reads and processes
 protocol messages from Emacs. The choice of communication style has a
 global influence on @SLY{}'s operation.
@@ -1684,7 +1684,7 @@ means that the Lisp cannot do any other processing while under
 
 @item :FD-HANDLER
 This style uses the classical Unix-style ``@code{select()}-loop.''
-Swank registers the communication socket with an event-dispatching
+Slynk registers the communication socket with an event-dispatching
 framework (such as @code{SERVE-EVENT} in @acronym{CMUCL} and
 @acronym{SBCL}) and receives a callback when data is available. In
 this style requests from Emacs are only detected and processed when
@@ -1715,27 +1715,27 @@ The default request handling style is chosen according to the
 capabilities of your Lisp system. The general order of preference is
 @code{:SPAWN}, then @code{:SIGIO}, then @code{:FD-HANDLER}, with
 @code{NIL} as a last resort. You can check the default style by
-calling @code{SWANK-BACKEND::PREFERRED-COMMUNICATION-STYLE}. You can
+calling @code{SLYNK-BACKEND::PREFERRED-COMMUNICATION-STYLE}. You can
 also override the default by setting
-@code{SWANK:*COMMUNICATION-STYLE*} in your Swank init file.
+@code{SLYNK:*COMMUNICATION-STYLE*} in your Slynk init file.
 
 @c -----------------------
 @node Other configurables
 @subsection Other configurables
 
-These Lisp variables can be configured via your @file{~/.swank.lisp}
+These Lisp variables can be configured via your @file{~/.slynk.lisp}
 file:
 
 @table @code
 
-@vindex SWANK:*CONFIGURE-EMACS-INDENTATION*
-@item SWANK:*CONFIGURE-EMACS-INDENTATION*
+@vindex SLYNK:*CONFIGURE-EMACS-INDENTATION*
+@item SLYNK:*CONFIGURE-EMACS-INDENTATION*
 This variable controls whether indentation styles for
 @code{&body}-arguments in macros are discovered and sent to Emacs. It
 is enabled by default.
 
-@vindex SWANK:*GLOBALLY-REDIRECT-IO*
-@item SWANK:*GLOBALLY-REDIRECT-IO*
+@vindex SLYNK:*GLOBALLY-REDIRECT-IO*
+@item SLYNK:*GLOBALLY-REDIRECT-IO*
 When true this causes the standard streams (@code{*standard-output*},
 etc) to be globally redirected to the @REPL{} in Emacs. When
 @code{NIL} (the default) these streams are only temporarily redirected
@@ -1744,44 +1744,44 @@ to Emacs using dynamic bindings while handling requests. Note that
 Emacs, because it can interact badly with the Lisp's native @REPL{} by
 having it try to read from the Emacs one.
 
-@vindex SWANK:*GLOBAL-DEBUGGER*
-@item SWANK:*GLOBAL-DEBUGGER*
+@vindex SLYNK:*GLOBAL-DEBUGGER*
+@item SLYNK:*GLOBAL-DEBUGGER*
 When true (the default) this causes @code{*DEBUGGER-HOOK*} to be
-globally set to @code{SWANK:SWANK-DEBUGGER-HOOK} and thus for @SLY{}
+globally set to @code{SLYNK:SLYNK-DEBUGGER-HOOK} and thus for @SLY{}
 to handle all debugging in the Lisp image. This is for debugging
 multithreaded and callback-driven applications.
 
-@anchor{SWANK:*SLDB-QUIT-RESTART*}
-@vindex SWANK:*SLDB-QUIT-RESTART*
-@item SWANK:*SLDB-QUIT-RESTART*
+@anchor{SLYNK:*SLDB-QUIT-RESTART*}
+@vindex SLYNK:*SLDB-QUIT-RESTART*
+@item SLYNK:*SLDB-QUIT-RESTART*
 This variable names the restart that is invoked when pressing @kbd{q}
 (@pxref{sldb-quit}) in @SLDB{}. For @SLY{} evaluation requests this
 is @emph{unconditionally} bound to a restart that returns to a safe
 point. This variable is supposed to customize what @kbd{q} does if an
 application's thread lands into the debugger (see
-@code{SWANK:*GLOBAL-DEBUGGER*}).
+@code{SLYNK:*GLOBAL-DEBUGGER*}).
 @example
-(setf swank:*sldb-quit-restart* 'sb-thread:terminate-thread)
+(setf slynk:*sldb-quit-restart* 'sb-thread:terminate-thread)
 @end example
 
-@vindex SWANK:*BACKTRACE-PRINTER-BINDINGS*
-@vindex SWANK:*MACROEXPAND-PRINTER-BINDINGS*
-@vindex SWANK:*SLDB-PRINTER-BINDINGS*
-@vindex SWANK:*SWANK-PPRINT-BINDINGS*
-@item SWANK:*BACKTRACE-PRINTER-BINDINGS*
-@itemx SWANK:*MACROEXPAND-PRINTER-BINDINGS*
-@itemx SWANK:*SLDB-PRINTER-BINDINGS*
-@itemx SWANK:*SWANK-PPRINT-BINDINGS*
+@vindex SLYNK:*BACKTRACE-PRINTER-BINDINGS*
+@vindex SLYNK:*MACROEXPAND-PRINTER-BINDINGS*
+@vindex SLYNK:*SLDB-PRINTER-BINDINGS*
+@vindex SLYNK:*SLYNK-PPRINT-BINDINGS*
+@item SLYNK:*BACKTRACE-PRINTER-BINDINGS*
+@itemx SLYNK:*MACROEXPAND-PRINTER-BINDINGS*
+@itemx SLYNK:*SLDB-PRINTER-BINDINGS*
+@itemx SLYNK:*SLYNK-PPRINT-BINDINGS*
 These variables can be used to customize the printer in various
 situations.  The values of the variables are association lists of
 printer variable names with the corresponding value.  E.g., to enable
 the pretty printer for formatting backtraces in @SLDB{}, you can use:
 @example
-(push '(*print-pretty* . t) swank:*sldb-printer-bindings*).
+(push '(*print-pretty* . t) slynk:*sldb-printer-bindings*).
 @end example
 
-@vindex SWANK:*USE-DEDICATED-OUTPUT-STREAM*
-@item SWANK:*USE-DEDICATED-OUTPUT-STREAM*
+@vindex SLYNK:*USE-DEDICATED-OUTPUT-STREAM*
+@item SLYNK:*USE-DEDICATED-OUTPUT-STREAM*
 This variable controls whether to use an unsafe efficiency hack for
 sending printed output from Lisp to Emacs.  The default is @code{nil},
 don't use it, and is strongly recommended to keep.
@@ -1797,14 +1797,14 @@ Using a dedicated output stream also makes it more difficult to
 communicate to a Lisp running on a remote host via SSH
 (@pxref{Connecting to a remote lisp}).
 
-@vindex SWANK:*DEDICATED-OUTPUT-STREAM-PORT*
-@item SWANK:*DEDICATED-OUTPUT-STREAM-PORT*
+@vindex SLYNK:*DEDICATED-OUTPUT-STREAM-PORT*
+@item SLYNK:*DEDICATED-OUTPUT-STREAM-PORT*
 When @code{*USE-DEDICATED-OUTPUT-STREAM*} is @code{t} the stream will
 be opened on this port. The default value, @code{0}, means that the
 stream will be opened on some random port.
 
-@vindex SWANK:*LOG-EVENTS*
-@item SWANK:*LOG-EVENTS*
+@vindex SLYNK:*LOG-EVENTS*
+@item SLYNK:*LOG-EVENTS*
 Setting this variable to @code{t} causes all protocol messages
 exchanged with Emacs to be printed to @code{*TERMINAL-IO*}. This is
 useful for low-level debugging and for observing how @SLY{} works
@@ -1830,8 +1830,8 @@ your Lisp system's own listener, usually in the buffer
 
 One of the advantages of the way @SLY{} is implemented is that we can
 easily run the Emacs side (sly.el) on one machine and the lisp backend
-(swank) on another. The basic idea is to start up lisp on the remote
-machine, load swank and wait for incoming @SLY{} connections. On the
+(slynk) on another. The basic idea is to start up lisp on the remote
+machine, load slynk and wait for incoming @SLY{} connections. On the
 local machine we start up emacs and tell @SLY{} to connect to the
 remote machine. The details are a bit messier but the underlying idea is
 that simple.
@@ -1846,39 +1846,39 @@ that simple.
 @node Setting up the lisp image
 @subsection Setting up the lisp image
 
-When you want to load swank without going through the normal, Emacs
-based, process just load the @file{swank-loader.lisp} file. Just
+When you want to load slynk without going through the normal, Emacs
+based, process just load the @file{slynk-loader.lisp} file. Just
 execute
 
 @example
-(load "/path/to/swank-loader.lisp")
-(swank-loader:init)
+(load "/path/to/slynk-loader.lisp")
+(slynk-loader:init)
 @end example
 
 inside a running lisp image@footnote{@SLY{} also provides an
 @acronym{ASDF} system definition which does the same thing}. Now all we
-need to do is startup our swank server. The first example assumes we're
+need to do is startup our slynk server. The first example assumes we're
 using the default settings.
 
 @example
-(swank:create-server)
+(slynk:create-server)
 @end example
 
 Since we're going to be tunneling our connection via ssh@footnote{there
 is a way to connect without an ssh tunnel, but it has the side-effect of
 giving the entire world access to your lisp image, so we're not going to
-talk about it} and we'll only have one port open we want to tell swank
+talk about it} and we'll only have one port open we want to tell slynk
 to not use an extra connection for output (this is actually the default
 in current @SLY{}):
 
 @example
-(setf swank:*use-dedicated-output-stream* nil)
+(setf slynk:*use-dedicated-output-stream* nil)
 @end example
 
 @c -----------------------
 If you need to do anything particular
-(like be able to reconnect to swank after you're done), look into
-@code{swank:create-server}'s other arguments. Some of these arguments
+(like be able to reconnect to slynk after you're done), look into
+@code{slynk:create-server}'s other arguments. Some of these arguments
 are
 @table @code
 
@@ -1898,7 +1898,7 @@ Emacs and Lisp.
 
 So the more complete example will be
 @example
-(swank:create-server :port 4005  :dont-close t :coding-system "utf-8-unix")
+(slynk:create-server :port 4005  :dont-close t :coding-system "utf-8-unix")
 @end example
 On the emacs side you will use something like
 @example
@@ -1920,8 +1920,8 @@ ssh -L4005:127.0.0.1:4005 username@@remote.example.com
 
 That ssh invocation creates an ssh tunnel between the port 4005 on our
 local machine and the port 4005 on the remote machine@footnote{By
-default swank listens for incoming connections on port 4005, had we
-passed a @code{:port} parameter to @code{swank:create-server} we'd be
+default slynk listens for incoming connections on port 4005, had we
+passed a @code{:port} parameter to @code{slynk:create-server} we'd be
 using that port number instead}.
 
 Finally we can start @SLY{}:
@@ -1939,7 +1939,7 @@ into thinking it's actually @code{127.0.0.1}.
 @node Setting up pathname translations
 @subsection Setting up pathname translations
 
-One of the main problems with running swank remotely is that Emacs
+One of the main problems with running slynk remotely is that Emacs
 assumes the files can be found using normal filenames. if we want
 things like @code{sly-compile-and-load-file} (@kbd{C-c C-k}) and
 @code{sly-edit-definition} (@kbd{M-.}) to work correctly we need to
@@ -1986,12 +1986,12 @@ often than not this is inconvenient. So, if you want code such as this:
 @end example
 
 to send its output to @SLY{}'s repl buffer, as opposed to
-@code{*inferior-lisp*}, set @code{swank:*globally-redirect-io*} to T.
+@code{*inferior-lisp*}, set @code{slynk:*globally-redirect-io*} to T.
 
-Note that the value of this variable is only checked when swank
+Note that the value of this variable is only checked when slynk
 accepts the connection so you should set it via
-@file{~/.swank.lisp}. Otherwise you will need to call
-@code{swank::globally-redirect-io-to-connection} yourself, but you
+@file{~/.slynk.lisp}. Otherwise you will need to call
+@code{slynk::globally-redirect-io-to-connection} yourself, but you
 shouldn't do that unless you know what you're doing.
 
 @c -----------------------

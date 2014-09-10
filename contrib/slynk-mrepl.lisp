@@ -1,13 +1,13 @@
-;;; swank-mrepl.lisp
+;;; slynk-mrepl.lisp
 ;;
 ;; Licence: public domain
 
-(defpackage :swank-mrepl
-  (:use :cl :swank-api)
+(defpackage :slynk-mrepl
+  (:use :cl :slynk-api)
   (:export #:create-mrepl
            #:globally-save-object
            #:eval-for-mrepl))
-(in-package :swank-mrepl)
+(in-package :slynk-mrepl)
 
 
 ;;; MREPL models
@@ -30,7 +30,7 @@
     (format stream "mrepl-~a-~a" (channel-id r) (mrepl-remote-id r))))
 
 (defmethod initialize-instance :before ((r mrepl) &key)
-  (setf (slot-value r 'swank::in) (make-mrepl-input-stream r)))
+  (setf (slot-value r 'slynk::in) (make-mrepl-input-stream r)))
 
 
 ;;; Helpers
@@ -39,10 +39,10 @@
 
 (defvar *saved-objects* nil)
 
-(defmethod swank::drop-unprocessed-events ((r mrepl))
+(defmethod slynk::drop-unprocessed-events ((r mrepl))
   "Empty REPL of events, then send prompt to Emacs."
   ;; FIXME: Dropping events should be moved to the library, and this
-  ;; :DROP nonsense dropped, hence the deliberate SWANK::.
+  ;; :DROP nonsense dropped, hence the deliberate SLYNK::.
   (with-slots (mode) r
     (let ((old-mode mode))
       (setf mode :drop)
@@ -62,7 +62,7 @@
         *** **  ** *  * (car values))
   (vector-push-extend values *history*)
   (send-to-remote-channel (mrepl-remote-id repl)
-                          `(:copy-to-repl ,(mapcar #'swank::to-line values)))
+                          `(:copy-to-repl ,(mapcar #'slynk::to-line values)))
   (send-prompt repl))
 
 (defun mrepl-eval (repl string)
@@ -101,7 +101,7 @@
                    (vector-push-extend results *history*))
                  (send-to-remote-channel
                   (mrepl-remote-id repl)
-                  `(:write-values ,(mapcar #'swank::to-line
+                  `(:write-values ,(mapcar #'slynk::to-line
                                            results)))))
           (send-prompt repl))))))
 
@@ -132,7 +132,7 @@
     ;; However, as an exception, we /do/ want *PACKAGE* to be
     ;; clobbered if the evaluation of STRING eventually completes.
     ;;
-    (swank::with-bindings (slot-value repl 'swank::env)
+    (slynk::with-bindings (slot-value repl 'slynk::env)
       (prog1
           (with-retry-restart (:msg "Retry SLY mREPL evaluation request.")
             (with-input-from-string (in string)
@@ -142,7 +142,7 @@
                     do (setq values (multiple-value-list (eval (setq + form))))
                     finally
                        (return values))))
-        (setf (cdr (assoc '*package* (slot-value repl 'swank::env)))
+        (setf (cdr (assoc '*package* (slot-value repl 'slynk::env)))
               *package*)))))
 
 (defun set-mode (repl new-mode)
@@ -183,8 +183,8 @@
                                                             package-name
                                                             directory)
   (with-listener r
-    (let ((package (swank::guess-package package-name)))
-      (swank:set-default-directory directory)
+    (let ((package (slynk::guess-package package-name)))
+      (slynk:set-default-directory directory)
       (and package (setq *package* package))
       (copy-values-to-repl r (list *package* *default-pathname-defaults*)))))
 
@@ -193,7 +193,7 @@
     (send-to-remote-channel
        (mrepl-remote-id r)
        `(:inspect-object
-         ,(swank::inspect-object (mrepl-get-object-from-history entry-idx value-idx))))))
+         ,(slynk::inspect-object (mrepl-get-object-from-history entry-idx value-idx))))))
 
 (define-channel-method :process ((c mrepl) string)
   (ecase (mrepl-mode c)
@@ -203,7 +203,7 @@
 
 (define-channel-method :teardown ((r mrepl))
   ;; FIXME: this should be a `:before' spec and closing the channel in
-  ;; swank.lisp's :teardown method should suffice.
+  ;; slynk.lisp's :teardown method should suffice.
   ;; 
   (setf (mrepl-mode r) :teardown)
   (call-next-method))
@@ -231,7 +231,7 @@
     (let ((target (maybe-redirect-global-io *emacs-connection*)))
       (with-listener mrepl
         (format *standard-output* "~&; SLY ~a (~a)~%"
-                *swank-wire-protocol-version*
+                *slynk-wire-protocol-version*
                 mrepl)
         (cond ((and target
                     (not (eq mrepl target)))
@@ -254,8 +254,8 @@
     `(let ((,mrepl-sym (find-channel ,remote-id)))
        (assert ,mrepl-sym)
        (assert
-        (eq (swank-backend:thread-id
-             (swank-backend:current-thread)) 
+        (eq (slynk-backend:thread-id
+             (slynk-backend:current-thread)) 
             (channel-thread-id ,mrepl-sym))
         nil
         "This SLYFUN can only be called from threads belonging to MREPL")
@@ -270,17 +270,17 @@ Both the target MREPL's thread and environment are considered."
 
 (defslyfun inspect-entry (remote-id entry-idx value-idx)
   (with-eval-for-repl (remote-id)
-    (swank::inspect-object
+    (slynk::inspect-object
      (mrepl-get-object-from-history entry-idx value-idx))))
 
 (defslyfun describe-entry (remote-id entry-idx value-idx)
   (with-eval-for-repl (remote-id)
-    (swank::describe-to-string
+    (slynk::describe-to-string
      (mrepl-get-object-from-history entry-idx value-idx))))
 
 (defslyfun pprint-entry (remote-id entry-idx value-idx)
   (with-eval-for-repl (remote-id)
-    (swank::swank-pprint
+    (slynk::slynk-pprint
      (list (mrepl-get-object-from-history entry-idx value-idx)))))
 
 
@@ -293,19 +293,19 @@ Both the target MREPL's thread and environment are considered."
   "Which port we should use for the dedicated output stream.")
 
  (defparameter *dedicated-output-stream-buffering*
-  (if (eq swank:*communication-style* :spawn) t nil)
+  (if (eq slynk:*communication-style* :spawn) t nil)
   "The buffering scheme that should be used for the output stream.
 Valid values are nil, t, :line")
 
 (defun make-mrepl-output-stream (remote-id)
   (or (and *use-dedicated-output-stream*
            (open-dedicated-output-stream remote-id))
-      (swank-backend:make-output-stream
+      (slynk-backend:make-output-stream
        (lambda (string)
          (send-to-remote-channel remote-id `(:write-string ,string))))))
 
 (defun make-mrepl-input-stream (repl)
-  (swank-backend:make-input-stream
+  (slynk-backend:make-input-stream
    (lambda () (read-input repl))))
 
 (defun open-dedicated-output-stream (remote-id)
@@ -315,25 +315,25 @@ Emacs's channel at REMOTE-ID is notified of a socket listening at an
 ephemeral port. Upon connection, the listening socket is closed, and
 the resulting connecion socket is used as optimized way for Lisp to
 deliver output to Emacs."
-  (let ((socket (swank-backend:create-socket swank::*loopback-interface*
+  (let ((socket (slynk-backend:create-socket slynk::*loopback-interface*
                                              *dedicated-output-stream-port*))
-        (ef (or (some #'swank::find-external-format '("utf-8-unix" "utf-8"))
+        (ef (or (some #'slynk::find-external-format '("utf-8-unix" "utf-8"))
                 (error "no suitable coding system for dedicated stream"))))
     (unwind-protect
-         (let ((port (swank-backend:local-port socket)))
+         (let ((port (slynk-backend:local-port socket)))
            (send-to-remote-channel remote-id
                                    `(:open-dedicated-output-stream ,port nil))
-           (let ((dedicated (swank-backend:accept-connection
+           (let ((dedicated (slynk-backend:accept-connection
                              socket
                              :external-format ef
                              :buffering *dedicated-output-stream-buffering*
                              :timeout 30)))
-             (swank:authenticate-client dedicated)
-             (swank-backend:close-socket socket)
+             (slynk:authenticate-client dedicated)
+             (slynk-backend:close-socket socket)
              (setf socket nil)
              dedicated))
       (when socket
-        (swank-backend:close-socket socket)))))
+        (slynk-backend:close-socket socket)))))
 
 
 ;;;; Globally redirect IO to Emacs
@@ -410,12 +410,12 @@ dynamic binding."
     ;; Assign the real binding as a synonym for the current one.
     (let ((stream (make-synonym-stream current-stream-var)))
       (set stream-var stream)
-      (swank::set-default-initial-binding stream-var `(quote ,stream)))))
+      (slynk::set-default-initial-binding stream-var `(quote ,stream)))))
 
 (defun prefixed-var (prefix variable-symbol)
-  "(PREFIXED-VAR \"FOO\" '*BAR*) => SWANK::*FOO-BAR*"
+  "(PREFIXED-VAR \"FOO\" '*BAR*) => SLYNK::*FOO-BAR*"
   (let ((basename (subseq (symbol-name variable-symbol) 1)))
-    (intern (format nil "*~A-~A" (string prefix) basename) :swank)))
+    (intern (format nil "*~A-~A" (string prefix) basename) :slynk)))
 
 (defun init-global-stream-redirection ()
   (cond (*saved-global-streams*
@@ -489,4 +489,4 @@ Return the current redirection target, or nil"
       (revert-global-io-redirection)
       (format *standard-output* "~&; Reverted global IO direction~%"))))
 
-(provide :swank-mrepl)
+(provide :slynk-mrepl)

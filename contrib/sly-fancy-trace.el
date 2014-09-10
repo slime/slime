@@ -4,7 +4,7 @@
 (define-sly-contrib sly-fancy-trace
   "Enhanced version of sly-trace capable of tracing local functions,
 methods, setf functions, and other entities supported by specific
-swank:swank-toggle-trace backends. Invoke via C-u C-t."
+slynk:slynk-toggle-trace backends. Invoke via C-u C-t."
   (:authors "Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>"
             "Tobias C. Rittweiler <tcr@freebits.de>")
   (:license "GPL")
@@ -60,7 +60,7 @@ The result is a string."
                    (sly-extract-context)
                    (sly-symbol-at-point)))
          (spec (sly-trace-query spec)))
-    (sly-message "%s" (sly-eval `(swank:swank-toggle-trace ,spec)))))
+    (sly-message "%s" (sly-eval `(slynk:slynk-toggle-trace ,spec)))))
 
 ;; override sly-toggle-trace-fdefinition
 (define-key sly-prefix-map "\C-t" 'sly-toggle-fancy-trace)

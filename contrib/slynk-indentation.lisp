@@ -1,4 +1,4 @@
-(in-package :swank)
+(in-package :slynk)
 
 (defvar *application-hints-tables* '()
   "A list of hash tables mapping symbols to indentation hints (lists 
@@ -26,7 +26,7 @@ emacs.")
                              (walk (cdr indentation-spec)))))))
       (walk indentation))))
 
-;;; override swank version of this function
+;;; override slynk version of this function
 (defun symbol-indentation (symbol)
   "Return a form describing the indentation of SYMBOL. 
 
@@ -137,4 +137,4 @@ in Emacs."
   (assert (equal nil
                  (macro-indentation '(x y &key z)))))
 
-(provide :swank-indentation)
+(provide :slynk-indentation)

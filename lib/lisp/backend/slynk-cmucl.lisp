@@ -4,19 +4,19 @@
 ;;;
 ;;;; Introduction
 ;;;
-;;; This is the CMUCL implementation of the `swank-backend' package.
+;;; This is the CMUCL implementation of the `slynk-backend' package.
 
-(defpackage swank-cmucl
-  (:use cl swank-backend swank-source-path-parser swank-source-file-cache))
+(defpackage slynk-cmucl
+  (:use cl slynk-backend slynk-source-path-parser slynk-source-file-cache))
 
-(in-package swank-cmucl)
+(in-package slynk-cmucl)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require 'gray-streams))
 
-(import-swank-mop-symbols :pcl '(:slot-definition-documentation))
+(import-slynk-mop-symbols :pcl '(:slot-definition-documentation))
 
-(defun swank-mop:slot-definition-documentation (slot)
+(defun slynk-mop:slot-definition-documentation (slot)
   (documentation slot t))
 
 ;;;; "Hot fixes"
@@ -70,7 +70,7 @@
 
   )
 
-(in-package swank-cmucl)
+(in-package slynk-cmucl)
 
 ;;; UTF8
 
@@ -317,7 +317,7 @@ NIL if we aren't compiling from a buffer.")
                    (c::warning        #'handle-notification-condition))
       (funcall function))))
 
-(defimplementation swank-compile-file (input-file output-file
+(defimplementation slynk-compile-file (input-file output-file
                                        load-p external-format
                                        &key policy)
   (declare (ignore policy))
@@ -336,7 +336,7 @@ NIL if we aren't compiling from a buffer.")
                                         (file-write-date input-file))
                       (not (load output-file)))))))))
 
-(defimplementation swank-compile-string (string &key buffer position filename
+(defimplementation slynk-compile-string (string &key buffer position filename
                                          policy)
   (declare (ignore filename policy))
   (with-compilation-hooks ()
@@ -355,7 +355,7 @@ NIL if we aren't compiling from a buffer.")
 ;;;;; Trapping notes
 ;;;
 ;;; We intercept conditions from the compiler and resignal them as
-;;; `SWANK:COMPILER-CONDITION's.
+;;; `SLYNK:COMPILER-CONDITION's.
 
 (defun handle-notification-condition (condition)
   "Handle a condition caused by a compiler warning."
@@ -473,7 +473,7 @@ Return a `location' record, or (:error REASON) on failure."
 ;;; recorded during compilation and not preserved in fasl files, and
 ;;; XREF recording is disabled by default. Redefining functions can
 ;;; also cause duplicate references to accumulate, but
-;;; `swank-compile-file' will automatically clear out any old records
+;;; `slynk-compile-file' will automatically clear out any old records
 ;;; from the same filename.
 ;;;
 ;;; To enable XREF recording, set `c:*record-xref-info*' to true. To
@@ -644,7 +644,7 @@ This is a workaround for a CMUCL bug: XREF records are cumulative."
 ;;; for the location. Once we have the source-path we can pull up the
 ;;; source file and `READ' our way through to the right position. The
 ;;; main source-code groveling work is done in
-;;; `swank-source-path-parser.lisp'.
+;;; `slynk-source-path-parser.lisp'.
 
 (defvar *debug-definition-finding* nil
   "When true don't handle errors while looking for definitions.
@@ -1472,7 +1472,7 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
   (ext::quit))
 
 ;;; source-path-{stream,file,string,etc}-position moved into 
-;;; swank-source-path-parser
+;;; slynk-source-path-parser
 
 
 ;;;; Debugging
@@ -2201,7 +2201,7 @@ The `symbol-value' of each element is a type tag.")
 (progn
   (defimplementation initialize-multiprocessing (continuation) 
     (mp::init-multi-processing)
-    (mp:make-process continuation :name "swank")
+    (mp:make-process continuation :name "slynk")
     ;; Threads magic: this never returns! But top-level becomes
     ;; available again.
     (unless mp::*idle-process*
@@ -2289,7 +2289,7 @@ The `symbol-value' of each element is a type tag.")
 
 ;; this should probably not be here, but where else?
 (defun background-message (message)
-  (funcall (find-symbol (string :background-message) :swank)
+  (funcall (find-symbol (string :background-message) :slynk)
            message))
 
 (defun print-bytes (nbytes &optional stream)
@@ -2499,14 +2499,14 @@ int main (int argc, char** argv) {
       (delete-file infile)
       outfile)))
 
-#+#.(swank-backend:with-symbol 'unicode-complete 'lisp)
+#+#.(slynk-backend:with-symbol 'unicode-complete 'lisp)
 (defun match-semi-standard (prefix matchp)
   ;; Handle the CMUCL's short character names.
   (loop for name in lisp::char-name-alist
      when (funcall matchp prefix (car name))
      collect (car name)))
 
-#+#.(swank-backend:with-symbol 'unicode-complete 'lisp)
+#+#.(slynk-backend:with-symbol 'unicode-complete 'lisp)
 (defimplementation character-completion-set (prefix matchp)
   (let ((names (lisp::unicode-complete prefix)))
     ;; Match prefix against semistandard names.  If there's a match,

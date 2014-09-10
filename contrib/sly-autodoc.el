@@ -14,7 +14,7 @@
             "Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>"
             "Tobias C. Rittweiler  <tcr@freebits.de>")
   (:sly-dependencies sly-parse)
-  (:swank-dependencies swank-arglists)
+  (:slynk-dependencies slynk-arglists)
   (:on-load
    (dolist (h '(sly-editing-mode-hook sly-mrepl-mode-hook))
      (add-hook h 'sly-autodoc-mode)))
@@ -45,7 +45,7 @@
   (let* ((name (etypecase name
                 (string name)
                 (symbol (symbol-name name))))
-         (doc-and-reasons (sly-eval `(swank:autodoc '(,name ,sly-cursor-marker)))))
+         (doc-and-reasons (sly-eval `(slynk:autodoc '(,name ,sly-cursor-marker)))))
     (if (memq (car doc-and-reasons) '(:error :not-available))
         (error "Arglist not available: %a" (cadr doc-and-reasons))
       (sly-message "%s" (sly-autodoc--fontify-string (car doc-and-reasons))))))
@@ -54,12 +54,12 @@
 ;;;; Autodocs (automatic context-sensitive help)
 
 (defun sly-autodoc--make-rpc-form ()
-  "Return a cache key and a swank form."
+  "Return a cache key and a slynk form."
   (let* ((levels sly-autodoc-accuracy-depth)
          (buffer-form (sly-parse-form-upto-point levels)))
     (when buffer-form
       (values buffer-form
-              `(swank:autodoc ',buffer-form
+              `(slynk:autodoc ',buffer-form
                               :print-right-margin
                               ,(window-width (minibuffer-window)))))))
 

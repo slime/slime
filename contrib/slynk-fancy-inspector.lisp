@@ -1,13 +1,13 @@
-;;; swank-fancy-inspector.lisp --- Fancy inspector for CLOS objects
+;;; slynk-fancy-inspector.lisp --- Fancy inspector for CLOS objects
 ;;
 ;; Author: Marco Baringer <mb@bese.it> and others
 ;; License: Public Domain
 ;;
 
-(in-package :swank)
+(in-package :slynk)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (swank-require :swank-util))
+  (slynk-require :slynk-util))
 
 (defmethod emacs-inspect ((symbol symbol))
   (let ((package (symbol-package symbol)))
@@ -155,15 +155,15 @@
   specializers are replaced by `(eql ,object)."
   (mapcar (lambda (spec)
             (typecase spec
-              (swank-mop:eql-specializer
-               `(eql ,(swank-mop:eql-specializer-object spec)))
+              (slynk-mop:eql-specializer
+               `(eql ,(slynk-mop:eql-specializer-object spec)))
               #-sbcl (t
-               (swank-mop:class-name spec))
+               (slynk-mop:class-name spec))
               #+sbcl (t
                       (sb-pcl:unparse-specializer-using-class
                        (sb-mop:method-generic-function method)
                        spec))))
-          (swank-mop:method-specializers method)))
+          (slynk-mop:method-specializers method)))
 
 (defun method-for-inspect-value (method)
   "Returns a \"pretty\" list describing METHOD. The first element
@@ -171,9 +171,9 @@
   specialiazed on, the second element is the method qualifiers,
   the rest of the list is the method's specialiazers (as per
   method-specializers-for-inspect)."
-  (append (list (swank-mop:generic-function-name
-                 (swank-mop:method-generic-function method)))
-          (swank-mop:method-qualifiers method)
+  (append (list (slynk-mop:generic-function-name
+                 (slynk-mop:method-generic-function method)))
+          (slynk-mop:method-qualifiers method)
           (method-specializers-for-inspect method)))
 
 (defmethod emacs-inspect ((object standard-object))
@@ -189,12 +189,12 @@ See `methods-by-applicability'.")
 (defun specializer< (specializer1 specializer2)
   "Return true if SPECIALIZER1 is more specific than SPECIALIZER2."
   (let ((s1 specializer1) (s2 specializer2) )
-    (cond ((typep s1 'swank-mop:eql-specializer)
-           (not (typep s2 'swank-mop:eql-specializer)))
+    (cond ((typep s1 'slynk-mop:eql-specializer)
+           (not (typep s2 'slynk-mop:eql-specializer)))
           ((typep s1 'class)
            (flet ((cpl (class)
-                    (and (swank-mop:class-finalized-p class)
-                         (swank-mop:class-precedence-list class))))
+                    (and (slynk-mop:class-finalized-p class)
+                         (slynk-mop:class-precedence-list class))))
              (member s2 (cpl s1)))))))
 
 (defun methods-by-applicability (gf)
@@ -203,11 +203,11 @@ See `methods-by-applicability'.")
 `method-specializer<' is used for sorting."
   ;; FIXME: argument-precedence-order and qualifiers are ignored.
   (labels ((method< (meth1 meth2)
-             (loop for s1 in (swank-mop:method-specializers meth1)
-                   for s2 in (swank-mop:method-specializers meth2)
+             (loop for s1 in (slynk-mop:method-specializers meth1)
+                   for s2 in (slynk-mop:method-specializers meth2)
                    do (cond ((specializer< s2 s1) (return nil))
                             ((specializer< s1 s2) (return t))))))
-    (stable-sort (copy-seq (swank-mop:generic-function-methods gf))
+    (stable-sort (copy-seq (slynk-mop:generic-function-methods gf))
                  #'method<)))
 
 (defun abbrev-doc (doc &optional (maxlen 80))
@@ -267,12 +267,12 @@ See `methods-by-applicability'.")
 
 (defmethod all-slots-for-inspector ((object standard-object))
   (let* ((class           (class-of object))
-         (direct-slots    (swank-mop:class-direct-slots class))
-         (effective-slots (swank-mop:class-slots class))
+         (direct-slots    (slynk-mop:class-direct-slots class))
+         (effective-slots (slynk-mop:class-slots class))
          (longest-slot-name-length
           (loop for slot :in effective-slots
                 maximize (length (symbol-name
-                                  (swank-mop:slot-definition-name slot)))))
+                                  (slynk-mop:slot-definition-name slot)))))
          (checklist
           (reinitialize-checklist
            (ensure-istate-metadata object :checklist
@@ -289,7 +289,7 @@ See `methods-by-applicability'.")
                            (:unsorted (constantly nil))))
          (sorted-slots (sort (copy-seq effective-slots)
                              sort-predicate
-                             :key #'swank-mop:slot-definition-name))
+                             :key #'slynk-mop:slot-definition-name))
          (effective-slots
           (ecase (ref grouping-kind)
             (:all sorted-slots)
@@ -346,7 +346,7 @@ See `methods-by-applicability'.")
       (:action "[make unbound]"
                ,(lambda ()
                         (do-checklist (idx checklist)
-                          (swank-mop:slot-makunbound-using-class
+                          (slynk-mop:slot-makunbound-using-class
                            class object (nth idx effective-slots))))
                :refreshp t)
       (:newline))))
@@ -388,11 +388,11 @@ See `methods-by-applicability'.")
                         :initial-element #\Space)))
     (loop
       for effective-slot :in effective-slots
-      for direct-slot = (find (swank-mop:slot-definition-name effective-slot)
+      for direct-slot = (find (slynk-mop:slot-definition-name effective-slot)
                               direct-slots
-                              :key #'swank-mop:slot-definition-name)
+                              :key #'slynk-mop:slot-definition-name)
       for slot-name   = (inspector-princ
-                         (swank-mop:slot-definition-name effective-slot))
+                         (slynk-mop:slot-definition-name effective-slot))
       collect (make-checklist-button checklist)
       collect "  "
       collect `(:value ,(if direct-slot
@@ -406,16 +406,16 @@ See `methods-by-applicability'.")
 
 (defgeneric slot-value-for-inspector (class object slot)
   (:method (class object slot)
-    (let ((boundp (swank-mop:slot-boundp-using-class class object slot)))
+    (let ((boundp (slynk-mop:slot-boundp-using-class class object slot)))
       (if boundp
-          `(:value ,(swank-mop:slot-value-using-class class object slot))
+          `(:value ,(slynk-mop:slot-value-using-class class object slot))
           "#<unbound>"))))
 
 (defun slot-home-class-using-class (slot class)
-  (let ((slot-name (swank-mop:slot-definition-name slot)))
-    (loop for class in (reverse (swank-mop:class-precedence-list class))
-          thereis (and (member slot-name (swank-mop:class-direct-slots class)
-                               :key #'swank-mop:slot-definition-name
+  (let ((slot-name (slynk-mop:slot-definition-name slot)))
+    (loop for class in (reverse (slynk-mop:class-precedence-list class))
+          thereis (and (member slot-name (slynk-mop:class-direct-slots class)
+                               :key #'slynk-mop:slot-definition-name
                                :test #'eq)
                        class))))
 
@@ -425,25 +425,25 @@ See `methods-by-applicability'.")
                         (class-name (slot-home-class-using-class s class)))))
 
 (defun query-and-set-slot (class object slot)
-  (let* ((slot-name (swank-mop:slot-definition-name slot))
+  (let* ((slot-name (slynk-mop:slot-definition-name slot))
          (value-string (read-from-minibuffer-in-emacs
                         (format nil "Set slot ~S to (evaluated) : "
                                 slot-name))))
     (when (and value-string (not (string= value-string "")))
       (with-simple-restart (abort "Abort setting slot ~S" slot-name)
-        (setf (swank-mop:slot-value-using-class class object slot)
+        (setf (slynk-mop:slot-value-using-class class object slot)
               (eval (read-from-string value-string)))))))
 
 
 (defmethod emacs-inspect ((gf standard-generic-function))
   (flet ((lv (label value) (label-value-line label value)))
     (append
-      (lv "Name" (swank-mop:generic-function-name gf))
-      (lv "Arguments" (swank-mop:generic-function-lambda-list gf))
+      (lv "Name" (slynk-mop:generic-function-name gf))
+      (lv "Arguments" (slynk-mop:generic-function-lambda-list gf))
       (docstring-ispec "Documentation" gf t)
-      (lv "Method class" (swank-mop:generic-function-method-class gf))
+      (lv "Method class" (slynk-mop:generic-function-method-class gf))
       (lv "Method combination"
-          (swank-mop:generic-function-method-combination gf))
+          (slynk-mop:generic-function-method-combination gf))
       `("Methods: " (:newline))
       (loop for method in (funcall *gf-method-getter* gf) append
             `((:value ,method ,(inspector-princ
@@ -459,35 +459,35 @@ See `methods-by-applicability'.")
       (all-slots-for-inspector gf))))
 
 (defmethod emacs-inspect ((method standard-method))
-  `(,@(if (swank-mop:method-generic-function method)
+  `(,@(if (slynk-mop:method-generic-function method)
           `("Method defined on the generic function "
-            (:value ,(swank-mop:method-generic-function method)
+            (:value ,(slynk-mop:method-generic-function method)
                     ,(inspector-princ
-                      (swank-mop:generic-function-name
-                       (swank-mop:method-generic-function method)))))
+                      (slynk-mop:generic-function-name
+                       (slynk-mop:method-generic-function method)))))
           '("Method without a generic function"))
       (:newline)
       ,@(docstring-ispec "Documentation" method t)
-      "Lambda List: " (:value ,(swank-mop:method-lambda-list method))
+      "Lambda List: " (:value ,(slynk-mop:method-lambda-list method))
       (:newline)
-      "Specializers: " (:value ,(swank-mop:method-specializers method)
+      "Specializers: " (:value ,(slynk-mop:method-specializers method)
                                ,(inspector-princ
                                  (method-specializers-for-inspect method)))
       (:newline)
-      "Qualifiers: " (:value ,(swank-mop:method-qualifiers method))
+      "Qualifiers: " (:value ,(slynk-mop:method-qualifiers method))
       (:newline)
-      "Method function: " (:value ,(swank-mop:method-function method))
+      "Method function: " (:value ,(slynk-mop:method-function method))
       (:newline)
       ,@(all-slots-for-inspector method)))
 
 (defun specializer-direct-methods (class)
-  (sort (copy-seq (swank-mop:specializer-direct-methods class))
+  (sort (copy-seq (slynk-mop:specializer-direct-methods class))
         #'string<
         :key
         (lambda (x)
           (symbol-name
-           (let ((name (swank-mop::generic-function-name
-                        (swank-mop::method-generic-function x))))
+           (let ((name (slynk-mop::generic-function-name
+                        (slynk-mop::method-generic-function x))))
              (if (symbolp name)
                  name
                  (second name)))))))
@@ -497,44 +497,44 @@ See `methods-by-applicability'.")
     (:value ,(class-name class))
     (:newline)
     "Super classes: "
-    ,@(common-seperated-spec (swank-mop:class-direct-superclasses class))
+    ,@(common-seperated-spec (slynk-mop:class-direct-superclasses class))
     (:newline)
     "Direct Slots: "
     ,@(common-seperated-spec
-       (swank-mop:class-direct-slots class)
+       (slynk-mop:class-direct-slots class)
        (lambda (slot)
          `(:value ,slot ,(inspector-princ
-                          (swank-mop:slot-definition-name slot)))))
+                          (slynk-mop:slot-definition-name slot)))))
     (:newline)
     "Effective Slots: "
-    ,@(if (swank-mop:class-finalized-p class)
+    ,@(if (slynk-mop:class-finalized-p class)
           (common-seperated-spec
-           (swank-mop:class-slots class)
+           (slynk-mop:class-slots class)
            (lambda (slot)
              `(:value ,slot ,(inspector-princ
-                              (swank-mop:slot-definition-name slot)))))
+                              (slynk-mop:slot-definition-name slot)))))
           `("#<N/A (class not finalized)> "
             (:action "[finalize]"
-                     ,(lambda () (swank-mop:finalize-inheritance class)))))
+                     ,(lambda () (slynk-mop:finalize-inheritance class)))))
     (:newline)
     ,@(let ((doc (documentation class t)))
         (when doc
           `("Documentation:" (:newline) ,(inspector-princ doc) (:newline))))
     "Sub classes: "
-    ,@(common-seperated-spec (swank-mop:class-direct-subclasses class)
+    ,@(common-seperated-spec (slynk-mop:class-direct-subclasses class)
                              (lambda (sub)
                                `(:value ,sub
                                         ,(inspector-princ (class-name sub)))))
     (:newline)
     "Precedence List: "
-    ,@(if (swank-mop:class-finalized-p class)
+    ,@(if (slynk-mop:class-finalized-p class)
           (common-seperated-spec
-           (swank-mop:class-precedence-list class)
+           (slynk-mop:class-precedence-list class)
            (lambda (class)
              `(:value ,class ,(inspector-princ (class-name class)))))
           '("#<N/A (class not finalized)>"))
     (:newline)
-    ,@(when (swank-mop:specializer-direct-methods class)
+    ,@(when (slynk-mop:specializer-direct-methods class)
         `("It is used as a direct specializer in the following methods:"
           (:newline)
           ,@(loop
@@ -548,31 +548,31 @@ See `methods-by-applicability'.")
               collect "    Documentation: " and
               collect (abbrev-doc (documentation method t)) and
               collect '(:newline))))
-    "Prototype: " ,(if (swank-mop:class-finalized-p class)
-                       `(:value ,(swank-mop:class-prototype class))
+    "Prototype: " ,(if (slynk-mop:class-finalized-p class)
+                       `(:value ,(slynk-mop:class-prototype class))
                        '"#<N/A (class not finalized)>")
     (:newline)
     ,@(all-slots-for-inspector class)))
 
-(defmethod emacs-inspect ((slot swank-mop:standard-slot-definition))
+(defmethod emacs-inspect ((slot slynk-mop:standard-slot-definition))
   `("Name: "
-    (:value ,(swank-mop:slot-definition-name slot))
+    (:value ,(slynk-mop:slot-definition-name slot))
     (:newline)
-    ,@(when (swank-mop:slot-definition-documentation slot)
+    ,@(when (slynk-mop:slot-definition-documentation slot)
         `("Documentation:" (:newline)
-                           (:value ,(swank-mop:slot-definition-documentation
+                           (:value ,(slynk-mop:slot-definition-documentation
                                      slot))
                            (:newline)))
     "Init args: "
-    (:value ,(swank-mop:slot-definition-initargs slot))
+    (:value ,(slynk-mop:slot-definition-initargs slot))
     (:newline)
     "Init form: "
-    ,(if (swank-mop:slot-definition-initfunction slot)
-         `(:value ,(swank-mop:slot-definition-initform slot))
+    ,(if (slynk-mop:slot-definition-initfunction slot)
+         `(:value ,(slynk-mop:slot-definition-initform slot))
          "#<unspecified>")
     (:newline)
     "Init function: "
-    (:value ,(swank-mop:slot-definition-initfunction slot))
+    (:value ,(slynk-mop:slot-definition-initfunction slot))
     (:newline)
     ,@(all-slots-for-inspector slot)))
 
@@ -986,4 +986,4 @@ Do NOT pass circular lists to this function."
     (set-pprint-dispatch '(cons (member function)) nil)
     (princ-to-string list)))
 
-(provide :swank-fancy-inspector)
+(provide :slynk-fancy-inspector)

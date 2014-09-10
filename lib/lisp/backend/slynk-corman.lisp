@@ -1,5 +1,5 @@
 ;;;
-;;; swank-corman.lisp --- Corman Lisp specific code for SLY.
+;;; slynk-corman.lisp --- Corman Lisp specific code for SLY.
 ;;;
 ;;; Copyright (C) 2004, 2005 Espen Wiborg (espenhw@grumblesmurf.org)
 ;;;
@@ -64,7 +64,7 @@
 ;;; * More sophisticated communication styles than NIL
 ;;;
 
-(in-package :swank-backend)
+(in-package :slynk-backend)
 
 ;;; Pull in various needed bits
 (require :composite-streams)
@@ -76,18 +76,18 @@
 
 ;; MOP stuff
 
-(defclass swank-mop:standard-slot-definition ()
+(defclass slynk-mop:standard-slot-definition ()
   ()
   (:documentation 
-   "Dummy class created so that swank.lisp will compile and load."))
+   "Dummy class created so that slynk.lisp will compile and load."))
 
 (defun named-by-gensym-p (c)
   (null (symbol-package (class-name c))))
 
-(deftype swank-mop:eql-specializer ()
+(deftype slynk-mop:eql-specializer ()
   '(satisfies named-by-gensym-p))
 
-(defun swank-mop:eql-specializer-object (specializer)
+(defun slynk-mop:eql-specializer-object (specializer)
   (with-hash-table-iterator (next-entry cl::*clos-singleton-specializers*)
     (loop (multiple-value-bind (more key value)
               (next-entry)
@@ -95,37 +95,37 @@
             (when (eq specializer value)
               (return key))))))
 
-(defun swank-mop:class-finalized-p (class)
+(defun slynk-mop:class-finalized-p (class)
   (declare (ignore class))
   t)
 
-(defun swank-mop:class-prototype (class)
+(defun slynk-mop:class-prototype (class)
   (make-instance class))
 
-(defun swank-mop:specializer-direct-methods (obj)
+(defun slynk-mop:specializer-direct-methods (obj)
   (declare (ignore obj))
   nil)
 
-(defun swank-mop:generic-function-argument-precedence-order (gf)
+(defun slynk-mop:generic-function-argument-precedence-order (gf)
   (generic-function-lambda-list gf))
 
-(defun swank-mop:generic-function-method-combination (gf)
+(defun slynk-mop:generic-function-method-combination (gf)
   (declare (ignore gf))
   :standard)
 
-(defun swank-mop:generic-function-declarations (gf)
+(defun slynk-mop:generic-function-declarations (gf)
   (declare (ignore gf))
   nil)
 
-(defun swank-mop:slot-definition-documentation (slot)
+(defun slynk-mop:slot-definition-documentation (slot)
   (declare (ignore slot))
   (getf slot :documentation nil))
 
-(defun swank-mop:slot-definition-type (slot)
+(defun slynk-mop:slot-definition-type (slot)
   (declare (ignore slot))
   t)
 
-(import-swank-mop-symbols :cl '(;; classes
+(import-slynk-mop-symbols :cl '(;; classes
                                 :standard-slot-definition
                                 :eql-specializer
                                 :eql-specializer-object
@@ -144,7 +144,7 @@
                                 :slot-definition-documentation
                                 :slot-definition-type))
 
-;;;; swank implementations
+;;;; slynk implementations
 
 ;;; Debugger
 
@@ -364,7 +364,7 @@
                                          (list :error "No location")))))))
     (funcall fn)))
 
-(defimplementation swank-compile-file (input-file output-file 
+(defimplementation slynk-compile-file (input-file output-file 
 				       load-p external-format
                                        &key policy)
   (declare (ignore external-format policy))
@@ -376,7 +376,7 @@
 	(values output-file warnings?
 		(or failure? (and load-p (load output-file))))))))
 
-(defimplementation swank-compile-string (string &key buffer position filename
+(defimplementation slynk-compile-string (string &key buffer position filename
 					 policy)
   (declare (ignore filename policy))
   (with-compilation-hooks ()
@@ -389,7 +389,7 @@
 
 ;;;; Inspecting
 
-;; Hack to make swank.lisp load, at least
+;; Hack to make slynk.lisp load, at least
 (defclass file-stream ())
 
 (defun comma-separated (list &optional (callback (lambda (v)
@@ -403,36 +403,36 @@
     (:value ,(class-name class))
     (:newline)
     "Super classes: "
-    ,@(comma-separated (swank-mop:class-direct-superclasses class))
+    ,@(comma-separated (slynk-mop:class-direct-superclasses class))
     (:newline)
     "Direct Slots: "
     ,@(comma-separated
-       (swank-mop:class-direct-slots class)
+       (slynk-mop:class-direct-slots class)
        (lambda (slot)
 	 `(:value ,slot 
 		  ,(princ-to-string 
-		    (swank-mop:slot-definition-name slot)))))
+		    (slynk-mop:slot-definition-name slot)))))
     (:newline)
     "Effective Slots: "
-    ,@(if (swank-mop:class-finalized-p class)
+    ,@(if (slynk-mop:class-finalized-p class)
 	  (comma-separated
-	   (swank-mop:class-slots class)
+	   (slynk-mop:class-slots class)
 	   (lambda (slot)
 	     `(:value ,slot ,(princ-to-string
-			      (swank-mop:slot-definition-name slot)))))
+			      (slynk-mop:slot-definition-name slot)))))
 	  '("#<N/A (class not finalized)>"))
     (:newline)
     ,@(when (documentation class t)
 	    `("Documentation:" (:newline) ,(documentation class t) (:newline)))
     "Sub classes: "
-    ,@(comma-separated (swank-mop:class-direct-subclasses class)
+    ,@(comma-separated (slynk-mop:class-direct-subclasses class)
 		       (lambda (sub)
 			 `(:value ,sub ,(princ-to-string (class-name sub)))))
     (:newline)
     "Precedence List: "
-    ,@(if (swank-mop:class-finalized-p class)
+    ,@(if (slynk-mop:class-finalized-p class)
 	  (comma-separated 
-	   (swank-mop:class-precedence-list class)
+	   (slynk-mop:class-precedence-list class)
 	   (lambda (class)
 	     `(:value ,class 
 		      ,(princ-to-string (class-name class)))))
@@ -442,23 +442,23 @@
 (defmethod emacs-inspect ((slot cons))
   ;; Inspects slot definitions
   (if (eq (car slot) :name)
-      `("Name: " (:value ,(swank-mop:slot-definition-name slot))
+      `("Name: " (:value ,(slynk-mop:slot-definition-name slot))
 		 (:newline)
-		 ,@(when (swank-mop:slot-definition-documentation slot)
+		 ,@(when (slynk-mop:slot-definition-documentation slot)
 			 `("Documentation:"  
 			   (:newline)
 			   (:value 
-			    ,(swank-mop:slot-definition-documentation slot))
+			    ,(slynk-mop:slot-definition-documentation slot))
 			   (:newline)))
 		 "Init args: " (:value 
-				,(swank-mop:slot-definition-initargs slot))
+				,(slynk-mop:slot-definition-initargs slot))
 		 (:newline)
 		 "Init form: "
-		 ,(if (swank-mop:slot-definition-initfunction slot)
-		      `(:value ,(swank-mop:slot-definition-initform slot))
+		 ,(if (slynk-mop:slot-definition-initfunction slot)
+		      `(:value ,(slynk-mop:slot-definition-initform slot))
 		      "#<unspecified>") (:newline)
 		      "Init function: " 
-		      (:value ,(swank-mop:slot-definition-initfunction slot))
+		      (:value ,(slynk-mop:slot-definition-initfunction slot))
 		      (:newline))
       (call-next-method)))
   

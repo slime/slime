@@ -1,6 +1,6 @@
 ;;;; -*- indent-tabs-mode: nil -*-
 ;;;
-;;; swank-loader.lisp --- Compile and load the Sly backend.
+;;; slynk-loader.lisp --- Compile and load the Sly backend.
 ;;;
 ;;; Created 2003, James Bielman <jamesjb@jamesjb.com>
 ;;;
@@ -9,15 +9,15 @@
 ;;;
 
 ;; If you want customize the source- or fasl-directory you can set
-;; swank-loader:*source-directory* resp. swank-loader:*fasl-directory*
+;; slynk-loader:*source-directory* resp. slynk-loader:*fasl-directory*
 ;; before loading this files.
 ;; E.g.:
 ;;
-;;   (load ".../swank-loader.lisp")
-;;   (setq swank-loader::*fasl-directory* "/tmp/fasl/")
-;;   (swank-loader:init)
+;;   (load ".../slynk-loader.lisp")
+;;   (setq slynk-loader::*fasl-directory* "/tmp/fasl/")
+;;   (slynk-loader:init)
 
-(cl:defpackage :swank-loader
+(cl:defpackage :slynk-loader
   (:use :cl)
   (:export #:init
            #:dump-image
@@ -25,7 +25,7 @@
            #:*fasl-directory*
            #:*load-path*))
 
-(cl:in-package :swank-loader)
+(cl:in-package :slynk-loader)
 
 (defvar *source-directory*
   (make-pathname :name nil :type nil
@@ -36,18 +36,18 @@
   "A list of directories to search for modules.")
 
 (defparameter *sysdep-files*
-  #+cmu '(swank-source-path-parser swank-source-file-cache (backend swank-cmucl) swank-gray)
-  #+scl '(swank-source-path-parser swank-source-file-cache (backend swank-scl) swank-gray)
-  #+sbcl '(swank-source-path-parser swank-source-file-cache
-           (backend swank-sbcl) swank-gray)
-  #+clozure '(metering (backend swank-ccl) swank-gray)
-  #+lispworks '((backend swank-lispworks) swank-gray)
-  #+allegro '((backend swank-allegro) swank-gray)
-  #+clisp '(xref metering (backend swank-clisp) swank-gray)
-  #+armedbear '((backend swank-abcl) swank-gray)
-  #+cormanlisp '((backend swank-corman) swank-gray)
-  #+ecl '(swank-source-path-parser swank-source-file-cache
-          (backend swank-ecl) swank-gray))
+  #+cmu '(slynk-source-path-parser slynk-source-file-cache (backend slynk-cmucl) slynk-gray)
+  #+scl '(slynk-source-path-parser slynk-source-file-cache (backend slynk-scl) slynk-gray)
+  #+sbcl '(slynk-source-path-parser slynk-source-file-cache
+           (backend slynk-sbcl) slynk-gray)
+  #+clozure '(metering (backend slynk-ccl) slynk-gray)
+  #+lispworks '((backend slynk-lispworks) slynk-gray)
+  #+allegro '((backend slynk-allegro) slynk-gray)
+  #+clisp '(xref metering (backend slynk-clisp) slynk-gray)
+  #+armedbear '((backend slynk-abcl) slynk-gray)
+  #+cormanlisp '((backend slynk-corman) slynk-gray)
+  #+ecl '(slynk-source-path-parser slynk-source-file-cache
+          (backend slynk-ecl) slynk-gray))
 
 (defparameter *implementation-features*
   '(:allegro :lispworks :sbcl :clozure :cmu :clisp :ccl :corman :cormanlisp
@@ -125,8 +125,8 @@ operating system, and hardware architecture."
   (> (file-write-date new-file) (file-write-date old-file)))
 
 (defun sly-version-string ()
-  ;; Duplicate in swank.lisp, who uses it to negotiate versions
-  ;; between sly/swank. We use it to figure out where to put fasls.
+  ;; Duplicate in slynk.lisp, who uses it to negotiate versions
+  ;; between sly/slynk. We use it to figure out where to put fasls.
   "Return a string identifying the SLY version.
 Return nil if nothing appropriate is available."
   (ignore-errors
@@ -156,7 +156,7 @@ Return nil if nothing appropriate is available."
                                     :type (pathname-type cfp))
                      binary-dir)))
 
-(defun handle-swank-load-error (condition context pathname)
+(defun handle-slynk-load-error (condition context pathname)
   (fresh-line *error-output*)
   (pprint-logical-block (*error-output* () :per-line-prefix ";; ")
     (format *error-output*
@@ -196,9 +196,9 @@ If LOAD is true, load the fasl file."
           ;; Fail as early as possible
           (serious-condition (c)
             (ecase state
-              (:compile (handle-swank-load-error c "compiling" src))
-              (:load    (handle-swank-load-error c "loading" dest))
-              (:unknown (handle-swank-load-error c "???ing" src)))))))))
+              (:compile (handle-slynk-load-error c "compiling" src))
+              (:load    (handle-slynk-load-error c "loading" dest))
+              (:unknown (handle-slynk-load-error c "???ing" src)))))))))
 
 #+(or cormanlisp)
 (defun compile-files (files fasl-dir load quiet)
@@ -224,16 +224,16 @@ If LOAD is true, load the fasl file."
                              :defaults src-dir)))
           (mapcar #'ensure-list files)))
 
-(defvar *swank-files*
-  `(swank-backend ,@*sysdep-files* swank-match swank-rpc swank))
+(defvar *slynk-files*
+  `(slynk-backend ,@*sysdep-files* slynk-match slynk-rpc slynk))
 
-(defun load-swank (&key (src-dir *source-directory*)
+(defun load-slynk (&key (src-dir *source-directory*)
                      (fasl-dir *fasl-directory*)
                      quiet)
-  (compile-files (src-files *swank-files* src-dir) fasl-dir t quiet))
+  (compile-files (src-files *slynk-files* src-dir) fasl-dir t quiet))
 
-(defun delete-stale-contrib-fasl-files (swank-files contrib-files fasl-dir)
-  (let ((newest (reduce #'max (mapcar #'file-write-date swank-files))))
+(defun delete-stale-contrib-fasl-files (slynk-files contrib-files fasl-dir)
+  (let ((newest (reduce #'max (mapcar #'file-write-date slynk-files))))
     (dolist (src contrib-files)
       (let ((fasl (binary-pathname src fasl-dir)))
         (when (and (probe-file fasl)
@@ -241,34 +241,34 @@ If LOAD is true, load the fasl file."
           (delete-file fasl))))))
 
 (defun loadup ()
-  (load-swank))
+  (load-slynk))
 
 (defun setup ()
-  (funcall (q "swank::init")))
+  (funcall (q "slynk::init")))
 
 (defun init (&key delete reload (setup t)
                   (quiet (not *load-verbose*))
                   load-contribs)
-  "Load SWANK and initialize some global variables.
-If DELETE is true, delete any existing SWANK packages.
-If RELOAD is true, reload SWANK, even if the SWANK package already exists.
+  "Load SLYNK and initialize some global variables.
+If DELETE is true, delete any existing SLYNK packages.
+If RELOAD is true, reload SLYNK, even if the SLYNK package already exists.
 If SETUP is true, load user init files and initialize some
-global variabes in SWANK."
+global variabes in SLYNK."
   (if load-contribs
       (warn
-       "LOAD-CONTRIBS arg to SWANK-LOADER:INIT is deprecated and useless"))
-  (when (and delete (find-package :swank))
-    (mapc #'delete-package '(:swank :swank-io-package :swank-backend)))
-  (cond ((or (not (find-package :swank)) reload)
-         (load-swank :quiet quiet))
+       "LOAD-CONTRIBS arg to SLYNK-LOADER:INIT is deprecated and useless"))
+  (when (and delete (find-package :slynk))
+    (mapc #'delete-package '(:slynk :slynk-io-package :slynk-backend)))
+  (cond ((or (not (find-package :slynk)) reload)
+         (load-slynk :quiet quiet))
         (t
-         (warn "Not reloading SWANK.  Package already exists.")))
+         (warn "Not reloading SLYNK.  Package already exists.")))
   (when setup
     (setup)))
 
 (defun dump-image (filename)
   (init :setup nil)
-  (funcall (q "swank-backend:save-image") filename))
+  (funcall (q "slynk-backend:save-image") filename))
 
 
 ;;;;;; Simple *require-module* function for asdf-loader.lisp.

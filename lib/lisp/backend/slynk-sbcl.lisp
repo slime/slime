@@ -1,6 +1,6 @@
 ;;;;; -*- indent-tabs-mode: nil -*-
 ;;;
-;;; swank-sbcl.lisp --- SLY backend for SBCL.
+;;; slynk-sbcl.lisp --- SLY backend for SBCL.
 ;;;
 ;;; Created 2003, Daniel Barlow <dan@metacircles.com>
 ;;;
@@ -11,10 +11,10 @@
 
 ;;; Administrivia
 
-(defpackage swank-sbcl
-  (:use cl swank-backend swank-source-path-parser swank-source-file-cache))
+(defpackage slynk-sbcl
+  (:use cl slynk-backend slynk-source-path-parser slynk-source-file-cache))
 
-(in-package swank-sbcl)
+(in-package slynk-sbcl)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require 'sb-bsd-sockets)
@@ -43,11 +43,11 @@
   (defun sbcl-with-restart-frame ()
     (with-symbol 'frame-has-debug-tag-p 'sb-debug)))
 
-;;; swank-mop
+;;; slynk-mop
 
-(import-swank-mop-symbols :sb-mop '(:slot-definition-documentation))
+(import-slynk-mop-symbols :sb-mop '(:slot-definition-documentation))
 
-(defun swank-mop:slot-definition-documentation (slot)
+(defun slynk-mop:slot-definition-documentation (slot)
   (sb-pcl::documentation slot t))
 
 ;; stream support
@@ -214,7 +214,7 @@
 #-win32
 (defun input-ready-p (stream)
   (or (not (fd-stream-input-buffer-empty-p stream))
-      #+#.(swank-backend:with-symbol 'fd-stream-fd-type 'sb-impl)
+      #+#.(slynk-backend:with-symbol 'fd-stream-fd-type 'sb-impl)
       (eq :regular (sb-impl::fd-stream-fd-type stream))
       (not (sb-impl::sysread-may-block-p stream))))
 
@@ -313,7 +313,7 @@
                          `(:external-format ,external-format))
                         (t '()))
                 :serve-events ,(eq :fd-handler
-                                   (swank-value '*communication-style* t))
+                                   (slynk-value '*communication-style* t))
                   ;; SBCL < 1.0.42.43 doesn't support :SERVE-EVENTS
                   ;; argument.
                 :allow-other-keys t)))
@@ -415,20 +415,20 @@
 
 ;;; Utilities
 
-(defun swank-value (name &optional errorp)
-  ;; Easy way to refer to symbol values in SWANK, which doesn't yet exist when
+(defun slynk-value (name &optional errorp)
+  ;; Easy way to refer to symbol values in SLYNK, which doesn't yet exist when
   ;; this is file is loaded.
-  (let ((symbol (find-symbol (string name) :swank)))
+  (let ((symbol (find-symbol (string name) :slynk)))
     (if (and symbol (or errorp (boundp symbol)))
         (symbol-value symbol)
         (when errorp
-          (error "~S does not exist in SWANK." name)))))
+          (error "~S does not exist in SLYNK." name)))))
 
-#+#.(swank-backend:with-symbol 'function-lambda-list 'sb-introspect)
+#+#.(slynk-backend:with-symbol 'function-lambda-list 'sb-introspect)
 (defimplementation arglist (fname)
   (sb-introspect:function-lambda-list fname))
 
-#-#.(swank-backend:with-symbol 'function-lambda-list 'sb-introspect)
+#-#.(slynk-backend:with-symbol 'function-lambda-list 'sb-introspect)
 (defimplementation arglist (fname)
   (sb-introspect:function-arglist fname))
 
@@ -450,7 +450,7 @@
                     flags :key #'ensure-list))
           (call-next-method)))))
 
-#+#.(swank-backend:with-symbol 'deftype-lambda-list 'sb-introspect)
+#+#.(slynk-backend:with-symbol 'deftype-lambda-list 'sb-introspect)
 (defmethod type-specifier-arglist :around (typespec-operator)
   (multiple-value-bind (arglist foundp)
       (sb-introspect:deftype-lambda-list typespec-operator)
@@ -491,7 +491,7 @@ information."
                       (sb-c:compiler-error  :error)
                       (reader-error         :read-error)
                       (error                :error)
-                      #+#.(swank-backend:with-symbol redefinition-warning 
+                      #+#.(slynk-backend:with-symbol redefinition-warning 
                             sb-kernel)
                       (sb-kernel:redefinition-warning
                        :redefinition)
@@ -628,7 +628,7 @@ compiler state."
 (defun compiler-policy (qualities)
   "Return compiler policy qualities present in the QUALITIES alist.
 QUALITIES is an alist with (quality . value)"
-  #+#.(swank-backend:with-symbol 'restrict-compiler-policy 'sb-ext)
+  #+#.(slynk-backend:with-symbol 'restrict-compiler-policy 'sb-ext)
   (loop with policy = (sb-ext:restrict-compiler-policy)
         for (quality) in qualities
         collect (cons quality
@@ -637,7 +637,7 @@ QUALITIES is an alist with (quality . value)"
 
 (defun (setf compiler-policy) (policy)
   (declare (ignorable policy))
-  #+#.(swank-backend:with-symbol 'restrict-compiler-policy 'sb-ext)
+  #+#.(slynk-backend:with-symbol 'restrict-compiler-policy 'sb-ext)
   (loop for (qual . value) in policy
         do (sb-ext:restrict-compiler-policy qual value)))
 
@@ -648,7 +648,7 @@ QUALITIES is an alist with (quality . value)"
        (unwind-protect (progn ,@body)
          (setf (compiler-policy) ,current-policy)))))
 
-(defimplementation swank-compile-file (input-file output-file
+(defimplementation slynk-compile-file (input-file output-file
                                        load-p external-format
                                        &key policy)
   (multiple-value-bind (output-file warnings-p failure-p)
@@ -687,7 +687,7 @@ QUALITIES is an alist with (quality . value)"
 
 (defvar *trap-load-time-warnings* t)
 
-(defimplementation swank-compile-string (string &key buffer position filename
+(defimplementation slynk-compile-string (string &key buffer position filename
                                          policy)
   (let ((*buffer-name* buffer)
         (*buffer-offset* position)
@@ -964,7 +964,7 @@ Return NIL if the symbol is unbound."
     (:type
      (describe (sb-kernel:values-specifier-type symbol)))))
   
-#+#.(swank-sbcl::sbcl-with-xref-p)
+#+#.(slynk-sbcl::sbcl-with-xref-p)
 (progn
   (defmacro defxref (name &optional fn-name)
     `(defimplementation ,name (what)
@@ -980,7 +980,7 @@ Return NIL if the symbol is unbound."
   (defxref who-sets)
   (defxref who-references)
   (defxref who-macroexpands)
-  #+#.(swank-backend:with-symbol 'who-specializes-directly 'sb-introspect)
+  #+#.(slynk-backend:with-symbol 'who-specializes-directly 'sb-introspect)
   (defxref who-specializes who-specializes-directly))
 
 (defun source-location-for-xref-data (xref-data)
@@ -1018,9 +1018,9 @@ Return NIL if the symbol is unbound."
                 (equal (second a) (second b))))))
 
 (defun ignored-xref-function-names ()
-  #-#.(swank-sbcl::sbcl-with-new-stepper-p)
+  #-#.(slynk-sbcl::sbcl-with-new-stepper-p)
   '(nil sb-c::step-form sb-c::step-values)
-  #+#.(swank-sbcl::sbcl-with-new-stepper-p)
+  #+#.(slynk-sbcl::sbcl-with-new-stepper-p)
   '(nil))
 
 (defun function-dspec (fn)
@@ -1047,7 +1047,7 @@ Return a list of the form (NAME LOCATION)."
 
 (defun make-invoke-debugger-hook (hook)
   (when hook
-    #'(sb-int:named-lambda swank-invoke-debugger-hook
+    #'(sb-int:named-lambda slynk-invoke-debugger-hook
           (condition old-hook)
         (if *debugger-hook*
             nil         ; decline, *DEBUGGER-HOOK* will be tried next.
@@ -1065,7 +1065,7 @@ Return a list of the form (NAME LOCATION)."
   (set-break-hook function))
 
 (defimplementation condition-extras (condition)
-  (cond #+#.(swank-sbcl::sbcl-with-new-stepper-p)
+  (cond #+#.(slynk-sbcl::sbcl-with-new-stepper-p)
         ((typep condition 'sb-impl::step-form-condition)
          `((:show-frame-source 0)))
         ((typep condition 'sb-int:reference-condition)
@@ -1089,11 +1089,11 @@ Return a list of the form (NAME LOCATION)."
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
   (let ((*sldb-stack-top*
-          (if (and (not *debug-swank-backend*)
+          (if (and (not *debug-slynk-backend*)
                    sb-debug:*stack-top-hint*)
-              #+#.(swank-backend:with-symbol 'resolve-stack-top-hint 'sb-debug)
+              #+#.(slynk-backend:with-symbol 'resolve-stack-top-hint 'sb-debug)
               (sb-debug::resolve-stack-top-hint)
-              #-#.(swank-backend:with-symbol 'resolve-stack-top-hint 'sb-debug)
+              #-#.(slynk-backend:with-symbol 'resolve-stack-top-hint 'sb-debug)
               sb-debug:*stack-top-hint*
               (sb-di:top-frame)))
         (sb-debug:*stack-top-hint* nil))
@@ -1103,7 +1103,7 @@ Return a list of the form (NAME LOCATION)."
                                :original-condition condition))))
       (funcall debugger-loop-fn))))
 
-#+#.(swank-sbcl::sbcl-with-new-stepper-p)
+#+#.(slynk-sbcl::sbcl-with-new-stepper-p)
 (progn
   (defimplementation activate-stepping (frame)
     (declare (ignore frame))
@@ -1119,14 +1119,14 @@ Return a list of the form (NAME LOCATION)."
 
 (defimplementation call-with-debugger-hook (hook fun)
   (let ((*debugger-hook* hook)
-        #+#.(swank-sbcl::sbcl-with-new-stepper-p)
+        #+#.(slynk-sbcl::sbcl-with-new-stepper-p)
         (sb-ext:*stepper-hook*
          (lambda (condition)
            (typecase condition
              (sb-ext:step-form-condition
               (let ((sb-debug:*stack-top-hint* (sb-di::find-stepped-frame)))
                 (sb-impl::invoke-debugger condition)))))))
-    (handler-bind (#+#.(swank-sbcl::sbcl-with-new-stepper-p)
+    (handler-bind (#+#.(slynk-sbcl::sbcl-with-new-stepper-p)
                    (sb-ext:step-condition #'sb-impl::invoke-stepper))
       (call-with-break-hook hook fun))))
 
@@ -1148,7 +1148,7 @@ stack."
   (sb-debug::print-frame-call frame stream))
 
 (defimplementation frame-restartable-p (frame)
-  #+#.(swank-sbcl::sbcl-with-restart-frame)
+  #+#.(slynk-sbcl::sbcl-with-restart-frame)
   (not (null (sb-debug:frame-has-debug-tag-p frame))))
 
 (defimplementation frame-arguments (frame)
@@ -1170,11 +1170,11 @@ stack."
          (plist (sb-c::debug-source-plist dsource)))
     (if (getf plist :emacs-buffer)
         (emacs-buffer-source-location code-location plist)
-        #+#.(swank-backend:with-symbol 'debug-source-from 'sb-di)
+        #+#.(slynk-backend:with-symbol 'debug-source-from 'sb-di)
         (ecase (sb-di:debug-source-from dsource)
           (:file (file-source-location code-location))
           (:lisp (lisp-source-location code-location)))
-        #-#.(swank-backend:with-symbol 'debug-source-from 'sb-di)
+        #-#.(slynk-backend:with-symbol 'debug-source-from 'sb-di)
         (if (sb-di:debug-source-namestring dsource)
             (file-source-location code-location)
             (lisp-source-location code-location)))))
@@ -1202,7 +1202,7 @@ stack."
 (defun lisp-source-location (code-location)
   (let ((source (prin1-to-string
                  (sb-debug::code-location-source-form code-location 100)))
-        (condition (swank-value '*swank-debugger-condition*)))
+        (condition (slynk-value '*slynk-debugger-condition*)))
     (if (and (typep condition 'sb-impl::step-form-condition)
              (search "SB-IMPL::WITH-STEPPING-ENABLED" source
                      :test #'char-equal)
@@ -1238,10 +1238,10 @@ stack."
                          `(:snippet ,snippet)))))))
 
 (defun code-location-debug-source-name (code-location)
-  (namestring (truename (#+#.(swank-backend:with-symbol
+  (namestring (truename (#+#.(slynk-backend:with-symbol
                               'debug-source-name 'sb-di)
                              sb-c::debug-source-name
-                             #-#.(swank-backend:with-symbol
+                             #-#.(slynk-backend:with-symbol
                                   'debug-source-name 'sb-di)
                              sb-c::debug-source-namestring
                          (sb-di::code-location-debug-source code-location)))))
@@ -1276,7 +1276,7 @@ stack."
   (with-input-from-string (s string)
     (stream-source-position code-location s)))
 
-;;; source-path-file-position and friends are in swank-source-path-parser
+;;; source-path-file-position and friends are in slynk-source-path-parser
 
 (defimplementation frame-source-location (index)
   (converting-errors-to-error-location
@@ -1383,7 +1383,7 @@ stack."
           (symbol (symbol-package name))
           ((cons (eql setf) (cons symbol)) (symbol-package (cadr name))))))))
 
-#+#.(swank-sbcl::sbcl-with-restart-frame)
+#+#.(slynk-sbcl::sbcl-with-restart-frame)
 (progn
   (defimplementation return-from-frame (index form)
     (let* ((frame (nth-frame index)))
@@ -1415,7 +1415,7 @@ stack."
 ;; FIXME: this implementation doesn't unwind the stack before
 ;; re-invoking the function, but it's better than no implementation at
 ;; all.
-#-#.(swank-sbcl::sbcl-with-restart-frame)
+#-#.(slynk-sbcl::sbcl-with-restart-frame)
 (progn
   (defun sb-debug-catch-tag-p (tag)
     (and (symbolp tag)
@@ -1548,7 +1548,7 @@ stack."
 ;;;; Multiprocessing
 
 #+(and sb-thread
-       #.(swank-backend:with-symbol "THREAD-NAME" "SB-THREAD"))
+       #.(slynk-backend:with-symbol "THREAD-NAME" "SB-THREAD"))
 (progn
   (defvar *thread-id-counter* 0)
 
@@ -1716,15 +1716,15 @@ stack."
   ;; In an ideal world we would just have an :AROUND method on
   ;; SLY-OUTPUT-STREAM, and be done, but that class doesn't exist when this
   ;; file is loaded -- so first we need a dummy definition that will be
-  ;; overridden by swank-gray.lisp.
-  #.(unless (find-package 'swank-gray) (make-package 'swank-gray) nil)
+  ;; overridden by slynk-gray.lisp.
+  #.(unless (find-package 'slynk-gray) (make-package 'slynk-gray) nil)
   (eval-when (:load-toplevel :execute)
-    (unless (find-package 'swank-gray) (make-package 'swank-gray) nil))
-  (defclass swank-gray::sly-output-stream
+    (unless (find-package 'slynk-gray) (make-package 'slynk-gray) nil))
+  (defclass slynk-gray::sly-output-stream
       (sb-gray:fundamental-character-output-stream)
     ())
   (defmethod sb-gray:stream-force-output
-      :around ((stream swank-gray::sly-output-stream))
+      :around ((stream slynk-gray::sly-output-stream))
     (handler-case
         (sb-sys:with-deadline (:seconds 0.1)
           (call-next-method))
@@ -1733,9 +1733,9 @@ stack."
   )
 
 (defimplementation quit-lisp ()
-  #+#.(swank-backend:with-symbol 'exit 'sb-ext)
+  #+#.(slynk-backend:with-symbol 'exit 'sb-ext)
   (sb-ext:exit)
-  #-#.(swank-backend:with-symbol 'exit 'sb-ext)
+  #-#.(slynk-backend:with-symbol 'exit 'sb-ext)
   (progn
     #+sb-thread
     (dolist (thread (remove (current-thread) (all-threads)))
@@ -1784,19 +1784,19 @@ stack."
 ;;; Weak datastructures
 
 (defimplementation make-weak-key-hash-table (&rest args)  
-  #+#.(swank-sbcl::sbcl-with-weak-hash-tables)
+  #+#.(slynk-sbcl::sbcl-with-weak-hash-tables)
   (apply #'make-hash-table :weakness :key args)
-  #-#.(swank-sbcl::sbcl-with-weak-hash-tables)
+  #-#.(slynk-sbcl::sbcl-with-weak-hash-tables)
   (apply #'make-hash-table args))
 
 (defimplementation make-weak-value-hash-table (&rest args)
-  #+#.(swank-sbcl::sbcl-with-weak-hash-tables)
+  #+#.(slynk-sbcl::sbcl-with-weak-hash-tables)
   (apply #'make-hash-table :weakness :value args)
-  #-#.(swank-sbcl::sbcl-with-weak-hash-tables)
+  #-#.(slynk-sbcl::sbcl-with-weak-hash-tables)
   (apply #'make-hash-table args))
 
 (defimplementation hash-table-weakness (hashtable)
-  #+#.(swank-sbcl::sbcl-with-weak-hash-tables)
+  #+#.(slynk-sbcl::sbcl-with-weak-hash-tables)
   (sb-ext:hash-table-weakness hashtable))
 
 #-win32
@@ -1839,10 +1839,10 @@ stack."
         (sb-alien:free-alien a-args))))
 
   (defun runtime-pathname ()
-    #+#.(swank-backend:with-symbol
+    #+#.(slynk-backend:with-symbol
             '*runtime-pathname* 'sb-ext)
     sb-ext:*runtime-pathname*
-    #-#.(swank-backend:with-symbol
+    #-#.(slynk-backend:with-symbol
             '*runtime-pathname* 'sb-ext)
     (car sb-ext:*posix-argv*))
 
@@ -1850,7 +1850,7 @@ stack."
     (loop with fd-arg =
           (loop for arg in args
                 and key = "" then arg
-                when (string-equal key "--swank-fd")
+                when (string-equal key "--slynk-fd")
                 return (parse-integer arg))
           for my-fd from 3 to 1024
           when (/= my-fd fd-arg)
@@ -1901,9 +1901,9 @@ stack."
 ;;;; wrap interface implementation
 
 (defun sbcl-version>= (&rest subversions)
-  #+#.(swank-backend:with-symbol 'assert-version->= 'sb-ext)
+  #+#.(slynk-backend:with-symbol 'assert-version->= 'sb-ext)
   (values (ignore-errors (apply #'sb-ext:assert-version->= subversions) t))
-  #-#.(swank-backend:with-symbol 'assert-version->= 'sb-ext)
+  #-#.(slynk-backend:with-symbol 'assert-version->= 'sb-ext)
   nil)
 
 (defimplementation wrap (spec indicator &key before after replace)
@@ -1912,10 +1912,10 @@ stack."
           spec indicator)
     (sb-int:unencapsulate spec indicator))
   (sb-int:encapsulate spec indicator
-                      #-#.(swank-backend:with-symbol 'arg-list 'sb-int)
+                      #-#.(slynk-backend:with-symbol 'arg-list 'sb-int)
                       (lambda (function &rest args)
                         (sbcl-wrap spec before after replace function args))
-                      #+#.(swank-backend:with-symbol 'arg-list 'sb-int)
+                      #+#.(slynk-backend:with-symbol 'arg-list 'sb-int)
                       (if (sbcl-version>= 1 1 16)
                           (lambda ()
                             (sbcl-wrap spec before after replace

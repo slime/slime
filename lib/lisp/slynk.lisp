@@ -1,17 +1,17 @@
-;;;; swank.lisp --- Server for SLY commands.
+;;;; slynk.lisp --- Server for SLY commands.
 ;;;
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
 ;;;
-;;; This file defines the "Swank" TCP server for Emacs to talk to. The
+;;; This file defines the "Slynk" TCP server for Emacs to talk to. The
 ;;; code in this file is purely portable Common Lisp. We do require a
 ;;; smattering of non-portable functions in order to write the server,
-;;; so we have defined them in `swank-backend.lisp' and implemented
+;;; so we have defined them in `slynk-backend.lisp' and implemented
 ;;; them separately for each Lisp implementation. These extensions are
-;;; available to us here via the `SWANK-BACKEND' package.
+;;; available to us here via the `SLYNK-BACKEND' package.
 
-(defpackage :swank
-  (:use :cl :swank-backend :swank-match :swank-rpc)
+(defpackage :slynk
+  (:use :cl :slynk-backend :slynk-match :slynk-rpc)
   (:export #:startup-multiprocessing
            #:start-server
            #:create-server
@@ -21,7 +21,7 @@
            #:inspect-in-emacs
            #:print-indentation-lossage
            #:invoke-sly-debugger
-           #:swank-debugger-hook
+           #:slynk-debugger-hook
            #:emacs-inspect
            ;;#:inspect-slot-for-emacs
            #:authenticate-client
@@ -42,11 +42,11 @@
            #:*backtrace-printer-bindings*
            #:*default-worker-thread-bindings*
            #:*macroexpand-printer-bindings*
-           #:*swank-pprint-bindings*
+           #:*slynk-pprint-bindings*
            #:*inspector-verbose*
            #:*require-module*
            ;; This is SETFable.
-           #:debug-on-swank-error
+           #:debug-on-slynk-error
            ;; These are re-exported directly from the backend:
            #:buffer-first-change
            #:frame-source-location
@@ -65,7 +65,7 @@
            #:*find-definitions-left-trim*
            #:*after-toggle-trace-hook*))
 
-(in-package :swank)
+(in-package :slynk)
 
 
 ;;;; Top-level variables, constants, macros
@@ -79,7 +79,7 @@
 (defconstant default-server-port 4005
   "The default TCP port for the server (when started manually).")
 
-(defvar *swank-debug-p* t
+(defvar *slynk-debug-p* t
   "When true, print extra debugging information.")
 
 (defvar *backtrace-pprint-dispatch-table*
@@ -285,34 +285,34 @@ Backend code should treat the connection structure as opaque.")
     (call-with-debugging-environment
      (lambda () (backtrace 0 nil)))))
 
-(define-condition swank-error (error)
-  ((backtrace :initarg :backtrace :reader swank-error.backtrace)
-   (condition :initarg :condition :reader swank-error.condition))
-  (:report (lambda (c s) (princ (swank-error.condition c) s)))
+(define-condition slynk-error (error)
+  ((backtrace :initarg :backtrace :reader slynk-error.backtrace)
+   (condition :initarg :condition :reader slynk-error.condition))
+  (:report (lambda (c s) (princ (slynk-error.condition c) s)))
   (:documentation "Condition which carries a backtrace."))
 
-(defun signal-swank-error (condition &optional (backtrace (safe-backtrace)))
-  (error 'swank-error :condition condition :backtrace backtrace))
+(defun signal-slynk-error (condition &optional (backtrace (safe-backtrace)))
+  (error 'slynk-error :condition condition :backtrace backtrace))
 
-(defvar *debug-on-swank-protocol-error* nil
+(defvar *debug-on-slynk-protocol-error* nil
   "When non-nil invoke the system debugger on errors that were
 signalled during decoding/encoding the wire protocol.  Do not set this
-to T unless you want to debug swank internals.")
+to T unless you want to debug slynk internals.")
 
-(defmacro with-swank-error-handler ((connection) &body body)
-  "Close the connection on internal `swank-error's."
+(defmacro with-slynk-error-handler ((connection) &body body)
+  "Close the connection on internal `slynk-error's."
   (let ((conn (gensym)))
   `(let ((,conn ,connection))
      (handler-case
-         (handler-bind ((swank-error
+         (handler-bind ((slynk-error
                          (lambda (condition)
-                           (when *debug-on-swank-protocol-error*
+                           (when *debug-on-slynk-protocol-error*
                              (invoke-default-debugger condition)))))
            (progn . ,body))
-       (swank-error (condition)
+       (slynk-error (condition)
          (close-connection ,conn
-                           (swank-error.condition condition)
-                           (swank-error.backtrace condition)))))))
+                           (slynk-error.condition condition)
+                           (slynk-error.backtrace condition)))))))
 
 (defmacro with-panic-handler ((connection) &body body)
   "Close the connection on unhandled `serious-condition's."
@@ -345,8 +345,8 @@ documentation string."
 
 ;;;;; Logging
 
-(defvar *swank-io-package*
-  (let ((package (make-package :swank-io-package :use '())))
+(defvar *slynk-io-package*
+  (let ((package (make-package :slynk-io-package :use '())))
     (import '(nil t quote) package)
     package))
 
@@ -386,7 +386,7 @@ Useful for low level debugging."
   (with-standard-io-syntax
     (let ((*print-readably* nil)
           (*print-pretty* nil)
-          (*package* *swank-io-package*))
+          (*package* *slynk-io-package*))
       (when *enable-event-history*
         (setf (aref *event-history* *event-history-index*)
               (format nil "~?" format-string args))
@@ -484,7 +484,7 @@ corresponding values in the CDR of VALUE."
   (with-slots (thread) ch
     (when (use-threads-p)
       (setf thread (spawn-channel-thread *emacs-connection* ch)))
-    (swank-backend:send thread `(:serve-channel ,ch)))
+    (slynk-backend:send thread `(:serve-channel ,ch)))
   (setf (channels) (nconc (channels) (list ch))))
 
 (defmethod print-object ((c channel) stream)
@@ -494,7 +494,7 @@ corresponding values in the CDR of VALUE."
 
 (defmethod drop-unprocessed-events (channel)
   ;; FIXME: perhaps this should incorporate most
-  ;; behaviour from it's :after spec currently in swank-mrepl.lisp)
+  ;; behaviour from it's :after spec currently in slynk-mrepl.lisp)
   (declare (ignore channel)))
 
 (defun find-channel (id)
@@ -504,7 +504,7 @@ corresponding values in the CDR of VALUE."
   (channel-thread channel))
 
 (defun channel-thread-id (channel)
-  (swank-backend:thread-id (channel-thread channel)))
+  (slynk-backend:thread-id (channel-thread channel)))
 
 (defmethod close-channel (channel)
   (let ((probe (find-channel (channel-id channel))))
@@ -671,9 +671,9 @@ corresponding values in the CDR of VALUE."
                (*pending-sly-interrupts* '())
                (*send-counter* 0))
            (without-sly-interrupts
-             (with-swank-error-handler (connection)
+             (with-slynk-error-handler (connection)
                (with-default-listener (connection)
-                 (call-with-debugger-hook #'swank-debugger-hook
+                 (call-with-debugger-hook #'slynk-debugger-hook
                                           function))))))))
 
 (defun call-with-retry-restart (msg thunk)
@@ -729,7 +729,7 @@ recently established one."
 
 (defun start-sentinel ()
   (unless (find-registered 'sentinel)
-    (let ((thread (spawn #'sentinel :name "Swank Sentinel")))
+    (let ((thread (spawn #'sentinel :name "Slynk Sentinel")))
       (register-thread 'sentinel thread))))
 
 (defun sentinel ()
@@ -895,7 +895,7 @@ This is the entry point for Emacs."
                         (style *communication-style*)
                         (dont-close *dont-close*)
                         backlog)
-  "Start a SWANK server on PORT running in STYLE.
+  "Start a SLYNK server on PORT running in STYLE.
 If DONT-CLOSE is true then the listen socket will accept multiple
 connections, otherwise it will be closed after the first."
   (setup-server port #'simple-announce-function
@@ -920,7 +920,7 @@ connections, otherwise it will be closed after the first."
         (:spawn (initialize-multiprocessing
                  (lambda ()
                    (start-sentinel)
-                   (spawn #'serve-loop :name (format nil "Swank ~s" port)))))
+                   (spawn #'serve-loop :name (format nil "Slynk ~s" port)))))
         ((:fd-handler :sigio)
          (note)
          (add-fd-handler socket #'serve))
@@ -934,7 +934,7 @@ connections, otherwise it will be closed after the first."
 (defun restart-server (&key (port default-server-port)
                        (style *communication-style*)
                        (dont-close *dont-close*))
-  "Stop the server listening on PORT, then start a new SWANK server
+  "Stop the server listening on PORT, then start a new SLYNK server
 on PORT running in STYLE. If DONT-CLOSE is true then the listen socket
 will accept multiple connections, otherwise it will be closed after the
 first."
@@ -1000,8 +1000,8 @@ if the file doesn't exist; otherwise the first line of the file."
   (simple-announce-function port))
 
 (defun simple-announce-function (port)
-  (when *swank-debug-p*
-    (format *log-output* "~&;; Swank started at port: ~D.~%" port)
+  (when *slynk-debug-p*
+    (format *log-output* "~&;; Slynk started at port: ~D.~%" port)
     (force-output *log-output*)))
 
 
@@ -1011,18 +1011,18 @@ if the file doesn't exist; otherwise the first line of the file."
   "Read an S-expression from STREAM using the SLY protocol."
   (log-event "decode-message~%")
   (without-sly-interrupts
-    (handler-bind ((error #'signal-swank-error))
-      (handler-case (read-message stream *swank-io-package*)
-        (swank-reader-error (c)
-          `(:reader-error ,(swank-reader-error.packet c)
-                          ,(swank-reader-error.cause c)))))))
+    (handler-bind ((error #'signal-slynk-error))
+      (handler-case (read-message stream *slynk-io-package*)
+        (slynk-reader-error (c)
+          `(:reader-error ,(slynk-reader-error.packet c)
+                          ,(slynk-reader-error.cause c)))))))
 
 (defun encode-message (message stream)
   "Write an S-expression to STREAM using the SLY protocol."
   (log-event "encode-message~%")
   (without-sly-interrupts
-    (handler-bind ((error #'signal-swank-error))
-      (write-message message *swank-io-package* stream))))
+    (handler-bind ((error #'signal-slynk-error))
+      (write-message message *slynk-io-package* stream))))
 
 
 ;;;;; Event Processing
@@ -1076,11 +1076,11 @@ TIMEOUT has the same meaning as in WAIT-FOR-EVENT."
 The new thread will block waiting for a :SERVE-CHANNEL message, then
 process all requests in series until the :TEARDOWN message, at which
 point the thread terminates and CHANNEL is closed."
-  (swank-backend:spawn
+  (slynk-backend:spawn
    (lambda ()
      (with-connection (connection)
        (destructure-case
-        (swank-backend:receive)
+        (slynk-backend:receive)
         ((:serve-channel c)
          (assert (eq c channel))
          (loop
@@ -1104,7 +1104,7 @@ point the thread terminates and CHANNEL is closed."
 (defun close-connection% (c condition backtrace)
   (let ((*debugger-hook* nil))
     (log-event "close-connection: ~a ...~%" condition)
-    (format *log-output* "~&;; swank:close-connection: ~A~%"
+    (format *log-output* "~&;; slynk:close-connection: ~A~%"
             (escape-non-ascii (safe-condition-message condition)))
     (let ((*emacs-connection* c))
       (format *log-output* "~&;; closing ~a channels~%" (length (connection-channels c)))
@@ -1141,7 +1141,7 @@ point the thread terminates and CHANNEL is closed."
 (defun read-loop (connection)
   (let ((input-stream (connection-socket-io connection))
         (control-thread (mconn.control-thread connection)))
-    (with-swank-error-handler (connection)
+    (with-slynk-error-handler (connection)
       (loop (send control-thread (decode-message input-stream))))))
 
 (defun dispatch-loop (connection)
@@ -1197,7 +1197,7 @@ point the thread terminates and CHANNEL is closed."
              (with-top-level-restart (connection nil)
                (apply #'eval-for-emacs
                       (cdr (wait-for-event `(:emacs-rex . _)))))))
-         :name "swank-worker"))
+         :name "slynk-worker"))
 
 (defun add-active-thread (connection thread)
   (etypecase connection
@@ -1349,7 +1349,7 @@ event was found."
             (nconc (ldiff (sconn.event-queue c) tail) (cdr tail)))
       tail)))
 
-;;; FIXME: Make this use SWANK-MATCH.
+;;; FIXME: Make this use SLYNK-MATCH.
 (defun event-match-p (event pattern)
   (cond ((or (keywordp pattern) (numberp pattern) (stringp pattern)
 	     (member pattern '(nil t)))
@@ -1378,7 +1378,7 @@ event was found."
                                    :name "reader-thread"))
     (setf (@ indentation-cache-thread)
           (spawn (lambda () (indentation-cache-loop connection))
-                 :name "swank-indentation-cache-thread"))
+                 :name "slynk-indentation-cache-thread"))
     (dispatch-loop connection)))
 
 (defun cleanup-connection-threads (connection)
@@ -1600,8 +1600,8 @@ Return nil if nothing appropriate is available."
                (middle (position #\Space seq :from-end t :end end)))
           (subseq seq (1+ middle) end))))))
 
-(defvar *swank-wire-protocol-version* (ignore-errors (sly-version-string))
-  "The version of the swank/sly communication protocol.")
+(defvar *slynk-wire-protocol-version* (ignore-errors (sly-version-string))
+  "The version of the slynk/sly communication protocol.")
 
 (defslyfun connection-info ()
   "Return a key-value list of the form:
@@ -1629,18 +1629,18 @@ VERSION: the protocol version"
       :modules ,*modules*
       :package (:name ,(package-name *package*)
                :prompt ,(package-string-for-prompt *package*))
-      :version ,*swank-wire-protocol-version*)))
+      :version ,*slynk-wire-protocol-version*)))
 
-(defun debug-on-swank-error ()
-  (assert (eq *debug-on-swank-protocol-error* *debug-swank-backend*))
-  *debug-on-swank-protocol-error*)
+(defun debug-on-slynk-error ()
+  (assert (eq *debug-on-slynk-protocol-error* *debug-slynk-backend*))
+  *debug-on-slynk-protocol-error*)
 
-(defun (setf debug-on-swank-error) (new-value)
-  (setf *debug-on-swank-protocol-error* new-value)
-  (setf *debug-swank-backend* new-value))
+(defun (setf debug-on-slynk-error) (new-value)
+  (setf *debug-on-slynk-protocol-error* new-value)
+  (setf *debug-slynk-backend* new-value))
 
-(defslyfun toggle-debug-on-swank-error ()
-  (setf (debug-on-swank-error) (not (debug-on-swank-error))))
+(defslyfun toggle-debug-on-slynk-error ()
+  (setf (debug-on-slynk-error) (not (debug-on-slynk-error))))
 
 
 ;;;; Reading and printing
@@ -1820,7 +1820,7 @@ Return the symbol and a flag indicating whether the symbols was found."
 Return the package or nil."
   ;; STRING comes usually from a (in-package STRING) form.
   (ignore-errors
-    (find-package (let ((*package* *swank-io-package*))
+    (find-package (let ((*package* *slynk-io-package*))
                     (read-from-string string)))))
 
 (defun unparse-name (string)
@@ -1947,7 +1947,7 @@ last form."
           (makunbound name)
           (prin1-to-string (eval form)))))))
 
-(defvar *swank-pprint-bindings*
+(defvar *slynk-pprint-bindings*
   `((*print-pretty*   . t)
     (*print-level*    . nil)
     (*print-length*   . nil)
@@ -1957,10 +1957,10 @@ last form."
   "A list of variables bindings during pretty printing.
 Used by pprint-eval.")
 
-(defun swank-pprint (values)
+(defun slynk-pprint (values)
   "Bind some printer variables and pretty print each object in VALUES."
   (with-buffer-syntax ()
-    (with-bindings *swank-pprint-bindings*
+    (with-bindings *slynk-pprint-bindings*
       (cond ((null values) "; No value")
             (t (with-output-to-string (*standard-output*)
                  (dolist (o values)
@@ -1975,7 +1975,7 @@ Used by pprint-eval.")
                   (*trace-output* s))
               (multiple-value-list (eval (read-from-string string))))))
       (cat (get-output-stream-string s)
-           (swank-pprint values)))))
+           (slynk-pprint values)))))
 
 (defslyfun set-package (name)
   "Set *package* to the package named NAME.
@@ -2213,11 +2213,11 @@ after Emacs causes a restart to be invoked."
 
 (define-condition invoke-default-debugger () ())
 
-(defun swank-debugger-hook (condition hook)
+(defun slynk-debugger-hook (condition hook)
   "Debugger function for binding *DEBUGGER-HOOK*."
   (declare (ignore hook))
   (handler-case
-      (call-with-debugger-hook #'swank-debugger-hook
+      (call-with-debugger-hook #'slynk-debugger-hook
                                (lambda () (invoke-sly-debugger condition)))
     (invoke-default-debugger ()
       (invoke-default-debugger condition))))
@@ -2226,19 +2226,19 @@ after Emacs causes a restart to be invoked."
   (call-with-debugger-hook nil (lambda () (invoke-debugger condition))))
 
 (defvar *global-debugger* t
-  "Non-nil means the Swank debugger hook will be installed globally.")
+  "Non-nil means the Slynk debugger hook will be installed globally.")
 
 (add-hook *new-connection-hook* 'install-debugger)
 (defun install-debugger (connection)
   (declare (ignore connection))
   (when *global-debugger*
-    (install-debugger-globally #'swank-debugger-hook)))
+    (install-debugger-globally #'slynk-debugger-hook)))
 
 ;;;;; Debugger loop
 ;;;
 ;;; These variables are dynamically bound during debugging.
 ;;;
-(defvar *swank-debugger-condition* nil
+(defvar *slynk-debugger-condition* nil
   "The condition being debugged.")
 
 (defvar *sldb-level* 0
@@ -2254,7 +2254,7 @@ after Emacs causes a restart to be invoked."
   "True during execution of a step command.")
 
 (defun debug-in-emacs (condition)
-  (let ((*swank-debugger-condition* condition)
+  (let ((*slynk-debugger-condition* condition)
         (*sldb-restarts* (compute-restarts condition))
         (*sldb-quit-restart* (and *sldb-quit-restart*
                                   (find-restart *sldb-quit-restart*)))
@@ -2335,13 +2335,13 @@ conditions are simply reported."
   (funcall *sldb-condition-printer* condition))
 
 (defun debugger-condition-for-emacs ()
-  (list (safe-condition-message *swank-debugger-condition*)
+  (list (safe-condition-message *slynk-debugger-condition*)
         (format nil "   [Condition of type ~S]"
-                (type-of *swank-debugger-condition*))
-        (condition-extras *swank-debugger-condition*)))
+                (type-of *slynk-debugger-condition*))
+        (condition-extras *slynk-debugger-condition*)))
 
 (defun format-restarts-for-emacs ()
-  "Return a list of restarts for *swank-debugger-condition* in a
+  "Return a list of restarts for *slynk-debugger-condition* in a
 format suitable for Emacs."
   (let ((*print-right-margin* most-positive-fixnum))
     (loop for restart in *sldb-restarts* collect
@@ -2359,7 +2359,7 @@ format suitable for Emacs."
 (defslyfun sldb-break-with-default-debugger (dont-unwind)
   "Invoke the default debugger."
   (cond (dont-unwind
-         (invoke-default-debugger *swank-debugger-condition*))
+         (invoke-default-debugger *slynk-debugger-condition*))
         (t
          (signal 'invoke-default-debugger))))
 
@@ -2492,7 +2492,7 @@ has changed, ignore the request."
   (eval-in-frame-aux frame string package #'format-values-for-emacs))
 
 (defslyfun pprint-eval-string-in-frame (string frame package)
-  (eval-in-frame-aux frame string package #'swank-pprint))
+  (eval-in-frame-aux frame string package #'slynk-pprint))
 
 (defslyfun frame-package-name (frame)
   (let ((pkg (frame-package frame)))
@@ -2529,7 +2529,7 @@ TAGS has is a list of strings."
 
 (defmacro define-stepper-function (name backend-function-name)
   `(defslyfun ,name (frame)
-     (cond ((sldb-stepper-condition-p *swank-debugger-condition*)
+     (cond ((sldb-stepper-condition-p *slynk-debugger-condition*)
             (setq *sldb-stepping-p* t)
             (,backend-function-name))
            ((find-restart 'continue)
@@ -2549,7 +2549,7 @@ and no continue restart available.")))))
   (format nil "*break-on-signals* = ~a" *break-on-signals*))
 
 (defslyfun sdlb-print-condition ()
-  (princ-to-string *swank-debugger-condition*))
+  (princ-to-string *slynk-debugger-condition*))
 
 
 ;;;; Compilation Commands.
@@ -2603,10 +2603,10 @@ The time is measured in seconds."
                                    :loadp (if loadp t)
                                    :faslfile faslfile))))))
 
-(defun swank-compile-file* (pathname load-p &rest options &key policy
+(defun slynk-compile-file* (pathname load-p &rest options &key policy
                                                       &allow-other-keys)
   (multiple-value-bind (output-pathname warnings? failure?)
-      (swank-compile-file pathname
+      (slynk-compile-file pathname
                           (fasl-pathname pathname options)
                           nil
                           (or (guess-external-format pathname)
@@ -2615,7 +2615,7 @@ The time is measured in seconds."
     (declare (ignore warnings?))
     (values t (not failure?) load-p output-pathname)))
 
-(defvar *compile-file-for-emacs-hook* '(swank-compile-file*))
+(defvar *compile-file-for-emacs-hook* '(slynk-compile-file*))
 
 (defslyfun compile-file-for-emacs (filename load-p &rest options)
   "Compile FILENAME and, when LOAD-P, load the result.
@@ -2665,7 +2665,7 @@ Record compiler notes signalled as `compiler-condition's."
       (collect-notes
        (lambda ()
          (let ((*compile-print* t) (*compile-verbose* nil))
-           (swank-compile-string string
+           (slynk-compile-string string
                                  :buffer buffer
                                  :position offset
                                  :filename filename
@@ -2679,7 +2679,7 @@ Record compiler notes signalled as `compiler-condition's."
          (lambda ()
            (with-buffer-syntax (package)
              (let ((*compile-print* t) (*compile-verbose* nil))
-               (swank-compile-string string
+               (slynk-compile-string string
                                      :buffer buffer
                                      :position position
                                      :filename filename
@@ -2711,20 +2711,20 @@ Record compiler notes signalled as `compiler-condition's."
   (to-string (load (filename-to-pathname filename))))
 
 
-;;;;; swank-require
+;;;;; slynk-require
 
-(defvar *module-loading-method* (find-if #'find-package '(:swank-loader :asdf))
+(defvar *module-loading-method* (find-if #'find-package '(:slynk-loader :asdf))
   "Keyword naming the module-loading method.
 
-SLY's own `swank-loader.lisp' is tried first, then ASDF")
+SLY's own `slynk-loader.lisp' is tried first, then ASDF")
 
 (defgeneric require-module (method module)
   (:documentation
    "Use METHOD to load MODULE.
 Receives a module name as argument and should return non-nil if it
 managed to load it.")
-  (:method ((method (eql :swank-loader)) module)
-    (funcall (intern "REQUIRE-MODULE" :swank-loader) module))
+  (:method ((method (eql :slynk-loader)) module)
+    (funcall (intern "REQUIRE-MODULE" :slynk-loader) module))
   (:method ((method (eql :asdf)) module)
     (funcall (intern "LOAD-SYSTEM" :asdf) module)))
 
@@ -2734,14 +2734,14 @@ managed to load it.")
 (defgeneric add-to-load-path (method path)
   (:documentation
    "Using METHOD, consider PATH when searching for modules.")
-  (:method ((method (eql :swank-loader)) path)
-    (add-to-load-path-1 path (intern "*LOAD-PATH*" :swank-loader)))
+  (:method ((method (eql :slynk-loader)) path)
+    (add-to-load-path-1 path (intern "*LOAD-PATH*" :slynk-loader)))
   (:method ((method (eql :asdf)) path)
     (add-to-load-path-1 path (intern "*CENTRAL-REGISTRY*" :asdf))))
 
 (defvar *add-to-load-path* nil)
 
-(defslyfun swank-require (modules)
+(defslyfun slynk-require (modules)
   "Load each module in MODULES.
 
 MODULES is a list of strings designators or a single string
@@ -2751,7 +2751,7 @@ designator. Returns a list of all modules available."
     (pushnew (string-upcase module) *modules* :test #'equal))
   *modules*)
 
-(defslyfun swank-add-load-paths (paths)
+(defslyfun slynk-add-load-paths (paths)
   (dolist (path paths)
     (funcall #'add-to-load-path *module-loading-method* (pathname path))))
 
@@ -2771,25 +2771,25 @@ designator. Returns a list of all modules available."
     (with-bindings *macroexpand-printer-bindings*
       (prin1-to-string (funcall expander (from-string string))))))
 
-(defslyfun swank-macroexpand-1 (string)
+(defslyfun slynk-macroexpand-1 (string)
   (apply-macro-expander #'macroexpand-1 string))
 
-(defslyfun swank-macroexpand (string)
+(defslyfun slynk-macroexpand (string)
   (apply-macro-expander #'macroexpand string))
 
-(defslyfun swank-macroexpand-all (string)
+(defslyfun slynk-macroexpand-all (string)
   (apply-macro-expander #'macroexpand-all string))
 
-(defslyfun swank-compiler-macroexpand-1 (string)
+(defslyfun slynk-compiler-macroexpand-1 (string)
   (apply-macro-expander #'compiler-macroexpand-1 string))
 
-(defslyfun swank-compiler-macroexpand (string)
+(defslyfun slynk-compiler-macroexpand (string)
   (apply-macro-expander #'compiler-macroexpand string))
 
-(defslyfun swank-expand-1 (string)
+(defslyfun slynk-expand-1 (string)
   (apply-macro-expander #'expand-1 string))
 
-(defslyfun swank-expand (string)
+(defslyfun slynk-expand (string)
   (apply-macro-expander #'expand string))
 
 (defun expand-1 (form)
@@ -2807,7 +2807,7 @@ designator. Returns a list of all modules available."
       (unless expanded? (return expansion))
       (setq form expansion))))
 
-(defslyfun swank-format-string-expand (string)
+(defslyfun slynk-format-string-expand (string)
   (apply-macro-expander #'format-string-expand string))
 
 (defslyfun disassemble-form (form)
@@ -2902,7 +2902,7 @@ The result is a list of property lists."
     ;; listing will only omit package qualifier iff the user specified
     ;; PACKAGE.
     (let ((*buffer-package* (or package
-                                *swank-io-package*)))
+                                *slynk-io-package*)))
       (loop for (symbol . extra)
               in (sort (remove-duplicates
                         (apropos-symbols name external-only case-sensitive package)
@@ -2996,8 +2996,8 @@ MAKE-APROPOS-MATCHER interface has been implemented.")
                    (t
                     (string symbol)))))
          (interface-unimplemented-p
-           (find 'swank-backend:make-apropos-matcher
-                 swank-backend::*unimplemented-interfaces*))
+           (find 'slynk-backend:make-apropos-matcher
+                 slynk-backend::*unimplemented-interfaces*))
          (attempt-cl-ppcre (and *try-cl-ppcre-for-apropos*
                                 (not (every #'alpha-char-p pattern))))
          (matcher (cond ((and interface-unimplemented-p
@@ -3010,7 +3010,7 @@ MAKE-APROPOS-MATCHER interface has been implemented.")
                            (background-message "Using plain apropos. Load CL-PPCRE to enable regexps"))
                          (make-plain-matcher pattern case-sensitive symbol-name-fn))
                         (t
-                         (swank-backend:make-apropos-matcher pattern
+                         (slynk-backend:make-apropos-matcher pattern
                                                              symbol-name-fn
                                                              case-sensitive)))))
     (with-package-iterator (next packages :external :internal)
@@ -3065,7 +3065,7 @@ MAKE-APROPOS-MATCHER interface has been implemented.")
                 (format string "Variable:~% ~a~2%" vdoc))
               (when fdoc
                 (format string "Function:~% Arglist: ~a~2% ~a"
-                        (swank-backend:arglist sym)
+                        (slynk-backend:arglist sym)
                         fdoc))))
           (format nil "No such symbol, ~a." symbol-name)))))
 
@@ -3091,7 +3091,7 @@ Include the nicknames if NICKNAMES is true."
   "Hook called whenever a SPEC is traced or untraced.
 
 If non-nil, called with two arguments SPEC and TRACED-P." )
-(defslyfun swank-toggle-trace (spec-string)
+(defslyfun slynk-toggle-trace (spec-string)
   (let* ((spec (from-string spec-string))
          (retval (cond ((consp spec) ; handle complicated cases in the backend
            (toggle-trace spec))
@@ -3135,7 +3135,7 @@ If non-nil, called with two arguments SPEC and TRACED-P." )
                 (unintern sym pkg)
                 (format nil "Uninterned symbol: ~s" sym))))))))
 
-(defslyfun swank-delete-package (package-name)
+(defslyfun slynk-delete-package (package-name)
   (let ((pkg (or (guess-package package-name)
                  (error "No such package: ~s" package-name))))
     (delete-package pkg)
@@ -3536,7 +3536,7 @@ Return nil if there's no previous object."
 (defslyfun pprint-inspector-part (index)
   "Pretty-print part INDEX of the currently inspected object."
   (with-buffer-syntax ()
-    (swank-pprint (list (inspector-nth-part index)))))
+    (slynk-pprint (list (inspector-nth-part index)))))
 
 (defslyfun inspect-in-frame (string index)
   (with-buffer-syntax ()
@@ -3547,7 +3547,7 @@ Return nil if there's no previous object."
 (defslyfun inspect-current-condition ()
   (with-buffer-syntax ()
     (reset-inspector)
-    (inspect-object *swank-debugger-condition*)))
+    (inspect-object *slynk-debugger-condition*)))
 
 (defslyfun inspect-frame-var (frame var)
   (with-buffer-syntax ()
@@ -3697,17 +3697,17 @@ LABELS is a list of attribute names and the remaining lists are the
 corresponding attribute values per thread.
 Example:
   ((:id :name :status :priority)
-   (6 \"swank-indentation-cache-thread\" \"Semaphore timed wait\" 0)
+   (6 \"slynk-indentation-cache-thread\" \"Semaphore timed wait\" 0)
    (5 \"reader-thread\" \"Active\" 0)
    (4 \"control-thread\" \"Semaphore timed wait\" 0)
-   (2 \"Swank Sentinel\" \"Semaphore timed wait\" 0)
+   (2 \"Slynk Sentinel\" \"Semaphore timed wait\" 0)
    (1 \"listener\" \"Active\" 0)
    (0 \"Initial\" \"Sleep\" 0))"
   (setq *thread-list* (all-threads))
   (when (and *emacs-connection*
              (use-threads-p)
              ;; FIXME: hardcoded thread name
-             (equalp (thread-name (current-thread)) "swank-worker")) 
+             (equalp (thread-name (current-thread)) "slynk-worker")) 
     (setf *thread-list* (delete (current-thread) *thread-list*)))
   (let* ((plist (thread-attributes (car *thread-list*)))
          (labels (loop for (key) on plist by #'cddr
@@ -3740,8 +3740,8 @@ Example:
 (defslyfun kill-nth-thread (index)
   (kill-thread (nth-thread index)))
 
-(defslyfun start-swank-server-in-thread (index port-file-name)
-  "Interrupt the INDEXth thread and make it start a swank server.
+(defslyfun start-slynk-server-in-thread (index port-file-name)
+  "Interrupt the INDEXth thread and make it start a slynk server.
 The server port is written to PORT-FILE-NAME."
   (interrupt-thread (nth-thread index)
                     (lambda ()
@@ -3764,9 +3764,9 @@ The server port is written to PORT-FILE-NAME."
   (let ((symbol (parse-symbol symbol-name *buffer-package*)))
     (ecase type
       (:subclasses
-       (mop-helper symbol #'swank-mop:class-direct-subclasses))
+       (mop-helper symbol #'slynk-mop:class-direct-subclasses))
       (:superclasses
-       (mop-helper symbol #'swank-mop:class-direct-superclasses)))))
+       (mop-helper symbol #'slynk-mop:class-direct-superclasses)))))
 
 
 ;;;; Automatically synchronized state
@@ -3994,7 +3994,7 @@ Collisions are caused because package information is ignored."
 
 ;;;; The "official" API
 
-(defpackage :swank-api (:use))
+(defpackage :slynk-api (:use))
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (let ((api '(#:*emacs-connection*
                #:default-connection
@@ -4036,29 +4036,29 @@ Collisions are caused because package information is ignored."
                ;;
                #:package-string-for-prompt
                ;;
-               #:*swank-wire-protocol-version*)))
+               #:*slynk-wire-protocol-version*)))
     (loop for sym in api
-          for swank-api-sym = (intern (string sym) :swank-api)
-          for swank-sym = (intern (string sym) :swank)
-          do (unintern swank-api-sym :swank-api)
-             (import swank-sym :swank-api)
-             (export swank-sym :swank-api))))
+          for slynk-api-sym = (intern (string sym) :slynk-api)
+          for slynk-sym = (intern (string sym) :slynk)
+          do (unintern slynk-api-sym :slynk-api)
+             (import slynk-sym :slynk-api)
+             (export slynk-sym :slynk-api))))
 
 
-;;;; INIT, as called from the swank-loader.lisp and ASDF's loaders
+;;;; INIT, as called from the slynk-loader.lisp and ASDF's loaders
 ;;;; 
 (defun load-user-init-file ()
   "Load the user init file, return NIL if it does not exist."
   (or (load (merge-pathnames (user-homedir-pathname)
-                             (make-pathname :name ".swank" :type "lisp"))
+                             (make-pathname :name ".slynk" :type "lisp"))
             :if-does-not-exist nil)
       (load (merge-pathnames (user-homedir-pathname)
-                             (make-pathname :name ".swankrc"))
+                             (make-pathname :name ".slynkrc"))
             :if-does-not-exist nil)))
 
 (defun init ()
-  (unless (member :swank *features*)
-    (pushnew :swank *features*))
+  (unless (member :slynk *features*)
+    (pushnew :slynk *features*))
   (load-user-init-file)
   (run-hook *after-init-hook*))
 
@@ -4068,4 +4068,4 @@ Collisions are caused because package information is ignored."
 ;; outline-regexp: ";;;;;*"
 ;; End:
 
-;;; swank.lisp ends here
+;;; slynk.lisp ends here

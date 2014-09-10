@@ -1,4 +1,4 @@
-;;; swank-fuzzy.lisp --- fuzzy symbol completion
+;;; slynk-fuzzy.lisp --- fuzzy symbol completion
 ;;
 ;; Authors: Brian Downing <bdowning@lavos.net>
 ;;          Tobias C. Rittweiler <tcr@freebits.de>
@@ -8,11 +8,11 @@
 ;;
 
 
-(in-package :swank)
+(in-package :slynk)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (swank-require :swank-util)
-  (swank-require :swank-c-p-c))
+  (slynk-require :slynk-util)
+  (slynk-require :slynk-c-p-c))
 
 ;;; For nomenclature of the fuzzy completion section, please read
 ;;; through the following docstring.
@@ -441,7 +441,7 @@ easier.
 
 ORIGINAL-STRING is the string the user completed from, and
 COMPLETION is the completion object (see docstring for
-SWANK:FUZZY-COMPLETIONS) corresponding to the completion that the
+SLYNK:FUZZY-COMPLETIONS) corresponding to the completion that the
 user selected."
   (declare (ignore original-string completion))
   nil)
@@ -668,4 +668,4 @@ for interactive debugging purpose."
           (format t "~&~VA  score ~8,2F  ~A"
                   max-len (highlight-completion result sym) score result))))
 
-(provide :swank-fuzzy)
+(provide :slynk-fuzzy)

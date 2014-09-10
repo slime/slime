@@ -1,6 +1,6 @@
 ;;;; -*- indent-tabs-mode: nil -*-
 ;;;
-;;; swank-ecl.lisp --- SLY backend for ECL.
+;;; slynk-ecl.lisp --- SLY backend for ECL.
 ;;;
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
@@ -8,10 +8,10 @@
 
 ;;; Administrivia
 
-(defpackage swank-ecl
-  (:use cl swank-backend))
+(defpackage slynk-ecl
+  (:use cl slynk-backend))
 
-(in-package swank-ecl)
+(in-package slynk-ecl)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun ecl-version ()
@@ -41,10 +41,10 @@
 
 (declaim (optimize (debug 3)))
 
-;;; Swank-mop
+;;; Slynk-mop
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (import-swank-mop-symbols
+  (import-slynk-mop-symbols
    :clos
    (and (< (ecl-version) 121201)
         `(:eql-specializer
@@ -132,7 +132,7 @@
   ;; Without unicode support, ECL uses the one-byte encoding of the
   ;; underlying OS, and will barf on anything except :DEFAULT.  We
   ;; return NIL here for known multibyte encodings, so
-  ;; SWANK:CREATE-SERVER will barf.
+  ;; SLYNK:CREATE-SERVER will barf.
   #-unicode (let ((xf (external-format coding-system)))
               (if (member xf '(:utf-8))
                   nil
@@ -268,7 +268,7 @@
   (handler-bind ((c:compiler-message #'handle-compiler-message))
     (funcall function)))
 
-(defimplementation swank-compile-file (input-file output-file
+(defimplementation slynk-compile-file (input-file output-file
                                        load-p external-format
                                        &key policy)
   (declare (ignore policy))
@@ -288,13 +288,13 @@
 (defun tmpfile-to-buffer (tmp-file)
   (gethash tmp-file *tmpfile-map*))
 
-(defimplementation swank-compile-string (string &key buffer position filename
+(defimplementation slynk-compile-string (string &key buffer position filename
                                                 policy)
   (declare (ignore policy))
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)        ; for compilation hooks
           (*buffer-start-position* position))
-      (let ((tmp-file (si:mkstemp "TMP:ecl-swank-tmpfile-"))
+      (let ((tmp-file (si:mkstemp "TMP:ecl-slynk-tmpfile-"))
             (fasl-file)
             (warnings-p)
             (failure-p))
@@ -395,38 +395,38 @@
 
 ;;; Commented out; it's not clear this is a good way of doing it. In
 ;;; particular because it makes errors stemming from this file harder
-;;; to debug, and given the "young" age of ECL's swank backend, that's
+;;; to debug, and given the "young" age of ECL's slynk backend, that's
 ;;; a bad idea.
 ;;;
 ;;; Also before thinking whether to uncomment this consider that SLY
-;;; might not be loaded with swank-loader.lisp at all.
+;;; might not be loaded with slynk-loader.lisp at all.
 
-;; (defun in-swank-package-p (x)
+;; (defun in-slynk-package-p (x)
 ;;   (and
 ;;    (symbolp x)
 ;;    (member (symbol-package x)
-;;            (list #.(find-package :swank)
-;;                  #.(find-package :swank-backend)
-;;                  #.(ignore-errors (find-package :swank-mop))
-;;                  #.(ignore-errors (find-package :swank-loader))))
+;;            (list #.(find-package :slynk)
+;;                  #.(find-package :slynk-backend)
+;;                  #.(ignore-errors (find-package :slynk-mop))
+;;                  #.(ignore-errors (find-package :slynk-loader))))
 ;;    t))
 
-;; (defun is-swank-source-p (name)
+;; (defun is-slynk-source-p (name)
 ;;   (setf name (pathname name))
 ;;   (pathname-match-p
 ;;    name
-;;    (make-pathname :defaults swank-loader::*source-directory*
+;;    (make-pathname :defaults slynk-loader::*source-directory*
 ;;                   :name (pathname-name name)
 ;;                   :type (pathname-type name)
 ;;                   :version (pathname-version name))))
 
 ;; (defun is-ignorable-fun-p (x)
 ;;   (or
-;;    (in-swank-package-p (frame-name x))
+;;    (in-slynk-package-p (frame-name x))
 ;;    (multiple-value-bind (file position)
 ;;        (ignore-errors (si::bc-file (car x)))
 ;;      (declare (ignore position))
-;;      (if file (is-swank-source-p file)))))
+;;      (if file (is-slynk-source-p file)))))
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))

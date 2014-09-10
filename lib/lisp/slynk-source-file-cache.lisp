@@ -20,9 +20,9 @@
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
 
-(defpackage swank-source-file-cache
-  (:use cl swank-backend)
-  (:import-from swank-backend
+(defpackage slynk-source-file-cache
+  (:use cl slynk-backend)
+  (:import-from slynk-backend
 		defimplementation buffer-first-change)
   (:export
    get-source-code
@@ -33,7 +33,7 @@
    read-snippet-from-string
    ))
 
-(in-package swank-source-file-cache)
+(in-package slynk-source-file-cache)
 
 (defvar *cache-sourcecode* t
   "When true complete source files are cached.

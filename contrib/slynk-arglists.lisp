@@ -1,4 +1,4 @@
-;;; swank-arglists.lisp --- arglist related code ??
+;;; slynk-arglists.lisp --- arglist related code ??
 ;;
 ;; Authors: Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 ;;          Tobias C. Rittweiler <tcr@freebits.de>
@@ -7,10 +7,10 @@
 ;; License: Public Domain
 ;;
 
-(in-package :swank)
+(in-package :slynk)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (swank-require :swank-c-p-c))
+  (slynk-require :slynk-c-p-c))
 
 ;;;; Utilities
 
@@ -649,7 +649,7 @@ As a secondary value, return whether &allow-other-keys appears somewhere."
     (dolist (method methods)
       (multiple-value-bind (kw aok)
 	  (arglist-keywords
-	   (swank-mop:method-lambda-list method))
+	   (slynk-mop:method-lambda-list method))
 	(setq keywords (remove-duplicates (append keywords kw)
                                           :key #'keyword-arg.keyword)
 	      allow-other-keys (or allow-other-keys aok))))
@@ -659,7 +659,7 @@ As a secondary value, return whether &allow-other-keys appears somewhere."
   "Collect all keywords in the methods of GENERIC-FUNCTION.
 As a secondary value, return whether &allow-other-keys appears somewhere."
   (methods-keywords
-   (swank-mop:generic-function-methods generic-function)))
+   (slynk-mop:generic-function-methods generic-function)))
 
 (defun applicable-methods-keywords (generic-function arguments)
   "Collect all keywords in the methods of GENERIC-FUNCTION that are
@@ -667,7 +667,7 @@ applicable for argument of CLASSES.  As a secondary value, return
 whether &allow-other-keys appears somewhere."
   (methods-keywords
    (multiple-value-bind (amuc okp)
-       (swank-mop:compute-applicable-methods-using-classes
+       (slynk-mop:compute-applicable-methods-using-classes
         generic-function (mapcar #'class-of arguments))
      (if okp
          amuc
@@ -749,28 +749,28 @@ forward keywords to OPERATOR."
     (let* ((class-name (cadr class-name-form))
            (class (find-class class-name nil)))
       (when (and class
-                 (not (swank-mop:class-finalized-p class)))
+                 (not (slynk-mop:class-finalized-p class)))
         ;; Try to finalize the class, which can fail if
         ;; superclasses are not defined yet
-        (handler-case (swank-mop:finalize-inheritance class)
+        (handler-case (slynk-mop:finalize-inheritance class)
           (program-error (c)
             (declare (ignore c)))))
       class)))
 
 (defun extra-keywords/slots (class)
   (multiple-value-bind (slots allow-other-keys-p)
-      (if (swank-mop:class-finalized-p class)
-          (values (swank-mop:class-slots class) nil)
-          (values (swank-mop:class-direct-slots class) t))
+      (if (slynk-mop:class-finalized-p class)
+          (values (slynk-mop:class-slots class) nil)
+          (values (slynk-mop:class-direct-slots class) t))
     (let ((slot-init-keywords
             (loop for slot in slots append
                   (mapcar (lambda (initarg)
                             (make-keyword-arg
                              initarg
-                             (swank-mop:slot-definition-name slot)
-                             (and (swank-mop:slot-definition-initfunction slot)
-                                  (swank-mop:slot-definition-initform slot))))
-                          (swank-mop:slot-definition-initargs slot)))))
+                             (slynk-mop:slot-definition-name slot)
+                             (and (slynk-mop:slot-definition-initfunction slot)
+                                  (slynk-mop:slot-definition-initform slot))))
+                          (slynk-mop:slot-definition-initargs slot)))))
       (values slot-init-keywords allow-other-keys-p))))
 
 (defun extra-keywords/make-instance (operator &rest args)
@@ -788,12 +788,12 @@ forward keywords to OPERATOR."
                 (ignore-errors
                  (applicable-methods-keywords
                   #'initialize-instance
-                  (list (swank-mop:class-prototype class))))
+                  (list (slynk-mop:class-prototype class))))
               (multiple-value-bind (shared-initialize-keywords si-aokp)
                   (ignore-errors
                    (applicable-methods-keywords
                     #'shared-initialize
-                    (list (swank-mop:class-prototype class) t)))
+                    (list (slynk-mop:class-prototype class) t)))
                 (values (append slot-init-keywords
                                 allocate-instance-keywords
                                 initialize-instance-keywords
@@ -814,7 +814,7 @@ forward keywords to OPERATOR."
               (ignore-errors
                 (applicable-methods-keywords
                  #'shared-initialize
-                 (list (swank-mop:class-prototype class) t)))
+                 (list (slynk-mop:class-prototype class) t)))
             ;; FIXME: much as it would be nice to include the
             ;; applicable keywords from
             ;; UPDATE-INSTANCE-FOR-DIFFERENT-CLASS, I don't really see
@@ -872,14 +872,14 @@ forward keywords to OPERATOR."
 (defmethod extra-keywords ((operator symbol) &rest args)
   (declare (ignore args))
   (multiple-value-or
-   (let ((extra-keyword-arglist (get operator :swank-extra-keywords)))
+   (let ((extra-keyword-arglist (get operator :slynk-extra-keywords)))
      (when extra-keyword-arglist
        (values (loop for (sym default) in extra-keyword-arglist
                      for keyword = (intern (symbol-name sym) :keyword)
                      collect (make-keyword-arg keyword
                                                keyword
                                                default))
-               (get operator :swank-allow-other-keywords)
+               (get operator :slynk-allow-other-keywords)
                nil)))
    (call-next-method)))
 
@@ -1132,7 +1132,7 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 ;;; We work on a RAW-FORM, or BUFFER-FORM, which represent the form at
 ;;; user's point in Emacs. A RAW-FORM looks like
 ;;;
-;;;       ("FOO" ("BAR" ...) "QUUX" ("ZURP" SWANK::%CURSOR-MARKER%))
+;;;       ("FOO" ("BAR" ...) "QUUX" ("ZURP" SLYNK::%CURSOR-MARKER%))
 ;;;
 ;;; The expression before the cursor marker is the expression where
 ;;; user's cursor points at. An explicit marker is necessary to
@@ -1159,7 +1159,7 @@ wrapped in ===> X <===.
 Second, a boolean value telling whether the returned string can be cached."
   (handler-bind ((serious-condition
                    #'(lambda (c)
-                       (unless (debug-on-swank-error)
+                       (unless (debug-on-slynk-error)
                          (let ((*print-right-margin* print-right-margin))
                            (return-from autodoc
                              (list :error
@@ -1586,7 +1586,7 @@ datum for subsequent logics to rely on."
 
 (defun test-print-arglist ()
   (flet ((test (arglist string)
-           (let* ((*package* (find-package :swank))
+           (let* ((*package* (find-package :slynk))
                   (actual (decoded-arglist-to-string
                            (decode-arglist arglist)
                            :print-right-margin 1000)))
@@ -1625,4 +1625,4 @@ datum for subsequent logics to rely on."
 (test-print-arglist)
 (test-arglist-ref)
 
-(provide :swank-arglists)
+(provide :slynk-arglists)

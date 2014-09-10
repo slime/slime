@@ -9,12 +9,12 @@
                      "cl:compiler-macro" "cl:compiler-macro-function")
        "cl:compile")
       ("cl:foobar" nil nil)
-      ("swank::compile-file" ("swank::compile-file" 
-                              "swank::compile-file-for-emacs"
-                              "swank::compile-file-if-needed"
-                              "swank::compile-file-output"
-                              "swank::compile-file-pathname")
-       "swank::compile-file")
+      ("slynk::compile-file" ("slynk::compile-file" 
+                              "slynk::compile-file-for-emacs"
+                              "slynk::compile-file-if-needed"
+                              "slynk::compile-file-output"
+                              "slynk::compile-file-pathname")
+       "slynk::compile-file")
       ("cl:m-v-l" ("cl:multiple-value-list" "cl:multiple-values-limit") "cl:multiple-value")
       ("common-lisp" ("common-lisp-user:" "common-lisp:") "common-lisp"))
   (let ((completions (sly-fuzzy-completions prefix)))

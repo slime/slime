@@ -1,5 +1,5 @@
 
-(in-package :swank)
+(in-package :slynk)
 
 (defslyfun package= (string1 string2)
   (let* ((pkg1 (guess-package string1))
@@ -37,14 +37,14 @@
 
 (defun list-class-symbols (name)
   (let* ((class (find-class name))
-         (slots (swank-mop:class-direct-slots class)))
+         (slots (slynk-mop:class-direct-slots class)))
     (labels ((extract-symbol (name)
                (if (and (consp name) (eql (car name) 'setf))
                    (cadr name)
                    name))
              (slot-accessors (slot)
-               (nintersection (copy-list (swank-mop:slot-definition-readers slot))
-                              (copy-list (swank-mop:slot-definition-readers slot))
+               (nintersection (copy-list (slynk-mop:slot-definition-readers slot))
+                              (copy-list (slynk-mop:slot-definition-readers slot))
                               :key #'extract-symbol)))
       (list* (class-name class)
              (mapcan #'slot-accessors slots)))))
@@ -62,4 +62,4 @@
         (export symbols)
         symbols))))
 
-(provide :swank-package-fu)
+(provide :slynk-package-fu)

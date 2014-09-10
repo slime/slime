@@ -8,11 +8,11 @@
 ;;;
 ;;; This file defines the functions that must be implemented
 ;;; separately for each Lisp. Each is declared as a generic function
-;;; for which swank-<implementation>.lisp provides methods.
+;;; for which slynk-<implementation>.lisp provides methods.
 
-(defpackage swank-backend
+(defpackage slynk-backend
   (:use cl)
-  (:export *debug-swank-backend*
+  (:export *debug-slynk-backend*
            sldb-condition
            compiler-condition
            original-condition
@@ -51,13 +51,13 @@
            label-value-line*
            with-symbol
            ;; package helper for backend
-           import-to-swank-mop
-           import-swank-mop-symbols
+           import-to-slynk-mop
+           import-slynk-mop-symbols
 	   ;;
 
            ))
 
-(defpackage swank-mop
+(defpackage slynk-mop
   (:use)
   (:export
    ;; classes
@@ -110,15 +110,15 @@
    compute-applicable-methods-using-classes
    finalize-inheritance))
 
-(in-package swank-backend)
+(in-package slynk-backend)
 
 
 ;;;; Metacode
 
-(defparameter *debug-swank-backend* nil
+(defparameter *debug-slynk-backend* nil
   "If this is true, backends should not catch errors but enter the
 debugger where appropriate. Also, they should not perform backtrace
-magic but really show every frame including SWANK related ones.")
+magic but really show every frame including SLYNK related ones.")
 
 (defparameter *interface-functions* '()
   "The names of all interface functions.")
@@ -173,7 +173,7 @@ Backends implement these functions using DEFIMPLEMENTATION."
             `(pushnew ',name *unimplemented-interfaces*)
             (gen-default-impl))
        (eval-when (:compile-toplevel :load-toplevel :execute)
-         (export ',name :swank-backend))
+         (export ',name :slynk-backend))
        ',name)))
 
 (defmacro defimplementation (name args &body body)
@@ -193,27 +193,27 @@ Backends implement these functions using DEFIMPLEMENTATION."
   "Warn the user about unimplemented backend features.
 The portable code calls this function at startup."
   (let ((*print-pretty* t))
-    (warn "These Swank interfaces are unimplemented:~% ~:<~{~A~^ ~:_~}~:>"
+    (warn "These Slynk interfaces are unimplemented:~% ~:<~{~A~^ ~:_~}~:>"
           (list (sort (copy-list *unimplemented-interfaces*) #'string<)))))
 
-(defun import-to-swank-mop (symbol-list)
+(defun import-to-slynk-mop (symbol-list)
   (dolist (sym symbol-list)
-    (let* ((swank-mop-sym (find-symbol (symbol-name sym) :swank-mop)))
-      (when swank-mop-sym
-        (unintern swank-mop-sym :swank-mop))
-      (import sym :swank-mop)
-      (export sym :swank-mop))))
+    (let* ((slynk-mop-sym (find-symbol (symbol-name sym) :slynk-mop)))
+      (when slynk-mop-sym
+        (unintern slynk-mop-sym :slynk-mop))
+      (import sym :slynk-mop)
+      (export sym :slynk-mop))))
 
-(defun import-swank-mop-symbols (package except)
-  "Import the mop symbols from PACKAGE to SWANK-MOP.
+(defun import-slynk-mop-symbols (package except)
+  "Import the mop symbols from PACKAGE to SLYNK-MOP.
 EXCEPT is a list of symbol names which should be ignored."
-  (do-symbols (s :swank-mop)
+  (do-symbols (s :slynk-mop)
     (unless (member s except :test #'string=)
       (let ((real-symbol (find-symbol (string s) package)))
         (assert real-symbol () "Symbol ~A not found in package ~A" s package)
-        (unintern s :swank-mop)
-        (import real-symbol :swank-mop)
-        (export real-symbol :swank-mop)))))
+        (unintern s :slynk-mop)
+        (import real-symbol :slynk-mop)
+        (export real-symbol :slynk-mop)))))
 
 (definterface gray-package-name ()
   "Return a package-name that contains the Gray stream symbols.
@@ -575,7 +575,7 @@ This is used to resolve filenames without directory component."
   (funcall fn))
 
 (definterface default-readtable-alist ()
-  "Return a suitable initial value for SWANK:*READTABLE-ALIST*."
+  "Return a suitable initial value for SLYNK:*READTABLE-ALIST*."
   '())
 
 
@@ -589,7 +589,7 @@ This is used to resolve filenames without directory component."
   (declare (ignore ignore))
   `(call-with-compilation-hooks (lambda () (progn ,@body))))
 
-(definterface swank-compile-string (string &key buffer position filename
+(definterface slynk-compile-string (string &key buffer position filename
                                            policy)
   "Compile source from STRING.
 During compilation, compiler conditions must be trapped and
@@ -611,7 +611,7 @@ value.
 Should return T on successful compilation, NIL otherwise.
 ")
 
-(definterface swank-compile-file (input-file output-file load-p
+(definterface slynk-compile-file (input-file output-file load-p
                                              external-format
                                              &key policy)
    "Compile INPUT-FILE signalling COMPILE-CONDITIONs.
@@ -731,7 +731,7 @@ arglist cannot be determined."
 declaration identifier DECL-IDENTIFIER. If the arglist cannot be determined,
 the keyword :NOT-AVAILABLE is returned.
 
-The different SWANK backends can specialize this generic function to
+The different SLYNK backends can specialize this generic function to
 include implementation-dependend declaration specifiers, or to provide
 additional information on the specifiers defined in ANSI Common Lisp.")
   (:method (decl-identifier)
@@ -762,7 +762,7 @@ additional information on the specifiers defined in ANSI Common Lisp.")
 TYPESPEC-OPERATOR.. If the arglist cannot be determined, the keyword
 :NOT-AVAILABLE is returned.
 
-The different SWANK backends can specialize this generic function to
+The different SLYNK backends can specialize this generic function to
 include implementation-dependend declaration specifiers, or to provide
 additional information on the specifiers defined in ANSI Common Lisp.")
   (:method (typespec-operator)
@@ -1070,7 +1070,7 @@ returns.")
     `(block ,gblock
        (handler-bind ((error
                        #'(lambda (e)
-                            (if *debug-swank-backend*
+                            (if *debug-slynk-backend*
                                 nil     ;decline
                                 (return-from ,gblock
                                   (make-error-location e))))))
@@ -1421,7 +1421,7 @@ Return :interrupt if an interrupt occurs while waiting.")
 
 ;;;;  Locks
 
-;; Please use locks only in swank-gray.lisp.  Locks are too low-level
+;; Please use locks only in slynk-gray.lisp.  Locks are too low-level
 ;; for our taste.
 
 (definterface make-lock (&key name)
@@ -1513,7 +1513,7 @@ COMPLETION-FUNCTION, if non-nil, should be called after saving the image.")
 
 (defun deinit-log-output ()
   ;; Can't hang on to an fd-stream from a previous session.
-  (setf (symbol-value (find-symbol "*LOG-OUTPUT*" 'swank))
+  (setf (symbol-value (find-symbol "*LOG-OUTPUT*" 'slynk))
         nil))
 
 

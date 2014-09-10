@@ -5,7 +5,7 @@
   "Exporting/Unexporting symbols at point."
   (:authors "Tobias C. Rittweiler <tcr@freebits.de>")
   (:license "GPL")
-  (:swank-dependencies swank-package-fu)
+  (:slynk-dependencies slynk-package-fu)
   (:on-load 
    (define-key sly-mode-map "\C-cx"  'sly-export-symbol-at-point))
   (:on-unload
@@ -35,8 +35,8 @@ use `sly-export-symbol-representation-function'.")
   "^(\\(cl:\\|common-lisp:\\)?defpackage\\>[ \t']*")
 
 (defun sly-find-package-definition-rpc (package)
-  (sly-eval `(swank:find-definition-for-thing
-                (swank::guess-package ,package))))
+  (sly-eval `(slynk:find-definition-for-thing
+                (slynk::guess-package ,package))))
 
 (defun sly-find-package-definition-regexp (package)
   (save-excursion
@@ -56,15 +56,15 @@ use `sly-export-symbol-representation-function'.")
   ;; will also resolve nicknames for us &c.
   (or (cl-equalp (sly-cl-symbol-name designator1)
                  (sly-cl-symbol-name designator2))
-      (sly-eval `(swank:package= ,designator1 ,designator2))))
+      (sly-eval `(slynk:package= ,designator1 ,designator2))))
 
 (defun sly-export-symbol (symbol package)
   "Unexport `symbol' from `package' in the Lisp image."
-  (sly-eval `(swank:export-symbol-for-emacs ,symbol ,package)))
+  (sly-eval `(slynk:export-symbol-for-emacs ,symbol ,package)))
 
 (defun sly-unexport-symbol (symbol package)
   "Export `symbol' from `package' in the Lisp image."
-  (sly-eval `(swank:unexport-symbol-for-emacs ,symbol ,package)))
+  (sly-eval `(slynk:unexport-symbol-for-emacs ,symbol ,package)))
 
 
 (defun sly-find-possible-package-file (buffer-file-name)
@@ -303,7 +303,7 @@ symbol in the Lisp image if possible."
   (interactive (list (sly-read-from-minibuffer "Export structure named: "
                                                  (sly-symbol-at-point))))
   (let* ((package (sly-current-package))
-         (symbols (sly-eval `(swank:export-structure ,name ,package))))
+         (symbols (sly-eval `(slynk:export-structure ,name ,package))))
     (sly-message "%s symbols exported from `%s'"
              (sly-frob-defpackage-form package :export symbols)
              package)))

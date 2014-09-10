@@ -36,8 +36,8 @@ This also works
 $ sbcl
 ...
 * (push #p"~/dir/to/cloned/sly" asdf:*central-registry*)
-* (asdf:load-system :swank)
-* (swank:create-server :port 4008)
+* (asdf:load-system :slynk)
+* (slynk:create-server :port 4008)
 ```
 
 Now in Emacs you can do `sly-connect` and give it the host and the 4008 port as

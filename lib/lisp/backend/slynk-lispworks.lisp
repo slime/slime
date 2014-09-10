@@ -1,6 +1,6 @@
 ;;; -*- indent-tabs-mode: nil -*-
 ;;;
-;;; swank-lispworks.lisp --- LispWorks specific code for SLIME.
+;;; slynk-lispworks.lisp --- LispWorks specific code for SLIME.
 ;;;
 ;;; Created 2003, Helmut Eller
 ;;;
@@ -8,10 +8,10 @@
 ;;; are disclaimed.
 ;;;
 
-(defpackage swank-lispworks
-  (:use cl swank-backend))
+(defpackage slynk-lispworks
+  (:use cl slynk-backend))
 
-(in-package swank-lispworks)
+(in-package slynk-lispworks)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require "comm"))
@@ -19,7 +19,7 @@
 (defimplementation gray-package-name ()
   "STREAM")
 
-(import-swank-mop-symbols :clos '(:slot-definition-documentation
+(import-slynk-mop-symbols :clos '(:slot-definition-documentation
                                   :slot-boundp-using-class
                                   :slot-value-using-class
                                   :slot-makunbound-using-class
@@ -27,34 +27,34 @@
                                   :eql-specializer-object
                                   :compute-applicable-methods-using-classes))
 
-(defun swank-mop:slot-definition-documentation (slot)
+(defun slynk-mop:slot-definition-documentation (slot)
   (documentation slot t))
 
-(defun swank-mop:slot-boundp-using-class (class object slotd)
+(defun slynk-mop:slot-boundp-using-class (class object slotd)
   (clos:slot-boundp-using-class class object
                                 (clos:slot-definition-name slotd)))
 
-(defun swank-mop:slot-value-using-class (class object slotd)
+(defun slynk-mop:slot-value-using-class (class object slotd)
   (clos:slot-value-using-class class object
                                (clos:slot-definition-name slotd)))
 
-(defun (setf swank-mop:slot-value-using-class) (value class object slotd)
+(defun (setf slynk-mop:slot-value-using-class) (value class object slotd)
   (setf (clos:slot-value-using-class class object
                                      (clos:slot-definition-name slotd))
         value))
 
-(defun swank-mop:slot-makunbound-using-class (class object slotd)
+(defun slynk-mop:slot-makunbound-using-class (class object slotd)
   (clos:slot-makunbound-using-class class object
                                     (clos:slot-definition-name slotd)))
 
-(defun swank-mop:compute-applicable-methods-using-classes (gf classes)
+(defun slynk-mop:compute-applicable-methods-using-classes (gf classes)
   (clos::compute-applicable-methods-from-classes gf classes))
 
 ;; lispworks doesn't have the eql-specializer class, it represents
 ;; them as a list of `(EQL ,OBJECT)
-(deftype swank-mop:eql-specializer () 'cons)
+(deftype slynk-mop:eql-specializer () 'cons)
 
-(defun swank-mop:eql-specializer-object (eql-spec)
+(defun slynk-mop:eql-specializer-object (eql-spec)
   (second eql-spec))
 
 (eval-when (:compile-toplevel :execute :load-toplevel)
@@ -178,7 +178,7 @@
     (mp:process-interrupt process #'sigint-handler)))
 
 (defun set-sigint-handler ()
-  ;; Set SIGINT handler on Swank request handler thread.
+  ;; Set SIGINT handler on Slynk request handler thread.
   #-win32
   (sys::set-signal-handler +sigint+ 
                            (make-sigint-handler mp:*current-process*)))
@@ -320,7 +320,7 @@ Return NIL if the symbol is unbound."
 (defmethod env-internals:environment-display-notifier 
     ((env sly-env) &key restarts condition)
   (declare (ignore restarts condition))
-  (funcall (swank-sym :swank-debugger-hook) condition *debugger-hook*)
+  (funcall (slynk-sym :slynk-debugger-hook) condition *debugger-hook*)
   ;;  nil
   )
 
@@ -328,7 +328,7 @@ Return NIL if the symbol is unbound."
   *debug-io*)
 
 (defmethod env-internals:confirm-p ((e sly-env) &optional msg &rest args)
-  (apply (swank-sym :y-or-n-p-in-emacs) msg args))
+  (apply (slynk-sym :y-or-n-p-in-emacs) msg args))
 
 (defimplementation call-with-debugger-hook (hook fun)
   (let ((*debugger-hook* hook))
@@ -376,7 +376,7 @@ Return NIL if the symbol is unbound."
                              name)))
                 (nth-next-frame frame 1)))))
     (or (find-named-frame 'invoke-debugger)
-        (find-named-frame (swank-sym :safe-backtrace))
+        (find-named-frame (slynk-sym :safe-backtrace))
         ;; if we can't find a likely top frame, take any old frame
         ;; at the top
         (dbg::debugger-stack-current-frame dbg::*debugger-stack*))))
@@ -538,7 +538,7 @@ Return NIL if the symbol is unbound."
 
 ;;; Compilation 
 
-(defmacro with-swank-compilation-unit ((location &rest options) &body body)
+(defmacro with-slynk-compilation-unit ((location &rest options) &body body)
   (lw:rebinding (location)
     `(let ((compiler::*error-database* '()))
        (with-compilation-unit ,options
@@ -548,11 +548,11 @@ Return NIL if the symbol is unbound."
            (signal-undefined-functions compiler::*unknown-functions* 
                                        ,location))))))
 
-(defimplementation swank-compile-file (input-file output-file
+(defimplementation slynk-compile-file (input-file output-file
                                        load-p external-format
                                        &key policy)
   (declare (ignore policy))
-  (with-swank-compilation-unit (input-file)
+  (with-slynk-compilation-unit (input-file)
     (compile-file input-file 
                   :output-file output-file
                   :load load-p 
@@ -762,14 +762,14 @@ function names like \(SETF GET)."
 		nil)))
 	   htab))
 
-(defimplementation swank-compile-string (string &key buffer position filename
+(defimplementation slynk-compile-string (string &key buffer position filename
                                          policy)
   (declare (ignore filename policy))
   (assert buffer)
   (assert position)
   (let* ((location (list :emacs-buffer buffer position))
          (tmpname (hcl:make-temp-file nil "lisp")))
-    (with-swank-compilation-unit (location)
+    (with-slynk-compilation-unit (location)
       (compile-from-temp-file 
        (with-output-to-string (s)
          (let ((*print-radix* t))
@@ -852,7 +852,7 @@ function names like \(SETF GET)."
   (lispworks-inspect o))
 
 ;; FIXME: slot-boundp-using-class in LW works with names so we can't
-;; use our method in swank.lisp.
+;; use our method in slynk.lisp.
 (defmethod emacs-inspect ((o standard-object))
   (lispworks-inspect o))
 
@@ -1011,7 +1011,7 @@ function names like \(SETF GET)."
 
 ;;; Some intergration with the lispworks environment
 
-(defun swank-sym (name) (find-symbol (string name) :swank))
+(defun slynk-sym (name) (find-symbol (string name) :slynk))
       
 
 ;;;; Weak hashtables

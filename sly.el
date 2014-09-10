@@ -50,8 +50,8 @@
 ;;
 ;; SLY works with Emacs >= 24.3+
 ;;
-;; In order to run SLY, a supporting Lisp server called Swank is
-;; required. Swank is distributed with sly.el and will automatically
+;; In order to run SLY, a supporting Lisp server called Slynk is
+;; required. Slynk is distributed with sly.el and will automatically
 ;; be started in a normal installation.
 
 
@@ -85,7 +85,7 @@
     (let ((path (or (locate-library "sly") load-file-name)))
       (and path (file-name-directory path)))
     "Directory containing the SLY package.
-This is used to load the supporting Common Lisp library, Swank.
+This is used to load the supporting Common Lisp library, Slynk.
 The default value is automatically computed from the location of the
 Emacs Lisp package."))
 
@@ -105,9 +105,9 @@ CONTRIBS is a list of contrib packages to load. If `nil', use
   (sly--setup-contribs))
 
 (defvar sly-required-modules '()
-  "Alist of MODULE . WHERE for swank-provided features.
+  "Alist of MODULE . WHERE for slynk-provided features.
 
-MODULE is a symbol naming a specific Swank feature and WHERE is
+MODULE is a symbol naming a specific Slynk feature and WHERE is
 the full pathname to the directory where the file(s)
 providing the feature are found.")
 
@@ -181,30 +181,30 @@ This applies to the *inferior-lisp* buffer and the network connections."
   :group 'sly)
 
 (defcustom sly-init-function 'sly-init-using-asdf
-  "Function bootstrapping swank on the remote.
+  "Function bootstrapping slynk on the remote.
 
-Value is a function of two arguments: SWANK-PORTFILE and an
+Value is a function of two arguments: SLYNK-PORTFILE and an
 ingored argument for backward compatibility. Function should
 return a string issuing very first commands issued by Sly to
 the remote-connection process. Some time after this there should
-be a port number ready in SWANK-PORTFILE."
+be a port number ready in SLYNK-PORTFILE."
   :type '(choice (const :tag "Use ASDF"
                         sly-init-using-asdf)
-                 (const :tag "Use legacy swank-loader.lisp"
-                        sly-init-using-swank-loader))
+                 (const :tag "Use legacy slynk-loader.lisp"
+                        sly-init-using-slynk-loader))
   :group 'sly-lisp)
 
-(defcustom sly-swank-loader-backend "swank-loader.lisp"
-  "The name of the swank-loader that loads the Swank server.
+(defcustom sly-slynk-loader-backend "slynk-loader.lisp"
+  "The name of the slynk-loader that loads the Slynk server.
 Only applicable if `sly-init-function' is set to
-`sly-init-using-swank-loader'. This name is interpreted
+`sly-init-using-slynk-loader'. This name is interpreted
 relative to the directory containing sly.el, but could also be
 set to an absolute filename."
   :type 'string
   :group 'sly-lisp)
 
 (define-obsolete-variable-alias 'sly-backend
-'sly-swank-loader-backend "3.0")
+'sly-slynk-loader-backend "3.0")
 
 (defcustom sly-connected-hook nil
   "List of functions to call when SLY connects to Lisp."
@@ -698,7 +698,7 @@ Minimize point motion if possible."
   (let ((completion-ignore-case t))
     (sly-completing-read (concat "[sly] " prompt)
                      (sly-eval
-                      `(swank:list-all-package-names t))
+                      `(slynk:list-all-package-names t))
 		     nil t initial-value)))
 
 ;; Interface
@@ -879,7 +879,7 @@ See `sly-lisp-implementations'")
 (defvar sly-default-connection)
 
 (defun sly (&optional command coding-system)
-  "Start an inferior^_superior Lisp and connect to its Swank server."
+  "Start an inferior^_superior Lisp and connect to its Slynk server."
   (interactive)
   (let ((inferior-lisp-program (or command inferior-lisp-program))
         (sly-net-coding-system (or coding-system sly-net-coding-system)))
@@ -965,7 +965,7 @@ flexible enough.
 PROGRAM and PROGRAM-ARGS are the filename and argument strings
   for the subprocess.
 INIT is a function that should return a string to load and start
-  Swank. The function will be called with the PORT-FILENAME and ENCODING as
+  Slynk. The function will be called with the PORT-FILENAME and ENCODING as
   arguments.  INIT defaults to `sly-init-function'.
 CODING-SYSTEM a symbol for the coding system. The default is
   sly-net-coding-system
@@ -990,7 +990,7 @@ DIRECTORY change to this directory before starting the process.
   (apply #'sly-start options))
 
 (defun sly-connect (host port &optional _coding-system interactive-p)
-  "Connect to a running Swank server. Return the connection."
+  "Connect to a running Slynk server. Return the connection."
   (interactive (list (read-from-minibuffer
                       "[sly] Host: " (cl-first sly-connect-host-history)
                       nil nil '(sly-connect-host-history . 1))
@@ -1003,7 +1003,7 @@ DIRECTORY change to this directory before starting the process.
              sly-net-processes
              (y-or-n-p "[sly] Close old connections first? "))
     (sly-disconnect-all))
-  (sly-message "Connecting to Swank on port %S.." port)
+  (sly-message "Connecting to Slynk on port %S.." port)
   (let* ((process (sly-net-connect host port))
          (sly-dispatching-connection process))
     (sly-setup-connection process)))
@@ -1021,15 +1021,15 @@ DIRECTORY change to this directory before starting the process.
 ;;;
 ;;;   0. Emacs recompiles/reloads sly.elc if it exists and is stale.
 ;;;   1. Emacs starts an inferior Lisp process.
-;;;   2. Emacs tells Lisp (via stdio) to load and start Swank.
-;;;   3. Lisp recompiles the Swank if needed.
-;;;   4. Lisp starts the Swank server and writes its TCP port to a temp file.
+;;;   2. Emacs tells Lisp (via stdio) to load and start Slynk.
+;;;   3. Lisp recompiles the Slynk if needed.
+;;;   4. Lisp starts the Slynk server and writes its TCP port to a temp file.
 ;;;   5. Emacs reads the temp file to get the port and then connects.
 ;;;   6. Emacs prints a message of warm encouragement for the hacking ahead.
 ;;;
 ;;; Between steps 2-5 Emacs polls for the creation of the temp file so
 ;;; that it can make the connection. This polling may continue for a
-;;; fair while if Swank needs recompilation.
+;;; fair while if Slynk needs recompilation.
 
 (defvar sly-connect-retry-timer nil
   "Timer object while waiting for an inferior-lisp to start.")
@@ -1066,7 +1066,7 @@ Return true if we have been given permission to continue."
          (sly-message "Cancelled connection attempt."))
         (t (error "Not connecting"))))
 
-;;; Starting the inferior Lisp and loading Swank:
+;;; Starting the inferior Lisp and loading Slynk:
 
 (defun sly-maybe-start-lisp (program program-args env directory buffer)
   "Return a new or existing inferior lisp process."
@@ -1108,22 +1108,22 @@ Return the created process."
       proc)))
 
 (defun sly-inferior-connect (process args)
-  "Start a Swank server in the inferior Lisp and connect."
-  (sly-delete-swank-port-file 'quiet)
-  (sly-start-swank-server process args)
+  "Start a Slynk server in the inferior Lisp and connect."
+  (sly-delete-slynk-port-file 'quiet)
+  (sly-start-slynk-server process args)
   (sly-read-port-and-connect process))
 
 (defvar sly-inferior-lisp-args nil
   "A buffer local variable in the inferior proccess.
 See `sly-start'.")
 
-(defun sly-start-swank-server (process args)
-  "Start a Swank server on the inferior lisp."
+(defun sly-start-slynk-server (process args)
+  "Start a Slynk server on the inferior lisp."
   (cl-destructuring-bind (&key coding-system init &allow-other-keys) args
     (with-current-buffer (process-buffer process)
       (make-local-variable 'sly-inferior-lisp-args)
       (setq sly-inferior-lisp-args args)
-      (let ((str (funcall init (sly-swank-port-file) coding-system)))
+      (let ((str (funcall init (sly-slynk-port-file) coding-system)))
         (goto-char (process-mark process))
         (insert-before-markers str)
         (process-send-string process str)))))
@@ -1136,7 +1136,7 @@ See `sly-start'."
 
 (defun sly-init-using-asdf (port-filename coding-system)
   "Return a string to initialize Lisp using ASDF.
-Fall back to `sly-init-using-swank-loader' if ASDF fails."
+Fall back to `sly-init-using-slynk-loader' if ASDF fails."
   (format "%S\n\n"
           `(cond ((ignore-errors
                     (funcall 'require "asdf")
@@ -1148,29 +1148,29 @@ Fall back to `sly-init-using-swank-loader' if ASDF fails."
                          (read-from-string "asdf:*central-registry*")))
                   (funcall
                    (read-from-string "asdf:load-system")
-                   :swank)
+                   :slynk)
                   (funcall
-                   (read-from-string "swank:start-server")
+                   (read-from-string "slynk:start-server")
                    ,(sly-to-lisp-filename port-filename)))
                  (t
-                  ,(read (sly-init-using-swank-loader port-filename
+                  ,(read (sly-init-using-slynk-loader port-filename
                                                       coding-system))))))
 
 ;; XXX load-server & start-server used to be separated. maybe that was  better.
-(defun sly-init-using-swank-loader (port-filename _coding-system)
+(defun sly-init-using-slynk-loader (port-filename _coding-system)
   "Return a string to initialize Lisp."
   (let ((loader (sly-to-lisp-filename
-                 (expand-file-name sly-swank-loader-backend sly-path))))
+                 (expand-file-name sly-slynk-loader-backend sly-path))))
     ;; Return a single form to avoid problems with buffered input.
     (format "%S\n\n"
             `(progn
                (load ,loader :verbose t)
-               (funcall (read-from-string "swank-loader:init"))
-               (funcall (read-from-string "swank:start-server")
+               (funcall (read-from-string "slynk-loader:init"))
+               (funcall (read-from-string "slynk:start-server")
                         ,port-filename)))))
 
-(defun sly-swank-port-file ()
-  "Filename where the SWANK server writes its TCP port number."
+(defun sly-slynk-port-file ()
+  "Filename where the SLYNK server writes its TCP port number."
   (expand-file-name (format "sly.%S" (emacs-pid)) (sly-temp-directory)))
 
 (defun sly-temp-directory ()
@@ -1178,15 +1178,15 @@ Fall back to `sly-init-using-swank-loader' if ASDF fails."
         ((boundp 'temporary-file-directory) temporary-file-directory)
         (t "/tmp/")))
 
-(defun sly-delete-swank-port-file (&optional quiet)
+(defun sly-delete-slynk-port-file (&optional quiet)
   (condition-case data
-      (delete-file (sly-swank-port-file))
+      (delete-file (sly-slynk-port-file))
     (error
      (cl-ecase quiet
        ((nil) (signal (car data) (cdr data)))
        (quiet)
-       (sly-message (sly-message "Unable to delete swank port file %S"
-                                 (sly-swank-port-file)))))))
+       (sly-message (sly-message "Unable to delete slynk port file %S"
+                                 (sly-slynk-port-file)))))))
 
 (defun sly-read-port-and-connect (inferior-process)
   (sly-attempt-connection inferior-process nil 1))
@@ -1195,22 +1195,22 @@ Fall back to `sly-init-using-swank-loader' if ASDF fails."
   ;; A small one-state machine to attempt a connection with
   ;; timer-based retries.
   (sly-cancel-connect-retry-timer)
-  (let ((file (sly-swank-port-file)))
+  (let ((file (sly-slynk-port-file)))
     (unless (active-minibuffer-window)
       (sly-message "Polling %S .. %d (Abort with `M-x sly-abort-connection'.)"
                    file attempt))
     (cond ((and (file-exists-p file)
                 (> (nth 7 (file-attributes file)) 0)) ; file size
-           (let ((port (sly-read-swank-port))
+           (let ((port (sly-read-slynk-port))
                  (args (sly-inferior-lisp-args process)))
-             (sly-delete-swank-port-file 'message)
+             (sly-delete-slynk-port-file 'message)
              (let ((c (sly-connect sly-lisp-host port
                                    (plist-get args :coding-system))))
                (sly-set-inferior-process c process))))
           ((and retries (zerop retries))
-           (sly-message "Gave up connecting to Swank after %d attempts." attempt))
+           (sly-message "Gave up connecting to Slynk after %d attempts." attempt))
           ((eq (process-status process) 'exit)
-           (sly-message "Failed to connect to Swank: inferior process exited."))
+           (sly-message "Failed to connect to Slynk: inferior process exited."))
           (t
            (when (and (file-exists-p file)
                       (zerop (nth 7 (file-attributes file))))
@@ -1240,21 +1240,21 @@ The default condition handler for timer functions (see
     (cancel-timer sly-connect-retry-timer)
     (setq sly-connect-retry-timer nil)))
 
-(defun sly-read-swank-port ()
-  "Read the Swank server port number from the `sly-swank-port-file'."
+(defun sly-read-slynk-port ()
+  "Read the Slynk server port number from the `sly-slynk-port-file'."
   (save-excursion
     (with-temp-buffer
-      (insert-file-contents (sly-swank-port-file))
+      (insert-file-contents (sly-slynk-port-file))
       (goto-char (point-min))
       (let ((port (read (current-buffer))))
         (cl-assert (integerp port))
         port))))
 
-(defun sly-toggle-debug-on-swank-error ()
+(defun sly-toggle-debug-on-slynk-error ()
   (interactive)
-  (if (sly-eval `(swank:toggle-debug-on-swank-error))
-      (sly-message "Debug on SWANK error enabled.")
-    (sly-message "Debug on SWANK error disabled.")))
+  (if (sly-eval `(slynk:toggle-debug-on-slynk-error))
+      (sly-message "Debug on SLYNK error enabled.")
+    (sly-message "Debug on SLYNK error disabled.")))
 
 ;;; Words of encouragement
 
@@ -1295,7 +1295,7 @@ The default condition handler for timer functions (see
 ;;;
 ;;; The set of meaningful protocol messages are not specified
 ;;; here. They are defined elsewhere by the event-dispatching
-;;; functions in this file and in swank.lisp.
+;;; functions in this file and in slynk.lisp.
 
 (defvar sly-net-processes nil
   "List of processes (sockets) connected to Lisps.")
@@ -1714,7 +1714,7 @@ This is automatically synchronized from Lisp.")
   ;; from a timer then it mysteriously uses the wrong keymap for the
   ;; first command.
   (let ((sly-current-thread t))
-    (sly-eval-async '(swank:connection-info)
+    (sly-eval-async '(slynk:connection-info)
       (sly-curry #'sly-set-connection-info proc))))
 
 (defun sly-set-connection-info (connection info)
@@ -1763,7 +1763,7 @@ This is automatically synchronized from Lisp.")
   (or (equal version sly-protocol-version)
       (equal sly-protocol-version 'ignore)
       (y-or-n-p
-       (format "Versions differ: %s (sly) vs. %s (swank). Continue? "
+       (format "Versions differ: %s (sly) vs. %s (slynk). Continue? "
                sly-protocol-version version))
       (sly-net-close conn "Versions differ")
       (top-level)))
@@ -2076,7 +2076,7 @@ or nil if nothing suitable can be found.")
 ;;; These functions can be handy too:
 
 (defun sly-connected-p ()
-  "Return true if the Swank connection is open."
+  "Return true if the Slynk connection is open."
   (not (null sly-net-processes)))
 
 (defun sly-check-connected ()
@@ -2165,7 +2165,7 @@ Debugged requests are ignored."
           ((:emacs-interrupt thread)
            (sly-send `(:emacs-interrupt ,thread)))
           ((:read-from-minibuffer thread tag prompt initial-value)
-           (sly-read-from-minibuffer-for-swank thread tag prompt
+           (sly-read-from-minibuffer-for-slynk thread tag prompt
                                                initial-value))
           ((:y-or-n-p thread tag question)
            (sly-y-or-n-p thread tag question))
@@ -2485,7 +2485,7 @@ See `sly-compile-and-load-file' for further details."
         (options (sly-simplify-plist `(,@sly-compile-file-options
                                          :policy ,policy))))
     (sly-eval-async
-        `(swank:compile-file-for-emacs ,file ,(if load t nil)
+        `(slynk:compile-file-for-emacs ,file ,(if load t nil)
                                        . ,(sly-hack-quotes options))
       #'sly-compilation-finished)
     (sly-message "Compiling %s..." file)))
@@ -2534,7 +2534,7 @@ to it depending on its sign."
                  (list (line-number-at-pos) (1+ (current-column)))))
          (position `((:position ,start-offset) (:line ,@line))))
     (sly-eval-async
-        `(swank:compile-string-for-emacs
+        `(slynk:compile-string-for-emacs
           ,string
           ,(buffer-name)
           ',position
@@ -2574,7 +2574,7 @@ ASK asks the user."
     (when (and loadp faslfile
                (or successp
                    (sly-load-failed-fasl-p)))
-      (sly-eval-async `(swank:load-file ,faslfile)))))
+      (sly-eval-async `(slynk:load-file ,faslfile)))))
 
 (defun sly-show-note-counts (notes secs successp loadp)
   (sly-message (concat
@@ -2618,7 +2618,7 @@ ASK asks the user."
 
 (defun sly-recompile-locations (locations cont)
   (sly-eval-async
-      `(swank:compile-multiple-strings-for-emacs
+      `(slynk:compile-multiple-strings-for-emacs
         ',(cl-loop for loc in locations collect
                    (save-excursion
                      (sly-move-to-source-location loc)
@@ -3474,7 +3474,7 @@ Perform completion more similar to Emacs' complete-symbol."
 (defun sly-simple-completions (prefix)
   (let ((sly-current-thread t))
     (sly-eval
-     `(swank:simple-completions ,prefix ',(sly-current-package)))))
+     `(slynk:simple-completions ,prefix ',(sly-current-package)))))
 
 (defun sly-show-arglist ()
   (let ((op (ignore-errors
@@ -3483,7 +3483,7 @@ Perform completion more similar to Emacs' complete-symbol."
                 (down-list 1)
                 (sly-symbol-at-point)))))
     (when op
-      (sly-eval-async `(swank:operator-arglist ,op ,(sly-current-package))
+      (sly-eval-async `(slynk:operator-arglist ,op ,(sly-current-package))
         (lambda (arglist)
           (when arglist
             (sly-message "%s" arglist)))))))
@@ -3673,7 +3673,7 @@ FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
 
 (defun sly-postprocess-xref (original-xref)
   "Process (for normalization purposes) an Xref comming directly
-from SWANK before the rest of SLY sees it. In particular,
+from SLYNK before the rest of SLY sees it. In particular,
 convert ETAGS based xrefs to actual file+position based
 locations."
   (if (not (sly-xref-has-location-p original-xref))
@@ -3702,7 +3702,7 @@ locations."
   (sly-postprocess-xrefs (funcall sly-find-definitions-function name)))
 
 (defun sly-find-definitions-rpc (name)
-  (sly-eval `(swank:find-definitions-for-emacs ,name)))
+  (sly-eval `(slynk:find-definitions-for-emacs ,name)))
 
 (defun sly-edit-definition-other-window (name)
   "Like `sly-edit-definition' but switch to the other window."
@@ -3763,7 +3763,7 @@ The result is a (possibly empty) list of definitions."
                  (file-exists-p (buffer-file-name))
                  (sly-background-activities-enabled-p))
         (let ((filename (sly-to-lisp-filename (buffer-file-name))))
-          (sly-eval-async `(swank:buffer-first-change ,filename)))))))
+          (sly-eval-async `(slynk:buffer-first-change ,filename)))))))
 
 (defun sly-setup-first-change-hook ()
   (add-hook (make-local-variable 'first-change-hook)
@@ -3865,7 +3865,7 @@ the display stuff that we neither need nor want."
 (defun sly-y-or-n-p (thread tag question)
   (sly-dispatch-event `(:emacs-return ,thread ,tag ,(y-or-n-p question))))
 
-(defun sly-read-from-minibuffer-for-swank (thread tag prompt initial-value)
+(defun sly-read-from-minibuffer-for-slynk (thread tag prompt initial-value)
   (let ((answer (condition-case nil
                     (sly-read-from-minibuffer prompt initial-value t)
                   (quit nil))))
@@ -3881,7 +3881,7 @@ inserted in the current buffer."
   (interactive (list (sly-read-from-minibuffer "SLY Eval: ")))
   (cl-case current-prefix-arg
     ((nil)
-     (sly-eval-with-transcript `(swank:interactive-eval ,string)))
+     (sly-eval-with-transcript `(slynk:interactive-eval ,string)))
     ((-)
      (sly-eval-save string))
     (t
@@ -3916,7 +3916,7 @@ inserted in the current buffer."
 
 (defun sly-eval-print (string)
   "Eval STRING in Lisp; insert any output and the result at point."
-  (sly-eval-async `(swank:eval-and-grab-output ,string)
+  (sly-eval-async `(slynk:eval-and-grab-output ,string)
     (lambda (result)
       (cl-destructuring-bind (output value) result
         (push-mark)
@@ -3924,7 +3924,7 @@ inserted in the current buffer."
 
 (defun sly-eval-save (string)
   "Evaluate STRING in Lisp and save the result in the kill ring."
-  (sly-eval-async `(swank:eval-and-grab-output ,string)
+  (sly-eval-async `(slynk:eval-and-grab-output ,string)
     (lambda (result)
       (cl-destructuring-bind (output value) result
         (let ((string (concat output value)))
@@ -3976,14 +3976,14 @@ Use `sly-re-evaluate-defvar' if the from starts with '(defvar'"
   "Evaluate region."
   (interactive "r")
   (sly-eval-with-transcript
-   `(swank:interactive-eval-region
+   `(slynk:interactive-eval-region
      ,(buffer-substring-no-properties start end))))
 
 (defun sly-pprint-eval-region (start end)
   "Evaluate region; pprint the value in a buffer."
   (interactive "r")
   (sly-eval-describe
-   `(swank:pprint-eval
+   `(slynk:pprint-eval
      ,(buffer-substring-no-properties start end))))
 
 (defun sly-eval-buffer ()
@@ -3997,12 +3997,12 @@ The value is printed in the echo area."
 
 First make the variable unbound, then evaluate the entire form."
   (interactive (list (sly-last-expression)))
-  (sly-eval-with-transcript `(swank:re-evaluate-defvar ,form)))
+  (sly-eval-with-transcript `(slynk:re-evaluate-defvar ,form)))
 
 (defun sly-pprint-eval-last-expression ()
   "Evaluate the form before point; pprint the value in a buffer."
   (interactive)
-  (sly-eval-describe `(swank:pprint-eval ,(sly-last-expression))))
+  (sly-eval-describe `(slynk:pprint-eval ,(sly-last-expression))))
 
 (defun sly-eval-print-last-expression (string)
   "Evaluate sexp before point; print value into the current buffer"
@@ -4020,7 +4020,7 @@ in Lisp when committed with \\[sly-edit-value-commit]."
   (interactive
    (list (sly-read-from-minibuffer "Edit value (evaluated): "
 				     (sly-sexp-at-point))))
-  (sly-eval-async `(swank:value-for-editing ,form-string)
+  (sly-eval-async `(slynk:value-for-editing ,form-string)
     (let ((form-string form-string)
                   (package (sly-current-package)))
       (lambda (result)
@@ -4060,7 +4060,7 @@ in Lisp when committed with \\[sly-edit-value-commit]."
       (error "Not editing a value.")
     (let ((value (buffer-substring-no-properties (point-min) (point-max))))
       (let ((buffer (current-buffer)))
-        (sly-eval-async `(swank:commit-edited-value ,sly-edit-form-string
+        (sly-eval-async `(slynk:commit-edited-value ,sly-edit-form-string
                                                       ,value)
           (lambda (_)
             (with-current-buffer buffer
@@ -4071,25 +4071,25 @@ in Lisp when committed with \\[sly-edit-value-commit]."
 (defun sly-untrace-all ()
   "Untrace all functions."
   (interactive)
-  (sly-eval `(swank:untrace-all)))
+  (sly-eval `(slynk:untrace-all)))
 
 (defun sly-toggle-trace-fdefinition (spec)
   "Toggle trace."
   (interactive (list (sly-read-from-minibuffer
                       "(Un)trace: " (sly-symbol-at-point))))
-  (sly-message "%s" (sly-eval `(swank:swank-toggle-trace ,spec))))
+  (sly-message "%s" (sly-eval `(slynk:slynk-toggle-trace ,spec))))
 
 
 
 (defun sly-disassemble-symbol (symbol-name)
   "Display the disassembly for SYMBOL-NAME."
   (interactive (list (sly-read-symbol-name "Disassemble: ")))
-  (sly-eval-describe `(swank:disassemble-form ,(concat "'" symbol-name))))
+  (sly-eval-describe `(slynk:disassemble-form ,(concat "'" symbol-name))))
 
 (defun sly-undefine-function (symbol-name)
   "Unbind the function slot of SYMBOL-NAME."
   (interactive (list (sly-read-symbol-name "fmakunbound: " t)))
-  (sly-eval-async `(swank:undefine-function ,symbol-name)
+  (sly-eval-async `(slynk:undefine-function ,symbol-name)
     (lambda (result) (sly-message "%s" result))))
 
 (defun sly-unintern-symbol (symbol-name package)
@@ -4097,7 +4097,7 @@ in Lisp when committed with \\[sly-edit-value-commit]."
   (interactive (list (sly-read-symbol-name "Unintern symbol: " t)
                      (sly-read-package-name "from package: "
                                               (sly-current-package))))
-  (sly-eval-async `(swank:unintern-symbol ,symbol-name ,package)
+  (sly-eval-async `(slynk:unintern-symbol ,symbol-name ,package)
     (lambda (result) (sly-message "%s" result))))
 
 (defun sly-delete-package (package-name)
@@ -4105,7 +4105,7 @@ in Lisp when committed with \\[sly-edit-value-commit]."
   (interactive (list (sly-read-package-name "Delete package: "
                                               (sly-current-package))))
   (sly-eval-async `(cl:delete-package
-                      (swank::guess-package ,package-name))))
+                      (slynk::guess-package ,package-name))))
 
 (defun sly-load-file (filename)
   "Load the Lisp file FILENAME."
@@ -4115,7 +4115,7 @@ in Lisp when committed with \\[sly-edit-value-commit]."
                                         (file-name-nondirectory
                                          (buffer-file-name))))))
   (let ((lisp-filename (sly-to-lisp-filename (expand-file-name filename))))
-    (sly-eval-with-transcript `(swank:load-file ,lisp-filename))))
+    (sly-eval-with-transcript `(slynk:load-file ,lisp-filename))))
 
 (defvar sly-change-directory-hooks nil
   "Hook run by `sly-change-directory'.
@@ -4123,23 +4123,23 @@ The functions are called with the new (absolute) directory.")
 
 (defun sly-change-directory (directory)
   "Make DIRECTORY become Lisp's current directory.
-Return whatever swank:set-default-directory returns."
+Return whatever slynk:set-default-directory returns."
   (let ((dir (expand-file-name directory)))
-    (prog1 (sly-eval `(swank:set-default-directory
+    (prog1 (sly-eval `(slynk:set-default-directory
                          ,(sly-to-lisp-filename dir)))
       (sly-with-connection-buffer nil (cd-absolute dir))
       (run-hook-with-args 'sly-change-directory-hooks dir))))
 
 (defun sly-cd (directory)
   "Make DIRECTORY become Lisp's current directory.
-Return whatever swank:set-default-directory returns."
+Return whatever slynk:set-default-directory returns."
   (interactive (list (read-directory-name "[sly] Directory: " nil nil t)))
   (sly-message "default-directory: %s" (sly-change-directory directory)))
 
 (defun sly-pwd ()
   "Show Lisp's default directory."
   (interactive)
-  (sly-message "Directory %s" (sly-eval `(swank:default-directory))))
+  (sly-message "Directory %s" (sly-eval `(slynk:default-directory))))
 
 
 ;;;; Documentation
@@ -4163,7 +4163,7 @@ Return whatever swank:set-default-directory returns."
   (interactive (list (sly-read-symbol-name "Describe symbol: ")))
   (when (not symbol-name)
     (error "No symbol given"))
-  (sly-eval-describe `(swank:describe-symbol ,symbol-name)))
+  (sly-eval-describe `(slynk:describe-symbol ,symbol-name)))
 
 (defun sly-documentation (symbol-name)
   "Display function- or symbol-documentation for SYMBOL-NAME."
@@ -4171,13 +4171,13 @@ Return whatever swank:set-default-directory returns."
   (when (not symbol-name)
     (error "No symbol given"))
   (sly-eval-describe
-   `(swank:documentation-symbol ,symbol-name)))
+   `(slynk:documentation-symbol ,symbol-name)))
 
 (defun sly-describe-function (symbol-name)
   (interactive (list (sly-read-symbol-name "Describe symbol's function: ")))
   (when (not symbol-name)
     (error "No symbol given"))
-  (sly-eval-describe `(swank:describe-function ,symbol-name)))
+  (sly-eval-describe `(slynk:describe-function ,symbol-name)))
 
 (defface sly-apropos-symbol
   '((t (:inherit sly-part-button-face)))
@@ -4210,7 +4210,7 @@ arg, you're interactively asked for parameters of the search."
              (y-or-n-p "[sly] Case-sensitive? "))
      (list (sly-read-from-minibuffer "Apropos external symbols: ") t nil nil)))
   (sly-eval-async
-      `(swank:apropos-list-for-emacs ,string ,only-external-p
+      `(slynk:apropos-list-for-emacs ,string ,only-external-p
                                      ,case-sensitive-p ',package)
     (sly-rcurry #'sly-show-apropos string package
                 (sly-apropos-summary string case-sensitive-p
@@ -4270,7 +4270,7 @@ TODO"
       (sly-edit-definition name 'window))
   'sly-button-describe
   #'(lambda (name _type)
-      (sly-eval-describe `(swank:describe-symbol ,name))))
+      (sly-eval-describe `(slynk:describe-symbol ,name))))
 
 (defun sly-apropos-designator-string (designator)
   (cond ((listp designator)
@@ -4328,14 +4328,14 @@ TODO"
                (list 'action 'sly-button-describe
                      'sly-button-describe
                      #'(lambda (name type)
-                         (sly-eval-describe `(swank:describe-definition-for-emacs ,name
+                         (sly-eval-describe `(slynk:describe-definition-for-emacs ,name
                                                                                   ,type)))
                      'part-args (list item prop)
                      'button t 'apropos-label namespace))
               (terpri)))))
 
 (defun sly-apropos-describe (name type)
-  (sly-eval-describe `(swank:describe-definition-for-emacs ,name ,type)))
+  (sly-eval-describe `(slynk:describe-definition-for-emacs ,name ,type)))
 
 (defun sly-info ()
   "Open SLY manual"
@@ -4513,7 +4513,7 @@ This is used by `sly-goto-next-xref'")
 (defun sly-xref (type symbol &optional continuation)
   "Make an XREF request to Lisp."
   (sly-eval-async
-      `(swank:xref ',type ',symbol)
+      `(slynk:xref ',type ',symbol)
     (sly-rcurry (lambda (result type symbol package cont)
                     (sly-check-xref-implemented type result)
                     (let* ((_xrefs (sly-postprocess-xrefs result))
@@ -4537,7 +4537,7 @@ This is used by `sly-goto-next-xref'")
 (defun sly-xref--get-xrefs (types symbol &optional continuation)
   "Make multiple XREF requests at once."
   (sly-eval-async
-      `(swank:xrefs ',types ',symbol)
+      `(slynk:xrefs ',types ',symbol)
     #'(lambda (result)
         (funcall (or continuation
                      #'sly-xref--show-results)
@@ -4773,38 +4773,38 @@ The form is expanded with CL:MACROEXPAND-1 or, if a prefix
 argument is given, with CL:MACROEXPAND."
   (interactive "P")
   (sly-eval-macroexpand
-   (if repeatedly 'swank:swank-macroexpand 'swank:swank-macroexpand-1)))
+   (if repeatedly 'slynk:slynk-macroexpand 'slynk:slynk-macroexpand-1)))
 
 (defun sly-macroexpand-1-inplace (&optional repeatedly)
   (interactive "P")
   (sly-eval-macroexpand-inplace
-   (if repeatedly 'swank:swank-macroexpand 'swank:swank-macroexpand-1)))
+   (if repeatedly 'slynk:slynk-macroexpand 'slynk:slynk-macroexpand-1)))
 
 (defun sly-macroexpand-all ()
   "Display the recursively macro expanded sexp at point."
   (interactive)
-  (sly-eval-macroexpand 'swank:swank-macroexpand-all))
+  (sly-eval-macroexpand 'slynk:slynk-macroexpand-all))
 
 (defun sly-macroexpand-all-inplace ()
   "Display the recursively macro expanded sexp at point."
   (interactive)
-  (sly-eval-macroexpand-inplace 'swank:swank-macroexpand-all))
+  (sly-eval-macroexpand-inplace 'slynk:slynk-macroexpand-all))
 
 (defun sly-compiler-macroexpand-1 (&optional repeatedly)
   "Display the compiler-macro expansion of sexp at point."
   (interactive "P")
   (sly-eval-macroexpand
    (if repeatedly
-       'swank:swank-compiler-macroexpand
-     'swank:swank-compiler-macroexpand-1)))
+       'slynk:slynk-compiler-macroexpand
+     'slynk:slynk-compiler-macroexpand-1)))
 
 (defun sly-compiler-macroexpand-1-inplace (&optional repeatedly)
   "Display the compiler-macro expansion of sexp at point."
   (interactive "P")
   (sly-eval-macroexpand-inplace
    (if repeatedly
-       'swank:swank-compiler-macroexpand
-     'swank:swank-compiler-macroexpand-1)))
+       'slynk:slynk-compiler-macroexpand
+     'slynk:slynk-compiler-macroexpand-1)))
 
 (defun sly-expand-1 (&optional repeatedly)
   "Display the macro expansion of the form at point.
@@ -4813,8 +4813,8 @@ argument is given, with CL:MACROEXPAND."
   (interactive "P")
   (sly-eval-macroexpand
    (if repeatedly
-       'swank:swank-expand
-     'swank:swank-expand-1)))
+       'slynk:slynk-expand
+     'slynk:slynk-expand-1)))
 
 (defun sly-expand-1-inplace (&optional repeatedly)
   "Display the macro expansion of the form at point.
@@ -4823,13 +4823,13 @@ argument is given, with CL:MACROEXPAND."
   (interactive "P")
   (sly-eval-macroexpand-inplace
    (if repeatedly
-       'swank:swank-expand
-     'swank:swank-expand-1)))
+       'slynk:slynk-expand
+     'slynk:slynk-expand-1)))
 
 (defun sly-format-string-expand ()
   "Expand the format-string at point and display it."
   (interactive)
-  (sly-eval-macroexpand 'swank:swank-format-string-expand
+  (sly-eval-macroexpand 'slynk:slynk-format-string-expand
                           (sly-string-at-point-or-error)))
 
 
@@ -4854,7 +4854,7 @@ argument is given, with CL:MACROEXPAND."
 
 (defun sly-quit-lisp-internal (connection sentinel kill)
   (let ((sly-dispatching-connection connection))
-    (sly-eval-async '(swank:quit-lisp))
+    (sly-eval-async '(slynk:quit-lisp))
     (let* ((process (sly-inferior-process connection)))
       (set-process-filter connection  nil)
       (set-process-sentinel connection sentinel)
@@ -5149,7 +5149,7 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
 
 (defun sldb-reinitialize (thread level)
   (sly-rex (thread level)
-      ('(swank:debugger-info-for-emacs 0 10)
+      ('(slynk:debugger-info-for-emacs 0 10)
        nil thread)
     ((:ok result)
      (apply #'sldb-setup thread level result))))
@@ -5238,9 +5238,9 @@ RESTARTS should be a list ((NAME DESCRIPTION) ...)."
 
 (defun sldb-prune-initial-frames (frame-specs)
   "Return the prefix of FRAMES-SPECS to initially present to the user.
-Regexp heuristics are used to avoid showing SWANK-internal frames."
+Regexp heuristics are used to avoid showing SLYNK-internal frames."
   (let* ((case-fold-search t)
-         (rx "^\\([() ]\\|lambda\\)*swank\\>"))
+         (rx "^\\([() ]\\|lambda\\)*slynk\\>"))
     (or (cl-loop for frame-spec in frame-specs
                  until (string-match rx (cadr frame-spec))
                  collect frame-spec)
@@ -5261,7 +5261,7 @@ If MORE is non-nil, more frames are on the Lisp stack."
                            (count 40)
                            (from (1+ (car frame-spec)))
                            (to (+ from count))
-                           (frames (sly-eval `(swank:backtrace ,from ,to)))
+                           (frames (sly-eval `(slynk:backtrace ,from ,to)))
                            (more (sly-length= frames count)))
                       (delete-region (button-start button)
                                      (button-end button))
@@ -5402,7 +5402,7 @@ If MORE is non-nil, more frames are on the Lisp stack."
       (goto-char (next-single-char-property-change (point) 'frame))
       (delete-region (point) (point-max))
       (save-excursion
-        (sldb-insert-frames (sly-eval `(swank:backtrace ,(1+ last) nil))
+        (sldb-insert-frames (sly-eval `(slynk:backtrace ,(1+ last) nil))
                             nil)))))
 
 
@@ -5411,7 +5411,7 @@ If MORE is non-nil, more frames are on the Lisp stack."
   "Highlight FRAME-NUMBER's expression in a source code buffer."
   (interactive (list (sldb-frame-number-at-point)))
   (sly-eval-async
-      `(swank:frame-source-location ,frame-number)
+      `(slynk:frame-source-location ,frame-number)
     (lambda (source-location)
       (sly-dcase source-location
         ((:error message)
@@ -5425,7 +5425,7 @@ If MORE is non-nil, more frames are on the Lisp stack."
 (define-button-type 'sldb-local-variable :supertype 'sly-part
   'sly-button-inspect
   #'(lambda (frame-id var-id)
-      (sly-eval-for-inspector `(swank:inspect-frame-var ,frame-id
+      (sly-eval-for-inspector `(slynk:inspect-frame-var ,frame-id
                                                         ,var-id)) ))
 
 (defun sldb-local-variable-button (label frame-number var-id &rest props)
@@ -5453,7 +5453,7 @@ The details include local variable bindings and CATCH-tags."
   "Show details for FRAME-BUTTON"
   (interactive (list (sldb-frame-button-near-point)))
   (cl-destructuring-bind (locals catches)
-      (sly-eval `(swank:frame-locals-and-catch-tags
+      (sly-eval `(slynk:frame-locals-and-catch-tags
                   ,(button-get frame-button 'frame-number)))
     (let ((inhibit-read-only t)
           (inhibit-point-motion-hooks t))
@@ -5516,7 +5516,7 @@ The details include local variable bindings and CATCH-tags."
 (defun sldb-disassemble (frame-number)
   "Disassemble the code for frame with FRAME-NUMBER."
   (interactive (list (sldb-frame-number-at-point)))
-  (sly-eval-async `(swank:sldb-disassemble ,frame-number)
+  (sly-eval-async `(slynk:sldb-disassemble ,frame-number)
     (lambda (result)
       (sly-show-description result nil))))
 
@@ -5526,7 +5526,7 @@ The details include local variable bindings and CATCH-tags."
 (defun sldb-eval-in-frame (frame-number string package)
   "Prompt for an expression and evaluate it in the selected frame."
   (interactive (sldb-frame-eval-interactive "Eval in frame (%s)> "))
-  (sly-eval-async `(swank:eval-string-in-frame ,string ,frame-number ,package)
+  (sly-eval-async `(slynk:eval-string-in-frame ,string ,frame-number ,package)
     (if current-prefix-arg
         'sly-write-string
       'sly-display-eval-result)))
@@ -5535,13 +5535,13 @@ The details include local variable bindings and CATCH-tags."
   "Prompt for an expression, evaluate in selected frame, pretty-print result."
   (interactive (sldb-frame-eval-interactive "Eval in frame (%s)> "))
   (sly-eval-async
-      `(swank:pprint-eval-string-in-frame ,string ,frame-number ,package)
+      `(slynk:pprint-eval-string-in-frame ,string ,frame-number ,package)
     (lambda (result)
       (sly-show-description result nil))))
 
 (defun sldb-frame-eval-interactive (fstring)
   (let* ((frame-number (sldb-frame-number-at-point))
-         (pkg (sly-eval `(swank:frame-package-name ,frame-number))))
+         (pkg (sly-eval `(slynk:frame-package-name ,frame-number))))
     (list frame-number
           (let ((sly-buffer-package pkg))
             (sly-read-from-minibuffer (format fstring pkg)))
@@ -5554,16 +5554,16 @@ The details include local variable bindings and CATCH-tags."
                 (sly-read-from-minibuffer
                       "Inspect in frame (evaluated): "
                       (sly-sexp-at-point))))
-  (sly-eval-for-inspector `(swank:inspect-in-frame ,string ,frame-number)))
+  (sly-eval-for-inspector `(slynk:inspect-in-frame ,string ,frame-number)))
 
 (defun sldb-inspect-condition ()
   "Inspect the current debugger condition."
   (interactive)
-  (sly-eval-for-inspector '(swank:inspect-current-condition)))
+  (sly-eval-for-inspector '(slynk:inspect-current-condition)))
 
 (defun sldb-print-condition ()
   (interactive)
-  (sly-eval-describe `(swank:sdlb-print-condition)))
+  (sly-eval-describe `(slynk:sdlb-print-condition)))
 
 
 ;;;;;; SLDB movement
@@ -5617,7 +5617,7 @@ The details include local variable bindings and CATCH-tags."
   "Quit to toplevel."
   (interactive)
   (cl-assert sldb-restarts () "sldb-quit called outside of sldb buffer")
-  (sly-rex () ('(swank:throw-to-toplevel))
+  (sly-rex () ('(slynk:throw-to-toplevel))
     ((:ok x) (error "sldb-quit returned [%s]" x))
     ((:abort _))))
 
@@ -5626,7 +5626,7 @@ The details include local variable bindings and CATCH-tags."
   (interactive)
   (cl-assert sldb-restarts () "sldb-continue called outside of sldb buffer")
   (sly-rex ()
-      ('(swank:sldb-continue))
+      ('(slynk:sldb-continue))
     ((:ok _)
      (sly-message "No restart named continue")
      (ding))
@@ -5635,7 +5635,7 @@ The details include local variable bindings and CATCH-tags."
 (defun sldb-abort ()
   "Invoke the \"abort\" restart."
   (interactive)
-  (sly-eval-async '(swank:sldb-abort)
+  (sly-eval-async '(slynk:sldb-abort)
     (lambda (v) (sly-message "Restart returned: %S" v))))
 
 (defun sldb-invoke-restart (restart-number)
@@ -5643,7 +5643,7 @@ The details include local variable bindings and CATCH-tags."
 Interactively get the number from a button at point."
   (interactive (button-get (sly-button-at (point)) 'restart-number))
   (sly-rex ()
-      ((list 'swank:invoke-nth-restart-for-emacs sldb-level restart-number))
+      ((list 'slynk:invoke-nth-restart-for-emacs sldb-level restart-number))
     ((:ok value) (sly-message "Restart returned: %s" value))
     ((:abort _))))
 
@@ -5659,7 +5659,7 @@ Interactively get the number from a button at point."
   "Enter default debugger."
   (interactive "P")
   (sly-rex ()
-      ((list 'swank:sldb-break-with-default-debugger
+      ((list 'slynk:sldb-break-with-default-debugger
              (not (not dont-unwind)))
        nil sly-current-thread)
     ((:abort _))))
@@ -5682,7 +5682,7 @@ truly screwed up."
         (file (sly-lisp-implementation-program connection))
         (commands (unless lightweight
                     (let ((sly-dispatching-connection connection))
-                      (sly-eval `(swank:gdb-initial-commands))))))
+                      (sly-eval `(slynk:gdb-initial-commands))))))
     (gud-gdb (format "gdb -p %d %s" pid (or file "")))
     (with-current-buffer gud-comint-buffer
       (dolist (cmd commands)
@@ -5711,29 +5711,29 @@ Return the net process, or nil."
 (defun sldb-step (frame-number)
   "Step to next basic-block boundary."
   (interactive (list (sldb-frame-number-at-point)))
-  (sly-eval-async `(swank:sldb-step ,frame-number)))
+  (sly-eval-async `(slynk:sldb-step ,frame-number)))
 
 (defun sldb-next (frame-number)
   "Step over call."
   (interactive (list (sldb-frame-number-at-point)))
-  (sly-eval-async `(swank:sldb-next ,frame-number)))
+  (sly-eval-async `(slynk:sldb-next ,frame-number)))
 
 (defun sldb-out (frame-number)
   "Resume stepping after returning from this function."
   (interactive (list (sldb-frame-number-at-point)))
-  (sly-eval-async `(swank:sldb-out ,frame-number)))
+  (sly-eval-async `(slynk:sldb-out ,frame-number)))
 
 (defun sldb-break-on-return (frame-number)
   "Set a breakpoint at the current frame.
 The debugger is entered when the frame exits."
   (interactive (list (sldb-frame-number-at-point)))
-  (sly-eval-async `(swank:sldb-break-on-return ,frame-number)
+  (sly-eval-async `(slynk:sldb-break-on-return ,frame-number)
     (lambda (msg) (sly-message "%s" msg))))
 
 (defun sldb-break (name)
   "Set a breakpoint at the start of the function NAME."
   (interactive (list (sly-read-symbol-name "Function: " t)))
-  (sly-eval-async `(swank:sldb-break ,name)
+  (sly-eval-async `(slynk:sldb-break ,name)
     (lambda (msg) (sly-message "%s" msg))))
 
 (defun sldb-return-from-frame (frame-number string)
@@ -5742,7 +5742,7 @@ return that value, evaluated in the context of the frame."
   (interactive (list (sldb-frame-number-at-point)
                      (sly-read-from-minibuffer "Return from frame: ")))
   (sly-rex ()
-      ((list 'swank:sldb-return-from-frame frame-number string))
+      ((list 'slynk:sldb-return-from-frame frame-number string))
     ((:ok value) (sly-message "%s" value))
     ((:abort _))))
 
@@ -5751,14 +5751,14 @@ return that value, evaluated in the context of the frame."
 was called originally."
   (interactive (list (sldb-frame-number-at-point)))
   (sly-rex ()
-      ((list 'swank:restart-frame frame-number))
+      ((list 'slynk:restart-frame frame-number))
     ((:ok value) (sly-message "%s" value))
     ((:abort _))))
 
 (defun sly-toggle-break-on-signals ()
   "Toggle the value of *break-on-signals*."
   (interactive)
-  (sly-eval-async `(swank:toggle-break-on-signals)
+  (sly-eval-async `(slynk:toggle-break-on-signals)
     (lambda (msg) (sly-message "%s" msg))))
 
 
@@ -5768,7 +5768,7 @@ was called originally."
   (interactive
    (list (sldb-frame-number-at-point) current-prefix-arg))
   (sly-eval-async
-      `(swank:frame-source-location ,frame-number)
+      `(slynk:frame-source-location ,frame-number)
     (let ((policy (sly-compute-policy raw-prefix-arg)))
       (lambda (source-location)
         (sly-dcase source-location
@@ -5814,13 +5814,13 @@ was called originally."
   (when sly-threads-buffer-timer
     (cancel-timer sly-threads-buffer-timer))
   (quit-window t)
-  (sly-eval-async `(swank:quit-thread-browser)))
+  (sly-eval-async `(slynk:quit-thread-browser)))
 
 (defun sly-update-threads-buffer (&optional buffer)
   (interactive)
   (with-current-buffer (or buffer
                            (current-buffer))
-    (sly-eval-async '(swank:list-threads)
+    (sly-eval-async '(slynk:list-threads)
       #'(lambda (threads)
           (with-current-buffer (current-buffer)
             (sly--display-threads threads))))))
@@ -5919,7 +5919,7 @@ was called originally."
 
 (defun sly-thread-kill ()
   (interactive)
-  (sly-eval `(cl:mapc 'swank:kill-nth-thread
+  (sly-eval `(cl:mapc 'slynk:kill-nth-thread
                         ',(sly-get-properties 'thread-index)))
   (call-interactively 'sly-update-threads-buffer))
 
@@ -5943,14 +5943,14 @@ was called originally."
 (defun sly-thread-attach ()
   (interactive)
   (let ((id (get-text-property (point) 'thread-index))
-        (file (sly-swank-port-file)))
-    (sly-eval-async `(swank:start-swank-server-in-thread ,id ,file)))
+        (file (sly-slynk-port-file)))
+    (sly-eval-async `(slynk:start-slynk-server-in-thread ,id ,file)))
   (sly-read-port-and-connect nil))
 
 (defun sly-thread-debug ()
   (interactive)
   (let ((id (get-text-property (point) 'thread-index)))
-    (sly-eval-async `(swank:debug-nth-thread ,id))))
+    (sly-eval-async `(slynk:debug-nth-thread ,id))))
 
 
 ;;;;; Connection listing
@@ -6058,7 +6058,7 @@ was called originally."
       (sly-warning "`sly-eval-for-inspector' not meant to be passed a generic form"))
   (let ((pos (and (eq major-mode 'sly-inspector-mode)
                   (sly-inspector-position))))
-    (sly-eval-async `(swank:eval-for-inspector
+    (sly-eval-async `(slynk:eval-for-inspector
                       ,sly--this-inspector-name ; current inspector, if any
                       ,inspector-name   ; target inspector, if any
                       ',(car slyfun-and-args)
@@ -6108,7 +6108,7 @@ was called originally."
                            " (evaluated): ")
                    (sly-sexp-at-point))))
      (list string name)))
-  (sly-eval-for-inspector `(swank:init-inspector ,string)
+  (sly-eval-for-inspector `(slynk:init-inspector ,string)
                           :inspector-name inspector-name))
 
 (defvar sly-inspector-mode-map
@@ -6138,18 +6138,18 @@ was called originally."
 (define-button-type 'sly-inspector-part :supertype 'sly-part
   'sly-button-inspect
   #'(lambda (id)
-      (sly-eval-for-inspector `(swank:inspect-nth-part ,id)
+      (sly-eval-for-inspector `(slynk:inspect-nth-part ,id)
                               :inspector-name (sly-maybe-read-inspector-name)))
   'sly-button-pretty-print
   #'(lambda (id)
-      (sly-eval-describe `(swank:pprint-inspector-part ,id)))
+      (sly-eval-describe `(slynk:pprint-inspector-part ,id)))
   'sly-button-describe
   #'(lambda (id)
-      (sly-eval-describe `(swank:describe-inspector-part ,id)))
+      (sly-eval-describe `(slynk:describe-inspector-part ,id)))
   'sly-button-show-source
   #'(lambda (id)
       (sly-eval-async
-          `(swank:find-source-location-for-emacs '(:inspector ,id))
+          `(slynk:find-source-location-for-emacs '(:inspector ,id))
         #'(lambda (result)
             (sly--display-source-location result 'noerror)))))
 
@@ -6232,7 +6232,7 @@ If PREV resp. NEXT are true insert more-buttons as needed."
         (sly-make-action-button
          string
          #'(lambda (_button)
-             (sly-eval-for-inspector `(swank::inspector-call-nth-action ,id)
+             (sly-eval-for-inspector `(slynk::inspector-call-nth-action ,id)
                                      :restore-point t))))))))
 
 (defun sly-inspector-position ()
@@ -6249,42 +6249,42 @@ position of point in the current buffer."
 (defun sly-inspector-pop ()
   "Reinspect the previous object."
   (interactive)
-  (sly-eval-for-inspector `(swank:inspector-pop) :error-message "No previous object"))
+  (sly-eval-for-inspector `(slynk:inspector-pop) :error-message "No previous object"))
 
 (defun sly-inspector-next ()
   "Inspect the next object in the history."
   (interactive)
-  (sly-eval-for-inspector `(swank:inspector-next) :error-message "No next object"))
+  (sly-eval-for-inspector `(slynk:inspector-next) :error-message "No next object"))
 
 (defun sly-inspector-quit ()
   "Quit the inspector and kill the buffer."
   (interactive)
-  (sly-eval-async `(swank:quit-inspector))
+  (sly-eval-async `(slynk:quit-inspector))
   (quit-window t))
 
 (defun sly-inspector-describe-inspectee ()
   "Describe the currently inspected object"
   (interactive)
-  (sly-eval-describe `(swank:describe-inspectee)))
+  (sly-eval-describe `(slynk:describe-inspectee)))
 
 (defun sly-inspector-eval (string)
   "Eval an expression in the context of the inspected object."
   (interactive (list (sly-read-from-minibuffer "Inspector eval: ")))
-  (sly-eval-with-transcript `(swank:inspector-eval ,string)))
+  (sly-eval-with-transcript `(slynk:inspector-eval ,string)))
 
 (defun sly-inspector-history ()
   "Show the previously inspected objects."
   (interactive)
-  (sly-eval-describe `(swank:inspector-history)))
+  (sly-eval-describe `(slynk:inspector-history)))
 
 (defun sly-inspector-reinspect (&optional inspector-name)
   (interactive (list (sly-maybe-read-inspector-name)))
-  (sly-eval-for-inspector `(swank:inspector-reinspect)
+  (sly-eval-for-inspector `(slynk:inspector-reinspect)
                           :inspector-name inspector-name))
 
 (defun sly-inspector-toggle-verbose ()
   (interactive)
-  (sly-eval-for-inspector `(swank:inspector-toggle-verbose)))
+  (sly-eval-for-inspector `(slynk:inspector-toggle-verbose)))
 
 (defun sly-inspector-insert-more-button (index previous)
   (insert (sly-make-action-button
@@ -6320,7 +6320,7 @@ position of point in the current buffer."
       (sly-inspector-next-range chunk limit prev)
     (cond ((and from to)
            (sly-eval-for-inspector
-            `(swank:inspector-range ,from ,to)
+            `(slynk:inspector-range ,from ,to)
             :opener (sly-rcurry (lambda (chunk2 chunk1 limit prev cont)
                                   (sly-inspector-fetch
                                    (sly-inspector-join-chunks chunk1 chunk2)
@@ -6352,7 +6352,7 @@ position of point in the current buffer."
 (defun sly-update-indentation ()
   "Update indentation for all macros defined in the Lisp system."
   (interactive)
-  (sly-eval-async '(swank:update-indentation-information)))
+  (sly-eval-async '(slynk:update-indentation-information)))
 
 (defvar sly-indentation-update-hooks)
 
@@ -6405,17 +6405,17 @@ is setup, unless the user already set one explicitly."
       ;; No asynchronous request because with :SPAWN that could result
       ;; in the attempt to load modules concurrently which may not be
       ;; supported by the host Lisp.
-      (sly-eval `(swank:swank-add-load-paths ',(cl-remove-duplicates
+      (sly-eval `(slynk:slynk-add-load-paths ',(cl-remove-duplicates
                                                   (mapcar #'cdr needed)
                                                   :test #'string=)))
       (setf (sly-lisp-modules)
-            (sly-eval `(swank:swank-require
+            (sly-eval `(slynk:slynk-require
                           ',(mapcar #'symbol-name (mapcar #'car needed))))))))
 
 (cl-defstruct sly-contrib
   name
   sly-dependencies
-  swank-dependencies
+  slynk-dependencies
   enable
   disable
   authors
@@ -6424,7 +6424,7 @@ is setup, unless the user already set one explicitly."
 (defmacro define-sly-contrib (name _docstring &rest clauses)
   (declare (indent 1))
   (cl-destructuring-bind (&key sly-dependencies
-                               swank-dependencies
+                               slynk-dependencies
                                on-load
                                on-unload
                                authors
@@ -6443,7 +6443,7 @@ is setup, unless the user already set one explicitly."
            (mapc #'funcall ',(mapcar
                               #'enable-fn
                               sly-dependencies))
-           (cl-loop for dep in ',swank-dependencies
+           (cl-loop for dep in ',slynk-dependencies
                     do (cl-pushnew (cons dep ,(path-sym name))
                                    sly-required-modules
                                    :key #'car))
@@ -6459,7 +6459,7 @@ is setup, unless the user already set one explicitly."
               (make-sly-contrib
                :name ',name :authors ',authors :license ',license
                :sly-dependencies ',sly-dependencies
-               :swank-dependencies ',swank-dependencies
+               :slynk-dependencies ',slynk-dependencies
                :enable ',(enable-fn name) :disable ',(disable-fn name)))))))
 
 (defun sly-all-contribs ()

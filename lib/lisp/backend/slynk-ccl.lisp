@@ -1,6 +1,6 @@
 ;;;; -*- indent-tabs-mode: nil -*-
 ;;;
-;;; swank-ccl.lisp --- SLY backend for Clozure CL.
+;;; slynk-ccl.lisp --- SLY backend for Clozure CL.
 ;;;
 ;;; Copyright (C) 2003, James Bielman  <jamesjb@jamesjb.com>
 ;;;
@@ -13,10 +13,10 @@
 ;;; The LLGPL is also available online at
 ;;; http://opensource.franz.com/preamble.html
 
-(defpackage swank-ccl
-  (:use cl swank-backend))
+(defpackage slynk-ccl
+  (:use cl slynk-backend))
 
-(in-package swank-ccl)
+(in-package slynk-ccl)
 
 (eval-when (:compile-toplevel :execute :load-toplevel)
   (assert (and (= ccl::*openmcl-major-version* 1)
@@ -31,9 +31,9 @@
     (unless ok
       (warn "~a~%" err))))
 
-;;; swank-mop
+;;; slynk-mop
 
-(import-to-swank-mop
+(import-to-slynk-mop
  '( ;; classes
    cl:standard-generic-function
    ccl:standard-slot-definition
@@ -84,10 +84,10 @@
    openmcl-mop:slot-boundp-using-class
    openmcl-mop:slot-makunbound-using-class))
 
-(defmacro swank-sym (sym)
+(defmacro slynk-sym (sym)
   (let ((str (symbol-name sym)))
-    `(or (find-symbol ,str :swank)
-         (error "There is no symbol named ~a in the SWANK package" ,str))))
+    `(or (find-symbol ,str :slynk)
+         (error "There is no symbol named ~a in the SLYNK package" ,str))))
 ;;; UTF8
 
 (defimplementation string-to-utf8 (string)
@@ -161,7 +161,7 @@
 ;;; Compilation
 
 (defun handle-compiler-warning (condition)
-  "Resignal a ccl:compiler-warning as swank-backend:compiler-warning."
+  "Resignal a ccl:compiler-warning as slynk-backend:compiler-warning."
   (signal 'compiler-condition
           :original-condition condition
           :message (compiler-warning-short-message condition)
@@ -194,7 +194,7 @@
     (let ((ccl:*merge-compiler-warnings* nil))
       (funcall function))))
 
-(defimplementation swank-compile-file (input-file output-file
+(defimplementation slynk-compile-file (input-file output-file
                                        load-p external-format
                                        &key policy)
   (declare (ignore policy))
@@ -206,7 +206,7 @@
 
 ;; Use a temp file rather than in-core compilation in order to handle
 ;; eval-when's as compile-time.
-(defimplementation swank-compile-string (string &key buffer position filename
+(defimplementation slynk-compile-string (string &key buffer position filename
                                          policy)
   (declare (ignore policy))
   (with-compilation-hooks ()
@@ -296,29 +296,29 @@
    (mapcan #'find-definitions (ccl:caller-functions symbol))
    :test #'equal))
 
-;;; Profiling (alanr: lifted from swank-clisp)
+;;; Profiling (alanr: lifted from slynk-clisp)
 
 (defimplementation profile (fname)
-  (eval `(swank-monitor:monitor ,fname)))		;monitor is a macro
+  (eval `(slynk-monitor:monitor ,fname)))		;monitor is a macro
 
 (defimplementation profiled-functions ()
-  swank-monitor:*monitored-functions*)
+  slynk-monitor:*monitored-functions*)
 
 (defimplementation unprofile (fname)
-  (eval `(swank-monitor:unmonitor ,fname)))	;unmonitor is a macro
+  (eval `(slynk-monitor:unmonitor ,fname)))	;unmonitor is a macro
 
 (defimplementation unprofile-all ()
-  (swank-monitor:unmonitor))
+  (slynk-monitor:unmonitor))
 
 (defimplementation profile-report ()
-  (swank-monitor:report-monitoring))
+  (slynk-monitor:report-monitoring))
 
 (defimplementation profile-reset ()
-  (swank-monitor:reset-all-monitoring))
+  (slynk-monitor:reset-all-monitoring))
 
 (defimplementation profile-package (package callers-p methods)
   (declare (ignore callers-p methods))
-  (swank-monitor:monitor-all package))
+  (slynk-monitor:monitor-all package))
 
 ;;; Debugging
 
@@ -333,10 +333,10 @@
 ;; such as *emacs-connection*.
 (defun find-repl-thread ()
   (let* ((*break-on-signals* nil)
-         (conn (funcall (swank-sym default-connection))))
+         (conn (funcall (slynk-sym default-connection))))
     (and conn
          (ignore-errors ;; this errors if no repl-thread
-           (funcall (swank-sym repl-thread) conn)))))
+           (funcall (slynk-sym repl-thread) conn)))))
 
 (defimplementation call-with-debugger-hook (hook fun)
   (let ((*debugger-hook* hook)
@@ -727,7 +727,7 @@
   (queue '() :type list))
 
 (defimplementation spawn (fun &key name)
-  (ccl:process-run-function (or name "Anonymous (Swank)")
+  (ccl:process-run-function (or name "Anonymous (Slynk)")
                             fun))
 
 (defimplementation thread-id (thread)

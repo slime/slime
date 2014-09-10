@@ -56,71 +56,71 @@
 
 (define-autodoc-tests
   ;; Test basics
-  ("(swank::emacs-connected*HERE*"    "(emacs-connected)")
-  ("(swank::emacs-connected *HERE*"   "(emacs-connected)")
-  ("(swank::create-socket*HERE*"
+  ("(slynk::emacs-connected*HERE*"    "(emacs-connected)")
+  ("(slynk::emacs-connected *HERE*"   "(emacs-connected)")
+  ("(slynk::create-socket*HERE*"
    "(create-socket host port &key backlog)")
-  ("(swank::create-socket *HERE*"
+  ("(slynk::create-socket *HERE*"
    "(create-socket ===> host <=== port &key backlog)")
-  ("(swank::create-socket foo *HERE*"
+  ("(slynk::create-socket foo *HERE*"
    "(create-socket host ===> port <=== &key backlog)")
 
   ;; Test that autodoc differentiates between exported and
   ;; unexported symbols.
-  ("(swank:create-socket*HERE*" :not-available)
+  ("(slynk:create-socket*HERE*" :not-available)
 
   ;; Test if cursor is on non-existing required parameter
-  ("(swank::create-socket foo bar *HERE*"
+  ("(slynk::create-socket foo bar *HERE*"
    "(create-socket host port &key backlog)")
 
   ;; Test cursor in front of opening parenthesis
-  ("(swank::with-struct *HERE*(foo. x y) *struct* body1)"
+  ("(slynk::with-struct *HERE*(foo. x y) *struct* body1)"
    "(with-struct (conc-name &rest names) obj &body body)"
    :skip-trailing-test-p t)
 
   ;; Test variable content display
-  ("(progn swank::default-server-port*HERE*"
+  ("(progn slynk::default-server-port*HERE*"
    "DEFAULT-SERVER-PORT => 4005")
 
   ;; Test that "variable content display" is not triggered for
   ;; trivial constants.
-  ("(swank::create-socket t*HERE*"
+  ("(slynk::create-socket t*HERE*"
    "(create-socket ===> host <=== port &key backlog)")
-  ("(swank::create-socket :foo*HERE*"
+  ("(slynk::create-socket :foo*HERE*"
    "(create-socket ===> host <=== port &key backlog)")
 
   ;; Test with syntactic sugar
-  ("#'(lambda () (swank::create-socket*HERE*"
+  ("#'(lambda () (slynk::create-socket*HERE*"
    "(create-socket host port &key backlog)")
-  ("`(lambda () ,(swank::create-socket*HERE*"
+  ("`(lambda () ,(slynk::create-socket*HERE*"
    "(create-socket host port &key backlog)")
-  ("(remove-if #'(lambda () (swank::create-socket*HERE*"
+  ("(remove-if #'(lambda () (slynk::create-socket*HERE*"
    "(create-socket host port &key backlog)")
-  ("`(remove-if #'(lambda () ,@(swank::create-socket*HERE*"
+  ("`(remove-if #'(lambda () ,@(slynk::create-socket*HERE*"
    "(create-socket host port &key backlog)")
 
   ;; Test &optional
-  ("(swank::symbol-status foo *HERE*"
+  ("(slynk::symbol-status foo *HERE*"
    "(symbol-status symbol &optional\
  ===> (package (symbol-package symbol)) <===)" :fails-for ("allegro" "ccl"))
 
   ;; Test context-sensitive autodoc (DEFMETHOD)
-  ("(defmethod swank::arglist-dispatch (*HERE*"
+  ("(defmethod slynk::arglist-dispatch (*HERE*"
    "(defmethod arglist-dispatch\
  (===> operator <=== arguments) &body body)")
-  ("(defmethod swank::arglist-dispatch :before (*HERE*"
+  ("(defmethod slynk::arglist-dispatch :before (*HERE*"
    "(defmethod arglist-dispatch :before\
  (===> operator <=== arguments) &body body)")
 
   ;; Test context-sensitive autodoc (APPLY)
-  ("(apply 'swank::eval-for-emacs*HERE*"
+  ("(apply 'slynk::eval-for-emacs*HERE*"
    "(apply 'eval-for-emacs &optional form buffer-package id &rest args)")
-  ("(apply #'swank::eval-for-emacs*HERE*"
+  ("(apply #'slynk::eval-for-emacs*HERE*"
    "(apply #'eval-for-emacs &optional form buffer-package id &rest args)" :fails-for ("ccl"))
-  ("(apply 'swank::eval-for-emacs foo *HERE*"
+  ("(apply 'slynk::eval-for-emacs foo *HERE*"
    "(apply 'eval-for-emacs &optional form\
  ===> buffer-package <=== id &rest args)")
-  ("(apply #'swank::eval-for-emacs foo *HERE*"
+  ("(apply #'slynk::eval-for-emacs foo *HERE*"
    "(apply #'eval-for-emacs &optional form\
  ===> buffer-package <=== id &rest args)" :fails-for ("ccl"))
 
@@ -134,16 +134,16 @@
    :fails-for ("allegro" "ccl"))
 
   ;; Test &KEY and nested arglists
-  ("(swank::with-retry-restart (:msg *HERE*"
+  ("(slynk::with-retry-restart (:msg *HERE*"
    "(with-retry-restart (&key ===> (msg \"Retry.\") <===) &body body)"
    :fails-for ("allegro" "ccl"))
-  ("(swank::with-retry-restart (:msg *HERE*(foo"
+  ("(slynk::with-retry-restart (:msg *HERE*(foo"
    "(with-retry-restart (&key ===> (msg \"Retry.\") <===) &body body)"
    :skip-trailing-test-p t
    :fails-for ("allegro" "ccl"))
-  ("(swank::start-server \"/tmp/foo\" :dont-close *HERE*"
-   "(start-server port-file &key (style swank:*communication-style*)\
- ===> (dont-close swank:*dont-close*) <===)"
+  ("(slynk::start-server \"/tmp/foo\" :dont-close *HERE*"
+   "(start-server port-file &key (style slynk:*communication-style*)\
+ ===> (dont-close slynk:*dont-close*) <===)"
    :fails-for ("allegro" "ccl"))
 
   ;; Test declarations and type specifiers

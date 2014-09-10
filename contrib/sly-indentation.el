@@ -4,7 +4,7 @@
 
 (define-sly-contrib sly-indentation
   "Contrib interfacing `sly-cl-indent' and SLY."
-  (:swank-dependencies swank-indentation)
+  (:slynk-dependencies slynk-indentation)
   (:on-load
    (setq common-lisp-current-package-function 'sly-current-package)))
 

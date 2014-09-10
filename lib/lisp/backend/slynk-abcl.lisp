@@ -1,17 +1,17 @@
 ;;;; -*- indent-tabs-mode: nil; outline-regexp: ";;;;;*"; -*-
 ;;;
-;;; swank-abcl.lisp --- Armedbear CL specific code for SLY.
+;;; slynk-abcl.lisp --- Armedbear CL specific code for SLY.
 ;;;
-;;; Adapted from swank-acl.lisp, Andras Simon, 2004
+;;; Adapted from slynk-acl.lisp, Andras Simon, 2004
 ;;;
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
 ;;;
 
-(defpackage swank-abcl
-  (:use cl swank-backend))
+(defpackage slynk-abcl
+  (:use cl slynk-backend))
 
-(in-package swank-abcl)
+(in-package slynk-abcl)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :collect) ;just so that it doesn't spoil the flying letters
@@ -27,7 +27,7 @@
 (defimplementation call-with-compilation-hooks (function)
   (funcall function))
 
-;;; swank-mop
+;;; slynk-mop
 
 ;;dummies and definition
 
@@ -74,13 +74,13 @@
   (declare (ignore class))
   (system::slot-value object (slot-definition-name slotdef)))
 
-(import-to-swank-mop
+(import-to-slynk-mop
  '( ;; classes
    cl:standard-generic-function
    standard-slot-definition ;;dummy
    cl:method
    cl:standard-class
-   #+#.(swank-backend:with-symbol 'compute-applicable-methods-using-classes 
+   #+#.(slynk-backend:with-symbol 'compute-applicable-methods-using-classes 
          'mop)
    mop:compute-applicable-methods-using-classes
    ;; standard-class readers
@@ -318,7 +318,7 @@
 
 ;;;; Debugger
 
-;; Copied from swank-sbcl.lisp.
+;; Copied from slynk-sbcl.lisp.
 ;;
 ;; Notice that *INVOKE-DEBUGGER-HOOK* is tried before *DEBUGGER-HOOK*,
 ;; so we have to make sure that the latter gets run when it was
@@ -341,7 +341,7 @@
 (defvar *sldb-topframe*)
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
-  (let* ((magic-token (intern "SWANK-DEBUGGER-HOOK" 'swank))
+  (let* ((magic-token (intern "SLYNK-DEBUGGER-HOOK" 'slynk))
          (*sldb-topframe* 
           (second (member magic-token (sys:backtrace)
                           :key (lambda (frame) 
@@ -349,7 +349,7 @@
     (funcall debugger-loop-fn)))
 
 (defun backtrace (start end)
-  "A backtrace without initial SWANK frames."
+  "A backtrace without initial SLYNK frames."
   (let ((backtrace (sys:backtrace)))
     (subseq (or (member *sldb-topframe* backtrace) backtrace)
             start end)))
@@ -412,7 +412,7 @@
 (defvar *buffer-string*)
 (defvar *compile-filename*)
 
-(in-package :swank-backend)
+(in-package :slynk-backend)
 
 (defvar *abcl-signaled-conditions*)
 
@@ -441,7 +441,7 @@
                                 (list :file (namestring *compile-filename*))
                                 (list :position 1))))))))
 
-(defimplementation swank-compile-file (input-file output-file
+(defimplementation slynk-compile-file (input-file output-file
                                        load-p external-format
                                        &key policy)
   (declare (ignore external-format policy))
@@ -456,7 +456,7 @@
                   (and fn load-p
                        (not (load fn)))))))))
 
-(defimplementation swank-compile-string (string &key buffer position filename
+(defimplementation slynk-compile-string (string &key buffer position filename
                                          policy)
   (declare (ignore filename policy))
   (let ((jvm::*resignal-compiler-warnings* t)
@@ -611,7 +611,7 @@
 Uncomment this if you have patched xref.lisp, as in 
 http://article.gmane.org/gmane.lisp.sly.devel/2425
 Also, make sure that xref.lisp is loaded by modifying the armedbear
-part of *sysdep-pathnames* in swank.loader.lisp. 
+part of *sysdep-pathnames* in slynk.loader.lisp. 
 
 ;;;; XREF
 (setq pxref:*handle-package-forms* '(cl:in-package))

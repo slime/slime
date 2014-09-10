@@ -21,9 +21,9 @@
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
 
-;;; Taken from swank-cmucl.lisp, by Helmut Eller
+;;; Taken from slynk-cmucl.lisp, by Helmut Eller
 
-(defpackage swank-source-path-parser
+(defpackage slynk-source-path-parser
   (:use cl)
   (:export
    read-source-form
@@ -32,7 +32,7 @@
    source-path-source-position
    ))
 
-(in-package swank-source-path-parser)
+(in-package slynk-source-path-parser)
 
 ;; Some test to ensure the required conformance
 (let ((rt (copy-readtable nil)))

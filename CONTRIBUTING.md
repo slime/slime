@@ -58,18 +58,18 @@ I keep a sentence of the previous Coding Guide that I like very much.
 
 The Lisp code is organized into these files:
 
-* `lib/lisp/swank-backend.lisp`: Definition of the interface to non-portable
+* `lib/lisp/slynk-backend.lisp`: Definition of the interface to non-portable
 features.  Stand-alone.
 
-* `lib/lisp/backebd/swank-<cmucl|...>.lisp`: Back-end implementation
-for a specific Common Lisp system.  Uses swank-backend.lisp.
+* `lib/lisp/backebd/slynk-<cmucl|...>.lisp`: Back-end implementation
+for a specific Common Lisp system.  Uses slynk-backend.lisp.
 
-* `lib/lisp/swank.lisp`: The top-level server program, built from the other
-components.  Uses swank-backend.lisp as an interface to the actual
+* `lib/lisp/slynk.lisp`: The top-level server program, built from the other
+components.  Uses slynk-backend.lisp as an interface to the actual
 backends.
 
 * `sly.el`: The Emacs front-end that the user actually interacts
-with and that connects to the SWANK server to send expressions to, and
+with and that connects to the SLYNK server to send expressions to, and
 retrieve information from the running Common Lisp system.
 
 * `contrib/*`: Lisp related code for fancy add-ons to SLY.
@@ -82,28 +82,28 @@ differences between the two, except for the following list. If it's
 not mentioned here, it's a safe bet that some particular mechanism
 you're interested in stayed the same.
 
-### SWANK-loading method
+### SLYNK-loading method
 
 SLIME immediately tells the Lisp process started by Emacs to use its
-own "swank-loader.lisp" to compile and load all possibly available
-lisp under its directory (including contrib's) before the SWANK server
-is created with `SWANK:CREATE-SERVER`.
+own "slynk-loader.lisp" to compile and load all possibly available
+lisp under its directory (including contrib's) before the SLYNK server
+is created with `SLYNK:CREATE-SERVER`.
 
 In SLY, the elisp variable `sly-init-function` is set to
 `sly-init-using-asdf` by default, meaning that `M-x sly` will try to
-load SWANK via `ASDF:LOAD-SYSTEM`.
+load SLYNK via `ASDF:LOAD-SYSTEM`.
 
 Contribs are also represented as ASDF system, so subsequent contrib
 requests also load these on-demand via `ASDF:LOAD-SYSTEM` rather than
 always forcing them on the user's Lisp run-time.
 
 The previous item allows the developer to write completely independent
-third-party extensions to SLY, with both SLY and SWANK. See the URL
+third-party extensions to SLY, with both SLY and SLYNK. See the URL
 http://github.com/capitaomorte/sly-hello-world for an example
 extension.
 
 Additionally, if SLY detects that ASDF is not available in the Lisp
-run-time, it will fallback to the old `swank-loader.lisp` mechanism,
+run-time, it will fallback to the old `slynk-loader.lisp` mechanism,
 which has also been revised to support the previous two use cases. Any
 of the two methods is transparent from Emacs's perspective.
 

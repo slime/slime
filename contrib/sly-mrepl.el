@@ -8,7 +8,7 @@
 (define-sly-contrib sly-mrepl
   "Multiple REPLs."
   (:license "GPL")
-  (:swank-dependencies swank-mrepl)
+  (:slynk-dependencies slynk-mrepl)
   (:on-load
    ;; Define a new "part action" for the `sly-part' buttons and change
    ;; the `sly-inspector-part', `sldb-local-variable' and
@@ -228,18 +228,18 @@ emptied. See also `sly-mrepl-hook'")
 (define-button-type 'sly-mrepl-part :supertype 'sly-part
   'sly-button-inspect
   #'(lambda (entry-idx value-idx)
-      (sly-eval-for-inspector `(swank-mrepl:inspect-entry
+      (sly-eval-for-inspector `(slynk-mrepl:inspect-entry
                                 ,sly-mrepl--remote-channel
                                 ,entry-idx
                                 ,value-idx)))
   'sly-button-describe
   #'(lambda (entry-idx value-idx)
-      (sly-eval-describe `(swank-mrepl:describe-entry ,sly-mrepl--remote-channel
+      (sly-eval-describe `(slynk-mrepl:describe-entry ,sly-mrepl--remote-channel
                                                       ,entry-idx
                                                       ,value-idx)))
   'sly-button-pretty-print
   #'(lambda (entry-idx value-idx)
-      (sly-eval-describe `(swank-mrepl:pprint-entry ,sly-mrepl--remote-channel
+      (sly-eval-describe `(slynk-mrepl:pprint-entry ,sly-mrepl--remote-channel
                                                       ,entry-idx
                                                       ,value-idx)))
   'sly-mrepl-copy-part-to-repl 'sly-mrepl--copy-part-to-repl)
@@ -528,7 +528,7 @@ emptied. See also `sly-mrepl-hook'")
 
 (defun sly-mrepl--eval-for-repl (note slyfun-and-args &optional callback)
   (sly-eval-async
-   `(swank-mrepl:globally-save-object ',(car slyfun-and-args)
+   `(slynk-mrepl:globally-save-object ',(car slyfun-and-args)
                                       ,@(cdr slyfun-and-args))
    #'(lambda (_ignored)
        (sly-mrepl--with-repl-for (sly-connection)
@@ -636,7 +636,7 @@ handle to distinguish the new buffer from the existing."
         (add-hook 'kill-buffer-hook 'sly-mrepl--teardown nil 'local)
         (set (make-local-variable 'sly-mrepl--local-channel) local))
       (sly-eval-async
-          `(swank-mrepl:create-mrepl ,(sly-channel.id local))
+          `(slynk-mrepl:create-mrepl ,(sly-channel.id local))
         (lambda (result)
           (cl-destructuring-bind (remote thread-id) result
             (with-current-buffer buffer
@@ -734,13 +734,13 @@ Doesn't clear input history."
 (defun sly-inspector-copy-part-to-repl (number)
   "Evaluate the inspector slot at point via the REPL (to set `*')."
   (sly-mrepl--eval-for-repl (format "Returning inspector slot %s" number)
-                            `(swank:inspector-nth-part-or-lose ,number)))
+                            `(slynk:inspector-nth-part-or-lose ,number)))
 
 (defun sldb-copy-part-to-repl (frame-id var-id)
   "Evaluate the frame var at point via the REPL (to set `*')."
   (sly-mrepl--eval-for-repl
    (format "Returning var %s of frame %s" var-id frame-id)
-   `(swank-backend:frame-var-value ,frame-id ,var-id)))
+   `(slynk-backend:frame-var-value ,frame-id ,var-id)))
 
 (defun sly-apropos-copy-symbol-to-repl (name _type)
   (sly-mrepl--eval-for-repl
@@ -751,19 +751,19 @@ Doesn't clear input history."
   "Eval the Trace Dialog entry under point in the REPL (to set *)"
   (sly-mrepl--eval-for-repl
    (format "Returning part %s (%s) of trace entry %s" part-id type id)
-   `(swank-trace-dialog:trace-part-or-lose ,id ,part-id ,type)))
+   `(slynk-trace-dialog:trace-part-or-lose ,id ,part-id ,type)))
 
 (defun sldb-copy-call-to-repl (frame-id spec)
   (sly-mrepl--eval-for-repl
    (format "The actual arguments passed to frame %s" frame-id)
-   `(swank-backend:frame-arguments ,frame-id)
+   `(slynk-backend:frame-arguments ,frame-id)
    #'(lambda (objects)
        (sly-mrepl--insert-call spec objects))))
 
 (defun sly-trace-dialog-copy-call-to-repl (trace-id spec)
   (sly-mrepl--eval-for-repl
    (format "The actual arguments passed to trace %s" trace-id)
-   `(swank-trace-dialog:trace-arguments-or-lose ,trace-id)
+   `(slynk-trace-dialog:trace-arguments-or-lose ,trace-id)
    #'(lambda (objects)
        (sly-mrepl--insert-call spec objects))))
 

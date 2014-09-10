@@ -65,15 +65,15 @@ test: compile
 		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
 		--eval '(sly-batch-test (quote $(SELECTOR)))'
 
-compile-swank:
-	echo '(load "swank-loader.lisp")' '(swank-loader:init :setup nil)' \
+compile-slynk:
+	echo '(load "slynk-loader.lisp")' '(slynk-loader:init :setup nil)' \
 	| $(LISP)
 
-run-swank:
+run-slynk:
 	{ echo \
-	'(load "swank-loader.lisp")' \
-	'(swank-loader:init)' \
-	'(swank:create-server)' \
+	'(load "slynk-loader.lisp")' \
+	'(slynk-loader:init)' \
+	'(slynk:create-server)' \
 	&& cat; } \
 	| $(LISP)
 
