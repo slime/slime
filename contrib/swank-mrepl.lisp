@@ -249,24 +249,39 @@
   (setq *saved-objects* (multiple-value-list (apply slave-slyfun args)))
   t)
 
+(defmacro with-eval-for-repl ((remote-id) &body body)
+  (let ((mrepl-sym (gensym)))
+    `(let ((,mrepl-sym (find-channel ,remote-id)))
+       (assert ,mrepl-sym)
+       (assert
+        (eq (swank-backend:thread-id
+             (swank-backend:current-thread)) 
+            (channel-thread-id ,mrepl-sym))
+        nil
+        "This SLYFUN can only be called from threads belonging to MREPL")
+       (with-listener ,mrepl-sym
+         ,@body))))
+
 (defslyfun eval-for-mrepl (remote-id slave-slyfun &rest args)
   "Call SLAVE-SLYFUN with ARGS in the MREPL of REMOTE-ID.
 Both the target MREPL's thread and environment are considered."
-  (let ((mrepl (find-channel remote-id)))
-    (assert mrepl)
-    (assert
-     (eq (swank-backend:thread-id
-          (swank-backend:current-thread)) 
-         (channel-thread-id mrepl))
-     nil
-     "This SLYFUN can only be called from threads belonging to MREPL")
-    (with-listener mrepl
-      (apply slave-slyfun args))))
+  (with-eval-for-repl (remote-id)
+    (apply slave-slyfun args)))
 
 (defslyfun inspect-entry (remote-id entry-idx value-idx)
-  (eval-for-mrepl remote-id
-                  'swank::inspect-object
-                  (mrepl-get-object-from-history entry-idx value-idx)))
+  (with-eval-for-repl (remote-id)
+    (swank::inspect-object
+     (mrepl-get-object-from-history entry-idx value-idx))))
+
+(defslyfun describe-entry (remote-id entry-idx value-idx)
+  (with-eval-for-repl (remote-id)
+    (swank::describe-to-string
+     (mrepl-get-object-from-history entry-idx value-idx))))
+
+(defslyfun pprint-entry (remote-id entry-idx value-idx)
+  (with-eval-for-repl (remote-id)
+    (swank::swank-pprint
+     (list (mrepl-get-object-from-history entry-idx value-idx)))))
 
 
 ;;;; Dedicated stream

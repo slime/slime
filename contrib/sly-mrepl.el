@@ -219,17 +219,29 @@ emptied. See also `sly-mrepl-hook'")
   (with-current-buffer (sly-channel-get self 'buffer)
     (let ((inhibit-read-only t))
       (erase-buffer)
+      (setq sly-mrepl--result-counter -1)
       (sly-mrepl--insert-output "; Cleared REPL history"))))
 
 
 ;;; Button type
 ;;;
 (define-button-type 'sly-mrepl-part :supertype 'sly-part
-  'sly-button-inspect #'(lambda (entry-idx value-idx)
-                          (sly-eval-for-inspector `(swank-mrepl:inspect-entry
-                                                    ,sly-mrepl--remote-channel
-                                                    ,entry-idx
-                                                    ,value-idx)))
+  'sly-button-inspect
+  #'(lambda (entry-idx value-idx)
+      (sly-eval-for-inspector `(swank-mrepl:inspect-entry
+                                ,sly-mrepl--remote-channel
+                                ,entry-idx
+                                ,value-idx)))
+  'sly-button-describe
+  #'(lambda (entry-idx value-idx)
+      (sly-eval-describe `(swank-mrepl:describe-entry ,sly-mrepl--remote-channel
+                                                      ,entry-idx
+                                                      ,value-idx)))
+  'sly-button-pretty-print
+  #'(lambda (entry-idx value-idx)
+      (sly-eval-describe `(swank-mrepl:pprint-entry ,sly-mrepl--remote-channel
+                                                      ,entry-idx
+                                                      ,value-idx)))
   'sly-mrepl-copy-part-to-repl 'sly-mrepl--copy-part-to-repl)
 
 
