@@ -14,6 +14,7 @@
                      sly-package-fu
                      sly-fontifying-fu
                      sly-trace-dialog
+                     sly-profiler
                      sly-indentation
                      sly-tramp))
 

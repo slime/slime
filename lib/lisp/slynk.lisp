@@ -25,7 +25,8 @@
            #:emacs-inspect
            ;;#:inspect-slot-for-emacs
            #:authenticate-client
-           #:*loopback-interface*)
+           #:*loopback-interface*
+           #:to-line)
   ;; These are user-configurable variables:
   (:export #:*communication-style*
            #:*dont-close*
