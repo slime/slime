@@ -16,7 +16,8 @@
            #:exited-non-locally
            #:*record-backtrace*
            #:*traces-per-report*
-           #:*dialog-trace-follows-trace*))
+           #:*dialog-trace-follows-trace*
+           #:instrument))
 
 (in-package :slynk-trace-dialog)
 
@@ -262,5 +263,20 @@ program.")
 ;;
 (unless (boundp 'slynk::*inspector-history*)
   (slynk::reset-inspector))
+
+
+;;;; Instrumentation
+;;;; 
+(defmacro instrument (x &optional (id (gensym "EXPLICIT-INSTRUMENT-")) )
+  (let ((values-sym (gensym)))
+    `(let ((,values-sym (multiple-value-list ,x)))
+       (trace-format (format nil "~a: ~a" ',id "~a => ~{~a~^, ~}") ',x ,values-sym)
+       (values-list ,values-sym))))
+
+(define-setf-expander instrument (x &environment env)
+  (error "The intrumentation you've setup for~%  ~a~% is in the wrong place!"
+         x)
+  (get-setf-expansion x env))
+
 
 (provide :slynk-trace-dialog)
