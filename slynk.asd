@@ -100,6 +100,9 @@
 (defsystem :slynk-trace-dialog
   :components ((:file "contrib/slynk-trace-dialog")))
 
+(defsystem :slynk-profiler
+  :components ((:file "contrib/slynk-profiler")))
+
 (defsystem :slynk-clipboard
   :components ((:file "contrib/slynk-clipboard")))
 

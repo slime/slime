@@ -186,15 +186,4 @@
   (loop for ts in (timed-specs)
         do (reinitialize-instance ts)))
 
-(defun foo (n)
-  (baz 1)
-  (when (plusp n) (bar (1- n))))
-
-(defun bar (n)
-  (baz 0.5)
-  (when (plusp n) (foo (1- n))))
-
-(defun baz (howmuch)
-  (sleep howmuch))
-
-(provide :slynk-timings)
+(provide :slynk-profiler)
