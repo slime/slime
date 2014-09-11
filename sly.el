@@ -1,4 +1,4 @@
-;;; sly.el ---Superior Lisp Interaction Mode for Emacs-*-lexical-binding:t-*-
+;;; sly.el ---Sylvester the Cat's Common Lisp IDE  -*-lexical-binding:t-*-
 ;;;
 ;; Version: 1.0.0-alpha
 ;; URL: https://github.com/capitaomorte/sly
@@ -30,29 +30,9 @@
 
 ;;;; Commentary
 ;;
-;; This file contains extensions for programming in Common Lisp. The
-;; main features are:
-;;
-;;   A socket-based communication/RPC interface between Emacs and
-;;   Lisp, enabling introspection and remote development.
-;;
-;;   The `sly-mode' minor-mode complementing `lisp-mode'. This new
-;;   mode includes many commands for interacting with the Common Lisp
-;;   process.
-;;
-;;   A Common Lisp debugger written in Emacs Lisp. The debugger pops up
-;;   an Emacs buffer similar to the Emacs/Elisp debugger.
-;;
-;;   A Common Lisp inspector to interactively look at run-time data.
-;;
-;;   Trapping compiler messages and creating annotations in the source
-;;   file on the appropriate forms.
-;;
-;; SLY works with Emacs >= 24.3+
-;;
-;; In order to run SLY, a supporting Lisp server called Slynk is
-;; required. Slynk is distributed with sly.el and will automatically
-;; be started in a normal installation.
+;; See the README.md file sitting alongside this file or go to
+;; https://github.com/capitaomorte/sly for a description. SLY is a
+;; fork of SLIME, the Superior Lisp Interaction Mode for Emacs.
 
 
 ;;;; Dependencies and setup
