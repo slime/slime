@@ -1,7 +1,7 @@
 ;;; sly.el ---Superior Lisp Interaction Mode for Emacs-*-lexical-binding:t-*-
 ;;;
 ;; Version: 1.0.0-alpha
-;; URL: https://github.com/sly/sly
+;; URL: https://github.com/capitaomorte/sly
 ;; Package-Requires: ((cl-lib "0.5"))
 ;; Keywords: languages, lisp, sly
 
