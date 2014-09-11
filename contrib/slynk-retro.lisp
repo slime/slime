@@ -24,4 +24,6 @@
 
 (ensure-slynk-package-nicknames)
 
+(provide :slynk-retro)
+
 
