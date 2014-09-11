@@ -707,7 +707,10 @@ Minimize point motion if possible."
 The user is prompted if a prefix argument is in effect, if there is no
 symbol at point, or if QUERY is non-nil."
   (cond ((or current-prefix-arg query (not (sly-symbol-at-point)))
-         (sly-read-from-minibuffer prompt (sly-symbol-at-point)))
+         (sly-read-from-minibuffer prompt (sly-symbol-at-point)
+                                   nil
+                                   nil
+                                   sly-minibuffer-read-symbol-map))
         (t (sly-symbol-at-point))))
 
 ;; Interface
@@ -3526,6 +3529,13 @@ for the most recently enclosed macro or function."
     map)
   "Minibuffer keymap used for reading CL expressions.")
 
+(defvar sly-minibuffer-read-symbol-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map sly-minibuffer-map)
+    (define-key map "\s" 'sly-complete-symbol)
+    map)
+  "Minibuffer keymap used for reading CL smbols")
+
 (defvar sly-minibuffer-history '()
   "History list of expressions read from the minibuffer.")
 
@@ -3538,7 +3548,7 @@ for the most recently enclosed macro or function."
             (set-syntax-table lisp-mode-syntax-table)))
         minibuffer-setup-hook))
 
-(defun sly-read-from-minibuffer (prompt &optional initial-value history allow-empty)
+(defun sly-read-from-minibuffer (prompt &optional initial-value history allow-empty keymap)
   "Read a string from the minibuffer, prompting with PROMPT.
 If INITIAL-VALUE is non-nil, it is inserted into the minibuffer
 before reading input.  The result is a string (\"\" if no input
@@ -3552,7 +3562,7 @@ was given and ALLOW-EMPTY is non-nil)."
                          prompt)
                  (and (zerop i)
                       initial-value)
-                 sly-minibuffer-map
+                 (or keymap sly-minibuffer-map)
                  nil (or history 'sly-minibuffer-history))
      when (or (> (length read) 0)
               allow-empty)

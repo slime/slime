@@ -137,10 +137,17 @@ keypress be processed in the target buffer."
          (add-hook 'post-command-hook
                    'sly-fuzzy-target-post-command-hook
                    'append
+                   'local)
+         (add-hook 'kill-buffer-hook
+                   'sly-fuzzy-abort
+                   'append
                    'local))
         (t
          (remove-hook 'post-command-hook
                       'sly-fuzzy-target-post-command-hook
+                      'local)
+         (remove-hook 'kill-buffer-hook
+                      'sly-fuzzy-abort
                       'local))))
 
 (add-to-list 'minor-mode-alist
