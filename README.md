@@ -11,7 +11,7 @@
 
 SLY is a Common Lisp IDE for Emacs.
 
-See it in action [this screencast][7]. 
+See it in action in [this screencast][7]. 
 
 SLY is a fork of [SLIME][1]. Read about the reasons for forking [here][2] and
 see the [NEWS.md][6] for a listing of the differences between the two
@@ -57,15 +57,18 @@ C. Rittweiler and [many others][8]. I forked SLIME it because I used it daily,
 for work, had a long list of hacks developed for myself, and wanted to share
 them with others.
 
-In 2013, SLIME development was stalling and patches rotting, so in 2014, I
-helped move SLIME to Github, set up its Travis CI system, fixed long-standing
-bugs and submitted many changes.
+In 2013, SLIME development was stalling, patches and issues rotting. In early 
+2014,  Luís Oliveira and myself moved SLIME to Github, set up its Travis CI 
+system. I brought in the old bug reports from the Launchpad tracker, fixed 
+long-standing problems and submitted many changes, particularly to the 
+under-curated but popular "contrib" section.
 
-However, the changes that SLY brings to the table are too deep at the Elisp and
-Lisp level to be accepted to SLIME, given its current focus on stability. For
-the record, I find this perfectly reasonable. As an example, SLY frees itself
-from the Emacs 23 shackles and supports Emacs 24.3 only allowing for much
-cleaner code and liberal use of lexical binding.
+Now, the changes that SLY brings to the table are too deep at the Elisp and
+Lisp level to be accepted to SLIME, given its current focus on stability (for
+the record, I find this perfectly reasonable). The new features such as multiple
+inspectors cannot be realized well using only the existing "contrib" system. 
+Finally, SLY frees itself from the Emacs 23 shackles and supports Emacs 24.3 only 
+allowing for much cleaner code and liberal use of lexical binding.
 
 The list of technical reasons is bigger than this though, and you can read up on
 them in the [CONTRIBUTING.md][9] file.
