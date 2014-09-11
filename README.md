@@ -15,12 +15,33 @@ See it in action in [this screencast][7].
 
 SLY is a fork of [SLIME][1]. Read about the reasons for forking [here][2] and
 see the [NEWS.md][6] for a listing of the differences between the two
-projects. SLY is currently **alpha** status
+projects. SLY is currently *alpha* status and the
+[documentation is out of date](https://github.com/capitaomorte/sly/issues/9).
 
-Quick setup instructions
-------------------------
+Install from MELPA
+------------------
 
-Add this to your `~/.emacs` file and fill in the appropriate file names:
+Ensure that [MELPA][10] is setup as usual and that `inferior-lisp-program` points 
+to a valid lisp:
+
+```el
+(require 'package)
+(add-to-list 'package-archives
+             '("melpa" . "http://melpa.milkbox.net/packages/") t)
+(package-initialize)
+
+(setq inferior-lisp-program "/opt/sbcl/bin/sbcl")
+```
+
+Now do `M-x package-install` and enter `sly` when prompted. Use `M-x sly` to
+fire up SLY and connect to Lisp. You will get a friendly REPL. SLY's `sly-mode`
+will automatically come up in every `.lisp` file.
+
+Install from Git
+----------------
+
+Clone this repository, add this to your `~/.emacs` file and fill in the
+appropriate file names:
 
 ```el
 (add-to-list 'load-path "~/dir/to/cloned/sly")
@@ -28,14 +49,18 @@ Add this to your `~/.emacs` file and fill in the appropriate file names:
 (setq inferior-lisp-program "/opt/sbcl/bin/sbcl")
 ```
 
-Use `M-x sly` to fire up and connect to an inferior Lisp.  SLY will now
-automatically be available in your Lisp source buffers.
+`M-x sly` becomes available immediately. If you wish to byte-compile SLY
+yourself (not needed generally) you can do `make compile contrib-compile` in the
+dir where you cloned SLY.
+
+Running the server standalone
+-----------------------------
 
 This also works
 ```
 $ sbcl
 ...
-* (push #p"~/dir/to/cloned/sly" asdf:*central-registry*)
+* (push #p"~/dir/to/sly" asdf:*central-registry*)
 * (asdf:load-system :slynk)
 * (slynk:create-server :port 4008)
 ```
@@ -53,12 +78,12 @@ Fork
 ----
 
 SLIME is the work of Eric Marsden, Luke Gorrie, Helmut Eller, Tobias
-C. Rittweiler and [many others][8]. I forked SLIME it because I used it daily,
+C. Rittweiler and [many others][8]. I forked SLIME because I used it daily,
 for work, had a long list of hacks developed for myself, and wanted to share
 them with others.
 
 In 2013, SLIME development was stalling, patches and issues rotting. In early 
-2014,  Luís Oliveira and myself moved SLIME to Github, set up its Travis CI 
+2014,  Luís Oliveira and myself moved SLIME to Github and set up its Travis CI 
 system. I brought in the old bug reports from the Launchpad tracker, fixed 
 long-standing problems and submitted many changes, particularly to the 
 under-curated but popular "contrib" section.
@@ -87,6 +112,7 @@ first part [CONTRIBUTING.md][5] file for instructions on how to contribute.
 [7]: https://www.youtube.com/watch?v=xqWkVvubnSI
 [8]: http://common-lisp.net/project/slime/doc/html/Credits.html#Credits
 [9]: https://github.com/capitaomorte/sly/blob/master/CONTRIBUTING.md#architecture
+[10]: https://github.com/milkypostman/melpa
 
 <!-- Local Variables: -->
 <!-- fill-column: 80 -->
