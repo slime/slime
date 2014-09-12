@@ -95,7 +95,8 @@ The functions created here expect your tramp-default-method or
               lisp-filename)))))
 
 (defun sly-tramp-to-lisp-filename (filename)
-  (funcall (if (sly-connected-p)
+  (funcall (if (and (sly-current-connection)
+                    (sly-connected-p))
                (first (sly-find-filename-translators (sly-machine-instance)))
                'identity)
            (expand-file-name filename)))
