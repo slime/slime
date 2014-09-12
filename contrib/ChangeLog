@@ -1,3 +1,12 @@
+2014-09-12  Helmut Eller  <heller@common-lisp.net>
+
+	Fix tests.
+
+	* Makefile (check-fancy): Make explicit target for slime-fancy.
+	Needed because there is no file for it in test/ otherwise.
+	* test/slime-presentations-tests.el (pretty-presentation-results):
+	Specify :right-margin because CCL uses a 70 not 75 as default.
+
 2014-09-10  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-repl.lisp: Import *globally-redirect-io* from swank.

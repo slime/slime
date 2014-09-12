@@ -30,19 +30,28 @@
 
 Very much like `repl-test-2', but should be more stable when
 presentations are enabled, except in allegro."
-    '(("(with-standard-io-syntax
-         (write (make-list 15 :initial-element '(1 . 2)) :pretty t) 0)"
-       "SWANK> (with-standard-io-syntax
-         (write (make-list 15 :initial-element '(1 . 2)) :pretty t) 0)
+    '(("\
+(with-standard-io-syntax
+ (write (make-list 15 :initial-element '(1 . 2)) :pretty t :right-margin 75)
+ 0)"
+       "\
+SWANK> \
+(with-standard-io-syntax
+ (write (make-list 15 :initial-element '(1 . 2)) :pretty t :right-margin 75)
+ 0)
 {((1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2)
  (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2))
 }0
 SWANK> *[]")
       ;; Two times to test the effect of FRESH-LINE.
-      ("(with-standard-io-syntax
-         (write (make-list 15 :initial-element '(1 . 2)) :pretty t) 0)"
-       "SWANK> (with-standard-io-syntax
-         (write (make-list 15 :initial-element '(1 . 2)) :pretty t) 0)
+      ("\
+(with-standard-io-syntax
+ (write (make-list 15 :initial-element '(1 . 2)) :pretty t :right-margin 75)
+ 0)"
+       "SWANK> \
+(with-standard-io-syntax
+ (write (make-list 15 :initial-element '(1 . 2)) :pretty t :right-margin 75)
+ 0)
 {((1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2)
  (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2))
 }0

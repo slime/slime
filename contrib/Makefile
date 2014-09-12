@@ -65,16 +65,28 @@ elpa-all: $(CONTRIBS:%=elpa-%)
 $(CONTRIB_TESTS:%=check-%): CONTRIB_NAME=$(patsubst check-%,slime-%,$@)
 $(CONTRIB_TESTS:%=check-%): SELECTOR=(quote (tag contrib))
 $(CONTRIB_TESTS:%=check-%): compile
-	$(EMACS) -Q --batch $(LOAD_PATH) -L test                        \
-	        --eval "(require (quote slime))"                        \
-	        --eval "(slime-setup (quote ($(CONTRIB_NAME))))"        \
-	        --eval "(mapc (lambda (sym)                             \
-	                         (require                               \
-	                           (intern (format \"%s-tests\" sym))   \
-	                           nil t))                              \
-	                      (slime-contrib-all-dependencies           \
-	                        (quote $(CONTRIB_NAME))))"              \
-	        --eval "(setq inferior-lisp-program \"$(LISP)\")"       \
+	$(EMACS) -Q --batch $(LOAD_PATH) -L test			   \
+	        --eval "(require (quote slime))"			   \
+	        --eval "(slime-setup (quote ($(CONTRIB_NAME))))"	   \
+	        --eval "(require					   \
+                         (intern					   \
+			  (format \"%s-tests\" (quote $(CONTRIB_NAME)))))" \
+	        --eval '(setq inferior-lisp-program "$(LISP)")'		   \
 	        --eval "(slime-batch-test $(SELECTOR))"
 
 check-all: $(CONTRIB_TESTS:%=check-%)
+
+check-fancy: compile
+	$(EMACS) -Q --batch  $(LOAD_PATH) -L test			\
+	        --eval "(setq debug-on-error t)"			\
+	        --eval "(require (quote slime))"			\
+	        --eval "(slime-setup (quote (slime-fancy)))"		\
+	        --eval "(mapc (lambda (sym)				\
+	                         (require				\
+	                           (intern (format \"%s-tests\" sym))	\
+	                           nil t))				\
+	                      (slime-contrib-all-dependencies		\
+	                        (quote slime-fancy)))"			\
+	        --eval '(setq inferior-lisp-program "$(LISP)")'		\
+	        --eval '(slime-batch-test (quote (tag contrib)))'
+
