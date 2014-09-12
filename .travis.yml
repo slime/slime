@@ -33,3 +33,9 @@ install:
 
 script:
   - make LISP=$LISP EMACS=$EMACS $CHECK_TARGET
+
+notifications:
+  email:
+    recipients:
+      - slime-cvs@common-lisp.net
+      on_success: always # for testing
