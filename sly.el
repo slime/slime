@@ -2,7 +2,7 @@
 ;;;
 ;; Version: 1.0.0-alpha
 ;; URL: https://github.com/capitaomorte/sly
-;; Package-Requires: ((cl-lib "0.5"))
+;; Package-Requires: ((emacs "24.3"))
 ;; Keywords: languages, lisp, sly
 
 ;;;; License
@@ -28,11 +28,19 @@
 ;;     MA 02111-1307, USA.
 
 
-;;;; Commentary
+;;; Commentary
 ;;
-;; See the README.md file sitting alongside this file or go to
+;; See the NEWS.md file sitting alongside this file or go to
 ;; https://github.com/capitaomorte/sly for a description. SLY is a
-;; fork of SLIME, the Superior Lisp Interaction Mode for Emacs.
+;; fork of SLIME, and contains the following improvements over it:
+;;
+;; * Completely redesigned REPL
+;; * Regexp-capable M-x sly-apropos
+;; * Fancy contribs are enabled by default
+;; * SLY uses ASDF and loads contribs on demand.
+;; * Consistent interactive button interface
+;; * Multiple inspectors
+;; * Copy function call to REPL
 
 
 ;;;; Dependencies and setup
