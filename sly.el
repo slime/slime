@@ -5423,7 +5423,15 @@ If MORE is non-nil, more frames are on the Lisp stack."
   'sly-button-inspect
   #'(lambda (frame-id var-id)
       (sly-eval-for-inspector `(slynk:inspect-frame-var ,frame-id
-                                                        ,var-id)) ))
+                                                        ,var-id)) )
+  'sly-button-pretty-print
+  #'(lambda (frame-id var-id)
+      (sly-eval-describe `(slynk:pprint-frame-var ,frame-id
+                                                  ,var-id)))
+  'sly-button-describe
+  #'(lambda (frame-id var-id)
+      (sly-eval-describe `(slynk:describe-frame-var ,frame-id
+                                                    ,var-id))))
 
 (defun sly-db-local-variable-button (label frame-number var-id &rest props)
   (apply #'make-text-button label nil

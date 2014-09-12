@@ -3558,6 +3558,14 @@ Return nil if there's no previous object."
     (reset-inspector)
     (inspect-object (frame-var-value frame var))))
 
+(defslyfun pprint-frame-var (frame var)
+  (with-buffer-syntax ()
+    (slynk-pprint (list (frame-var-value frame var)))))
+
+(defslyfun describe-frame-var (frame var)
+  (with-buffer-syntax ()
+    (describe-to-string (frame-var-value frame var))))
+
 (defslyfun eval-for-inspector (current
                                target
                                slave-slyfun &rest args)
