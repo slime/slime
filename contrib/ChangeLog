@@ -5,7 +5,7 @@
 	* Makefile (check-fancy): Make explicit target for slime-fancy.
 	Needed because there is no file for it in test/ otherwise.
 	* test/slime-presentations-tests.el (pretty-presentation-results):
-	Specify :right-margin because CCL uses a 70 not 75 as default.
+	Specify :right-margin because CCL uses 70 not 75 as default.
 
 2014-09-10  Helmut Eller  <heller@common-lisp.net>
 
