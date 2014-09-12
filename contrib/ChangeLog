@@ -1,5 +1,70 @@
 2014-09-12  Helmut Eller  <heller@common-lisp.net>
 
+	Rewrite slime-autodoc.
+
+	Cleaned up and simplified. I think most of functionality was
+	perserved.  There was a "multiline cache" feature which I was not
+	able to understand--despite my best efforts.  So I deleted that.
+
+	* slime-autodoc.el (slime-autodoc): Use helper functions to make
+	this one shorter.  Also remove some of the comments that explained
+	rather obvious things.  Test slime-background-activities-enabled-p
+	before sending something on the wire.
+	(slime-autodoc--parse-context): Mostly replaces the old
+	make-autodoc-rpc-form.
+	(slime-autodoc--parsing-safe-p): New helper.
+	(slime-autodoc--async, slime-autodoc--async%): The asynchronous
+	code without lexical-let.
+
+	(slime-autodoc-manually): Use eldoc-add-command to tell
+	eldoc that it's OK to clobber the echo area.
+	(slime-autodoc-space): New command.  Bound to SPC by the minor
+	mode.  That's simpler than messing around with
+	slime-echo-arglist-function.
+
+	(slime-autodoc-mode): Use define-minor-mode with :keymap keyword
+	to bind keys.  Shorter modeline indicator: "adoc" instead of
+	"Autodoc".
+	(slime-autodoc--doc-map-prefix): New helper.
+
+	(slime-use-autodoc-mode): Deleted. Seems
+	completely redundant now that slime-autodoc is a minor mode that
+	can be turned on/off.
+	(slime-autodoc-use-multiline-p): Deleted. Use
+	eldoc-display-message-no-interference-p instead.
+	(slime-autodoc-delay): Deleted. Use eldoc-idle-delay instead.
+
+	(slime-autodoc--cache-get, slime-autodoc--cache-put):
+	Renamed from slime-get-cached-autodoc and
+	slime-store-into-autodoc-cache.
+	(slime-autodoc--cache-last-context): Renamed from
+	slime-autodoc-last-buffer-form.
+	(slime-autodoc--cache-last-autodoc): Renamed from
+	slime-autodoc-last-autodoc.
+
+	(slime-autodoc-cache-car, slime-autodoc-multiline-cached)
+	(slime-autodoc-cache-multiline): Deleted because I couldn't figure
+	out what the purpose of this "multiline cache" was.
+
+	(slime-autodoc--canonicalize-whitespace): Renamed from
+	slime-canonicalize-whitespace.
+	(slime-autodoc--format): Renamed from slime-format-autodoc.
+	(slime-autodoc--fontify): Renamed from slime-fontify-string.
+
+	(slime-autodoc--on, slime-autodoc--off)
+	(slime-autodoc--enable, slime-autodoc--disable)
+	(slime-autodoc--relevant-hooks):  New.
+
+	(slime-autodoc-maybe-enable): Deleted.
+	(eldoc-display-message-no-interference-p): No advice used any
+	more.
+
+	* test/slime-autodoc-tests.el (autodoc-space): New.
+	(slime-autodoc-to-string): Use new names.
+	(slime-check-autodoc-at-point): Replace cl-getf with plist-get.
+
+2014-09-12  Helmut Eller  <heller@common-lisp.net>
+
 	Fix tests.
 
 	* Makefile (check-fancy): Make explicit target for slime-fancy.

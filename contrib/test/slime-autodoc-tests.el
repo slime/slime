@@ -5,10 +5,13 @@
 (defun slime-autodoc-to-string ()
   "Retrieve and return autodoc for form at point."
   (let ((autodoc (car (slime-eval
-                       (cl-second (slime-make-autodoc-rpc-form))))))
+		       `(swank:autodoc
+			 ',(slime-autodoc--parse-context)
+			 :print-right-margin
+			 ,(window-width (minibuffer-window)))))))
     (if (eq autodoc :not-available)
         :not-available
-        (slime-canonicalize-whitespace autodoc))))
+        (slime-autodoc--canonicalize-whitespace autodoc))))
 
 (defun slime-check-autodoc-at-point (arglist)
   (slime-test-expect (format "Autodoc in `%s' (at %d) is as expected"
@@ -21,8 +24,8 @@
      ,@(cl-loop
         for (buffer-sexpr wished-arglist . options)
         in specs
-        for fails-for = (cl-getf options :fails-for)
-        for skip-trailing-test-p = (cl-getf options :skip-trailing-test-p)
+        for fails-for = (plist-get options :fails-for)
+        for skip-trailing-test-p = (plist-get options :skip-trailing-test-p)
         for i from 1
         when (featurep 'ert)
         collect `(define-slime-ert-test ,(intern (format "autodoc-tests-%d" i))
@@ -162,5 +165,35 @@
   ("(labels ((foo (x y) (+ x y))
                  (bar (y) (foo *HERE*"
    "(foo ===> x <=== y)" :fails-for ("cmucl" "sbcl" "allegro" "ccl")))
+
+(def-slime-test autodoc-space
+    (input-keys expected-message)
+    "Emulate the inserting something followed by the space key
+event and verify that the right thing appears in the echo
+area (after a short delay)."
+    '(("( s w a n k : : o p e r a t o r - a r g l i s t SPC"
+       "(operator-arglist name package)"))
+  (when noninteractive
+    (slime-skip-test "Can't use unread-command-events in batch mode"))
+  (let* ((keys (eval `(kbd ,input-keys)))
+	 (tag (cons nil nil))
+	 (timerfun (lambda (tag) (throw tag nil)))
+	 (timer (run-with-timer 0.1 nil timerfun tag)))
+    (with-temp-buffer
+      (lisp-mode)
+      (unwind-protect
+	  (catch tag
+	    (message nil)
+	    (select-window (display-buffer (current-buffer) t))
+	    (setq unread-command-events (listify-key-sequence keys))
+	    (accept-process-output)
+	    (recursive-edit))
+	(setq unread-command-events nil)
+	(cancel-timer timer))
+      (slime-test-expect "Message after SPC"
+			 expected-message (current-message))
+      (accept-process-output nil (* eldoc-idle-delay 2))
+      (slime-test-expect "Message after edloc delay"
+			 expected-message (current-message)))))
 
 (provide 'slime-autodoc-tests)
