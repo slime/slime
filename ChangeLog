@@ -1,3 +1,8 @@
+2014-09-12  Douglas Katzman <dougk@google.com>
+
+	* swank-sbcl.lisp (macroexpand-all): sb-cltl2:macroexpand-all is
+	preferable to using sb-walker directly
+
 2014-09-10  Helmut Eller  <heller@common-lisp.net>
 
 	Fix gray stream issue for SBCL

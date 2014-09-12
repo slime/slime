@@ -1033,8 +1033,7 @@ Return a list of the form (NAME LOCATION)."
 ;;; macroexpansion
 
 (defimplementation macroexpand-all (form)
-  (let ((sb-walker:*walk-form-expand-macros-p* t))
-    (sb-walker:walk-form form)))
+  (sb-cltl2:macroexpand-all form))
 
 
 ;;; Debugging
