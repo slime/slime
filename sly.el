@@ -2400,8 +2400,16 @@ Also rearrange windows."
 
 (defvar sly-before-compile-functions nil
   "A list of function called before compiling a buffer or region.
-The function receive two arguments: the beginning and the end of the
-region that will be compiled.")
+The function receives two arguments: the beginning and the end of
+the region that will be compiled in case a text region is being
+compiled, or the buffer being compiled and the LOAD flag to
+`sly-compile-file'")
+
+(defvar sly-after-compile-functions nil
+  "A list of functions called after compiling a buffer or region.
+The function receive three arguments. The first is the
+compilation's result, the remaining ones are as in
+`sly-before-compile-functions'")
 
 ;; FIXME: remove some of the options
 (defcustom sly-compilation-finished-hook 'sly-maybe-show-compilation-log
@@ -2478,14 +2486,16 @@ See `sly-compile-and-load-file' for further details."
   (when (and (buffer-modified-p)
              (y-or-n-p (format "Save file %s? " (buffer-file-name))))
     (save-buffer))
-  (run-hook-with-args 'sly-before-compile-functions (point-min) (point-max))
+  (run-hook-with-args 'sly-before-compile-functions (current-buffer) load)
   (let ((file (sly-to-lisp-filename (buffer-file-name)))
         (options (sly-simplify-plist `(,@sly-compile-file-options
-                                         :policy ,policy))))
+                                       :policy ,policy))))
     (sly-eval-async
         `(slynk:compile-file-for-emacs ,file ,(if load t nil)
                                        . ,(sly-hack-quotes options))
-      #'sly-compilation-finished)
+      #'(lambda (results)
+          (sly-compilation-finished results)
+          (run-hook-with-args 'sly-after-compile-functions results (current-buffer) load)))
     (sly-message "Compiling %s..." file)))
 
 (defun sly-hack-quotes (arglist)
@@ -2518,7 +2528,9 @@ to it depending on its sign."
   (sly-connection)
   (sly-flash-region start end)
   (run-hook-with-args 'sly-before-compile-functions start end)
-  (sly-compile-string (buffer-substring-no-properties start end) start))
+  (sly-compile-string (buffer-substring-no-properties start end) start
+                      #'(lambda (result)
+                          (run-hook-with-args 'sly-after-compile-functions result start end))))
 
 (defun sly-flash-region (start end &optional timeout face)
   "Temporarily highlight region from START to END."
@@ -2527,11 +2539,14 @@ to it depending on its sign."
                                    'secondary-selection))
     (run-with-timer (or timeout 0.2) nil 'delete-overlay overlay)))
 
-(defun sly-compile-string (string start-offset)
-  (let* ((line (save-excursion
-                 (goto-char start-offset)
-                 (list (line-number-at-pos) (1+ (current-column)))))
-         (position `((:position ,start-offset) (:line ,@line))))
+(defun sly-compilation-position (start-offset)
+  (let ((line (save-excursion
+                (goto-char start-offset)
+                (list (line-number-at-pos) (1+ (current-column))))))
+    `((:position ,start-offset) (:line ,@line))))
+
+(defun sly-compile-string (string start-offset &optional hook)
+  (let* ((position (sly-compilation-position start-offset)))
     (sly-eval-async
         `(slynk:compile-string-for-emacs
           ,string
@@ -2540,7 +2555,8 @@ to it depending on its sign."
           ,(if (buffer-file-name) (sly-to-lisp-filename (buffer-file-name)))
           ',sly-compilation-policy)
       #'(lambda (result)
-          (sly-compilation-finished result t)))))
+          (sly-compilation-finished result t)
+          (when hook (funcall hook result))))))
 
 (defcustom sly-load-failed-fasl 'never
   "Which action to take when COMPILE-FILE set FAILURE-P to T.
