@@ -1,6 +1,6 @@
 2014-09-12  Helmut Eller  <heller@common-lisp.net>
 
-	Rewrite slime-autodoc.
+	Rewrite slime-autodoc. Fixes github issue#188 along the way.
 
 	Cleaned up and simplified. I think most of functionality was
 	perserved.  There was a "multiline cache" feature which I was not

@@ -3463,15 +3463,9 @@ more than one space."
   (interactive "p")
   (self-insert-command n)
   (when (slime-background-activities-enabled-p)
-    (slime-echo-arglist)))
+    (slime-show-arglist)))
 
 (put 'slime-space 'delete-selection t) ; for delete-section-mode & CUA
-
-(defvar slime-echo-arglist-function 'slime-show-arglist)
-
-(defun slime-echo-arglist ()
-  "Display the arglist of the current form in the echo area."
-  (funcall slime-echo-arglist-function))
 
 (defun slime-show-arglist ()
   (let ((op (slime-operator-before-point)))

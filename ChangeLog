@@ -1,3 +1,12 @@
+2014-09-13  Helmut Eller  <heller@common-lisp.net>
+
+	Remove no longer needed indirections.
+
+	* slime.el (slime-echo-arglist-function, slime-echo-arglist):
+	Deleted.  slime-autodoc was the only client and the indirection
+	makes the code unnecessary complicated.
+	(slime-space): Call slime-show-arglist directly.
+
 2014-09-12  Douglas Katzman <dougk@google.com>
 
 	* swank-sbcl.lisp (macroexpand-all): sb-cltl2:macroexpand-all is
