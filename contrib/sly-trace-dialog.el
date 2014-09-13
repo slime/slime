@@ -380,7 +380,13 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   'sly-button-inspect #'(lambda (trace-id part-id type)
                           (sly-eval-for-inspector
                            `(slynk-trace-dialog:inspect-trace-part ,trace-id ,part-id ,type)
-                           :inspector-name (sly-maybe-read-inspector-name))))
+                           :inspector-name (sly-maybe-read-inspector-name)))
+  'sly-button-pretty-print #'(lambda (trace-id part-id type)
+                               (sly-eval-describe
+                                `(slynk-trace-dialog:pprint-trace-part ,trace-id ,part-id ,type)))
+  'sly-button-describe #'(lambda (trace-id part-id type)
+                           (sly-eval-describe
+                            `(slynk-trace-dialog:describe-trace-part ,trace-id ,part-id ,type))))
 
 (defun sly-trace-dialog-part-button (part-id part-text trace-id type)
   (make-text-button part-text nil

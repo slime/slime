@@ -191,6 +191,12 @@ program.")
   (slynk::inspect-object
    (trace-part-or-lose trace-id part-id type)))
 
+(defslyfun pprint-trace-part (trace-id part-id type)
+  (slynk::slynk-pprint (list (trace-part-or-lose trace-id part-id type))))
+
+(defslyfun describe-trace-part (trace-id part-id type)
+  (slynk::describe-to-string (trace-part-or-lose trace-id part-id type)))
+
 (defslyfun inspect-trace (trace-id)
   (slynk::inspect-object (trace-or-lose trace-id)))
 
@@ -272,11 +278,5 @@ program.")
     `(let ((,values-sym (multiple-value-list ,x)))
        (trace-format (format nil "~a: ~a" ',id "~a => ~{~a~^, ~}") ',x ,values-sym)
        (values-list ,values-sym))))
-
-(define-setf-expander instrument (x &environment env)
-  (declare (ignore env))
-  (error "The intrumentation you've setup for~%  ~a~% is in the wrong place!"
-         x))
-
 
 (provide :slynk-trace-dialog)
