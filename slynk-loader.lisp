@@ -36,22 +36,23 @@
   "A list of directories to search for modules.")
 
 (defparameter *sysdep-files*
-  #+cmu '(slynk-source-path-parser slynk-source-file-cache (backend slynk-cmucl) slynk-gray)
-  #+scl '(slynk-source-path-parser slynk-source-file-cache (backend slynk-scl) slynk-gray)
+  #+cmu '(slynk-source-path-parser slynk-source-file-cache (backend slynk-cmucl))
+  #+scl '(slynk-source-path-parser slynk-source-file-cache (backend slynk-scl))
   #+sbcl '(slynk-source-path-parser slynk-source-file-cache
-           (backend slynk-sbcl) slynk-gray)
-  #+clozure '(metering (backend slynk-ccl) slynk-gray)
-  #+lispworks '((backend slynk-lispworks) slynk-gray)
-  #+allegro '((backend slynk-allegro) slynk-gray)
-  #+clisp '(xref metering (backend slynk-clisp) slynk-gray)
-  #+armedbear '((backend slynk-abcl) slynk-gray)
-  #+cormanlisp '((backend slynk-corman) slynk-gray)
+           (backend slynk-sbcl))
+  #+clozure '(metering (backend slynk-ccl))
+  #+lispworks '((backend slynk-lispworks))
+  #+allegro '((backend slynk-allegro))
+  #+clisp '(xref metering (backend slynk-clisp))
+  #+armedbear '((backend slynk-abcl))
+  #+cormanlisp '((backend slynk-corman))
   #+ecl '(slynk-source-path-parser slynk-source-file-cache
-          (backend slynk-ecl) slynk-gray))
+          (backend slynk-ecl))
+  #+mkcl '(backend slynk-mkcl))
 
 (defparameter *implementation-features*
   '(:allegro :lispworks :sbcl :clozure :cmu :clisp :ccl :corman :cormanlisp
-    :armedbear :gcl :ecl :scl))
+    :armedbear :gcl :ecl :scl :mkcl))
 
 (defparameter *os-features*
   '(:macosx :linux :windows :mswindows :win32 :solaris :darwin :sunos :hpux
@@ -77,7 +78,7 @@
 (defun lisp-version-string ()
   #+(or clozure cmu) (substitute-if #\_ (lambda (x) (find x " /"))
                                     (lisp-implementation-version))
-  #+(or cormanlisp scl) (lisp-implementation-version)
+  #+(or cormanlisp scl mkcl) (lisp-implementation-version)
   #+sbcl (format nil "~a~:[~;-no-threads~]"
                  (lisp-implementation-version)
                  #+sb-thread nil
@@ -225,7 +226,7 @@ If LOAD is true, load the fasl file."
           (mapcar #'ensure-list files)))
 
 (defvar *slynk-files*
-  `(slynk-backend ,@*sysdep-files* slynk-match slynk-rpc slynk))
+  `(slynk-backend ,@*sysdep-files* slynk-gray slynk-match slynk-rpc slynk))
 
 (defun load-slynk (&key (src-dir *source-directory*)
                      (fasl-dir *fasl-directory*)

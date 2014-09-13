@@ -54,8 +54,9 @@
                      #+sbcl
                      (:file "slynk-sbcl")
                      #+scl
-                     (:file "slynk-scl")))
-       #+(or sbcl allegro scl cmucl armedbear clisp clozure cormanlisp ecl lispworks)
+                     (:file "slynk-scl")
+                     #+mkcl
+                     (:file "slynk-mkcl")))
        (:file "slynk-gray")
        (:file "slynk-match")
        (:file "slynk-rpc")
