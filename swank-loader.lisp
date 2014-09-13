@@ -10,7 +10,7 @@
 
 ;; If you want customize the source- or fasl-directory you can set
 ;; swank-loader:*source-directory* resp. swank-loader:*fasl-directory*
-;; before loading this files. 
+;; before loading this files.
 ;; E.g.:
 ;;
 ;;   (load ".../swank-loader.lisp")
@@ -32,24 +32,22 @@
   "The directory where to look for the source.")
 
 (defparameter *sysdep-files*
-  #+cmu '(swank-source-path-parser swank-source-file-cache
-          swank-cmucl swank-gray)
-  #+scl '(swank-source-path-parser swank-source-file-cache
-          swank-scl swank-gray)
-  #+sbcl '(swank-source-path-parser swank-source-file-cache
-           swank-sbcl swank-gray)
-  #+clozure '(metering swank-ccl swank-gray)
-  #+lispworks '(swank-lispworks swank-gray)
-  #+allegro '(swank-allegro swank-gray)
-  #+clisp '(xref metering swank-clisp swank-gray)
-  #+armedbear '(swank-abcl swank-gray)
-  #+cormanlisp '(swank-corman swank-gray)
-  #+ecl '(swank-source-path-parser swank-source-file-cache
-          swank-ecl swank-gray))
+  #+cmu '(swank-source-path-parser swank-source-file-cache swank-cmucl)
+  #+scl '(swank-source-path-parser swank-source-file-cache swank-scl)
+  #+sbcl '(swank-source-path-parser swank-source-file-cache swank-sbcl)
+  #+clozure '(metering swank-ccl)
+  #+lispworks '(swank-lispworks)
+  #+allegro '(swank-allegro)
+  #+clisp '(xref metering swank-clisp)
+  #+armedbear '(swank-abcl)
+  #+cormanlisp '(swank-corman)
+  #+ecl '(swank-ecl)
+  #+mkcl '(swank-mkcl)
+  )
 
 (defparameter *implementation-features*
   '(:allegro :lispworks :sbcl :clozure :cmu :clisp :ccl :corman :cormanlisp
-    :armedbear :gcl :ecl :scl))
+    :armedbear :gcl :ecl :scl :mkcl))
 
 (defparameter *os-features*
   '(:macosx :linux :windows :mswindows :win32 :solaris :darwin :sunos :hpux
@@ -75,7 +73,7 @@
 (defun lisp-version-string ()
   #+(or clozure cmu) (substitute-if #\_ (lambda (x) (find x " /"))
                                     (lisp-implementation-version))
-  #+(or cormanlisp scl) (lisp-implementation-version)
+  #+(or cormanlisp scl mkcl) (lisp-implementation-version)
   #+sbcl (format nil "~a~:[~;-no-threads~]"
                  (lisp-implementation-version)
                  #+sb-thread nil
@@ -218,7 +216,7 @@ If LOAD is true, load the fasl file."
           names))
 
 (defvar *swank-files*
-  `(swank-backend ,@*sysdep-files* swank-match swank-rpc swank))
+  `(swank-backend ,@*sysdep-files* swank-gray swank-match swank-rpc swank))
 
 (defvar *contribs*
   '(swank-util swank-repl
@@ -234,7 +232,7 @@ If LOAD is true, load the fasl file."
   "List of names for contrib modules.")
 
 (defun append-dir (absolute name)
-  (merge-pathnames 
+  (merge-pathnames
    (make-pathname :directory `(:relative ,name) :defaults absolute)
    absolute))
 
@@ -264,7 +262,7 @@ If LOAD is true, load the fasl file."
                            load quiet)
   (let* ((swank-src-files (src-files *swank-files* swank-src-dir))
          (contrib-src-files (src-files *contribs* src-dir)))
-    (delete-stale-contrib-fasl-files swank-src-files contrib-src-files 
+    (delete-stale-contrib-fasl-files swank-src-files contrib-src-files
                                      fasl-dir)
     (compile-files contrib-src-files fasl-dir load quiet)))
 
@@ -276,7 +274,7 @@ If LOAD is true, load the fasl file."
   (load-site-init-file *source-directory*)
   (load-user-init-file)
   (when (#-clisp probe-file
-         #+clisp ext:probe-directory        
+         #+clisp ext:probe-directory
          (contrib-dir *source-directory*))
     (eval `(pushnew 'compile-contribs ,(q "swank::*after-init-hook*"))))
   (funcall (q "swank::init")))

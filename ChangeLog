@@ -1,5 +1,14 @@
 2014-09-13  Helmut Eller  <heller@common-lisp.net>
 
+ 	Add support for MKCL
+
+	* swank-mkcl.lisp: New file. Mostly the one of MLCL's contrib/
+	directory.
+	* swank-loader.lisp (*sysdep-files*): Add swank-mkcl and move
+	swank-gray to the shared *swank-files*.
+
+2014-09-13  Helmut Eller  <heller@common-lisp.net>
+
 	Remove no longer needed indirections.
 
 	* slime.el (slime-echo-arglist-function, slime-echo-arglist):
