@@ -4,6 +4,11 @@
 
 	In the swank/ directory drop the swank- prefix from filenames.
 
+	To mirror the directory structure in package names use swank/
+	instead of swank- as prefix.  (This will presumably break a lot of
+	code as many people seem to assume that a swank-backend package
+	exists.)
+
 	* swank-loader.lisp (src-files): Treat lists like (swank foo) as
 	the filename swank/foo.lisp.
 

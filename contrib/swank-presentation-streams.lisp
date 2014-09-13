@@ -73,7 +73,7 @@ be sensitive and remember what object it is in the repl if predicate is true"
 		    (let ((clobber-it (find-restart 'sb-kernel::clobber-it)))
 		      (when clobber-it (invoke-restart clobber-it))))))
     (sb-ext:without-package-locks
-      (swank-sbcl::with-debootstrapping
+      (swank/sbcl::with-debootstrapping
 	(load (make-pathname
 	       :name "sbcl-pprint-patch"
 	       :type "lisp"

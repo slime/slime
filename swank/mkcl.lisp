@@ -8,10 +8,10 @@
 
 ;;; Administrivia
 
-(defpackage swank-mkcl
-  (:use cl swank-backend))
+(defpackage swank/mkcl
+  (:use cl swank/backend))
 
-(in-package swank-mkcl)
+(in-package swank/mkcl)
 
 ;;(declaim (optimize (debug 3)))
 
@@ -22,7 +22,7 @@
 
 (eval-when (:compile-toplevel :load-toplevel)
 
-  (swank-backend::import-swank-mop-symbols :clos
+  (swank/backend::import-swank-mop-symbols :clos
     ;;  '(:eql-specializer
     ;;    :eql-specializer-object
     ;;    :generic-function-declarations
@@ -394,7 +394,7 @@
    (symbolp x)
    (member (symbol-package x)
            (list #.(find-package :swank)
-                 #.(find-package :swank-backend)
+                 #.(find-package :swank/backend)
                  #.(ignore-errors (find-package :swank-mop))
                  #.(ignore-errors (find-package :swank-loader))))
    t))

@@ -8,10 +8,10 @@
 ;;; are disclaimed.
 ;;;
 
-(defpackage swank-abcl
-  (:use cl swank-backend))
+(defpackage swank/abcl
+  (:use cl swank/backend))
 
-(in-package swank-abcl)
+(in-package swank/abcl)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :collect) ;just so that it doesn't spoil the flying letters
@@ -80,7 +80,7 @@
    standard-slot-definition ;;dummy
    cl:method
    cl:standard-class
-   #+#.(swank-backend:with-symbol 'compute-applicable-methods-using-classes 
+   #+#.(swank/backend:with-symbol 'compute-applicable-methods-using-classes 
          'mop)
    mop:compute-applicable-methods-using-classes
    ;; standard-class readers
@@ -411,8 +411,6 @@
 (defvar *buffer-start-position*)
 (defvar *buffer-string*)
 (defvar *compile-filename*)
-
-(in-package :swank-backend)
 
 (defvar *abcl-signaled-conditions*)
 

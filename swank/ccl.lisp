@@ -13,10 +13,10 @@
 ;;; The LLGPL is also available online at
 ;;; http://opensource.franz.com/preamble.html
 
-(defpackage swank-ccl
-  (:use cl swank-backend))
+(defpackage swank/ccl
+  (:use cl swank/backend))
 
-(in-package swank-ccl)
+(in-package swank/ccl)
 
 (eval-when (:compile-toplevel :execute :load-toplevel)
   (assert (and (= ccl::*openmcl-major-version* 1)
@@ -161,7 +161,7 @@
 ;;; Compilation
 
 (defun handle-compiler-warning (condition)
-  "Resignal a ccl:compiler-warning as swank-backend:compiler-warning."
+  "Resignal a ccl:compiler-warning as swank/backend:compiler-warning."
   (signal 'compiler-condition
           :original-condition condition
           :message (compiler-warning-short-message condition)

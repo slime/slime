@@ -8,16 +8,16 @@
 ;;; are disclaimed.
 ;;;
 
-(defpackage #:swank-rpc
+(defpackage swank/rpc
   (:use :cl)
-  (:export 
-   #:read-message
-   #:swank-reader-error
-   #:swank-reader-error.packet
-   #:swank-reader-error.cause
-   #:write-message))
+  (:export
+   read-message
+   swank-reader-error
+   swank-reader-error.packet
+   swank-reader-error.cause
+   write-message))
 
-(in-package :swank-rpc)
+(in-package swank/rpc)
 
 
 ;;;;; Input
@@ -38,7 +38,7 @@
 (defun read-packet (stream)
   (let* ((length (parse-header stream))
          (octets (read-chunk stream length)))
-    (handler-case (swank-backend:utf8-to-string octets)
+    (handler-case (swank/backend:utf8-to-string octets)
       (error (c) 
         (error 'swank-reader-error 
                :packet (asciify octets)
@@ -111,7 +111,7 @@
 
 (defun write-message (message package stream)
   (let* ((string (prin1-to-string-for-emacs message package))
-         (octets (handler-case (swank-backend:string-to-utf8 string)
+         (octets (handler-case (swank/backend:string-to-utf8 string)
                    (error (c) (encoding-error c string))))
          (length (length octets)))
     (write-header stream length)
@@ -120,7 +120,7 @@
 
 ;; FIXME: for now just tell emacs that we and an encoding problem.
 (defun encoding-error (condition string)
-  (swank-backend:string-to-utf8
+  (swank/backend:string-to-utf8
    (prin1-to-string-for-emacs
     `(:reader-error
       ,(asciify string)

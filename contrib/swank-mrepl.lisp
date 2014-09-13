@@ -51,9 +51,9 @@
          (ch (make-instance 'listener-channel :remote remote :thread thread)))
     (setf (slot-value ch 'env) (initial-listener-env ch))
     (when thread
-      (swank-backend:send thread `(:serve-channel ,ch)))
+      (swank/backend:send thread `(:serve-channel ,ch)))
     (list (channel-id ch)
-	  (swank-backend:thread-id (or thread (swank-backend:current-thread)))
+	  (swank/backend:thread-id (or thread (swank/backend:current-thread)))
 	  (package-name pkg)
 	  (package-prompt pkg))))
 
@@ -63,10 +63,10 @@
     (*standard-input* . ,(make-listener-input-stream listener))))
 
 (defun spawn-listener-thread (connection)
-  (swank-backend:spawn 
+  (swank/backend:spawn 
    (lambda ()
      (with-connection (connection)
-       (dcase (swank-backend:receive)
+       (dcase (swank/backend:receive)
 	 ((:serve-channel c)
 	  (loop
 	   (with-top-level-restart (connection (drop-unprocessed-events c))
@@ -134,12 +134,12 @@
 
 (defun make-listener-output-stream (channel)
   (let ((remote (slot-value channel 'remote)))
-    (swank-backend:make-output-stream 
+    (swank/backend:make-output-stream 
      (lambda (string)
        (send-to-remote-channel remote `(:write-string ,string))))))
 
 (defun make-listener-input-stream (channel)
-  (swank-backend:make-input-stream (lambda () (read-input channel))))
+  (swank/backend:make-input-stream (lambda () (read-input channel))))
 
 (defun set-mode (channel new-mode)
   (with-slots (mode remote) channel

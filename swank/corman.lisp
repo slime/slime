@@ -64,7 +64,7 @@
 ;;; * More sophisticated communication styles than NIL
 ;;;
 
-(in-package :swank-backend)
+(in-package :swank/backend)
 
 ;;; Pull in various needed bits
 (require :composite-streams)

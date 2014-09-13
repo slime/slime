@@ -22,7 +22,7 @@
 		 ((:inspector part) 
 		  (swank:inspector-nth-part part))
 		 ((:sldb frame var)
-		  (swank-backend:frame-var-value frame var)))))
+		  (swank/backend:frame-var-value frame var)))))
     (clipboard-add value)
     (format nil "Added: ~a"
 	    (entry-to-string (1- (length (clipboard-entries *clipboard*)))))))

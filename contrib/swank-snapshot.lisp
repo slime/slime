@@ -6,7 +6,7 @@
 (in-package swank-snapshot)
 
 (defslimefun save-snapshot (image-file)
-  (swank-backend:save-image image-file 
+  (swank/backend:save-image image-file 
 			    (let ((c swank::*emacs-connection*))
 			      (lambda () (resurrect c))))
   (format nil "Dumped lisp to ~A" image-file))
@@ -14,14 +14,14 @@
 (defslimefun restore-snapshot (image-file)
   (let* ((conn swank::*emacs-connection*)
 	 (stream (swank::connection.socket-io conn))
-	 (clone (swank-backend:dup (swank-backend:socket-fd stream)))
+	 (clone (swank/backend:dup (swank/backend:socket-fd stream)))
 	 (style (swank::connection.communication-style conn))
 	 (repl (if (swank::connection.user-io conn) t))
 	 (args (list "--swank-fd" (format nil "~d" clone)
 		     "--swank-style" (format nil "~s" style)
 		     "--swank-repl" (format nil "~s" repl))))
     (swank::close-connection conn nil nil)
-    (swank-backend:exec-image image-file args)))
+    (swank/backend:exec-image image-file args)))
 
 (defslimefun background-save-snapshot (image-file)
   (let ((connection swank::*emacs-connection*))
@@ -32,7 +32,7 @@
 		image-file success)))
 	   (awaken ()
 	     (resurrect connection)))
-      (swank-backend:background-save-image image-file
+      (swank/backend:background-save-image image-file
 					   :restart-function #'awaken
 					   :completion-function #'complete)
       (format nil "Started dumping lisp to ~A..." image-file))))

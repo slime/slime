@@ -6,10 +6,10 @@
 ;;; are disclaimed.
 ;;;
 
-(defpackage swank-scl
-  (:use cl swank-backend swank-source-path-parser swank-source-file-cache))
+(defpackage swank/scl
+  (:use cl swank/backend swank/source-path-parser swank/source-file-cache))
 
-(in-package swank-scl)
+(in-package swank/scl)
 
 
 
@@ -110,7 +110,7 @@
 ;;;; Stream handling
 
 (defimplementation gray-package-name ()
-  "EXT")
+  '#:ext)
 
 
 ;;;; Compilation Commands
@@ -424,7 +424,7 @@
 ;;; for the location. Once we have the source-path we can pull up the
 ;;; source file and `READ' our way through to the right position. The
 ;;; main source-code groveling work is done in
-;;; `swank-source-path-parser.lisp'.
+;;; `source-path-parser.lisp'.
 
 (defvar *debug-definition-finding* nil
   "When true don't handle errors while looking for definitions.
@@ -1021,7 +1021,7 @@ Signal an error if no constructor can be found."
   (ext:quit))
 
 ;;; source-path-{stream,file,string,etc}-position moved into 
-;;; swank-source-path-parser
+;;; source-path-parser
 
 
 ;;;; Debugging

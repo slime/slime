@@ -4,12 +4,12 @@
 ;;;
 ;;;; Introduction
 ;;;
-;;; This is the CMUCL implementation of the `swank-backend' package.
+;;; This is the CMUCL implementation of the `swank/backend' package.
 
-(defpackage swank-cmucl
-  (:use cl swank-backend swank-source-path-parser swank-source-file-cache))
+(defpackage swank/cmucl
+  (:use cl swank/backend swank/source-path-parser swank/source-file-cache))
 
-(in-package swank-cmucl)
+(in-package swank/cmucl)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require 'gray-streams))
@@ -70,7 +70,7 @@
 
   )
 
-(in-package swank-cmucl)
+(in-package swank/cmucl)
 
 ;;; UTF8
 
@@ -644,7 +644,7 @@ This is a workaround for a CMUCL bug: XREF records are cumulative."
 ;;; for the location. Once we have the source-path we can pull up the
 ;;; source file and `READ' our way through to the right position. The
 ;;; main source-code groveling work is done in
-;;; `swank-source-path-parser.lisp'.
+;;; `source-path-parser.lisp'.
 
 (defvar *debug-definition-finding* nil
   "When true don't handle errors while looking for definitions.
@@ -1472,7 +1472,7 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
   (ext::quit))
 
 ;;; source-path-{stream,file,string,etc}-position moved into 
-;;; swank-source-path-parser
+;;; source-path-parser
 
 
 ;;;; Debugging
@@ -2499,14 +2499,14 @@ int main (int argc, char** argv) {
       (delete-file infile)
       outfile)))
 
-#+#.(swank-backend:with-symbol 'unicode-complete 'lisp)
+#+#.(swank/backend:with-symbol 'unicode-complete 'lisp)
 (defun match-semi-standard (prefix matchp)
   ;; Handle the CMUCL's short character names.
   (loop for name in lisp::char-name-alist
      when (funcall matchp prefix (car name))
      collect (car name)))
 
-#+#.(swank-backend:with-symbol 'unicode-complete 'lisp)
+#+#.(swank/backend:with-symbol 'unicode-complete 'lisp)
 (defimplementation character-completion-set (prefix matchp)
   (let ((names (lisp::unicode-complete prefix)))
     ;; Match prefix against semistandard names.  If there's a match,

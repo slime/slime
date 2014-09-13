@@ -8,10 +8,10 @@
 
 ;;; Administrivia
 
-(defpackage swank-ecl
-  (:use cl swank-backend))
+(defpackage swank/ecl
+  (:use cl swank/backend))
 
-(in-package swank-ecl)
+(in-package swank/ecl)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun ecl-version ()
@@ -403,7 +403,7 @@
 ;;    (symbolp x)
 ;;    (member (symbol-package x)
 ;;            (list #.(find-package :swank)
-;;                  #.(find-package :swank-backend)
+;;                  #.(find-package :swank/backend)
 ;;                  #.(ignore-errors (find-package :swank-mop))
 ;;                  #.(ignore-errors (find-package :swank-loader))))
 ;;    t))

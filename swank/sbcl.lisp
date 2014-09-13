@@ -11,10 +11,10 @@
 
 ;;; Administrivia
 
-(defpackage swank-sbcl
-  (:use cl swank-backend swank-source-path-parser swank-source-file-cache))
+(defpackage swank/sbcl
+  (:use cl swank/backend swank/source-path-parser swank/source-file-cache))
 
-(in-package swank-sbcl)
+(in-package swank/sbcl)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require 'sb-bsd-sockets)
@@ -214,7 +214,7 @@
 #-win32
 (defun input-ready-p (stream)
   (or (not (fd-stream-input-buffer-empty-p stream))
-      #+#.(swank-backend:with-symbol 'fd-stream-fd-type 'sb-impl)
+      #+#.(swank/backend:with-symbol 'fd-stream-fd-type 'sb-impl)
       (eq :regular (sb-impl::fd-stream-fd-type stream))
       (not (sb-impl::sysread-may-block-p stream))))
 
@@ -424,11 +424,11 @@
         (when errorp
           (error "~S does not exist in SWANK." name)))))
 
-#+#.(swank-backend:with-symbol 'function-lambda-list 'sb-introspect)
+#+#.(swank/backend:with-symbol 'function-lambda-list 'sb-introspect)
 (defimplementation arglist (fname)
   (sb-introspect:function-lambda-list fname))
 
-#-#.(swank-backend:with-symbol 'function-lambda-list 'sb-introspect)
+#-#.(swank/backend:with-symbol 'function-lambda-list 'sb-introspect)
 (defimplementation arglist (fname)
   (sb-introspect:function-arglist fname))
 
@@ -450,7 +450,7 @@
                     flags :key #'ensure-list))
           (call-next-method)))))
 
-#+#.(swank-backend:with-symbol 'deftype-lambda-list 'sb-introspect)
+#+#.(swank/backend:with-symbol 'deftype-lambda-list 'sb-introspect)
 (defmethod type-specifier-arglist :around (typespec-operator)
   (multiple-value-bind (arglist foundp)
       (sb-introspect:deftype-lambda-list typespec-operator)
@@ -491,7 +491,7 @@ information."
                       (sb-c:compiler-error  :error)
                       (reader-error         :read-error)
                       (error                :error)
-                      #+#.(swank-backend:with-symbol redefinition-warning 
+                      #+#.(swank/backend:with-symbol redefinition-warning 
                             sb-kernel)
                       (sb-kernel:redefinition-warning
                        :redefinition)
@@ -628,7 +628,7 @@ compiler state."
 (defun compiler-policy (qualities)
   "Return compiler policy qualities present in the QUALITIES alist.
 QUALITIES is an alist with (quality . value)"
-  #+#.(swank-backend:with-symbol 'restrict-compiler-policy 'sb-ext)
+  #+#.(swank/backend:with-symbol 'restrict-compiler-policy 'sb-ext)
   (loop with policy = (sb-ext:restrict-compiler-policy)
         for (quality) in qualities
         collect (cons quality
@@ -637,7 +637,7 @@ QUALITIES is an alist with (quality . value)"
 
 (defun (setf compiler-policy) (policy)
   (declare (ignorable policy))
-  #+#.(swank-backend:with-symbol 'restrict-compiler-policy 'sb-ext)
+  #+#.(swank/backend:with-symbol 'restrict-compiler-policy 'sb-ext)
   (loop for (qual . value) in policy
         do (sb-ext:restrict-compiler-policy qual value)))
 
@@ -964,7 +964,7 @@ Return NIL if the symbol is unbound."
     (:type
      (describe (sb-kernel:values-specifier-type symbol)))))
   
-#+#.(swank-sbcl::sbcl-with-xref-p)
+#+#.(swank/sbcl::sbcl-with-xref-p)
 (progn
   (defmacro defxref (name &optional fn-name)
     `(defimplementation ,name (what)
@@ -980,7 +980,7 @@ Return NIL if the symbol is unbound."
   (defxref who-sets)
   (defxref who-references)
   (defxref who-macroexpands)
-  #+#.(swank-backend:with-symbol 'who-specializes-directly 'sb-introspect)
+  #+#.(swank/backend:with-symbol 'who-specializes-directly 'sb-introspect)
   (defxref who-specializes who-specializes-directly))
 
 (defun source-location-for-xref-data (xref-data)
@@ -1018,9 +1018,9 @@ Return NIL if the symbol is unbound."
                 (equal (second a) (second b))))))
 
 (defun ignored-xref-function-names ()
-  #-#.(swank-sbcl::sbcl-with-new-stepper-p)
+  #-#.(swank/sbcl::sbcl-with-new-stepper-p)
   '(nil sb-c::step-form sb-c::step-values)
-  #+#.(swank-sbcl::sbcl-with-new-stepper-p)
+  #+#.(swank/sbcl::sbcl-with-new-stepper-p)
   '(nil))
 
 (defun function-dspec (fn)
@@ -1064,7 +1064,7 @@ Return a list of the form (NAME LOCATION)."
   (set-break-hook function))
 
 (defimplementation condition-extras (condition)
-  (cond #+#.(swank-sbcl::sbcl-with-new-stepper-p)
+  (cond #+#.(swank/sbcl::sbcl-with-new-stepper-p)
         ((typep condition 'sb-impl::step-form-condition)
          `((:show-frame-source 0)))
         ((typep condition 'sb-int:reference-condition)
@@ -1090,9 +1090,9 @@ Return a list of the form (NAME LOCATION)."
   (let ((*sldb-stack-top*
           (if (and (not *debug-swank-backend*)
                    sb-debug:*stack-top-hint*)
-              #+#.(swank-backend:with-symbol 'resolve-stack-top-hint 'sb-debug)
+              #+#.(swank/backend:with-symbol 'resolve-stack-top-hint 'sb-debug)
               (sb-debug::resolve-stack-top-hint)
-              #-#.(swank-backend:with-symbol 'resolve-stack-top-hint 'sb-debug)
+              #-#.(swank/backend:with-symbol 'resolve-stack-top-hint 'sb-debug)
               sb-debug:*stack-top-hint*
               (sb-di:top-frame)))
         (sb-debug:*stack-top-hint* nil))
@@ -1102,7 +1102,7 @@ Return a list of the form (NAME LOCATION)."
                                :original-condition condition))))
       (funcall debugger-loop-fn))))
 
-#+#.(swank-sbcl::sbcl-with-new-stepper-p)
+#+#.(swank/sbcl::sbcl-with-new-stepper-p)
 (progn
   (defimplementation activate-stepping (frame)
     (declare (ignore frame))
@@ -1118,14 +1118,14 @@ Return a list of the form (NAME LOCATION)."
 
 (defimplementation call-with-debugger-hook (hook fun)
   (let ((*debugger-hook* hook)
-        #+#.(swank-sbcl::sbcl-with-new-stepper-p)
+        #+#.(swank/sbcl::sbcl-with-new-stepper-p)
         (sb-ext:*stepper-hook*
          (lambda (condition)
            (typecase condition
              (sb-ext:step-form-condition
               (let ((sb-debug:*stack-top-hint* (sb-di::find-stepped-frame)))
                 (sb-impl::invoke-debugger condition)))))))
-    (handler-bind (#+#.(swank-sbcl::sbcl-with-new-stepper-p)
+    (handler-bind (#+#.(swank/sbcl::sbcl-with-new-stepper-p)
                    (sb-ext:step-condition #'sb-impl::invoke-stepper))
       (call-with-break-hook hook fun))))
 
@@ -1147,7 +1147,7 @@ stack."
   (sb-debug::print-frame-call frame stream))
 
 (defimplementation frame-restartable-p (frame)
-  #+#.(swank-sbcl::sbcl-with-restart-frame)
+  #+#.(swank/sbcl::sbcl-with-restart-frame)
   (not (null (sb-debug:frame-has-debug-tag-p frame))))
 
 (defimplementation frame-call (frame-number)
@@ -1178,11 +1178,11 @@ stack."
          (plist (sb-c::debug-source-plist dsource)))
     (if (getf plist :emacs-buffer)
         (emacs-buffer-source-location code-location plist)
-        #+#.(swank-backend:with-symbol 'debug-source-from 'sb-di)
+        #+#.(swank/backend:with-symbol 'debug-source-from 'sb-di)
         (ecase (sb-di:debug-source-from dsource)
           (:file (file-source-location code-location))
           (:lisp (lisp-source-location code-location)))
-        #-#.(swank-backend:with-symbol 'debug-source-from 'sb-di)
+        #-#.(swank/backend:with-symbol 'debug-source-from 'sb-di)
         (if (sb-di:debug-source-namestring dsource)
             (file-source-location code-location)
             (lisp-source-location code-location)))))
@@ -1246,10 +1246,10 @@ stack."
                          `(:snippet ,snippet)))))))
 
 (defun code-location-debug-source-name (code-location)
-  (namestring (truename (#+#.(swank-backend:with-symbol
+  (namestring (truename (#+#.(swank/backend:with-symbol
                               'debug-source-name 'sb-di)
                              sb-c::debug-source-name
-                             #-#.(swank-backend:with-symbol
+                             #-#.(swank/backend:with-symbol
                                   'debug-source-name 'sb-di)
                              sb-c::debug-source-namestring
                          (sb-di::code-location-debug-source code-location)))))
@@ -1284,7 +1284,7 @@ stack."
   (with-input-from-string (s string)
     (stream-source-position code-location s)))
 
-;;; source-path-file-position and friends are in swank-source-path-parser
+;;; source-path-file-position and friends are in source-path-parser
 
 (defimplementation frame-source-location (index)
   (converting-errors-to-error-location
@@ -1391,7 +1391,7 @@ stack."
           (symbol (symbol-package name))
           ((cons (eql setf) (cons symbol)) (symbol-package (cadr name))))))))
 
-#+#.(swank-sbcl::sbcl-with-restart-frame)
+#+#.(swank/sbcl::sbcl-with-restart-frame)
 (progn
   (defimplementation return-from-frame (index form)
     (let* ((frame (nth-frame index)))
@@ -1423,7 +1423,7 @@ stack."
 ;; FIXME: this implementation doesn't unwind the stack before
 ;; re-invoking the function, but it's better than no implementation at
 ;; all.
-#-#.(swank-sbcl::sbcl-with-restart-frame)
+#-#.(swank/sbcl::sbcl-with-restart-frame)
 (progn
   (defun sb-debug-catch-tag-p (tag)
     (and (symbolp tag)
@@ -1556,7 +1556,7 @@ stack."
 ;;;; Multiprocessing
 
 #+(and sb-thread
-       #.(swank-backend:with-symbol "THREAD-NAME" "SB-THREAD"))
+       #.(swank/backend:with-symbol "THREAD-NAME" "SB-THREAD"))
 (progn
   (defvar *thread-id-counter* 0)
 
@@ -1741,9 +1741,9 @@ stack."
   )
 
 (defimplementation quit-lisp ()
-  #+#.(swank-backend:with-symbol 'exit 'sb-ext)
+  #+#.(swank/backend:with-symbol 'exit 'sb-ext)
   (sb-ext:exit)
-  #-#.(swank-backend:with-symbol 'exit 'sb-ext)
+  #-#.(swank/backend:with-symbol 'exit 'sb-ext)
   (progn
     #+sb-thread
     (dolist (thread (remove (current-thread) (all-threads)))
@@ -1792,19 +1792,19 @@ stack."
 ;;; Weak datastructures
 
 (defimplementation make-weak-key-hash-table (&rest args)  
-  #+#.(swank-sbcl::sbcl-with-weak-hash-tables)
+  #+#.(swank/sbcl::sbcl-with-weak-hash-tables)
   (apply #'make-hash-table :weakness :key args)
-  #-#.(swank-sbcl::sbcl-with-weak-hash-tables)
+  #-#.(swank/sbcl::sbcl-with-weak-hash-tables)
   (apply #'make-hash-table args))
 
 (defimplementation make-weak-value-hash-table (&rest args)
-  #+#.(swank-sbcl::sbcl-with-weak-hash-tables)
+  #+#.(swank/sbcl::sbcl-with-weak-hash-tables)
   (apply #'make-hash-table :weakness :value args)
-  #-#.(swank-sbcl::sbcl-with-weak-hash-tables)
+  #-#.(swank/sbcl::sbcl-with-weak-hash-tables)
   (apply #'make-hash-table args))
 
 (defimplementation hash-table-weakness (hashtable)
-  #+#.(swank-sbcl::sbcl-with-weak-hash-tables)
+  #+#.(swank/sbcl::sbcl-with-weak-hash-tables)
   (sb-ext:hash-table-weakness hashtable))
 
 #-win32
@@ -1847,10 +1847,10 @@ stack."
         (sb-alien:free-alien a-args))))
 
   (defun runtime-pathname ()
-    #+#.(swank-backend:with-symbol
+    #+#.(swank/backend:with-symbol
             '*runtime-pathname* 'sb-ext)
     sb-ext:*runtime-pathname*
-    #-#.(swank-backend:with-symbol
+    #-#.(swank/backend:with-symbol
             '*runtime-pathname* 'sb-ext)
     (car sb-ext:*posix-argv*))
 
@@ -1909,9 +1909,9 @@ stack."
 ;;;; wrap interface implementation
 
 (defun sbcl-version>= (&rest subversions)
-  #+#.(swank-backend:with-symbol 'assert-version->= 'sb-ext)
+  #+#.(swank/backend:with-symbol 'assert-version->= 'sb-ext)
   (values (ignore-errors (apply #'sb-ext:assert-version->= subversions) t))
-  #-#.(swank-backend:with-symbol 'assert-version->= 'sb-ext)
+  #-#.(swank/backend:with-symbol 'assert-version->= 'sb-ext)
   nil)
 
 (defimplementation wrap (spec indicator &key before after replace)
@@ -1920,10 +1920,10 @@ stack."
           spec indicator)
     (sb-int:unencapsulate spec indicator))
   (sb-int:encapsulate spec indicator
-                      #-#.(swank-backend:with-symbol 'arg-list 'sb-int)
+                      #-#.(swank/backend:with-symbol 'arg-list 'sb-int)
                       (lambda (function &rest args)
                         (sbcl-wrap spec before after replace function args))
-                      #+#.(swank-backend:with-symbol 'arg-list 'sb-int)
+                      #+#.(swank/backend:with-symbol 'arg-list 'sb-int)
                       (if (sbcl-version>= 1 1 16)
                           (lambda ()
                             (sbcl-wrap spec before after replace

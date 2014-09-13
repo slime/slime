@@ -10,8 +10,8 @@
 ;;; them separately for each Lisp implementation. These extensions are
 ;;; available to us here via the `SWANK-BACKEND' package.
 
-(defpackage :swank
-  (:use :cl :swank-backend :swank-match :swank-rpc)
+(defpackage swank
+  (:use cl swank/backend swank/match swank/rpc)
   (:export #:startup-multiprocessing
            #:start-server
            #:create-server
@@ -2834,7 +2834,7 @@ that symbols accessible in the current package go first."
                 (format string "Variable:~% ~a~2%" vdoc))
               (when fdoc
                 (format string "Function:~% Arglist: ~a~2% ~a"
-                        (swank-backend:arglist sym)
+                        (arglist sym)
                         fdoc))))
           (format nil "No such symbol, ~a." symbol-name)))))
 

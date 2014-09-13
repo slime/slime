@@ -10,7 +10,7 @@
 ;;; separately for each Lisp. Each is declared as a generic function
 ;;; for which swank-<implementation>.lisp provides methods.
 
-(defpackage swank-backend
+(defpackage swank/backend
   (:use cl)
   (:export *debug-swank-backend*
            sldb-condition
@@ -57,6 +57,7 @@
 
            ))
 
+;; FIXME: rename to sawnk/mop
 (defpackage swank-mop
   (:use)
   (:export
@@ -110,7 +111,7 @@
    compute-applicable-methods-using-classes
    finalize-inheritance))
 
-(in-package swank-backend)
+(in-package swank/backend)
 
 
 ;;;; Metacode
@@ -173,7 +174,7 @@ Backends implement these functions using DEFIMPLEMENTATION."
             `(pushnew ',name *unimplemented-interfaces*)
             (gen-default-impl))
        (eval-when (:compile-toplevel :load-toplevel :execute)
-         (export ',name :swank-backend))
+         (export ',name :swank/backend))
        ',name)))
 
 (defmacro defimplementation (name args &body body)
