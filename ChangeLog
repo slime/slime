@@ -1,8 +1,15 @@
 2014-09-13  Helmut Eller  <heller@common-lisp.net>
 
+	Move backend files to new swank/ directory.
+
+	* swank-loader.lisp (src-files): Treat lists like (swank foo) as
+	the filename swank/foo.lisp.
+
+2014-09-13  Helmut Eller  <heller@common-lisp.net>
+
  	Add support for MKCL
 
-	* swank-mkcl.lisp: New file. Mostly the one of MLCL's contrib/
+	* swank-mkcl.lisp: New file. Mostly the one from MLCL's contrib/
 	directory.
 	* swank-loader.lisp (*sysdep-files*): Add swank-mkcl and move
 	swank-gray to the shared *swank-files*.
