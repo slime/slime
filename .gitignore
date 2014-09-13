@@ -3,6 +3,7 @@ ChangeLog
 *.fasl*
 *.dfsl
 *.lx64fsl
+*.dx64fsl
 *.elc
 *~
 \#*\#
