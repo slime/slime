@@ -167,9 +167,7 @@ If it's not in the cache, the cache will be updated asynchronously."
   t nil nil
   (set (make-local-variable 'eldoc-documentation-function) 'sly-autodoc)
   (set (make-local-variable 'eldoc-minor-mode-string) "")
-  (setq sly-autodoc-mode (eldoc-mode sly-autodoc-mode))
-  (message "Sly autodoc mode %s."
-	   (if sly-autodoc-mode "enabled" "disabled")))
+  (setq sly-autodoc-mode (eldoc-mode sly-autodoc-mode)))
 
 (defun sly-autodoc-enable  () (sly-autodoc-mode 1))
 
