@@ -2520,10 +2520,11 @@ to it depending on its sign."
   (run-hook-with-args 'sly-before-compile-functions start end)
   (sly-compile-string (buffer-substring-no-properties start end) start))
 
-(defun sly-flash-region (start end &optional timeout)
+(defun sly-flash-region (start end &optional timeout face)
   "Temporarily highlight region from START to END."
   (let ((overlay (make-overlay start end)))
-    (overlay-put overlay 'face 'secondary-selection)
+    (overlay-put overlay 'face (or face
+                                   'secondary-selection))
     (run-with-timer (or timeout 0.2) nil 'delete-overlay overlay)))
 
 (defun sly-compile-string (string start-offset)

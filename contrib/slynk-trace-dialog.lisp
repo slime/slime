@@ -274,9 +274,9 @@ program.")
        (values-list ,values-sym))))
 
 (define-setf-expander instrument (x &environment env)
+  (declare (ignore env))
   (error "The intrumentation you've setup for~%  ~a~% is in the wrong place!"
-         x)
-  (get-setf-expansion x env))
+         x))
 
 
 (provide :slynk-trace-dialog)
