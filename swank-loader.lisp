@@ -32,23 +32,17 @@
   "The directory where to look for the source.")
 
 (defparameter *sysdep-files*
-  #+cmu '((swank swank-source-path-parser)
-          (swank swank-source-file-cache)
-          (swank swank-cmucl))
-  #+scl '((swank swank-source-path-parser)
-          (swank swank-source-file-cache)
-          (swank swank-scl))
-  #+sbcl '((swank swank-source-path-parser)
-           (swank swank-source-file-cache)
-           (swank swank-sbcl))
-  #+clozure '(metering (swank swank-ccl))
-  #+lispworks '((swank swank-lispworks))
-  #+allegro '((swank swank-allegro))
-  #+clisp '(xref metering (swank swank-clisp))
-  #+armedbear '((swank swank-abcl))
-  #+cormanlisp '((swank swank-corman))
-  #+ecl '((swank swank-ecl))
-  #+mkcl '((swank swank-mkcl))
+  #+cmu '((swank source-path-parser) (swank source-file-cache) (swank cmucl))
+  #+scl '((swank source-path-parser) (swank source-file-cache) (swank scl))
+  #+sbcl '((swank source-path-parser) (swank source-file-cache) (swank sbcl))
+  #+clozure '(metering (swank ccl))
+  #+lispworks '((swank lispworks))
+  #+allegro '((swank allegro))
+  #+clisp '(xref metering (swank clisp))
+  #+armedbear '((swank abcl))
+  #+cormanlisp '((swank corman))
+  #+ecl '((swank ecl))
+  #+mkcl '((swank mkcl))
   )
 
 (defparameter *implementation-features*
@@ -229,10 +223,7 @@ If LOAD is true, load the fasl file."
           names))
 
 (defvar *swank-files*
-  `((swank swank-backend) ,@*sysdep-files*
-    (swank swank-gray)
-    (swank swank-match)
-    (swank swank-rpc)
+  `((swank backend) ,@*sysdep-files* (swank gray) (swank match) (swank rpc)
     swank))
 
 (defvar *contribs*

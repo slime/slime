@@ -2,6 +2,8 @@
 
 	Move backend files to new swank/ directory.
 
+	In the swank/ directory drop the swank- prefix from filenames.
+
 	* swank-loader.lisp (src-files): Treat lists like (swank foo) as
 	the filename swank/foo.lisp.
 
