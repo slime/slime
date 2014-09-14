@@ -56,6 +56,13 @@
                              (<= (button-end button) end)))
                     (sly-stickers--stickers-in beg end)))
 
+(defun sly-stickers--stickers-exactly-at (beg end)
+  "Return stickers exactly between BEG and END"
+  (cl-remove-if-not #'(lambda (button)
+                        (and (= (button-start button) beg)
+                             (= (button-end button) end)))
+                    (sly-stickers--stickers-in beg end)))
+
 (defun sly-stickers--stickers-at (&optional point)
   "Return stickers near POINT"
   (interactive "d")
@@ -67,12 +74,11 @@
 
 (defvar sly-stickers--stickers (make-hash-table))
 
-(setq sly-stickers--sticker-map
+(defvar sly-stickers--sticker-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "M-RET") 'sly-mrepl-copy-part-to-repl)
     (define-key map [down-mouse-3] 'sly-button-popup-part-menu)
     (define-key map [mouse-3] 'sly-button-popup-part-menu)
-    (define-key map (kbd "C-c C-s C-s") 'sly-stickers-operate-on-sticker)
     map))
 
 (define-button-type 'sly-stickers--sticker :supertype 'sly-part
@@ -83,6 +89,13 @@
   #'(lambda (_id)
       (error "Copy to REPL not implemented yet!"))
   'keymap sly-stickers--sticker-map)
+
+(defun sly-stickers--set-tooltip (sticker &optional text)
+  (let* ((help-base (button-get sticker 'sly-stickers--base-help-echo))
+         (text (if text
+                   (concat "[sly] " text "\n" help-base)
+                 help-base)))
+    (button-put sticker 'help-echo text)))
 
 (defun sly-stickers--set-face (sticker &optional face)
   (let ((face (or face
@@ -110,14 +123,20 @@
                                (> (button-end e) to)))
                       not-contained)
       (sly-error "Cannot place a sticker that partially overlaps other stickers"))
+    (when (sly-stickers--stickers-exactly-at from to)
+      (sly-error "There is already a sticker at those very coordinates"))
     ;; by now we know that other intersecting, non-contained stickers
     ;; are our containers.
     ;; 
     (setq containers not-contained)
-    (let ((sticker (make-button from to :type 'sly-stickers--sticker
-                                'part-args (list -1)
-                                'part-label "Sticker (brand new)"
-                                'modification-hooks '(sly-stickers--sticker-modified))))
+    (let* ((label "Brand new sticker")
+           (sticker (make-button from to :type 'sly-stickers--sticker
+                                 'part-args (list -1)
+                                 'part-label label
+                                 'modification-hooks '(sly-stickers--sticker-modified)
+                                 'sly-stickers--base-help-echo
+                                 (button-type-get 'sly-stickers--sticker
+                                                  'help-echo))))
       ;; choose a suitable priorty for ourselves and increase the
       ;; priority of those contained by us
       ;;
@@ -127,7 +146,8 @@
                       :initial-value -1)))
       (mapc #'sly-stickers--increase-prio contained)
       ;; finally, set face
-      ;; 
+      ;;
+      (sly-stickers--set-tooltip sticker label)
       (sly-stickers--set-face sticker 'sly-stickers-placed-face)
       sticker)))
 
@@ -135,18 +155,22 @@
   (button-get sticker 'sly-stickers-id))
 
 (defun sly-stickers--arm-sticker (sticker)
-  (let ((id (incf sly-stickers--counter)))
+  (let* ((id (incf sly-stickers--counter))
+         (label (format "Sticker %d is armed" id)))
     (button-put sticker 'part-args (list id))
-    (button-put sticker 'part-label (format "Sticker %d is armed" id))
+    (button-put sticker 'part-label label)
     (button-put sticker 'sly-stickers-id id)
     (button-put sticker 'sly-stickers-values nil)
+    (sly-stickers--set-tooltip sticker label)
     (sly-stickers--set-face sticker 'sly-stickers-armed-face)
     (puthash id sticker sly-stickers--stickers)))
 
 (defun sly-stickers--disarm-sticker (sticker)
-  (let ((id (sly-stickers--sticker-id sticker)))
+  (let* ((id (sly-stickers--sticker-id sticker))
+         (label (format "Sticker %d failed to stick" id)))
     (button-put sticker 'part-args (list -1))
-    (button-put sticker 'part-label (format "Sticker %d failed to stick" id))
+    (button-put sticker 'part-label label)
+    (sly-stickers--set-tooltip sticker label)
     (sly-stickers--set-face sticker 'sly-stickers-placed-face)
     (remhash id sly-stickers--stickers)))
 
@@ -155,13 +179,27 @@
          (values (append
                   (button-get sticker 'sly-stickers-values)
                   values)))
-    (button-put sticker 'part-label (format "Sticker %d has %d recordings)" id (length values)))
+    (button-put sticker 'part-label (format "Sticker %d has %d recordings" id (length values)))
     (button-put sticker 'sly-stickers-values values)
+    (sly-stickers--set-tooltip sticker
+                               (format "%s recordings. Last value => %s"
+                                       (length values)
+                                       (first (car (last values)))))
     (sly-stickers--set-face sticker 'sly-stickers-lit-face)))
 
 (defun sly-stickers--sticker-substickers (sticker)
-  (remove sticker
-          (sly-stickers--stickers-between (button-start sticker) (button-end sticker))))
+  (let* ((retval
+          (remove sticker
+                  (sly-stickers--stickers-between (button-start sticker) (button-end sticker))))
+         ;; To verify an important invariant, and warn (don't crash)
+         ;; 
+         (exactly-at
+          (sly-stickers--stickers-exactly-at (button-start sticker) (button-end sticker))))
+    (cond ((remove sticker exactly-at)
+           (sly-warning "Something's fishy. More than one sticker at same position")
+           (cl-set-difference retval exactly-at))
+          (t
+           retval))))
 
 (defun sly-stickers--bring-out-yer-dead ()
   (let ((dead-ids))
@@ -184,7 +222,7 @@
   (let ((prio (sly-stickers--sticker-priority sticker)))
     (unless (and prio
                  (cl-plusp prio))
-      (sly-error "something's fishy with the sticker priorities"))
+      (sly-error "Something's fishy with the sticker priorities"))
     (sly-stickers--set-sticker-piority sticker (decf prio))
     (sly-stickers--set-face sticker)))
 
@@ -198,6 +236,8 @@
 (defun sly-stickers--delete (sticker)
   (mapc #'sly-stickers--decrease-prio
         (sly-stickers--sticker-substickers sticker))
+  (if (sly-stickers--sticker-id sticker)
+      (remhash (sly-stickers--sticker-id sticker) sly-stickers--stickers))
   (delete-overlay sticker))
 
 (defun sly-stickers--sticker-modified (sticker after? _beg _end &optional _pre-change-len)
@@ -208,58 +248,80 @@
 
 (defun sly-stickers-clear-defun-stickers ()
   (interactive)
-  (let* ((region (sly-region-for-defun-at-point))
-         (stickers (sly-stickers--stickers-in (car region) (cadr region))))
-    (cond (stickers
-           (sly-flash-region (car region) (cadr region) :face 'sly-stickers-set-face)
-           (mapc #'sly-stickers--delete stickers)
-           (sly-message "%s stickers cleared" (length stickers)))
-          (t
-           (sly-message "no stickers found in this defun")))))
+  (let* ((region (sly-region-for-defun-at-point)))
+    (sly-stickers-clear-region-stickers (car region) (cadr region))))
 
 (defun sly-stickers-clear-buffer-stickers ()
   (interactive)
-  (let* ((stickers (sly-stickers--stickers-in (point-min) (point-max))))
+  (sly-stickers-clear-region-stickers (point-min) (point-max)))
+
+(defun sly-stickers-clear-region-stickers (&optional from to)
+  (interactive "r")
+  (let* ((from (or from (region-beginning)))
+         (to (or to (region-end)))
+         (stickers (sly-stickers--stickers-in from to)))
     (cond (stickers
            (mapc #'sly-stickers--delete stickers)
-           (sly-message "%s stickers cleared in buffer" (length stickers)))
+           (sly-message "%s stickers cleared" (length stickers)))
           (t
-           (sly-message "no stickers found in buffer")))))
+           (sly-message "no stickers to clear")))))
 
-(defun sly-stickers-dwim (raw-prefix)
-  (interactive "p")
-  (cond ((= raw-prefix 4)
-         (sly-stickers-clear-defun-stickers))
-        ((>= raw-prefix 16)
-         (sly-stickers-clear-buffer-stickers))
-        ((region-active-p)
-         (sly-stickers--sticker (region-beginning) (region-end))
-         (deactivate-mark t))
-        ((not (sly-inside-string-or-comment-p))
-         (let ((bounds (sly-bounds-of-sexp-at-point)))
-           (if bounds
-               (sly-stickers--sticker (car bounds) (cdr bounds))
-             (sly-message "Nothing here to place sticker on, apparently"))))
-        (t
-         (sly-message "No point placing stickers in string literals or comments"))))
+(defun sly-stickers-delete-sticker-at-point (&optional point)
+  (interactive "d")
+  (let ((stickers (sly-stickers--stickers-at (or point (point)))))
+    (cond (stickers
+           (sly-stickers--delete (car stickers))
+           (if (cdr stickers)
+               (sly-message "Deleted topmost sticker (%d remain at point)"
+                            (length (cdr stickers)))
+             (sly-message "Deleted sticker")))
+          (t
+           (sly-error "No stickers at point")))))
 
-(defun sly-stickers-operate-on-sticker (stickers all-stickers)
-  (interactive
-   (list (sly-stickers--stickers-at (point))
-         current-prefix-arg))
-  (cond ((null stickers)
-         (sly-error "No stickers at point!"))
-        ((region-active-p)
-         (sly-stickers-dwim 0))
-        ((not (cdr stickers))
-         (sly-stickers--delete (car stickers))
-         (sly-message "Deleted 1 sticker."))
-        (all-stickers
-         (mapc #'sly-stickers--delete stickers)
-         (sly-message "Deleted %s stickers."  (length stickers)))
-        (t
-         (sly-stickers--delete (car stickers))
-         (sly-message "Deleted topmost sticker"))))
+(defun sly-stickers-maybe-add-sticker (&optional point)
+  (interactive "d")
+  (save-excursion
+    (goto-char (or point (point)))
+    (let* ((bounds (sly-bounds-of-sexp-at-point))
+           (matching (and bounds
+                          (sly-stickers--stickers-exactly-at (car bounds) (cdr bounds)))))
+      (cond ((not bounds)
+             (sly-message "Nothing here to place sticker on, apparently"))
+            (matching
+             (sly-stickers--delete (car matching))
+             (sly-message "Deleted sticker"))
+            (t
+             (sly-stickers--sticker (car bounds) (cdr bounds)))))))
+
+(defun sly-stickers-dwim (prefix)
+  "Set or remove stickers at point.
+Set a sticker for the current sexp at point, or delete it if it
+already exists.
+
+If the region is active set a sticker in the current region.
+
+With interactive prefix arg PREFIX always delete stickers.
+
+- One C-u means delete the topmost sticker at point.
+- Two C-u's means delete the current top-level form's stickers.
+- Three C-u's means delete the current buffer's stickers"
+  (interactive "p") 
+  (cond
+   ((= prefix 4)
+    (sly-stickers-delete-sticker-at-point))
+   ((= prefix 16)
+    (if (region-active-p)
+        (sly-stickers-clear-region-stickers)
+      (sly-stickers-clear-defun-stickers)))
+   ((>= prefix 64)
+    (sly-stickers-clear-buffer-stickers))
+   ((region-active-p)
+    (sly-stickers--sticker (region-beginning) (region-end))
+    (deactivate-mark t))
+   ((not (sly-inside-string-or-comment-p))
+    (sly-stickers-maybe-add-sticker))
+   (t
+    (sly-message "No point placing stickers in string literals or comments"))))
 
 (defun sly-stickers-fetch ()
   (interactive)
@@ -267,12 +329,15 @@
     #'(lambda (result)
         (cl-loop for (id . values) in result
                  for sticker = (gethash id sly-stickers--stickers)
-                 do (cond (sticker
+                 do (cond ((and sticker (overlay-buffer sticker))
                            (sly-stickers--flash-sticker sticker)
                            (when values
                              (sly-stickers--populate-sticker sticker values)))
+                          (sticker
+                           (sly-message "Sticker %s has been deleted" id))
+                          ;; this is slightly more serious, so warn
                           (t
-                           (sly-message "Ooops sticker %s is not live anymore" id)))))))
+                           (sly-warning "Ooops sticker %s is not live anymore" id)))))))
 
 (defun sly-stickers-commit-stickers (_result arg1 arg2)
   (let* ((original-buffer (current-buffer))
@@ -288,7 +353,7 @@
       (if bufferp
           (sly-warning "Compiling buffers with stickers not supported yet.")
         (sly-with-popup-buffer ((sly-buffer-name :stickers :hidden t)
-                                :select nil)
+                                :select :hidden)
           (mapc #'delete-overlay (overlays-in (point-min) (point-max)))
           (insert string)
           ;; Use a second set of overlays placed just in the

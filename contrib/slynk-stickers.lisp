@@ -35,7 +35,10 @@
 
 (defslyfun check-stickers ()
   (loop for k being the hash-keys of *stickers*
-        for values being the hash-values of *stickers*
-        collect (cons k (mapcar #'slynk::to-line values))))
+        for value-lists being the hash-values of *stickers*
+        collect (cons k
+                      (loop for values-list in value-lists
+                            collect
+                            (mapcar #'slynk::to-line values-list)))))
 
 (provide 'slynk-stickers)
