@@ -11,6 +11,8 @@
   (with-buffer-syntax ()
     (let ((*compile-print* nil) (*compile-verbose* nil)
           (offset (cadr (assoc :position position))))
+      (loop for id in dead-stickers
+            do (remhash id *stickers*))
       (when (handler-case
                 (slynk-compile-string string
                                       :buffer buffer
@@ -20,8 +22,6 @@
               (error () nil))
         (loop for id in new-stickers
               do (setf (gethash id *stickers*) nil))
-        (loop for id in dead-stickers
-              do (remhash id *stickers*))
         new-stickers))))
 
 (defmacro record (id &rest body)
@@ -35,10 +35,20 @@
 
 (defslyfun check-stickers ()
   (loop for k being the hash-keys of *stickers*
-        for value-lists being the hash-values of *stickers*
+        for values-lists being the hash-values of *stickers*
         collect (cons k
-                      (loop for values-list in value-lists
+                      (loop for values-list in values-lists
                             collect
                             (mapcar #'slynk::to-line values-list)))))
+
+(defun find-sticker-or-lose (id)
+  (let ((probe (gethash id *stickers* :unknown)))
+    (if (eq probe :unknown)
+        (error "Cannot find sticker ~a" id)
+        probe)))
+
+(defslyfun inspect-sticker-values (id)
+  (let ((values-lists (find-sticker-or-lose id)))
+    (slynk::inspect-object values-lists)))
 
 (provide 'slynk-stickers)

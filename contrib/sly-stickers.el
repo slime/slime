@@ -83,8 +83,11 @@
 
 (define-button-type 'sly-stickers--sticker :supertype 'sly-part
   'sly-button-inspect
-  #'(lambda (_id)
-      (error "Inspect not implemented yet!"))
+  #'(lambda (id)
+      (when (cl-minusp id)
+        (sly-error "This sticker is not armed yet"))
+      (sly-eval-for-inspector
+       `(slynk-stickers:inspect-sticker-values ,id)))
   'sly-mrepl-copy-part-to-repl
   #'(lambda (_id)
       (error "Copy to REPL not implemented yet!"))
