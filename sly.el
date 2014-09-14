@@ -780,13 +780,17 @@ the buffer to be created.  PACKAGE is the value
 `sly-buffer-connection', if nil, no explicit connection is
 associated with the buffer.  If t, the current connection is
 taken.  MODE is the name of a major mode which will be enabled.
-SELECT (unevaluated) indicates the buffer should be switched to.
-SAME-WINDOW-P (unevaluated) is a form indicating if the popup
-*can* happen in the same window.
+SELECT indicates the buffer should be switched to, unless it is
+`:hidden' meaning the buffer should not even be
+displayed. SAME-WINDOW-P is a form indicating if the popup *can*
+happen in the same window. The forms SELECT and SAME-WINDOW-P are
+evaluated at runtime, not macroexpansion time.
 "
-  (declare (indent 1))
+  (declare (indent 1)
+           (debug (sexp &rest form)))
   (let ((package-sym (cl-gensym "package-"))
         (connection-sym (cl-gensym "connection-"))
+        (select-sym (cl-gensym "select"))
         (same-window-if-same-mode-form
          `(eq major-mode ,mode)))
     `(let ((,package-sym ,(if (eq package t)
@@ -794,7 +798,8 @@ SAME-WINDOW-P (unevaluated) is a form indicating if the popup
                             package))
            (,connection-sym ,(if (eq connection t)
                                  `(sly-current-connection)
-                               connection)))
+                               connection))
+           (,select-sym ,select))
        (with-current-buffer (get-buffer-create ,name)
          (let ((inhibit-read-only t)
                (standard-output (current-buffer)))
@@ -807,13 +812,14 @@ SAME-WINDOW-P (unevaluated) is a form indicating if the popup
                  sly-buffer-connection ,connection-sym)
            (set-syntax-table lisp-mode-syntax-table)
            ,@body
-           (funcall (if ,select 'pop-to-buffer 'display-buffer)
-                    (current-buffer)
-                    (cons 'display-buffer-reuse-window
-                          (if ,(cond (same-window-p same-window-p)
-                                     (mode same-window-if-same-mode-form))
-                              '((inhibit-same-window . nil))
-                            '((inhibit-same-window . t)))))
+           (unless (eq ,select-sym :hidden)
+             (funcall (if ,select-sym 'pop-to-buffer 'display-buffer)
+                      (current-buffer)
+                      (cons 'display-buffer-reuse-window
+                            (if ,(cond (same-window-p same-window-p)
+                                       (mode same-window-if-same-mode-form))
+                                '((inhibit-same-window . nil))
+                              '((inhibit-same-window . t))))))
            (current-buffer))))))
 
 ;;;;; Filename translation
@@ -2532,12 +2538,25 @@ to it depending on its sign."
                       #'(lambda (result)
                           (run-hook-with-args 'sly-after-compile-functions result start end))))
 
-(defun sly-flash-region (start end &optional timeout face)
+(cl-defun sly-flash-region (start end &key timeout face times)
   "Temporarily highlight region from START to END."
   (let ((overlay (make-overlay start end)))
     (overlay-put overlay 'face (or face
                                    'secondary-selection))
-    (run-with-timer (or timeout 0.2) nil 'delete-overlay overlay)))
+    (overlay-put overlay 'priority 1000)
+    (run-with-timer
+     (or timeout 0.2) nil
+     #'(lambda ()
+         (delete-overlay overlay)
+         (when (and times
+                    (> times 1))
+           (run-with-timer
+            (or timeout 0.2) nil
+            #'(lambda ()
+                (sly-flash-region start end
+                                  :timeout timeout
+                                  :face face
+                                  :times (1- times)))))))))
 
 (defun sly-compilation-position (start-offset)
   (let ((line (save-excursion
@@ -3233,7 +3252,7 @@ Several kinds of locations are supported:
 (defun sly--highlight-line (&optional timeout)
   (sly-flash-region (+ (line-beginning-position) (current-indentation))
                       (line-end-position)
-                      timeout))
+                      :timeout timeout))
 
 (defun sly--display-source-location (source-location &optional noerror)
   (save-excursion

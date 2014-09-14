@@ -95,19 +95,41 @@
                                       (* (sly-stickers--sticker-priority sticker)
                                          15))))))
 
+(defun sly-stickers--flash-sticker (sticker)
+  (sly-flash-region (button-start sticker) (button-end sticker)
+                    :timeout 0.07
+                    :times 2))
+
 (defun sly-stickers--sticker (from to)
-  (let ((existing (sly-stickers--stickers-in from to)))
+  (let* ((intersecting (sly-stickers--stickers-in from to))
+         (contained (sly-stickers--stickers-between from to))
+         (not-contained (cl-set-difference intersecting contained))
+         (containers nil))
     (unless (cl-every #'(lambda (e)
-                          (and (> (button-start e) from)
-                               (< (button-end e) to)))
-                      existing)
+                          (and (< (button-start e) from)
+                               (> (button-end e) to)))
+                      not-contained)
       (sly-error "Cannot place a sticker that partially overlaps other stickers"))
-    (mapc #'sly-stickers--increase-prio existing)
+    ;; by now we know that other intersecting, non-contained stickers
+    ;; are our containers.
+    ;; 
+    (setq containers not-contained)
     (let ((sticker (make-button from to :type 'sly-stickers--sticker
                                 'part-args (list -1)
                                 'part-label "Sticker (brand new)"
                                 'modification-hooks '(sly-stickers--sticker-modified))))
-      (sly-stickers--set-face sticker 'sly-stickers-placed-face))))
+      ;; choose a suitable priorty for ourselves and increase the
+      ;; priority of those contained by us
+      ;;
+      (sly-stickers--set-sticker-piority
+       sticker
+       (1+ (cl-reduce #'max (mapcar #'sly-stickers--sticker-priority containers)
+                      :initial-value -1)))
+      (mapc #'sly-stickers--increase-prio contained)
+      ;; finally, set face
+      ;; 
+      (sly-stickers--set-face sticker 'sly-stickers-placed-face)
+      sticker)))
 
 (defun sly-stickers--sticker-id (sticker)
   (button-get sticker 'sly-stickers-id))
@@ -153,6 +175,9 @@
 (defun sly-stickers--sticker-priority (sticker)
   (or (overlay-get sticker 'priority) 0))
 
+(defun sly-stickers--set-sticker-piority (sticker prio)
+  (overlay-put sticker 'priority prio))
+
 (defun sly-stickers--decrease-prio (sticker)
   (mapc #'sly-stickers--decrease-prio
         (sly-stickers--sticker-substickers sticker))
@@ -160,14 +185,14 @@
     (unless (and prio
                  (cl-plusp prio))
       (sly-error "something's fishy with the sticker priorities"))
-    (overlay-put sticker 'priority (decf prio))
+    (sly-stickers--set-sticker-piority sticker (decf prio))
     (sly-stickers--set-face sticker)))
 
 (defun sly-stickers--increase-prio (sticker)
   (mapc #'sly-stickers--increase-prio
         (sly-stickers--sticker-substickers sticker))
   (let ((prio (sly-stickers--sticker-priority sticker)))
-    (overlay-put sticker 'priority (incf prio))
+    (sly-stickers--set-sticker-piority sticker (incf prio))
     (sly-stickers--set-face sticker)))
 
 (defun sly-stickers--delete (sticker)
@@ -186,7 +211,7 @@
   (let* ((region (sly-region-for-defun-at-point))
          (stickers (sly-stickers--stickers-in (car region) (cadr region))))
     (cond (stickers
-           (sly-flash-region (car region) (cadr region) nil 'sly-stickers-set-face)
+           (sly-flash-region (car region) (cadr region) :face 'sly-stickers-set-face)
            (mapc #'sly-stickers--delete stickers)
            (sly-message "%s stickers cleared" (length stickers)))
           (t
@@ -208,7 +233,8 @@
         ((>= raw-prefix 16)
          (sly-stickers-clear-buffer-stickers))
         ((region-active-p)
-         (sly-stickers--sticker (region-beginning) (region-end)))
+         (sly-stickers--sticker (region-beginning) (region-end))
+         (deactivate-mark t))
         ((not (sly-inside-string-or-comment-p))
          (let ((bounds (sly-bounds-of-sexp-at-point)))
            (if bounds
@@ -222,7 +248,9 @@
    (list (sly-stickers--stickers-at (point))
          current-prefix-arg))
   (cond ((null stickers)
-         (sly-message "No stickers at point!"))
+         (sly-error "No stickers at point!"))
+        ((region-active-p)
+         (sly-stickers-dwim 0))
         ((not (cdr stickers))
          (sly-stickers--delete (car stickers))
          (sly-message "Deleted 1 sticker."))
@@ -239,10 +267,12 @@
     #'(lambda (result)
         (cl-loop for (id . values) in result
                  for sticker = (gethash id sly-stickers--stickers)
-                 if sticker
-                 do (sly-stickers--populate-sticker sticker values)
-                 else
-                 do (sly-message "Ooops sticker %s is not live anymore" id)))))
+                 do (cond (sticker
+                           (sly-stickers--flash-sticker sticker)
+                           (when values
+                             (sly-stickers--populate-sticker sticker values)))
+                          (t
+                           (sly-message "Ooops sticker %s is not live anymore" id)))))))
 
 (defun sly-stickers-commit-stickers (_result arg1 arg2)
   (let* ((original-buffer (current-buffer))
@@ -257,20 +287,27 @@
     (when stickers
       (if bufferp
           (sly-warning "Compiling buffers with stickers not supported yet.")
-        (with-temp-buffer 
+        (sly-with-popup-buffer ((sly-buffer-name :stickers :hidden t)
+                                :select nil)
+          (mapc #'delete-overlay (overlays-in (point-min) (point-max)))
           (insert string)
-          (cl-loop for sticker in (cl-sort (copy-sequence stickers) #'> :key #'button-start)
-                   for sexp-beg = (- (button-start sticker) (1- start))
-                   for sexp-end = (- (button-end sticker) (1- start))
-                   for sexp = (buffer-substring-no-properties sexp-beg
-                                                              sexp-end)
+          ;; Use a second set of overlays placed just in the
+          ;; pre-compilation buffer. We need this to correctly keep
+          ;; track of the markers because in this buffer we are going
+          ;; to change actual text
+          ;; 
+          (cl-loop for sticker in stickers
+                   for overlay = (make-overlay (- (button-start sticker) (1- start))
+                                               (- (button-end sticker) (1- start)))
+                   do (overlay-put overlay 'sly-stickers--sticker sticker))
+          (cl-loop for overlay in (overlays-in (point-min) (point-max))
+                   for sticker = (overlay-get overlay 'sly-stickers--sticker)
                    do
-                   (goto-char sexp-beg)
                    (sly-stickers--arm-sticker sticker)
-                   (delete-region (point) sexp-end)
-                   (insert (format "(slynk-stickers:record %d %s)"
-                                   (sly-stickers--sticker-id sticker)
-                                   sexp)))
+                   (goto-char (overlay-start overlay))
+                   (insert (format "(slynk-stickers:record %d " (sly-stickers--sticker-id sticker)))
+                   (goto-char (overlay-end overlay))
+                   (insert ")"))
           (let ((instrumented (buffer-substring-no-properties (point-min) (point-max)))
                 (new-ids (mapcar #'sly-stickers--sticker-id stickers)))
             (with-current-buffer original-buffer
