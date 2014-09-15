@@ -11,30 +11,44 @@
   (:license "GPL")
   (:slynk-dependencies slynk-stickers)
   (:on-load (add-hook 'sly-editing-mode-hook 'sly-stickers-enable)
-            (add-hook 'sly-after-compile-functions 'sly-stickers-commit-stickers))
+            (setq sly-compile-region-function 'sly-stickers-compile-region-aware-of-stickers))
   (:on-unload (remove-hook 'sly-editing-mode-hook 'sly-stickers-enable)
-              (remove-hook 'sly-after-compile-functions 'sly-stickers-commit-stickers)))
+              (setq sly-compile-region-function 'sly-compile-region-as-string)))
 
 (defgroup sly-stickers nil
   "Mark expressions in source buffers and annotate return values."
   :prefix "sly-stickers-"
   :group 'sly)
 
+(when nil
+  (cl-loop for sym in '(sly-stickers-placed-face
+                        sly-stickers-armed-face
+                        sly-stickers-empty-face
+                        sly-stickers-recordings-face
+                        sly-stickers-exited-non-locally-face)
+           do
+           (put sym 'face-defface-spec nil)))
+
 (defface sly-stickers-placed-face
-  '((t (:inherit hi-blue)))
+  '((((background dark)) (:background "light grey" :foreground "black"))
+    (t (:background "light grey")))
   "Face for sticker just set")
 
 (defface sly-stickers-armed-face
-  '((t (:inherit hi-green)))
+  '((t (:inherit hi-blue)))
   "Face for stickers that have been armed")
 
 (defface sly-stickers-recordings-face
-  '((t (:inherit hi-pink)))
+  '((t (:inherit hi-green)))
   "Face for stickers that have new recordings")
 
 (defface sly-stickers-empty-face
-  '((((background dark)) (:background "light grey" :foreground "black"))
-    (t (:background "light grey")))
+  '((t (:inherit hi-pink)))
+  "Face for stickers that have no recordings.")
+
+(defface sly-stickers-exited-non-locally-face
+  '((t (:inherit sly-stickers-empty-face)
+       (:strike-through t)))
   "Face for stickers that have no recordings.")
 
 (defun sly-stickers-enable () (sly-stickers-mode 1))
@@ -167,7 +181,7 @@
     (button-put sticker 'part-args (list id))
     (button-put sticker 'part-label label)
     (button-put sticker 'sly-stickers-id id)
-    (button-put sticker 'sly-stickers--last-values-list nil)
+    (button-put sticker 'sly-stickers--last-value-desc nil)
     (sly-stickers--set-tooltip sticker label)
     (sly-stickers--set-face sticker 'sly-stickers-armed-face)
     (puthash id sticker sly-stickers--stickers)))
@@ -180,26 +194,29 @@
     (sly-stickers--set-tooltip sticker label)
     (sly-stickers--set-face sticker 'sly-stickers-placed-face)))
 
-(defun sly-stickers--populate-sticker (sticker total-new last-values-list)
+(defun sly-stickers--populate-sticker (sticker total-new last-value-desc)
   (let* ((id (sly-stickers--sticker-id sticker)))
-    (button-put sticker 'part-label (format "Sticker %d has %d new recordings" id total-new))
-    (button-put sticker 'sly-stickers--last-values-list last-values-list)
+    (button-put sticker 'part-label (format "Sticker %d has new recordings" id))
+    (button-put sticker 'sly-stickers--last-value-desc last-value-desc)
     (sly-stickers--set-tooltip sticker
-                               (format "Sticker %d has %d new recordings. Last value => %s"
-                                       id
+                               (format "%d new recordings. Last value => %s"
                                        total-new
-                                       (first last-values-list)))
-    (sly-stickers--set-face sticker 'sly-stickers-recordings-face)))
+                                       (if (listp last-value-desc)
+                                           (first last-value-desc)
+                                         "(exited non locally)")))
+    (sly-stickers--set-face sticker
+                            (if (listp last-value-desc)
+                                'sly-stickers-recordings-face
+                              'sly-stickers-exited-non-locally-face))))
 
 (defun sly-stickers--mark-empty-sticker (sticker)
   (let* ((id (sly-stickers--sticker-id sticker))
-         (last-values-list (button-get sticker 'sly-stickers--last-values-list)))
-    (button-put sticker 'part-label (format "Sticker %d has no new recordings" id))
-    (if last-values-list
+         (last-value-desc (button-get sticker 'sly-stickers--last-value-desc)))
+    (button-put sticker 'part-label (format "Sticker %d is empty" id))
+    (if last-value-desc
         (sly-stickers--set-tooltip sticker
-                                   (format "Sticker %d has no new recordings. Last value => %s"
-                                           id
-                                           (first last-values-list)))
+                                   (format "No new recordings. Last value => %s"
+                                           (first last-value-desc)))
       (sly-stickers--set-tooltip sticker
                                  "No new recordings"))
     (sly-stickers--set-face sticker 'sly-stickers-empty-face)))
@@ -343,70 +360,80 @@ With interactive prefix arg PREFIX always delete stickers.
   (interactive)
   (sly-eval-async `(slynk-stickers:check-stickers)
     #'(lambda (result)
-        (cl-loop for (id total last-values-list) in result
-                 for sticker = (gethash id sly-stickers--stickers)
-                 do (cond ((and sticker (overlay-buffer sticker))
-                           (sly-stickers--flash-sticker sticker)
-                           (if last-values-list
-                               (sly-stickers--populate-sticker sticker total last-values-list)
-                             (sly-stickers--mark-empty-sticker sticker)))
-                          (sticker
-                           (sly-message "Sticker %s has been deleted" id))
-                          ;; this is slightly more serious, so warn
-                          (t
-                           (sly-warning "Ooops sticker %s is not live anymore" id)))))))
+        (let ((zombie-sticker-ids))
+          (cl-loop for (id total last-values-desc) in result
+                   for sticker = (gethash id sly-stickers--stickers)
+                   do (cond ((and sticker (overlay-buffer sticker))
+                             (sly-stickers--flash-sticker sticker)
+                             (if last-values-desc
+                                 (sly-stickers--populate-sticker sticker total last-values-desc)
+                               (sly-stickers--mark-empty-sticker sticker)))
+                            (sticker
+                             ;; pretty normal so don't add noise
+                             ;; (sly-message "Sticker %s has been deleted" id)
+                             )
+                            (t
+                             (push id zombie-sticker-ids))))
+          (when zombie-sticker-ids
+            (sly-message "Killing zombie stickers %s" zombie-sticker-ids)
+            (sly-eval-async `(slynk-stickers:kill-stickers ',zombie-sticker-ids)))))))
 
-(defun sly-stickers-commit-stickers (_result arg1 arg2)
-  (let* ((original-buffer (current-buffer))
-         (bufferp (bufferp arg1))
-         (start (if bufferp (point-min) arg1))
-         (end (if bufferp (point-max) arg2))
-         (string (buffer-substring-no-properties start end))
+(defun sly-stickers-compile-region-aware-of-stickers (start end)
+  (let* ((uninstrumented (buffer-substring-no-properties start end))
          (stickers (sly-stickers--stickers-between start end))
          (dead-ids (append (mapcar #'sly-stickers--sticker-id stickers)
                            (sly-stickers--bring-out-yer-dead)))
-         (current-package (sly-current-package)))
-    (when stickers
-      (if bufferp
-          (sly-warning "Compiling buffers with stickers not supported yet.")
-        (sly-with-popup-buffer ((sly-buffer-name :stickers :hidden t)
-                                :select :hidden)
-          (mapc #'delete-overlay (overlays-in (point-min) (point-max)))
-          (insert string)
-          ;; Use a second set of overlays placed just in the
-          ;; pre-compilation buffer. We need this to correctly keep
-          ;; track of the markers because in this buffer we are going
-          ;; to change actual text
-          ;; 
-          (cl-loop for sticker in stickers
-                   for overlay = (make-overlay (- (button-start sticker) (1- start))
-                                               (- (button-end sticker) (1- start)))
-                   do (overlay-put overlay 'sly-stickers--sticker sticker))
-          (cl-loop for overlay in (overlays-in (point-min) (point-max))
-                   for sticker = (overlay-get overlay 'sly-stickers--sticker)
-                   do
-                   (sly-stickers--arm-sticker sticker)
-                   (goto-char (overlay-start overlay))
-                   (insert (format "(slynk-stickers:record %d " (sly-stickers--sticker-id sticker)))
-                   (goto-char (overlay-end overlay))
-                   (insert ")"))
-          (let ((instrumented (buffer-substring-no-properties (point-min) (point-max)))
-                (new-ids (mapcar #'sly-stickers--sticker-id stickers)))
-            (with-current-buffer original-buffer
-              (sly-eval-async `(slynk-stickers:compile-for-stickers
-                                ',new-ids
-                                ',dead-ids
-                                ,instrumented
-                                ,(buffer-name)
-                                ',(sly-compilation-position start)
-                                ,(if (buffer-file-name) (sly-to-lisp-filename (buffer-file-name)))
-                                ',sly-compilation-policy)
-                #'(lambda (ids)
-                    (cond ((null ids)
-                           (sly-message "Some stickers failed to stick. Probably misplaced")
+         (original-buffer (current-buffer)))
+    (cond (stickers
+           (sly-flash-region start end :face 'sly-stickers-armed-face)
+           (sly-with-popup-buffer ((sly-buffer-name :stickers :hidden t)
+                                   :select :hidden)
+             (mapc #'delete-overlay (overlays-in (point-min) (point-max)))
+             (insert uninstrumented)
+             ;; Use a second set of overlays placed just in the
+             ;; pre-compilation buffer. We need this to correctly keep
+             ;; track of the markers because in this buffer we are going
+             ;; to change actual text
+             ;; 
+             (cl-loop for sticker in stickers
+                      for overlay = (make-overlay (- (button-start sticker) (1- start))
+                                                  (- (button-end sticker) (1- start)))
+                      do (overlay-put overlay 'sly-stickers--sticker sticker))
+             (cl-loop for overlay in (overlays-in (point-min) (point-max))
+                      for sticker = (overlay-get overlay 'sly-stickers--sticker)
+                      do
+                      (sly-stickers--arm-sticker sticker)
+                      (goto-char (overlay-start overlay))
+                      (insert (format "(slynk-stickers:record %d " (sly-stickers--sticker-id sticker)))
+                      (goto-char (overlay-end overlay))
+                      (insert ")"))
+             ;; Now send both the instrumented and uninstrumented
+             ;; string to the Lisp
+             ;;
+             (let ((instrumented (buffer-substring-no-properties (point-min) (point-max)))
+                   (new-ids (mapcar #'sly-stickers--sticker-id stickers)))
+               (with-current-buffer original-buffer
+                 (sly-eval-async `(slynk-stickers:compile-for-stickers
+                                   ',new-ids
+                                   ',dead-ids
+                                   ,instrumented
+                                   ,uninstrumented
+                                   ,(buffer-name)
+                                   ',(sly-compilation-position start)
+                                   ,(if (buffer-file-name) (sly-to-lisp-filename (buffer-file-name)))
+                                   ',sly-compilation-policy)
+                   #'(lambda (result-and-stickers)
+                       (cl-destructuring-bind (result stuck-p)
+                           result-and-stickers
+                         (unless stuck-p
                            (mapc #'sly-stickers--disarm-sticker stickers))
-                          (t
-                           (cl-assert (equal ids new-ids)))))
-                current-package))))))))
+                         (sly-compilation-finished
+                          result
+                          nil
+                          (if stuck-p
+                              (format " (%d stickers armed)" (length stickers))
+                            " (stickers failed to stick)")))))))))
+          (t
+           (sly-compile-region-as-string start end)))))
 
 (provide 'sly-stickers)

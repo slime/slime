@@ -2665,7 +2665,9 @@ Record compiler notes signalled as `compiler-condition's."
     (with-buffer-syntax ()
       (collect-notes
        (lambda ()
-         (let ((*compile-print* t) (*compile-verbose* nil))
+         (let ((*compile-print* nil)
+               (*compile-verbose* nil)
+               (*load-verbose* nil))
            (slynk-compile-string string
                                  :buffer buffer
                                  :position offset

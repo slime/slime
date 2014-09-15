@@ -1,7 +1,7 @@
 (defpackage :slynk-stickers
   (:use :cl)
   (:import-from :slynk-backend :slynk-compile-string)
-  (:import-from :slynk :defslyfun :with-buffer-syntax)
+  (:import-from :slynk :defslyfun :with-buffer-syntax :compile-string-for-emacs)
   (:export #:record))
 (in-package :slynk-stickers)
 
@@ -11,40 +11,64 @@
 
 (defvar *stickers* (make-hash-table))
 
-(defslyfun compile-for-stickers (new-stickers dead-stickers string buffer position filename policy)
-  (with-buffer-syntax ()
-    (let ((*compile-print* nil) (*compile-verbose* nil)
-          (offset (cadr (assoc :position position))))
-      (loop for id in dead-stickers
-            do (remhash id *stickers*))
-      (when (handler-case
-                (slynk-compile-string string
-                                      :buffer buffer
-                                      :position offset
-                                      :filename filename
-                                      :policy policy)
-              (error () nil))
-        (loop for id in new-stickers
-              do (setf (gethash id *stickers*) (make-instance 'sticker)))
-        new-stickers))))
+(defslyfun compile-for-stickers (new-stickers
+                                 dead-stickers
+                                 instrumented-string
+                                 string
+                                 buffer
+                                 position
+                                 filename
+                                 policy)
+  ;; Dead stickers are unconditionally removed from *stickers*
+  ;; 
+  (kill-stickers dead-stickers)
+  (let ((probe
+          (handler-case
+              (compile-string-for-emacs instrumented-string
+                                        buffer
+                                        position
+                                        filename
+                                        policy)
+            (error () nil))))
+    (cond (probe
+           (loop for id in new-stickers
+                 do (setf (gethash id *stickers*) (make-instance 'sticker)))
+           (list probe t))
+          (t
+           (list (compile-string-for-emacs string buffer position filename policy)
+                 nil)))))
+
+(defslyfun kill-stickers (ids)
+  (loop for id in ids
+        do (remhash id *stickers*)))
 
 (defmacro record (id &rest body)
-  (let ((id-sym (gensym "ID-")))
-    `(let* ((values (multiple-value-list (progn ,@body)))
-            (,id-sym ,id)
-            (sticker (gethash ,id-sym *stickers*)))
-       (when sticker
-         (push values (new-value-lists-of sticker)))
-       (values-list values))))
+  (let ((id-sym (gensym "ID-"))
+        (sticker-sym (gensym "STICKER-"))
+        (values-sym (gensym "VALUES-")))
+    `(let* ((,id-sym ,id)
+            (,sticker-sym (gethash ,id-sym *stickers*))
+            (,values-sym :exited-non-locally))
+       (unwind-protect
+            (progn
+              (setq ,values-sym
+                    (multiple-value-list (progn ,@body)))
+              (values-list ,values-sym))
+         (if ,sticker-sym
+             (push ,values-sym (new-value-lists-of ,sticker-sym)))))))
 
 (defslyfun check-stickers ()
   (loop for k being the hash-keys of *stickers*
         for sticker being the hash-values of *stickers*
         for new-value-lists = (new-value-lists-of sticker)
+        for last-new-value-list = (car (last new-value-lists))
+        for last-value-desc = (if (listp last-new-value-list)
+                                  (mapcar #'slynk::to-line
+                                          last-new-value-list)
+                                  last-new-value-list)
         collect (list k
                       (length new-value-lists)
-                      (mapcar #'slynk::to-line
-                              (car (last new-value-lists))))
+                      last-value-desc)
         do
            (setf (reported-value-lists-of sticker)
                  (append new-value-lists

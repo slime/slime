@@ -2404,28 +2404,18 @@ Also rearrange windows."
 (defvar sly-highlight-compiler-notes t
   "*When non-nil annotate buffers with compilation notes etc.")
 
-(defvar sly-before-compile-functions nil
-  "A list of function called before compiling a buffer or region.
-The function receives two arguments: the beginning and the end of
-the region that will be compiled in case a text region is being
-compiled, or the buffer being compiled and the LOAD flag to
-`sly-compile-file'")
-
-(defvar sly-after-compile-functions nil
-  "A list of functions called after compiling a buffer or region.
-The function receive three arguments. The first is the
-compilation's result, the remaining ones are as in
-`sly-before-compile-functions'")
-
-;; FIXME: remove some of the options
 (defcustom sly-compilation-finished-hook 'sly-maybe-show-compilation-log
-  "Hook called with a list of compiler notes after a compilation."
+  "Hook called after compilation.
+Each function is called with four arguments (SUCCESSP NOTES BUFFER LOADP)
+SUCCESSP indicates if the compilation was successful.
+NOTES is a list of compilation notes.
+BUFFER is the buffer just compiled, or nil if a string was compiled.
+LOADP is the value of the LOAD flag passed to `sly-compile-file', or t
+if a string."
   :group 'sly-mode
   :type 'hook
   :options '(sly-maybe-show-compilation-log
-             sly-create-compilation-log
              sly-show-compilation-log
-             sly-maybe-list-compiler-notes
              sly-maybe-show-xrefs-for-notes
              sly-goto-first-note))
 
@@ -2492,16 +2482,14 @@ See `sly-compile-and-load-file' for further details."
   (when (and (buffer-modified-p)
              (y-or-n-p (format "Save file %s? " (buffer-file-name))))
     (save-buffer))
-  (run-hook-with-args 'sly-before-compile-functions (current-buffer) load)
   (let ((file (sly-to-lisp-filename (buffer-file-name)))
         (options (sly-simplify-plist `(,@sly-compile-file-options
                                        :policy ,policy))))
     (sly-eval-async
         `(slynk:compile-file-for-emacs ,file ,(if load t nil)
                                        . ,(sly-hack-quotes options))
-      #'(lambda (results)
-          (sly-compilation-finished results)
-          (run-hook-with-args 'sly-after-compile-functions results (current-buffer) load)))
+      #'(lambda (result)
+          (sly-compilation-finished result (current-buffer))))
     (sly-message "Compiling %s..." file)))
 
 (defun sly-hack-quotes (arglist)
@@ -2526,17 +2514,32 @@ to it depending on its sign."
         (sly-compile-region (region-beginning) (region-end))
       (apply #'sly-compile-region (sly-region-for-defun-at-point)))))
 
+(defvar sly-compile-region-function 'sly-compile-region-as-string
+  "Function called by `sly-compile-region' to do actual work.")
+
 (defun sly-compile-region (start end)
   "Compile the region."
   (interactive "r")
   ;; Check connection before running hooks things like
   ;; sly-flash-region don't make much sense if there's no connection
   (sly-connection)
+  (funcall sly-compile-region-function start end))
+
+(defun sly-compile-region-as-string (start end)
   (sly-flash-region start end)
-  (run-hook-with-args 'sly-before-compile-functions start end)
-  (sly-compile-string (buffer-substring-no-properties start end) start
-                      #'(lambda (result)
-                          (run-hook-with-args 'sly-after-compile-functions result start end))))
+  (sly-compile-string (buffer-substring-no-properties start end) start))
+
+(defun sly-compile-string (string start-offset)
+  (let* ((position (sly-compilation-position start-offset)))
+    (sly-eval-async
+        `(slynk:compile-string-for-emacs
+          ,string
+          ,(buffer-name)
+          ',position
+          ,(if (buffer-file-name) (sly-to-lisp-filename (buffer-file-name)))
+          ',sly-compilation-policy)
+      #'(lambda (result)
+          (sly-compilation-finished result nil)))))
 
 (cl-defun sly-flash-region (start end &key timeout face times)
   "Temporarily highlight region from START to END."
@@ -2564,19 +2567,6 @@ to it depending on its sign."
                 (list (line-number-at-pos) (1+ (current-column))))))
     `((:position ,start-offset) (:line ,@line))))
 
-(defun sly-compile-string (string start-offset &optional hook)
-  (let* ((position (sly-compilation-position start-offset)))
-    (sly-eval-async
-        `(slynk:compile-string-for-emacs
-          ,string
-          ,(buffer-name)
-          ',position
-          ,(if (buffer-file-name) (sly-to-lisp-filename (buffer-file-name)))
-          ',sly-compilation-policy)
-      #'(lambda (result)
-          (sly-compilation-finished result t)
-          (when hook (funcall hook result))))))
-
 (defcustom sly-load-failed-fasl 'never
   "Which action to take when COMPILE-FILE set FAILURE-P to T.
 NEVER doesn't load the fasl
@@ -2592,7 +2582,7 @@ ASK asks the user."
     (always t)
     (ask (y-or-n-p "Compilation failed.  Load fasl file anyway? "))))
 
-(defun sly-compilation-finished (result &optional stringp)
+(defun sly-compilation-finished (result buffer &optional message)
   (let ((notes (sly-compilation-result.notes result))
         (duration (sly-compilation-result.duration result))
         (successp (sly-compilation-result.successp result))
@@ -2601,33 +2591,35 @@ ASK asks the user."
     (setf sly-last-compilation-result result)
     (sly-show-note-counts notes duration (cond ((not loadp) successp)
                                                (t (and faslfile successp)))
-                          (or stringp loadp))
+                          (or (not buffer) loadp)
+                          message)
     (when sly-highlight-compiler-notes
       (sly-highlight-notes notes))
-    (run-hook-with-args 'sly-compilation-finished-hook notes)
     (when (and loadp faslfile
                (or successp
                    (sly-load-failed-fasl-p)))
-      (sly-eval-async `(slynk:load-file ,faslfile)))))
+      (sly-eval-async `(slynk:load-file ,faslfile)))
+    (run-hook-with-args 'sly-compilation-finished-hook successp notes buffer loadp)))
 
-(defun sly-show-note-counts (notes secs successp loadp)
+(defun sly-show-note-counts (notes secs successp loadp &optional message)
   (sly-message (concat
-            (cond ((and successp loadp)
-                   "Compiled and loaded")
-                  (successp "Compilation finished")
-                  (t (sly-add-face 'font-lock-warning-face
-                       "Compilation failed")))
-            (if (null notes) ". (No warnings)" ": ")
-            (mapconcat
-             (lambda (msgs)
-               (cl-destructuring-bind (sev . notes) msgs
-                 (let ((len (length notes)))
-                   (format "%d %s%s" len (sly-severity-label sev)
-                           (if (= len 1) "" "s")))))
-             (sort (sly-alistify notes #'sly-note.severity #'eq)
-                   (lambda (x y) (sly-severity< (car y) (car x))))
-             "  ")
-            (if secs (format "  [%.2f secs]" secs)))))
+                (cond ((and successp loadp)
+                       "Compiled and loaded")
+                      (successp "Compilation finished")
+                      (t (sly-add-face 'font-lock-warning-face
+                           "Compilation failed")))
+                (if (null notes) ". (No warnings)" ": ")
+                (mapconcat
+                 (lambda (msgs)
+                   (cl-destructuring-bind (sev . notes) msgs
+                     (let ((len (length notes)))
+                       (format "%d %s%s" len (sly-severity-label sev)
+                               (if (= len 1) "" "s")))))
+                 (sort (sly-alistify notes #'sly-note.severity #'eq)
+                       (lambda (x y) (sly-severity< (car y) (car x))))
+                 "  ")
+                (if secs (format "  [%.2f secs]" secs))
+                message)))
 
 (defun sly-highlight-notes (notes)
   "Highlight compiler notes, warnings, and errors in the buffer."
@@ -2698,7 +2690,7 @@ Each newlines and following indentation is replaced by a single space."
             (setf xrefs (cl-acons fn (list node) xrefs))))))
     xrefs))
 
-(defun sly-maybe-show-xrefs-for-notes (notes)
+(defun sly-maybe-show-xrefs-for-notes (_successp notes _buffer _loadp)
   "Show the compiler notes NOTES if they come from more than one file."
   (let ((xrefs (sly-xref--get-xrefs-for-notes notes)))
     (when (sly-length> xrefs 1)          ; >1 file
@@ -2711,38 +2703,26 @@ Each newlines and following indentation is replaced by a single space."
 (defun sly-redefinition-note-p (note)
   (eq (sly-note.severity note) :redefinition))
 
-(defun sly-create-compilation-log (notes)
-  "Create a buffer for `next-error' to use."
-  (with-current-buffer (get-buffer-create (sly-buffer-name :compilation))
-    (let ((inhibit-read-only t))
-      (erase-buffer))
-    (sly-insert-compilation-log notes)
-    (compilation-mode)
-    (sly-mode 1)))
-
-(defun sly-maybe-show-compilation-log (notes)
+(defun sly-maybe-show-compilation-log (successp notes buffer loadp)
   "Display the log on failed compilations or if NOTES is non-nil."
-  (sly-create-compilation-log notes)
-  (unless (sly-compilation-result.successp sly-last-compilation-result)
-    (with-current-buffer (sly-buffer-name :compilation)
-      (let ((inhibit-read-only t))
-        (goto-char (point-max))
-        (insert "Compilation failed.")
-        (goto-char (point-min))
-        (display-buffer (current-buffer))))))
+  (unless successp
+    (sly-show-compilation-log successp notes buffer loadp)))
 
-(defun sly-show-compilation-log (notes)
+(defun sly-show-compilation-log (successp notes buffer loadp)
   "Create and display the compilation log buffer."
   (interactive (list (sly-compiler-notes)))
   (sly-with-popup-buffer ((sly-buffer-name :compilation)
-                            :mode 'compilation-mode)
-    (sly-insert-compilation-log notes)))
+                          :mode 'compilation-mode)
+    (sly--insert-compilation-log successp notes buffer loadp)
+    (insert "Compilation "
+            (if successp "successful" "failed")
+            ".")))
 
 (defvar sly-compilation-log--notes (make-hash-table)
   "Hash-table (NOTE -> (BUFFER POSITION)) for finding notes in
   the SLY compilation log")
 
-(defun sly-insert-compilation-log (notes)
+(defun sly--insert-compilation-log (_successp notes _buffer _loadp)
   "Insert NOTES in format suitable for `compilation-mode'."
   (clrhash sly-compilation-log--notes)
   (cl-multiple-value-bind (grouped-notes canonicalized-locs-table)
@@ -3406,7 +3386,7 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
                         (eq last-command 'sly-previous-note))
       (sly-message "No previous note")))
 
-(defun sly-goto-first-note (notes)
+(defun sly-goto-first-note (_successp notes _buffer _loadp)
   "Go to the first note in the buffer."
   (interactive (list (sly-compiler-notes)))
   (when notes
@@ -4678,7 +4658,8 @@ If PROP-VALUE-FN is non-nil use it to extract PROP's value."
   ;; anyway.  -- helmut
   ;; TODO: next iteration of fixme cleanup this is going in a contrib -- jt
   (with-current-buffer buffer
-    (sly-compilation-finished (sly-aggregate-compilation-results results))
+    (sly-compilation-finished (sly-aggregate-compilation-results results)
+                              nil)
     (save-excursion
       (sly-xref-insert-recompilation-flags
        dspecs (cl-loop for r in results collect
