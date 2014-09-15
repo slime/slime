@@ -2966,12 +2966,13 @@ that symbols accessible in the current package go first."
                      (string< (package-name px) (package-name py)))))))))
 
 (defun make-cl-ppcre-matcher (pattern case-sensitive symbol-name-fn)
-  (lambda (symbol)
-    (funcall (read-from-string "cl-ppcre:scan")
-             (funcall (read-from-string "cl-ppcre:create-scanner")
-                                pattern
-                                :case-insensitive-mode (not case-sensitive))
-             (funcall symbol-name-fn symbol))))
+  (let ((matcher (funcall (read-from-string "cl-ppcre:create-scanner")
+                          pattern
+                          :case-insensitive-mode (not case-sensitive))))
+    (lambda (symbol)
+      (funcall (read-from-string "cl-ppcre:scan")
+               matcher
+               (funcall symbol-name-fn symbol)))))
 
 (defun make-plain-matcher (pattern case-sensitive symbol-name-fn)
   (let ((chr= (if case-sensitive #'char= #'char-equal)))
@@ -3006,14 +3007,25 @@ MAKE-APROPOS-MATCHER interface has been implemented.")
                  slynk-backend::*unimplemented-interfaces*))
          (attempt-cl-ppcre (and *try-cl-ppcre-for-apropos*
                                 (not (every #'alpha-char-p pattern))))
+         (cl-ppcre-matcher (and attempt-cl-ppcre
+                                (find-package :cl-ppcre)
+                                (ignore-errors
+                                 (make-cl-ppcre-matcher pattern case-sensitive symbol-name-fn))))
          (matcher (cond ((and interface-unimplemented-p
                               attempt-cl-ppcre
-                              (find-package :cl-ppcre))
+                              cl-ppcre-matcher)
+                         ;; Use regexp apropos we guess the user has
+                         ;; requested it and if it is possible.
+                         ;;
                          (background-message "Using CL-PPCRE for apropos on regexp \"~a\"" pattern)
-                         (make-cl-ppcre-matcher pattern case-sensitive symbol-name-fn))
+                         cl-ppcre-matcher)
                         (interface-unimplemented-p
+                         ;; Use plain apropos otherwise
+                         ;; 
                          (when attempt-cl-ppcre
-                           (background-message "Using plain apropos. Load CL-PPCRE to enable regexps"))
+                           (if (not (find-package :cl-ppcre))
+                               (background-message "Using plain apropos. Load CL-PPCRE to enable regexps")
+                               (background-message "Not a valid CL-PPCRE regexp, so using plain apropos")))
                          (make-plain-matcher pattern case-sensitive symbol-name-fn))
                         (t
                          (slynk-backend:make-apropos-matcher pattern
