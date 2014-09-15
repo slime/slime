@@ -49,12 +49,13 @@ html.tgz: html/index.html
 DOCDIR=/project/sly/public_html/doc
 
 publish: sly.html
+	rm -rf gh-pages
 	git clone git@github.com:capitaomorte/sly.git --branch gh-pages --single-branch gh-pages
-	cp sly.html gh-pages/
-	cd gh-pages
-	git add -A
-	git commit -a -m "Automatic documentation update"
-	git push origin gh-pages
+	cp sly.html gh-pages/index.html
+	cd gh-pages \
+	&& git add index.html \
+	&& git commit -a -m "Automatic documentation update" \
+	&& git push origin gh-pages
 
 sly.pdf: $(TEXI)
 	texi2pdf $<
