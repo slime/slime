@@ -67,9 +67,8 @@ uninstall: uninstall-info
 # The gist of this horror show is that the contributor list is piped
 # into texinfo-tabulate.awk with one name per line, sorted
 # alphabetically.
-contributors.texi: ../ChangeLog Makefile texinfo-tabulate.awk
-	cat ../ChangeLog | \
-	sed -ne '/^[0-9]/{s/^[^ ]* *//; s/ *<.*//; p;}' | \
+contributors.texi: Makefile texinfo-tabulate.awk
+	git log --format='%aN' | \
 	sort | \
 	uniq -c | \
 	sort -nr| \

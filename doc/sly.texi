@@ -12,11 +12,10 @@
 @end direntry
 @c %**end of header
 
-@set EDITION 1.0
-@set SLYVER 1.0
+@set SLYVER 1.0.0-alpha
 @set UPDATED @today{}
 @set TITLE SLY User Manual
-@settitle @value{TITLE}, version @value{EDITION}
+@settitle @value{TITLE}, version @value{SLYVER}
 
 @copying
 Written by Luke Gorrie and others.
@@ -26,12 +25,18 @@ This file has been placed in the public domain.
 
 @titlepage
 @title @value{TITLE}
-@titlefont{version @value{EDITION}}
-@sp 2
-@center @image{sly-small}
-@sp 4
-@subtitle Compiled: @value{UPDATED}
+@sp 10
+@center
+@example
+          _____    __   __  __        
+         / ___/   / /   \ \/ /               |\      _,,,---,,_
+         \__ \   / /     \  /                /,`.-'`'    -.  ;-;;,_
+        ___/ /  / /___   / /                |,4-  ) )-,_..;\ (  `'-'
+       /____/  /_____/  /_/                '---''(_/--'  `-'\_)
 
+@end example
+@sp 10
+@subtitle{version @value{SLYVER}}
 @page
 @insertcopying
 
@@ -132,15 +137,6 @@ Getting started
 * Downloading::
 * Installation::
 * Running::
-* Setup Tuning::
-
-Downloading @SLY{}
-
-* Git::
-* Git Incantations::
-
-Setup Tuning
-
 * Basic customization::
 * Multiple Lisps::
 * Loading Slynk faster::
@@ -234,29 +230,41 @@ REPL: the ``top level''
 @node Introduction
 @chapter Introduction
 
-@SLY{} is a Common Lisp IDE for Emacs.
+@SLY{} is Sylvester the Cat's Common Lisp IDE. It extends Emacs with
+support for interactive programming in Common Lisp.
 
-@SLY{} extends Emacs with support for interactive programming in
-Common Lisp. The features are centered around @code{sly-mode}, an
-Emacs minor-mode that complements the standard @code{lisp-mode}. While
+The features are centered around @code{sly-mode}, an Emacs minor-mode
+that complements the standard @code{lisp-mode}. While
 @code{lisp-mode} supports editing Lisp source files, @code{sly-mode}
 adds support for interacting with a running Common Lisp process for
 compilation, debugging, documentation lookup, and so on.
 
-The @code{sly-mode} programming environment follows the example of
-Emacs's native Emacs Lisp environment. We have also included good
-ideas from similar systems (such as @acronym{ILISP}) and some new
-ideas of our own.
+@SLY{} also attempts to follow the example of Emacs's own native Elisp
+environment. Many of the keybindings and interface concepts used to
+interact with Emacs's Elisp machine are reused in @SLY{} to interact
+with the underlying Common Lisp processes.
 
-@SLY{} is constructed from two parts: a user-interface written in
-Emacs Lisp, and a supporting server program written in Common
-Lisp. The two sides are connected together with a socket and
-communicate using an @acronym{RPC}-like protocol.
+Internally, @SLY{}'s user-interface, which written in Emacs Lisp, is
+connected via a socket to a server program written in Common Lisp, and
+makes request to it using an @acronym{RPC}-like protocol. The Lisp
+server is primarily written in portable Common Lisp. Some needed
+non-standard functionality provided differently by each Lisp
+implementation (SBCL, CMUCL, Allegro, etc...) is specified by a
+well-defined interface. Each Lisp implementation provides a separate
+implementation, making @SLY{} readily portable.
 
-The Lisp server is primarily written in portable Common Lisp. The
-required implementation-specific functionality is specified by a
-well-defined interface and implemented separately for each Lisp
-implementation. This makes @SLY{} readily portable.
+@SLY{} is a direct fork of @acronym{SLIME}, the Superior Lisp
+Interaction Mode for Emacs, itself based on previous modes such
+as @acronym{SLIM} and @acronym{ILISP}. If you already know
+@acronym{SLIME}, @SLY{}'s closeness to is immediately
+apparent. However, where @acronym{SLIME} has traditionally focused on
+the stability of its core functionality, @SLY{} strives to bring to
+the table, by default, a richer feature set brought together by a
+consistent user interface.
+
+To understand the differences between the two projects read
+@SLY{}'s @uref{https://github.com/capitaomorte/sly/blob/master/NEWS.md,,NEWS.md}
+file.
 
 @c -----------------------
 @node Getting started
@@ -279,7 +287,7 @@ This chapter tells you how to get @SLY{} up and running.
 @SLY{} supports a wide range of operating systems and Lisp
 implementations. @SLY{} runs on Unix systems, Mac OSX, and Microsoft
 Windows. GNU Emacs versions 24.3 and above are supported. @emph{XEmacs
-or Emacs 23 are not supported anymore}.
+or Emacs 23 are notably not supported}.
 
 The supported Lisp implementations, roughly ordered from the
 best-supported, are:
@@ -300,12 +308,11 @@ Allegro Common Lisp (@acronym{ACL}), version 6 or newer
 @item
 Armed Bear Common Lisp (@acronym{ABCL})
 @item
-Corman Common Lisp, version 2.51 or newer with the
-patches from @url{http://www.grumblesmurf.org/lisp/corman-patches})
-@item
 Scieneer Common Lisp (@acronym{SCL}), version 1.2.7 or newer
 @item
 Embedded Common Lisp (@acronym{ECL})
+@item
+Embedded Common Lisp (@acronym{MKCL})
 @end itemize
 
 Most features work uniformly across implementations, but some are
@@ -317,67 +324,27 @@ commands (like ``restart frame'').
 @node Downloading
 @section Downloading SLY
 
-You can choose between using a released version of @SLY{} or
-accessing our @Git{} repository directly. You can download the latest
-released version from our website:
-
-@url{http://github.com/sly/sly/}
-
-We recommend that users who participate in the @code{sly-devel}
-mailing list use the @Git{} version of the code.
-
-@menu
-* Git::
-* Git Incantations::
-@end menu
-
-@c -----------------------
-@node Git
-@subsection Downloading from Git
-
-@SLY{} is available from the @Git{} repository on
-@file{github.com}. You have the option to use either the very latest
-code or the tagged @code{FAIRLY-STABLE} snapshot.
-
-The latest version tends to have more features and fewer bugs than the
-@code{FAIRLY-STABLE} version, but it can be unstable during times of
-major surgery. As a rule-of-thumb recommendation we suggest that if
-you follow the @code{sly-devel} mailing list then you're better off
-with the latest version (we'll send a note when it's undergoing major
-hacking). If you don't follow the mailing list you won't know the
-status of the latest code, so tracking @code{FAIRLY-STABLE} or using a
-released version is the safe option.
-
-If you download from @Git{} then remember to @code{git pull}
-occasionally.  Improvements are continually being committed, and the
-@code{FAIRLY-STABLE} tag is moved forward from time to time.
-
-@c -----------------------
-@node Git Incantations
-@subsection Git incantations
-
-To download the very latest @SLY{} you first configure
-your @code{GitROOT} and login to the repository.
+You can choose between using a released version of @SLY{} or accessing
+our @Git{} repository directly. You can releases from
+@url{https://github.com/capitaomorte/sly/releases}. Alternatively
+download the very latest @SLY{}:
 
 @example
-git clone https://github.com/sly/sly.git
+git clone https://github.com/capitaomorte/sly.git
 @end example
 
 You might substitute @code{https} for @code{http} if you're having
-problems with that protocol.
-
-If you want to find out what's new since the version you're currently
-running, you can diff the local @file{ChangeLog} against the
-repository version:
+problems with that protocol. To find out what's new since the version
+you're currently running, you can use @code{git log}
 
 @example
 git fetch origin
-git diff HEAD origin/master ChangeLog
+git log HEAD..origin/master
 @end example
 
 If you want to hack on @SLY{}, use Github's @emph{fork} functionality
 and submit a @emph{pull request}. Be sure to first read the
-@uref{https://github.com/sly/sly/blob/master/CONTRIBUTING.md,,CONTRIBUTING.md} file first.
+@uref{https://github.com/capitaomorte/sly/blob/master/CONTRIBUTING.md,,CONTRIBUTING.md} file first.
 
 
 @c -----------------------
@@ -390,97 +357,60 @@ installation just requires a few lines in your @file{.emacs}:
 @vindex inferior-lisp-program
 @vindex load-path
 @example
-;; @emph{Setup load-path, autoloads and your lisp system}
 (add-to-list 'load-path "~/dir/to/cloned/sly")
 (require 'sly-autoloads)
 (setq inferior-lisp-program "/opt/sbcl/bin/sbcl")
 @end example
 
-@c @iftex
-The snippet above also appears in the @file{README.md} file. You can
-copy&paste it from there, but remember to fill in the appropriate
-paths.
-@c @end iftex
-
-This is the minimal configuration with the fewest frills.  If the
-basic setup is working, you can try additional modules (@ref{Loading
-Contribs}).
-
-We recommend not loading the @acronym{ILISP} package into Emacs if you
-intend to use @SLY{}. Doing so will add a lot of extra bindings to
-the keymap for Lisp source files that may be confusing and may not
-work correctly for a Lisp process started by @SLY{}.
+After evaluating these three expressions, you should be able to
+execute @kbd{M-x sly} and be greeted with a @REPL{}.
 
 @c -----------------------
 @node Running
 @section Running SLY
 
-@SLY{} is started with the Emacs command @kbd{M-x sly}. This uses
-the @code{inferior-lisp} package to start a Lisp process, loads and
-starts the Lisp-side server (known as ``Slynk''), and establishes a
-socket connection between Emacs and Lisp. Finally a @REPL{} buffer is
+@SLY{} can either ask Emacs starts it's own Lisp subprocesss or
+connect to a running process on an arbitrary host and port
+combination.
+
+The first alternative is more common and is started via @kbd{M-x sly}:
+the ``inferior'' Lisp process thus started is told to load the
+Lisp-side server known as ``Slynk''. A socket connection is then
+established between Emacs and Lisp. Finally a @REPL{} buffer is
 created where you can enter Lisp expressions for evaluation.
 
-At this point @SLY{} is up and running and you can start exploring.
-
-@node Setup Tuning
-@section Setup Tuning
-
-This section explains ways to perform basic extensions to @SLY{}, and
-how to configure @SLY{} for multiple Lisp systems and how to reduce
-@SLY{}'s startup time.
-
-Please proceed with this section only if your basic setup works.  If
-you are happy with the basic setup, skip this section.
-
-For contrib modules @pxref{Loading Contribs}.
-
-@menu
-* Basic customization::
-* Multiple Lisps::
-* Loading Slynk faster::
-@end menu
+The second alternative uses @kbd{M-x sly-connect}. This assumes that
+that a Slynk server is running on some local or remote host, and
+listening on a given port. @kbd{M-x sly-connect} prompts the user for
+these values, and and upon connection the @REPL{} is established.
 
 @node Basic customization
-@subsection Basic customization
-
-Once you have the basic no-frills setup working, you can enhance your
-@SLY{} installation with bundled extensions:
-
-@example
-;; @emph{Setup load-path, autoloads and your lisp system}
-(add-to-list 'load-path "~/dir/to/cloned/sly")
-(require 'sly-autoloads)
-;; @emph{Also setup the sly-fancy contrib}
-(add-to-list 'sly-contribs 'sly-fancy)
-@end example
-
-See @pxref{Loading Contribs} for more information on @SLY{}'s
-contrib system.
+@section Basic customization
 
 To customize a particular binding in one of @SLY{}'s keymaps, you
 can add one of the following to your init file:
-
-@example
-(add-hook 'sly-load-hook
-   #'(lambda ()
-       (define-key sly-prefix-map (kbd "M-h") 'sly-documentation-lookup)))
-@end example
-
-Or just:
 
 @example
 (eval-after-load 'sly
   `(define-key sly-prefix-map (kbd "M-h") 'sly-documentation-lookup))
 @end example
 
-The former technique works only for @SLY{}'s core keymaps, not it's
-contribs'. For those you can use the latter form which works for any
-Emacs library. See also @pxref{Customization} for more advanced
-configuration options.
+@SLY{} comes bundled with many extensions (called ``contribs'' for
+historical reasons) which you can customize just like @SLY{}'s
+code. To make @kbd{C-c C-c} clear the last REPL prompt's output, for
+example, use
+
+@example
+(eval-after-load 'sly-mrepl
+   `(define-key sly-mrepl-mode-map (kbd "C-c C-k")
+                'sly-mrepl-clear-recent-output))
+@end example
+
+To learn about each extension's keymaps, see @pxref{Contrib
+extensions}.
 
 @node Multiple Lisps
-@subsection Multiple Lisps
+@section Multiple Lisps
 
 By default, the command @kbd{M-x sly} starts the program specified
 with @code{inferior-lisp-program}.  If you invoke @kbd{M-x sly} with
@@ -540,7 +470,11 @@ initializes @code{SBCL_HOME} in the subprocess.
 @end table
 
 @node Loading Slynk faster
-@subsection Loading Slynk faster
+@section Loading Slynk faster
+
+In this section, a technique to load Slynk faster on South Bank Common
+Lisp (SBCL) is presented.  Similar setups should also work for other
+Lisp implementations.
 
 For SBCL, we recommend that you create a custom core file with socket
 support and @acronym{POSIX} bindings included because those modules
@@ -583,10 +517,9 @@ Then add this to your @file{.emacs}:
 @end lisp
 
 @noindent
-Similar setups should also work for other Lisp implementations.
 
 @node SLY mode
-@chapter Using Slime mode
+@chapter The @code{sly-mode} minor mode
 
 @SLY{}'s commands are provided via @code{sly-mode}, a minor-mode
 used in conjunction with Emacs's @code{lisp-mode}. This chapter
@@ -1515,6 +1448,8 @@ Change current Lisp connection by cycling through all connections.
 
 @kbditem{C-c C-x t, sly-list-threads}
 Pop up a buffer listing the current threads.
+
+@end table
 
 The buffer displayed by @code{sly-list-connections} gives a one-line
 summary of each connection. The summary shows the connection's serial
