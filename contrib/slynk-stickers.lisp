@@ -5,6 +5,10 @@
   (:export #:record))
 (in-package :slynk-stickers)
 
+(defclass sticker ()
+  ((reported-value-lists :initform nil :accessor reported-value-lists-of)
+   (new-value-lists :initform nil :accessor new-value-lists-of)))
+
 (defvar *stickers* (make-hash-table))
 
 (defslyfun compile-for-stickers (new-stickers dead-stickers string buffer position filename policy)
@@ -21,25 +25,31 @@
                                       :policy policy)
               (error () nil))
         (loop for id in new-stickers
-              do (setf (gethash id *stickers*) nil))
+              do (setf (gethash id *stickers*) (make-instance 'sticker)))
         new-stickers))))
 
 (defmacro record (id &rest body)
-  (let ((values-sym (gensym))
-        (id-sym (gensym)))
-    `(let ((,values-sym (multiple-value-list (progn ,@body)))
-           (,id-sym ,id))
-       (unless (eq (gethash ,id-sym *stickers* :unknown) :unknown)
-         (push  ,values-sym (gethash ,id-sym *stickers*)))
-       (values-list ,values-sym))))
+  (let ((id-sym (gensym "ID-")))
+    `(let* ((values (multiple-value-list (progn ,@body)))
+            (,id-sym ,id)
+            (sticker (gethash ,id-sym *stickers*)))
+       (when sticker
+         (push values (new-value-lists-of sticker)))
+       (values-list values))))
 
 (defslyfun check-stickers ()
   (loop for k being the hash-keys of *stickers*
-        for values-lists being the hash-values of *stickers*
-        collect (cons k
-                      (loop for values-list in values-lists
-                            collect
-                            (mapcar #'slynk::to-line values-list)))))
+        for sticker being the hash-values of *stickers*
+        for new-value-lists = (new-value-lists-of sticker)
+        collect (list k
+                      (length new-value-lists)
+                      (mapcar #'slynk::to-line
+                              (car (last new-value-lists))))
+        do
+           (setf (reported-value-lists-of sticker)
+                 (append new-value-lists
+                         (reported-value-lists-of sticker)))
+           (setf (new-value-lists-of sticker) nil)))
 
 (defun find-sticker-or-lose (id)
   (let ((probe (gethash id *stickers* :unknown)))
@@ -48,7 +58,7 @@
         probe)))
 
 (defslyfun inspect-sticker-values (id)
-  (let ((values-lists (find-sticker-or-lose id)))
-    (slynk::inspect-object values-lists)))
+  (let ((sticker (find-sticker-or-lose id)))
+    (slynk::inspect-object sticker)))
 
 (provide 'slynk-stickers)

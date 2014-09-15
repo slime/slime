@@ -26,18 +26,23 @@
 
 (defface sly-stickers-armed-face
   '((t (:inherit hi-green)))
-  "Face for sticker just set")
+  "Face for stickers that have been armed")
 
-(defface sly-stickers-lit-face
+(defface sly-stickers-recordings-face
   '((t (:inherit hi-pink)))
-  "Face for sticker just set")
+  "Face for stickers that have new recordings")
+
+(defface sly-stickers-empty-face
+  '((((background dark)) (:background "light grey" :foreground "black"))
+    (t (:background "light grey")))
+  "Face for stickers that have no recordings.")
 
 (defun sly-stickers-enable () (sly-stickers-mode 1))
 
 (defvar sly-stickers-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c C-s C-s") 'sly-stickers-dwim)
-    (define-key map (kbd "C-c C-s S") 'sly-stickers-fetch)
+    (define-key map (kbd "C-c C-s") 'sly-stickers-dwim)
+    (define-key map (kbd "C-c S") 'sly-stickers-fetch)
     map))
 
 (define-minor-mode sly-stickers-mode
@@ -138,8 +143,7 @@
                                  'part-label label
                                  'modification-hooks '(sly-stickers--sticker-modified)
                                  'sly-stickers--base-help-echo
-                                 (button-type-get 'sly-stickers--sticker
-                                                  'help-echo))))
+                                 "mouse-3: Context menu")))
       ;; choose a suitable priorty for ourselves and increase the
       ;; priority of those contained by us
       ;;
@@ -163,7 +167,7 @@
     (button-put sticker 'part-args (list id))
     (button-put sticker 'part-label label)
     (button-put sticker 'sly-stickers-id id)
-    (button-put sticker 'sly-stickers-values nil)
+    (button-put sticker 'sly-stickers--last-values-list nil)
     (sly-stickers--set-tooltip sticker label)
     (sly-stickers--set-face sticker 'sly-stickers-armed-face)
     (puthash id sticker sly-stickers--stickers)))
@@ -174,21 +178,31 @@
     (button-put sticker 'part-args (list -1))
     (button-put sticker 'part-label label)
     (sly-stickers--set-tooltip sticker label)
-    (sly-stickers--set-face sticker 'sly-stickers-placed-face)
-    (remhash id sly-stickers--stickers)))
+    (sly-stickers--set-face sticker 'sly-stickers-placed-face)))
 
-(defun sly-stickers--populate-sticker (sticker values)
-  (let* ((id (sly-stickers--sticker-id sticker))
-         (values (append
-                  (button-get sticker 'sly-stickers-values)
-                  values)))
-    (button-put sticker 'part-label (format "Sticker %d has %d recordings" id (length values)))
-    (button-put sticker 'sly-stickers-values values)
+(defun sly-stickers--populate-sticker (sticker total-new last-values-list)
+  (let* ((id (sly-stickers--sticker-id sticker)))
+    (button-put sticker 'part-label (format "Sticker %d has %d new recordings" id total-new))
+    (button-put sticker 'sly-stickers--last-values-list last-values-list)
     (sly-stickers--set-tooltip sticker
-                               (format "%s recordings. Last value => %s"
-                                       (length values)
-                                       (first (car (last values)))))
-    (sly-stickers--set-face sticker 'sly-stickers-lit-face)))
+                               (format "Sticker %d has %d new recordings. Last value => %s"
+                                       id
+                                       total-new
+                                       (first last-values-list)))
+    (sly-stickers--set-face sticker 'sly-stickers-recordings-face)))
+
+(defun sly-stickers--mark-empty-sticker (sticker)
+  (let* ((id (sly-stickers--sticker-id sticker))
+         (last-values-list (button-get sticker 'sly-stickers--last-values-list)))
+    (button-put sticker 'part-label (format "Sticker %d has no new recordings" id))
+    (if last-values-list
+        (sly-stickers--set-tooltip sticker
+                                   (format "Sticker %d has no new recordings. Last value => %s"
+                                           id
+                                           (first last-values-list)))
+      (sly-stickers--set-tooltip sticker
+                                 "No new recordings"))
+    (sly-stickers--set-face sticker 'sly-stickers-empty-face)))
 
 (defun sly-stickers--sticker-substickers (sticker)
   (let* ((retval
@@ -211,7 +225,8 @@
                  (unless (overlay-buffer sticker)
                    (push id dead-ids)
                    (remhash id sly-stickers--stickers)))
-             sly-stickers--stickers)))
+             sly-stickers--stickers)
+    dead-ids))
 
 (defun sly-stickers--sticker-priority (sticker)
   (or (overlay-get sticker 'priority) 0))
@@ -239,8 +254,9 @@
 (defun sly-stickers--delete (sticker)
   (mapc #'sly-stickers--decrease-prio
         (sly-stickers--sticker-substickers sticker))
-  (if (sly-stickers--sticker-id sticker)
-      (remhash (sly-stickers--sticker-id sticker) sly-stickers--stickers))
+  ;; Notice that we *do* leave the sticker in the
+  ;; `sly-stickers--stickers' hash table. This is so that it may be
+  ;; reaped later by `sly-stickers--bring-out-yer-dead'
   (delete-overlay sticker))
 
 (defun sly-stickers--sticker-modified (sticker after? _beg _end &optional _pre-change-len)
@@ -305,18 +321,15 @@ If the region is active set a sticker in the current region.
 
 With interactive prefix arg PREFIX always delete stickers.
 
-- One C-u means delete the topmost sticker at point.
-- Two C-u's means delete the current top-level form's stickers.
-- Three C-u's means delete the current buffer's stickers"
+- One C-u means delete the current top-level form's stickers.
+- Two C-u's means delete the current buffer's stickers"
   (interactive "p") 
   (cond
    ((= prefix 4)
-    (sly-stickers-delete-sticker-at-point))
-   ((= prefix 16)
     (if (region-active-p)
         (sly-stickers-clear-region-stickers)
       (sly-stickers-clear-defun-stickers)))
-   ((>= prefix 64)
+   ((>= prefix 16)
     (sly-stickers-clear-buffer-stickers))
    ((region-active-p)
     (sly-stickers--sticker (region-beginning) (region-end))
@@ -330,12 +343,13 @@ With interactive prefix arg PREFIX always delete stickers.
   (interactive)
   (sly-eval-async `(slynk-stickers:check-stickers)
     #'(lambda (result)
-        (cl-loop for (id . values) in result
+        (cl-loop for (id total last-values-list) in result
                  for sticker = (gethash id sly-stickers--stickers)
                  do (cond ((and sticker (overlay-buffer sticker))
                            (sly-stickers--flash-sticker sticker)
-                           (when values
-                             (sly-stickers--populate-sticker sticker values)))
+                           (if last-values-list
+                               (sly-stickers--populate-sticker sticker total last-values-list)
+                             (sly-stickers--mark-empty-sticker sticker)))
                           (sticker
                            (sly-message "Sticker %s has been deleted" id))
                           ;; this is slightly more serious, so warn
