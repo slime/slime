@@ -47,10 +47,14 @@ html.tgz: html/index.html
 	tar -czf $@ html
 
 DOCDIR=/project/sly/public_html/doc
-# invoke this like: make CLUSER=heller publish
-publish: sly.pdf html.tgz
-	scp sly.pdf html.tgz $(CLUSER)@common-lisp.net:$(DOCDIR)
-	ssh $(CLUSER)@common-lisp.net "cd $(DOCDIR); tar -zxf html.tgz"
+
+publish: sly.html
+	git clone git@github.com:capitaomorte/sly.git --branch gh-pages --single-branch gh-pages
+	cp sly.html gh-pages/
+	cd gh-pages
+	git add -A
+	git commit -a -m "Automatic documentation update"
+	git push origin gh-pages
 
 sly.pdf: $(TEXI)
 	texi2pdf $<
