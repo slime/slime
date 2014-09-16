@@ -56,8 +56,10 @@
    (:file "slynk-gray")
    (:file "slynk-match")
    (:file "slynk-rpc")
-   (:file "slynk")
-   ))
+   (:file "slynk")))
+
+(defsystem :slynk-util
+  :components ((:file "slynk-util")))
 
 (defmethod perform :after ((o load-op) (c (eql (find-system :slynk))))
   (format *error-output* "&SLYNK's ASDF loader finished")
@@ -66,15 +68,11 @@
 
 ;;; Contrib systems (should probably go into their own file one day)
 ;;;
-
-(defsystem :slynk-util
-  :components ((:file "../contrib/slynk-util")))
-
 (defsystem :slynk-arglists
-  :components ((:file "../contrib/slynk-arglists")))
+    :components ((:file "../contrib/slynk-arglists")))
 
 (defsystem :slynk-c-p-c
-  :components ((:file "../contrib/slynk-c-p-c")))
+    :components ((:file "../contrib/slynk-c-p-c")))
 
 (defsystem :slynk-fuzzy
   :components ((:file "../contrib/slynk-fuzzy")))
@@ -82,14 +80,8 @@
 (defsystem :slynk-fancy-inspector
   :components ((:file "../contrib/slynk-fancy-inspector")))
 
-(defsystem :slynk-asdf
-  :components ((:file "../contrib/slynk-asdf")))
-
 (defsystem :slynk-package-fu
   :components ((:file "../contrib/slynk-package-fu")))
-
-(defsystem :slynk-hyperdoc
-  :components ((:file "../contrib/slynk-hyperdoc")))
 
 (defsystem :slynk-mrepl
   :components ((:file "../contrib/slynk-mrepl")))
@@ -102,9 +94,6 @@
 
 (defsystem :slynk-stickers
   :components ((:file "../contrib/slynk-stickers")))
-
-(defsystem :slynk-clipboard
-  :components ((:file "../contrib/slynk-clipboard")))
 
 (defsystem :slynk-indentation
     :components ((:file "../contrib/slynk-indentation")))
