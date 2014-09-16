@@ -47,7 +47,7 @@
   (defun sly-indentation-test-forms-for-file (file)
     (with-current-buffer
         (find-file-noselect (concat sly-path
-                                    "/contrib/test/sly-cl-indent-test.txt"))
+                                    "/test/sly-cl-indent-test.txt"))
       (goto-char (point-min))
       (cl-loop
        while (re-search-forward ";;; Test:[\t\n\s]*\\(.*\\)[\t\n\s]" nil t)

@@ -1,10 +1,9 @@
 language: emacs
 
 env:
-  # for emacs24, use more combinations
-  - "CHECK_TARGET=check       LISP=sbcl  EMACS=emacs24"
-  - "CHECK_TARGET=check       LISP=cmucl EMACS=emacs24"
-  - "CHECK_TARGET=check       LISP=ccl   EMACS=emacs24"
+  - "CHECK_TARGET=check-core  LISP=sbcl  EMACS=emacs24"
+  - "CHECK_TARGET=check-core  LISP=cmucl EMACS=emacs24"
+  - "CHECK_TARGET=check-core  LISP=ccl   EMACS=emacs24"
   - "CHECK_TARGET=check-fancy LISP=sbcl  EMACS=emacs24"
   - "CHECK_TARGET=check-fancy LISP=cmucl EMACS=emacs24"
   - "CHECK_TARGET=check-fancy LISP=ccl   EMACS=emacs24"
