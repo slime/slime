@@ -6964,31 +6964,32 @@ The returned bounds are either nil or non-empty."
   (let ((byte-compile-warnings '()))
     (byte-compile symbol)))
 
-(defun sly--compile-hotspots ()
+(defun sly-byte-compile-hotspots (syms)
   (mapc (lambda (sym)
           (cond ((fboundp sym)
                  (unless (byte-code-function-p (symbol-function sym))
                    (sly--byte-compile sym)))
                 (t (error "%S is not fbound" sym))))
-        '(sly-alistify
-          sly-log-event
-          sly-events-buffer
-          sly-process-available-input
-          sly-dispatch-event
-          sly-net-filter
-          sly-net-have-input-p
-          sly-net-decode-length
-          sly-net-read
-          sly-print-apropos
-          sly-insert-propertized
-          sly-beginning-of-symbol
-          sly-end-of-symbol
-          sly-eval-feature-expression
-          sly-forward-sexp
-          sly-forward-cruft
-          sly-forward-reader-conditional)))
+        syms))
 
-(sly--compile-hotspots)
+(sly-byte-compile-hotspots
+ '(sly-alistify
+   sly-log-event
+   sly-events-buffer
+   sly-process-available-input
+   sly-dispatch-event
+   sly-net-filter
+   sly-net-have-input-p
+   sly-net-decode-length
+   sly-net-read
+   sly-print-apropos
+   sly-insert-propertized
+   sly-beginning-of-symbol
+   sly-end-of-symbol
+   sly-eval-feature-expression
+   sly-forward-sexp
+   sly-forward-cruft
+   sly-forward-reader-conditional))
 
 (run-hooks 'sly-load-hook)
 (provide 'sly)

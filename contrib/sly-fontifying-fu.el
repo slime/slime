@@ -193,14 +193,6 @@ position, or nil."
                 (add-hook 'font-lock-extend-region-functions
                           'sly-extend-region-for-font-lock t t))))
 
-(let ((byte-compile-warnings '()))
-  (mapc #'byte-compile
-        '(sly-extend-region-for-font-lock
-          sly-compute-region-for-font-lock
-          sly-search-directly-preceding-reader-conditional
-          sly-search-suppressed-forms
-          sly-beginning-of-tlf)))
-
 (cl-defun sly-initialize-lisp-buffer-for-test-suite
     (&key (font-lock-magic t) (autodoc t))
   (let ((hook lisp-mode-hook))
@@ -216,5 +208,15 @@ position, or nil."
                 (sly-autodoc-mode 1)
               (sly-autodoc-mode -1))))
       (setq lisp-mode-hook hook))))
+
+
+;;; Compile hotspots
+;;; 
+(sly-byte-compile-hotspots
+ '(sly-extend-region-for-font-lock
+   sly-compute-region-for-font-lock
+   sly-search-directly-preceding-reader-conditional
+   sly-search-suppressed-forms
+   sly-beginning-of-tlf))
 
 (provide 'sly-fontifying-fu)

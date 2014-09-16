@@ -110,17 +110,6 @@ that the character is not escaped."
           (ignore-errors (down-list))
           (sly-parse-form-until pt suffix))))))
 
-(require 'bytecomp)
-
-(mapc (lambda (sym)
-        (cond ((fboundp sym)
-               (unless (byte-code-function-p (symbol-function sym))
-                 (byte-compile sym)))
-              (t (error "%S is not fbound" sym))))
-      '(sly-parse-form-upto-point
-        sly-parse-form-until
-        sly-compare-char-syntax))
-
 ;;;; Test cases
 (defun sly-extract-context ()
   "Parse the context for the symbol at point.
@@ -356,5 +345,14 @@ form to the atom at point, or nil if we're in front of a tlf."
                    (push n source-path)
                    (goto-char outer-pos)))))
     source-path))
+
+
+;;; Compile hotspots
+;;; 
+(sly-byte-compile-hotspots
+ '(sly-parse-form-upto-point
+   sly-parse-form-until
+   sly-compare-char-syntax))
+
 
 (provide 'sly-parse)
