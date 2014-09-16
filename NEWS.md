@@ -4,19 +4,27 @@ SLY 1.0.0-alpha-2 (estimated October 2014)
 ### sly-stickers: a live source-code annotation tool
 
 In Lisp source files, using `C-c C-s` (`sly-stickers-dwim`) sets a
-"sticker" on any Lisp form.  After "arming" the stickers with the
-familar `C-c C-c` (`sly-compile-defun`) command, `C-c S`
-(`sly-stickers-fetch`) will populate the sticker overlay with
-evaluation results collected from the Lisp side.
+"sticker" on any Lisp form.
+
+After "arming" the stickers with the familar `C-c C-c`
+(`sly-compile-defun`) command, `C-c S` (`sly-stickers-fetch`) will
+populate the sticker overlay with evaluation results collected from
+the Lisp side.
 
 Stickers are non-intrusive, i.e. file content is not actually changed
-by placing them.
+by placing them. Stickers also don't interfere with compilation notes.
 
-Stickers on invalid forms (such as `let` variable bindings) are
-rejected but the `defun` is still compiled as usual.
-
-The "do-what-mean" command `sly-stickers-dwim` can be used to unset
+The "do-what-I-mean" command `sly-stickers-dwim` can be used to unset
 stickers as well. See its docstring.
+
+Stickers on unevaluated forms (such as `let` variable bindings, or
+other constructs) are rejected, the `defun` is still compiled as
+usual.
+
+Stickers can be nested inside other stickers. They are also color
+coded to indicate whether they are brand new, armed, recently updated
+from Lisp, etc. A context menu similar to other interactive parts is
+available.
 
 `sly-stickers` is experimental and under development. There are
 tentative plans to have use stickers as a quasi-stepper, used for

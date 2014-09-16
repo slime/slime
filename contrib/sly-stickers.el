@@ -283,15 +283,18 @@
       (sly-stickers--delete sticker))))
 
 (defun sly-stickers-clear-defun-stickers ()
+  "Clear all stickers in the current top-level form."
   (interactive)
   (let* ((region (sly-region-for-defun-at-point)))
     (sly-stickers-clear-region-stickers (car region) (cadr region))))
 
 (defun sly-stickers-clear-buffer-stickers ()
+  "Clear all the stickers in the current buffer."
   (interactive)
   (sly-stickers-clear-region-stickers (point-min) (point-max)))
 
 (defun sly-stickers-clear-region-stickers (&optional from to)
+  "Clear all the stickers between FROM and TO."
   (interactive "r")
   (let* ((from (or from (region-beginning)))
          (to (or to (region-end)))
@@ -303,6 +306,7 @@
            (sly-message "no stickers to clear")))))
 
 (defun sly-stickers-delete-sticker-at-point (&optional point)
+  "Delete the topmost sticker at point."
   (interactive "d")
   (let ((stickers (sly-stickers--stickers-at (or point (point)))))
     (cond (stickers
@@ -315,19 +319,38 @@
            (sly-error "No stickers at point")))))
 
 (defun sly-stickers-maybe-add-sticker (&optional point)
+  "Add of remove a sticker at POINT.
+If point is currently at a sticker boundary, delete that sticker,
+otherwise, add a sticker to the sexp at point."
   (interactive "d")
   (save-excursion
     (goto-char (or point (point)))
     (let* ((bounds (sly-bounds-of-sexp-at-point))
+           (beg (car bounds))
+           (end (cdr bounds))
            (matching (and bounds
-                          (sly-stickers--stickers-exactly-at (car bounds) (cdr bounds)))))
+                          (sly-stickers--stickers-exactly-at beg end))))
       (cond ((not bounds)
              (sly-message "Nothing here to place sticker on, apparently"))
             (matching
              (sly-stickers--delete (car matching))
              (sly-message "Deleted sticker"))
             (t
-             (sly-stickers--sticker (car bounds) (cdr bounds)))))))
+             (sly-stickers--sticker beg end)
+             (if (< (- end beg) 20)
+                 (sly-message "Added sticker around \"%s\""
+                              (buffer-substring-no-properties beg end))
+               (cl-labels ((word (point direction)
+                                 (apply #'buffer-substring-no-properties
+                                        (sort (list
+                                               point
+                                               (save-excursion (goto-char point)
+                                                               (forward-word direction)
+                                                               (point)))
+                                              #'<))))
+                 (sly-message "Added a sticker from \"%s...\" to \"...%s\""
+                              (word beg 1)
+                              (word end -1)))))))))
 
 (defun sly-stickers-dwim (prefix)
   "Set or remove stickers at point.
@@ -357,6 +380,7 @@ With interactive prefix arg PREFIX always delete stickers.
     (sly-message "No point placing stickers in string literals or comments"))))
 
 (defun sly-stickers-fetch ()
+  "Fetch and update sticker status from current Lisp connection."
   (interactive)
   (sly-eval-async `(slynk-stickers:check-stickers)
     #'(lambda (result)
@@ -379,6 +403,8 @@ With interactive prefix arg PREFIX always delete stickers.
             (sly-eval-async `(slynk-stickers:kill-stickers ',zombie-sticker-ids)))))))
 
 (defun sly-stickers-compile-region-aware-of-stickers (start end)
+  "Compile from START to END considering stickers.
+Intented to be placed in `sly-compile-region-function'"
   (let* ((uninstrumented (buffer-substring-no-properties start end))
          (stickers (sly-stickers--stickers-between start end))
          (dead-ids (append (mapcar #'sly-stickers--sticker-id stickers)
