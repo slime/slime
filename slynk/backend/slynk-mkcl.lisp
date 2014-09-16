@@ -1,6 +1,6 @@
 ;;;; -*- indent-tabs-mode: nil -*-
 ;;;
-;;; swank-mkcl.lisp --- SLIME backend for MKCL.
+;;; slynk-mkcl.lisp --- SLIME backend for MKCL.
 ;;;
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
@@ -8,10 +8,10 @@
 
 ;;; Administrivia
 
-(defpackage swank-mkcl
-  (:use cl swank-backend))
+(defpackage slynk-mkcl
+  (:use cl slynk-backend))
 
-(in-package swank-mkcl)
+(in-package slynk-mkcl)
 
 ;;(declaim (optimize (debug 3)))
 
@@ -22,7 +22,7 @@
 
 (eval-when (:compile-toplevel :load-toplevel)
 
-  (swank-backend::import-swank-mop-symbols :clos
+  (slynk-backend::import-slynk-mop-symbols :clos
     ;;  '(:eql-specializer
     ;;    :eql-specializer-object
     ;;    :generic-function-declarations
@@ -109,7 +109,7 @@
   ;; Without unicode support, MKCL uses the one-byte encoding of the
   ;; underlying OS, and will barf on anything except :DEFAULT.  We
   ;; return NIL here for known multibyte encodings, so
-  ;; SWANK:CREATE-SERVER will barf.
+  ;; SLYNK:CREATE-SERVER will barf.
   #-unicode (let ((xf (external-format coding-system)))
               (if (member xf '(:utf-8))
                   nil
@@ -154,7 +154,7 @@
 (defvar *inferior-lisp-sleeping-post* nil)
 
 (defimplementation quit-lisp ()
-  (progf (ignore-errors (eval (read-from-string "swank::*saved-global-streams*"))) ;; restore original IO streams.
+  (progf (ignore-errors (eval (read-from-string "slynk::*saved-global-streams*"))) ;; restore original IO streams.
          (when *inferior-lisp-sleeping-post* (mt:semaphore-signal *inferior-lisp-sleeping-post*))
          ;;(mk-ext:quit :verbose t)
          ))
@@ -240,7 +240,7 @@
   (handler-bind ((compiler:compiler-message #'handle-compiler-message))
     (funcall function)))
 
-(defimplementation swank-compile-file (input-file output-file
+(defimplementation slynk-compile-file (input-file output-file
                                                   load-p external-format
                                                   &key policy)
   (declare (ignore policy))
@@ -250,13 +250,13 @@
       (handler-bind (#|
                      (compiler::compiler-note
                       #'(lambda (n)
-                          (format t "~%swank saw a compiler note: ~A~%" n) (finish-output) nil))
+                          (format t "~%slynk saw a compiler note: ~A~%" n) (finish-output) nil))
                      (compiler::compiler-warning
                       #'(lambda (w)
-                          (format t "~%swank saw a compiler warning: ~A~%" w) (finish-output) nil))
+                          (format t "~%slynk saw a compiler warning: ~A~%" w) (finish-output) nil))
                      (compiler::compiler-error
                       #'(lambda (e)
-                          (format t "~%swank saw a compiler error: ~A~%" e) (finish-output) nil))
+                          (format t "~%slynk saw a compiler error: ~A~%" e) (finish-output) nil))
                      |#
                      )
         (multiple-value-bind (output-truename warnings-p failure-p)
@@ -265,7 +265,7 @@
                    (or failure-p
                        (and load-p (not (load output-truename))))))))))
 
-(defimplementation swank-compile-string (string &key buffer position filename policy)
+(defimplementation slynk-compile-string (string &key buffer position filename policy)
   (declare (ignore filename policy))
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)
@@ -276,7 +276,7 @@
         (compile-from-stream s)))))
 
 (defun compile-from-stream (stream)
-  (let ((file (mkcl:mkstemp "TMP:MKCL-SWANK-TMPXXXXXX"))
+  (let ((file (mkcl:mkstemp "TMP:MKCL-SLYNK-TMPXXXXXX"))
         output-truename
         warnings-p
         failure-p
@@ -389,22 +389,22 @@
 
 (defvar *backtrace* '())
 
-(defun in-swank-package-p (x)
+(defun in-slynk-package-p (x)
   (and
    (symbolp x)
    (member (symbol-package x)
-           (list #.(find-package :swank)
-                 #.(find-package :swank-backend)
-                 #.(ignore-errors (find-package :swank-mop))
-                 #.(ignore-errors (find-package :swank-loader))))
+           (list #.(find-package :slynk)
+                 #.(find-package :slynk-backend)
+                 #.(ignore-errors (find-package :slynk-mop))
+                 #.(ignore-errors (find-package :slynk-loader))))
    t))
 
-(defun is-swank-source-p (name)
+(defun is-slynk-source-p (name)
   (setf name (pathname name))
   #+(or)
   (pathname-match-p
    name
-   (make-pathname :defaults swank-loader::*source-directory*
+   (make-pathname :defaults slynk-loader::*source-directory*
                   :name (pathname-name name)
                   :type (pathname-type name)
                   :version (pathname-version name)))
@@ -412,11 +412,11 @@
 
 (defun is-ignorable-fun-p (x)
   (or
-   (in-swank-package-p (frame-name x))
+   (in-slynk-package-p (frame-name x))
    (multiple-value-bind (file position)
        (ignore-errors (si::compiled-function-file (car x)))
      (declare (ignore position))
-     (if file (is-swank-source-p file)))))
+     (if file (is-slynk-source-p file)))))
 
 (defmacro find-ihs-top (x)
   (declare (ignore x))
@@ -885,7 +885,7 @@
        (handler-case
         (setq got-one (mt:semaphore-wait (mailbox.semaphore mbox) 2))
         (condition (condition)
-           (format t "~&In (swank-mkcl) receive-if: Something went bad with semaphore-wait ~A~%" condition)
+           (format t "~&In (slynk-mkcl) receive-if: Something went bad with semaphore-wait ~A~%" condition)
            (finish-output)
            nil
            )
@@ -905,11 +905,11 @@
        ;;(format t "/ ~S~%" mt:*thread*) (finish-output)
        (when (eq timeout t) (return (values nil t)))
 ;;        (unless got-one
-;;          (format t "~&In (swank-mkcl) receive-if: semaphore-wait timed out!~%"))
+;;          (format t "~&In (slynk-mkcl) receive-if: semaphore-wait timed out!~%"))
        )
     )
     (condition (condition)
-      (format t "~&Error in (swank-mkcl) receive-if: ~S, ~A~%" condition condition) (finish-output)
+      (format t "~&Error in (slynk-mkcl) receive-if: ~S, ~A~%" condition condition) (finish-output)
       nil
       )
     )
