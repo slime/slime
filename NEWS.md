@@ -1,25 +1,85 @@
-SLY News
-========
+SLY 1.0.0-alpha-2 (estimated October 2014)
+------------------------------------------
 
-SLY 1.0.0-alpha
----------------
+### sly-stickers: a live source-code annotation tool
+
+In Lisp source files, using `C-c C-s` (`sly-stickers-dwim`) sets a
+"sticker" on any Lisp form.  After "arming" the stickers with the
+familar `C-c C-c` (`sly-compile-defun`) command, `C-c S`
+(`sly-stickers-fetch`) will populate the sticker overlay with
+evaluation results collected from the Lisp side.
+
+Stickers are non-intrusive, i.e. file content is not actually changed
+by placing them.
+
+Stickers on invalid forms (such as `let` variable bindings) are
+rejected but the `defun` is still compiled as usual.
+
+The "do-what-mean" command `sly-stickers-dwim` can be used to unset
+stickers as well. See its docstring.
+
+`sly-stickers` is experimental and under development. There are
+tentative plans to have use stickers as a quasi-stepper, used for
+stepping through forms.
+
+### Documentation rewrite
+
+The documentation rewrite in underway (github #9). Browse to
+http://capitaomorte.github.io/sly for the online HTML version.
+
+### "Swank" is now called "Slynk"
+
+A project-wide rename was performed, including this NEWS.md file.
+
+SLY can still talk to SWANK backends, and serve requests for the SWANK
+protocol, via the `sly-retro` contrib, which is enabled by default.
+
+For details on the architecture of these change, see the "SWANK is now
+called SLYNK" in the CONTRIBUTING.md.
+
+### mREPL enhacements
+
+`C-c C-z` switches to the nearest REPL. Suggested by Javier Olaechea
+(github #13).
+
+Fixed an issue preventing the user from typing at the repl (github #1).
+
+Fixed history inspection.
+
+### Other enhancements
+
+SLY asks the user to confirm the Lisp to kill with `M-x sly-quit` or
+disconnect with `M-x sly-disconnect`. It doesn't ask any irrelevant
+questions about switching to a default connection, when there is no
+selected connection beforehand (github #5).
 
 ### On par with upcoming SLIME 2.10
 
-SLY contains all the bugfixes and backend enhancements contributed to
-SLIME.
+Where applicable, SLY tracks bugfixes and improvements contributed to
+SLIME:
+
+- `sly-autodoc` has been rewritten by Helmut Eller. Multiline is
+  enabled by default.
+- Experimental support for MKCL has been added
+
+
+SLY 1.0.0-alpha (September 2014)
+--------------------------------
+
+Since this is the first pre-release of SLY since the fork, this news
+entry focuses directly on the differences to SLIME.
 
 ### Completely redesigned REPL
 
 The `sly-mrepl` contrib is a extensively redesigned
-Read-Eval-Print-Loop for SLY.
+Read-Eval-Print-Loop (REPL) for SLY.
 
-Multiple independent REPL's can be created with the `sly-mrepl-new`
+Multiple independent REPLs can be created with the `sly-mrepl-new`
 command.
 
 `sly-mrepl` is fully based on Emacs's `comint.el` and as such has a
-more familiar interface for history navigation. `C-r` and `C-M-r`, when
-used at the prompt, should provide a bash/zsh-like experience.
+more familiar interface for history navigation. `C-r` and `C-M-r`,
+when used at the prompt, should provide a bash/zsh-like experience.
 
 The prompt gives a visual indication of long-running evaluations that
 haven't returned yet.
@@ -29,19 +89,18 @@ currently caused by the last evaluation.
 
 Every return part can be inspected and re-returned as the last value.
 
-`C-c ~` on any lisp file switches to the REPL synchronizing its
-`*PACKAGE*` and `*DEFAULT-PATHNAME-DEFAULTS*` with that of the file's.
+`C-c ~` on any Lisp file switches to the REPL and synchronized its
+`*PACKAGE*` and `*DEFAULT-PATHNAME-DEFAULTS*` with the file's.
 
 Output redirection is automatically setup. The first REPL created is
 the target for all threads' output onto the standard output
 streams. REPLs created afterward only see their own output. To turn
-it off configure the SLYNK-side variable
-`SLYNK-MREPL:*GLOBALLY-REDIRECT-IO*`. Any REPL created after that
-will not gather other threads' output, and threads associated with a
-REPL will output nowhere.
+this off configure the SLYNK-side variable
+`SLYNK-MREPL:*GLOBALLY-REDIRECT-IO*`.
 
-Dedicated stream for output is automatically set up. Configure the
-`SLYNK-MREPL:*USE-DEDICATED-OUTPUT-STREAM*` if it doesn't suit you.
+A dedicated stream connection for output is automatically set
+up. Configure the `SLYNK-MREPL:*USE-DEDICATED-OUTPUT-STREAM*` if it
+doesn't suit you.
 
 There is saner scrolling behavior as provided by the `comint.el`
 substrate. The variables `comint-scroll-show-maximum-output`,
@@ -76,7 +135,7 @@ By default, SLY enables the `sly-fancy` meta-contrib. This contains
 If the user sets `sly-contribs` to `sly-mrepl` she can be sure that no
 Lisp code related to other contribs appears in your run-time. Even if
 ASDF is unavailable, an improved version of the `slynk-loader.lisp`
-program will also behave non-intrusively.
+program will behave in a similar non-intrusive manner.
 
 This change also enables developers to write completely independent
 third-party extensions like
@@ -88,13 +147,13 @@ See the CONTRIBUTING.md file for more details on architecture changes.
 
 The SLY-DB, Inspector, XREF and Apropos buffers have been
 redesigned to use a common class of push button with consistent
-interfaces.
+interfaces. These context-aware commands are known as "part actions"
 
-This means, for instance, that the `i` and `p` commands ("inspect" and
-"pretty-print") are available in every one of these buffers'
-interactive parts. The `v` ("view-source") command is only available
-where it makes sense for the represented object. These is known as a
-button's "part-action".
+For instance, the `i`,`p` and `M-RET` commands (`sly-button-inspect`,
+`sly-button-pretty-print` and `sly-mrepl-copy-to-repl`) are available
+for every interactive part, regardless of the SLY buffer in
+question. A command such as `v` (`sly-button-show-source`) is only
+available where it makes sense for the represented object.
 
 The same interfaces are also available in the "mREPL" and "Trace
 Dialog" buffers.
@@ -149,11 +208,6 @@ completion by default, but it can customized via
 
 Messages and warnings prefix themselves accordingly with "[sly]".
 
-SLY asks the user to confirm the Lisp to kill with `M-x sly-quit` or
-disconnect with `M-x sly-disconnect`. It doesn't ask any irrelevant
-questions when there is no selected connection beforehand. Github
-issue #5.
-
 Fixed source locations when recompiling from an xref buffer.  This is
 outstanding https://github.com/slime/slime/pull/175 pull-request in
 SLIME. Thanks Bart Botta.
@@ -162,7 +216,12 @@ Fixed bugs in `contrib/sly-package-fu.el`. This is the outstanding
 https://github.com/slime/slime/pull/145 pull-request in SLIME. Thanks
 Leo Liu.
 
-### Anti-NEWS
+### On par with SLIME 2.9
+
+Where applicable, SLY tracks bugfixes and improvements contributed to
+SLIME.
+
+### Anti-NEWS (Things removed from SLIME)
 
 SLY 1.0-Alpha supports Emacs 24.3 only. SLY 1.0 is expected to only
 support Emacs 24.4.
