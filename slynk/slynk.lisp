@@ -1592,7 +1592,7 @@ Return nil if nothing appropriate is available."
     (with-open-file (s (make-pathname :name "sly" :type "el"
                                       :directory (butlast
                                                   (pathname-directory this-file)
-                                                  2)
+                                                  1)
                                       :defaults this-file))
       (let ((seq (make-array 200 :element-type 'character :initial-element #\null)))
         (read-sequence seq s :end 200)

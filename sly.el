@@ -77,6 +77,10 @@ This is used to load the supporting Common Lisp library, Slynk.
 The default value is automatically computed from the location of the
 Emacs Lisp package."))
 
+(defun sly-slynk-path ()
+  "Path where the bundled Slynk server is located."
+  (expand-file-name "slynk/" sly-path))
+
 (defvar sly-contribs '(sly-fancy sly-retro)
   "A list of contrib packages to load with SLY.")
 (define-obsolete-variable-alias 'sly-setup-contribs
@@ -1140,7 +1144,7 @@ Fall back to `sly-init-using-slynk-loader' if ASDF fails."
                     (funcall (read-from-string "asdf:version-satisfies")
                              (funcall (read-from-string "asdf:asdf-version"))
                              "2.019"))
-                  (push (pathname ,(sly-to-lisp-filename sly-path))
+                  (push (pathname ,(sly-to-lisp-filename (sly-slynk-path)))
                         (symbol-value
                          (read-from-string "asdf:*central-registry*")))
                   (funcall
@@ -1157,7 +1161,7 @@ Fall back to `sly-init-using-slynk-loader' if ASDF fails."
 (defun sly-init-using-slynk-loader (port-filename _coding-system)
   "Return a string to initialize Lisp."
   (let ((loader (sly-to-lisp-filename
-                 (expand-file-name sly-slynk-loader-backend sly-path))))
+                 (expand-file-name sly-slynk-loader-backend (sly-slynk-path)))))
     ;; Return a single form to avoid problems with buffered input.
     (format "%S\n\n"
             `(progn

@@ -131,7 +131,11 @@ operating system, and hardware architecture."
   "Return a string identifying the SLY version.
 Return nil if nothing appropriate is available."
   (ignore-errors
-   (with-open-file (s (merge-pathnames "sly.el" *source-directory*))
+   (with-open-file (s (make-pathname :name "sly" :type "el"
+                                      :directory (butlast
+                                                  (pathname-directory this-file)
+                                                  1)
+                                      :defaults this-file))
      (let ((seq (make-array 200 :element-type 'character :initial-element #\null)))
        (read-sequence seq s :end 200)
        (let* ((beg (search ";; Version:" seq))
@@ -220,7 +224,6 @@ If LOAD is true, load the fasl file."
                    (name (car (last compound-name))))
               (make-pathname :name (string-downcase name) :type "lisp"
                              :directory (append (pathname-directory src-dir)
-                                                '("lib" "lisp")
                                                 (mapcar #'string-downcase directories))
                              :defaults src-dir)))
           (mapcar #'ensure-list files)))
