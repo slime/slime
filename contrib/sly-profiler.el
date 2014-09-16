@@ -4,7 +4,7 @@
 ;;;
 (eval-and-compile
   (require 'sly)
-  (require 'sly-parse))
+  (require 'sly-parse "lib/sly-parse"))
 
 (define-sly-contrib sly-profiler
   "Provide an interfactive timing dialog buffer for managing and

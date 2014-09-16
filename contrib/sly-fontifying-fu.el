@@ -1,5 +1,5 @@
 (require 'sly)
-(require 'sly-parse)
+(require 'sly-parse "lib/sly-parse")
 (require 'sly-autodoc)
 (require 'font-lock)
 (require 'cl-lib)

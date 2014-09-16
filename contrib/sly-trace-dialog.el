@@ -6,7 +6,7 @@
 ;;; TODO: backtrace printing is very slow
 ;;;
 (require 'sly)
-(require 'sly-parse)
+(require 'sly-parse "lib/sly-parse")
 (require 'cl-lib)
 
 (define-sly-contrib sly-trace-dialog

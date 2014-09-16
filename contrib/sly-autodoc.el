@@ -2,7 +2,7 @@
 ;;; (require 'sly)
 (require 'eldoc)
 (require 'cl-lib)
-(require 'sly-parse)
+(require 'sly-parse "lib/sly-parse")
 
 (define-sly-contrib sly-autodoc
   "Show fancy arglist in echo area."

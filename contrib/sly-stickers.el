@@ -1,6 +1,6 @@
 ;;; -*-lexical-binding:t-*-
 (require 'sly)
-(require 'sly-parse)
+(require 'sly-parse "lib/sly-parse")
 (require 'cl-lib)
 (require 'hi-lock) ;; for the faces
 (require 'color)

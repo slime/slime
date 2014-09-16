@@ -1,5 +1,5 @@
 (require 'sly)
-(require 'sly-parse)
+(require 'sly-parse "lib/sly-parse")
 
 (define-sly-contrib sly-package-fu
   "Exporting/Unexporting symbols at point."

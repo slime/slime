@@ -1,4 +1,4 @@
-(require 'sly-parse)
+(require 'sly-parse "lib/sly-parse")
 (require 'sly-tests "lib/sly-tests")
 
 (def-sly-test form-up-to-point.1
