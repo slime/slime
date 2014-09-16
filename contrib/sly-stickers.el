@@ -11,9 +11,11 @@
   (:license "GPL")
   (:slynk-dependencies slynk-stickers)
   (:on-load (add-hook 'sly-editing-mode-hook 'sly-stickers-enable)
-            (setq sly-compile-region-function 'sly-stickers-compile-region-aware-of-stickers))
+            (setq sly-compile-region-function 'sly-stickers-compile-region-aware-of-stickers)
+            (add-hook 'sly-compilation-finished-hook 'sly-stickers-after-buffer-compilation t))
   (:on-unload (remove-hook 'sly-editing-mode-hook 'sly-stickers-enable)
-              (setq sly-compile-region-function 'sly-compile-region-as-string)))
+              (setq sly-compile-region-function 'sly-compile-region-as-string)
+              (remove-hook 'sly-compilation-finished-hook 'sly-stickers-after-buffer-compilation)))
 
 (defgroup sly-stickers nil
   "Mark expressions in source buffers and annotate return values."
@@ -188,7 +190,10 @@
 
 (defun sly-stickers--disarm-sticker (sticker)
   (let* ((id (sly-stickers--sticker-id sticker))
-         (label (format "Sticker %d failed to stick" id)))
+         (label (if id
+                    (format "Sticker %d failed to stick" id)
+                  ;; is brand new, never been tentatively armed
+                  "Disarmed sticker")))
     (button-put sticker 'part-args (list -1))
     (button-put sticker 'part-label label)
     (sly-stickers--set-tooltip sticker label)
@@ -461,5 +466,16 @@ Intented to be placed in `sly-compile-region-function'"
                             " (stickers failed to stick)")))))))))
           (t
            (sly-compile-region-as-string start end)))))
+
+(defun sly-stickers-after-buffer-compilation (success _notes buffer loadp)
+  (when (and buffer loadp)
+    (save-restriction
+      (widen)
+      (let ((stickers (sly-stickers--stickers-between (point-min) (point-max))))
+        (mapc #'sly-stickers--disarm-sticker stickers)
+        (when success
+          (sly-temp-message 3 3
+                            "%s stickers disarmed, arming on buffer compile not implemented yet"
+                            (length stickers)))))))
 
 (provide 'sly-stickers)

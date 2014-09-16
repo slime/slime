@@ -630,6 +630,18 @@ corresponding values in the CDR of VALUE."
     (setq sly--last-message (format "[sly] %s" body))
     (message "%s" sly--last-message)))
 
+(defun sly-temp-message (wait sit-for format &rest args)
+  (run-with-timer
+   wait nil
+   #'(lambda ()
+       (let ((existing sly--last-message))
+         (apply #'sly-message format args)
+         (run-with-timer
+          sit-for
+          nil
+          #'(lambda ()
+              (message "%s" existing)))))))
+
 (defun sly-warning (format-string &rest args)
   (display-warning '(sly warning) (apply #'format format-string args)))
 
@@ -2408,7 +2420,7 @@ Also rearrange windows."
 (defvar sly-highlight-compiler-notes t
   "*When non-nil annotate buffers with compilation notes etc.")
 
-(defcustom sly-compilation-finished-hook 'sly-maybe-show-compilation-log
+(defcustom sly-compilation-finished-hook '(sly-maybe-show-compilation-log)
   "Hook called after compilation.
 Each function is called with four arguments (SUCCESSP NOTES BUFFER LOADP)
 SUCCESSP indicates if the compilation was successful.
