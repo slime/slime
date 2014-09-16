@@ -448,7 +448,7 @@ emptied. See also `sly-mrepl-hook'")
                                            (eq sly-buffer-connection connection))))
                                   (buffer-list)))
          (sorted (cl-sort repls #'< :key (sly-compose #'length #'buffer-name))))
-    (first sorted)))
+    (car sorted)))
 
 (defun sly-mrepl--find-create (connection)
   (or (sly-mrepl--find-buffer connection)
@@ -745,7 +745,7 @@ Doesn't clear input history."
 (defun sly-apropos-copy-symbol-to-repl (name _type)
   (sly-mrepl--eval-for-repl
    (format "Returning symbol %s" name)
-   `(common-lisp:identity ',(first (read-from-string name)))))
+   `(common-lisp:identity ',(car (read-from-string name)))))
 
 (defun sly-trace-dialog-copy-part-to-repl (id part-id type)
   "Eval the Trace Dialog entry under point in the REPL (to set *)"

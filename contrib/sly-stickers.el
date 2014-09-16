@@ -178,7 +178,7 @@
   (button-get sticker 'sly-stickers-id))
 
 (defun sly-stickers--arm-sticker (sticker)
-  (let* ((id (incf sly-stickers--counter))
+  (let* ((id (cl-incf sly-stickers--counter))
          (label (format "Sticker %d is armed" id)))
     (button-put sticker 'part-args (list id))
     (button-put sticker 'part-label label)
@@ -207,7 +207,7 @@
                                (format "%d new recordings. Last value => %s"
                                        total-new
                                        (if (listp last-value-desc)
-                                           (first last-value-desc)
+                                           (car last-value-desc)
                                          "(exited non locally)")))
     (sly-stickers--set-face sticker
                             (if (listp last-value-desc)
@@ -221,7 +221,7 @@
     (if last-value-desc
         (sly-stickers--set-tooltip sticker
                                    (format "No new recordings. Last value => %s"
-                                           (first last-value-desc)))
+                                           (car last-value-desc)))
       (sly-stickers--set-tooltip sticker
                                  "No new recordings"))
     (sly-stickers--set-face sticker 'sly-stickers-empty-face)))
@@ -263,14 +263,14 @@
     (unless (and prio
                  (cl-plusp prio))
       (sly-error "Something's fishy with the sticker priorities"))
-    (sly-stickers--set-sticker-piority sticker (decf prio))
+    (sly-stickers--set-sticker-piority sticker (cl-decf prio))
     (sly-stickers--set-face sticker)))
 
 (defun sly-stickers--increase-prio (sticker)
   (mapc #'sly-stickers--increase-prio
         (sly-stickers--sticker-substickers sticker))
   (let ((prio (sly-stickers--sticker-priority sticker)))
-    (sly-stickers--set-sticker-piority sticker (incf prio))
+    (sly-stickers--set-sticker-piority sticker (cl-incf prio))
     (sly-stickers--set-face sticker)))
 
 (defun sly-stickers--delete (sticker)

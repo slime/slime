@@ -84,7 +84,7 @@ Exits Emacs when finished. The exit code is the number of failed tests."
   (dolist (test (ert-select-tests t t))
     (let ((sym (ert-test-name test)))
       (cl-assert (eq (get sym 'ert--test) test))
-      (remprop sym 'ert--test))))
+      (cl-remprop sym 'ert--test))))
 
 (sly-tests--undefine-all)
 

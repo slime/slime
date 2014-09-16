@@ -46,8 +46,6 @@
 ;;;; Dependencies and setup
 (require 'cl-lib)
 
-(eval-when-compile (require 'cl)) ;defsetf
-
 (eval-and-compile
   (if (version< emacs-version "24.3")
       (error "Sly requires at least Emacs 24.3")))
@@ -494,6 +492,8 @@ PROPERTIES specifies any default face properties."
 
 (put 'sly-mode-line-format 'risky-local-variable t)
 
+(defvar sly-menu) ;; forward referenced
+
 (defun sly--mode-line-format ()
   (let* ((conn (sly-current-connection))
          (conn (and (process-live-p conn) conn))
@@ -704,18 +704,6 @@ Minimize point motion if possible."
                      (sly-eval
                       `(slynk:list-all-package-names t))
 		     nil t initial-value)))
-
-;; Interface
-(defun sly-read-symbol-name (prompt &optional query)
-  "Either read a symbol name or choose the one at point.
-The user is prompted if a prefix argument is in effect, if there is no
-symbol at point, or if QUERY is non-nil."
-  (cond ((or current-prefix-arg query (not (sly-symbol-at-point)))
-         (sly-read-from-minibuffer prompt (sly-symbol-at-point)
-                                   nil
-                                   nil
-                                   sly-minibuffer-read-symbol-map))
-        (t (sly-symbol-at-point))))
 
 ;; Interface
 (defmacro sly-propertize-region (props &rest body)
@@ -1333,7 +1321,7 @@ first line of the file."
 (defun sly-net-connect (host port)
   "Establish a connection with a CL."
   (let* ((inhibit-quit nil)
-         (name (format "sly-%s" (incf sly--net-connect-counter)))
+         (name (format "sly-%s" (cl-incf sly--net-connect-counter)))
          (proc (open-network-stream name nil host port))
          (buffer (sly-make-net-buffer (format " *%s*" name))))
     (push proc sly-net-processes)
@@ -1661,7 +1649,7 @@ the binding for `sly-connection'."
        (defun ,varname (&optional process)
          (sly-with-connection-buffer (process) ,real-var))
        ;; Setf
-       (defsetf ,varname (&optional process) (store)
+       (gv-define-setter ,varname (store &optional process)
          `(sly-with-connection-buffer (,process)
             (setq (\, (quote (\, real-var))) (\, store))))
        '(\, varname))))
@@ -3357,8 +3345,8 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
     (overlays-at pos))
    #'(lambda (a b)
        (sly-severity<
-        (sly-note.severity (first (button-get b 'notes)))
-        (sly-note.severity (first (button-get a 'notes)))))))
+        (sly-note.severity (car (button-get b 'notes)))
+        (sly-note.severity (car (button-get a 'notes)))))))
 
 (defun sly--search-note (search-fn repeat-p)
   (unless repeat-p
@@ -3376,10 +3364,10 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
                                              #'(lambda (button)
                                                  (eq (button-start button) pos))
                                              (sly--note-buttons-at pos)))
-                          when (eq search-start pos) do (return nil)
+                          when (eq search-start pos) do (cl-return nil)
                           when (and button
                                     (not (memq button sly-last-visited-note-buttons)))
-                          do (return button))))))
+                          do (cl-return button))))))
     (cond (button
            (unless (eq button (car remaining-to-visit))
              (goto-char (button-start button)))
@@ -3428,7 +3416,7 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
     ;; If the compilation window is showing, try to land in a suitable
     ;; place there, too...
     ;;
-    (let* ((anchor (first notes))
+    (let* ((anchor (car notes))
            (compilation-buffer (sly-buffer-name :compilation))
            (compilation-window (get-buffer-window compilation-buffer t)))
       (if compilation-window
@@ -3588,6 +3576,17 @@ was given and ALLOW-EMPTY is non-nil)."
      when (or (> (length read) 0)
               allow-empty)
      return read)))
+
+(defun sly-read-symbol-name (prompt &optional query)
+  "Either read a symbol name or choose the one at point.
+The user is prompted if a prefix argument is in effect, if there is no
+symbol at point, or if QUERY is non-nil."
+  (cond ((or current-prefix-arg query (not (sly-symbol-at-point)))
+         (sly-read-from-minibuffer prompt (sly-symbol-at-point)
+                                   nil
+                                   nil
+                                   sly-minibuffer-read-symbol-map))
+        (t (sly-symbol-at-point))))
 
 
 ;;;; Edit definition
@@ -4313,7 +4312,7 @@ TODO"
 (defun sly-apropos-designator-string (designator)
   (cond ((listp designator)
          (concat (cadr designator)
-                 (if (caddr designator) ":" "::")
+                 (if (cl-caddr designator) ":" "::")
                  (car designator)))
         ((stringp designator)
          designator)
@@ -5273,7 +5272,7 @@ RESTARTS should be a list ((NAME DESCRIPTION) ...)."
               "\n"))))
 
 (defun sly-db-frame-restartable-p (frame-spec)
-  (and (plist-get (caddr frame-spec) :restartable) t))
+  (and (plist-get (cl-caddr frame-spec) :restartable) t))
 
 (defun sly-db-prune-initial-frames (frame-specs)
   "Return the prefix of FRAMES-SPECS to initially present to the user.
@@ -5355,7 +5354,7 @@ If MORE is non-nil, more frames are on the Lisp stack."
 
 (defun sly-db--guess-frame-function (frame)
   (ignore-errors
-    (first (car (read-from-string
+    (car (car (read-from-string
                  (replace-regexp-in-string "#" ""
                                            (cadr frame)))))))
 
@@ -5623,7 +5622,7 @@ The details include local variable bindings and CATCH-tags."
    do (cl-loop
        for tries from 0 below 2
        for pos = (point) then next-change
-       for next-change = (funcall (if (minusp arg)
+       for next-change = (funcall (if (cl-minusp arg)
                                       #'previous-single-char-property-change
                                     #'next-single-char-property-change)
                                   pos 'frame-number)
@@ -6046,8 +6045,8 @@ was called originally."
                      ,#'(lambda (_button)
                           (and sly-connection-list-button-action
                                (funcall sly-connection-list-button-action p))))
-                    ,(first (process-contact p))
-                    ,(format "%s" (second (process-contact p)))
+                    ,(car (process-contact p))
+                    ,(format "%s" (cl-second (process-contact p)))
                     ,(format "%s" (sly-pid p))
                     ,(or (sly-lisp-implementation-type p)
                          "unknown")]))
@@ -6095,6 +6094,9 @@ was called originally."
   :prefix "sly-inspector-"
   :group 'sly)
 
+(defvar sly--this-inspector-name nil
+  "Buffer-local inspector name (a string), or nil")
+
 (cl-defun sly-eval-for-inspector (slyfun-and-args
                                   &key (error-message "Couldn't inspect")
                                   restore-point
@@ -6122,20 +6124,17 @@ was called originally."
                     (t
                      (sly-message error-message)))))))))
 
-(defvar sly--this-inspector-name nil
-  "Buffer-local inspector name (a string), or nil")
-
 (defun sly-read-inspector-name ()
-  (let* ((names (loop for b in (buffer-list)
-                      when (with-current-buffer b
-                             (and (eq sly-buffer-connection
-                                      (sly-current-connection))
-                                  (eq major-mode 'sly-inspector-mode)))
-                      when (buffer-local-value 'sly--this-inspector-name b)
-                      collect it))
+  (let* ((names (cl-loop for b in (buffer-list)
+                         when (with-current-buffer b
+                                (and (eq sly-buffer-connection
+                                         (sly-current-connection))
+                                     (eq major-mode 'sly-inspector-mode)))
+                         when (buffer-local-value 'sly--this-inspector-name b)
+                         collect it))
          (result (sly-completing-read "Inspector name: " (cons "default"
                                                                names)
-                         nil nil nil nil "default")))
+                                      nil nil nil nil "default")))
     (unless (string= result "default")
       result)))
 
