@@ -7,9 +7,9 @@ In Lisp source files, using `C-c C-s` (`sly-stickers-dwim`) sets a
 "sticker" on any Lisp form.
 
 After "arming" the stickers with the familar `C-c C-c`
-(`sly-compile-defun`) command, `C-c S` (`sly-stickers-fetch`) will
-populate the sticker overlay with evaluation results collected from
-the Lisp side.
+(`sly-compile-defun`) command, the results of evaluating the
+underlying forms are captured in the Lisp side. `C-c S`
+(`sly-stickers-fetch`) populates the sticker overlay these results.
 
 Stickers are non-intrusive, i.e. file content is not actually changed
 by placing them. Stickers also don't interfere with compilation notes.
@@ -18,7 +18,7 @@ The "do-what-I-mean" command `sly-stickers-dwim` can be used to unset
 stickers as well. See its docstring.
 
 Stickers on unevaluated forms (such as `let` variable bindings, or
-other constructs) are rejected, the `defun` is still compiled as
+other constructs) are rejected, but the function is still compiled as
 usual.
 
 Stickers can be nested inside other stickers. They are also color
@@ -27,8 +27,7 @@ from Lisp, etc. A context menu similar to other interactive parts is
 available.
 
 `sly-stickers` is experimental and under development. There are
-tentative plans to have use stickers as a quasi-stepper, used for
-stepping through forms.
+tentative plans to have use stickers as a kind of quasi-stepper.
 
 ### Documentation rewrite
 
