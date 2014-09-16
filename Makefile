@@ -77,11 +77,6 @@ run-slynk:
 	&& cat; } \
 	| $(LISP)
 
-elpa-sly:
-	echo "Not implemented yet: elpa-sly target" && exit 255
-
-elpa: elpa-sly contrib-elpa
-
 # Cleanup
 #
 FASLREGEX = .*\.\(fasl\|ufasl\|sse2f\|lx32fsl\|abcl\|fas\|lib\|trace\)$$
@@ -99,8 +94,6 @@ clean: clean-fasls
 MAKECONTRIB=$(MAKE) -C contrib EMACS="$(EMACS)" LISP="$(LISP)"
 contrib-check-% check-%:
 	$(MAKECONTRIB) $(@:contrib-%=%)
-contrib-elpa:
-	$(MAKECONTRIB) elpa-all
 contrib-compile:
 	$(MAKECONTRIB) compile
 
@@ -110,4 +103,4 @@ doc-%:
 	$(MAKE) -C doc $(@:doc-%=%)
 doc: doc-help
 
-.PHONY: clean elpa compile check doc dist
+.PHONY: clean compile check doc 
