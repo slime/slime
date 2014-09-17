@@ -18,7 +18,8 @@
 ;; are disclaimed.
 
 (defsystem :slynk
-    :components
+  :serial t
+  :components
   ((:file "slynk-backend")
    ;; If/when we require ASDF3, we shall use :if-feature instead
    #+(or cmu sbcl scl)
@@ -30,29 +31,29 @@
    #+(or clisp clozure)
    (:file "metering")
    (:module "backend"
-            :serial t
-            :components (#+allegro
-                         (:file "slynk-allegro")
-                         #+armedbear
-                         (:file "slynk-abcl")
-                         #+clisp
-                         (:file "slynk-clisp")
-                         #+clozure
-                         (:file "slynk-ccl")
-                         #+cmu
-                         (:file "slynk-cmucl")
-                         #+cormanlisp
-                         (:file "slynk-corman")
-                         #+ecl
-                         (:file "slynk-ecl")
-                         #+lispworks
-                         (:file "slynk-lispworks")
-                         #+sbcl
-                         (:file "slynk-sbcl")
-                         #+scl
-                         (:file "slynk-scl")
-                         #+mkcl
-                         (:file "slynk-mkcl")))
+    :serial t
+    :components (#+allegro
+                 (:file "slynk-allegro")
+                 #+armedbear
+                 (:file "slynk-abcl")
+                 #+clisp
+                 (:file "slynk-clisp")
+                 #+clozure
+                 (:file "slynk-ccl")
+                 #+cmu
+                 (:file "slynk-cmucl")
+                 #+cormanlisp
+                 (:file "slynk-corman")
+                 #+ecl
+                 (:file "slynk-ecl")
+                 #+lispworks
+                 (:file "slynk-lispworks")
+                 #+sbcl
+                 (:file "slynk-sbcl")
+                 #+scl
+                 (:file "slynk-scl")
+                 #+mkcl
+                 (:file "slynk-mkcl")))
    (:file "slynk-gray")
    (:file "slynk-match")
    (:file "slynk-rpc")
