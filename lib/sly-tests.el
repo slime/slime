@@ -662,7 +662,7 @@ Confirm that the EXPECTED subform is correctly located."
 ;; reader was changed. See
 ;; https://bugs.launchpad.net/sbcl/+bug/1361502
 (def-sly-test (compile-defun-with-backquote
-               (:fails-for "allegro" "lispworks" "clisp"))
+               (:fails-for "sbcl" "allegro" "lispworks" "clisp"))
   (program subform)
   "Compile PROGRAM containing errors.
 Confirm that SUBFORM is correctly located."
