@@ -9,13 +9,28 @@
 
 ```
 
-SLY is a Common Lisp IDE for Emacs.
+SLY is Sylvester the Cat's Common Lisp IDE for Emacs. See it in action in
+[this screencast][7].
 
-See it in action in [this screencast][7]. 
+SLY is a direct fork of [SLIME][1], and contains the following improvements over
+it:
 
-SLY is a fork of [SLIME][1]. Read about the reasons for forking [here][2] and
-see the [NEWS.md][6] for a listing of the differences between the two
-projects. SLY is currently *alpha* status and the
+* Completely redesigned REPL based on Emacs's own full-featured `comint.el`
+* Live code annotations via a new `sly-stickers` contrib
+* Consistent interactive button interface i.e. everything can be copied to the REPL.
+* Multiple inspector with independent history
+* Regexp-capable M-x sly-apropos
+* Contribs are first class SLY citizens and enabled by default
+* Use ASDF to loads contribs on demand.
+
+SLY tracks SLIME's bugfixes and familar features are still available
+(debugger, inspector, xref, etc...), with better a integration between
+themselves.
+
+Read about the reasons for forking [here][2] and see the [NEWS.md][6] for
+complete list of differences between the two projects.
+
+SLY is currently *alpha* status and the
 [documentation is out of date](https://github.com/capitaomorte/sly/issues/9).
 
 Install from MELPA

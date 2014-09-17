@@ -1,49 +1,63 @@
 ;;; sly.el ---Sylvester the Cat's Common Lisp IDE  -*-lexical-binding:t-*-
-;;;
+;;; 
+;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
+;;     Copyright (C) 2004,2005,2006  Luke Gorrie, Helmut Eller
+;;     Copyright (C) 2007,2008,2009  Helmut Eller, Tobias C. Rittweiler
+;;     Copyright (C) 2014 João Távora
+;;     For a detailed list of contributors, see the manual.
+;;
 ;; Version: 1.0.0-alpha
 ;; URL: https://github.com/capitaomorte/sly
 ;; Package-Requires: ((emacs "24.3"))
 ;; Keywords: languages, lisp, sly
 
-;;;; License
-;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
-;;     Copyright (C) 2004,2005,2006  Luke Gorrie, Helmut Eller
-;;     Copyright (C) 2007,2008,2009  Helmut Eller, Tobias C. Rittweiler
-;;
-;;     For a detailed list of contributors, see the manual.
-;;
-;;     This program is free software; you can redistribute it and/or
-;;     modify it under the terms of the GNU General Public License as
-;;     published by the Free Software Foundation; either version 2 of
-;;     the License, or (at your option) any later version.
-;;
-;;     This program is distributed in the hope that it will be useful,
-;;     but WITHOUT ANY WARRANTY; without even the implied warranty of
-;;     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-;;     GNU General Public License for more details.
-;;
-;;     You should have received a copy of the GNU General Public
-;;     License along with this program; if not, write to the Free
-;;     Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
-;;     MA 02111-1307, USA.
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
 
-
-;;; Commentary
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+;;; Commentary:
 ;;
-;; See the NEWS.md file sitting alongside this file or go to
-;; https://github.com/capitaomorte/sly for a description. SLY is a
-;; fork of SLIME, and contains the following improvements over it:
+;;        _____    __   __  __        
+;;       / ___/   / /   \ \/ /               |\      _,,,---,,_
+;;       \__ \   / /     \  /                /,`.-'`'    -.  ;-;;,_
+;;      ___/ /  / /___   / /                |,4-  ) )-,_..;\ (  `'-'
+;;     /____/  /_____/  /_/                '---''(_/--'  `-'\_)
+;; 
 ;;
-;; * Completely redesigned REPL
+;; SLY is Sylvester the Cat's Common Lisp IDE.
+;;  
+;; SLY is a direct fork of SLIME, and contains the following
+;; improvements over it:
+;;  
+;; * Completely redesigned REPL based on Emacs's own full-featured
+;;   `comint.el`
+;; * Live code annotations via a new `sly-stickers` contrib
+;; * Consistent interactive button interface i.e. everything can be
+;;   copied to the REPL.
+;; * Multiple inspector with independent history
 ;; * Regexp-capable M-x sly-apropos
-;; * Fancy contribs are enabled by default
-;; * SLY uses ASDF and loads contribs on demand.
-;; * Consistent interactive button interface
-;; * Multiple inspectors
-;; * Copy function call to REPL
+;; * Contribs are first class SLY citizens and enabled by default
+;; * Use ASDF to loads contribs on demand.
+;;  
+;; SLY tracks SLIME's bugfixes and all its familar features are still
+;; available (debugger, inspector, xref, etc...), just better
+;; integrated.
+;;  
+;; Read about the reasons for forking [here][2] and see the
+;; [NEWS.md][6] for complete list of differences between the two
+;; projects.
 
-
-;;;; Dependencies and setup
+;;; Code:
+
 (require 'cl-lib)
 
 (eval-and-compile
