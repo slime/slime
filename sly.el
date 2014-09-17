@@ -2199,7 +2199,7 @@ Debugged requests are ignored."
                                     `(:emacs-return ,thread ,tag nil)))))
              (sly--open-inspector what nil hook)))
           ((:background-message message)
-           (sly-message "[background-message] %s" message))
+           (sly-temp-message 1 3 "[background-message] %s" message))
           ((:debug-condition thread message)
            (cl-assert thread)
            (sly-message "[debug-condition] %s" message))
@@ -4278,10 +4278,6 @@ TODO"
 
 (defun sly-show-apropos (plists string package summary)
   (cond ((null plists)
-         (when (string-match "[background].*apropos" sly--last-message)
-           (run-with-timer 1 nil
-                           #'(lambda (msg) (message msg))
-			   sly--last-message))
          (sly-message "No apropos matches for %S" string))
         (t
          (sly-with-popup-buffer ((sly-buffer-name :apropos
