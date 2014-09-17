@@ -69,7 +69,7 @@ components.  Uses slynk-backend.lisp as an interface to the actual
 backends.
 
 * `sly.el`: The Emacs front-end that the user actually interacts
-with and that connects to the SLYNK server to send expressions to, and
+with and that connects to the Slynk server to send expressions to, and
 retrieve information from the running Common Lisp system.
 
 * `contrib/*`: Lisp related code for fancy add-ons to SLY.
@@ -83,13 +83,13 @@ it's not mentioned here, it's a safe bet that some particular
 mechanism you're interested in stayed the same and any SLIME
 documentation is applicable to SLY.
 
-### SWANK is now called SLYNK
+### Swank is now called Slynk
 
 SLY can be loaded alongside SLIME both in the same Emacs or Lisp
 image. This interoperability meant that SLY's Lisp server had to be
-renamed (to SLYNK).
+renamed to "Slynk".
 
-SLY can still speak the "SWANK" protocol, and should be able to connect
+SLY can still speak the Swank protocol, and should be able to connect
 to any other non-Lisp backends such as Christopher Rhodes' [swankr][4]
 or have non-SLIME clients connect to it such as Robert Brown's
 [swank-client][5].
@@ -97,8 +97,8 @@ or have non-SLIME clients connect to it such as Robert Brown's
 This is done via a contrib called `sly-retro` and its `slynk-retro`
 counterpart. The contrib's code is loaded by `M-x sly` or `M-x
 sly-connect` *on demand*, meaning that it is possible to start the
-SLYNK server without the contrib's Lisp counterpart. See the section
-called "SLYNK-loading method"" for how this works in SLY.
+Slynk server without the contrib's Lisp counterpart. See the section
+called "Slynk-loading method"" for how this works in SLY.
 
 *If* it is loaded, `sly-retro` ensures that messages leaving SLY still
 look like
@@ -113,7 +113,7 @@ startup the `sly-retro` contrib hasn't kicked in and nicknames are not
 immediately setup.
 
 The nicknames pose a compatibility hazard if the user tries to load
-SLIME's SWANK server into the Lisp image where SLYNK is already
+SLIME's Swank server into the Lisp image where Slynk is already
 setup. Therefore, users wishing to run both servers alongside in the
 same Lisp image must take care to not load the `sly-retro` contrib,
 which takes only a line of Emacs-Lisp code:
@@ -123,20 +123,20 @@ which takes only a line of Emacs-Lisp code:
 [4]: https://github.com/gigamonkey/swankr
 [5]: https://github.com/brown/swank-client
 
-### SLYNK-loading method
+### Slynk-loading method
 
 In SLIME, `M-x slime` immediately tells the Lisp process started by
 Emacs to use SLIME's own `slynk-loader.lisp` program to compile and
 load all possibly available lisp under its directory (including
-contrib's) before the SLYNK server is created with
+contrib's) before the Slynk server is created with
 `SLYNK:CREATE-SERVER`.
 
 In SLY, the elisp variable `sly-init-function` is set to
 `sly-init-using-asdf` by default, meaning that `M-x sly` will try to
-load SLYNK via `ASDF:LOAD-SYSTEM`. But this will load only SLYNK and
+load Slynk via `ASDF:LOAD-SYSTEM`. But this will load only Slynk and
 no contribs.
 
-SLYNK contribs are also represented as ASDF systems, and
+Slynk contribs are also represented as ASDF systems, and
 `sly-load-contribs` will add the contrib's path to the ASDF load
 path. The `SLYNK:REQUIRE-MODULE` abstraction will call then
 `ASDF:LOAD-SYSTEM`.

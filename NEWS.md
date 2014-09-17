@@ -34,15 +34,23 @@ tentative plans to have use stickers as a kind of quasi-stepper.
 The documentation rewrite in underway (github #9). Browse to
 http://capitaomorte.github.io/sly for the online HTML version.
 
-### "Swank" is now called "Slynk"
+### Swank is now called Slynk
 
-A project-wide rename was performed, including this NEWS.md file.
+Slynk is SLY's implementation of Swank, the supporting Lisp server
+where Emacs connectes to. A project-wide rename was performed,
+including this NEWS.md file.
 
-SLY can still talk to SWANK backends, and serve requests for the SWANK
-protocol, via the `sly-retro` contrib, which is enabled by default.
+A `sly-retro` contrib, enabled by default ensures that:
 
-For details on the architecture of these change, see the "SWANK is now
-called SLYNK" in the CONTRIBUTING.md.
+* SLY can still talk to non-lisp Swank backends
+* SLY can serve requests for the Swank protocol
+* Most, if not all, user customization in `~/.swankrc` are still valid
+  in SLY
+
+For details on the architecture of these changes, see the "Swank is
+now called Slynk" in the CONTRIBUTING.md.
+
+Thanks to Zach Beane for the great name.
 
 ### mREPL enhacements
 
@@ -102,7 +110,7 @@ Every return part can be inspected and re-returned as the last value.
 Output redirection is automatically setup. The first REPL created is
 the target for all threads' output onto the standard output
 streams. REPLs created afterward only see their own output. To turn
-this off configure the SLYNK-side variable
+this off configure the Slynk-side variable
 `SLYNK-MREPL:*GLOBALLY-REDIRECT-IO*`.
 
 A dedicated stream connection for output is automatically set
@@ -235,7 +243,7 @@ support Emacs 24.4.
 
 There is very limited backward compatibility SLIME and only in the
 SLIME->SLY direction, meaning a contrib-less SLIME may connect to a
-SLYNK server started by SLY, but any other combination will probably
+Slynk server started by SLY, but any other combination will probably
 fail beyond very basic functionality.
 
 The portable profiling commands have been removed from the SLY menu
