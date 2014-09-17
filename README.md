@@ -23,9 +23,8 @@ it:
 * Contribs are first class SLY citizens and enabled by default
 * Use ASDF to loads contribs on demand.
 
-SLY tracks SLIME's bugfixes and familar features are still available
-(debugger, inspector, xref, etc...), with better a integration between
-themselves.
+SLY tracks SLIME's bugfixes and all its familar features (debugger, inspector,
+xref, etc...) are still available , but with better integration.
 
 Read about the reasons for forking [here][2] and see the [NEWS.md][6] for
 complete list of differences between the two projects.

@@ -1,15 +1,15 @@
 ;;; sly.el ---Sylvester the Cat's Common Lisp IDE  -*-lexical-binding:t-*-
-;;; 
+
+;; Version: 1.0.0-alpha
+;; URL: https://github.com/capitaomorte/sly
+;; Package-Requires: ((emacs "24.3"))
+;; Keywords: languages, lisp, sly
+
 ;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
 ;;     Copyright (C) 2004,2005,2006  Luke Gorrie, Helmut Eller
 ;;     Copyright (C) 2007,2008,2009  Helmut Eller, Tobias C. Rittweiler
 ;;     Copyright (C) 2014 João Távora
 ;;     For a detailed list of contributors, see the manual.
-;;
-;; Version: 1.0.0-alpha
-;; URL: https://github.com/capitaomorte/sly
-;; Package-Requires: ((emacs "24.3"))
-;; Keywords: languages, lisp, sly
 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -48,13 +48,12 @@
 ;; * Contribs are first class SLY citizens and enabled by default
 ;; * Use ASDF to loads contribs on demand.
 ;;  
-;; SLY tracks SLIME's bugfixes and all its familar features are still
-;; available (debugger, inspector, xref, etc...), just better
-;; integrated.
-;;  
-;; Read about the reasons for forking [here][2] and see the
-;; [NEWS.md][6] for complete list of differences between the two
-;; projects.
+;; SLY tracks SLIME's bugfixes and all its familar features (debugger,
+;; inspector, xref, etc...) are still available , but with better
+;; integration.
+;; 
+;; See the NEWS.md file setting alongside this file for a complete
+;; list of features.
 
 ;;; Code:
 
