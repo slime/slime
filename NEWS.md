@@ -3,13 +3,20 @@ SLY 1.0.0-alpha-2 (estimated October 2014)
 
 ### sly-stickers: a live source-code annotation tool
 
-In Lisp source files, using `C-c C-s` (`sly-stickers-dwim`) sets a
+In Lisp source files, using `C-c C-s C-s` (`sly-stickers-dwim`) sets a
 "sticker" on any Lisp form.
 
 After "arming" the stickers with the familar `C-c C-c`
 (`sly-compile-defun`) command, the results of evaluating the
-underlying forms are captured in the Lisp side. `C-c S`
-(`sly-stickers-fetch`) populates the sticker overlay these results.
+underlying forms are captured in the Lisp side. Stickers will change
+color.
+
+`C-c C-s S` (`sly-stickers-fetch`) populates the sticker overlay these
+results.
+
+`C-c C-s p` and `C-c C-s n` (`sly-stickers-prev-sticker` and
+`sly-stickers-next-sticker`) move through the stickers in a way
+analogous to moving through compilation notes.
 
 Stickers are non-intrusive, i.e. file content is not actually changed
 by placing them. Stickers also don't interfere with compilation notes.
@@ -27,12 +34,18 @@ from Lisp, etc. A context menu similar to other interactive parts is
 available.
 
 `sly-stickers` is experimental and under development. There are
-tentative plans to have use stickers as a kind of quasi-stepper.
+tentative plans to have use stickers as a kind of
+quasi-stepper. Thanks to Artem Malyshev for early testing and ideas.
 
 ### Documentation rewrite
 
 The documentation rewrite in underway (github #9). Browse to
 http://capitaomorte.github.io/sly for the online HTML version.
+
+### SLY is available in MELPA
+
+The README.md file has an updated install recipe, basically `M-x
+package-install RET sly RET`. Thanks to Kan-Ru Chen for the idea.
 
 ### Swank is now called Slynk
 

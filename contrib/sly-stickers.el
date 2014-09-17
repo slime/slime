@@ -55,10 +55,19 @@
 
 (defun sly-stickers-enable () (sly-stickers-mode 1))
 
+(defvar sly-stickers-prefix-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-s") 'sly-stickers-dwim)
+    (define-key map (kbd "S") 'sly-stickers-fetch)
+    (define-key map (kbd "p") 'sly-stickers-prev-sticker)
+    (define-key map (kbd "n") 'sly-stickers-next-sticker)
+    (define-key map (kbd "C-p") 'sly-stickers-prev-sticker)
+    (define-key map (kbd "C-n") 'sly-stickers-next-sticker)
+    map))
+
 (defvar sly-stickers-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c C-s") 'sly-stickers-dwim)
-    (define-key map (kbd "C-c S") 'sly-stickers-fetch)
+    (define-key map (kbd "C-c C-s") sly-stickers-prefix-map)
     map))
 
 (define-minor-mode sly-stickers-mode
@@ -86,7 +95,6 @@
 
 (defun sly-stickers--stickers-at (&optional point)
   "Return stickers near POINT"
-  (interactive "d")
   (let ((point (or point (point))))
     (cl-sort (sly-stickers--stickers-in (1- point) (1+ point))
              #'> :key #'sly-stickers--sticker-priority)))
@@ -114,12 +122,17 @@
       (error "Copy to REPL not implemented yet!"))
   'keymap sly-stickers--sticker-map)
 
-(defun sly-stickers--set-tooltip (sticker &optional text)
+(defun sly-stickers--set-tooltip (sticker &optional info)
   (let* ((help-base (button-get sticker 'sly-stickers--base-help-echo))
-         (text (if text
-                   (concat "[sly] " text "\n" help-base)
+         (text (if info
+                   (concat "[sly] " info "\n" help-base)
                  help-base)))
-    (button-put sticker 'help-echo text)))
+    (button-put sticker 'help-echo text)
+    (button-put sticker 'sly-stickers--info info)))
+
+(defun sly-stickers--echo-sticker (sticker)
+  (sly-message (button-get sticker 'sly-stickers--info))
+  (sly-stickers--flash-sticker sticker 2))
 
 (defun sly-stickers--set-face (sticker &optional face)
   (let ((face (or face
@@ -132,10 +145,11 @@
                                       (* (sly-stickers--sticker-priority sticker)
                                          15))))))
 
-(defun sly-stickers--flash-sticker (sticker)
+(defun sly-stickers--flash-sticker (sticker &optional times)
   (sly-flash-region (button-start sticker) (button-end sticker)
                     :timeout 0.07
-                    :times 2))
+                    :times times
+                    :face 'default))
 
 (defun sly-stickers--sticker (from to)
   (let* ((intersecting (sly-stickers--stickers-in from to))
@@ -158,6 +172,7 @@
                                  'part-args (list -1)
                                  'part-label label
                                  'modification-hooks '(sly-stickers--sticker-modified)
+                                 'sly-stickers-id (cl-incf sly-stickers--counter)
                                  'sly-stickers--base-help-echo
                                  "mouse-3: Context menu")))
       ;; choose a suitable priorty for ourselves and increase the
@@ -178,11 +193,10 @@
   (button-get sticker 'sly-stickers-id))
 
 (defun sly-stickers--arm-sticker (sticker)
-  (let* ((id (cl-incf sly-stickers--counter))
+  (let* ((id (sly-stickers--sticker-id sticker))
          (label (format "Sticker %d is armed" id)))
     (button-put sticker 'part-args (list id))
     (button-put sticker 'part-label label)
-    (button-put sticker 'sly-stickers-id id)
     (button-put sticker 'sly-stickers--last-value-desc nil)
     (sly-stickers--set-tooltip sticker label)
     (sly-stickers--set-face sticker 'sly-stickers-armed-face)
@@ -250,6 +264,23 @@
              sly-stickers--stickers)
     dead-ids))
 
+(defun sly-stickers--briefly-describe-sticker (sticker)
+  (let ((beg (button-start sticker))
+        (end (button-end sticker)))
+    (if (< (- end beg) 20)
+        (format "sticker around %s" (buffer-substring-no-properties beg end))
+      (cl-labels ((word (point direction)
+                        (apply #'buffer-substring-no-properties
+                               (sort (list
+                                      point
+                                      (save-excursion (goto-char point)
+                                                      (forward-word direction)
+                                                      (point)))
+                                     #'<))))
+        (format "sticker from \"%s...\" to \"...%s\""
+                (word beg 1)
+                (word end -1))))))
+
 (defun sly-stickers--sticker-priority (sticker)
   (or (overlay-get sticker 'priority) 0))
 
@@ -284,8 +315,41 @@
 (defun sly-stickers--sticker-modified (sticker after? _beg _end &optional _pre-change-len)
   (unless after?
     (let ((inhibit-modification-hooks t))
-      (sly-message "Deleting sticker from %d to %d" (button-start sticker) (button-end sticker))
+      (sly-message "Deleting %s" (sly-stickers--briefly-describe-sticker sticker))
       (sly-stickers--delete sticker))))
+
+(defun sly-stickers-next-sticker (&optional n)
+  (interactive "p")
+  (cl-loop with off-by-one = (if (cl-plusp n) -1 +1)
+           for i from 0 below (abs n)
+           for sticker = (cl-loop for search-start = (point) then pos
+                                  for preval = (get-char-property (+ off-by-one
+                                                                     search-start) 'sly-stickers-id)
+                                  for pos = (funcall
+                                             (if (cl-plusp n)
+                                                 #'next-single-char-property-change
+                                               #'previous-single-char-property-change)
+                                             search-start 'sly-stickers-id)
+                                  for newval = (get-char-property pos 'sly-stickers-id)
+                                  until (cond ((cl-plusp n)
+                                               (eql pos (point-max)))
+                                              (t
+                                               (eql pos (point-min))))
+                                  for sticker = (car (sly-stickers--stickers-at pos))
+                                  when (and newval
+                                            (not (eq newval preval))
+                                            (eq pos (button-start sticker)))
+                                  return sticker)
+           while sticker
+           finally (if sticker
+                       (when sticker
+                         (goto-char (button-start sticker))
+                         (sly-stickers--echo-sticker sticker))
+                     (sly-message "No more stickers!"))))
+
+(defun sly-stickers-prev-sticker (&optional n)
+  (interactive "p")
+  (sly-stickers-next-sticker (- n)))
 
 (defun sly-stickers-clear-defun-stickers ()
   "Clear all stickers in the current top-level form."
@@ -319,7 +383,8 @@
            (if (cdr stickers)
                (sly-message "Deleted topmost sticker (%d remain at point)"
                             (length (cdr stickers)))
-             (sly-message "Deleted sticker")))
+             (sly-message "Deleted sticker %s"
+                          (sly-stickers--briefly-describe-sticker (car stickers)))))
           (t
            (sly-error "No stickers at point")))))
 
@@ -341,21 +406,8 @@ otherwise, add a sticker to the sexp at point."
              (sly-stickers--delete (car matching))
              (sly-message "Deleted sticker"))
             (t
-             (sly-stickers--sticker beg end)
-             (if (< (- end beg) 20)
-                 (sly-message "Added sticker around \"%s\""
-                              (buffer-substring-no-properties beg end))
-               (cl-labels ((word (point direction)
-                                 (apply #'buffer-substring-no-properties
-                                        (sort (list
-                                               point
-                                               (save-excursion (goto-char point)
-                                                               (forward-word direction)
-                                                               (point)))
-                                              #'<))))
-                 (sly-message "Added a sticker from \"%s...\" to \"...%s\""
-                              (word beg 1)
-                              (word end -1)))))))))
+             (let ((sticker (sly-stickers--sticker beg end)))
+               (sly-message "Added %s" (sly-stickers--briefly-describe-sticker sticker))))))))
 
 (defun sly-stickers-dwim (prefix)
   "Set or remove stickers at point.
