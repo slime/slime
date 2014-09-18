@@ -55,19 +55,10 @@
 
 (defun sly-stickers-enable () (sly-stickers-mode 1))
 
-(defvar sly-stickers-prefix-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-s") 'sly-stickers-dwim)
-    (define-key map (kbd "S") 'sly-stickers-fetch)
-    (define-key map (kbd "p") 'sly-stickers-prev-sticker)
-    (define-key map (kbd "n") 'sly-stickers-next-sticker)
-    (define-key map (kbd "C-p") 'sly-stickers-prev-sticker)
-    (define-key map (kbd "C-n") 'sly-stickers-next-sticker)
-    map))
-
 (defvar sly-stickers-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c C-s") sly-stickers-prefix-map)
+    (define-key map (kbd "C-c C-s") 'sly-stickers-dwim)
+    (define-key map (kbd "C-c S") 'sly-stickers-fetch)
     map))
 
 (define-minor-mode sly-stickers-mode
@@ -120,6 +111,7 @@
   'sly-mrepl-copy-part-to-repl
   #'(lambda (_id)
       (error "Copy to REPL not implemented yet!"))
+  'sly-button-echo 'sly-stickers--echo-sticker
   'keymap sly-stickers--sticker-map)
 
 (defun sly-stickers--set-tooltip (sticker &optional info)
@@ -130,7 +122,8 @@
     (button-put sticker 'help-echo text)
     (button-put sticker 'sly-stickers--info info)))
 
-(defun sly-stickers--echo-sticker (sticker)
+(defun sly-stickers--echo-sticker (sticker &rest more)
+  (cl-assert (null more) "Apparently two stickers at exact same location")
   (sly-message (button-get sticker 'sly-stickers--info))
   (sly-stickers--flash-sticker sticker 2))
 
@@ -171,6 +164,7 @@
            (sticker (make-button from to :type 'sly-stickers--sticker
                                  'part-args (list -1)
                                  'part-label label
+                                 'sly-button-search-id (sly-button-next-search-id)
                                  'modification-hooks '(sly-stickers--sticker-modified)
                                  'sly-stickers-id (cl-incf sly-stickers--counter)
                                  'sly-stickers--base-help-echo
@@ -320,36 +314,11 @@
 
 (defun sly-stickers-next-sticker (&optional n)
   (interactive "p")
-  (cl-loop with off-by-one = (if (cl-plusp n) -1 +1)
-           for i from 0 below (abs n)
-           for sticker = (cl-loop for search-start = (point) then pos
-                                  for preval = (get-char-property (+ off-by-one
-                                                                     search-start) 'sly-stickers-id)
-                                  for pos = (funcall
-                                             (if (cl-plusp n)
-                                                 #'next-single-char-property-change
-                                               #'previous-single-char-property-change)
-                                             search-start 'sly-stickers-id)
-                                  for newval = (get-char-property pos 'sly-stickers-id)
-                                  until (cond ((cl-plusp n)
-                                               (eql pos (point-max)))
-                                              (t
-                                               (eql pos (point-min))))
-                                  for sticker = (car (sly-stickers--stickers-at pos))
-                                  when (and newval
-                                            (not (eq newval preval))
-                                            (eq pos (button-start sticker)))
-                                  return sticker)
-           while sticker
-           finally (if sticker
-                       (when sticker
-                         (goto-char (button-start sticker))
-                         (sly-stickers--echo-sticker sticker))
-                     (sly-message "No more stickers!"))))
+  (sly-button-search n 'sly-stickers--sticker-id))
 
 (defun sly-stickers-prev-sticker (&optional n)
   (interactive "p")
-  (sly-stickers-next-sticker (- n)))
+  (sly-button-search (- n) 'sly-stickers--sticker-id))
 
 (defun sly-stickers-clear-defun-stickers ()
   "Clear all stickers in the current top-level form."

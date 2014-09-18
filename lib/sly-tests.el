@@ -609,7 +609,7 @@ string buffer position filename policy)")
       (setq sly-buffer-package ":cl-user")
       (sly-sync-to-top-level 5)
       (goto-char (point-max))
-      (sly-previous-note)
+      (call-interactively 'sly-previous-note)
       (sly-check error-location-correct
         (equal (read (current-buffer)) subform))))
   (sly-check-top-level))

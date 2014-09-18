@@ -94,7 +94,8 @@
 
 (define-button-type 'sly-action :supertype 'sly-button
   'face 'sly-action-face
-  'mouse-face 'highlight)
+  'mouse-face 'highlight
+  'sly-button-echo 'sly-button-echo-button)
 
 (defface sly-part-button-face
   '((t (:inherit font-lock-constant-face)))
@@ -106,6 +107,7 @@
   'action 'sly-button-inspect
   'mouse-action 'sly-button-inspect
   'keymap  sly-part-button-keymap
+  'sly-button-echo 'sly-button-echo-part
   'part-menu-keymap sly-button-popup-part-menu-keymap
   'help-echo "RET, mouse-2: Inspect object; mouse-3: Context menu"
   ;; these are ajust here for clarity
@@ -114,6 +116,93 @@
   'sly-button-describe nil
   'sly-button-pretty-print nil
   'sly-button-show-source nil)
+
+(defun sly-button-echo-button (button) (sly-message "A sly button"))
+
+(defun sly-button-echo-part (button) (sly-message (button-get 'part-label button)))
+
+
+;;; Button navigation
+;;;
+(defvar sly-button--next-search-id 0)
+
+(defun sly-button-next-search-id ()
+  (cl-incf sly-button--next-search-id))
+
+(defun sly-button--searchable-buttons-at (pos filter)
+  (cl-sort (cl-remove-if-not #'(lambda (button)
+                                 (and (funcall filter button)
+                                      (button-get button 'sly-button-search-id)))
+                             (overlays-in (1- pos) (1+ pos)))
+           #'>
+           :key #'(lambda (ov) (or (overlay-get ov 'priority) 0))))
+
+(defun sly-button-search (n &optional filter)
+  "Go forward to Nth buttons verifying FILTER and echo it.
+
+With negative N, go backward.  Visiting is done via the
+`sly-button-echo' property.
+
+If more than one button overlap the same region, the button
+starting before is visited first. If more than one button start
+at exactly the same spot, they are both visited simultaneously,
+`sly-button-echo' being passed a variable number of button arguments."
+  (cl-loop with off-by-one = (if (cl-plusp n) -1 +1)
+           for i from 0 below (abs n)
+           for buttons =
+           (cl-loop for search-start = (point) then pos
+                    for preval = (and (not (cond ((cl-plusp n)
+                                                  (= search-start (point-min)))
+                                                 (t
+                                                  (= search-start (point-max)))))
+                                      (get-char-property (+ off-by-one
+                                                       search-start)
+                                                    'sly-button-search-id))
+                    for pos = (funcall
+                               (if (cl-plusp n)
+                                   #'next-single-char-property-change
+                                 #'previous-single-char-property-change)
+                               search-start
+                               'sly-button-search-id)
+                    for newval = (get-char-property pos 'sly-button-search-id)
+                    until (cond ((cl-plusp n)
+                                 (= pos (point-max)))
+                                (t
+                                 (= pos (point-min))))
+                    for buttons = (sly-button--searchable-buttons-at
+                                   pos (or filter #'identity))
+                    when (and buttons
+                              newval
+                              (not (eq newval preval))
+                              (eq pos (button-start (car buttons))))
+                    return buttons)
+           for button = (car buttons)
+           while buttons
+           finally (cond (buttons
+                          (goto-char (button-start (car buttons)))
+                          (apply (button-get button 'sly-button-echo)
+                                 button
+                                 (cl-remove-if-not
+                                  #'(lambda (b)
+                                      (= (button-start b) (button-start button)))
+                                  (cdr buttons))))
+                         (t
+                          (sly-message "No more buttons!")))))
+
+(defvar sly-button-filter-function #'identity
+  "Filter buttons considered by `sly-button-forward'
+Set to `sly-note-button-p' to only navigate compilation notes,
+or leave at `identity' to visit every `sly-button' in the buffer.'")
+
+(defun sly-button-forward (n)
+  "Go to and describe the next button in the buffer."
+  (interactive "p")
+  (sly-button-search n sly-button-filter-function))
+
+(defun sly-button-backward (n)
+  "Go to and describe the previous button in the buffer."
+  (interactive "p")
+  (sly-button-forward (- n)))
 
 (provide 'sly-buttons)
 

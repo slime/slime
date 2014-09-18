@@ -303,9 +303,9 @@ argument."
 
 (defface sly-error-face
   `((((class color) (background light))
-     (:underline "red"))
+     (:underline "tomato"))
     (((class color) (background dark))
-     (:underline "red"))
+     (:underline "tomato"))
     (t (:underline t)))
   "Face for errors from the compiler."
   :group 'sly-mode-faces)
@@ -321,25 +321,20 @@ argument."
 
 (defface sly-style-warning-face
   `((((class color) (background light))
-     (:underline "brown"))
+     (:underline "olive drab"))
     (((class color) (background dark))
-     (:underline "gold"))
+     (:underline "khaki"))
     (t (:underline t)))
   "Face for style-warnings from the compiler."
   :group 'sly-mode-faces)
 
 (defface sly-note-face
   `((((class color) (background light))
-     (:underline "brown4"))
+     (:underline "brown3"))
     (((class color) (background dark))
      (:underline "light goldenrod"))
     (t (:underline t)))
   "Face for notes from the compiler."
-  :group 'sly-mode-faces)
-
-(defface sly-highlight-face
-  '((t (:inherit highlight :underline nil)))
-  "Face for compiler notes while selected."
   :group 'sly-mode-faces)
 
 ;;;;; sly-db
@@ -2562,7 +2557,7 @@ to it depending on its sign."
   "Temporarily highlight region from START to END."
   (let ((overlay (make-overlay start end)))
     (overlay-put overlay 'face (or face
-                                   'secondary-selection))
+                                   'highlight))
     (overlay-put overlay 'priority 1000)
     (run-with-timer
      (or timeout 0.2) nil
@@ -3346,70 +3341,19 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
 
 
 ;;;;; Visiting and navigating the overlays of compiler notes
-(defvar sly-last-visited-note-buttons nil)
+(defun sly-note-button-p (button)
+  (eq (button-type button) 'sly-in-buffer-note))
 
-(defun sly--note-buttons-at (pos)
-  "Return sorted `sly-in-buffer-note' buttons at POS."
-  (sort
-   (cl-remove-if-not
-    #'(lambda (overlay)
-        (button-type-subtype-p (button-type overlay)
-                               'sly-in-buffer-note))
-    (overlays-at pos))
-   #'(lambda (a b)
-       (sly-severity<
-        (sly-note.severity (car (button-get b 'notes)))
-        (sly-note.severity (car (button-get a 'notes)))))))
+(defalias 'sly-next-note 'sly-button-forward)
 
-(defun sly--search-note (search-fn repeat-p)
-  (unless repeat-p
-    (setq sly-last-visited-note-buttons nil))
-  (let* ((buttons-at-point (sly--note-buttons-at (point)))
-         (remaining-to-visit (cl-set-difference buttons-at-point
-                                                sly-last-visited-note-buttons))
-         (button
-          (cond (remaining-to-visit
-                 (car remaining-to-visit))
-                (t
-                 (cl-loop for search-start = (point) then pos
-                          for pos = (funcall search-fn search-start)
-                          for button = (car (cl-remove-if-not
-                                             #'(lambda (button)
-                                                 (eq (button-start button) pos))
-                                             (sly--note-buttons-at pos)))
-                          when (eq search-start pos) do (cl-return nil)
-                          when (and button
-                                    (not (memq button sly-last-visited-note-buttons)))
-                          do (cl-return button))))))
-    (cond (button
-           (unless (eq button (car remaining-to-visit))
-             (goto-char (button-start button)))
-           (button-activate button 'use-mouse-action)
-           (push button sly-last-visited-note-buttons))
-          (t
-           nil))))
-
-(defun sly-next-note ()
-  "Go to and describe the next compiler note in the buffer."
-  (interactive)
-  (or (sly--search-note #'next-overlay-change
-                        (memq last-command '(sly-goto-first-note
-                                             sly-next-note)))
-      (sly-message "No next note.")))
-
-(defun sly-previous-note ()
-  "Go to and describe the previous compiler note in the buffer."
-  (interactive)
-  (or (sly--search-note #'previous-overlay-change
-                        (eq last-command 'sly-previous-note))
-      (sly-message "No previous note")))
+(defalias 'sly-previous-note 'sly-button-backward)
 
 (defun sly-goto-first-note (_successp notes _buffer _loadp)
   "Go to the first note in the buffer."
   (interactive (list (sly-compiler-notes)))
   (when notes
     (goto-char (point-min))
-    (sly-next-note)))
+    (sly-next-note 1)))
 
 (defun sly-remove-notes (beg end)
   "Remove `sly-note' annotation buttons from BEG to END."
@@ -3421,11 +3365,16 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
                                        'sly-in-buffer-note)
            do (delete-overlay existing)))
 
-(defun sly-show-note (button)
+(defun sly-show-notes (button &rest more-buttons)
   "Present the details of a compiler note to the user."
   (interactive)
-  (let ((notes (button-get button 'notes)))
-    (sly-flash-region (button-start button) (button-end button))
+  (let ((notes (mapcar (sly-rcurry #'button-get 'sly-note)
+                       (cons button more-buttons))))
+    (sly-flash-region (button-start button) (button-end button)
+                      :face
+                      (let ((color (face-underline-p (button-get button 'face))))
+                        (if color `(:background ,color) 'highlight))
+                      :times 2 :timeout 0.07)
     ;; If the compilation window is showing, try to land in a suitable
     ;; place there, too...
     ;;
@@ -3446,14 +3395,18 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
               (sly-message "Showing note in %s" (current-buffer))))
         ;; Else, do the next best thing, which is echo the messages.
         ;;
-        (sly-message (mapconcat #'sly-note.message notes "\n"))))))
+        (if (cdr notes)
+            (sly-message (format "%s notes:\n%s"
+                                 (length notes)
+                                 (mapconcat #'sly-note.message notes "\n")))
+          (sly-message (sly-note.message (car notes))))))))
 
 (define-button-type 'sly-note :sypertype 'sly-action)
 
 (define-button-type 'sly-in-buffer-note :supertype 'sly-note
   'keymap (let ((map (copy-keymap button-map)))
             (define-key map "RET" nil))
-  'mouse-action 'sly-show-note
+  'sly-button-echo 'sly-show-notes
   'modification-hooks '(sly--in-buffer-note-modification))
 
 (define-button-type 'sly-compilation-note-group :supertype 'sly-note
@@ -3470,14 +3423,15 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
       (make-button beg
                  end
                  :type 'sly-in-buffer-note
-                 'notes (list note)
+                 'sly-button-search-id (sly-button-next-search-id)
+                 'sly-note note
                  'priority (cl-position (sly-note.severity note) sly-severity-order)
                  'face (sly-severity-face (sly-note.severity note))))))
 
 (defun sly--compilation-note-group-button  (label notes)
   "Pepare notes as a `sly-compilation-note' button.
 For insertion in the `compilation-mode' buffer"
-  (make-text-button label nil :type 'sly-compilation-note-group 'notes notes)
+  (make-text-button label nil :type 'sly-compilation-note-group 'sly-notes-group notes)
   label)
 
 
