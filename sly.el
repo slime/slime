@@ -2718,7 +2718,7 @@ Each newlines and following indentation is replaced by a single space."
 (defun sly-maybe-show-compilation-log (successp notes buffer loadp)
   "Display the log on failed compilations or if NOTES is non-nil."
   (sly-show-compilation-log successp notes buffer loadp
-                            (if successp nil :hidden)))
+                            (if successp :hidden nil)))
 
 (defun sly-show-compilation-log (successp notes buffer loadp &optional select)
   "Create and display the compilation log buffer."
