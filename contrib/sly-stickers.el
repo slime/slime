@@ -52,7 +52,7 @@
 (defface sly-stickers-exited-non-locally-face
   '((t (:inherit sly-stickers-empty-face)
        (:strike-through t)))
-  "Face for stickers that have no recordings.")
+  "Face for stickers that have exited non-locally.")
 
 (defun sly-stickers-enable () (sly-stickers-mode 1))
 
@@ -404,7 +404,8 @@ With interactive prefix arg PREFIX always delete stickers.
                              (push id zombie-sticker-ids))))
           (when zombie-sticker-ids
             (sly-message "Killing zombie stickers %s" zombie-sticker-ids)
-            (sly-eval-async `(slynk-stickers:kill-stickers ',zombie-sticker-ids)))))))
+            (sly-eval-async `(slynk-stickers:kill-stickers ',zombie-sticker-ids)))))
+    "CL_USER"))
 
 (defun sly-stickers-compile-region-aware-of-stickers (start end)
   "Compile from START to END considering stickers.
