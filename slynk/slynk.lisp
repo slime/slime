@@ -3860,8 +3860,10 @@ after each command.")
 (defun handle-indentation-cache-request (connection request)
   (destructure-case request
     ((:sync-indentation package)
-     (let ((fullp (need-full-indentation-update-p connection)))
-       (perform-indentation-update connection fullp package)))
+     ;; PACKAGE may have been deleted...
+     (when (package-name package)
+       (let ((fullp (need-full-indentation-update-p connection)))
+         (perform-indentation-update connection fullp package))))
     ((:update-indentation-information)
      (perform-indentation-update connection t nil))))
 
