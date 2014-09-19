@@ -122,6 +122,39 @@
 (defun sly-button-echo-part (button) (sly-message (button-get 'part-label button)))
 
 
+;;; Overlay-button specifics
+;;;
+(defun sly-button--overlays-in (beg end)
+  "Return overlays overlapping positions BEG and END"
+  (cl-remove-if-not #'(lambda (button)
+                        (button-type-subtype-p (button-type button) 'sly-button))
+                    (overlays-in beg end)))
+
+(defun sly-button--overlays-between (beg end)
+  "Return overlays contained entirely between BEG and END"
+  (cl-remove-if-not #'(lambda (button)
+                        (and (>= (button-start button) beg)
+                             (<= (button-end button) end)))
+                    (sly-button--overlays-in beg end)))
+
+(defun sly-button--overlays-exactly-at (beg end)
+  "Return overlays exactly between BEG and END"
+  (cl-remove-if-not #'(lambda (button)
+                        (and (= (button-start button) beg)
+                             (= (button-end button) end)))
+                    (sly-button--overlays-in beg end)))
+
+(defun sly-button--overlays-at (&optional point)
+  "Return overlays near POINT"
+  (let ((point (or point (point))))
+    (cl-sort (sly-button--overlays-in (1- point) (1+ point))
+             #'> :key #'sly-button--overlay-priority)))
+
+(defun sly-button--overlay-priority (overlay)
+  (or (overlay-get overlay 'priority) 0))
+
+
+
 ;;; Button navigation
 ;;;
 (defvar sly-button--next-search-id 0)

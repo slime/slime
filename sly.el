@@ -2553,25 +2553,29 @@ to it depending on its sign."
       #'(lambda (result)
           (sly-compilation-finished result nil)))))
 
+(defvar sly-flash-inhibit nil
+  "If non-nil `sly-flash-region' does nothing")
+
 (cl-defun sly-flash-region (start end &key timeout face times)
   "Temporarily highlight region from START to END."
-  (let ((overlay (make-overlay start end)))
-    (overlay-put overlay 'face (or face
-                                   'highlight))
-    (overlay-put overlay 'priority 1000)
-    (run-with-timer
-     (or timeout 0.2) nil
-     #'(lambda ()
-         (delete-overlay overlay)
-         (when (and times
-                    (> times 1))
-           (run-with-timer
-            (or timeout 0.2) nil
-            #'(lambda ()
-                (sly-flash-region start end
-                                  :timeout timeout
-                                  :face face
-                                  :times (1- times)))))))))
+  (unless sly-flash-inhibit
+    (let ((overlay (make-overlay start end)))
+      (overlay-put overlay 'face (or face
+                                     'highlight))
+      (overlay-put overlay 'priority 1000)
+      (run-with-timer
+       (or timeout 0.2) nil
+       #'(lambda ()
+           (delete-overlay overlay)
+           (when (and times
+                      (> times 1))
+             (run-with-timer
+              (or timeout 0.2) nil
+              #'(lambda ()
+                  (sly-flash-region start end
+                                    :timeout timeout
+                                    :face face
+                                    :times (1- times))))))))))
 
 (defun sly-compilation-position (start-offset)
   (let ((line (save-excursion

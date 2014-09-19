@@ -101,18 +101,16 @@ Exits Emacs when finished. The exit code is the number of failed tests."
   (defmacro define-sly-ert-test (name &rest args)
     "Like `ert-deftest', but set tags automatically.
 Also don't error if `ert.el' is missing."
-    (if (not (featurep 'ert))
-        (warn "No ert.el found: not defining test %s"
-              name)
-      (let* ((docstring (and (stringp (second args))
-                             (second args)))
-             (args (if docstring
-                       (cddr args)
-                     (cdr args)))
-             (tags (sly-tests-auto-tags)))
-        `(ert-deftest ,name () ,(or docstring "No docstring for this test.")
-           :tags ',tags
-           ,@args))))
+    (declare (debug (&define name sexp sexp &rest def-form)))
+    (let* ((docstring (and (stringp (second args))
+                           (second args)))
+           (args (if docstring
+                     (cddr args)
+                   (cdr args)))
+           (tags (sly-tests-auto-tags)))
+      `(ert-deftest ,name () ,(or docstring "No docstring for this test.")
+                    :tags ',tags
+                    ,@args)))
 
   (defun sly-test-ert-test-for (name input i doc body fails-for style fname)
     `(define-sly-ert-test
@@ -139,7 +137,7 @@ Also don't error if `ert.el' is missing."
            `((let ((style (sly-communication-style)))
                (when (not (member style ',style))
                  (sly-skip-test (format "test not applicable for style %s"
-                                          style))))))
+                                        style))))))
        (apply #',fname ',input))))
 
 (defmacro def-sly-test (name args doc inputs &rest body)
