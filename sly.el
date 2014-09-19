@@ -4785,10 +4785,13 @@ argument is given, with CL:MACROEXPAND."
   (sly-eval-macroexpand-inplace
    (if repeatedly 'slynk:slynk-macroexpand 'slynk:slynk-macroexpand-1)))
 
-(defun sly-macroexpand-all ()
-  "Display the recursively macro expanded sexp at point."
-  (interactive)
-  (sly-eval-macroexpand 'slynk:slynk-macroexpand-all))
+(defun sly-macroexpand-all (&optional just-one)
+  "Display the recursively macro expanded sexp at point.
+With optional JUST-ONE prefix arg, use CL:MACROEXPAND-1."
+  (interactive "P")
+  (sly-eval-macroexpand (if just-one
+                            'swank:swank-macroexpand-1
+                          'slynk:slynk-macroexpand-all)))
 
 (defun sly-macroexpand-all-inplace ()
   "Display the recursively macro expanded sexp at point."
