@@ -4790,7 +4790,7 @@ argument is given, with CL:MACROEXPAND."
 With optional JUST-ONE prefix arg, use CL:MACROEXPAND-1."
   (interactive "P")
   (sly-eval-macroexpand (if just-one
-                            'swank:swank-macroexpand-1
+                            'slynk:slynk-macroexpand-1
                           'slynk:slynk-macroexpand-all)))
 
 (defun sly-macroexpand-all-inplace ()
