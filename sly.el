@@ -3405,7 +3405,7 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
                                  (mapconcat #'sly-note.message notes "\n")))
           (sly-message (sly-note.message (car notes))))))))
 
-(define-button-type 'sly-note :sypertype 'sly-action)
+(define-button-type 'sly-note :supertype 'sly-button)
 
 (define-button-type 'sly-in-buffer-note :supertype 'sly-note
   'keymap (let ((map (copy-keymap button-map)))
@@ -3424,13 +3424,20 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
   (cl-destructuring-bind (&optional beg end)
       (sly-choose-overlay-region note)
     (when beg
-      (make-button beg
-                 end
-                 :type 'sly-in-buffer-note
-                 'sly-button-search-id (sly-button-next-search-id)
-                 'sly-note note
-                 'priority (cl-position (sly-note.severity note) sly-severity-order)
-                 'face (sly-severity-face (sly-note.severity note))))))
+      (let* ((contained (sly-button--overlays-between beg end))
+             (containers (cl-set-difference (sly-button--overlays-at beg)
+                                            contained)))
+        (cl-loop for ov in contained
+                 do (overlay-put ov 'priority (1+ (overlay-get ov 'priority))))
+        (make-button beg
+                     end
+                     :type 'sly-in-buffer-note
+                     'sly-button-search-id (sly-button-next-search-id)
+                     'sly-note note
+                     'priority (1+ (cl-reduce #'max containers
+                                              :key (sly-rcurry #'overlay-get 'priority)
+                                              :initial-value 0))
+                     'face (sly-severity-face (sly-note.severity note)))))))
 
 (defun sly--compilation-note-group-button  (label notes)
   "Pepare notes as a `sly-compilation-note' button.
