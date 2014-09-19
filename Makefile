@@ -41,27 +41,39 @@ check: check-core check-fancy
 
 check-core: compile
 	$(EMACS) -Q --batch $(LOAD_PATH)				\
-		--eval "(require 'sly-tests \"lib/sly-tests\")"	        \
+		--eval "(require 'sly-tests \"lib/sly-tests\")"	\
 		--eval "(sly-setup)"					\
 		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
 		--eval '(sly-batch-test (quote $(SELECTOR)))'
 
-check-fancy: compile-contrib
-
 check-%: CONTRIB_NAME=$(patsubst check-%,sly-%,$@)
 check-%: CONTRIB_SELECTOR=(tag contrib)
 check-%: compile contrib/sly-%.elc
-	$(EMACS) -Q --batch $(LOAD_PATH) -L test                        \
-	        --eval "(require (quote sly))"                          \
-	        --eval "(sly-setup (quote ($(CONTRIB_NAME))))"          \
-	        --eval "(mapc (lambda (sym)                             \
-	                         (require                               \
-	                           (intern (format \"%s-tests\" sym))   \
-	                           nil t))                              \
-	                      (sly-contrib-all-dependencies             \
-	                        (quote $(CONTRIB_NAME))))"              \
-	        --eval "(setq inferior-lisp-program \"$(LISP)\")"       \
-	        --eval '(sly-batch-test (quote $(CONTRIB_SELECTOR)))'	
+	$(EMACS) -Q --batch $(LOAD_PATH) -L test			\
+		--eval "(require (quote sly))"				\
+		--eval "(sly-setup (quote ($(CONTRIB_NAME))))"		\
+		--eval "(require					\
+			  (intern					\
+			    (format					\
+			       \"%s-tests\" (quote $(CONTRIB_NAME)))))" \
+		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
+		--eval '(sly-batch-test (quote $(CONTRIB_SELECTOR)))'
+
+
+check-fancy: compile compile-contrib
+	$(EMACS) -Q --batch  $(LOAD_PATH) -L test			\
+		--eval "(setq debug-on-error t)"			\
+		--eval "(require (quote sly))"				\
+		--eval "(sly-setup (quote (sly-fancy)))"		\
+		--eval "(mapc (lambda (sym)				\
+				 (require				\
+				   (intern (format \"%s-tests\" sym))	\
+				   nil t))				\
+			      (sly-contrib-all-dependencies		\
+				(quote sly-fancy)))"			\
+		--eval '(setq inferior-lisp-program "$(LISP)")'	\
+		--eval '(sly-batch-test (quote (tag contrib)))'
+
 
 # Cleanup
 #
@@ -102,5 +114,4 @@ LISP      -- program to start Lisp ($(LISP))\n\
 SELECTOR  -- selector for ERT tests ($(SELECTOR))\n"
 
 .PHONY: all clean compile compile-contrib check check-core \
-        check-fancy dochelp help-vars
-
+	check-fancy dochelp help-vars
