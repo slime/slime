@@ -182,6 +182,14 @@
     (sly-stickers--set-tooltip sticker label)
     (sly-stickers--set-face sticker 'sly-stickers-placed-face)))
 
+(defun sly-stickers--last-value-desc (last-value-desc)
+  (cond ((keywordp last-value-desc)
+         last-value-desc)
+        ((null last-value-desc)
+         "(no values")
+        ((listp last-value-desc)
+         (car last-value-desc))))
+
 (defun sly-stickers--populate-sticker (sticker total-new last-value-desc)
   (let* ((id (sly-stickers--sticker-id sticker)))
     (button-put sticker 'part-label (format "Sticker %d has new recordings" id))
@@ -189,12 +197,7 @@
     (sly-stickers--set-tooltip sticker
                                (format "%d new recordings. Last value => %s"
                                        total-new
-                                       (cond ((keywordp last-value-desc)
-                                              last-value-desc)
-                                             ((null last-value-desc)
-                                              "(no values")
-                                             ((listp last-value-desc)
-                                              (car last-value-desc)))))
+                                       (sly-stickers--last-value-desc last-value-desc)))
     (sly-stickers--set-face sticker
                             (if (listp last-value-desc)
                                 'sly-stickers-recordings-face
@@ -207,7 +210,7 @@
     (if last-value-desc
         (sly-stickers--set-tooltip sticker
                                    (format "No new recordings. Last value => %s"
-                                           (car last-value-desc)))
+                                           (sly-stickers--last-value-desc last-value-desc)))
       (sly-stickers--set-tooltip sticker
                                  "No new recordings"))
     (sly-stickers--set-face sticker 'sly-stickers-empty-face)))

@@ -16,7 +16,7 @@
               (progn
                 (lisp-mode)
                 (insert (mapconcat #'pp-to-string
-                                   (append '((defpackage :slynk-stickers-fixture)
+                                   (append '((defpackage :slynk-stickers-fixture (:use :cl))
                                              (in-package :slynk-stickers-fixture))
                                            forms)
                                    "\n"))
@@ -58,9 +58,7 @@
 
 (define-sly-ert-test stickers-basic-navigation ()
   "Test that setting stickers and navigating to them works"
-  (sly-stickers--with-fixture ('((defpackage :slynk-stickers-fixture)
-                                 (in-package :slynk-stickers-fixture)
-                                 (defun foo () (bar (baz)))
+  (sly-stickers--with-fixture ('((defun foo () (bar (baz)))
                                  (defun quux () (coiso (cena))))
                                '("(bar" "(baz" "(coiso"))
     (goto-char (point-min))
@@ -78,9 +76,7 @@
 
 (define-sly-ert-test stickers-should-stick ()
   "Test trying to compile the buffer and checking that stickers stuck"
-  (sly-stickers--with-fixture ('((defpackage :slynk-stickers-fixture)
-                                 (in-package :slynk-stickers-fixture)
-                                 (defun foo () (bar (baz)))
+  (sly-stickers--with-fixture ('((defun foo () (bar (baz)))
                                  (defun quux () (coiso (cena))))
                                '("(bar" "(baz" "(coiso"))
     (call-interactively 'sly-compile-defun)
@@ -99,10 +95,8 @@
       (ert-fail "Expected outermost FOO sticker to also be armed by now."))))
 
 (define-sly-ert-test stickers-when-invalid-dont-stick ()
-  "Test trying to compile the buffer and checking that stickers stuck"
-  (sly-stickers--with-fixture ('((defpackage :slynk-stickers-fixture)
-                                 (in-package :slynk-stickers-fixture)
-                                 (defun foo () (bar (baz))))
+  "Test trying to make invalid stickers stick"
+  (sly-stickers--with-fixture ('((defun foo () (bar (baz))))
                                '("(bar" "(baz" "foo"))
     (goto-char (point-min))
     (call-interactively 'sly-stickers-next-sticker)
@@ -120,7 +114,7 @@
       (ert-fail "Expected valid FOO sticker to remain unarmed"))))
 
 (define-sly-ert-test stickers-record-stuff ()
-  "Test trying to compile the buffer and checking that stickers stuck"
+  "Test actually checking stickers' values."
   (sly-stickers--with-fixture ('((defun foo () (bar (baz)))
                                  (defun quux () (coiso (cena)))
 
