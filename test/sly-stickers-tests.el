@@ -26,7 +26,8 @@
                          (goto-char (point-max))
                          (search-backward prefix)
                          (call-interactively 'sly-stickers-dwim))
-                (funcall function))
+                (funcall function)
+		(sly-sync-to-top-level 1))
             (unless sly-stickers--test-debug
               (kill-buffer (current-buffer)))))
       (if sly-stickers--test-debug
@@ -152,6 +153,5 @@
     (sly-sync-to-top-level 1)
     (unless (sly-stickers--face-p 'sly-stickers-exited-non-locally-face)
       (ert-fail "Expected QUXX sticker COISO to have exited non-locally"))))
-
 
 (provide 'sly-stickers-tests)
