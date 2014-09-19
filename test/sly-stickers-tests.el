@@ -6,7 +6,10 @@
 
 (defun sly-stickers--call-with-fixture (function forms sticker-prefixes)
   (let ((file (make-temp-file "sly-stickers--fixture"))
-        (sly-flash-inhibit t))
+        (sly-flash-inhibit t)
+         ;; important HACK so this doesn't fail with the `sly-retro'
+         ;; contrib.
+        (sly-net-send-translator nil))
     (unwind-protect
         (with-current-buffer
             (find-file-literally file)
