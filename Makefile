@@ -57,8 +57,7 @@ check-%: compile contrib/sly-%.elc
 			    (format					\
 			       \"%s-tests\" (quote $(CONTRIB_NAME)))))" \
 		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
-		--eval '(sly-batch-test (quote (and (tag contrib)	\
-			                            $(SELECTOR))))'
+		--eval '(sly-batch-test (quote (tag contrib)))'	
 
 
 check-fancy: compile compile-contrib
@@ -72,8 +71,7 @@ check-fancy: compile compile-contrib
 			      (sly-contrib-all-dependencies		\
 				(quote sly-fancy)))"			\
 		--eval '(setq inferior-lisp-program "$(LISP)")'		\
-		--eval '(sly-batch-test (quote (and (tag contrib)	\
-			                            $(SELECTOR))))'
+		--eval '(sly-batch-test (quote (tag contrib)))'	
 
 
 # Cleanup
