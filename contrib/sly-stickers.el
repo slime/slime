@@ -119,9 +119,19 @@
                     :times times
                     :face 'default))
 
+(defun sly-stickers--stickers-in (beg end)
+  (sly-button--overlays-in beg end 'sly-stickers--sticker-id))
+(defun sly-stickers--stickers-at (pos)
+  (sly-button--overlays-at pos 'sly-stickers--sticker-id))
+(defun sly-stickers--stickers-between (beg end)
+  (sly-button--overlays-between beg end 'sly-stickers--sticker-id))
+(defun sly-stickers--stickers-exactly-at (beg end)
+  (sly-button--overlays-exactly-at beg end 'sly-stickers--sticker-id))
+
+
 (defun sly-stickers--sticker (from to)
-  (let* ((intersecting (sly-button--overlays-in from to))
-         (contained (sly-button--overlays-between from to))
+  (let* ((intersecting (sly-stickers--stickers-in from to))
+         (contained (sly-stickers--stickers-between from to))
          (not-contained (cl-set-difference intersecting contained))
          (containers nil))
     (unless (cl-every #'(lambda (e)
@@ -129,7 +139,7 @@
                                (> (button-end e) to)))
                       not-contained)
       (sly-error "Cannot place a sticker that partially overlaps other stickers"))
-    (when (sly-button--overlays-exactly-at from to)
+    (when (sly-stickers--stickers-exactly-at from to)
       (sly-error "There is already a sticker at those very coordinates"))
     ;; by now we know that other intersecting, non-contained stickers
     ;; are our containers.
@@ -218,11 +228,11 @@
 (defun sly-stickers--sticker-substickers (sticker)
   (let* ((retval
           (remove sticker
-                  (sly-button--overlays-between (button-start sticker) (button-end sticker))))
+                  (sly-stickers--stickers-between (button-start sticker) (button-end sticker))))
          ;; To verify an important invariant, and warn (don't crash)
          ;; 
          (exactly-at
-          (sly-button--overlays-exactly-at (button-start sticker) (button-end sticker))))
+          (sly-stickers--stickers-exactly-at (button-start sticker) (button-end sticker))))
     (cond ((remove sticker exactly-at)
            (sly-warning "Something's fishy. More than one sticker at same position")
            (cl-set-difference retval exactly-at))
@@ -314,7 +324,7 @@
   (interactive "r")
   (let* ((from (or from (region-beginning)))
          (to (or to (region-end)))
-         (stickers (sly-button--overlays-in from to)))
+         (stickers (sly-stickers--stickers-in from to)))
     (cond (stickers
            (mapc #'sly-stickers--delete stickers)
            (sly-message "%s stickers cleared" (length stickers)))
@@ -324,7 +334,7 @@
 (defun sly-stickers-delete-sticker-at-point (&optional point)
   "Delete the topmost sticker at point."
   (interactive "d")
-  (let ((stickers (sly-button--overlays-at (or point (point)))))
+  (let ((stickers (sly-stickers--stickers-at (or point (point)))))
     (cond (stickers
            (sly-stickers--delete (car stickers))
            (if (cdr stickers)
@@ -346,7 +356,7 @@ otherwise, add a sticker to the sexp at point."
            (beg (car bounds))
            (end (cdr bounds))
            (matching (and bounds
-                          (sly-button--overlays-exactly-at beg end))))
+                          (sly-stickers--stickers-exactly-at beg end))))
       (cond ((not bounds)
              (sly-message "Nothing here to place sticker on, apparently"))
             (matching
@@ -411,7 +421,7 @@ With interactive prefix arg PREFIX always delete stickers.
   "Compile from START to END considering stickers.
 Intented to be placed in `sly-compile-region-function'"
   (let* ((uninstrumented (buffer-substring-no-properties start end))
-         (stickers (sly-button--overlays-between start end))
+         (stickers (sly-stickers--stickers-between start end))
          (dead-ids (append (mapcar #'sly-stickers--sticker-id stickers)
                            (sly-stickers--bring-out-yer-dead)))
          (original-buffer (current-buffer)))
@@ -471,7 +481,7 @@ Intented to be placed in `sly-compile-region-function'"
   (when (and buffer loadp)
     (save-restriction
       (widen)
-      (let ((stickers (sly-button--overlays-between (point-min) (point-max))))
+      (let ((stickers (sly-stickers--stickers-between (point-min) (point-max))))
         (mapc #'sly-stickers--disarm-sticker stickers)
         (when success
           (sly-temp-message 3 3

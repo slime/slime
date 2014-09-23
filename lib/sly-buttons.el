@@ -124,30 +124,32 @@
 
 ;;; Overlay-button specifics
 ;;;
-(defun sly-button--overlays-in (beg end)
+(defun sly-button--overlays-in (beg end &optional filter)
   "Return overlays overlapping positions BEG and END"
   (cl-remove-if-not #'(lambda (button)
-                        (button-type-subtype-p (button-type button) 'sly-button))
+                        (and (button-type-subtype-p (button-type button) 'sly-button)
+                             (or (not filter)
+                                 (funcall filter button))))
                     (overlays-in beg end)))
 
-(defun sly-button--overlays-between (beg end)
+(defun sly-button--overlays-between (beg end &optional filter)
   "Return overlays contained entirely between BEG and END"
   (cl-remove-if-not #'(lambda (button)
                         (and (>= (button-start button) beg)
                              (<= (button-end button) end)))
-                    (sly-button--overlays-in beg end)))
+                    (sly-button--overlays-in beg end filter)))
 
-(defun sly-button--overlays-exactly-at (beg end)
+(defun sly-button--overlays-exactly-at (beg end &optional filter)
   "Return overlays exactly between BEG and END"
   (cl-remove-if-not #'(lambda (button)
                         (and (= (button-start button) beg)
                              (= (button-end button) end)))
-                    (sly-button--overlays-in beg end)))
+                    (sly-button--overlays-in beg end filter)))
 
-(defun sly-button--overlays-at (&optional point)
+(defun sly-button--overlays-at (&optional point filter)
   "Return overlays near POINT"
   (let ((point (or point (point))))
-    (cl-sort (sly-button--overlays-in (1- point) (1+ point))
+    (cl-sort (sly-button--overlays-in (1- point) (1+ point) filter)
              #'> :key #'sly-button--overlay-priority)))
 
 (defun sly-button--overlay-priority (overlay)
@@ -163,12 +165,7 @@
   (cl-incf sly-button--next-search-id))
 
 (defun sly-button--searchable-buttons-at (pos filter)
-  (cl-sort (cl-remove-if-not #'(lambda (button)
-                                 (and (funcall filter button)
-                                      (button-get button 'sly-button-search-id)))
-                             (overlays-in (1- pos) (1+ pos)))
-           #'>
-           :key #'(lambda (ov) (or (overlay-get ov 'priority) 0))))
+  (sly-button--overlays-at pos filter))
 
 (defun sly-button-search (n &optional filter)
   "Go forward to Nth buttons verifying FILTER and echo it.
