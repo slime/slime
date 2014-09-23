@@ -487,6 +487,7 @@ emptied. See also `sly-mrepl-hook'")
       (add-text-properties start (point) '(read-only t))))
   (sly-mrepl--merge-and-save-history)
   (when sly-mrepl--dedicated-stream
+    (process-put sly-mrepl--dedicated-stream 'sly-mrepl--channel nil)
     (kill-buffer (process-buffer sly-mrepl--dedicated-stream)))
   ;; signal lisp that we're closingq
   (when (ignore-errors (sly-connection))
@@ -497,12 +498,15 @@ emptied. See also `sly-mrepl-hook'")
     (delete-process (sly-mrepl--process))))
 
 (defun sly-mrepl--dedicated-stream-output-filter (process string)
-  (let ((channel (process-get process 'sly-mrepl--channel)))
-    (when channel
-      (with-current-buffer (sly-channel-get channel 'buffer)
-        (when (and (cl-plusp (length string))
-                   (eq (process-status sly-buffer-connection) 'open))
-          (sly-mrepl--insert-output string 'sly-mrepl-output-face))))))
+  (let* ((channel (process-get process 'sly-mrepl--channel))
+         (buffer (and channel
+                      (sly-channel-get channel 'buffer))))
+    (if (buffer-live-p buffer)
+        (with-current-buffer buffer
+          (when (and (cl-plusp (length string))
+                     (eq (process-status sly-buffer-connection) 'open))
+            (sly-mrepl--insert-output string 'sly-mrepl-output-face)))
+      (sly-warning "No channel in process %s, probaly torn down" process))))
 
 (defun sly-mrepl--open-dedicated-stream (channel port coding-system)
   (let* ((name (format "sly-dds-%s-%s"

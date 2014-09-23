@@ -7,35 +7,34 @@
 (defun sly-stickers--call-with-fixture (function forms sticker-prefixes)
   (let ((file (make-temp-file "sly-stickers--fixture"))
         (sly-flash-inhibit t)
-         ;; important HACK so this doesn't fail with the `sly-retro'
-         ;; contrib.
+        ;; important HACK so this doesn't fail with the `sly-retro'
+        ;; contrib.
         (sly-net-send-translator nil))
+    (sly-eval-async '(cl:ignore-errors (cl:delete-package :slynk-stickers-fixture)))
+    (sly-sync-to-top-level 1)
     (unwind-protect
         (with-current-buffer
             (find-file file)
-          (sly-eval-async '(cl:ignore-errors (cl:delete-package :slynk-stickers-fixture)))
-          (sly-sync-to-top-level 1)
-          (unwind-protect
-              (progn
-                (lisp-mode)
-                (insert (mapconcat #'pp-to-string
-                                   (append '((defpackage :slynk-stickers-fixture (:use :cl))
-                                             (in-package :slynk-stickers-fixture))
-                                           forms)
-                                   "\n"))
-                (write-file file)
-                (cl-loop for prefix in sticker-prefixes
-                         do
-                         (goto-char (point-max))
-                         (search-backward prefix)
-                         (call-interactively 'sly-stickers-dwim))
-                (funcall function)
-		(sly-sync-to-top-level 1))
-            (unless sly-stickers--test-debug
-              (kill-buffer (current-buffer)))))
+          (lisp-mode)
+          (insert (mapconcat #'pp-to-string
+                             (append '((defpackage :slynk-stickers-fixture (:use :cl))
+                                       (in-package :slynk-stickers-fixture))
+                                     forms)
+                             "\n"))
+          (write-file file)
+          (cl-loop for prefix in sticker-prefixes
+                   do
+                   (goto-char (point-max))
+                   (search-backward prefix)
+                   (call-interactively 'sly-stickers-dwim))
+          (funcall function)
+          (sly-sync-to-top-level 1))
       (if sly-stickers--test-debug
           (sly-message "leaving file %s" file)
-        (delete-file file)))))
+        (let ((visitor (find-buffer-visiting file)))
+          (when visitor (kill-buffer visitor)))
+        (delete-file file))
+      )))
 
 (cl-defmacro sly-stickers--with-fixture ((forms sticker-prefixes) &rest body)
   (declare (indent defun) (debug (sexp &rest form)))
@@ -57,7 +56,9 @@
       (plist-get face :inherit))))
 
 (defun sly-stickers--face-p (face)
-  (eq face (sly-stickers--base-face (sly-stickers--topmost-sticker))))
+  (let* ((sticker (sly-stickers--topmost-sticker))
+         (actual (sly-stickers--base-face sticker)))
+    (eq face actual)))
 
 (define-sly-ert-test stickers-basic-navigation ()
   "Test that setting stickers and navigating to them works"
@@ -119,11 +120,9 @@
 (define-sly-ert-test stickers-record-stuff ()
   "Test actually checking stickers' values."
   (sly-stickers--with-fixture ('((defun foo () (bar (baz)))
-                                 (defun quux () (coiso (cena)))
-
                                  (defun bar (x) (values (list x) 'bar))
                                  (defun baz () 42))
-                               '("(bar" "(baz" "(coiso"))
+                               '("(bar" "(baz"))
     
     (goto-char (point-min))
     (call-interactively 'sly-compile-and-load-file)
@@ -133,7 +132,10 @@
     ;; compile defun shouldn't be needed
     (call-interactively 'sly-compile-defun)
     (sly-sync-to-top-level 1)
+    (unless (sly-stickers--face-p 'sly-stickers-armed-face)
+      (ert-fail "Expected BAR sticker to be armed by now"))
     (sly-eval-async '(slynk-stickers-fixture::foo))
+    (sly-sync-to-top-level 1)
     (call-interactively 'sly-stickers-fetch)
     (sly-sync-to-top-level 1)
     (unless (sly-stickers--face-p 'sly-stickers-recordings-face)

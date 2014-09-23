@@ -57,12 +57,12 @@ check-%: compile contrib/sly-%.elc
 			    (format					\
 			       \"%s-tests\" (quote $(CONTRIB_NAME)))))" \
 		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
-		--eval '(sly-batch-test (quote $(CONTRIB_SELECTOR)))'
+		--eval '(sly-batch-test (quote (and (tag contrib)	\
+			                            $(SELECTOR))))'
 
 
 check-fancy: compile compile-contrib
 	$(EMACS) -Q --batch  $(LOAD_PATH) -L test			\
-		--eval "(setq debug-on-error t)"			\
 		--eval "(require (quote sly))"				\
 		--eval "(sly-setup (quote (sly-fancy)))"		\
 		--eval "(mapc (lambda (sym)				\
@@ -71,8 +71,9 @@ check-fancy: compile compile-contrib
 				   nil t))				\
 			      (sly-contrib-all-dependencies		\
 				(quote sly-fancy)))"			\
-		--eval '(setq inferior-lisp-program "$(LISP)")'	\
-		--eval '(sly-batch-test (quote (tag contrib)))'
+		--eval '(setq inferior-lisp-program "$(LISP)")'		\
+		--eval '(sly-batch-test (quote (and (tag contrib)	\
+			                            $(SELECTOR))))'
 
 
 # Cleanup
