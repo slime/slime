@@ -152,6 +152,12 @@
     (cl-sort (sly-button--overlays-in (1- point) (1+ point) filter)
              #'> :key #'sly-button--overlay-priority)))
 
+(defun sly-button--overlays-starting-at (&optional point filter)
+  (let ((point (or point (point))))
+    (cl-remove-if-not #'(lambda (button)
+                        (= (button-start button) point))
+                      (sly-button--overlays-at point filter))))
+
 (defun sly-button--overlay-priority (overlay)
   (or (overlay-get overlay 'priority) 0))
 
@@ -167,6 +173,37 @@
 (defun sly-button--searchable-buttons-at (pos filter)
   (sly-button--overlays-at pos filter))
 
+(defvar sly-button--last-search-command nil)
+
+(defun sly-button--search-1 (n filter)
+  (cl-loop with off-by-one = (if (cl-plusp n) -1 +1)
+           for search-start = (point) then pos
+           for preval = (and (not (cond ((cl-plusp n)
+                                         (= search-start (point-min)))
+                                        (t
+                                         (= search-start (point-max)))))
+                             (get-char-property (+ off-by-one
+                                                   search-start)
+                                                'sly-button-search-id))
+           for pos = (funcall
+                      (if (cl-plusp n)
+                          #'next-single-char-property-change
+                        #'previous-single-char-property-change)
+                      search-start
+                      'sly-button-search-id)
+           for newval = (get-char-property pos 'sly-button-search-id)
+           until (cond ((cl-plusp n)
+                        (= pos (point-max)))
+                       (t
+                        (= pos (point-min))))
+           for buttons = (sly-button--searchable-buttons-at
+                          pos (or filter #'identity))
+           when (and buttons
+                     newval
+                     (not (eq newval preval))
+                     (eq pos (button-start (car buttons))))
+           return buttons))
+
 (defun sly-button-search (n &optional filter)
   "Go forward to Nth buttons verifying FILTER and echo it.
 
@@ -177,47 +214,24 @@ If more than one button overlap the same region, the button
 starting before is visited first. If more than one button start
 at exactly the same spot, they are both visited simultaneously,
 `sly-button-echo' being passed a variable number of button arguments."
-  (cl-loop with off-by-one = (if (cl-plusp n) -1 +1)
-           for i from 0 below (abs n)
-           for buttons =
-           (cl-loop for search-start = (point) then pos
-                    for preval = (and (not (cond ((cl-plusp n)
-                                                  (= search-start (point-min)))
-                                                 (t
-                                                  (= search-start (point-max)))))
-                                      (get-char-property (+ off-by-one
-                                                       search-start)
-                                                    'sly-button-search-id))
-                    for pos = (funcall
-                               (if (cl-plusp n)
-                                   #'next-single-char-property-change
-                                 #'previous-single-char-property-change)
-                               search-start
-                               'sly-button-search-id)
-                    for newval = (get-char-property pos 'sly-button-search-id)
-                    until (cond ((cl-plusp n)
-                                 (= pos (point-max)))
-                                (t
-                                 (= pos (point-min))))
-                    for buttons = (sly-button--searchable-buttons-at
-                                   pos (or filter #'identity))
-                    when (and buttons
-                              newval
-                              (not (eq newval preval))
-                              (eq pos (button-start (car buttons))))
-                    return buttons)
+  (cl-loop for i from 0 below (abs n)
+           for buttons = (or (and (not (eq this-command sly-button--last-search-command))
+                                  (sly-button--overlays-starting-at (point)))
+                             (sly-button--search-1 n filter))
            for button = (car buttons)
            while buttons
-           finally (cond (buttons
-                          (goto-char (button-start (car buttons)))
-                          (apply (button-get button 'sly-button-echo)
-                                 button
-                                 (cl-remove-if-not
-                                  #'(lambda (b)
-                                      (= (button-start b) (button-start button)))
-                                  (cdr buttons))))
-                         (t
-                          (sly-message "No more buttons!")))))
+           finally
+           (setq sly-button--last-search-command this-command)
+           (cond (buttons
+                  (goto-char (button-start (car buttons)))
+                  (apply (button-get button 'sly-button-echo)
+                         button
+                         (cl-remove-if-not
+                          #'(lambda (b)
+                              (= (button-start b) (button-start button)))
+                          (cdr buttons))))
+                 (t
+                  (sly-message "No more buttons!")))))
 
 (defvar sly-button-filter-function #'identity
   "Filter buttons considered by `sly-button-forward'
