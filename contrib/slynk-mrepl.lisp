@@ -56,15 +56,6 @@
 (defun mrepl-get-object-from-history (entry-idx value-idx)
   (nth value-idx (mrepl-get-history-entry entry-idx)))
 
-(defun copy-values-to-repl (repl values)
-  ;; FIXME: Notice some duplication to MREPL-EVAL.
-  (setq /// //  // /  / values
-        *** **  ** *  * (car values))
-  (vector-push-extend values *history*)
-  (send-to-remote-channel (mrepl-remote-id repl)
-                          `(:copy-to-repl ,(mapcar #'slynk::to-line values)))
-  (send-prompt repl))
-
 (defun mrepl-eval (repl string)
   (let ((aborted t)
         (results)
@@ -105,13 +96,16 @@
                                            results)))))
           (send-prompt repl))))))
 
+(defun prompt-arguments (repl condition)
+  `(,(package-name *package*)
+    ,(package-string-for-prompt *package*)
+    ,(length (mrepl-pending-errors repl))
+    ,@(when condition
+        (list (prin1-to-string condition)))))
+
 (defun send-prompt (repl &optional condition)
   (send-to-remote-channel (mrepl-remote-id repl)
-                          `(:prompt ,(package-name *package*)
-                                    ,(package-string-for-prompt *package*)
-                                    ,(length (mrepl-pending-errors repl))
-                                    ,@(when condition
-                                        (list (prin1-to-string condition))))))
+                          `(:prompt ,@(prompt-arguments repl condition))))
 
 (defun mrepl-read (repl string)
   (with-slots (tag) repl
@@ -166,27 +160,6 @@
 
 ;;; Channel methods
 ;;;
-(define-channel-method :copy-to-repl ((r mrepl) &optional entry-idx value-idx)
-  (with-listener r
-    (let ((objects
-            (cond ((and entry-idx value-idx)
-                   (list (mrepl-get-object-from-history entry-idx value-idx)))
-                  (entry-idx
-                   (mrepl-get-history-entry entry-idx))
-                  (value-idx
-                   (error "Doesn't make sense"))
-                  (t
-                   *saved-objects*))))
-      (copy-values-to-repl r objects))))
-
-(define-channel-method :sync-package-and-default-directory ((r mrepl)
-                                                            package-name
-                                                            directory)
-  (with-listener r
-    (slynk:set-default-directory directory)
-    (guess-and-set-package package-name)
-    (copy-values-to-repl r (list *package* *default-pathname-defaults*))))
-
 (define-channel-method :inspect-object ((r mrepl) entry-idx value-idx)
   (with-listener r
     (send-to-remote-channel
@@ -248,12 +221,6 @@
   (setq *saved-objects* (multiple-value-list (apply slave-slyfun args)))
   t)
 
-(defslyfun guess-and-set-package (package-name)
-  (let ((package (slynk::guess-package package-name)))
-    (if package
-        (and (setq *package* package) t)
-        (error "Can't find a package for designator ~a" package-name))))
-
 (defmacro with-eval-for-repl ((remote-id &optional mrepl-sym) &body body)
   (let ((mrepl-sym (or mrepl-sym
                        (gensym))))
@@ -268,14 +235,21 @@
        (with-listener ,mrepl-sym
          ,@body))))
 
-;; TODO: make many channel methods use EVAL-FOR-MREPL instead of the
-;; ugly GLOBALLY-SAVE-OBJECT scheme.
 (defslyfun eval-for-mrepl (remote-id slave-slyfun &rest args)
-  "Call SLAVE-SLYFUN with ARGS in the MREPL of REMOTE-ID.
-Both the target MREPL's thread and environment are considered."
+  "A synchronous form for evaluation in the mREPL context.
+
+Calls SLAVE-SLYFUN with ARGS in the MREPL of REMOTE-ID. Both the
+target MREPL's thread and environment are considered.
+
+This function returns a list of with two elements. The first is a list
+of arguments as sent in the :PROMPT channel method reply. The second
+is the values list returned by SLAVE-SLYFUN transformed into a normal
+list and filtered through SLYNK::TO-LINE."
   (with-eval-for-repl (remote-id mrepl)
-    (apply slave-slyfun args)
-    (send-prompt mrepl)))
+    (let ((objects (multiple-value-list (apply slave-slyfun args))))
+      (list
+       (prompt-arguments mrepl nil)
+       (mapcar #'slynk::to-line objects)))))
 
 (defslyfun inspect-entry (remote-id entry-idx value-idx)
   (with-eval-for-repl (remote-id)
@@ -291,6 +265,40 @@ Both the target MREPL's thread and environment are considered."
   (with-eval-for-repl (remote-id)
     (slynk::slynk-pprint
      (list (mrepl-get-object-from-history entry-idx value-idx)))))
+
+
+;;; "Slave" slyfuns.
+;;;
+;;; These are slyfuns intented to be called as the SLAVE-SLYFUN
+;;; argument of EVAL-FOR-MREPL. 
+;;; 
+
+(defslyfun guess-and-set-package (package-name)
+  (let ((package (slynk::guess-package package-name)))
+    (if package
+        (setq *package* package)
+        (error "Can't find a package for designator ~a" package-name))))
+
+(defslyfun copy-to-repl (&optional entry-idx value-idx)
+  (let ((objects
+          (cond ((and entry-idx value-idx)
+                 (list (mrepl-get-object-from-history entry-idx value-idx)))
+                (entry-idx
+                 (mrepl-get-history-entry entry-idx))
+                (value-idx
+                 (error "Doesn't make sense"))
+                (t
+                 *saved-objects*))))
+    (setq /// //  // /  / objects
+          *** **  ** *  * (car objects))
+    (vector-push-extend objects *history*)
+    (values-list objects)))
+
+(defslyfun sync-package-and-default-directory (package-name
+                                               directory)
+  (slynk:set-default-directory directory)
+  (guess-and-set-package package-name)
+  (values *package* *default-pathname-defaults*))
 
 
 ;;;; Dedicated stream

@@ -120,7 +120,6 @@ emptied. See also `sly-mrepl-hook'")
 (defvar sly-mrepl--last-prompt-overlay nil)
 (defvar sly-mrepl--pending-output nil
   "Output that can't be inserted right now.")
-(defvar sly-mrepl--copy-to-repl-after nil)
 (defvar sly-mrepl--dedicated-stream-hooks)
 (defvar sly-mrepl--history-separator "####\n")
 
@@ -145,7 +144,6 @@ emptied. See also `sly-mrepl-hook'")
                 (sly-mrepl--read-mode nil)
                 (sly-mrepl--result-counter -1)
                 (sly-mrepl--pending-output nil)
-                (sly-mrepl--copy-to-repl-after nil)
                 (sly-mrepl--output-mark ,(point-marker))
                 (sly-mrepl--last-prompt-overlay ,(make-overlay 0 0 nil nil))
                 (sly-find-buffer-package-function sly-mrepl-guess-package)
@@ -169,21 +167,6 @@ emptied. See also `sly-mrepl-hook'")
 (sly-define-channel-method listener :write-values (values)
   (with-current-buffer (sly-channel-get self 'buffer)
     (sly-mrepl--insert-returned-values values)))
-
-(sly-define-channel-method listener :copy-to-repl (objects)
-  (with-current-buffer (sly-channel-get self 'buffer)
-    (goto-char (sly-mrepl--mark))
-    (let ((saved-text (buffer-substring (point) (point-max))))
-      (delete-region (point) (point-max))
-      (sly-mrepl--catch-up)
-      (sly-mrepl--insert-returned-values objects)
-      (pop-to-buffer (current-buffer))
-      (goto-char (sly-mrepl--mark))
-      (insert saved-text)
-      (unwind-protect
-          (when sly-mrepl--copy-to-repl-after
-            (funcall sly-mrepl--copy-to-repl-after objects))
-        (setq sly-mrepl--copy-to-repl-after nil)))))
 
 (sly-define-channel-method listener :evaluation-aborted (&optional condition)
   (with-current-buffer (sly-channel-get self 'buffer)
@@ -370,7 +353,7 @@ emptied. See also `sly-mrepl-hook'")
                                   0
                                   (and (eq (window-system) 'w32) 1)))))
 
-(defun sly-mrepl--insert-prompt (package prompt error-level condition)
+(defun sly-mrepl--insert-prompt (package prompt error-level &optional condition)
   (sly-mrepl--accept-process-output)
   (overlay-put sly-mrepl--last-prompt-overlay 'face 'bold)
   (sly-mrepl--ensure-newline)
@@ -400,16 +383,34 @@ emptied. See also `sly-mrepl-hook'")
                                    (format "Returning value %s of history entry %s"
                                            value-idx entry-idx)))
 
+(defun sly-mrepl--eval-for-repl (slyfun-and-args &optional insert-p callback)
+  (sly-eval-async `(slynk-mrepl:eval-for-mrepl
+                    ,sly-mrepl--remote-channel
+                    ',(car slyfun-and-args)
+                    ,@(cdr slyfun-and-args))
+    (lambda (prompt-args-and-objects)
+      (goto-char (sly-mrepl--mark))
+      (let ((saved-text (buffer-substring (point) (point-max))))
+        (delete-region (point) (point-max))
+        (sly-mrepl--catch-up)
+        (when callback
+          (funcall callback (cl-second prompt-args-and-objects)))
+        (when insert-p
+          (sly-mrepl--insert-returned-values (cl-second prompt-args-and-objects)))
+        (apply #'sly-mrepl--insert-prompt (cl-first prompt-args-and-objects))
+        (pop-to-buffer (current-buffer))
+        (goto-char (sly-mrepl--mark))
+        (insert saved-text)))))
+
 (defun sly-mrepl--copy-objects-to-repl (method-args note &optional callback)
-  (when sly-mrepl--copy-to-repl-after
-    (sly-warning "A previous copy-to-repl operation has failed."))
-  (setq sly-mrepl--copy-to-repl-after
-        #'(lambda (objects)
-            (when note
-              (sly-mrepl--insert-output (concat "; " note)))
-            (when callback
-              (funcall callback objects))))
-  (sly-mrepl--send `(:copy-to-repl ,@method-args)))
+  (sly-mrepl--eval-for-repl `(slynk-mrepl:copy-to-repl
+                              ,@method-args)
+                            'insert-values
+                            #'(lambda (objects)
+                                (when note
+                                  (sly-mrepl--insert-output (concat "; " note)))
+                                (when callback
+                                  (funcall callback objects)))))
 
 (defun sly-mrepl--make-result-button (label entry-idx value-idx)
   (make-text-button label nil
@@ -540,7 +541,7 @@ emptied. See also `sly-mrepl-hook'")
     (run-hook-with-args 'sly-mrepl--dedicated-stream-hooks stream)
     stream))
 
-(defun sly-mrepl--eval-for-repl (note slyfun-and-args &optional callback)
+(defun sly-mrepl--save-and-copy-for-repl (note slyfun-and-args &optional callback)
   (sly-eval-async
    `(slynk-mrepl:globally-save-object ',(car slyfun-and-args)
                                       ,@(cdr slyfun-and-args))
@@ -706,12 +707,14 @@ handle to distinguish the new buffer from the existing."
         (directory default-directory))
     (sly-mrepl--with-repl-for (sly-connection)
       (cd directory)
-      (setq sly-mrepl--copy-to-repl-after
-            #'(lambda (_objects)
-                (sly-mrepl--insert-output "; Synchronizing package and dir")))
-      (sly-mrepl--send `(:sync-package-and-default-directory
-                         ,package
-                         ,(sly-to-lisp-filename directory))))))
+      (sly-mrepl--eval-for-repl
+       `(slynk-mrepl:sync-package-and-default-directory
+         ,package
+         ,directory)
+       nil
+       #'(lambda (_results)
+           (sly-mrepl--insert-output
+            (format "; Synched package to %s and dir to %s" package directory)))))))
 
 (defun sly-mrepl-clear-repl ()
   "Clear all this REPL's output history.
@@ -747,35 +750,35 @@ Doesn't clear input history."
 ;;;
 (defun sly-inspector-copy-part-to-repl (number)
   "Evaluate the inspector slot at point via the REPL (to set `*')."
-  (sly-mrepl--eval-for-repl (format "Returning inspector slot %s" number)
+  (sly-mrepl--save-and-copy-for-repl (format "Returning inspector slot %s" number)
                             `(slynk:inspector-nth-part-or-lose ,number)))
 
 (defun sly-db-copy-part-to-repl (frame-id var-id)
   "Evaluate the frame var at point via the REPL (to set `*')."
-  (sly-mrepl--eval-for-repl
+  (sly-mrepl--save-and-copy-for-repl
    (format "Returning var %s of frame %s" var-id frame-id)
    `(slynk-backend:frame-var-value ,frame-id ,var-id)))
 
 (defun sly-apropos-copy-symbol-to-repl (name _type)
-  (sly-mrepl--eval-for-repl
+  (sly-mrepl--save-and-copy-for-repl
    (format "Returning symbol %s" name)
    `(common-lisp:identity ',(car (read-from-string name)))))
 
 (defun sly-trace-dialog-copy-part-to-repl (id part-id type)
   "Eval the Trace Dialog entry under point in the REPL (to set *)"
-  (sly-mrepl--eval-for-repl
+  (sly-mrepl--save-and-copy-for-repl
    (format "Returning part %s (%s) of trace entry %s" part-id type id)
    `(slynk-trace-dialog:trace-part-or-lose ,id ,part-id ,type)))
 
 (defun sly-db-copy-call-to-repl (frame-id spec)
-  (sly-mrepl--eval-for-repl
+  (sly-mrepl--save-and-copy-for-repl
    (format "The actual arguments passed to frame %s" frame-id)
    `(slynk-backend:frame-arguments ,frame-id)
    #'(lambda (objects)
        (sly-mrepl--insert-call spec objects))))
 
 (defun sly-trace-dialog-copy-call-to-repl (trace-id spec)
-  (sly-mrepl--eval-for-repl
+  (sly-mrepl--save-and-copy-for-repl
    (format "The actual arguments passed to trace %s" trace-id)
    `(slynk-trace-dialog:trace-arguments-or-lose ,trace-id)
    #'(lambda (objects)
@@ -808,15 +811,13 @@ Doesn't clear input history."
 (defun sly-mrepl-set-package ()
   (interactive)
   (let ((package (sly-read-package-name "New package: ")))
-    (sly-eval-async `(slynk-mrepl:eval-for-mrepl
-                      ,sly-mrepl--remote-channel
-                      'slynk-mrepl:guess-and-set-package ,package))))
+    (sly-mrepl--eval-for-repl `(slynk-mrepl:guess-and-set-package ,package))))
 
 (defun sly-mrepl-set-directory ()
   (interactive)
   (let ((directory (read-directory-name "New directory: " default-directory nil t)))
-    (sly-mrepl--eval-for-repl (format "Setting directory to %s" directory)
-                              `(slynk:set-default-directory ,directory))
+    (sly-mrepl--save-and-copy-for-repl (format "Setting directory to %s" directory)
+                                       `(slynk:set-default-directory ,directory))
     (cd directory)))
 
 (defun sly-mrepl-shortcut ()
