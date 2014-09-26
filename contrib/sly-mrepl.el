@@ -68,6 +68,11 @@
 After running the contents of this hook its default value is
 emptied. See also `sly-mrepl-hook'")
 
+(defcustom sly-mrepl-shortcut-key ","
+  "Keybinding string used for the REPL shortcut commands."
+  :group 'sly
+  :type 'string)
+
 (defvar sly-mrepl-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET")     'sly-mrepl-return)
@@ -77,6 +82,11 @@ emptied. See also `sly-mrepl-hook'")
     (define-key map (kbd "C-c C-c") 'sly-interrupt)
     (define-key map (kbd "M-p")     'comint-previous-input)
     (define-key map (kbd "M-n")     'comint-next-input)
+    (define-key map (kbd sly-mrepl-shortcut-key)
+      '(menu-item "" sly-mrepl-shortcut
+                  :filter (lambda (cmd)
+                            (if (sly-mrepl--shortcut-location-p)
+                                cmd))))
     map))
 
 (defvar sly-mrepl-pop-sylvester 'on-connection)
@@ -779,6 +789,47 @@ Doesn't clear input history."
         (or (nth 3 ppss) (nth 4 ppss))))))
 
 
+;;; The comma shortcut
+
+(defun sly-mrepl--shortcut-location-p ()
+  (or (< (point) (sly-mrepl--mark))
+      (and (not (sly-inside-string-or-comment-p))
+           (not (save-excursion
+                  (search-backward "`" (sly-mrepl--mark) 'noerror))))))
+
+(defvar sly-mrepl-shortcut-alist
+  '(("sayoonara" . sly-quit-lisp)
+    ("disconnect" . sly-disconnect)
+    ("disconnect all" . sly-disconnect-all)
+    ("restart lisp" . sly-restart-inferior-lisp)
+    ("set package" . sly-mrepl-set-package)
+    ("set directory" . sly-mrepl-set-directory)))
+
+(defun sly-mrepl-set-package ()
+  (interactive)
+  (let ((package (sly-read-package-name "New package: ")))
+    (sly-eval-async `(slynk-mrepl:eval-for-mrepl
+                      ,sly-mrepl--remote-channel
+                      'slynk-mrepl:guess-and-set-package ,package))))
+
+(defun sly-mrepl-set-directory ()
+  (interactive)
+  (let ((directory (read-directory-name "New directory: " default-directory nil t)))
+    (sly-mrepl--eval-for-repl (format "Setting directory to %s" directory)
+                              `(slynk:set-default-directory ,directory))
+    (cd directory)))
+
+(defun sly-mrepl-shortcut ()
+  (interactive)
+  (let* ((string (sly-completing-read "Command: "
+                                     (mapcar #'car sly-mrepl-shortcut-alist)
+                                     nil
+                                     'require-match))
+         (command (and string
+                       (cdr (assoc string sly-mrepl-shortcut-alist)))))
+    (call-interactively command)))
+
+
 ;;;; Menu
 ;;;;
 (easy-menu-define sly-mrepl--shortcut-menu nil
@@ -805,6 +856,7 @@ Doesn't clear input history."
 
 
 (defvar sly-mrepl--debug-overlays nil)
+
 (defun sly-mrepl--debug (&rest ignored)
   (interactive)
   (mapc #'delete-overlay sly-mrepl--debug-overlays)

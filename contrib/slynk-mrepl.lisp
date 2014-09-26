@@ -183,10 +183,9 @@
                                                             package-name
                                                             directory)
   (with-listener r
-    (let ((package (slynk::guess-package package-name)))
-      (slynk:set-default-directory directory)
-      (and package (setq *package* package))
-      (copy-values-to-repl r (list *package* *default-pathname-defaults*)))))
+    (slynk:set-default-directory directory)
+    (guess-and-set-package package-name)
+    (copy-values-to-repl r (list *package* *default-pathname-defaults*))))
 
 (define-channel-method :inspect-object ((r mrepl) entry-idx value-idx)
   (with-listener r
@@ -249,8 +248,15 @@
   (setq *saved-objects* (multiple-value-list (apply slave-slyfun args)))
   t)
 
-(defmacro with-eval-for-repl ((remote-id) &body body)
-  (let ((mrepl-sym (gensym)))
+(defslyfun guess-and-set-package (package-name)
+  (let ((package (slynk::guess-package package-name)))
+    (if package
+        (and (setq *package* package) t)
+        (error "Can't find a package for designator ~a" package-name))))
+
+(defmacro with-eval-for-repl ((remote-id &optional mrepl-sym) &body body)
+  (let ((mrepl-sym (or mrepl-sym
+                       (gensym))))
     `(let ((,mrepl-sym (find-channel ,remote-id)))
        (assert ,mrepl-sym)
        (assert
@@ -262,11 +268,14 @@
        (with-listener ,mrepl-sym
          ,@body))))
 
+;; TODO: make many channel methods use EVAL-FOR-MREPL instead of the
+;; ugly GLOBALLY-SAVE-OBJECT scheme.
 (defslyfun eval-for-mrepl (remote-id slave-slyfun &rest args)
   "Call SLAVE-SLYFUN with ARGS in the MREPL of REMOTE-ID.
 Both the target MREPL's thread and environment are considered."
-  (with-eval-for-repl (remote-id)
-    (apply slave-slyfun args)))
+  (with-eval-for-repl (remote-id mrepl)
+    (apply slave-slyfun args)
+    (send-prompt mrepl)))
 
 (defslyfun inspect-entry (remote-id entry-idx value-idx)
   (with-eval-for-repl (remote-id)
