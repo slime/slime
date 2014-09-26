@@ -383,7 +383,7 @@ emptied. See also `sly-mrepl-hook'")
                                    (format "Returning value %s of history entry %s"
                                            value-idx entry-idx)))
 
-(defun sly-mrepl--eval-for-repl (slyfun-and-args &optional insert-p callback)
+(defun sly-mrepl--eval-for-repl (slyfun-and-args &optional insert-p before-prompt after-prompt)
   (sly-eval-async `(slynk-mrepl:eval-for-mrepl
                     ,sly-mrepl--remote-channel
                     ',(car slyfun-and-args)
@@ -393,11 +393,13 @@ emptied. See also `sly-mrepl-hook'")
       (let ((saved-text (buffer-substring (point) (point-max))))
         (delete-region (point) (point-max))
         (sly-mrepl--catch-up)
-        (when callback
-          (funcall callback (cl-second prompt-args-and-objects)))
+        (when before-prompt
+          (funcall before-prompt (cl-second prompt-args-and-objects)))
         (when insert-p
           (sly-mrepl--insert-returned-values (cl-second prompt-args-and-objects)))
         (apply #'sly-mrepl--insert-prompt (cl-first prompt-args-and-objects))
+        (when after-prompt
+          (funcall after-prompt (cl-second prompt-args-and-objects)))
         (pop-to-buffer (current-buffer))
         (goto-char (sly-mrepl--mark))
         (insert saved-text)))))
@@ -406,11 +408,10 @@ emptied. See also `sly-mrepl-hook'")
   (sly-mrepl--eval-for-repl `(slynk-mrepl:copy-to-repl
                               ,@method-args)
                             'insert-values
-                            #'(lambda (objects)
-                                (when note
-                                  (sly-mrepl--insert-output (concat "; " note)))
-                                (when callback
-                                  (funcall callback objects)))))
+                            (lambda (_objects)
+                              (when note
+                                (sly-mrepl--insert-output (concat "; " note))))
+                            callback))
 
 (defun sly-mrepl--make-result-button (label entry-idx value-idx)
   (make-text-button label nil
@@ -550,7 +551,7 @@ emptied. See also `sly-mrepl-hook'")
          (sly-mrepl--copy-objects-to-repl nil note callback)))))
 
 (defun sly-mrepl--insert-call (spec objects)
-  (when (< (point) (sly-mrepl--mark))
+  (when (<= (point) (sly-mrepl--mark))
     (goto-char (point-max)))
   (insert (format "%s"
                   `(,spec ,@(cl-loop for _o in objects
