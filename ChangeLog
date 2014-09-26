@@ -1,5 +1,11 @@
 2014-09-26  Helmut Eller  <heller@common-lisp.net>
 
+	* slime-tests.el (compile-defun-with-backquote): Fails for
+	SBCL also on Travis now.
+	(compile-file): Works for LispWorks.
+
+2014-09-26  Helmut Eller  <heller@common-lisp.net>
+
 	Fix github issue#190
 
 	* swank/clisp.lisp: Use swank/clisp as package qualifier where
