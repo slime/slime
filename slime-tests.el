@@ -701,7 +701,7 @@ Confirm that SUBFORM is correctly located."
 ;; SBCL used to pass this one but since they changed the
 ;; backquote/unquote reader it fails.
 (def-slime-test (compile-defun-with-backquote
-                 (:fails-for "allegro" "lispworks" "clisp"))
+                 (:fails-for "allegro" "lispworks" "clisp" "sbcl"))
     (program subform)
     "Compile PROGRAM containing errors.
 Confirm that SUBFORM is correctly located."
@@ -711,7 +711,7 @@ Confirm that SUBFORM is correctly located."
        (cl-user::bar)))
   (slime-test--compile-defun program subform))
 
-(def-slime-test (compile-file (:fails-for "allegro" "lispworks" "clisp"))
+(def-slime-test (compile-file (:fails-for "allegro" "clisp"))
     (string)
     "Insert STRING in a file, and compile it."
     `((,(pp-to-string '(defun foo () nil))))
