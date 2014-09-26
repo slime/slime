@@ -58,14 +58,14 @@
                                         :clos))))
     "True in those CLISP images which have a complete MOP implementation."))
 
-#+#.(cl:if swank-clisp::*have-mop* '(cl:and) '(cl:or))
+#+#.(cl:if swank/clisp::*have-mop* '(cl:and) '(cl:or))
 (progn
   (import-swank-mop-symbols :clos '(:slot-definition-documentation))
 
   (defun swank-mop:slot-definition-documentation (slot)
     (clos::slot-definition-documentation slot)))
 
-#-#.(cl:if swank-clisp::*have-mop* '(and) '(or))
+#-#.(cl:if swank/clisp::*have-mop* '(and) '(or))
 (defclass swank-mop:standard-slot-definition ()
   ()
   (:documentation
