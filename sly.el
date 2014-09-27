@@ -3374,11 +3374,8 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
   (interactive)
   (let ((notes (mapcar (sly-rcurry #'button-get 'sly-note)
                        (cons button more-buttons))))
-    (sly-flash-region (button-start button) (button-end button)
-                      :face
-                      (let ((color (face-underline-p (button-get button 'face))))
-                        (if color `(:background ,color) 'highlight))
-                      :times 2 :timeout 0.07)
+    (sly-button-flash button (let ((color (face-underline-p (button-get button 'face))))
+                               (if color `(:background ,color) 'highlight)))
     ;; If the compilation window is showing, try to land in a suitable
     ;; place there, too...
     ;;

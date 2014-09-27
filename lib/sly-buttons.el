@@ -31,7 +31,7 @@
                                    (posn-point (event-end last-input-event))
                                  (point))))))
     (cond ((and button type
-                (eq (button-type button) type))
+                (button-type-subtype-p (button-type button) type))
            button)
           ((and button type)
            (unless no-error
@@ -90,7 +90,8 @@
   "Face for SLY buttons."
   :group 'sly)
 
-(define-button-type 'sly-button)
+(define-button-type 'sly-button
+  'sly-button-search-id 'regular-button)
 
 (define-button-type 'sly-action :supertype 'sly-button
   'face 'sly-action-face
@@ -117,9 +118,18 @@
   'sly-button-pretty-print nil
   'sly-button-show-source nil)
 
+(defun sly-button-flash (button &optional face)
+  (sly-flash-region (button-start button) (button-end button)
+                    :timeout 0.07
+                    :times 2
+                    :face (or face 'highlight)))
+
+
 (defun sly-button-echo-button (button) (sly-message "A sly button"))
 
-(defun sly-button-echo-part (button) (sly-message (button-get 'part-label button)))
+(defun sly-button-echo-part (button)
+  (sly-button-flash button)
+  (sly-message (button-get button 'part-label)))
 
 
 ;;; Overlay-button specifics
@@ -152,12 +162,6 @@
     (cl-sort (sly-button--overlays-in (1- point) (1+ point) filter)
              #'> :key #'sly-button--overlay-priority)))
 
-(defun sly-button--overlays-starting-at (&optional point filter)
-  (let ((point (or point (point))))
-    (cl-remove-if-not #'(lambda (button)
-                        (= (button-start button) point))
-                      (sly-button--overlays-at point filter))))
-
 (defun sly-button--overlay-priority (overlay)
   (or (overlay-get overlay 'priority) 0))
 
@@ -171,7 +175,21 @@
   (cl-incf sly-button--next-search-id))
 
 (defun sly-button--searchable-buttons-at (pos filter)
-  (sly-button--overlays-at pos filter))
+  (let ((non-overlay-button (sly-button-at pos 'sly-button 'no-error)))
+    (cl-remove-duplicates
+     (append (sly-button--overlays-at pos filter)
+             (if (and non-overlay-button
+                      (or (not filter)
+                          (funcall filter non-overlay-button)))
+                 (list non-overlay-button))))))
+
+(defun sly-button--searchable-buttons-starting-at (&optional point filter)
+  (let ((point (or point (point))))
+    (cl-remove-if-not #'(lambda (button)
+                        (= (button-start button) point))
+                      (sly-button--searchable-buttons-at point filter))))
+
+
 
 (defvar sly-button--last-search-command nil)
 
@@ -216,7 +234,7 @@ at exactly the same spot, they are both visited simultaneously,
 `sly-button-echo' being passed a variable number of button arguments."
   (cl-loop for i from 0 below (abs n)
            for buttons = (or (and (not (eq this-command sly-button--last-search-command))
-                                  (sly-button--overlays-starting-at (point)))
+                                  (sly-button--searchable-buttons-starting-at (point)))
                              (sly-button--search-1 n filter))
            for button = (car buttons)
            while buttons
@@ -231,7 +249,7 @@ at exactly the same spot, they are both visited simultaneously,
                               (= (button-start b) (button-start button)))
                           (cdr buttons))))
                  (t
-                  (sly-message "No more buttons!")))))
+                  (sly-error "No more buttons!")))))
 
 (defvar sly-button-filter-function #'identity
   "Filter buttons considered by `sly-button-forward'

@@ -100,7 +100,7 @@
 (defun sly-stickers--echo-sticker (sticker &rest more)
   (cl-assert (null more) "Apparently two stickers at exact same location")
   (sly-message (button-get sticker 'sly-stickers--info))
-  (sly-stickers--flash-sticker sticker 2))
+  (sly-button-flash sticker))
 
 (defun sly-stickers--set-face (sticker &optional face)
   (let ((face (or face
@@ -112,12 +112,6 @@
                   ,(color-darken-name (face-background face nil t)
                                       (* (sly-button--overlay-priority sticker)
                                          15))))))
-
-(defun sly-stickers--flash-sticker (sticker &optional times)
-  (sly-flash-region (button-start sticker) (button-end sticker)
-                    :timeout 0.07
-                    :times times
-                    :face 'default))
 
 (defun sly-stickers--stickers-in (beg end)
   (sly-button--overlays-in beg end 'sly-stickers--sticker-id))
@@ -402,7 +396,7 @@ With interactive prefix arg PREFIX always delete stickers.
           (cl-loop for (id total last-values-desc) in result
                    for sticker = (gethash id sly-stickers--stickers)
                    do (cond ((and sticker (overlay-buffer sticker))
-                             (sly-stickers--flash-sticker sticker)
+                             (sly-button-flash sticker 'default)
                              (if last-values-desc
                                  (sly-stickers--populate-sticker sticker total last-values-desc)
                                (sly-stickers--mark-empty-sticker sticker)))

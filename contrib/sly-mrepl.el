@@ -75,8 +75,10 @@ emptied. See also `sly-mrepl-hook'")
     (define-key map (kbd "TAB")     'sly-indent-and-complete-symbol)
     (define-key map (kbd "C-c C-b") 'sly-interrupt)
     (define-key map (kbd "C-c C-c") 'sly-interrupt)
-    (define-key map (kbd "M-p")     'comint-previous-input)
-    (define-key map (kbd "M-n")     'comint-next-input)
+    (define-key map (kbd "M-p")     'sly-mrepl-previous-input-or-button)
+    (define-key map (kbd "M-n")     'sly-mrepl-next-input-or-button)
+    (define-key map (kbd "C-M-p")     'sly-button-backward)
+    (define-key map (kbd "C-M-n")     'sly-button-forward)
     map))
 
 (defvar sly-mrepl-pop-sylvester 'on-connection)
@@ -407,7 +409,8 @@ emptied. See also `sly-mrepl-hook'")
   (make-text-button label nil
                     :type 'sly-mrepl-part
                     'part-args (list entry-idx value-idx)
-                    'part-label (format "REPL Result"))
+                    'part-label (format "REPL Result")
+                    'sly-button-search-id (sly-button-next-search-id))
   label)
 
 (defun sly-mrepl--insert-returned-values (values)
@@ -579,6 +582,16 @@ emptied. See also `sly-mrepl-hook'")
         (t
          (newline-and-indent)
          (sly-message "Input not complete"))))
+
+(defun sly-mrepl-previous-input-or-button (n)
+  (interactive "p")
+  (if (>= (point) (sly-mrepl--mark))
+      (comint-previous-input n)
+    (sly-button-backward n)))
+
+(defun sly-mrepl-next-input-or-button (n)
+  (interactive "p")
+  (sly-mrepl-previous-input-or-button (- n)))
 
 (defun sly-mrepl (&optional pop-to-buffer)
   "Find or create the first useful REPL for the default connection."
