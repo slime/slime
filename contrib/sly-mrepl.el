@@ -79,15 +79,6 @@ emptied. See also `sly-mrepl-hook'")
     (define-key map (kbd "M-n")     'comint-next-input)
     map))
 
-(defcustom sly-mrepl-shortcut-key ","
-  "Keybinding string used for the REPL shortcut commands.
-When setting this variable outside of the Customize interface,
-`sly-mrepl-reset-shortcut-key' must be used."
-  :group 'sly
-  :type 'string
-  :set (lambda (_sym value)
-         (sly-mrepl-reset-shortcut-key value)))
-
 (defvar sly-mrepl-pop-sylvester 'on-connection)
 
 (defface sly-mrepl-prompt-face
@@ -793,18 +784,11 @@ Doesn't clear input history."
 
 
 ;;; The comma shortcut
-
-(defun sly-mrepl--shortcut-location-p ()
-  (or (< (point) (sly-mrepl--mark))
-      (and (not (sly-inside-string-or-comment-p))
-           (or (not (string= sly-mrepl-shortcut-key ","))
-               (not (save-excursion
-                      (search-backward "`" (sly-mrepl--mark) 'noerror)))))))
-
+;;;
 (defun sly-mrepl-reset-shortcut-key (value)
   "Reset REPL keymap according to `sly-mrepl-shortcut-key'."
   (interactive)
-  (when sly-mrepl-shortcut-key
+  (when (boundp 'sly-mrepl-shortcut-key)
     (define-key sly-mrepl-mode-map (kbd sly-mrepl-shortcut-key) nil))
   (set-default 'sly-mrepl-shortcut-key value)
   (define-key sly-mrepl-mode-map (kbd sly-mrepl-shortcut-key)
@@ -812,6 +796,22 @@ Doesn't clear input history."
                 :filter (lambda (cmd)
                           (if (sly-mrepl--shortcut-location-p)
                               cmd)))))
+
+(defcustom sly-mrepl-shortcut-key ","
+  "Keybinding string used for the REPL shortcut commands.
+When setting this variable outside of the Customize interface,
+`sly-mrepl-reset-shortcut-key' must be used."
+  :group 'sly
+  :type 'string
+  :set (lambda (_sym value)
+         (sly-mrepl-reset-shortcut-key value)))
+
+(defun sly-mrepl--shortcut-location-p ()
+  (or (< (point) (sly-mrepl--mark))
+      (and (not (sly-inside-string-or-comment-p))
+           (or (not (string= sly-mrepl-shortcut-key ","))
+               (not (save-excursion
+                      (search-backward "`" (sly-mrepl--mark) 'noerror)))))))
 
 (defvar sly-mrepl-shortcut-alist
   '(("sayoonara" . sly-quit-lisp)

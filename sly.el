@@ -4684,7 +4684,7 @@ If PROP-VALUE-FN is non-nil use it to extract PROP's value."
 
 ;;;; Macroexpansion
 
-(setq sly-macroexpansion-minor-mode-map
+(defvar sly-macroexpansion-minor-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "g") 'sly-macroexpand-again)
     (define-key map (kbd "a") 'sly-macroexpand-all-inplace)
