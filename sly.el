@@ -4684,29 +4684,24 @@ If PROP-VALUE-FN is non-nil use it to extract PROP's value."
 
 ;;;; Macroexpansion
 
-(defvar sly-macroexpansion-minor-mode-map
+(setq sly-macroexpansion-minor-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "g") 'sly-macroexpand-again)
+    (define-key map (kbd "a") 'sly-macroexpand-all-inplace)
     (define-key map (kbd "q") 'quit-window)
+    (define-key map [remap sly-macroexpand-1] 'sly-macroexpand-1-inplace)
+    (define-key map [remap sly-macroexpand-all] 'sly-macroexpand-all-inplace)
+    (define-key map [remap sly-compiler-macroexpand-1] 'sly-compiler-macroexpand-1-inplace)
+    (define-key map [remap sly-expand-1] 'sly-expand-1-inplace)
+    (define-key map [remap undo] 'sly-macroexpand-undo)
     map))
 
 (define-minor-mode sly-macroexpansion-minor-mode
   "SLY mode for macroexpansion"
   nil
-  " Macroexpand")
-
-(cl-macrolet ((remap (from to)
-                     `(dolist (mapping
-                               (where-is-internal ,from sly-mode-map))
-                        (define-key sly-macroexpansion-minor-mode-map
-                                    mapping ,to))))
-  (remap 'sly-macroexpand-1 'sly-macroexpand-1-inplace)
-  (remap 'sly-macroexpand-all 'sly-macroexpand-all-inplace)
-  (remap 'sly-compiler-macroexpand-1 'sly-compiler-macroexpand-1-inplace)
-  (remap 'sly-expand-1
-         'sly-expand-1-inplace)
-  (remap 'advertised-undo 'sly-macroexpand-undo)
-  (remap 'undo 'sly-macroexpand-undo))
+  " Macroexpand"
+  nil
+  (read-only-mode 1))
 
 (defun sly-macroexpand-undo (&optional arg)
   (interactive)
