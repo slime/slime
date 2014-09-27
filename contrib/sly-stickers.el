@@ -483,7 +483,8 @@ Intented to be placed in `sly-compile-region-function'"
       (widen)
       (let ((stickers (sly-stickers--stickers-between (point-min) (point-max))))
         (mapc #'sly-stickers--disarm-sticker stickers)
-        (when success
+        (when (and success
+                   stickers)
           (sly-temp-message 3 3
                             "%s stickers disarmed, arming on buffer compile not implemented yet"
                             (length stickers)))))))
