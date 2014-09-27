@@ -68,11 +68,6 @@
 After running the contents of this hook its default value is
 emptied. See also `sly-mrepl-hook'")
 
-(defcustom sly-mrepl-shortcut-key ","
-  "Keybinding string used for the REPL shortcut commands."
-  :group 'sly
-  :type 'string)
-
 (defvar sly-mrepl-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET")     'sly-mrepl-return)
@@ -82,12 +77,16 @@ emptied. See also `sly-mrepl-hook'")
     (define-key map (kbd "C-c C-c") 'sly-interrupt)
     (define-key map (kbd "M-p")     'comint-previous-input)
     (define-key map (kbd "M-n")     'comint-next-input)
-    (define-key map (kbd sly-mrepl-shortcut-key)
-      '(menu-item "" sly-mrepl-shortcut
-                  :filter (lambda (cmd)
-                            (if (sly-mrepl--shortcut-location-p)
-                                cmd))))
     map))
+
+(defcustom sly-mrepl-shortcut-key ","
+  "Keybinding string used for the REPL shortcut commands.
+When setting this variable outside of the Customize interface,
+`sly-mrepl-reset-shortcut-key' must be used."
+  :group 'sly
+  :type 'string
+  :set (lambda (_sym value)
+         (sly-mrepl-reset-shortcut-key value)))
 
 (defvar sly-mrepl-pop-sylvester 'on-connection)
 
@@ -798,8 +797,21 @@ Doesn't clear input history."
 (defun sly-mrepl--shortcut-location-p ()
   (or (< (point) (sly-mrepl--mark))
       (and (not (sly-inside-string-or-comment-p))
-           (not (save-excursion
-                  (search-backward "`" (sly-mrepl--mark) 'noerror))))))
+           (or (not (string= sly-mrepl-shortcut-key ","))
+               (not (save-excursion
+                      (search-backward "`" (sly-mrepl--mark) 'noerror)))))))
+
+(defun sly-mrepl-reset-shortcut-key (value)
+  "Reset REPL keymap according to `sly-mrepl-shortcut-key'."
+  (interactive)
+  (when sly-mrepl-shortcut-key
+    (define-key sly-mrepl-mode-map (kbd sly-mrepl-shortcut-key) nil))
+  (set-default 'sly-mrepl-shortcut-key value)
+  (define-key sly-mrepl-mode-map (kbd sly-mrepl-shortcut-key)
+    '(menu-item "" sly-mrepl-shortcut
+                :filter (lambda (cmd)
+                          (if (sly-mrepl--shortcut-location-p)
+                              cmd)))))
 
 (defvar sly-mrepl-shortcut-alist
   '(("sayoonara" . sly-quit-lisp)
