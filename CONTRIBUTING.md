@@ -56,26 +56,146 @@ I keep a sentence of the previous Coding Guide that I like very much.
 
 ## Lisp code file structure
 
-The Lisp code is organized into these files:
+The code is organized into these files:
 
-* `lib/lisp/slynk-backend.lisp`: Definition of the interface to non-portable
+* `slynk/slynk-backend.lisp`: Definition of the interface to non-portable
 features.  Stand-alone.
 
-* `lib/lisp/backebd/slynk-<cmucl|...>.lisp`: Back-end implementation
+* `slynk/backend/slynk-<cmucl|...>.lisp`: Back-end implementation
 for a specific Common Lisp system.  Uses slynk-backend.lisp.
 
-* `lib/lisp/slynk.lisp`: The top-level server program, built from the other
-components.  Uses slynk-backend.lisp as an interface to the actual
+* `slynk/slynk.lisp`: The top-level server program, built from the other
+components.  Uses `slynk-backend.lisp` as an interface to the actual
 backends.
 
 * `sly.el`: The Emacs front-end that the user actually interacts
 with and that connects to the Slynk server to send expressions to, and
 retrieve information from the running Common Lisp system.
 
-* `contrib/*`: Lisp related code for fancy add-ons to SLY.
+* `contrib/sly-<extension>.el`: Elisp code for SLY extensions.
+
+* `contrib/slynk-<extension>.lisp`: Supporting Common Lisp related
+code for a particular extension.
 
 
-## Architecture
+## SLY-Slynk RPC protocol
+
+The info in this section would be something for a future "Slynk
+Programmer's Guide" to be included in the regular manual or a separate
+one.
+
+Follows a brief description of the SLY-Slynk protocol. The protocol is
+*s-exp messages* over *s-exp primitives* over *UTF-8* over *TCP*.
+Let's start top-down:
+
+### S-exp messages
+
+Most messages in the top group look like Lisp function calls. The
+functions are known as "Slyfuns" and are defined with a `DEFSLYFUN`
+operator in the `slynk-*.lisp` side. These are the "remote procedures"
+of the RPC protocol. There must be about 100 or so of them, maybe
+more, I haven't counted. Slyfuns appear in both Slynk's core and in
+supporting contrib's Slynk code.
+
+For a future reference manual, I think there has to be a way to
+automatically harvest the `DEFSLYFUN` definitions and their
+docstrings.
+
+Another type of message contains calls to "channel methods". These are
+slightly different from Slyfuns. Their return value is ignored, but
+otherwise they also work like function calls. They're good for
+expressing a reply-free evaluation in the context of a "channel".
+
+These are defined with `sly-define-channel-method` and
+`DEFINE-CHANNEL-METHOD` and on the SLY and Slynk sides, respectively.
+
+The only use right now is in `sly-mrepl.el`,
+
+### S-exp primitives
+
+This is a much smaller set of primitives, the most common is
+`:EMACS-REX`, "rex" is for "Remote EXecution".
+
+Informally it's saying: "here is Slyfun X's call number 3487 with
+argumentss Y, for evaluation in thread Z" ). The asynchronous reply
+`:RETURN`, if it ever arrives, will be "your call 3487 returned the
+following sexp".
+
+```lisp
+(:emacs-rex
+ (slynk:connection-info)
+ nil t 1)
+(:return
+ (:ok
+  (:pid 16576 :style :spawn :encoding
+        :lisp-implementation
+        (:type "International Allegro CL Enterprise Edition" :name "allegro" :version "8.1 [Windows] (Sep 3, 2008 19:38)" :program nil)
+        :package
+        (:name "COMMON-LISP-USER" :prompt "CL-USER")
+        :version "1.0.0-alpha"))
+ 1)
+ ```
+
+The return value, read into Elisp sexps is what is passed to the
+callback argument to the Elisp function `sly-eval-async`. Here's the
+way to get the PID of the underlying Slynk process.
+
+```elisp
+(sly-eval-async '(slynk:connection-info)
+   (lambda (info) (plist-get info :pid)))
+```
+
+The primitives `:CHANNEL-SEND` and `:EMACS-CHANNEL-SEND` implement
+channel methods. Channels are named by number, and normally have a
+special serving thread in the Common Lisp implementation of
+Slynk. Here is an extract showing the `:PROCESS`, `:WRITE-VALUES` and
+`:PROMPT` channel methods for the REPL.
+
+```lisp
+(:emacs-channel-send 1
+                     (:process "(list 1 2 3)"))
+(:channel-send 1
+               (:write-values
+                ("(1 2 3)")))
+(:channel-send 1
+               (:prompt "COMMON-LISP-USER" "CL-USER" 0))
+```
+
+There are also debugger-specific primitives, like `:DEBUG-ACTIVATE`
+and `:DEBUG-RETURN`. Then there are indentation-specific primitives
+like `:INDENTATION-UPDATE`. These could/should become
+`:EMACS-CHANNEL-SEND`s in the future (but that would probably finally
+break Swank compatibility).
+
+### UTF-8 and TCP
+
+UTF-8 is relevant because the information in the wire are text-encoded
+sexp's that sometimes carry strings with chunks of code, for example,
+and these can have funky characters.
+
+TCP is well TCP, a host and a port and reliable transfer make SLY work
+well over any IP network.
+
+### Common Lisp bias
+
+*Note: This section is very imcomplete*
+
+SLY has is primarily a Common-Lisp IDE and the supporting Slynk have
+strong Common-lisp bias. There have been many attempts, some quite
+successful at creating Slynk backends for other languages.
+
+I believe that some of the Slyfuns will always be Common-Lisp specific
+and should be marked as such. Others can perhaps be more naturally
+adapted to other languages.
+
+It's very important that a future reference manual have this in
+consideration: remove the CL bias from the protocol's description, at
+least from some of its layers, so that things like
+[swank-js](https://github.com/swank-js/swank-js) can one day be more
+easily implemented.
+
+
+## Architecture changes from SLIME to SLY
 
 As of time of writing (SLY 1.0, SLIME 2.9) the following list
 summarizes the main architecture differences between SLY and SLIME. If
@@ -168,8 +288,15 @@ based on `comint.el`.
 are abstraction pioneered in SLIME. Channels are like separate
 mailboxes in the Lisp run-time, and it's slightly different from the
 regular `:emacs-rex` RPC calls in that they directly invoke a remote
-method but expect no reply. Switch to the `*sly-events*` buffer to see
-what's going on.
+method but expect no reply.
+
+In `slynk-mrepl.lisp`, the `mrepl` class multiple inherits from
+`swank:channel` and `swank:listener`. The first takes care of
+channel-based communication and the second has the REPL-specific
+context.
+
+See the section on the "RPC protocl" and switch to the `*sly-events*`
+buffer to see what's going on. 
 
 ### Display-related code
 
