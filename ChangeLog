@@ -1,3 +1,9 @@
+2014-09-29  Helmut Eller  <heller@common-lisp.net>
+
+	More deadlock workaround workarounds.
+
+	* swank/sbcl.lisp (stream-force-output): Use swank/gray.
+
 2014-09-26  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-tests.el (compile-defun-with-backquote): Fails for
