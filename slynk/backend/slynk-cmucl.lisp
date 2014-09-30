@@ -7,11 +7,17 @@
 ;;; This is the CMUCL implementation of the `slynk-backend' package.
 
 (defpackage slynk-cmucl
-  (:use cl slynk-backend slynk-source-path-parser slynk-source-file-cache))
+  (:use cl slynk-backend slynk-source-path-parser slynk-source-file-cache
+        fwrappers))
 
 (in-package slynk-cmucl)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
+
+  (let ((min-version #x20c))
+    (assert (>= c:byte-fasl-file-version min-version)
+            () "This file requires CMUCL version ~x or newer" min-version))
+
   (require 'gray-streams))
 
 (import-slynk-mop-symbols :pcl '(:slot-definition-documentation))
@@ -19,59 +25,6 @@
 (defun slynk-mop:slot-definition-documentation (slot)
   (documentation slot t))
 
-;;;; "Hot fixes"
-;;;
-;;; Here are necessary bugfixes to the oldest supported version of
-;;; CMUCL (currently 18e). Any fixes placed here should also be
-;;; submitted to the `cmucl-imp' mailing list and confirmed as
-;;; good. When a new release is made that includes the fixes we should
-;;; promptly delete them from here. It is enough to be compatible with
-;;; the latest release.
-
-(in-package lisp)
-
-;;; `READ-SEQUENCE' with large sequences has problems in 18e. This new
-;;; definition works better.
-
-#+cmu18
-(progn
-  (let ((s (find-symbol (string :*enable-package-locked-errors*) :lisp)))
-    (when s
-      (setf (symbol-value s) nil)))
-
-  (defun read-into-simple-string (s stream start end)
-    (declare (type simple-string s))
-    (declare (type stream stream))
-    (declare (type index start end))
-    (unless (subtypep (stream-element-type stream) 'character)
-      (error 'type-error
-             :datum (read-char stream nil #\Null)
-             :expected-type (stream-element-type stream)
-             :format-control
-             "Trying to read characters from a binary stream."))
-    ;; Let's go as low level as it seems reasonable.
-    (let* ((numbytes (- end start))
-           (total-bytes 0))
-      ;; read-n-bytes may return fewer bytes than requested, so we need
-      ;; to keep trying.
-      (loop while (plusp numbytes) do
-            (let ((bytes-read (system:read-n-bytes stream s
-                                                   start numbytes nil)))
-              (when (zerop bytes-read)
-                (return-from read-into-simple-string total-bytes))
-              (incf total-bytes bytes-read)
-              (incf start bytes-read)
-              (decf numbytes bytes-read)))
-      total-bytes))
-
-  (let ((s (find-symbol (string :*enable-package-locked-errors*) :lisp)))
-    (when s
-      (setf (symbol-value s) t)))
-
-  )
-
-(in-package slynk-cmucl)
-
 ;;; UTF8
 
 (locally (declare (optimize (ext:inhibit-warnings 3)))
@@ -490,14 +443,13 @@ Return a `location' record, or (:error REASON) on failure."
 
 ;;; More types of XREF information were added since 18e:
 ;;;
-#-cmu18
-(progn
-  (defxref who-macroexpands xref:who-macroexpands)
-  ;; XXX
-  (defimplementation who-specializes (symbol)
-    (let* ((methods (xref::who-specializes (find-class symbol)))
-           (locations (mapcar #'method-location methods)))
-      (mapcar #'list methods locations))))
+
+(defxref who-macroexpands xref:who-macroexpands)
+;; XXX
+(defimplementation who-specializes (symbol)
+  (let* ((methods (xref::who-specializes (find-class symbol)))
+         (locations (mapcar #'method-location methods)))
+    (mapcar #'list methods locations)))
 
 (defun xref-results (contexts)
   (mapcar (lambda (xref)
@@ -526,8 +478,8 @@ This is a workaround for a CMUCL bug: XREF records are cumulative."
   (when c:*record-xref-info*
     (let ((filename (truename namestring)))
       (dolist (db (list xref::*who-calls*
-                        #-cmu18 xref::*who-is-called*
-                        #-cmu18 xref::*who-macroexpands*
+                        xref::*who-is-called*
+                        xref::*who-macroexpands*
                         xref::*who-references*
                         xref::*who-binds*
                         xref::*who-sets*))
@@ -1658,15 +1610,12 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 (defvar *breakpoint-sigcontext*)
 (defvar *breakpoint-pc*)
 
-;; XXX don't break old versions without fwrappers.  Remove this one day.
-#+#.(cl:if (cl:find-package :fwrappers) '(and) '(or))
-(progn
-  (fwrappers:define-fwrapper bind-breakpoint-sigcontext (offset c sigcontext)
-    (let ((*breakpoint-sigcontext* sigcontext)
-          (*breakpoint-pc* offset))
-      (fwrappers:call-next-function)))
-  (fwrappers:set-fwrappers 'di::handle-breakpoint '())
-  (fwrappers:fwrap 'di::handle-breakpoint #'bind-breakpoint-sigcontext))
+(define-fwrapper bind-breakpoint-sigcontext (offset c sigcontext)
+  (let ((*breakpoint-sigcontext* sigcontext)
+        (*breakpoint-pc* offset))
+    (call-next-function)))
+(set-fwrappers 'di::handle-breakpoint '())
+(fwrap 'di::handle-breakpoint #'bind-breakpoint-sigcontext)
 
 (defun sigcontext-object (sc index)
   "Extract the lisp object in sigcontext SC at offset INDEX."
@@ -2192,7 +2141,7 @@ The `symbol-value' of each element is a type tag.")
 (defimplementation profile-package (package callers methods)
   (profile:profile-all :package package
                        :callers-p callers
-                       #-cmu18e :methods #-cmu18e methods))
+                       :methods methods))
 
 
 ;;;; Multiprocessing
@@ -2499,6 +2448,7 @@ int main (int argc, char** argv) {
       (delete-file infile)
       outfile)))
 
+;; FIXME: lisp:unicode-complete introduced in version 20d.
 #+#.(slynk-backend:with-symbol 'unicode-complete 'lisp)
 (defun match-semi-standard (prefix matchp)
   ;; Handle the CMUCL's short character names.
