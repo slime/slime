@@ -2492,7 +2492,8 @@ See `sly-compile-and-load-file' for further details."
     (error "Buffer %s is not associated with a file." (buffer-name)))
   (check-parens)
   (when (and (buffer-modified-p)
-             (y-or-n-p (format "Save file %s? " (buffer-file-name))))
+             (or (not compilation-ask-about-save)
+                 (y-or-n-p (format "Save file %s? " (buffer-file-name)))))
     (save-buffer))
   (let ((file (sly-to-lisp-filename (buffer-file-name)))
         (options (sly-simplify-plist `(,@sly-compile-file-options
