@@ -47,7 +47,7 @@
       (error 'type-error
              :datum (read-char stream nil #\Null)
              :expected-type (stream-element-type stream)
-             :format-control 
+             :format-control
              "Trying to read characters from a binary stream."))
     ;; Let's go as low level as it seems reasonable.
     (let* ((numbytes (- end start))
@@ -55,7 +55,7 @@
       ;; read-n-bytes may return fewer bytes than requested, so we need
       ;; to keep trying.
       (loop while (plusp numbytes) do
-            (let ((bytes-read (system:read-n-bytes stream s 
+            (let ((bytes-read (system:read-n-bytes stream s
                                                    start numbytes nil)))
               (when (zerop bytes-read)
                 (return-from read-into-simple-string total-bytes))
@@ -118,13 +118,13 @@
 
 (defimplementation close-socket (socket)
   (let ((fd (socket-fd socket)))
-    (sys:invalidate-descriptor fd) 
+    (sys:invalidate-descriptor fd)
     (ext:close-socket fd)))
 
 (defimplementation accept-connection (socket &key
                                       external-format buffering timeout)
   (declare (ignore timeout))
-  (make-socket-io-stream (ext:accept-tcp-connection socket) 
+  (make-socket-io-stream (ext:accept-tcp-connection socket)
                          (ecase buffering
                            ((t) :full)
                            (:line :line)
@@ -156,12 +156,12 @@
 (defun make-socket-io-stream (fd buffering external-format)
   "Create a new input/output fd-stream for FD."
   (cond (external-format
-         (sys:make-fd-stream fd :input t :output t 
+         (sys:make-fd-stream fd :input t :output t
                              :element-type 'character
                              :buffering buffering
                              :external-format external-format))
         (t
-         (sys:make-fd-stream fd :input t :output t 
+         (sys:make-fd-stream fd :input t :output t
                              :element-type '(unsigned-byte 8)
                              :buffering buffering))))
 
@@ -179,7 +179,7 @@
 (defimplementation exec-image (image-file args)
   (multiple-value-bind (ok error)
       (unix:unix-execve (car (command-line-args))
-			(list* (car (command-line-args)) 
+			(list* (car (command-line-args))
                                "-core" image-file
                                "-noinit"
                                args))
@@ -256,7 +256,7 @@ specific functions.")
             (handlers (loop for s in (cons in (mapcar #'to-fd-stream streams))
                             collect (add-one-shot-handler s f))))
        (unwind-protect
-            (let ((*interrupt-queued-handler* (lambda () 
+            (let ((*interrupt-queued-handler* (lambda ()
                                                 (write-char #\! out))))
               (when (check-sly-interrupts) (return :interrupt))
               (sys:serve-event))
@@ -267,12 +267,12 @@ specific functions.")
 (defun to-fd-stream (stream)
   (etypecase stream
     (sys:fd-stream stream)
-    (synonym-stream 
-     (to-fd-stream 
+    (synonym-stream
+     (to-fd-stream
       (symbol-value (synonym-stream-symbol stream))))
-    (two-way-stream 
+    (two-way-stream
      (to-fd-stream (two-way-stream-input-stream stream)))))
-     
+
 (defun add-one-shot-handler (stream function)
   (let (handler)
     (setq handler (sys:add-fd-handler (sys:fd-stream-fd stream) :input
@@ -326,13 +326,13 @@ NIL if we aren't compiling from a buffer.")
     (let ((*buffer-name* nil)
           (ext:*ignore-extra-close-parentheses* nil))
       (multiple-value-bind (output-file warnings-p failure-p)
-          (compile-file input-file :output-file output-file 
+          (compile-file input-file :output-file output-file
                         :external-format external-format)
         (values output-file warnings-p
                 (or failure-p
                     (when load-p
                       ;; Cache the latest source file for definition-finding.
-                      (source-cache-get input-file 
+                      (source-cache-get input-file
                                         (file-write-date input-file))
                       (not (load output-file)))))))))
 
@@ -343,14 +343,14 @@ NIL if we aren't compiling from a buffer.")
     (let ((*buffer-name* buffer)
           (*buffer-start-position* position)
           (*buffer-substring* string)
-          (source-info (list :emacs-buffer buffer 
+          (source-info (list :emacs-buffer buffer
                              :emacs-buffer-offset position
                              :emacs-buffer-string string)))
       (with-input-from-string (stream string)
-        (let ((failurep (ext:compile-from-stream stream :source-info 
+        (let ((failurep (ext:compile-from-stream stream :source-info
                                                 source-info)))
           (not failurep))))))
-  
+
 
 ;;;;; Trapping notes
 ;;;
@@ -422,10 +422,10 @@ the error-context redundant."
 Return a `location' record, or (:error REASON) on failure."
   (if (null context)
       (note-error-location)
-      (with-struct (c::compiler-error-context- file-name 
+      (with-struct (c::compiler-error-context- file-name
                                                original-source
                                                original-source-path) context
-        (or (locate-compiler-note file-name original-source 
+        (or (locate-compiler-note file-name original-source
                                   (reverse original-source-path))
             (note-error-location)))))
 
@@ -453,7 +453,7 @@ Return a `location' record, or (:error REASON) on failure."
                                              source-path file)))))
         ((and (eq file :lisp) (stringp source))
          ;; No location known, but we have the source form.
-         ;; XXX How is this case triggered?  -luke (16/May/2004) 
+         ;; XXX How is this case triggered?  -luke (16/May/2004)
          ;; This can happen if the compiler needs to expand a macro
          ;; but the macro-expander is not yet compiled.  Calling the
          ;; (interpreted) macro-expander triggers IR1 conversion of
@@ -517,7 +517,7 @@ Return a `location' record, or (:error REASON) on failure."
            (make-location (list :file (unix-truename file))
                           (list :function-name (string name))))
           (t
-           `(:error ,(format nil "Unknown source location: ~S ~S ~S " 
+           `(:error ,(format nil "Unknown source location: ~S ~S ~S "
                              name file source-path))))))
 
 (defun clear-xref-info (namestring)
@@ -532,9 +532,9 @@ This is a workaround for a CMUCL bug: XREF records are cumulative."
                         xref::*who-binds*
                         xref::*who-sets*))
         (maphash (lambda (target contexts)
-                   ;; XXX update during traversal?  
+                   ;; XXX update during traversal?
                    (setf (gethash target db)
-                         (delete filename contexts 
+                         (delete filename contexts
                                  :key #'xref:xref-context-file
                                  :test #'equalp)))
                  db)))))
@@ -551,7 +551,7 @@ This is a workaround for a CMUCL bug: XREF records are cumulative."
 (labels ((make-stack () (make-array 100 :fill-pointer 0 :adjustable t))
          (map-cpool (code fun)
            (declare (type kernel:code-component code) (type function fun))
-           (loop for i from vm:code-constants-offset 
+           (loop for i from vm:code-constants-offset
                  below (kernel:get-header-data code)
                  do (funcall fun (kernel:code-header-ref code i))))
 
@@ -584,21 +584,21 @@ This is a workaround for a CMUCL bug: XREF records are cumulative."
              (coerce callers 'list)))
 
          (entry-points (code)
-           (loop for entry = (kernel:%code-entry-points code) 
+           (loop for entry = (kernel:%code-entry-points code)
                  then (kernel::%function-next entry)
                  while entry
                  collect entry))
-           
+
          (guess-main-entry-point (entry-points)
            (or (find-if (lambda (fun)
-                          (ext:valid-function-name-p 
+                          (ext:valid-function-name-p
                            (kernel:%function-name fun)))
                         entry-points)
                (car entry-points)))
 
          (fun-dspec (fun)
            (list (kernel:%function-name fun) (function-location fun)))
-         
+
          (code-dspec (code)
            (let ((eps (entry-points code))
                  (di (kernel:%code-debug-info code)))
@@ -683,7 +683,7 @@ condition object."
          (from (di:debug-source-from debug-source))
          (name (di:debug-source-name debug-source)))
     (ecase from
-      (:file 
+      (:file
        (location-in-file name code-location debug-source))
       (:stream
        (location-in-stream code-location debug-source))
@@ -692,7 +692,7 @@ condition object."
        ;; The best we can do is return the form itself for printing.
        (make-location
         (list :source-form (with-output-to-string (*standard-output*)
-                             (debug::print-code-location-source-form 
+                             (debug::print-code-location-source-form
                               code-location 100 t)))
         (list :position 1))))))
 
@@ -714,7 +714,7 @@ This only succeeds if the code was compiled from an Emacs buffer."
     (error "The code is compiled from a non-SLY stream."))
   (let* ((info (c::debug-source-info debug-source))
          (string (getf info :emacs-buffer-string))
-         (position (code-location-string-offset 
+         (position (code-location-string-offset
                     code-location
                     string)))
     (make-location
@@ -733,7 +733,7 @@ positions aren't available."
   (with-struct (c::debug-info- (fname name) source) debug-info
     (with-struct (c::debug-source- info from name) (car source)
       (ecase from
-        (:file 
+        (:file
          (make-location (list :file (namestring (truename name)))
                         (list :function-name (string fname))))
         (:stream
@@ -750,7 +750,7 @@ This is true for functions that were compiled directly from buffers."
   (info-from-emacs-buffer-p (c::debug-source-info debug-source)))
 
 (defun info-from-emacs-buffer-p (info)
-  (and info 
+  (and info
        (consp info)
        (eq :emacs-buffer (car info))))
 
@@ -764,9 +764,9 @@ to find the position of the corresponding form.
 
 Finish with STREAM positioned at the start of the code location."
   (let* ((location (debug::maybe-block-start-location code-location))
-	 (tlf-offset (- (di:code-location-top-level-form-offset location)
+         (tlf-offset (- (di:code-location-top-level-form-offset location)
                         root))
-	 (form-number (di:code-location-form-number location)))
+         (form-number (di:code-location-form-number location)))
     (let ((pos (form-number-stream-position tlf-offset form-number stream)))
       (file-position stream pos)
       pos)))
@@ -782,7 +782,7 @@ FORM-NUMBER is an index into a source-path table for the TLF."
                 (list 0)                ; should probably signal a condition
                 (reverse (cdr (aref path-table form-number))))))
       (source-path-source-position source-path tlf position-map))))
-  
+
 (defun code-location-string-offset (code-location string)
   "Return the byte offset of CODE-LOCATION in STRING.
 See CODE-LOCATION-STREAM-POSITION."
@@ -826,7 +826,7 @@ NAME can any valid function name (e.g, (setf car))."
         (function? (and (ext:valid-function-name-p name)
                         (ext:info :function :definition name)
                         (if (symbolp name) (fboundp name) t))))
-    (cond (macro? 
+    (cond (macro?
            (list `((defmacro ,name)
                    ,(function-location (macro-function name)))))
           (function?
@@ -874,7 +874,7 @@ NAME can any valid function name (e.g, (setf car))."
 
 (defun function-code-object= (closure function)
   (and (eq (vm::find-code-object closure)
-	   (vm::find-code-object function))
+           (vm::find-code-object function))
        (not (eq closure function))))
 
 (defun byte-function-location (fun)
@@ -882,9 +882,9 @@ NAME can any valid function name (e.g, (setf car))."
   (etypecase fun
     ((or c::hairy-byte-function c::simple-byte-function)
      (let* ((di (kernel:%code-debug-info (c::byte-function-component fun))))
-       (if di 
+       (if di
            (debug-info-function-name-location di)
-           `(:error 
+           `(:error
              ,(format nil "Byte-function without debug-info: ~a" fun)))))
     (c::byte-closure
      (byte-function-location (c::byte-closure-function fun)))))
@@ -909,14 +909,14 @@ NAME can any valid function name (e.g, (setf car))."
   "Return the defstruct-definition (dd) of FUNCTION."
   (assert (= (kernel:get-type function) vm:closure-header-type))
   (flet ((find-layout (function)
-	   (sys:find-if-in-closure 
-	    (lambda (x) 
-	      (let ((value (if (di::indirect-value-cell-p x)
-			       (c:value-cell-ref x) 
-			       x)))
+           (sys:find-if-in-closure
+            (lambda (x)
+              (let ((value (if (di::indirect-value-cell-p x)
+                               (c:value-cell-ref x)
+                               x)))
 		(when (kernel::layout-p value)
-		  (return-from find-layout value))))
-	    function)))
+                  (return-from find-layout value))))
+            function)))
     (kernel:layout-info (find-layout function))))
 
 (defun dd-location (dd)
@@ -970,7 +970,7 @@ NAME can any valid function name (e.g, (setf car))."
   (typecase method
     (pcl::standard-accessor-method
      (definition-source-location
-         (cond ((pcl::definition-source method) 
+         (cond ((pcl::definition-source method)
                 method)
                (t
                 (pcl::slot-definition-class
@@ -1034,7 +1034,7 @@ NAME can any valid function name (e.g, (setf car))."
 (defun find-dd (name)
   "Find the defstruct-definition by the name of its structure-class."
   (let ((layout (ext:info :type :compiler-layout name)))
-    (if layout 
+    (if layout
         (kernel:layout-info layout))))
 
 (defun condition-class-location (class)
@@ -1045,16 +1045,16 @@ NAME can any valid function name (e.g, (setf car))."
           (t
            ;; Find the class via one of its slot-reader methods.
            (let* ((slot (first slots))
-                  (gf (fdefinition 
+                  (gf (fdefinition
                        (first (conditions::condition-slot-readers slot)))))
-             (method-location 
-              (first 
-               (pcl:compute-applicable-methods-using-classes 
+             (method-location
+              (first
+               (pcl:compute-applicable-methods-using-classes
                 gf (list (find-class name))))))))))
 
 (defun make-name-in-file-location (file string)
   (multiple-value-bind (filename c)
-      (ignore-errors 
+      (ignore-errors
         (unix-truename (merge-pathnames (make-pathname :type "lisp")
                                         file)))
     (cond (filename (make-location `(:file ,filename)
@@ -1085,7 +1085,7 @@ NAME can any valid function name (e.g, (setf car))."
         (form-number (source-location-form-number location)))
     ;; XXX duplication in frame-source-location
     (assert (info-from-emacs-buffer-p info))
-    (destructuring-bind (&key emacs-buffer emacs-buffer-string 
+    (destructuring-bind (&key emacs-buffer emacs-buffer-string
                               emacs-buffer-offset) info
       (with-input-from-string (s emacs-buffer-string)
         (let ((pos (form-number-stream-position tlf-number form-number s)))
@@ -1094,7 +1094,7 @@ NAME can any valid function name (e.g, (setf car))."
 
 ;; XXX predicates for 18e backward compatibilty.  Remove them when
 ;; we're 19a only.
-(defun file-source-location-p (object) 
+(defun file-source-location-p (object)
   (when (fboundp 'c::file-source-location-p)
     (c::file-source-location-p object)))
 
@@ -1116,11 +1116,11 @@ NAME can any valid function name (e.g, (setf car))."
 (defun definition-source-location (object name)
   (let ((source (pcl::definition-source object)))
     (etypecase source
-      (null 
+      (null
        `(:error ,(format nil "No source info for: ~A" object)))
       ((satisfies source-location-p)
        (resolve-source-location source))
-      (pathname 
+      (pathname
        (make-name-in-file-location source name))
       (cons
        (destructuring-bind ((dg name) pathname) source
@@ -1170,10 +1170,10 @@ NAME can any valid function name (e.g, (setf car))."
   (let ((info (ext:info :function :info name)))
     (if info
         (append (loop for transform in (c::function-info-transforms info)
-                      collect (list `(c:deftransform ,name 
-                                      ,(c::type-specifier 
+                      collect (list `(c:deftransform ,name
+                                      ,(c::type-specifier
                                         (c::transform-type transform)))
-                                    (function-location (c::transform-function 
+                                    (function-location (c::transform-function
                                                         transform))))
                 (maybe-make-definition (c::function-info-derive-type info)
                                        'c::derive-type name)
@@ -1186,8 +1186,8 @@ NAME can any valid function name (e.g, (setf car))."
                 (loop for template in (c::function-info-templates info)
                       collect (list `(,(type-of template)
                                        ,(c::template-name template))
-                                    (function-location 
-                                     (c::vop-info-generator-function 
+                                    (function-location
+                                     (c::vop-info-generator-function
                                       template))))))))
 
 (defun ir1-translator-definitions (name)
@@ -1231,39 +1231,39 @@ NAME can any valid function name (e.g, (setf car))."
                (setf result (list* property value result)))))
       (maybe-push
        :variable (multiple-value-bind (kind recorded-p)
-		     (ext:info variable kind symbol)
-		   (declare (ignore kind))
-		   (if (or (boundp symbol) recorded-p)
-		       (doc 'variable))))
+                     (ext:info variable kind symbol)
+                   (declare (ignore kind))
+                   (if (or (boundp symbol) recorded-p)
+                       (doc 'variable))))
       (when (fboundp symbol)
 	(maybe-push
-	 (cond ((macro-function symbol)     :macro)
-	       ((special-operator-p symbol) :special-operator)
-	       ((genericp (fdefinition symbol)) :generic-function)
-	       (t :function))
-	 (doc 'function)))
+         (cond ((macro-function symbol)     :macro)
+               ((special-operator-p symbol) :special-operator)
+               ((genericp (fdefinition symbol)) :generic-function)
+               (t :function))
+         (doc 'function)))
       (maybe-push
        :setf (if (or (ext:info setf inverse symbol)
-		     (ext:info setf expander symbol))
-		 (doc 'setf)))
+                     (ext:info setf expander symbol))
+                 (doc 'setf)))
       (maybe-push
        :type (if (ext:info type kind symbol)
-		 (doc 'type)))
+                 (doc 'type)))
       (maybe-push
-       :class (if (find-class symbol nil) 
-		  (doc 'class)))
+       :class (if (find-class symbol nil)
+                  (doc 'class)))
       (maybe-push
        :alien-type (if (not (eq (ext:info alien-type kind symbol) :unknown))
-		       (doc 'alien-type)))
+                       (doc 'alien-type)))
       (maybe-push
        :alien-struct (if (ext:info alien-type struct symbol)
-			 (doc nil)))
+                         (doc nil)))
       (maybe-push
        :alien-union (if (ext:info alien-type union symbol)
-			 (doc nil)))
+                         (doc nil)))
       (maybe-push
        :alien-enum (if (ext:info alien-type enum symbol)
-		       (doc nil)))
+                       (doc nil)))
       result)))
 
 (defimplementation describe-definition (symbol namespace)
@@ -1289,7 +1289,7 @@ NAME can any valid function name (e.g, (setf car))."
                (ecase (ext:info :alien-type :kind symbol)
                  (:primitive
                   (let ((alien::*values-type-okay* t))
-                    (funcall (ext:info :alien-type :translator symbol) 
+                    (funcall (ext:info :alien-type :translator symbol)
                              (list symbol))))
                  ((:defined)
                   (ext:info :alien-type :definition symbol))
@@ -1316,8 +1316,8 @@ NAME can any valid function name (e.g, (setf car))."
                   (error () :not-available)))
                ;; this should work both for compiled-debug-function
                ;; and for interpreted-debug-function
-               (t 
-                (handler-case (debug-function-arglist 
+               (t
+                (handler-case (debug-function-arglist
                                (di::function-debug-function fun))
                   (di:unhandled-condition () :not-available))))))
     (check-type arglist (or list (member :not-available)))
@@ -1337,7 +1337,7 @@ NAME can any valid function name (e.g, (setf car))."
 
 (defun read-arglist (fn)
   "Parse the arglist-string of the function object FN."
-  (let ((string (kernel:%function-arglist 
+  (let ((string (kernel:%function-arglist
                  (kernel:%function-self fn)))
         (package (find-package
                   (c::compiled-debug-info-package
@@ -1360,17 +1360,17 @@ NAME can any valid function name (e.g, (setf car))."
     ;; collect the names of debug-vars
     (dolist (arg args)
       (etypecase arg
-        (di::debug-variable 
+        (di::debug-variable
          (push (di::debug-variable-symbol arg) required))
         ((member :deleted)
          (push ':deleted required))
         (cons
          (ecase (car arg)
-           (:keyword 
+           (:keyword
             (push (second arg) key))
            (:optional
             (push (debug-variable-symbol-or-deleted (second arg)) optional))
-           (:rest 
+           (:rest
             (push (debug-variable-symbol-or-deleted (second arg)) rest))))))
     ;; intersperse lambda keywords as needed
     (append (nreverse required)
@@ -1399,10 +1399,10 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
   ;; byte-code functions.  Use the arg-count and return something like
   ;; (arg0 arg1 ...)
   (etypecase fn
-    (c::simple-byte-function 
+    (c::simple-byte-function
      (loop for i from 0 below (c::simple-byte-function-num-args fn)
            collect (make-arg-symbol i)))
-    (c::hairy-byte-function 
+    (c::hairy-byte-function
      (hairy-byte-function-arglist fn))
     (c::byte-closure
      (byte-code-function-arglist (c::byte-closure-function fn)))))
@@ -1507,12 +1507,12 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 (defimplementation compute-backtrace (start end)
   (let ((end (or end most-positive-fixnum)))
     (loop for f = (nth-frame start) then (frame-down f)
-	  for i from start below end
-	  while f collect f)))
+          for i from start below end
+          while f collect f)))
 
 (defimplementation print-frame (frame stream)
   (let ((*standard-output* stream))
-    (handler-case 
+    (handler-case
         (debug::print-frame-call frame :verbosity 1 :number nil)
       (error (e)
         (ignore-errors (princ e stream))))))
@@ -1593,7 +1593,7 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
                (signal-breakpoint bp frame))))
       (let* ((info (ecase (di:code-location-kind cl)
                      ((:single-value-return :unknown-return) nil)
-                     (:known-return (debug-function-returns 
+                     (:known-return (debug-function-returns
                                      (di:frame-debug-function frame)))))
              (bp (di:make-breakpoint #'hook cl :kind :code-location
                                      :info info)))
@@ -1614,7 +1614,7 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
   (let ((next (debug::next-code-locations code-location)))
     (flet ((adjust-pc ()
              (let ((cl (di::copy-compiled-code-location code-location)))
-               (incf (di::compiled-code-location-pc cl) 
+               (incf (di::compiled-code-location-pc cl)
                      vm:single-value-return-byte-offset)
                cl)))
       (cond ((and (di::compiled-frame-escaped frame)
@@ -1653,7 +1653,7 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 ;;; The sigcontext and the PC for a breakpoint invocation are not
 ;;; passed to user hook functions, but we need them to extract return
 ;;; values. So we advice di::handle-breakpoint and bind the values to
-;;; special variables.  
+;;; special variables.
 ;;;
 (defvar *breakpoint-sigcontext*)
 (defvar *breakpoint-pc*)
@@ -1687,7 +1687,7 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 ;;; :known-return.
 ;;;
 ;;; The :single-value-return convention returns the value in a
-;;; register without setting the nargs registers.  
+;;; register without setting the nargs registers.
 ;;;
 ;;; The :unknown-return variant is used for multiple values. A
 ;;; :unknown-return point consists actually of 2 breakpoints: one for
@@ -1712,7 +1712,7 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
          (let ((info (di:breakpoint-info breakpoint)))
            (if (vectorp info)
                (known-return-point-values sc info)
-               (progn 
+               (progn
                  ;;(break)
                  (list "<<known-return convention not supported>>" info)))))
         (:unknown-return
@@ -1733,16 +1733,16 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
   (let* ((cdfun (di::compiled-debug-function-compiler-debug-fun debug-fun)))
     (c::compiled-debug-function-returns cdfun)))
 
-(define-condition breakpoint (simple-condition) 
+(define-condition breakpoint (simple-condition)
   ((message :initarg :message :reader breakpoint.message)
    (values  :initarg :values  :reader breakpoint.values))
   (:report (lambda (c stream) (princ (breakpoint.message c) stream))))
 
 (defimplementation condition-extras (condition)
   (typecase condition
-    (breakpoint 
+    (breakpoint
      ;; pop up the source buffer
-     `((:show-frame-source 0))) 
+     `((:show-frame-source 0)))
     (t '())))
 
 (defun signal-breakpoint (breakpoint frame)
@@ -1763,7 +1763,7 @@ Try to create a informative message."
             #+(or)
             (when (eq (di:code-location-kind what) :call-site)
               (call-site-function breakpoint frame))
-            (brk nil "Breakpoint: ~S ~S" 
+            (brk nil "Breakpoint: ~S ~S"
                  (di:code-location-kind what)
                  (di::compiled-code-location-pc what)))))
         (:function-start
@@ -1795,7 +1795,7 @@ Try to create a informative message."
       -1
       (let ((debug-fun (di::frame-debug-function frame)))
         (etypecase debug-fun
-          (di::compiled-debug-function 
+          (di::compiled-debug-function
            (let* ((code-loc (di:frame-code-location frame))
                   (component (di::compiled-debug-function-component debug-fun))
                   (pc (di::compiled-code-location-pc code-loc))
@@ -1814,7 +1814,7 @@ Try to create a informative message."
                (format *debug-io* "fp = ~S~%" fp)
                (format *debug-io* "lra = ~S~%"
                        (kernel:stack-ref fp vm::lra-save-offset)))
-             (values 
+             (values
               (sys:int-sap
                (- (kernel:get-lisp-obj-address
                    (kernel:stack-ref fp vm::lra-save-offset))
@@ -1846,7 +1846,7 @@ Try to create a informative message."
 ~8X  Frame Pointer
 ~8X  Instruction Pointer
 ~8X  Saved Frame Pointer
-~8X  Saved Instruction Pointer~%" (mapcar #'fixnum 
+~8X  Saved Instruction Pointer~%" (mapcar #'fixnum
                       (multiple-value-list (frame-registers frame)))))))
 
 (defvar *gdb-program-name*
@@ -1875,7 +1875,7 @@ Try to create a informative message."
 
 (defmacro with-temporary-file ((stream filename) &body body)
   `(call/temporary-file (lambda (,stream ,filename) . ,body)))
-  
+
 (defun call/temporary-file (fun)
   (let ((name (system::pick-temporary-file-name)))
     (unwind-protect
@@ -1943,7 +1943,7 @@ Try to create a informative message."
           (t `(:error "no srcloc available for ~a" frame)))))
 
 ;; The output of gdb looks like:
-;; Line 215 of "../../src/lisp/x86-assem.S" 
+;; Line 215 of "../../src/lisp/x86-assem.S"
 ;;    starts at address 0x805318c <Ldone+11>
 ;;    and ends at 0x805318e <Ldone+13>.
 ;; The ../../ are fixed up with the "target:" search list which might
@@ -1961,7 +1961,7 @@ Try to create a informative message."
                            file)))
                  (make-location (list :file (unix-truename pathname))
                                 (list :line (parse-integer line))))))
-            (t 
+            (t
              `(:error ,string))))))
 
 (defun read-word (&optional (stream *standard-input*))
@@ -1975,7 +1975,7 @@ Try to create a informative message."
 
 ;;;; Inspecting
 
-(defconstant +lowtag-symbols+ 
+(defconstant +lowtag-symbols+
   '(vm:even-fixnum-type
     vm:function-pointer-type
     vm:other-immediate-0-type
@@ -1990,7 +1990,7 @@ The `symbol-value' of each element is a type tag.")
 (defconstant +header-type-symbols+
   (labels ((suffixp (suffix string)
              (and (>= (length string) (length suffix))
-                  (string= string suffix :start1 (- (length string) 
+                  (string= string suffix :start1 (- (length string)
                                                     (length suffix)))))
            (header-type-symbol-p (x)
              (and (suffixp "-TYPE" (symbol-name x))
@@ -2005,7 +2005,7 @@ The `symbol-value' of each element is a type tag.")
 (defimplementation describe-primitive-type (object)
   (with-output-to-string (*standard-output*)
     (let* ((lowtag (kernel:get-lowtag object))
-	   (lowtag-symbol (find lowtag +lowtag-symbols+ :key #'symbol-value)))
+           (lowtag-symbol (find lowtag +lowtag-symbols+ :key #'symbol-value)))
       (format t "lowtag: ~A" lowtag-symbol)
       (when (member lowtag (list vm:other-pointer-type
                                  vm:function-pointer-type
@@ -2031,7 +2031,7 @@ The `symbol-value' of each element is a type tag.")
            (if labeledp
                (loop for (label . value) in parts
                      append (label-value-line label value))
-               (loop for value in parts  for i from 0 
+               (loop for value in parts  for i from 0
                      append (label-value-line i value))))))
 
 (defmethod emacs-inspect ((o function))
@@ -2044,16 +2044,16 @@ The `symbol-value' of each element is a type tag.")
                     ("Arglist" (kernel:%function-arglist o))
                     ("Type" (kernel:%function-type o))
                     ("Code" (kernel:function-code-header o)))
-                   (list 
+                   (list
                     (with-output-to-string (s)
                       (disassem:disassemble-function o :stream s)))))
           ((= header vm:closure-header-type)
            (list* (format nil "~A is a closure.~%" o)
-                  (append 
+                  (append
                    (label-value-line "Function" (kernel:%closure-function o))
                    `("Environment:" (:newline))
                    (loop for i from 0 below (1- (kernel:get-closure-length o))
-                         append (label-value-line 
+                         append (label-value-line
                                  i (kernel:%closure-index-ref o i))))))
           ((eval::interpreted-function-p o)
            (cmucl-inspect o))
@@ -2061,37 +2061,37 @@ The `symbol-value' of each element is a type tag.")
            (call-next-method)))))
 
 (defmethod emacs-inspect ((o kernel:funcallable-instance))
-  (append (label-value-line* 
+  (append (label-value-line*
            (:function (kernel:%funcallable-instance-function o))
            (:lexenv  (kernel:%funcallable-instance-lexenv o))
            (:layout  (kernel:%funcallable-instance-layout o)))
           (cmucl-inspect o)))
 
 (defmethod emacs-inspect ((o kernel:code-component))
-  (append 
-   (label-value-line* 
+  (append
+   (label-value-line*
     ("code-size" (kernel:%code-code-size o))
     ("entry-points" (kernel:%code-entry-points o))
     ("debug-info" (kernel:%code-debug-info o))
-    ("trace-table-offset" (kernel:code-header-ref 
+    ("trace-table-offset" (kernel:code-header-ref
                            o vm:code-trace-table-offset-slot)))
    `("Constants:" (:newline))
-   (loop for i from vm:code-constants-offset 
+   (loop for i from vm:code-constants-offset
          below (kernel:get-header-data o)
          append (label-value-line i (kernel:code-header-ref o i)))
-   `("Code:" 
+   `("Code:"
      (:newline)
      , (with-output-to-string (*standard-output*)
          (cond ((c::compiled-debug-info-p (kernel:%code-debug-info o))
                 (disassem:disassemble-code-component o))
                ((or
                  (c::debug-info-p (kernel:%code-debug-info o))
-                 (consp (kernel:code-header-ref 
+                 (consp (kernel:code-header-ref
                          o vm:code-trace-table-offset-slot)))
                 (c:disassem-byte-component o))
                (t
-                (disassem:disassemble-memory 
-                 (disassem::align 
+                (disassem:disassemble-memory
+                 (disassem::align
                   (+ (logandc2 (kernel:get-lisp-obj-address o)
                                vm:lowtag-mask)
                      (* vm:code-constants-offset vm:word-bytes))
@@ -2115,14 +2115,14 @@ The `symbol-value' of each element is a type tag.")
        (:rank (array-rank o))
        (:fill-pointer (kernel:%array-fill-pointer o))
        (:fill-pointer-p (kernel:%array-fill-pointer-p o))
-       (:elements (kernel:%array-available-elements o))           
+       (:elements (kernel:%array-available-elements o))
        (:data (kernel:%array-data-vector o))
        (:displacement (kernel:%array-displacement o))
        (:displaced-p (kernel:%array-displaced-p o))
        (:dimensions (array-dimensions o)))))
 
 (defmethod emacs-inspect ((o simple-vector))
-  (append 
+  (append
    (label-value-line*
     (:header (describe-primitive-type o))
     (:length (c::vector-length o)))
@@ -2137,18 +2137,18 @@ The `symbol-value' of each element is a type tag.")
         (:sap sap)
         (:kind kind)
         (:name name))
-       (loop for field in fields 
+       (loop for field in fields
              append (let ((slot (alien::alien-record-field-name field)))
                       (declare (optimize (speed 0)))
                       (label-value-line slot (alien:slot alien slot))))))))
 
 (defun inspect-alien-pointer (alien)
   (with-struct (alien::alien-value- sap type) alien
-    (label-value-line* 
+    (label-value-line*
      (:sap sap)
      (:type type)
      (:to (alien::deref alien)))))
-  
+
 (defun inspect-alien-value (alien)
   (typecase (alien::alien-value-type alien)
     (alien::alien-record-type (inspect-alien-record alien))
@@ -2159,14 +2159,14 @@ The `symbol-value' of each element is a type tag.")
   (cond ((typep (class-of obj) 'structure-class)
          (let* ((dd (kernel:layout-info (kernel:layout-of obj)))
                 (slots (kernel:dd-slots dd)))
-           (list* (cons '*package* 
-                        (symbol-package (if slots 
+           (list* (cons '*package*
+                        (symbol-package (if slots
                                             (kernel:dsd-name (car slots))
                                             (kernel:dd-name dd))))
-                  (loop for slot in slots collect 
+                  (loop for slot in slots collect
                         (cons (kernel:dsd-name slot)
                               (funcall (kernel:dsd-accessor slot) obj))))))))
-                 
+
 
 ;;;; Profiling
 (defimplementation profile (fname)
@@ -2199,14 +2199,14 @@ The `symbol-value' of each element is a type tag.")
 
 #+mp
 (progn
-  (defimplementation initialize-multiprocessing (continuation) 
+  (defimplementation initialize-multiprocessing (continuation)
     (mp::init-multi-processing)
     (mp:make-process continuation :name "slynk")
     ;; Threads magic: this never returns! But top-level becomes
     ;; available again.
     (unless mp::*idle-process*
       (mp::startup-idle-and-top-level-loops)))
-  
+
   (defimplementation spawn (fn &key name)
     (mp:make-process fn :name (or name "Anonymous")))
 
@@ -2240,8 +2240,8 @@ The `symbol-value' of each element is a type tag.")
     (mp:destroy-process thread))
 
   (defvar *mailbox-lock* (mp:make-lock "mailbox lock"))
-  
-  (defstruct (mailbox (:conc-name mailbox.)) 
+
+  (defstruct (mailbox (:conc-name mailbox.))
     (mutex (mp:make-lock "process mailbox"))
     (queue '() :type list))
 
@@ -2251,7 +2251,7 @@ The `symbol-value' of each element is a type tag.")
       (or (getf (mp:process-property-list thread) 'mailbox)
           (setf (getf (mp:process-property-list thread) 'mailbox)
                 (make-mailbox)))))
-  
+
   (defimplementation send (thread message)
     (check-sly-interrupts)
     (let* ((mbox (mailbox thread)))
@@ -2268,20 +2268,20 @@ The `symbol-value' of each element is a type tag.")
          (let* ((q (mailbox.queue mbox))
                 (tail (member-if test q)))
            (when tail
-             (setf (mailbox.queue mbox) 
+             (setf (mailbox.queue mbox)
                    (nconc (ldiff q tail) (cdr tail)))
              (return (car tail)))))
        (when (eq timeout t) (return (values nil t)))
-       (mp:process-wait-with-timeout 
-        "receive-if" 0.5 
+       (mp:process-wait-with-timeout
+        "receive-if" 0.5
         (lambda () (some test (mailbox.queue mbox)))))))
-                   
+
 
   ) ;; #+mp
 
 
 
-;;;; GC hooks 
+;;;; GC hooks
 ;;;
 ;;; Display GC messages in the echo area to avoid cluttering the
 ;;; normal output.
@@ -2297,13 +2297,13 @@ The `symbol-value' of each element is a type tag.")
   (let ((names '((0 bytes) (10 kb) (20 mb) (30 gb) (40 tb) (50 eb))))
     (multiple-value-bind (power name)
 	(loop for ((p1 n1) (p2 n2)) on names
-	      while n2 do
-	      (when (<= (expt 2 p1) nbytes (1- (expt 2 p2)))
+              while n2 do
+              (when (<= (expt 2 p1) nbytes (1- (expt 2 p2)))
 		(return (values p1 n1))))
       (cond (name
-	     (format stream "~,1F ~A" (/ nbytes (expt 2 power)) name))
-	    (t
-	     (format stream "~:D bytes" nbytes))))))
+             (format stream "~,1F ~A" (/ nbytes (expt 2 power)) name))
+            (t
+             (format stream "~:D bytes" nbytes))))))
 
 (defconstant gc-generations 6)
 
@@ -2313,7 +2313,7 @@ The `symbol-value' of each element is a type tag.")
   (let* ((alloc (loop for i below gc-generations
                       collect (lisp::gencgc-stats i)))
          (sum (coerce (reduce #'+ alloc) 'float)))
-    (format nil "~{~3F~^/~}" 
+    (format nil "~{~3F~^/~}"
             (mapcar (lambda (size) (/ size sum))
                     alloc))))
 
@@ -2321,8 +2321,8 @@ The `symbol-value' of each element is a type tag.")
 
 (defun pre-gc-hook (bytes-in-use)
   (setq *gc-start-time* (get-internal-real-time))
-  (let ((msg (format nil "[Commencing GC with ~A in use.]" 
-		     (print-bytes bytes-in-use))))
+  (let ((msg (format nil "[Commencing GC with ~A in use.]"
+                     (print-bytes bytes-in-use))))
     (background-message msg)))
 
 (defun post-gc-hook (bytes-retained bytes-freed trigger)
@@ -2330,8 +2330,8 @@ The `symbol-value' of each element is a type tag.")
   (let* ((seconds (/ (- (get-internal-real-time) *gc-start-time*)
                      internal-time-units-per-second))
          (msg (format nil "[GC done. ~A freed  ~A retained  ~A  ~4F sec]"
-		     (print-bytes bytes-freed)
-		     (print-bytes bytes-retained)
+                     (print-bytes bytes-freed)
+                     (print-bytes bytes-retained)
                      #+gencgc(generation-stats)
                      #-gencgc""
                      seconds)))
@@ -2388,7 +2388,7 @@ The `symbol-value' of each element is a type tag.")
             (error 'undefined-function :name (cdr spec)))))
     ((:call)
      (destructuring-bind (caller callee) (cdr spec)
-       (toggle-trace-aux (process-fspec callee) 
+       (toggle-trace-aux (process-fspec callee)
                          :wherein (list (process-fspec caller)))))
     ;; doesn't work properly
     ;; ((:labels :flet) (toggle-trace-aux (process-fspec spec)))
@@ -2398,7 +2398,7 @@ The `symbol-value' of each element is a type tag.")
   (cond ((consp fspec)
          (ecase (first fspec)
            ((:defun :defgeneric) (second fspec))
-           ((:defmethod) 
+           ((:defmethod)
             `(method ,(second fspec) ,@(third fspec) ,(fourth fspec)))
            ((:labels) `(labels ,(third fspec) ,(process-fspec (second fspec))))
            ((:flet) `(flet ,(third fspec) ,(process-fspec (second fspec))))))
@@ -2418,10 +2418,10 @@ The `symbol-value' of each element is a type tag.")
     (when (not pid) (error "fork: ~A" (unix:get-unix-error-msg error)))
     (cond ((= pid 0)
            (apply #'ext:save-lisp
-                  filename 
+                  filename
                   (if restart-function
                       `(:init-function ,restart-function))))
-          (t 
+          (t
            (let ((status (waitpid pid)))
              (destructuring-bind (&key exited? status &allow-other-keys) status
                (assert (and exited? (equal status 0)) ()
@@ -2429,8 +2429,8 @@ The `symbol-value' of each element is a type tag.")
 
 (defun waitpid (pid)
   (alien:with-alien ((status c-call:int))
-    (let ((code (alien:alien-funcall 
-                 (alien:extern-alien 
+    (let ((code (alien:alien-funcall
+                 (alien:extern-alien
                   waitpid (alien:function c-call:int c-call:int
                                           (* c-call:int) c-call:int))
                  pid (alien:addr status) 0)))
@@ -2454,7 +2454,7 @@ The `symbol-value' of each element is a type tag.")
         (error "Non-zero exit status")))))
 
 (defvar *process-status-program* nil)
-    
+
 (defun process-status-program ()
   (or *process-status-program*
       (setq *process-status-program*
@@ -2475,17 +2475,17 @@ The `symbol-value' of each element is a type tag.")
 
 int main (int argc, char** argv) {
   assert (argc == 2);
-  { 
+  {
     char* endptr = NULL;
     char* arg = argv[1];
     long int status = strtol (arg, &endptr, 10);
     assert (endptr != arg && *endptr == '\\0');
     printf (\"(:exited? %s :status %d :signal? %s :signal %d :coredump? %s\"
-	    \" :stopped? %s :stopsig %d)\\n\",
-	    FLAG(WIFEXITED(status)), WEXITSTATUS(status),
-	    FLAG(WIFSIGNALED(status)), WTERMSIG(status),
-	    FLAG(WCOREDUMP(status)),
-	    FLAG(WIFSTOPPED(status)), WSTOPSIG(status));
+            \" :stopped? %s :stopsig %d)\\n\",
+            FLAG(WIFEXITED(status)), WEXITSTATUS(status),
+            FLAG(WIFSIGNALED(status)), WTERMSIG(status),
+            FLAG(WCOREDUMP(status)),
+            FLAG(WIFSTOPPED(status)), WSTOPSIG(status));
     fflush (NULL);
     return 0;
   }
