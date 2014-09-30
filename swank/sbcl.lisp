@@ -119,46 +119,51 @@
                            ((nil :none) :none)
                            ((:line) :line))))
 
+
+;; The SIGIO stuff should probably be removed as it's unlikey that
+;; anybody uses it.
 #-win32
-(defimplementation install-sigint-handler (function)
-  (sb-sys:enable-interrupt sb-unix:sigint 
-                           (lambda (&rest args)
-                             (declare (ignore args))
-                             (sb-sys:invoke-interruption 
-                              (lambda ()
-                                (sb-sys:with-interrupts 
-                                  (funcall function)))))))
+(progn
+  (defimplementation install-sigint-handler (function)
+    (sb-sys:enable-interrupt sb-unix:sigint
+                             (lambda (&rest args)
+                               (declare (ignore args))
+                               (sb-sys:invoke-interruption
+                                (lambda ()
+                                  (sb-sys:with-interrupts
+                                    (funcall function)))))))
 
-(defvar *sigio-handlers* '()
-  "List of (key . fn) pairs to be called on SIGIO.")
+  (defvar *sigio-handlers* '()
+    "List of (key . fn) pairs to be called on SIGIO.")
 
-(defun sigio-handler (signal code scp)
-  (declare (ignore signal code scp))
-  (mapc (lambda (handler)
-          (funcall (the function (cdr handler))))
-        *sigio-handlers*))
+  (defun sigio-handler (signal code scp)
+    (declare (ignore signal code scp))
+    (mapc (lambda (handler)
+            (funcall (the function (cdr handler))))
+          *sigio-handlers*))
 
-(defun set-sigio-handler ()
-  (sb-sys:enable-interrupt sb-unix:sigio (lambda (signal code scp)
-                                           (sigio-handler signal code scp))))
+  (defun set-sigio-handler ()
+    (sb-sys:enable-interrupt sb-unix:sigio (lambda (signal code scp)
+                                             (sigio-handler signal code scp))))
 
-(defun enable-sigio-on-fd (fd)
-  (sb-posix::fcntl fd sb-posix::f-setfl sb-posix::o-async)
-  (sb-posix::fcntl fd sb-posix::f-setown (getpid))
-  (values))
+  (defun enable-sigio-on-fd (fd)
+    (sb-posix::fcntl fd sb-posix::f-setfl sb-posix::o-async)
+    (sb-posix::fcntl fd sb-posix::f-setown (getpid))
+    (values))
 
-(defimplementation add-sigio-handler (socket fn)
-  (set-sigio-handler)
-  (let ((fd (socket-fd socket)))
-    (enable-sigio-on-fd fd)
-    (push (cons fd fn) *sigio-handlers*)))
+  (defimplementation add-sigio-handler (socket fn)
+    (set-sigio-handler)
+    (let ((fd (socket-fd socket)))
+      (enable-sigio-on-fd fd)
+      (push (cons fd fn) *sigio-handlers*)))
 
-(defimplementation remove-sigio-handlers (socket)
-  (let ((fd (socket-fd socket)))
-    (setf *sigio-handlers* (delete fd *sigio-handlers* :key #'car))
-    (sb-sys:invalidate-descriptor fd))
-  (close socket))
+  (defimplementation remove-sigio-handlers (socket)
+    (let ((fd (socket-fd socket)))
+      (setf *sigio-handlers* (delete fd *sigio-handlers* :key #'car))
+      (sb-sys:invalidate-descriptor fd))
+    (close socket)))
 
+
 (defimplementation add-fd-handler (socket fun)
   (let ((fd (socket-fd socket))
         (handler nil))
