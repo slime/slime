@@ -95,8 +95,8 @@
 
 (defimplementation create-socket (host port &key backlog)
   (let ((socket (make-instance 'sb-bsd-sockets:inet-socket
-			       :type :stream
-			       :protocol :tcp)))
+                               :type :stream
+                               :protocol :tcp)))
     (setf (sb-bsd-sockets:sockopt-reuse-address socket) t)
     (sb-bsd-sockets:socket-bind socket (resolve-hostname host) port)
     (sb-bsd-sockets:socket-listen socket (or backlog 5))
@@ -113,7 +113,7 @@
                                       external-format
                                       buffering timeout)
   (declare (ignore timeout))
-  (make-socket-io-stream (accept socket) external-format 
+  (make-socket-io-stream (accept socket) external-format
                          (ecase buffering
                            ((t :full) :full)
                            ((nil :none) :none)
@@ -171,7 +171,7 @@
                (setq handler (sb-sys:add-fd-handler fd :input #'run)))
              (run (fd)
                (sb-sys:remove-fd-handler handler) ; prevent recursion
-               (unwind-protect 
+               (unwind-protect
                     (funcall fun)
                  (when (sb-unix:unix-fstat fd) ; still open?
                    (add)))))
@@ -231,22 +231,22 @@
 
   (sb-alien:define-alien-routine ("WSACreateEvent" wsa-create-event)
       sb-win32:handle)
-  
+
   (sb-alien:define-alien-routine ("WSACloseEvent" wsa-close-event)
-      sb-alien:int 
+      sb-alien:int
     (event sb-win32:handle))
-  
+
   (defconstant +fd-read+ #.(ash 1 0))
   (defconstant +fd-close+ #.(ash 1 5))
-  
+
   (sb-alien:define-alien-routine ("WSAEventSelect" wsa-event-select)
-      sb-alien:int 
-    (fd sb-alien:int) 
+      sb-alien:int
+    (fd sb-alien:int)
     (handle sb-win32:handle)
     (mask sb-alien:long))
 
   (sb-alien:load-shared-object "kernel32.dll")
-  (sb-alien:define-alien-routine ("WaitForSingleObjectEx" 
+  (sb-alien:define-alien-routine ("WaitForSingleObjectEx"
                                   wait-for-single-object-ex)
       sb-alien:int
     (event sb-win32:handle)
@@ -257,7 +257,7 @@
   (defun handle-listen (handle)
     (sb-alien:with-alien ((avail sb-win32:dword)
                           (buf (array char #.sb-win32::input-record-size)))
-      (unless (zerop (sb-win32:peek-named-pipe handle nil 0 nil 
+      (unless (zerop (sb-win32:peek-named-pipe handle nil 0 nil
                                                (sb-alien:alien-sap
                                                 (sb-alien:addr avail))
                                                nil))
@@ -265,8 +265,8 @@
 
       (unless (zerop (sb-win32:peek-console-input handle
                                                   (sb-alien:alien-sap buf)
-                                                  sb-win32::input-record-size 
-                                                  (sb-alien:alien-sap 
+                                                  sb-win32::input-record-size
+                                                  (sb-alien:alien-sap
                                                    (sb-alien:addr avail))))
         (return-from handle-listen (plusp avail))))
 
@@ -282,8 +282,8 @@
   )
 
 (defvar *external-format-to-coding-system*
-  '((:iso-8859-1 
-     "latin-1" "latin-1-unix" "iso-latin-1-unix" 
+  '((:iso-8859-1
+     "latin-1" "latin-1-unix" "iso-latin-1-unix"
      "iso-8859-1" "iso-8859-1-unix")
     (:utf-8 "utf-8" "utf-8-unix")
     (:euc-jp "euc-jp" "euc-jp-unix")
@@ -311,7 +311,7 @@
                 :output t
                 :input t
                 :element-type ,(if external-format
-                                   'character 
+                                   'character
                                    '(unsigned-byte 8))
                 :buffering ,buffering
                 ,@(cond ((and external-format (sb-int:featurep :sb-unicode))
@@ -343,11 +343,11 @@
   (etypecase feature
     (symbol (member feature list :test #'eq))
     (cons (flet ((subfeature-in-list-p (subfeature)
-		   (feature-in-list-p subfeature list)))
-	    (ecase (first feature)
-	      (:or  (some  #'subfeature-in-list-p (rest feature)))
-	      (:and (every #'subfeature-in-list-p (rest feature)))
-	      (:not (destructuring-bind (e) (cdr feature)
+                   (feature-in-list-p subfeature list)))
+            (ecase (first feature)
+              (:or  (some  #'subfeature-in-list-p (rest feature)))
+              (:and (every #'subfeature-in-list-p (rest feature)))
+              (:not (destructuring-bind (e) (cdr feature)
                       (not (subfeature-in-list-p e)))))))))
 
 (defun shebang-reader (stream sub-character infix-parameter)
@@ -361,10 +361,10 @@
     ;; FIXME: clearer if order of NOT-P and (NOT NOT-P) were reversed? then
     ;; would become "unless test is satisfied"..
     (when (let* ((*package* (find-package "KEYWORD"))
-		 (*read-suppress* nil)
-		 (not-p (char= next-char #\-))
-		 (feature (read stream)))
-	    (if (feature-in-list-p feature *features*)
+                 (*read-suppress* nil)
+                 (not-p (char= next-char #\-))
+                 (feature (read stream)))
+            (if (feature-in-list-p feature *features*)
 		not-p
 		(not not-p)))
       ;; Read (and discard) a form from input.
@@ -496,7 +496,7 @@ information."
                       (sb-c:compiler-error  :error)
                       (reader-error         :read-error)
                       (error                :error)
-                      #+#.(swank/backend:with-symbol redefinition-warning 
+                      #+#.(swank/backend:with-symbol redefinition-warning
                             sb-kernel)
                       (sb-kernel:redefinition-warning
                        :redefinition)
@@ -572,7 +572,7 @@ information."
 (defun locate-compiler-note (file source-path source)
   (cond ((compiling-from-buffer-p file)
          (make-location (list :buffer *buffer-name*)
-                        (list :offset  *buffer-offset* 
+                        (list :offset  *buffer-offset*
                               (source-path-string-position
                                source-path *buffer-substring*))))
         ((compiling-from-file-p file)
@@ -583,7 +583,7 @@ information."
          (make-location (list :source-form source)
                         (list :position 1)))
         (t
-         (error "unhandled case in compiler note ~S ~S ~S" 
+         (error "unhandled case in compiler note ~S ~S ~S"
                 file source-path source))))
 
 (defun brief-compiler-message-for-emacs (condition)
@@ -799,7 +799,7 @@ QUALITIES is an alist with (quality . value)"
          (to-string (obj)
            (typecase obj
              ;; Packages are possibly named entities.
-             (package (princ-to-string obj)) 
+             (package (princ-to-string obj))
              ((or structure-object standard-object condition)
               (with-output-to-string (s)
                 (print-unreadable-object (obj s :type t :identity t))))
@@ -817,12 +817,12 @@ QUALITIES is an alist with (quality . value)"
            ;; conc-name can be a string such as ext:struct- and not
            ;; cause errors and not force interning ext::struct-
            (read-from-string
-            (concatenate 'string "sb-introspect:definition-source-" 
+            (concatenate 'string "sb-introspect:definition-source-"
                          (string slot)))))
     (let ((tmp (gensym "OO-")))
       ` (let ((,tmp ,obj))
           (symbol-macrolet
-              ,(loop for name in names collect 
+              ,(loop for name in names collect
                      (typecase name
                        (symbol `(,name (,(reader name) ,tmp)))
                        (cons `(,(first name) (,(reader (second name)) ,tmp)))
@@ -862,11 +862,11 @@ QUALITIES is an alist with (quality . value)"
                       (min end (+ start *source-snippet-size*))))))))))
 
 (defun definition-source-file-location (definition-source)
-  (with-definition-source (pathname form-path character-offset plist 
+  (with-definition-source (pathname form-path character-offset plist
                                     file-write-date) definition-source
     (let* ((namestring (namestring (translate-logical-pathname pathname)))
            (pos (if form-path
-                    (source-file-position namestring file-write-date 
+                    (source-file-position namestring file-write-date
                                           form-path)
                     character-offset))
            (snippet (source-hint-snippet namestring file-write-date pos)))
@@ -897,11 +897,11 @@ QUALITIES is an alist with (quality . value)"
       (:file
        (definition-source-file-location definition-source))
       (:file-without-position
-       (make-location `(:file ,(namestring 
+       (make-location `(:file ,(namestring
                                 (translate-logical-pathname pathname)))
                       '(:position 1)
                       (when (eql type :function)
-                        `(:snippet ,(format nil "(defun ~a " 
+                        `(:snippet ,(format nil "(defun ~a "
                                             (symbol-name name))))))
       (:invalid
        (error "DEFINITION-SOURCE of ~(~A~) ~A did not contain ~
@@ -934,25 +934,25 @@ Return NIL if the symbol is unbound."
                (setf result (list* property value result)))))
       (maybe-push
        :variable (multiple-value-bind (kind recorded-p)
-		     (sb-int:info :variable :kind symbol)
-		   (declare (ignore kind))
-		   (if (or (boundp symbol) recorded-p)
-		       (doc 'variable))))
+                     (sb-int:info :variable :kind symbol)
+                   (declare (ignore kind))
+                   (if (or (boundp symbol) recorded-p)
+                       (doc 'variable))))
       (when (fboundp symbol)
 	(maybe-push
-	 (cond ((macro-function symbol)     :macro)
-	       ((special-operator-p symbol) :special-operator)
-	       ((typep (fdefinition symbol) 'generic-function)
+         (cond ((macro-function symbol)     :macro)
+               ((special-operator-p symbol) :special-operator)
+               ((typep (fdefinition symbol) 'generic-function)
                 :generic-function)
-	       (t :function))
-	 (doc 'function)))
+               (t :function))
+         (doc 'function)))
       (maybe-push
        :setf (if (or (sb-int:info :setf :inverse symbol)
-		     (sb-int:info :setf :expander symbol))
-		 (doc 'setf)))
+                     (sb-int:info :setf :expander symbol))
+                 (doc 'setf)))
       (maybe-push
        :type (if (sb-int:info :type :kind symbol)
-		 (doc 'type)))
+                 (doc 'type)))
       result)))
 
 (defimplementation describe-definition (symbol type)
@@ -968,12 +968,12 @@ Return NIL if the symbol is unbound."
      (describe (find-class symbol)))
     (:type
      (describe (sb-kernel:values-specifier-type symbol)))))
-  
+
 #+#.(swank/sbcl::sbcl-with-xref-p)
 (progn
   (defmacro defxref (name &optional fn-name)
     `(defimplementation ,name (what)
-       (sanitize-xrefs   
+       (sanitize-xrefs
         (mapcar #'source-location-for-xref-data
                 (,(find-symbol (symbol-name (if fn-name
                                                 fn-name
@@ -1083,7 +1083,7 @@ Return a list of the form (NAME LOCATION)."
     (cons (cons (externalize-reference (car ref))
                 (externalize-reference (cdr ref))))
     ((or string number) ref)
-    (symbol 
+    (symbol
      (cond ((eq (symbol-package ref) (symbol-package :test))
             ref)
            (t (symbol-name ref))))))
@@ -1145,8 +1145,8 @@ continuing to frame number END or, if END is nil, the last frame on the
 stack."
   (let ((end (or end most-positive-fixnum)))
     (loop for f = (nth-frame start) then (sb-di:frame-down f)
-	  for i from start below end
-	  while f collect f)))
+          for i from start below end
+          while f collect f)))
 
 (defimplementation print-frame (frame stream)
   (sb-debug::print-frame-call frame stream))
@@ -1274,8 +1274,8 @@ stack."
 
 (defun stream-source-position (code-location stream)
   (let* ((cloc (sb-debug::maybe-block-start-location code-location))
-	 (tlf-number (sb-di::code-location-toplevel-form-offset cloc))
-	 (form-number (sb-di::code-location-form-number cloc)))
+         (tlf-number (sb-di::code-location-toplevel-form-offset cloc))
+         (form-number (sb-di::code-location-form-number cloc)))
     (multiple-value-bind (tlf pos-map) (read-source-form tlf-number stream)
       (let* ((path-table (sb-di::form-number-translations tlf 0))
              (path (cond ((<= (length path-table) form-number)
@@ -1322,8 +1322,8 @@ stack."
 
 (defimplementation frame-locals (index)
   (let* ((frame (nth-frame index))
-	 (loc (sb-di:frame-code-location frame))
-	 (vars (frame-debug-vars frame))
+         (loc (sb-di:frame-code-location frame))
+         (vars (frame-debug-vars frame))
          ;; Since SBCL 1.0.49.76 PREPROCESS-FOR-EVAL understands SB-DEBUG::MORE
          ;; specially.
          (more-name (or (find-symbol "MORE" :sb-debug) 'more))
@@ -1350,7 +1350,7 @@ stack."
                                 (list :name more-name
                                       :id more-id
                                       :value (multiple-value-list
-                                              (sb-c:%more-arg-values 
+                                              (sb-c:%more-arg-values
                                                more-context
                                                0 more-count)))))))
         locals))))
@@ -1362,11 +1362,11 @@ stack."
          (dvar (if (= var (length vars))
                    ;; If VAR is out of bounds, it must be the fake var
                    ;; we made up for &MORE.
-                   (let* ((context-var (find :more-context vars 
+                   (let* ((context-var (find :more-context vars
                                              :key #'debug-var-info))
-                          (more-context (debug-var-value context-var frame 
+                          (more-context (debug-var-value context-var frame
                                                          loc))
-                          (count-var (find :more-count vars 
+                          (count-var (find :more-count vars
                                            :key #'debug-var-info))
                           (more-count (debug-var-value count-var frame loc)))
                      (return-from frame-var-value
@@ -1417,7 +1417,7 @@ stack."
                   (values (sb-di:debug-fun-fun (sb-di:frame-debug-fun frame))
                           (sb-debug::frame-args-as-list frame)))
             (when (functionp fun)
-              (sb-debug:unwind-to-frame-and-call 
+              (sb-debug:unwind-to-frame-and-call
                frame
                (lambda ()
                  ;; Ensure TCO.
@@ -1434,14 +1434,14 @@ stack."
     (and (symbolp tag)
          (not (symbol-package tag))
          (string= tag :sb-debug-catch-tag)))
-  
+
   (defimplementation return-from-frame (index form)
     (let* ((frame (nth-frame index))
            (probe (assoc-if #'sb-debug-catch-tag-p
                             (sb-di::frame-catches frame))))
       (cond (probe (throw (car probe) (eval-in-frame form index)))
             (t (format nil "Cannot return from frame: ~S" frame)))))
-  
+
   (defimplementation restart-frame (index)
     (let ((frame (nth-frame index)))
       (return-from-frame index (sb-debug::frame-call-as-list frame)))))
@@ -1486,7 +1486,7 @@ stack."
   (cond ((sb-di::indirect-value-cell-p o)
          (label-value-line* (:value (sb-kernel:value-cell-ref o))))
 	(t
-	 (multiple-value-bind (text label parts) (sb-impl::inspected-parts o)
+         (multiple-value-bind (text label parts) (sb-impl::inspected-parts o)
            (list* (string-right-trim '(#\Newline) text)
                   '(:newline)
                   (if label
@@ -1506,14 +1506,14 @@ stack."
                     (:next (sb-kernel:%simple-fun-next o))
                     (:type (sb-kernel:%simple-fun-type o))
                     (:code (sb-kernel:fun-code-header o))))
-	  ((= header sb-vm:closure-header-widetag)
+          ((= header sb-vm:closure-header-widetag)
                    (append
                     (label-value-line :function (sb-kernel:%closure-fun o))
                     `("Closed over values:" (:newline))
                     (loop for i below (1- (sb-kernel:get-closure-length o))
                           append (label-value-line
                                   i (sb-kernel:%closure-index-ref o i)))))
-	  (t (call-next-method o)))))
+          (t (call-next-method o)))))
 
 (defmethod emacs-inspect ((o sb-kernel:code-component))
   (append
@@ -1620,7 +1620,7 @@ stack."
     (if (sb-thread:thread-alive-p thread)
         "Running"
         "Stopped"))
-  
+
   (defimplementation make-lock (&key name)
     (sb-thread:make-mutex :name name))
 
@@ -1694,7 +1694,7 @@ stack."
        (sb-thread:with-mutex (mutex)
          (let* ((q (mailbox.queue mbox))
                 (tail (member-if test q)))
-           (when tail 
+           (when tail
              (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
              (return (car tail))))
          (when (eq timeout t) (return (values nil t)))
@@ -1707,7 +1707,7 @@ stack."
       (declare (type symbol name))
       (sb-thread:with-mutex (mutex)
         (etypecase thread
-          (null 
+          (null
            (setf alist (delete name alist :key #'car)))
           (sb-thread:thread
            (let ((probe (assoc name alist)))
@@ -1716,7 +1716,7 @@ stack."
       nil)
 
     (defimplementation find-registered (name)
-      (sb-thread:with-mutex (mutex) 
+      (sb-thread:with-mutex (mutex)
         (cdr (assoc name alist)))))
 
   ;; Workaround for deadlocks between the world-lock and auto-flush-thread
@@ -1796,7 +1796,7 @@ stack."
 
 ;;; Weak datastructures
 
-(defimplementation make-weak-key-hash-table (&rest args)  
+(defimplementation make-weak-key-hash-table (&rest args)
   #+#.(swank/sbcl::sbcl-with-weak-hash-tables)
   (apply #'make-hash-table :weakness :key args)
   #-#.(swank/sbcl::sbcl-with-weak-hash-tables)
@@ -1877,7 +1877,7 @@ stack."
   (sb-sys:make-fd-stream fd :input t :output t
                          :element-type 'character
                          :buffering :full
-                         :dual-channel-p t                         
+                         :dual-channel-p t
                          :external-format external-format))
 
 #-win32
