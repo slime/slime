@@ -83,9 +83,9 @@ Exits Emacs when finished. The exit code is the number of failed tests."
 
 (defun slime-tests--undefine-all ()
   (dolist (test (ert-select-tests t t))
-    (let ((sym (ert-test-name test)))
+    (let* ((sym (ert-test-name test)))
       (cl-assert (eq (get sym 'ert--test) test))
-      (remprop sym 'ert--test))))
+      (cl-remprop sym 'ert--test))))
 
 (slime-tests--undefine-all)
 
@@ -638,7 +638,7 @@ string buffer position filename policy)")
                        (lambda (pattern arglist)
                          (and arglist (string-match pattern arglist))))))
 
-(defun slime-test--compile-defun (program subfrom)
+(defun slime-test--compile-defun (program subform)
   (slime-check-top-level)
   (with-temp-buffer
     (lisp-mode)

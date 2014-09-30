@@ -1,5 +1,13 @@
 2014-09-30  Helmut Eller  <heller@common-lisp.net>
 
+	Fix some compiler warnings.
+
+	* slime-tests.el (slime-tests--undefine-all): Use cl-remprop
+	instead of remprop.
+	(slime-test--compile-defun): Fix typo.
+
+2014-09-30  Helmut Eller  <heller@common-lisp.net>
+
 	Fix github issue #193.  Respect compilation-ask-about-save.
 
 	* slime.el (slime--save-some-buffers): New helper.
