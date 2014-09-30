@@ -1,5 +1,10 @@
 2014-09-30  Helmut Eller  <heller@common-lisp.net>
 
+	* swank/cmucl.lisp: Require at least version 20c and remove some
+	code that was there only for compatibility with older versions.
+
+2014-09-30  Helmut Eller  <heller@common-lisp.net>
+
 	* swank/cmucl.lisp, swank/sbcl.lisp: Whitespace cleanup.
 
 2014-09-30  Helmut Eller  <heller@common-lisp.net>
