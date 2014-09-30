@@ -75,10 +75,10 @@
 (require 'outline)
 (require 'arc-mode)
 (require 'etags)
+(require 'compile)
 
 (eval-when-compile
   (require 'apropos)
-  (require 'compile)
   (require 'gud))
 
 (eval-and-compile
@@ -2483,9 +2483,7 @@ See `slime-compile-and-load-file' for further details."
   (unless buffer-file-name
     (error "Buffer %s is not associated with a file." (buffer-name)))
   (check-parens)
-  (when (and (buffer-modified-p)
-             (y-or-n-p (format "Save file %s? " (buffer-file-name))))
-    (save-buffer))
+  (slime--save-some-buffers)
   (run-hook-with-args 'slime-before-compile-functions (point-min) (point-max))
   (let ((file (slime-to-lisp-filename (buffer-file-name)))
         (options (slime-simplify-plist `(,@slime-compile-file-options
@@ -2495,6 +2493,12 @@ See `slime-compile-and-load-file' for further details."
                                        . ,(slime-hack-quotes options))
       #'slime-compilation-finished)
     (message "Compiling %s..." file)))
+
+;; FIXME: compilation-save-buffers-predicate was introduced in 24.1
+(defun slime--save-some-buffers ()
+  (save-some-buffers (not compilation-ask-about-save)
+                     (if (boundp 'compilation-save-buffers-predicate)
+                         compilation-save-buffers-predicate)))
 
 (defun slime-hack-quotes (arglist)
   ;; eval is the wrong primitive, we really want funcall
@@ -3462,18 +3466,19 @@ Designed to be bound to the SPC key.  Prefix argument can be used to insert
 more than one space."
   (interactive "p")
   (self-insert-command n)
-  (when (slime-background-activities-enabled-p)
-    (slime-show-arglist)))
+  (slime-echo-arglist))
 
 (put 'slime-space 'delete-selection t) ; for delete-section-mode & CUA
 
-(defun slime-show-arglist ()
-  (let ((op (slime-operator-before-point)))
-    (when op
-      (slime-eval-async `(swank:operator-arglist ,op ,(slime-current-package))
-        (lambda (arglist)
-          (when arglist
-            (slime-message "%s" arglist)))))))
+(defun slime-echo-arglist ()
+  (when (slime-background-activities-enabled-p)
+    (let ((op (slime-operator-before-point)))
+      (when op
+        (slime-eval-async `(swank:operator-arglist ,op
+                                                   ,(slime-current-package))
+          (lambda (arglist)
+            (when arglist
+              (slime-message "%s" arglist))))))))
 
 (defvar slime-operator-before-point-function 'slime-lisp-operator-before-point)
 

@@ -1,5 +1,15 @@
 2014-09-30  Helmut Eller  <heller@common-lisp.net>
 
+	Fix github issue #193.  Respect compilation-ask-about-save.
+
+	* slime.el (slime--save-some-buffers): New helper.
+	(slime-compile-file): Use it.
+
+	* slime.el (slime-echo-arglist): Renamed from slime-show-arglist
+	as there still users of it.
+
+2014-09-30  Helmut Eller  <heller@common-lisp.net>
+
 	* swank/cmucl.lisp: Require at least version 20c and remove some
 	code that was there only for compatibility with older versions.
 
