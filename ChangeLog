@@ -1,5 +1,9 @@
 2014-09-30  Helmut Eller  <heller@common-lisp.net>
 
+	* swank/backend.lisp (codepoint-length): Deleted. No longer used.
+
+2014-09-30  Helmut Eller  <heller@common-lisp.net>
+
 	Fix some compiler warnings.
 
 	* slime-tests.el (slime-tests--undefine-all): Use cl-remprop

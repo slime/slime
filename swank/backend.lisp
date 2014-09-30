@@ -423,16 +423,6 @@ This will be used like so:
   "Convert the (simple-array (unsigned-byte 8)) OCTETS to a string."
   (default-utf8-to-string octets))
 
-;;; Codepoint length
-
-;; we don't need this anymore.
-(definterface codepoint-length (string)
-  "Return the number of codepoints in STRING.
-With some Lisps, like cmucl, LENGTH returns the number of UTF-16 code
-units, but other Lisps return the number of codepoints. The slime
-protocol wants string lengths in terms of codepoints."
-  (length string))
-
 
 ;;;; TCP server
 
