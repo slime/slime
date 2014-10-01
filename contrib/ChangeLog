@@ -1,3 +1,13 @@
+2014-10-01  Helmut Eller  <heller@common-lisp.net>
+
+	Update Kawa backend for separate swank-repl package.
+
+	* swank-kawa.scm (|swank-repl:create-repl|): Renamed from
+	create-repl.
+	(|swank-repl:listener-eval|): Renamed from listener-eval.
+	(defslimefun, %defslimefun, lookup-slimefun): Put "qualified"
+	symbols in *slime-funs*
+
 2014-09-12  Helmut Eller  <heller@common-lisp.net>
 
 	Rewrite slime-autodoc. Fixes github issue#188 along the way.

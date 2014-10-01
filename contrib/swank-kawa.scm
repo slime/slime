@@ -11,7 +11,7 @@
 ;;
 ;; 2. Compile this file and create swank-kawa.jar with:
 ;;      java -cp kawa-1.14.jar:$JAVA_HOME/lib/tools.jar \
-;;           -Xss650k kawa.repl -d classes -C swank-kawa.scm &&
+;;           -Xss2M kawa.repl -d classes -C swank-kawa.scm &&
 ;;      jar cf swank-kawa.jar -C classes .
 ;;
 ;; 3. Add something like this to your .emacs:
@@ -26,7 +26,7 @@
           ;; channel for debugger
           "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n"
           ;; depending on JVM, compiler may need more stack 
-          "-Xss450k"
+          "-Xss2M"
           ;; kawa without GUI
           "kawa.repl" "-s")
          :init kawa-slime-init)))
@@ -587,17 +587,23 @@
 
 (df lookup-slimefun ((name <symbol>) tab)
   ;; name looks like '|swank:connection-info|
-  (let* ((str (symbol->string name))
-         (sub (substring str 6 (string-length str))))
-    (or (get tab (string->symbol sub) #f)
-        (ferror "~a not implemented" sub))))
-                         
+  (or (get tab name #f)
+      (ferror "~a not implemented" name)))
+
+(df %defslimefun ((name <symbol>) (fun <procedure>))
+  (let ((string (symbol->string name)))
+    (cond ((regex-match #/:/ string)
+           (put *slime-funs* name fun))
+          (#t
+           (let ((qname (string->symbol (string-append "swank:" string))))
+             (put *slime-funs* qname fun))))))
+
 (define-syntax defslimefun 
   (syntax-rules ()
     ((defslimefun name (args ...) body ...)
      (seq
        (df name (args ...) body ...)
-       (put *slime-funs* 'name name)))))
+       (%defslimefun 'name name)))))
 
 (defslimefun connection-info ((env <env>))
   (let ((prop java.lang.System:getProperty))
@@ -670,7 +676,7 @@
    (break condition)
    (ex <listener-abort> (seq))))
 
-(defslimefun create-repl (env #!rest _)
+(defslimefun |swank-repl:create-repl| (env #!rest _)
   (list "user" "user"))
 
 (defslimefun interactive-eval (env str)
@@ -684,7 +690,7 @@
          (cond ((== form #!eof) result)
                (#t (next (eval form env)))))))))
 
-(defslimefun listener-eval (env string)
+(defslimefun |swank-repl:listener-eval| (env string)
   (let* ((form (read-from-string string))
          (list (values-to-list (eval form env))))
   `(:values ,@(map pprint-to-string list))))
@@ -2360,6 +2366,6 @@
 ;; mode: goo 
 ;; compile-command: "\
 ;;  rm -rf classes && \
-;;  JAVA_OPTS=-Xss650k kawa -d classes -C swank-kawa.scm && \
+;;  JAVA_OPTS=-Xss2M kawa -d classes -C swank-kawa.scm && \
 ;;  jar cf swank-kawa.jar -C classes ."
 ;; End:
