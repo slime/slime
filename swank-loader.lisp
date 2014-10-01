@@ -219,7 +219,9 @@ If LOAD is true, load the fasl file."
                :directory (append (or (pathname-directory src-dir)
                                       '(:relative))
                                   (mapcar #'string-downcase dirs))
-               :name (string-downcase name) :type "lisp")))
+               :name (string-downcase name)
+               :type "lisp"
+               :defaults src-dir)))
           names))
 
 (defvar *swank-files*

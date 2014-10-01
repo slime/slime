@@ -1,3 +1,8 @@
+2014-10-01  Luís Oliveira  <luismbo@gmail.com>
+
+	* swank-loader.lisp (src-files): inherit src-dir's defaults,
+	otherwise things like the Windows drive won't be picked up.
+
 2014-09-30  Robert P. Goldman  <rpgoldman@gmail.com>
 
 	* doc/slime.texi (Other configurables): fixed anchor and
