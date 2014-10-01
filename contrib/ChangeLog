@@ -1,5 +1,21 @@
 2014-10-01  Helmut Eller  <heller@common-lisp.net>
 
+	Some updates for the MIT-Scheme backend.
+
+	* swank-mit-scheme.scm (accept-connections): Use the built-in
+	open-tcp-server-socket.  In recent releases it seems to set
+	SO_REUSEADDR and lately we used a hardcoded port number even with
+	netcat.
+	(swank:connection-info): Include the :encoding for create-repl.
+	(swank-repl:listener-eval): Renamed from swank:listener-eval.
+	(swank-repl:create-repl): Renamed from swank:create-repl.
+	Return the name of the nearest repl env.
+	(hack-quotes): New helper.
+	(emacs-rex): Use it, as swank-repl:create-repl is called with a
+	keyword argument.
+
+2014-10-01  Helmut Eller  <heller@common-lisp.net>
+
 	Update Kawa backend for separate swank-repl package.
 
 	* swank-kawa.scm (|swank-repl:create-repl|): Renamed from
