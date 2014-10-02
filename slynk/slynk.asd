@@ -54,6 +54,7 @@
                  (:file "slynk-scl")
                  #+mkcl
                  (:file "slynk-mkcl")))
+   #-armedbear
    (:file "slynk-gray")
    (:file "slynk-match")
    (:file "slynk-rpc")

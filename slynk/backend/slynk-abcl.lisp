@@ -24,6 +24,16 @@
 (defimplementation gray-package-name ()
   "GRAY-STREAMS")
 
+;; FIXME: switch to shared Gray stream implementation when bugs are
+;; fixed in ABCL.  See: http://abcl.org/trac/ticket/373.
+(progn
+  (defimplementation make-output-stream (write-string)
+    (ext:make-slime-output-stream write-string))
+
+  (defimplementation make-input-stream (read-string)
+    (ext:make-slime-input-stream read-string
+                                 (make-synonym-stream '*standard-output*))))
+
 (defimplementation call-with-compilation-hooks (function)
   (funcall function))
 
