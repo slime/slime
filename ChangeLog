@@ -1,3 +1,13 @@
+2014-10-02  Helmut Eller  <heller@common-lisp.net>
+
+	Can't use Gray streams for ABCL
+
+	* swank/abcl.lisp (make-output-stream, make-input-stream): Use
+	ext:make-slime-output-stream because ABCL's Gray streams don't
+	work well enough.
+	* swank-loader.lisp (*sysdep-files*, *swank-files*): Don't load
+	swank/gray.lisp for ABCL.
+
 2014-10-01  Luís Oliveira  <luismbo@gmail.com>
 
 	* swank-loader.lisp (src-files): inherit src-dir's defaults,
