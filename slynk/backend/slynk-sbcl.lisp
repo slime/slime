@@ -1491,7 +1491,8 @@ stack."
                     (:self (sb-kernel:%simple-fun-self o))
                     (:next (sb-kernel:%simple-fun-next o))
                     (:type (sb-kernel:%simple-fun-type o))
-                    (:code (sb-kernel:fun-code-header o))))
+                    (:code (sb-kernel:fun-code-header o))
+                    (:documentation (documentation o t))))
 	  ((= header sb-vm:closure-header-widetag)
                    (append
                     (label-value-line :function (sb-kernel:%closure-fun o))
