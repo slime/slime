@@ -17,7 +17,15 @@
            #:*record-backtrace*
            #:*traces-per-report*
            #:*dialog-trace-follows-trace*
-           #:instrument))
+           #:instrument
+
+           #:pprint-trace-part
+           #:describe-trace-part
+           #:trace-part-or-lose
+           #:inspect-trace
+           #:trace-or-lose
+           #:trace-arguments-or-lose
+           #:trace-location))
 
 (in-package :slynk-trace-dialog)
 
