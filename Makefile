@@ -48,7 +48,7 @@ check-core: compile
 
 check-%: CONTRIB_NAME=$(patsubst check-%,sly-%,$@)
 check-%: CONTRIB_SELECTOR=(tag contrib)
-check-%: compile contrib/sly-%.elc
+check-%: compile contrib/sly-%.elc test/sly-%-tests.elc
 	$(EMACS) -Q --batch $(LOAD_PATH) -L test			\
 		--eval "(require (quote sly))"				\
 		--eval "(sly-setup (quote ($(CONTRIB_NAME))))"		\
