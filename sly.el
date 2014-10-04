@@ -73,6 +73,7 @@
 (require 'etags)
 (require 'apropos)
 
+(require 'sly-messages "lib/sly-messages")
 (require 'sly-buttons "lib/sly-buttons")
 
 (eval-when-compile
@@ -627,64 +628,6 @@ corresponding values in the CDR of VALUE."
                        ")"))
                "*")
              ""))
-
-
-;; Interface
-(defvar sly--last-message nil)
-
-(defun sly-message (format-string &rest args)
-  "Like `message', but use a prefix."
-  (let ((body (apply #'format format-string args)))
-    (setq sly--last-message (format "[sly] %s" body))
-    (message "%s" sly--last-message)))
-
-(defun sly-temp-message (wait sit-for format &rest args)
-  (run-with-timer
-   wait nil
-   #'(lambda ()
-       (let ((existing sly--last-message))
-         (apply #'sly-message format args)
-         (run-with-timer
-          sit-for
-          nil
-          #'(lambda ()
-              (message "%s" existing)))))))
-
-(defun sly-warning (format-string &rest args)
-  (display-warning '(sly warning) (apply #'format format-string args)))
-
-(defun sly-error (format-string &rest args)
-  (apply #'error (format "[sly] %s" format-string) args))
-
-(defun sly-display-oneliner (format-string &rest format-args)
-  (let* ((msg (apply #'format format-string format-args)))
-    (unless (minibuffer-window-active-p (minibuffer-window))
-      (sly-message (sly-oneliner msg)))))
-
-(defun sly-oneliner (string)
-  "Return STRING truncated to fit in a single echo-area line."
-  (substring string 0 (min (length string)
-                           (or (cl-position ?\n string) most-positive-fixnum)
-                           (1- (window-width (minibuffer-window))))))
-
-(defvar sly-completing-read-function 'ido-completing-read)
-
-(defun sly-completing-read (prompt choices &optional
-                                   predicate
-                                   require-match
-                                   initial-input
-                                   hist
-                                   def
-                                   inherit-input-method)
-  (funcall sly-completing-read-function
-           prompt
-           choices
-           predicate
-           require-match
-           initial-input
-           hist
-           def
-           inherit-input-method))
 
 (defun sly-recenter (target)
   "Try to make the region between point and TARGET visible.
@@ -2553,30 +2496,6 @@ to it depending on its sign."
           ',sly-compilation-policy)
       #'(lambda (result)
           (sly-compilation-finished result nil)))))
-
-(defvar sly-flash-inhibit nil
-  "If non-nil `sly-flash-region' does nothing")
-
-(cl-defun sly-flash-region (start end &key timeout face times)
-  "Temporarily highlight region from START to END."
-  (unless sly-flash-inhibit
-    (let ((overlay (make-overlay start end)))
-      (overlay-put overlay 'face (or face
-                                     'highlight))
-      (overlay-put overlay 'priority 1000)
-      (run-with-timer
-       (or timeout 0.2) nil
-       #'(lambda ()
-           (delete-overlay overlay)
-           (when (and times
-                      (> times 1))
-             (run-with-timer
-              (or timeout 0.2) nil
-              #'(lambda ()
-                  (sly-flash-region start end
-                                    :timeout timeout
-                                    :face face
-                                    :times (1- times))))))))))
 
 (defun sly-compilation-position (start-offset)
   (let ((line (save-excursion

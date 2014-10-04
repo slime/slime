@@ -1,6 +1,7 @@
 ;;; sly-buttons.el --- Button-related utils for SLY
 ;;;
 (require 'cl-lib)
+(require 'sly-messages "lib/sly-messages")
 
 (defvar sly-part-button-keymap
       (let ((map (make-sparse-keymap)))
