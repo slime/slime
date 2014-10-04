@@ -26,12 +26,13 @@
 (defun slime-arglist (name)
   "Show the argument list for NAME."
   (interactive (list (slime-read-symbol-name "Arglist of: " t)))
-  (let ((arglist (slime-autodoc--retrieve-arglist name)))
+  (let ((arglist (slime-retrieve-arglist name)))
     (if (eq arglist :not-available)
         (error "Arglist not available")
         (message "%s" (slime-autodoc--fontify arglist)))))
 
-(defun slime-autodoc--retrieve-arglist (name)
+;; used also in slime-c-p-c.el.
+(defun slime-retrieve-arglist (name)
   (let ((name (cl-etypecase name
 		(string name)
 		(symbol (symbol-name name)))))

@@ -1,3 +1,9 @@
+2014-10-04  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-autodoc.el (slime-retrieve-arglist): Renamed
+	back from slime-autodoc--retrieve-arglist as it's still
+	used in slime-c-p-c.el
+
 2014-10-01  Helmut Eller  <heller@common-lisp.net>
 
 	Some updates for the MIT-Scheme backend.
