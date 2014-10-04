@@ -6,7 +6,13 @@
   (:use :cl :slynk-api)
   (:export #:create-mrepl
            #:globally-save-object
-           #:eval-for-mrepl))
+           #:eval-for-mrepl
+           #:sync-package-and-default-directory
+           #:pprint-entry
+           #:inspect-entry
+           #:guess-and-set-package
+           #:copy-to-repl
+           #:describe-entry))
 (in-package :slynk-mrepl)
 
 
@@ -56,6 +62,11 @@
 (defun mrepl-get-object-from-history (entry-idx value-idx)
   (nth value-idx (mrepl-get-history-entry entry-idx)))
 
+(defun make-results (objects)
+  (loop for value in objects
+        collect (list (slynk::to-line value)
+                      (1- (length *history*)))))
+
 (defun mrepl-eval (repl string)
   (let ((aborted t)
         (results)
@@ -84,7 +95,6 @@
                                          `(:evaluation-aborted
                                            ,(prin1-to-string aborted))))
                 (t
-                 
                  (when results
                    (setq /// //  // /  / results
                          *** **  ** *  * (car results)
@@ -92,8 +102,7 @@
                    (vector-push-extend results *history*))
                  (send-to-remote-channel
                   (mrepl-remote-id repl)
-                  `(:write-values ,(mapcar #'slynk::to-line
-                                           results)))))
+                  `(:write-values ,(make-results results)))))
           (send-prompt repl))))))
 
 (defun prompt-arguments (repl condition)
@@ -244,12 +253,12 @@ target MREPL's thread and environment are considered.
 This function returns a list of with two elements. The first is a list
 of arguments as sent in the :PROMPT channel method reply. The second
 is the values list returned by SLAVE-SLYFUN transformed into a normal
-list and filtered through SLYNK::TO-LINE."
+list."
   (with-eval-for-repl (remote-id mrepl)
     (let ((objects (multiple-value-list (apply slave-slyfun args))))
       (list
        (prompt-arguments mrepl nil)
-       (mapcar #'slynk::to-line objects)))))
+       objects))))
 
 (defslyfun inspect-entry (remote-id entry-idx value-idx)
   (with-eval-for-repl (remote-id)
@@ -292,7 +301,7 @@ list and filtered through SLYNK::TO-LINE."
     (setq /// //  // /  / objects
           *** **  ** *  * (car objects))
     (vector-push-extend objects *history*)
-    (values-list objects)))
+    (values-list (make-results objects))))
 
 (defslyfun sync-package-and-default-directory (package-name
                                                directory)

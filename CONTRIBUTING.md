@@ -156,7 +156,7 @@ Slynk. Here is an extract showing the `:PROCESS`, `:WRITE-VALUES` and
                      (:process "(list 1 2 3)"))
 (:channel-send 1
                (:write-values
-                ("(1 2 3)")))
+                (("(1 2 3)" 2))))
 (:channel-send 1
                (:prompt "COMMON-LISP-USER" "CL-USER" 0))
 ```
@@ -178,7 +178,7 @@ well over any IP network.
 
 ### Common Lisp bias
 
-*Note: This section is very imcomplete*
+*Note: This section is very incomplete*
 
 SLY has is primarily a Common-Lisp IDE and the supporting Slynk have
 strong Common-lisp bias. There have been many attempts, some quite

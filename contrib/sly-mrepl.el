@@ -106,7 +106,6 @@ emptied. See also `sly-mrepl-hook'")
 (defvar sly-mrepl--remote-channel nil)
 (defvar sly-mrepl--local-channel nil)
 (defvar sly-mrepl--read-mode nil)
-(defvar sly-mrepl--result-counter -1)
 (defvar sly-mrepl--output-mark nil)
 (defvar sly-mrepl--dedicated-stream nil)
 (defvar sly-mrepl--last-prompt-overlay nil)
@@ -134,7 +133,6 @@ emptied. See also `sly-mrepl-hook'")
                 (comint-prompt-read-only t)
                 (indent-line-function lisp-indent-line)
                 (sly-mrepl--read-mode nil)
-                (sly-mrepl--result-counter -1)
                 (sly-mrepl--pending-output nil)
                 (sly-mrepl--output-mark ,(point-marker))
                 (sly-mrepl--last-prompt-overlay ,(make-overlay 0 0 nil nil))
@@ -156,9 +154,9 @@ emptied. See also `sly-mrepl-hook'")
 ;;; Channel methods
 (sly-define-channel-type listener)
 
-(sly-define-channel-method listener :write-values (values)
+(sly-define-channel-method listener :write-values (results)
   (with-current-buffer (sly-channel-get self 'buffer)
-    (sly-mrepl--insert-returned-values values)))
+    (sly-mrepl--insert-results results)))
 
 (sly-define-channel-method listener :evaluation-aborted (&optional condition)
   (with-current-buffer (sly-channel-get self 'buffer)
@@ -204,7 +202,6 @@ emptied. See also `sly-mrepl-hook'")
   (with-current-buffer (sly-channel-get self 'buffer)
     (let ((inhibit-read-only t))
       (erase-buffer)
-      (setq sly-mrepl--result-counter -1)
       (sly-mrepl--insert-output "; Cleared REPL history"))))
 
 
@@ -380,21 +377,23 @@ emptied. See also `sly-mrepl-hook'")
                     ,sly-mrepl--remote-channel
                     ',(car slyfun-and-args)
                     ,@(cdr slyfun-and-args))
-    (lambda (prompt-args-and-objects)
-      (goto-char (sly-mrepl--mark))
-      (let ((saved-text (buffer-substring (point) (point-max))))
-        (delete-region (point) (point-max))
-        (sly-mrepl--catch-up)
-        (when before-prompt
-          (funcall before-prompt (cl-second prompt-args-and-objects)))
-        (when insert-p
-          (sly-mrepl--insert-returned-values (cl-second prompt-args-and-objects)))
-        (apply #'sly-mrepl--insert-prompt (cl-first prompt-args-and-objects))
-        (when after-prompt
-          (funcall after-prompt (cl-second prompt-args-and-objects)))
-        (pop-to-buffer (current-buffer))
+    (lambda (prompt-args-and-results)
+      (cl-destructuring-bind (prompt-args results)
+          prompt-args-and-results
         (goto-char (sly-mrepl--mark))
-        (insert saved-text)))))
+        (let ((saved-text (buffer-substring (point) (point-max))))
+          (delete-region (point) (point-max))
+          (sly-mrepl--catch-up)
+          (when before-prompt
+            (funcall before-prompt results))
+          (when insert-p
+            (sly-mrepl--insert-results results))
+          (apply #'sly-mrepl--insert-prompt prompt-args)
+          (when after-prompt
+            (funcall after-prompt results))
+          (pop-to-buffer (current-buffer))
+          (goto-char (sly-mrepl--mark))
+          (insert saved-text))))))
 
 (defun sly-mrepl--copy-objects-to-repl (method-args note &optional callback)
   (sly-mrepl--eval-for-repl `(slynk-mrepl:copy-to-repl
@@ -405,24 +404,24 @@ emptied. See also `sly-mrepl-hook'")
                                 (sly-mrepl--insert-output (concat "; " note))))
                             callback))
 
-(defun sly-mrepl--make-result-button (label entry-idx value-idx)
-  (make-text-button label nil
+(defun sly-mrepl--make-result-button (result idx)
+  (make-text-button (car result) nil
                     :type 'sly-mrepl-part
-                    'part-args (list entry-idx value-idx)
+                    'part-args (list (cadr result) idx)
                     'part-label (format "REPL Result")
+                    'sly-mrepl--result result
                     'sly-button-search-id (sly-button-next-search-id))
-  label)
+  (car result))
 
-(defun sly-mrepl--insert-returned-values (values)
+(defun sly-mrepl--insert-results (results)
   (let* ((comint-preoutput-filter-functions nil))
-    (if (null values)
+    (if (null results)
         (sly-mrepl--insert "; No values")
-      (cl-incf sly-mrepl--result-counter)
-      (cl-loop for value in values
+      (cl-loop for result in results
                for idx from 0
                do
                (sly-mrepl--ensure-newline)
-               (sly-mrepl--insert (sly-mrepl--make-result-button value sly-mrepl--result-counter idx))))))
+               (sly-mrepl--insert (sly-mrepl--make-result-button result idx))))))
 
 (defun sly-mrepl--catch-up ()
   (when (> (sly-mrepl--mark) sly-mrepl--output-mark)
@@ -832,7 +831,8 @@ When setting this variable outside of the Customize interface,
     ("disconnect all" . sly-disconnect-all)
     ("restart lisp" . sly-restart-inferior-lisp)
     ("set package" . sly-mrepl-set-package)
-    ("set directory" . sly-mrepl-set-directory)))
+    ("set directory" . sly-mrepl-set-directory)
+    ("clear repl" . sly-mrepl-clear-repl)))
 
 (defun sly-mrepl-set-package ()
   (interactive)
