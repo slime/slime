@@ -99,9 +99,12 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                              (memq sly-buffer-connection sly-net-processes)))
          (connected '(sly-connected-p)))
     `("Trace"
-      ["Toggle trace" sly-trace-dialog-toggle-trace ,connected]
+      ["Toggle trace.." sly-trace-dialog-toggle-trace ,connected]
+      ["Untrace all" sly-trace-dialog-untrace-all ,connected]
       ["Trace complex spec" sly-trace-dialog-toggle-complex-trace ,connected]
-      ["Open Trace dialog" sly-trace-dialog (and ,connected (not ,in-dialog))])))
+      ["Open Trace dialog" sly-trace-dialog (and ,connected (not ,in-dialog))]
+      "--"
+      [ "Regular lisp trace..."         sly-toggle-fancy-trace ,connected])))
 
 (easy-menu-add-item sly-menu nil sly-trace-dialog--shortcut-menu "Documentation")
 
@@ -727,6 +730,15 @@ other complicated function specs."
     (sly-message "%s" (sly-eval `(slynk-trace-dialog:dialog-toggle-trace
                                   (slynk::from-string ,spec-string))))
     (run-hooks 'sly-trace-dialog-after-toggle-hook)))
+
+(defun sly-trace-dialog-untrace-all ()
+  "Untrace all specs traced for the Trace Dialog."
+  (interactive)
+  (sly-eval-async `(slynk-trace-dialog:dialog-untrace-all)
+    #'(lambda (results)
+        (sly-message "%s dialog specs and %s regular specs untraced"
+                       (cdr results) (car results) )))
+  (run-hooks 'sly-trace-dialog-after-toggle-hook))
 
 (defun sly-trace-dialog--update-existing-dialog ()
   (let ((existing (sly-trace-dialog--live-dialog)))

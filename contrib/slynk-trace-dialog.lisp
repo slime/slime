@@ -245,8 +245,11 @@ program.")
   (find spec *traced-specs* :test #'equal))
 
 (defslyfun dialog-untrace-all ()
-  (untrace)
-  (mapcar #'dialog-untrace *traced-specs*))
+  (let ((regular (length (trace)))
+        (dialog (length *traced-specs*)))
+    (untrace)
+    (mapcar #'dialog-untrace *traced-specs*)
+    (cons regular dialog)))
 
 
 

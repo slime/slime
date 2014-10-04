@@ -6448,15 +6448,13 @@ is setup, unless the user already set one explicitly."
        [ "Edit Lisp Value..."      sly-edit-value ,C ]
        [ "Call Defun"              sly-call-defun ,C ])
       ("Debugging"
+       [ "Inspect..."              sly-inspect ,C ]
        [ "Macroexpand Once..."     sly-macroexpand-1 ,C ]
        [ "Macroexpand All..."      sly-macroexpand-all ,C ]
-       [ "Toggle Trace..."         sly-toggle-trace-fdefinition ,C ]
-       [ "Untrace All"             sly-untrace-all ,C]
-       [ "Disassemble..."          sly-disassemble-symbol ,C ]
-       [ "Inspect..."              sly-inspect ,C ])
+       [ "Disassemble..."          sly-disassemble-symbol ,C ])
       ("Compilation"
        [ "Compile Defun"           sly-compile-defun ,C ]
-       [ "Compile/Load File"       sly-compile-and-load-file ,C ]
+       [ "Compile and Load File"       sly-compile-and-load-file ,C ]
        [ "Compile File"            sly-compile-file ,C ]
        [ "Compile Region"          sly-compile-region ,C ]
        "--"
