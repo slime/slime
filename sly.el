@@ -4986,7 +4986,7 @@ The chosen buffer the default connection's it if exists."
   "Find or create a sly-db-buffer for THREAD."
   (let ((connection (or connection (sly-connection))))
     (or (sly-db-find-buffer thread connection)
-        (let ((name (sly-buffer-name :sly-db :connection connection
+        (let ((name (sly-buffer-name :db :connection connection
                                      :suffix (format "thread %d" thread))))
           (with-current-buffer (generate-new-buffer name)
             (setq sly-buffer-connection connection
