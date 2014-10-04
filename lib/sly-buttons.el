@@ -175,7 +175,10 @@
   (cl-incf sly-button--next-search-id))
 
 (defun sly-button--searchable-buttons-at (pos filter)
-  (let ((non-overlay-button (sly-button-at pos 'sly-button 'no-error)))
+  (let* ((probe (sly-button-at pos 'sly-button 'no-error))
+         (non-overlay-button (and probe
+                                  (not (overlayp probe))
+                                  probe)))
     (cl-remove-duplicates
      (append (sly-button--overlays-at pos filter)
              (if (and non-overlay-button
