@@ -2,7 +2,11 @@
   (:use :cl)
   (:import-from :slynk-backend :slynk-compile-string)
   (:import-from :slynk :defslyfun :with-buffer-syntax :compile-string-for-emacs)
-  (:export #:record))
+  (:export #:record
+           #:compile-for-stickers
+           #:kill-stickers
+           #:inspect-sticker-values
+           #:check-stickers))
 (in-package :slynk-stickers)
 
 (defclass sticker ()
@@ -14,11 +18,22 @@
 (defslyfun compile-for-stickers (new-stickers
                                  dead-stickers
                                  instrumented-string
-                                 string
+                                 original-string
                                  buffer
                                  position
                                  filename
                                  policy)
+  "Considering NEW-STICKERS, compile INSTRUMENTED-STRING.
+INSTRUMENTED-STRING is exerpted from BUFFER at POSITION. BUFFER may be
+associated with FILENAME. DEAD-STICKERS if any, are killed. If
+compilation succeeds, return a list (NOTES T).
+
+If ORIGINAL-STRING, if non-nil, is compiled as a fallback if the
+previous compilation. In this case a list (NOTES NIL) is returned or
+an error is signalled.
+
+If ORIGINAL-STRING is not supplied and compilation of
+INSTRUMENTED-STRING fails, return NIL."
   ;; Dead stickers are unconditionally removed from *stickers*
   ;; 
   (kill-stickers dead-stickers)
@@ -30,12 +45,14 @@
                                         filename
                                         policy)
             (error () nil))))
-    (cond (probe
+    (cond (;; a non-nil and successful compilation result
+           (and probe
+                (third probe))
            (loop for id in new-stickers
                  do (setf (gethash id *stickers*) (make-instance 'sticker)))
            (list probe t))
-          (t
-           (list (compile-string-for-emacs string buffer position filename policy)
+          (original-string
+           (list (compile-string-for-emacs original-string buffer position filename policy)
                  nil)))))
 
 (defslyfun kill-stickers (ids)

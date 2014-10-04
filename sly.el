@@ -6726,10 +6726,12 @@ and skips comments."
   (apply #'buffer-substring-no-properties
          (sly-region-for-defun-at-point)))
 
-(defun sly-region-for-defun-at-point ()
-  "Return the start and end position of defun at point."
+(defun sly-region-for-defun-at-point (&optional pos)
+  "Return a list (START END) for the positions of defun at POS.
+POS defaults to point"
   (save-excursion
     (save-match-data
+      (goto-char (or pos (point)))
       (end-of-defun)
       (let ((end (point)))
         (beginning-of-defun)

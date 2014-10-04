@@ -411,16 +411,21 @@ With interactive prefix arg PREFIX always delete stickers.
             (sly-eval-async `(slynk-stickers:kill-stickers ',zombie-sticker-ids)))))
     "CL_USER"))
 
-(defun sly-stickers-compile-region-aware-of-stickers (start end)
+(cl-defun sly-stickers--compile-region-aware-of-stickers-1
+    (start end callback &key sync fallback flash)
   "Compile from START to END considering stickers.
-Intented to be placed in `sly-compile-region-function'"
+After compilation call CALLBACK with the stickers and the
+compilation result.  If SYNC, use `sly-eval' other wise use
+`sly-eval-async'.  If FALLBACK, send the uninstrumneted region as
+a fallback.  If FLASH, flash the compiled region."
   (let* ((uninstrumented (buffer-substring-no-properties start end))
          (stickers (sly-stickers--stickers-between start end))
          (dead-ids (append (mapcar #'sly-stickers--sticker-id stickers)
                            (sly-stickers--bring-out-yer-dead)))
          (original-buffer (current-buffer)))
     (cond (stickers
-           (sly-flash-region start end :face 'sly-stickers-armed-face)
+           (when flash
+             (sly-flash-region start end :face 'sly-stickers-armed-face))
            (sly-with-popup-buffer ((sly-buffer-name :stickers :hidden t)
                                    :select :hidden)
              (mapc #'delete-overlay (overlays-in (point-min) (point-max)))
@@ -448,39 +453,77 @@ Intented to be placed in `sly-compile-region-function'"
              (let ((instrumented (buffer-substring-no-properties (point-min) (point-max)))
                    (new-ids (mapcar #'sly-stickers--sticker-id stickers)))
                (with-current-buffer original-buffer
-                 (sly-eval-async `(slynk-stickers:compile-for-stickers
-                                   ',new-ids
-                                   ',dead-ids
-                                   ,instrumented
-                                   ,uninstrumented
-                                   ,(buffer-name)
-                                   ',(sly-compilation-position start)
-                                   ,(if (buffer-file-name) (sly-to-lisp-filename (buffer-file-name)))
-                                   ',sly-compilation-policy)
-                   #'(lambda (result-and-stickers)
-                       (cl-destructuring-bind (result stuck-p)
-                           result-and-stickers
-                         (unless stuck-p
-                           (mapc #'sly-stickers--disarm-sticker stickers))
-                         (sly-compilation-finished
-                          result
-                          nil
-                          (if stuck-p
-                              (format " (%d stickers armed)" (length stickers))
-                            " (stickers failed to stick)")))))))))
+                 (let ((form `(slynk-stickers:compile-for-stickers
+                               ',new-ids
+                               ',dead-ids
+                               ,instrumented
+                               ,(when fallback uninstrumented)
+                               ,(buffer-name)
+                               ',(sly-compilation-position start)
+                               ,(if (buffer-file-name) (sly-to-lisp-filename (buffer-file-name)))
+                               ',sly-compilation-policy)))
+                   (if sync
+                       (funcall callback
+                                stickers
+                                (sly-eval form))
+                       (sly-eval-async form
+                         (lambda (result)
+                           (funcall callback stickers result)))))))))
           (t
            (sly-compile-region-as-string start end)))))
 
+(defun sly-stickers-compile-region-aware-of-stickers (start end)
+  "Compile region from START to END aware of stickers.
+Intended to be placed in `sly-compile-region-function'"
+  (sly-stickers--compile-region-aware-of-stickers-1
+   start end
+   (lambda (stickers result-and-stuck-p)
+     (cl-destructuring-bind (result &optional stuck-p)
+         result-and-stuck-p
+       (unless stuck-p
+         (mapc #'sly-stickers--disarm-sticker stickers))
+       (sly-compilation-finished
+        result
+        nil
+        (if stuck-p
+            (format " (%d stickers armed)" (length stickers))
+          " (stickers failed to stick)"))))
+   :fallback t
+   :flash t))
+
 (defun sly-stickers-after-buffer-compilation (success _notes buffer loadp)
-  (when (and buffer loadp)
+  "After compilation, compile regions with stickers.
+Intented to be placed in `sly-compilation-finished-hook'"
+  (when (and buffer loadp success)
     (save-restriction
       (widen)
-      (let ((stickers (sly-stickers--stickers-between (point-min) (point-max))))
-        (mapc #'sly-stickers--disarm-sticker stickers)
-        (when (and success
-                   stickers)
-          (sly-temp-message 3 3
-                            "%s stickers disarmed, arming on buffer compile not implemented yet"
-                            (length stickers)))))))
+      (let* ((all-stickers (sly-stickers--stickers-between (point-min) (point-max)))
+             (regions (loop for sticker in all-stickers
+                            for region = (sly-region-for-defun-at-point (overlay-start sticker))
+                            unless (member region regions)
+                            collect region into regions
+                            finally (cl-return regions))))
+        (when regions
+          (loop with successful
+                with unsuccessful
+                for region in regions
+                do
+                (sly-stickers--compile-region-aware-of-stickers-1
+                 (car region) (cadr region)
+                 (lambda (stickers result)
+                   (cond (result
+                          (push (cons region stickers) successful))
+                         (t
+                          (mapc #'sly-stickers--disarm-sticker stickers)
+                          (push (cons region stickers) unsuccessful))))
+                 :sync t)
+                finally
+                (sly-temp-message
+                 3 3
+                 "%s stickers stuck in %s regions, %s disarmed in %s regions"
+                 (cl-reduce #'+ successful :key (lambda (x) (length (cdr x))))
+                 (length successful)
+                 (cl-reduce #'+ unsuccessful :key (lambda (x) (length (cdr x))))
+                 (length unsuccessful))))))))
 
 (provide 'sly-stickers)

@@ -117,6 +117,27 @@
     (unless (sly-stickers--face-p 'sly-stickers-placed-face)
       (ert-fail "Expected valid FOO sticker to remain unarmed"))))
 
+(define-sly-ert-test stickers-in-a-file
+  "Test compiling a file with some valid and invalid stickers."
+  (sly-stickers--with-fixture ('((defun foo () (bar (baz)))
+                                 (defun bar (x) (values (list x) 'bar))
+                                 (defun baz () 42)
+                                 (defun xpto () (let ((coiso)) coiso)))
+                               '("(bar" "(baz" "(coiso"))
+    
+    (goto-char (point-min))
+    (call-interactively 'sly-compile-and-load-file)
+    (sly-sync-to-top-level 1)
+    (call-interactively 'sly-stickers-next-sticker)
+    (unless (sly-stickers--face-p 'sly-stickers-armed-face)
+      (ert-fail "Expected BAR sticker to be armed"))
+    (call-interactively 'sly-stickers-next-sticker)
+    (unless (sly-stickers--face-p 'sly-stickers-armed-face)
+      (ert-fail "Expected BAZ sticker to be armed"))
+    (call-interactively 'sly-stickers-next-sticker)
+    (unless (sly-stickers--face-p 'sly-stickers-placed-face)
+      (ert-fail "Didn't expect COISO sticker to be armed"))))
+
 (define-sly-ert-test stickers-record-stuff ()
   "Test actually checking stickers' values."
   (sly-stickers--with-fixture ('((defun foo () (bar (baz)))
@@ -128,10 +149,6 @@
     (call-interactively 'sly-compile-and-load-file)
     (sly-sync-to-top-level 1)
     (call-interactively 'sly-stickers-next-sticker)
-    ;; FIXME: later on, this should by itself arm the the stickers and
-    ;; compile defun shouldn't be needed
-    (call-interactively 'sly-compile-defun)
-    (sly-sync-to-top-level 1)
     (unless (sly-stickers--face-p 'sly-stickers-armed-face)
       (ert-fail "Expected BAR sticker to be armed by now"))
     (sly-eval-async '(slynk-stickers-fixture::foo))
