@@ -409,9 +409,9 @@ Commands for visiting compiler notes:
 \\[slime-remove-notes]	- Remove compiler-note annotations in buffer.
 
 Finding definitions:
-\\[slime-edit-definition]	\
+\\[slime-edit-definition]
 - Edit the definition of the function called at point.
-\\[slime-pop-find-definition-stack]	\
+\\[slime-pop-find-definition-stack]
 - Pop the definition stack to go back from a definition.
 
 Documentation commands:
