@@ -1144,8 +1144,8 @@ on *DEBUGGER-HOOK*."
 (def-slime-test end-of-file
     (expr)
     "Signalling END-OF-FILE should invoke the debugger."
-    '(((cl:read-from-string ""))
-      ((cl:error 'cl:end-of-file)))
+    '(((cl:error 'cl:end-of-file))
+      ((cl:read-from-string "")))
   (let ((value (slime-eval
                 `(cl:let ((condition nil))
                          (cl:with-simple-restart
@@ -1155,7 +1155,7 @@ on *DEBUGGER-HOOK*."
                                                (cl:setq condition c)
                                                (cl:continue))))
                                   ,expr))
-                         (cl:and (cl:typep condition 'cl:end-of-file))))))
+                         (cl:if (cl:typep condition 'cl:end-of-file) t)))))
     (slime-test-expect "Debugger invoked" t value)))
 
 (def-slime-test interrupt-at-toplevel
