@@ -1,6 +1,49 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
 
+* 2.10 (October 2014)
+
+** Core
+*** The SWANK-BACKEND package has been renamed to SWANK/BACKEND
+Furthermore, implementations of the SWANK-BACKEND interface have
+individual packages such as SWANK/SBCL, SWANK/CCL, etc. Other packages
+such as SWANK-RPC, SWANK-GRAY have likewise had their hyphens turned
+into slashes.
+
+*** slime-compile-file is now aware of compilation-ask-about-save
+When set to nil, SLIME will save modified buffers without asking.
+compilation-save-buffers-predicate can be used to customize which
+buffers should be automatically saved.
+
+** slime-repl
+*** Clearing REPL output no longer deletes the prompt (issue #183)
+
+** slime-autodoc
+This contrib has been rewritten. Please report any regressions you may
+find.
+
+** ABCL backend
+*** Inspecting CLOS objects works properly again
+*** SLDB frame arguments have become inspectable
+
+** SBCL backend
+*** Source locations involving the #. reader macro
+The aforementioned mechanism was adapted to recent changes in the
+internals of the SBCL reader.
+
+*** Breakage involving recent versions of SBCL on Windows was fixed (issue #192)
+We no longer assume SB-SYS:ENABLE-INTERRUPT exists on Windows SBCL.
+
+** MKCL backend
+New backend for ManKai Common Lisp.
+
+** CMUCL backend
+*** Support for versions prior to 20c has been removed
+
+** MIT Scheme backend
+*** Updated and now requires MIT Scheme 9.2
+
 * 2.9 (August 2014)
+
 ** Core
 *** Various display-related bugfixes
 
@@ -8,7 +51,9 @@
 *** M-. now works on condition classes
 
 * 2.8 (July 2014)
+
 ** Core
+
 *** Inspector fixes and improvements for SBCL.
 
 ** Contribs
@@ -17,11 +62,9 @@
 * 2.7 (June 2014)
 
 ** Core
-
 *** SWANK now tries harder to send double-floats to Emacs
 
 ** Allegro CL Backend
-
 *** Added implementation for FUNCTION-NAME and FIND-SOURCE-LOCATION interfaces
 Notably, this means that pressing "." in the SLIME inspector now works
 on Allegro CL. (Thanks to Gábor Melis.)
