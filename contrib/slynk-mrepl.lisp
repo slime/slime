@@ -286,7 +286,8 @@ list."
   (let ((package (slynk::guess-package package-name)))
     (if package
         (setq *package* package)
-        (error "Can't find a package for designator ~a" package-name))))
+        (error "Can't find a package for designator ~a" package-name))
+    t))
 
 (defslyfun copy-to-repl (&optional entry-idx value-idx)
   (let ((objects
@@ -307,7 +308,7 @@ list."
                                                directory)
   (slynk:set-default-directory directory)
   (guess-and-set-package package-name)
-  (values *package* *default-pathname-defaults*))
+  t)
 
 
 ;;;; Dedicated stream
