@@ -223,7 +223,8 @@ If LOAD is true, load the fasl file."
             (let* ((directories (butlast compound-name))
                    (name (car (last compound-name))))
               (make-pathname :name (string-downcase name) :type "lisp"
-                             :directory (append (pathname-directory src-dir)
+                             :directory (append (or (pathname-directory src-dir)
+                                                    '(:relative))
                                                 (mapcar #'string-downcase directories))
                              :defaults src-dir)))
           (mapcar #'ensure-list files)))
