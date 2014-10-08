@@ -17,9 +17,9 @@ it:
 
 * Completely redesigned REPL based on Emacs's own full-featured `comint.el`
 * Live code annotations via a new `sly-stickers` contrib
-* Consistent interactive button interface i.e. everything can be copied to the REPL.
-* Multiple inspector with independent history
-* Regexp-capable M-x sly-apropos
+* Consistent interactive button interface. Everything can be copied to the REPL.
+* Multiple inspectors with independent history
+* Regexp-capable `M-x sly-apropos`
 * Contribs are first class SLY citizens and enabled by default
 * Use ASDF to loads contribs on demand.
 
