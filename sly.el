@@ -2148,7 +2148,7 @@ Debugged requests are ignored."
            (let ((hook (when (and thread tag)
                          (sly-curry #'sly-send
                                     `(:emacs-return ,thread ,tag nil)))))
-             (sly--open-inspector what nil hook)))
+             (sly--open-inspector what :kill-hook hook)))
           ((:background-message message)
            (sly-temp-message 1 3 "[background-message] %s" message))
           ((:debug-condition thread message)
