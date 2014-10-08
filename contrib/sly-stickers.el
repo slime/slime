@@ -392,7 +392,8 @@ With interactive prefix arg PREFIX always delete stickers.
   (interactive)
   (sly-eval-async `(slynk-stickers:check-stickers)
     #'(lambda (result)
-        (let ((zombie-sticker-ids))
+        (let ((zombie-sticker-ids)
+              (message (format "Fetched information for %s armed stickers" (length result))))
           (cl-loop for (id total last-values-desc) in result
                    for sticker = (gethash id sly-stickers--stickers)
                    do (cond ((and sticker (overlay-buffer sticker))
@@ -407,8 +408,9 @@ With interactive prefix arg PREFIX always delete stickers.
                             (t
                              (push id zombie-sticker-ids))))
           (when zombie-sticker-ids
-            (sly-message "Killing zombie stickers %s" zombie-sticker-ids)
-            (sly-eval-async `(slynk-stickers:kill-stickers ',zombie-sticker-ids)))))
+            (setq message (concat message (format "(killing zombie stickers %s)" zombie-sticker-ids)))
+            (sly-eval-async `(slynk-stickers:kill-stickers ',zombie-sticker-ids)))
+          (sly-message message)))
     "CL_USER"))
 
 (cl-defun sly-stickers--compile-region-aware-of-stickers-1
