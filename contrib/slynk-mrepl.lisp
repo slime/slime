@@ -319,10 +319,11 @@ list."
 (defparameter *dedicated-output-stream-port* 0
   "Which port we should use for the dedicated output stream.")
 
- (defparameter *dedicated-output-stream-buffering*
-  (if (eq slynk:*communication-style* :spawn) t nil)
+(defparameter *dedicated-output-stream-buffering*
+  (if (eq slynk:*communication-style* :spawn) :line nil)
   "The buffering scheme that should be used for the output stream.
-Valid values are nil, t, :line")
+Be advised that some Lisp backends don't support this.
+Valid values are nil, t, :line.")
 
 (defun make-mrepl-output-stream (remote-id)
   (or (and *use-dedicated-output-stream*
