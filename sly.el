@@ -735,11 +735,13 @@ the buffer to be created.  PACKAGE is the value
 `sly-buffer-connection', if nil, no explicit connection is
 associated with the buffer.  If t, the current connection is
 taken.  MODE is the name of a major mode which will be enabled.
-SELECT indicates the buffer should be switched to, unless it is
-`:hidden' meaning the buffer should not even be
-displayed. SAME-WINDOW-P is a form indicating if the popup *can*
-happen in the same window. The forms SELECT and SAME-WINDOW-P are
-evaluated at runtime, not macroexpansion time.
+Non-nil SELECT indicates the buffer should be switched to, unless
+it is `:hidden' meaning the buffer should not even be
+displayed. SELECT can also be `:raise' meaning the buffer should
+be switched to and the frame raised.  SAME-WINDOW-P is a form
+indicating if the popup *can* happen in the same window. The
+forms SELECT and SAME-WINDOW-P are evaluated at runtime, not
+macroexpansion time.
 "
   (declare (indent 1)
            (debug (sexp &rest form)))
@@ -774,7 +776,8 @@ evaluated at runtime, not macroexpansion time.
                             (if ,(cond (same-window-p same-window-p)
                                        (mode same-window-if-same-mode-form))
                                 '((inhibit-same-window . nil))
-                              '((inhibit-same-window . t))))))
+                              '((inhibit-same-window . t)))))
+             (if (eq ,select-sym :raise) (raise-frame)))
            (current-buffer))))))
 
 ;;;;; Filename translation
@@ -2148,7 +2151,7 @@ Debugged requests are ignored."
            (let ((hook (when (and thread tag)
                          (sly-curry #'sly-send
                                     `(:emacs-return ,thread ,tag nil)))))
-             (sly--open-inspector what :kill-hook hook)))
+             (sly--open-inspector what :kill-hook hook :switch :raise)))
           ((:background-message message)
            (sly-temp-message 1 3 "[background-message] %s" message))
           ((:debug-condition thread message)
