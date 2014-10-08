@@ -359,7 +359,25 @@ deliver output to Emacs."
              (slynk:authenticate-client dedicated)
              (slynk-backend:close-socket socket)
              (setf socket nil)
-             dedicated))
+             ;; See github issue #21: Only sbcl and cmucl apparently
+             ;; respect :LINE as a buffering type, hence this reader
+             ;; conditional. This could/should be a definterface, but
+             ;; looks harmless enough...
+             ;; 
+             #+(or sbcl cmucl)
+             dedicated
+             ;; ...on other implementations we make a gray stream that
+             ;; is guarnteed to use line buffering for write-sequence,
+             ;; and that writes to the dedicated socket whenever it
+             ;; sees fit.
+             ;; 
+             #-(or sbcl cmucl)
+             (if (eq *dedicated-output-stream-buffering* :line)
+                 (slynk-backend:make-output-stream
+                  (lambda (string)
+                    (write-sequence string dedicated)
+                    (force-output dedicated)))
+                 dedicated)))
       (when socket
         (slynk-backend:close-socket socket)))))
 
