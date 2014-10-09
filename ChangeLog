@@ -1,3 +1,8 @@
+2014-10-09  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* swank/backend.lisp (swank/backend): Add SWANK-BACKEND nickname
+	to ease the migration of external projects.
+
 2014-10-02  Helmut Eller  <heller@common-lisp.net>
 
 	Can't use Gray streams for ABCL

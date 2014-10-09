@@ -12,6 +12,7 @@
 
 (defpackage swank/backend
   (:use cl)
+  (:nicknames swank-backend)
   (:export *debug-swank-backend*
            sldb-condition
            compiler-condition
