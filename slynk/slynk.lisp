@@ -1286,6 +1286,14 @@ point the thread terminates and CHANNEL is closed."
          (dispatch-event c event)))
       (maybe-slow-down))))
 
+(defun make-thread-bindings-aware-lambda (fn)
+  (let ((connection *emacs-connection*)
+        (send-counter *send-counter*))
+    (lambda (&rest args)
+      (let ((*emacs-connection* connection)
+            (*send-counter* send-counter))
+        (apply fn args)))))
+
 
 ;;;;;; Flow control
 
@@ -4061,6 +4069,7 @@ Collisions are caused because package information is ignored."
                #:with-buffer-syntax
                #:with-retry-restart
                #:load-user-init-file
+               #:make-thread-bindings-aware-lambda
                ;;
                #:package-string-for-prompt
                ;;

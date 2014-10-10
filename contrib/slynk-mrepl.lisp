@@ -12,7 +12,10 @@
            #:inspect-entry
            #:guess-and-set-package
            #:copy-to-repl
-           #:describe-entry))
+           #:describe-entry
+           #:*use-dedicated-output-stream*
+           #:*dedicated-output-stream-port*
+           #:*dedicated-output-stream-buffering*))
 (in-package :slynk-mrepl)
 
 
@@ -329,8 +332,9 @@ Valid values are nil, t, :line.")
   (or (and *use-dedicated-output-stream*
            (open-dedicated-output-stream remote-id))
       (slynk-backend:make-output-stream
-       (lambda (string)
-         (send-to-remote-channel remote-id `(:write-string ,string))))))
+       (make-thread-bindings-aware-lambda
+        (lambda (string)
+          (send-to-remote-channel remote-id `(:write-string ,string)))))))
 
 (defun make-mrepl-input-stream (repl)
   (slynk-backend:make-input-stream

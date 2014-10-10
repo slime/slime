@@ -3756,12 +3756,12 @@ The result is a (possibly empty) list of definitions."
 (defvar sly-ed-frame nil
   "The frame used by `sly-ed'.")
 
-(defcustom sly-ed-use-dedicated-frame t
+(defcustom sly-ed-use-dedicated-frame nil
   "*When non-nil, `sly-ed' will create and reuse a dedicated frame."
   :type 'boolean
   :group 'sly-mode)
 
-(defun sly-ed (what)
+(cl-defun sly-ed (what )
   "Edit WHAT.
 
 WHAT can be:
@@ -3775,6 +3775,7 @@ This is for use in the implementation of COMMON-LISP:ED."
     (unless (and sly-ed-frame (frame-live-p sly-ed-frame))
       (setq sly-ed-frame (make-frame)))
     (select-frame sly-ed-frame))
+  (raise-frame)
   (when what
     (sly-dcase what
       ((:filename file &key line column position bytep)
