@@ -1,5 +1,15 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
 
+* 2.10.1 (October 2014)
+
+*** The SWANK-BACKEND nickname has been added to the SWANK/BACKEND package
+This should ease the migration of external projects that depend on the
+SWANK-BACKEND package. However, note that SWANK/BACKEND (as well as
+the other SWANK/* packages) are internal packages. Please refer to
+Conium <http://www.cliki.net/conium> for a project that purports to
+offer a stable API for debugger- and compiler-related tasks in Common
+Lisp.
+
 * 2.10 (October 2014)
 
 ** Core
