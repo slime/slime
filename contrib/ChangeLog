@@ -1,3 +1,8 @@
+2014-10-10  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* slime-repl.el (sldb-copy-down-to-repl): Use SWANK/BACKEND.
+	(sldb-insert-frame-call-to-repl): Likewise.
+
 2014-10-04  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-autodoc.el (slime-retrieve-arglist): Renamed

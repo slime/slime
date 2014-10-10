@@ -1,3 +1,8 @@
+2014-10-10  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* swank-loader.lisp (init): Delete swank/* packages.
+	(dump-image): use SWANK/BACKEND.
+
 2014-10-09  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* swank/backend.lisp (swank/backend): Add SWANK-BACKEND nickname

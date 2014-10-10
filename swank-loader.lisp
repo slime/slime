@@ -292,6 +292,14 @@ If LOAD is true, load the fasl file."
     (eval `(pushnew 'compile-contribs ,(q "swank::*after-init-hook*"))))
   (funcall (q "swank::init")))
 
+(defun list-swank-packages ()
+  (list* :swank
+         :swank-io-package
+         (remove-if (lambda (package)
+                      (< (string-not-equal #1="swank/" (package-name package))
+                         (length #1#)))
+                    (list-all-packages))))
+
 (defun init (&key delete reload load-contribs (setup t)
                (quiet (not *load-verbose*)))
   "Load SWANK and initialize some global variables.
@@ -301,7 +309,7 @@ If LOAD-CONTRIBS is true, load all contribs
 If SETUP is true, load user init files and initialize some
 global variabes in SWANK."
   (when (and delete (find-package :swank))
-    (mapc #'delete-package '(:swank :swank-io-package :swank-backend)))
+    (mapc #'delete-package (list-swank-packages)))
   (cond ((or (not (find-package :swank)) reload)
          (load-swank :quiet quiet))
         (t
@@ -313,4 +321,4 @@ global variabes in SWANK."
 
 (defun dump-image (filename)
   (init :setup nil)
-  (funcall (q "swank-backend:save-image") filename))
+  (funcall (q "swank/backend:save-image") filename))

@@ -6,9 +6,9 @@
 ;;; This file defines the "Swank" TCP server for Emacs to talk to. The
 ;;; code in this file is purely portable Common Lisp. We do require a
 ;;; smattering of non-portable functions in order to write the server,
-;;; so we have defined them in `swank-backend.lisp' and implemented
+;;; so we have defined them in `swank/backend.lisp' and implemented
 ;;; them separately for each Lisp implementation. These extensions are
-;;; available to us here via the `SWANK-BACKEND' package.
+;;; available to us here via the `SWANK/BACKEND' package.
 
 (defpackage swank
   (:use cl swank/backend swank/match swank/rpc)

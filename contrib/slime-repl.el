@@ -1591,12 +1591,12 @@ expansion will be added to the REPL's history.)"
 (defun sldb-copy-down-to-repl (frame-id var-id)
   "Evaluate the frame var at point via the REPL (to set `*')."
   (interactive (list (sldb-frame-number-at-point) (sldb-var-number-at-point)))
-  (slime-repl-copy-down-to-repl 'swank-backend:frame-var-value frame-id var-id))
+  (slime-repl-copy-down-to-repl 'swank/backend:frame-var-value frame-id var-id))
 
 (defun sldb-insert-frame-call-to-repl ()
   "Insert a call to a frame at point."
   (interactive)
-  (let ((call (slime-eval `(swank-backend::frame-call
+  (let ((call (slime-eval `(swank/backend::frame-call
                             ,(sldb-frame-number-at-point)))))
     (slime-switch-to-output-buffer)
     (if (>= (point) slime-repl-prompt-start-mark)

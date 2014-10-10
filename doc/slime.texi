@@ -1197,7 +1197,7 @@ objects.
 
 The inspector can easily be specialized for the objects in your own
 programs. For details see the @code{inspect-for-emacs} generic
-function in @file{swank-backend.lisp}.
+function in @file{swank/backend.lisp}.
 
 @table @kbd
 
