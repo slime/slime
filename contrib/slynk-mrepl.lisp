@@ -370,10 +370,10 @@ deliver output to Emacs."
              ;; 
              #+(or sbcl cmucl)
              dedicated
-             ;; ...on other implementations we make a gray stream that
-             ;; is guarnteed to use line buffering for write-sequence,
-             ;; and that writes to the dedicated socket whenever it
-             ;; sees fit.
+             ;; ...on other implementations we make a relaying gray
+             ;; stream that is guaranteed to use line buffering for
+             ;; WRITE-SEQUENCE. That stream writes to the dedicated
+             ;; socket whenever it sees fit.
              ;; 
              #-(or sbcl cmucl)
              (if (eq *dedicated-output-stream-buffering* :line)
@@ -503,7 +503,11 @@ Assigns *CURRENT-<STREAM>* for all standard streams."
 
 (defun revert-global-io-redirection ()
   "Set *CURRENT-<STREAM>* to *REAL-<STREAM>* for all standard streams."
-  (format *standard-output* "~&; About to revert global IO direction~%")
+  ;; Log to SLYNK:*LOG-OUTPUT* since the standard streams whose
+  ;; redirection are about to be reverted might be in an unconsistent
+  ;; state after, for instance, restarting an image.
+  ;; 
+  (format slynk:*log-output* "~&; About to revert global IO direction~%")
   (when *target-listener-for-redirection*
     (flush-listener-streams *target-listener-for-redirection*))
   (dolist (stream-var (append *standard-output-streams*
