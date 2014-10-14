@@ -10,8 +10,10 @@
   (cond ((and (symbolp sexp)
               (string-match "^slynk\\(.*\\)$" (symbol-name sexp)))
          (intern (format "swank%s" (match-string 1 (symbol-name sexp)))))
-        ((listp sexp)
-         (mapcar #'sly-retro-slynk-to-swank sexp))
+        ((and (listp sexp)
+	      (car sexp))
+	 (cons (sly-retro-slynk-to-swank (car sexp))
+	       (sly-retro-slynk-to-swank (cdr sexp))))
         (t
          sexp)))
 
