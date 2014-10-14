@@ -500,32 +500,32 @@ Intented to be placed in `sly-compilation-finished-hook'"
     (save-restriction
       (widen)
       (let* ((all-stickers (sly-stickers--stickers-between (point-min) (point-max)))
-             (regions (loop for sticker in all-stickers
-                            for region = (sly-region-for-defun-at-point (overlay-start sticker))
-                            unless (member region regions)
-                            collect region into regions
-                            finally (cl-return regions))))
+             (regions (cl-loop for sticker in all-stickers
+                               for region = (sly-region-for-defun-at-point (overlay-start sticker))
+                               unless (member region regions)
+                               collect region into regions
+                               finally (cl-return regions))))
         (when regions
-          (loop with successful
-                with unsuccessful
-                for region in regions
-                do
-                (sly-stickers--compile-region-aware-of-stickers-1
-                 (car region) (cadr region)
-                 (lambda (stickers result)
-                   (cond (result
-                          (push (cons region stickers) successful))
-                         (t
-                          (mapc #'sly-stickers--disarm-sticker stickers)
-                          (push (cons region stickers) unsuccessful))))
-                 :sync t)
-                finally
-                (sly-temp-message
-                 3 3
-                 "%s stickers stuck in %s regions, %s disarmed in %s regions"
-                 (cl-reduce #'+ successful :key (lambda (x) (length (cdr x))))
-                 (length successful)
-                 (cl-reduce #'+ unsuccessful :key (lambda (x) (length (cdr x))))
-                 (length unsuccessful))))))))
+          (cl-loop with successful
+                   with unsuccessful
+                   for region in regions
+                   do
+                   (sly-stickers--compile-region-aware-of-stickers-1
+                    (car region) (cadr region)
+                    (lambda (stickers result)
+                      (cond (result
+                             (push (cons region stickers) successful))
+                            (t
+                             (mapc #'sly-stickers--disarm-sticker stickers)
+                             (push (cons region stickers) unsuccessful))))
+                    :sync t)
+                   finally
+                   (sly-temp-message
+                    3 3
+                    "%s stickers stuck in %s regions, %s disarmed in %s regions"
+                    (cl-reduce #'+ successful :key (lambda (x) (length (cdr x))))
+                    (length successful)
+                    (cl-reduce #'+ unsuccessful :key (lambda (x) (length (cdr x))))
+                    (length unsuccessful))))))))
 
 (provide 'sly-stickers)
