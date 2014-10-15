@@ -102,16 +102,33 @@
   (sly-message (button-get sticker 'sly-stickers--info))
   (sly-button-flash sticker))
 
+(defcustom sly-stickers-max-nested-stickers 4
+  "The maximum expected level expected of sticker nesting.
+If you nest more than this number of stickers inside other
+stickers, the overlay face will be very dark, and probably
+render the underlying text unreadable."
+  :type :integer)
+
+(defvar sly-stickers-color-face-attribute :background
+  "Color-capable attribute of sticker faces that represents nesting.")
+
+(defun sly-stickers--guess-face-color (face)
+  (face-attribute-specified-or
+   (face-attribute face sly-stickers-color-face-attribute nil t)
+   nil))
+
 (defun sly-stickers--set-face (sticker &optional face)
   (let ((face (or face
                   (button-get sticker 'sly-stickers--base-face))))
     (button-put sticker 'sly-stickers--base-face face)
     (button-put sticker 'face
                 `(:inherit ,face
-                  :background
-                  ,(color-darken-name (face-background face nil t)
-                                      (* (sly-button--overlay-priority sticker)
-                                         15))))))
+                           ,sly-stickers-color-face-attribute
+                           ,(color-darken-name (sly-stickers--guess-face-color face)
+                                               (* 40
+                                                  (/ (sly-button--overlay-priority sticker)
+                                                     sly-stickers-max-nested-stickers
+                                                     1.0)))))))
 
 (defun sly-stickers--stickers-in (beg end)
   (sly-button--overlays-in beg end 'sly-stickers--sticker-id))
