@@ -281,8 +281,6 @@ render the underlying text unreadable."
   (overlay-put sticker 'priority prio))
 
 (defun sly-stickers--decrease-prio (sticker)
-  (mapc #'sly-stickers--decrease-prio
-        (sly-stickers--sticker-substickers sticker))
   (let ((prio (sly-button--overlay-priority sticker)))
     (unless (and prio
                  (cl-plusp prio))
@@ -291,8 +289,6 @@ render the underlying text unreadable."
     (sly-stickers--set-face sticker)))
 
 (defun sly-stickers--increase-prio (sticker)
-  (mapc #'sly-stickers--increase-prio
-        (sly-stickers--sticker-substickers sticker))
   (let ((prio (sly-button--overlay-priority sticker)))
     (sly-stickers--set-sticker-piority sticker (cl-incf prio))
     (sly-stickers--set-face sticker)))
