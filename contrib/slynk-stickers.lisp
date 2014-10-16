@@ -9,9 +9,42 @@
            #:fetch-and-forget))
 (in-package :slynk-stickers)
 
+(defclass recording ()
+  ((ctime :initform (common-lisp:get-universal-time) :accessor ctime-of)
+   (values :initform (error "required") :initarg :values :accessor values-of)
+   (condition :initarg :condition :accessor condition-of)))
+
+(defun describe-recording (recording &optional stream print-first-value)
+  (let ((values (values-of recording))
+        (condition (condition-of recording)))
+    (cond (condition
+           (format stream "exited non-locally with: ~a" (slynk::to-line condition)))
+          ((eq values 'exited-non-locally)
+           (format stream "exited non-locally"))
+          ((listp values)
+           (if (and print-first-value
+                    (car values))
+               (format stream "~a" (slynk::to-line (car values)))
+               (format stream "~a values" (length values))))
+          (t
+           (format stream "corrupt recording")))))
+
+(defmethod print-object ((r recording) s)
+  (print-unreadable-object (r s :type t)
+    (describe-recording r s)))
+
 (defclass sticker ()
-  ((reported-value-lists :initform nil :accessor reported-value-lists-of)
-   (new-value-lists :initform nil :accessor new-value-lists-of)))
+  ((reported-recordings :initform nil :accessor reported-recordings-of)
+   (new-recordings :initform nil :accessor new-recordings-of)))
+
+(defmethod print-object ((sticker sticker) s)
+  (print-unreadable-object (sticker s :type t)
+    (format s "~a new recordings" (length (new-recordings-of sticker)))))
+
+(defun exited-non-locally-p (recording)
+  (when (or (condition-of recording)
+            (eq (values-of recording) 'exited-non-locally))
+    t))
 
 (defvar *stickers* (make-hash-table))
 
@@ -61,13 +94,20 @@ INSTRUMENTED-STRING fails, return NIL."
 
 (defun call-with-sticker-recording (id fn)
   (let* ((sticker (gethash id *stickers*))
-         (values :exited-non-locally))
+         (values 'exited-non-locally)
+         (last-condition))
     (unwind-protect
-         (progn
+         (handler-bind ((condition (lambda (condition)
+                                    (setq last-condition condition))))
            (setq values (multiple-value-list (funcall fn)))
            (values-list values))
-      (if sticker
-          (push values (new-value-lists-of sticker))))))
+      (when sticker
+        (let ((recording
+                (make-instance 'recording
+                               :values values
+                               :condition (and (eq values 'exited-non-locally)
+                                               last-condition))))
+          (push recording (new-recordings-of sticker)))))))
 
 (defmacro record (id &rest body)
   `(call-with-sticker-recording ,id (lambda () ,@body)))
@@ -75,20 +115,19 @@ INSTRUMENTED-STRING fails, return NIL."
 (defslyfun fetch-and-forget ()
   (loop for k being the hash-keys of *stickers*
         for sticker being the hash-values of *stickers*
-        for new-value-lists = (new-value-lists-of sticker)
-        for last-new-value-list = (car (last new-value-lists))
-        for last-value-desc = (if (listp last-new-value-list)
-                                  (mapcar #'slynk::to-line
-                                          last-new-value-list)
-                                  last-new-value-list)
+        for new-recordings = (new-recordings-of sticker)
+        for most-recent-recording = (car (last new-recordings))
         collect (list k
-                      (length new-value-lists)
-                      last-value-desc)
+                      (length new-recordings)
+                      (and most-recent-recording
+                           (describe-recording most-recent-recording nil 'print-first-value))
+                      (and most-recent-recording
+                           (exited-non-locally-p most-recent-recording)))
         do
-           (setf (reported-value-lists-of sticker)
-                 (append new-value-lists
-                         (reported-value-lists-of sticker)))
-           (setf (new-value-lists-of sticker) nil)))
+           (setf (reported-recordings-of sticker)
+                 (append new-recordings
+                         (reported-recordings-of sticker)))
+           (setf (new-recordings-of sticker) nil)))
 
 (defun find-sticker-or-lose (id)
   (let ((probe (gethash id *stickers* :unknown)))

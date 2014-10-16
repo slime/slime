@@ -50,8 +50,7 @@
   "Face for stickers that have no recordings.")
 
 (defface sly-stickers-exited-non-locally-face
-  '((t (:inherit sly-stickers-empty-face)
-       (:strike-through t)))
+  '((t (:strike-through t :inherit sly-stickers-empty-face)))
   "Face for stickers that have exited non-locally.")
 
 (defun sly-stickers-enable () (sly-stickers-mode 1))
@@ -120,13 +119,16 @@ render the underlying text unreadable."
    nil))
 
 (defun sly-stickers--set-face (sticker &optional face)
-  (let ((face (or face
-                  (button-get sticker 'sly-stickers--base-face))))
+  (let* ((face (or face
+                   (button-get sticker 'sly-stickers--base-face)))
+         (guessed-color (sly-stickers--guess-face-color face)))
     (button-put sticker 'sly-stickers--base-face face)
+    (unless guessed-color
+      (sly-error "sorry, can't guess color for face %s for sticker %s"))
     (button-put sticker 'face
                 `(:inherit ,face
                            ,sly-stickers-color-face-attribute
-                           ,(color-darken-name (sly-stickers--guess-face-color face)
+                           ,(color-darken-name guessed-color
                                                (* 40
                                                   (/ (sly-button--overlay-priority sticker)
                                                      sly-stickers-max-nested-stickers
@@ -189,7 +191,7 @@ render the underlying text unreadable."
          (label (format "Sticker %d is armed" id)))
     (button-put sticker 'part-args (list id))
     (button-put sticker 'part-label label)
-    (button-put sticker 'sly-stickers--last-value-desc nil)
+    (button-put sticker 'sly-stickers--most-recent-description nil)
     (sly-stickers--set-tooltip sticker label)
     (sly-stickers--set-face sticker 'sly-stickers-armed-face)
     (puthash id sticker sly-stickers--stickers)))
@@ -205,38 +207,28 @@ render the underlying text unreadable."
     (sly-stickers--set-tooltip sticker label)
     (sly-stickers--set-face sticker 'sly-stickers-placed-face)))
 
-(defun sly-stickers--last-value-desc (last-value-desc)
-  (cond ((keywordp last-value-desc)
-         last-value-desc)
-        ((null last-value-desc)
-         "(no values")
-        ((listp last-value-desc)
-         (car last-value-desc))))
-
-(defun sly-stickers--populate-sticker (sticker total-new last-value-desc)
+(defun sly-stickers--populate-sticker (sticker total description exited-non-locally-p)
   (let* ((id (sly-stickers--sticker-id sticker)))
-    (button-put sticker 'part-label (format "Sticker %d has new recordings" id))
-    (button-put sticker 'sly-stickers--last-value-desc last-value-desc)
-    (sly-stickers--set-tooltip sticker
-                               (format "%d new recordings. Last value => %s"
-                                       total-new
-                                       (sly-stickers--last-value-desc last-value-desc)))
-    (sly-stickers--set-face sticker
-                            (if (listp last-value-desc)
-                                'sly-stickers-recordings-face
-                              'sly-stickers-exited-non-locally-face))))
-
-(defun sly-stickers--mark-empty-sticker (sticker)
-  (let* ((id (sly-stickers--sticker-id sticker))
-         (last-value-desc (button-get sticker 'sly-stickers--last-value-desc)))
-    (button-put sticker 'part-label (format "Sticker %d is empty" id))
-    (if last-value-desc
-        (sly-stickers--set-tooltip sticker
-                                   (format "No new recordings. Last value => %s"
-                                           (sly-stickers--last-value-desc last-value-desc)))
-      (sly-stickers--set-tooltip sticker
-                                 "No new recordings"))
-    (sly-stickers--set-face sticker 'sly-stickers-empty-face)))
+    (cond ((cl-plusp total)
+           (button-put sticker 'part-label (format "Sticker %d has new recordings" id))
+           (button-put sticker 'sly-stickers--most-recent-description description)
+           (sly-stickers--set-tooltip sticker
+                                      (format "Newest of %s new recordings => %s"
+                                              total
+                                              description))
+           (sly-stickers--set-face sticker
+                                   (if exited-non-locally-p
+                                       'sly-stickers-exited-non-locally-face
+                                     'sly-stickers-recordings-face)))
+          (t
+           (let ((most-recent-description (button-get sticker 'sly-stickers--most-recent-description)))
+             (button-put sticker 'part-label (format "Sticker %d has no recordings" id))
+             (if most-recent-description
+                 (sly-stickers--set-tooltip sticker
+                                            (format "No new recordings. Last known => %s"
+                                                    most-recent-description)))
+             (sly-stickers--set-tooltip sticker "No new recordings")
+             (sly-stickers--set-face sticker 'sly-stickers-empty-face))))))
 
 (defun sly-stickers--sticker-substickers (sticker)
   (let* ((retval
@@ -413,13 +405,14 @@ With interactive prefix arg PREFIX always delete stickers.
     #'(lambda (result)
         (let ((zombie-sticker-ids)
               (message (format "Fetched and forgot recordings for %s armed stickers" (length result))))
-          (cl-loop for (id total last-values-desc) in result
+          (cl-loop for (id total description exited-non-locally-p) in result
                    for sticker = (gethash id sly-stickers--stickers)
                    do (cond ((and sticker (overlay-buffer sticker))
                              (sly-button-flash sticker 'default)
-                             (if last-values-desc
-                                 (sly-stickers--populate-sticker sticker total last-values-desc)
-                               (sly-stickers--mark-empty-sticker sticker)))
+                             (sly-stickers--populate-sticker sticker
+                                                             total
+                                                             description
+                                                             exited-non-locally-p))
                             (sticker
                              ;; pretty normal so don't add noise
                              ;; (sly-message "Sticker %s has been deleted" id)

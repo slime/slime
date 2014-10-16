@@ -40,12 +40,6 @@
   (declare (indent defun) (debug (sexp &rest form)))
   `(sly-stickers--call-with-fixture #'(lambda () ,@body) ,forms ,sticker-prefixes))
 
-(defun sly-stickers--values-at-point ()
-  (let ((values (button-get (sly-stickers--topmost-sticker) 'sly-stickers--last-value-desc)))
-    (if (list values)
-        (mapcar #'car (mapcar #'read-from-string values))
-      values)))
-
 (defun sly-stickers--topmost-sticker ()
   (car (sly-button--overlays-at (point))))
 
@@ -157,7 +151,6 @@
     (sly-sync-to-top-level 1)
     (unless (sly-stickers--face-p 'sly-stickers-recordings-face)
       (ert-fail "Expected BAR sticker to have some information"))
-    (should (equal '((42) SLYNK-STICKERS-FIXTURE::BAR) (sly-stickers--values-at-point)))
 
     ;; This part still needs work
     ;; 
