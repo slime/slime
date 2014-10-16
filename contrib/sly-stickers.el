@@ -58,8 +58,10 @@
 
 (defvar sly-stickers-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c C-s") 'sly-stickers-dwim)
-    (define-key map (kbd "C-c S") 'sly-stickers-fetch)
+    (define-key map (kbd "C-c C-s C-s") 'sly-stickers-dwim)
+    (define-key map (kbd "C-c S") 'sly-stickers-fetch-all-and-forget)
+    (define-key map (kbd "C-c C-s S") 'sly-stickers-fetch-all-and-forget)
+    (define-key map (kbd "C-c C-s C-r") 'sly-stickers-fetch-and-replay)
     map))
 
 (define-minor-mode sly-stickers-mode
@@ -400,13 +402,17 @@ With interactive prefix arg PREFIX always delete stickers.
    (t
     (sly-message "No point placing stickers in string literals or comments"))))
 
-(defun sly-stickers-fetch ()
-  "Fetch and update sticker status from current Lisp connection."
+(defun sly-stickers-fetch-and-replay ()
+  "Interactively fetch and replay recordings from stickers"
+  (error "Replaying not implemented yet"))
+
+(defun sly-stickers-fetch-all-and-forget ()
+  "Fetch and update stickers from Lisp, then forget recordings."
   (interactive)
-  (sly-eval-async `(slynk-stickers:check-stickers)
+  (sly-eval-async `(slynk-stickers:fetch-and-forget)
     #'(lambda (result)
         (let ((zombie-sticker-ids)
-              (message (format "Fetched information for %s armed stickers" (length result))))
+              (message (format "Fetched and forgot recordings for %s armed stickers" (length result))))
           (cl-loop for (id total last-values-desc) in result
                    for sticker = (gethash id sly-stickers--stickers)
                    do (cond ((and sticker (overlay-buffer sticker))

@@ -6,7 +6,7 @@
            #:compile-for-stickers
            #:kill-stickers
            #:inspect-sticker-values
-           #:check-stickers))
+           #:fetch-and-forget))
 (in-package :slynk-stickers)
 
 (defclass sticker ()
@@ -59,22 +59,20 @@ INSTRUMENTED-STRING fails, return NIL."
   (loop for id in ids
         do (remhash id *stickers*)))
 
-(defmacro record (id &rest body)
-  (let ((id-sym (gensym "ID-"))
-        (sticker-sym (gensym "STICKER-"))
-        (values-sym (gensym "VALUES-")))
-    `(let* ((,id-sym ,id)
-            (,sticker-sym (gethash ,id-sym *stickers*))
-            (,values-sym :exited-non-locally))
-       (unwind-protect
-            (progn
-              (setq ,values-sym
-                    (multiple-value-list (progn ,@body)))
-              (values-list ,values-sym))
-         (if ,sticker-sym
-             (push ,values-sym (new-value-lists-of ,sticker-sym)))))))
+(defun call-with-sticker-recording (id fn)
+  (let* ((sticker (gethash id *stickers*))
+         (values :exited-non-locally))
+    (unwind-protect
+         (progn
+           (setq values (multiple-value-list (funcall fn)))
+           (values-list values))
+      (if sticker
+          (push values (new-value-lists-of sticker))))))
 
-(defslyfun check-stickers ()
+(defmacro record (id &rest body)
+  `(call-with-sticker-recording ,id (lambda () ,@body)))
+
+(defslyfun fetch-and-forget ()
   (loop for k being the hash-keys of *stickers*
         for sticker being the hash-values of *stickers*
         for new-value-lists = (new-value-lists-of sticker)
