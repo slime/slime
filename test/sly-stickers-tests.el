@@ -153,7 +153,7 @@
       (ert-fail "Expected BAR sticker to be armed by now"))
     (sly-eval-async '(slynk-stickers-fixture::foo))
     (sly-sync-to-top-level 1)
-    (call-interactively 'sly-stickers-fetch)
+    (call-interactively 'sly-stickers-fetch-all-and-forget)
     (sly-sync-to-top-level 1)
     (unless (sly-stickers--face-p 'sly-stickers-recordings-face)
       (ert-fail "Expected BAR sticker to have some information"))
