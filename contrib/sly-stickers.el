@@ -12,9 +12,11 @@
   (:license "GPL")
   (:slynk-dependencies slynk-stickers)
   (:on-load (add-hook 'sly-editing-mode-hook 'sly-stickers-enable)
+            (add-hook 'sly-mode-hook 'sly-stickers-shortcuts-enable)
             (setq sly-compile-region-function 'sly-stickers-compile-region-aware-of-stickers)
             (add-hook 'sly-compilation-finished-hook 'sly-stickers-after-buffer-compilation t))
   (:on-unload (remove-hook 'sly-editing-mode-hook 'sly-stickers-enable)
+              (remove-hook 'sly-mode-hook 'sly-stickers-shortcuts-enable)
               (setq sly-compile-region-function 'sly-compile-region-as-string)
               (remove-hook 'sly-compilation-finished-hook 'sly-stickers-after-buffer-compilation)))
 
@@ -53,11 +55,19 @@
   '((t (:strike-through t :inherit sly-stickers-empty-face)))
   "Face for stickers that have exited non-locally.")
 
-(defun sly-stickers-enable () (sly-stickers-mode 1))
+(defun sly-stickers-enable ()
+  (sly-stickers-mode 1))
+
+(defun sly-stickers-shortcuts-enable ()
+  (sly-stickers-shortcut-mode 1))
 
 (defvar sly-stickers-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-s C-s") 'sly-stickers-dwim)
+    map))
+
+(defvar sly-stickers-shortcut-mode-map
+  (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c S") 'sly-stickers-fetch-all-and-forget)
     (define-key map (kbd "C-c C-s S") 'sly-stickers-fetch-all-and-forget)
     (define-key map (kbd "C-c C-s C-r") 'sly-stickers-fetch-and-replay)
@@ -66,9 +76,12 @@
 (define-minor-mode sly-stickers-mode
   "Mark expression in source buffers and annotate return values.")
 
-(defvar sly-stickers--counter 0)
+(define-minor-mode sly-stickers-shortcut-mode
+  "Shortcuts for navigating sticker recordings.")
 
-(defvar sly-stickers--stickers (make-hash-table))
+(sly-def-connection-var sly-stickers--counter 0)
+
+(sly-def-connection-var sly-stickers--stickers (make-hash-table))
 
 (defvar sly-stickers--sticker-map
   (let ((map (make-sparse-keymap)))
@@ -166,7 +179,7 @@ render the underlying text unreadable."
                                  'part-label label
                                  'sly-button-search-id (sly-button-next-search-id)
                                  'modification-hooks '(sly-stickers--sticker-modified)
-                                 'sly-stickers-id (cl-incf sly-stickers--counter)
+                                 'sly-stickers-id (cl-incf (sly-stickers--counter))
                                  'sly-stickers--base-help-echo
                                  "mouse-3: Context menu")))
       ;; choose a suitable priorty for ourselves and increase the
@@ -194,7 +207,7 @@ render the underlying text unreadable."
     (button-put sticker 'sly-stickers--most-recent-description nil)
     (sly-stickers--set-tooltip sticker label)
     (sly-stickers--set-face sticker 'sly-stickers-armed-face)
-    (puthash id sticker sly-stickers--stickers)))
+    (puthash id sticker (sly-stickers--stickers))))
 
 (defun sly-stickers--disarm-sticker (sticker)
   (let* ((id (sly-stickers--sticker-id sticker))
@@ -250,8 +263,8 @@ render the underlying text unreadable."
                  ;; Put me down! I'm not dead
                  (unless (overlay-buffer sticker)
                    (push id dead-ids)
-                   (remhash id sly-stickers--stickers)))
-             sly-stickers--stickers)
+                   (remhash id (sly-stickers--stickers))))
+             (sly-stickers--stickers))
     dead-ids))
 
 (defun sly-stickers--briefly-describe-sticker (sticker)
@@ -396,7 +409,34 @@ With interactive prefix arg PREFIX always delete stickers.
 
 (defun sly-stickers-fetch-and-replay ()
   "Interactively fetch and replay recordings from stickers"
-  (error "Replaying not implemented yet"))
+  (interactive)
+  (let ((zombie-sticker-ids))
+    (cl-loop with key = (cl-gensym "sticker-visitor-")
+             with ignore-list = nil
+             with some-stickers-p = nil
+             for (index id total description)
+             = (sly-eval
+                `(slynk-stickers:visit-next ',key ,ignore-list))
+             while index
+             for sticker = (gethash id (sly-stickers--stickers))
+             do
+             (setq some-stickers-p t)
+             (cond ((and sticker (overlay-buffer sticker))
+                    (pop-to-buffer (overlay-buffer sticker))
+                    (goto-char (overlay-start sticker))
+                    (sly-button-flash sticker))
+                   (sticker
+                    )
+                   (t
+                    (push id zombie-sticker-ids))) 
+             while (y-or-n-p (format "[sly] (%s/%s) => %s\nContinue?"
+                                     index total description))
+             finally
+             (cond (some-stickers-p
+                    (when (y-or-n-p "[sly] forget about all recordings?")
+                      (sly-eval '(slynk-stickers:forget))))
+                   (t
+                    (sly-message "no sticker recordings"))))))
 
 (defun sly-stickers-fetch-all-and-forget ()
   "Fetch and update stickers from Lisp, then forget recordings."
@@ -406,7 +446,7 @@ With interactive prefix arg PREFIX always delete stickers.
         (let ((zombie-sticker-ids)
               (message (format "Fetched and forgot recordings for %s armed stickers" (length result))))
           (cl-loop for (id total description exited-non-locally-p) in result
-                   for sticker = (gethash id sly-stickers--stickers)
+                   for sticker = (gethash id (sly-stickers--stickers))
                    do (cond ((and sticker (overlay-buffer sticker))
                              (sly-button-flash sticker 'default)
                              (sly-stickers--populate-sticker sticker
@@ -420,7 +460,7 @@ With interactive prefix arg PREFIX always delete stickers.
                             (t
                              (push id zombie-sticker-ids))))
           (when zombie-sticker-ids
-            (setq message (concat message (format "(killing zombie stickers %s)" zombie-sticker-ids)))
+            (setq message (concat message (format " (killing zombie stickers %s)" zombie-sticker-ids)))
             (sly-eval-async `(slynk-stickers:kill-stickers ',zombie-sticker-ids)))
           (sly-message message)))
     "CL_USER"))

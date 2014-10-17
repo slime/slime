@@ -11,8 +11,13 @@
 
 (defclass recording ()
   ((ctime :initform (common-lisp:get-universal-time) :accessor ctime-of)
+   (sticker :initform (error "required") :initarg :sticker :accessor sticker-of)
    (values :initform (error "required") :initarg :values :accessor values-of)
    (condition :initarg :condition :accessor condition-of)))
+
+(defmethod initialize-instance :after ((x recording) &key sticker)
+  (push x (new-recordings-of sticker))
+  (vector-push-extend x *recordings*))
 
 (defun describe-recording (recording &optional stream print-first-value)
   (let ((values (values-of recording))
@@ -34,7 +39,7 @@
     (describe-recording r s)))
 
 (defclass sticker ()
-  ((reported-recordings :initform nil :accessor reported-recordings-of)
+  ((id :initform (error "required")  :initarg :id :accessor id-of)
    (new-recordings :initform nil :accessor new-recordings-of)))
 
 (defmethod print-object ((sticker sticker) s)
@@ -46,7 +51,13 @@
             (eq (values-of recording) 'exited-non-locally))
     t))
 
+
+;; FIXME: This won't work for multiple-connections. A channel, or some
+;; connection specific structure, is needed for that.
+;;
 (defvar *stickers* (make-hash-table))
+(defvar *recordings* (make-array 40 :fill-pointer 0 :adjustable t))
+(defvar *visitor* nil)
 
 (defslyfun compile-for-stickers (new-stickers
                                  dead-stickers
@@ -82,7 +93,8 @@ INSTRUMENTED-STRING fails, return NIL."
            (and probe
                 (third probe))
            (loop for id in new-stickers
-                 do (setf (gethash id *stickers*) (make-instance 'sticker)))
+                 do (setf (gethash id *stickers*)
+                          (make-instance 'sticker :id id)))
            (list probe t))
           (original-string
            (list (compile-string-for-emacs original-string buffer position filename policy)
@@ -98,21 +110,46 @@ INSTRUMENTED-STRING fails, return NIL."
          (last-condition))
     (unwind-protect
          (handler-bind ((condition (lambda (condition)
-                                    (setq last-condition condition))))
+                                     (setq last-condition condition))))
            (setq values (multiple-value-list (funcall fn)))
            (values-list values))
       (when sticker
-        (let ((recording
-                (make-instance 'recording
-                               :values values
-                               :condition (and (eq values 'exited-non-locally)
-                                               last-condition))))
-          (push recording (new-recordings-of sticker)))))))
+        (make-instance 'recording
+          :sticker sticker
+          :values values
+          :condition (and (eq values 'exited-non-locally) last-condition))))))
 
 (defmacro record (id &rest body)
   `(call-with-sticker-recording ,id (lambda () ,@body)))
 
+(defun next-index-and-recording (ignore-list)
+  (loop for candidate-index = (incf (cdr *visitor*))
+        for recording = (and (< candidate-index (length *recordings*))
+                             (aref *recordings* candidate-index))
+        while recording
+        unless (member (id-of (sticker-of recording))
+                       ignore-list)
+          return (values candidate-index recording)))
+
+(defslyfun visit-next (key ignore-list)
+  (unless (and *visitor*
+               (eq key (car *visitor*)))
+    (setf *visitor* (cons key -1)))
+  (multiple-value-bind (index recording)
+      (next-index-and-recording ignore-list)
+    (setf (cdr *visitor*) index)
+    (cond (recording
+           (list index
+                 (id-of (sticker-of recording))
+                 (length *recordings*)
+                 (describe-recording recording nil 'print-first-value)))
+          (t
+           nil))))
+
 (defslyfun fetch-and-forget ()
+  (prog1 (fetch) (forget)))
+
+(defslyfun fetch ()
   (loop for k being the hash-keys of *stickers*
         for sticker being the hash-values of *stickers*
         for new-recordings = (new-recordings-of sticker)
@@ -122,12 +159,15 @@ INSTRUMENTED-STRING fails, return NIL."
                       (and most-recent-recording
                            (describe-recording most-recent-recording nil 'print-first-value))
                       (and most-recent-recording
-                           (exited-non-locally-p most-recent-recording)))
-        do
-           (setf (reported-recordings-of sticker)
-                 (append new-recordings
-                         (reported-recordings-of sticker)))
-           (setf (new-recordings-of sticker) nil)))
+                           (exited-non-locally-p most-recent-recording)))))
+
+(defslyfun forget ()
+  (maphash (lambda (id sticker)
+             (declare (ignore id))
+             (setf (new-recordings-of sticker) nil))
+           *stickers*)
+  (setf (fill-pointer *recordings*) 0))
+
 
 (defun find-sticker-or-lose (id)
   (let ((probe (gethash id *stickers* :unknown)))
