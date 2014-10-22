@@ -204,7 +204,11 @@ position, or nil."
                               'slime-extend-region-for-font-lock t t)))))
 
 (let ((byte-compile-warnings '()))
-  (mapc #'byte-compile
+  (mapc (lambda (sym)
+          (cond ((fboundp sym)
+                 (unless (byte-code-function-p (symbol-function sym))
+                   (byte-compile sym)))
+                (t (error "%S is not fbound" sym))))
         '(slime-extend-region-for-font-lock
           slime-compute-region-for-font-lock
           slime-search-directly-preceding-reader-conditional
