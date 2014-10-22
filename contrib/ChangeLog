@@ -1,3 +1,8 @@
+2014-10-22  Robert Brown  <robert.brown@gmail.com>
+
+	* slime-fontifying-fu.el: Do not byte compile functions that are
+	already compiled.
+
 2014-10-10  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* slime-repl.el (sldb-copy-down-to-repl): Use SWANK/BACKEND.
