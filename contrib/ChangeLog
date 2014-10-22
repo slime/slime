@@ -1,3 +1,8 @@
+2014-11-16  Robert Brown  <robert.brown@gmail.com>
+
+	* slime-fontifying-fu.el: Do not byte compile functions that are
+	already compiled.
+
 2014-11-12  Mark H. David  <mhd@clozure.com>
 
 	Accept (function (function +)) as Lisp printer output for
