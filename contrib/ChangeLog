@@ -1,3 +1,9 @@
+2014-10-24  Helmut Eller  <heller@common-lisp.net>
+
+	Experimental support for MLWorks
+
+	* swank-mlworks.sml: New file.
+
 2014-10-10  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* slime-repl.el (sldb-copy-down-to-repl): Use SWANK/BACKEND.
