@@ -147,6 +147,7 @@ emptied. See also `sly-mrepl-hook'")
                 (lisp-indent-function common-lisp-indent-function))
            do (set (make-local-variable var) value))
   (set-marker-insertion-type sly-mrepl--output-mark nil)
+  (add-hook 'kill-emacs-hook 'sly-mrepl--save-all-histories)
   ;;(set (make-local-variable 'comint-get-old-input) 'ielm-get-old-input)
   (set-syntax-table lisp-mode-syntax-table)
   (set-keymap-parent sly-mrepl-mode-map nil))
@@ -474,11 +475,18 @@ emptied. See also `sly-mrepl-hook'")
     ;; this sets comint-input-ring from the file
     ;;
     (comint-read-input-ring)
-    (cl-loop for i from 0 below index
+    (cl-loop for i from (1- index) downto 0
              for item = (ring-ref current-ring i)
              unless (ring-member comint-input-ring item)
              do (ring-insert comint-input-ring item))
     (comint-write-input-ring)))
+
+(defun sly-mrepl--save-all-histories ()
+  (cl-loop for buffer in (buffer-list)
+           do
+           (with-current-buffer buffer
+             (when (eq major-mode 'sly-mrepl-mode)
+               (sly-mrepl--merge-and-save-history)))))
 
 (defun sly-mrepl--teardown (&optional reason)
   (remove-hook 'kill-buffer-hook 'sly-mrepl--teardown t)
@@ -632,6 +640,9 @@ handle to distinguish the new buffer from the existing."
          (existing (get-buffer name)))
     (when (and handle existing)
       (sly-error "Sorry, a MREPL with that handle already exists"))
+    ;; Take this oportunity to save any other REPL histories so that
+    ;; the new REPL will see them.
+    (sly-mrepl--save-all-histories)
     (let* ((local (sly-make-channel sly-listener-channel-methods))
            (buffer (pop-to-buffer name)))
       (with-current-buffer buffer
