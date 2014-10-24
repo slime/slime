@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/capitaomorte/sly.png?branch=master)](https://travis-ci.org/capitaomorte/sly)
+[![MELPA](http://melpa.org/packages/sly-badge.svg)](http://melpa.org/#/sly)
 
 ```
           _____    __   __  __        
