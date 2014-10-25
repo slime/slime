@@ -407,62 +407,67 @@ With interactive prefix arg PREFIX always delete stickers.
    (t
     (sly-message "No point placing stickers in string literals or comments"))))
 
+(defvar sly-stickers--zombie-sticker-ids nil
+  "Sticker ids reported by Lisp that no longer exist in Emacs.")
+
+(defun sly-stickers--kill-zombies ()
+  (when sly-stickers--zombie-sticker-ids
+    (sly-temp-message 3 1  (format " (killing zombie stickers %s)" sly-stickers--zombie-sticker-ids))
+    (sly-eval-async `(slynk-stickers:kill-stickers ',sly-stickers--zombie-sticker-ids))))
+
+(defun sly-stickers--process-recording-description
+    (description &optional pop-to-sticker)
+  (cl-destructuring-bind (sticker-id nrecordings description exited-non-locally-p)
+      description
+    (let* ((sticker (gethash sticker-id (sly-stickers--stickers))))
+      (cond ((and sticker (overlay-buffer sticker)
+                  (buffer-live-p (overlay-buffer sticker)))
+             (when pop-to-sticker
+               (pop-to-buffer (overlay-buffer sticker))
+               (goto-char (overlay-start sticker))
+               (sly-button-flash sticker))
+             (sly-stickers--populate-sticker sticker nrecordings description exited-non-locally-p))
+            (sticker
+             ;; pretty normal so don't add noise
+             ;; (sly-message "Sticker %s has been deleted" id)
+             )
+            (t
+             ;; this sticker
+             (push sticker-id sly-stickers--zombie-sticker-ids))))))
+
 (defun sly-stickers-fetch-and-replay ()
   "Interactively fetch and replay recordings from stickers"
   (interactive)
-  (let ((zombie-sticker-ids))
-    (cl-loop with key = (cl-gensym "sticker-visitor-")
-             with ignore-list = nil
-             with some-stickers-p = nil
-             for (index id total description)
-             = (sly-eval
-                `(slynk-stickers:visit-next ',key ,ignore-list))
-             while index
-             for sticker = (gethash id (sly-stickers--stickers))
-             do
-             (setq some-stickers-p t)
-             (cond ((and sticker (overlay-buffer sticker))
-                    (pop-to-buffer (overlay-buffer sticker))
-                    (goto-char (overlay-start sticker))
-                    (sly-button-flash sticker))
-                   (sticker
-                    )
-                   (t
-                    (push id zombie-sticker-ids))) 
-             while (y-or-n-p (format "[sly] (%s/%s) => %s\nContinue?"
-                                     index total description))
-             finally
-             (cond (some-stickers-p
-                    (when (y-or-n-p "[sly] forget about all recordings?")
-                      (sly-eval '(slynk-stickers:forget))))
-                   (t
-                    (sly-message "no sticker recordings"))))))
+  (cl-loop with key = (cl-gensym "sticker-visitor-")
+           with ignore-list = nil
+           with some-stickers-p = nil
+           for (index total . recording-description) = (sly-eval
+                                                        `(slynk-stickers:visit-next ',key ,ignore-list))
+           for description = (third recording-description)
+           while index
+           do
+           (setq some-stickers-p t)
+           (sly-stickers--process-recording-description recording-description 'pop-to-sticker)
+           while (y-or-n-p (format "[sly] (%s/%s) => %s\nContinue?"
+                                   index total description))
+           finally
+           (cond (some-stickers-p
+                  (when (y-or-n-p "[sly] forget about all recordings?")
+                    (sly-eval '(slynk-stickers:forget))))
+                 (t
+                  (sly-message "no sticker recordings")))
+           (sly-stickers--kill-zombies)))
 
 (defun sly-stickers-fetch-all-and-forget ()
   "Fetch and update stickers from Lisp, then forget recordings."
   (interactive)
   (sly-eval-async `(slynk-stickers:fetch-and-forget)
     #'(lambda (result)
-        (let ((zombie-sticker-ids)
-              (message (format "Fetched and forgot recordings for %s armed stickers" (length result))))
-          (cl-loop for (id total description exited-non-locally-p) in result
-                   for sticker = (gethash id (sly-stickers--stickers))
-                   do (cond ((and sticker (overlay-buffer sticker))
-                             (sly-button-flash sticker 'default)
-                             (sly-stickers--populate-sticker sticker
-                                                             total
-                                                             description
-                                                             exited-non-locally-p))
-                            (sticker
-                             ;; pretty normal so don't add noise
-                             ;; (sly-message "Sticker %s has been deleted" id)
-                             )
-                            (t
-                             (push id zombie-sticker-ids))))
-          (when zombie-sticker-ids
-            (setq message (concat message (format " (killing zombie stickers %s)" zombie-sticker-ids)))
-            (sly-eval-async `(slynk-stickers:kill-stickers ',zombie-sticker-ids)))
-          (sly-message message)))
+        (let ((message (format "Fetched and forgot recordings for %s armed stickers" (length result))))
+          (cl-loop for recording-description in result
+                   do (sly-stickers--process-recording-description recording-description))
+          (sly-message message))
+        (sly-stickers--kill-zombies))
     "CL_USER"))
 
 (cl-defun sly-stickers--compile-region-aware-of-stickers-1

@@ -131,6 +131,18 @@ INSTRUMENTED-STRING fails, return NIL."
                        ignore-list)
           return (values candidate-index recording)))
 
+(defun describe-sticker-for-emacs (sticker &optional recording)
+  "Describe STICKER as (ID NRECORDINGS DESC EXITED-NON-LOCALLY-P)"
+  (let* ((new-recordings (new-recordings-of sticker))
+         (recording (or recording
+                        (car (last new-recordings)))))
+    (list (id-of sticker)
+          (length new-recordings)
+          (and recording
+               (describe-recording recording nil 'print-first-value))
+          (and recording
+               (exited-non-locally-p recording)))))
+
 (defslyfun visit-next (key ignore-list)
   (unless (and *visitor*
                (eq key (car *visitor*)))
@@ -139,10 +151,9 @@ INSTRUMENTED-STRING fails, return NIL."
       (next-index-and-recording ignore-list)
     (setf (cdr *visitor*) index)
     (cond (recording
-           (list index
-                 (id-of (sticker-of recording))
-                 (length *recordings*)
-                 (describe-recording recording nil 'print-first-value)))
+           (list* index
+                  (length *recordings*)
+                  (describe-sticker-for-emacs (sticker-of recording) recording)))
           (t
            nil))))
 
@@ -150,16 +161,8 @@ INSTRUMENTED-STRING fails, return NIL."
   (prog1 (fetch) (forget)))
 
 (defslyfun fetch ()
-  (loop for k being the hash-keys of *stickers*
-        for sticker being the hash-values of *stickers*
-        for new-recordings = (new-recordings-of sticker)
-        for most-recent-recording = (car (last new-recordings))
-        collect (list k
-                      (length new-recordings)
-                      (and most-recent-recording
-                           (describe-recording most-recent-recording nil 'print-first-value))
-                      (and most-recent-recording
-                           (exited-non-locally-p most-recent-recording)))))
+  (loop for sticker being the hash-values of *stickers*
+        collect (describe-sticker-for-emacs sticker)))
 
 (defslyfun forget ()
   (maphash (lambda (id sticker)
@@ -167,7 +170,6 @@ INSTRUMENTED-STRING fails, return NIL."
              (setf (new-recordings-of sticker) nil))
            *stickers*)
   (setf (fill-pointer *recordings*) 0))
-
 
 (defun find-sticker-or-lose (id)
   (let ((probe (gethash id *stickers* :unknown)))
