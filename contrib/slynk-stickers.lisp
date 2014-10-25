@@ -5,21 +5,28 @@
   (:export #:record
            #:compile-for-stickers
            #:kill-stickers
-           #:inspect-sticker-values
-           #:fetch-and-forget))
+           #:inspect-sticker
+           #:inspect-sticker-recording
+           #:fetch
+           #:forget
+           #:find-recording-or-lose))
 (in-package :slynk-stickers)
 
+(defvar *next-recording-id* 0)
+
 (defclass recording ()
-  ((ctime :initform (common-lisp:get-universal-time) :accessor ctime-of)
+  ((id :initform (incf *next-recording-id*)  :initarg :id :accessor id-of)
+   (ctime :initform (common-lisp:get-universal-time) :accessor ctime-of)
    (sticker :initform (error "required") :initarg :sticker :accessor sticker-of)
    (values :initform (error "required") :initarg :values :accessor values-of)
    (condition :initarg :condition :accessor condition-of)))
 
 (defmethod initialize-instance :after ((x recording) &key sticker)
-  (push x (new-recordings-of sticker))
-  (vector-push-extend x *recordings*))
+  (push x (recordings-of sticker))
+  (vector-push-extend x *recordings*)
+  (setf (gethash (id-of x) *recordings-by-id*) x))
 
-(defun describe-recording (recording &optional stream print-first-value)
+(defun recording-description-string (recording &optional stream print-first-value)
   (let ((values (values-of recording))
         (condition (condition-of recording)))
     (cond (condition
@@ -36,15 +43,15 @@
 
 (defmethod print-object ((r recording) s)
   (print-unreadable-object (r s :type t)
-    (describe-recording r s)))
+    (recording-description-string r s)))
 
 (defclass sticker ()
   ((id :initform (error "required")  :initarg :id :accessor id-of)
-   (new-recordings :initform nil :accessor new-recordings-of)))
+   (recordings :initform nil :accessor recordings-of)))
 
 (defmethod print-object ((sticker sticker) s)
   (print-unreadable-object (sticker s :type t)
-    (format s "~a new recordings" (length (new-recordings-of sticker)))))
+    (format s "~a new recordings" (length (recordings-of sticker)))))
 
 (defun exited-non-locally-p (recording)
   (when (or (condition-of recording)
@@ -57,6 +64,7 @@
 ;;
 (defvar *stickers* (make-hash-table))
 (defvar *recordings* (make-array 40 :fill-pointer 0 :adjustable t))
+(defvar *recordings-by-id* (make-hash-table))
 (defvar *visitor* nil)
 
 (defslyfun compile-for-stickers (new-stickers
@@ -131,17 +139,20 @@ INSTRUMENTED-STRING fails, return NIL."
                        ignore-list)
           return (values candidate-index recording)))
 
+(defun describe-recording-for-emacs (recording)
+  (list (id-of recording)
+        (recording-description-string recording nil 'print-first-value)
+        (exited-non-locally-p recording)))
+
 (defun describe-sticker-for-emacs (sticker &optional recording)
   "Describe STICKER as (ID NRECORDINGS DESC EXITED-NON-LOCALLY-P)"
-  (let* ((new-recordings (new-recordings-of sticker))
+  (let* ((recordings (recordings-of sticker))
          (recording (or recording
-                        (car (last new-recordings)))))
-    (list (id-of sticker)
-          (length new-recordings)
-          (and recording
-               (describe-recording recording nil 'print-first-value))
-          (and recording
-               (exited-non-locally-p recording)))))
+                        (car (last recordings)))))
+    (list* (id-of sticker)
+           (length recordings)
+           (and recording
+                (describe-recording-for-emacs recording)))))
 
 (defslyfun visit-next (key ignore-list)
   (unless (and *visitor*
@@ -157,9 +168,6 @@ INSTRUMENTED-STRING fails, return NIL."
           (t
            nil))))
 
-(defslyfun fetch-and-forget ()
-  (prog1 (fetch) (forget)))
-
 (defslyfun fetch ()
   (loop for sticker being the hash-values of *stickers*
         collect (describe-sticker-for-emacs sticker)))
@@ -167,9 +175,15 @@ INSTRUMENTED-STRING fails, return NIL."
 (defslyfun forget ()
   (maphash (lambda (id sticker)
              (declare (ignore id))
-             (setf (new-recordings-of sticker) nil))
+             (setf (recordings-of sticker) nil))
            *stickers*)
-  (setf (fill-pointer *recordings*) 0))
+  (setf (fill-pointer *recordings*) 0)
+  (clrhash *recordings-by-id*))
+
+(defslyfun find-recording-or-lose (recording-id)
+  (let ((recording (gethash recording-id *recordings-by-id*)))
+    (or recording
+        (error "Cannot find recording ~a" recording-id))))
 
 (defun find-sticker-or-lose (id)
   (let ((probe (gethash id *stickers* :unknown)))
@@ -177,8 +191,12 @@ INSTRUMENTED-STRING fails, return NIL."
         (error "Cannot find sticker ~a" id)
         probe)))
 
-(defslyfun inspect-sticker-values (id)
-  (let ((sticker (find-sticker-or-lose id)))
+(defslyfun inspect-sticker (sticker-id)
+  (let ((sticker (find-sticker-or-lose sticker-id)))
     (slynk::inspect-object sticker)))
+
+(defslyfun inspect-sticker-recording (recording-id)
+  (let ((recording (find-recording-or-lose recording-id)))
+    (slynk::inspect-object recording)))
 
 (provide 'slynk-stickers)

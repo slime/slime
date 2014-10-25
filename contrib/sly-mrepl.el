@@ -38,6 +38,12 @@
         (button-type-put 'sly-trace-dialog-spec
                          'sly-mrepl-copy-call-to-repl
                          'sly-trace-dialog-copy-call-to-repl)))
+   (eval-after-load "sly-stickers"
+     `(progn
+        (button-type-put 'sly-stickers-sticker
+                         'sly-mrepl-copy-part-to-repl
+                         'sly-stickers-copy-last-recording-to-repl)))
+   
    ;; Make C-c ~ bring popup REPL
    ;;
    (define-key sly-editing-mode-map (kbd "C-c ~") 'sly-mrepl-sync-package-and-default-directory)
@@ -784,6 +790,13 @@ Doesn't clear input history."
   (sly-mrepl--save-and-copy-for-repl
    (format "Returning part %s (%s) of trace entry %s" part-id type id)
    `(slynk-trace-dialog:trace-part-or-lose ,id ,part-id ,type)))
+
+(defun sly-stickers-copy-last-recording-to-repl (sticker-id recording-id)
+  (unless (and sticker-id recording-id)
+    (sly-error "Sticker %s has no known recordings" sticker-id recording-id))
+  (sly-mrepl--save-and-copy-for-repl
+     (format "Returning last recording of sticker id %s" sticker-id)
+     `(slynk-stickers:find-recording-or-lose ,recording-id)))
 
 (defun sly-db-copy-call-to-repl (frame-id spec)
   (sly-mrepl--save-and-copy-for-repl
