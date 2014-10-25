@@ -1,46 +1,20 @@
 SLY 1.0.0-alpha-2 (estimated October 2014)
 ------------------------------------------
 
-### sly-stickers: a live source-code annotation tool
+### sly-stickers: live source-code annotation tool
 
-In Lisp source files, using `C-c C-s C-s` (`sly-stickers-dwim`) sets a
-"sticker" on any Lisp form.
+`sly-stickers` is a live code annotation tool, a replacement to the
+``print'' statements often included to check the return value of a
+particular variable or expression. See a much more complete
+description in http://capitaomorte.github.io/sly/#SLY-Stickers.
 
-After "arming" the stickers with the familar `C-c C-c`
-(`sly-compile-defun`) command, the results of evaluating the
-underlying forms are captured in the Lisp side. Stickers will change
-color.
-
-`C-c C-s S` (`sly-stickers-fetch`) populates the sticker overlay these
-results.
-
-`C-c C-s p` and `C-c C-s n` (`sly-stickers-prev-sticker` and
-`sly-stickers-next-sticker`) move through the stickers in a way
-analogous to moving through compilation notes.
-
-Stickers are non-intrusive, i.e. file content is not actually changed
-by placing them. Stickers also don't interfere with compilation notes.
-
-The "do-what-I-mean" command `sly-stickers-dwim` can be used to unset
-stickers as well. See its docstring.
-
-Stickers on unevaluated forms (such as `let` variable bindings, or
-other constructs) are rejected, but the function is still compiled as
-usual.
-
-Stickers can be nested inside other stickers. They are also color
-coded to indicate whether they are brand new, armed, recently updated
-from Lisp, etc. A context menu similar to other interactive parts is
-available.
-
-`sly-stickers` is experimental and under development. There are
-tentative plans to have use stickers as a kind of
-quasi-stepper. Thanks to Artem Malyshev for early testing and ideas.
+Thanks to Artem Malyshev for early testing and ideas.
 
 ### Documentation rewrite
 
-The documentation rewrite in underway (github #9). Browse to
-http://capitaomorte.github.io/sly for the online HTML version.
+The documentation rewrite in underway (github issue #9), mentioning
+only a residual amount of SLIME-specific functionality. Browse to
+http://capitaomorte.github.io/sly for the online version in HTML.
 
 ### SLY is available in MELPA
 
@@ -70,18 +44,27 @@ Thanks to Zach Beane for the great name.
 `C-c C-z` switches to the nearest REPL. Suggested by Javier Olaechea
 (github #13).
 
-Fixed an issue preventing the user from typing at the repl (github #1).
-
-Fixed history inspection.
-
 ### Other enhancements
 
 SLY asks the user to confirm the Lisp to kill with `M-x sly-quit` or
-disconnect with `M-x sly-disconnect`. It doesn't ask any irrelevant
-questions about switching to a default connection, when there is no
-selected connection beforehand (github #5).
+disconnect with `M-x sly-disconnect`. It also doesn't ask any
+irrelevant questions about switching to a default connection when it
+doesn't exist (github #5).
 
-### On par with upcoming SLIME 2.10
+### Notable bugfixes
+
+* Closed github #26: `sly-mrepl` history saved when killing
+  Emacs. Reported by Javier Olaechea.
+
+* Closed github #22: Compilation with `C-u` debug info now
+  working. Reported by Javier Olaechea.
+
+* Closed github #21: Enable incremental output with dedicated output
+  streams. Reported by Paul M. Rodriguez.
+
+* Closed github #5: `sly-quit` no longer asks irrelevant questions
+    
+### On par with SLIME 2.10.1
 
 Where applicable, SLY tracks bugfixes and improvements contributed to
 SLIME:
@@ -94,8 +77,8 @@ SLIME:
 SLY 1.0.0-alpha (September 2014)
 --------------------------------
 
-Since this is the first pre-release of SLY since the fork, this news
-entry focuses directly on the differences to SLIME.
+Since this is the first pre-release of SLY since the fork, this entry
+focuses directly on the differences to SLIME.
 
 ### Completely redesigned REPL
 
@@ -150,6 +133,9 @@ regular-expression.
 This is the default implementation of the new
 `SLYNK-BACKEND:MAKE-APROPOS-MATCHER` interface that particular
 implementations may wish to override.
+
+The search pattern, whether regexp-enabled or not, is now also applied
+to the package qualifier.
 
 ### Contribs enabled by default
 

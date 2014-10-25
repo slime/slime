@@ -124,12 +124,11 @@ This file has been placed in the public domain.
 * Misc::
 * Customization::
 * Tips and Tricks::
-* Contributed Packages::
+* Extensions::
 * Credits::
-* Key Index::
+* Key Index ::
 * Command Index::
 * Variable Index::
-
 @end menu
 
 @node Introduction
@@ -175,6 +174,16 @@ file.
 @chapter Getting started
 
 This chapter tells you how to get @SLY{} up and running.
+
+@menu
+* Platforms::
+* Downloading::
+* Installation::
+* Running::
+* Basic customization::
+* Multiple Lisps::
+* Loading Slynk faster::
+@end menu
 
 @node Platforms
 @section Supported Platforms
@@ -246,8 +255,6 @@ and submit a @emph{pull request}. Be sure to first read the
 With a Lisp implementation that can be started from the command-line,
 installation just requires a few lines in your @file{.emacs}:
 
-@vindex inferior-lisp-program
-@vindex load-path
 @example
 (add-to-list 'load-path "~/dir/to/cloned/sly")
 (require 'sly-autoloads)
@@ -297,8 +304,8 @@ example, use
                 'sly-mrepl-clear-recent-output))
 @end example
 
-To learn about each extension's keymaps, see @pxref{Contrib
-extensions}.
+To learn about each extension's functionality and its keymap, see
+@pxref{Extensions}.
 
 @node Multiple Lisps
 @section Multiple Lisps
@@ -311,14 +318,12 @@ involves long filenames it's more convenient to set the
 @code{sly-lisp-implementations} variable in your @file{.emacs}.  For
 example here we define two programs:
 
-@vindex sly-lisp-implementations
 @lisp
 (setq sly-lisp-implementations
       '((cmucl ("cmucl" "-quiet"))
         (sbcl ("/opt/sbcl/bin/sbcl") :coding-system utf-8-unix)))
 @end lisp
 
-@vindex sly-default-lisp
 This variable holds a list of programs and if you invoke @SLY{} with
 a negative prefix argument, @kbd{M-- M-x sly}, you can select a
 program from that list. When called without a prefix, either the name
@@ -416,12 +421,35 @@ Then add this to your @file{.emacs}:
 used in conjunction with Emacs's @code{lisp-mode}. This chapter
 describes the @code{sly-mode} and its relatives.
 
+@menu
+* User-interface conventions::
+* Evaluation::
+* Compilation::
+* Completion::
+* Finding definitions::
+* Documentation::
+* Cross-reference::
+* Macro-expansion::
+* Disassembly::
+* Recovery::
+* Inspector::
+* Other::
+* Semantic indentation::
+* Reader conditionals::
+@end menu
+
 @node User-interface conventions
 @section User-interface conventions
 
 To use @SLY{} comfortably it is important to understand a few
 ``global'' user-interface characteristics. The most important
 principles are described in this section.
+
+@menu
+* Temporary buffers::
+* Multithreading::
+* Key bindings::
+@end menu
 
 @node Temporary buffers
 @subsection Temporary buffers
@@ -448,7 +476,6 @@ addition to any special mode of their own. This makes the usual
 @SLY{} commands available for describing symbols, looking up
 function definitions, and so on.
 
-@vindex sly-description-autofocus
 Initial focus of those ``description'' buffers depends on the variable
 @code{sly-description-autofocus}. If @code{nil} (the default),
 description buffers do not receive focus automatically, and vice
@@ -853,6 +880,10 @@ List callees of a function.
 
 @end table
 
+@menu
+* Xref buffer commands::
+@end menu
+
 @node Xref buffer commands
 @subsection Xref buffer commands
 Commands available in Xref buffers
@@ -1085,6 +1116,14 @@ displays a description of the condition, a list of restarts, and a
 backtrace. Commands are offered for invoking restarts, examining the
 backtrace, and poking around in stack frames.
 
+@menu
+* Examining frames::
+* Restarts::
+* Frame Navigation::
+* Stepping::
+* Miscellaneous::
+@end menu
+
 @node Examining frames
 @section Examining frames
 
@@ -1216,6 +1255,11 @@ Attach debugger (e.g. gdb) to the current lisp process.
 @node Misc
 @chapter Misc
 
+@menu
+* sly-macroexpansion-minor-mode::
+* Multiple connections::
+@end menu
+
 @node sly-macroexpansion-minor-mode
 @section sly-macroexpansion-minor-mode
 
@@ -1316,6 +1360,11 @@ Abort the current attempt to connect.
 @node Customization
 @chapter Customization
 
+@menu
+* Emacs-side customization::
+* Lisp-side::
+@end menu
+
 @node Emacs-side customization
 @section Emacs-side
 
@@ -1333,13 +1382,11 @@ ensures that lines do not wrap in backtraces, apropos listings, and so
 on. It can however cause information to spill off the screen.
 
 @anchor{sly-complete-symbol-function}
-@vindex sly-complete-symbol-function
 @item sly-complete-symbol-function
 The function to use for completion of Lisp symbols. Two completion
 styles are available: @code{sly-simple-complete-symbol}
 and @code{sly-fuzzy-complete-symbol} (@pxref{Fuzzy Completion}).
 
-@vindex sly-filename-translations
 @item sly-filename-translations
 This variable controls filename translation between Emacs and the Lisp
 system. It is useful if you run Emacs and Lisp on separate machines
@@ -1348,7 +1395,6 @@ but have different layouts, as is the case with @acronym{SMB}-based
 file sharing.
 
 @anchor{sly-net-coding-system}
-@vindex sly-net-coding-system
 @cindex Unicode
 @cindex UTF-8
 @cindex ASCII
@@ -1370,25 +1416,26 @@ for different Lisps, see @ref{Multiple Lisps}.)
 
 @end table
 
+@menu
+* Hooks::
+@end menu
+
 @node Hooks
 @subsection Hooks
 
 @table @code
 
-@vindex sly-mode-hook
 @item sly-mode-hook
 This hook is run each time a buffer enters @code{sly-mode}. It is
 most useful for setting buffer-local configuration in your Lisp source
 buffers. An example use is to enable @code{sly-autodoc-mode}
-(@pxref{sly-autodoc-mode}).
+(@pxref{Autodoc}).
 
 @anchor{sly-connected-hook}
-@vindex sly-connected-hook
 @item sly-connected-hook
 This hook is run when @SLY{} establishes a connection to a Lisp
 server. An example use is to pop to a new @REPL{}.
 
-@vindex sly-db-hook
 @item sly-db-hook
 This hook is run after @SLY-DB{} is invoked. The hook functions are
 called from the @SLY-DB{} buffer after it is initialized. An example use
@@ -1405,9 +1452,13 @@ variables to configure. The initialization file @file{~/.slynk.lisp}
 is automatically evaluated at startup and can be used to set these
 variables.
 
+@menu
+* Communication style::
+* Other configurables::
+@end menu
+
 @node Communication style
 @subsection Communication style
-@vindex SLYNK:*COMMUNICATION-STYLE*
 
 The most important configurable is @code{SLYNK:*COMMUNICATION-STYLE*},
 which specifies the mechanism by which Lisp reads and processes
@@ -1468,13 +1519,11 @@ file:
 
 @table @code
 
-@vindex SLYNK:*CONFIGURE-EMACS-INDENTATION*
 @item SLYNK:*CONFIGURE-EMACS-INDENTATION*
 This variable controls whether indentation styles for
 @code{&body}-arguments in macros are discovered and sent to Emacs. It
 is enabled by default.
 
-@vindex SLYNK:*GLOBAL-DEBUGGER*
 @item SLYNK:*GLOBAL-DEBUGGER*
 When true (the default) this causes @code{*DEBUGGER-HOOK*} to be
 globally set to @code{SLYNK:SLYNK-DEBUGGER-HOOK} and thus for @SLY{}
@@ -1482,7 +1531,6 @@ to handle all debugging in the Lisp image. This is for debugging
 multithreaded and callback-driven applications.
 
 @anchor{SLYNK:*SLY-DB-QUIT-RESTART*}
-@vindex SLYNK:*SLY-DB-QUIT-RESTART*
 @item SLYNK:*SLY-DB-QUIT-RESTART*
 This variable names the restart that is invoked when pressing @kbd{q}
 (@pxref{sly-db-quit}) in @SLY-DB{}. For @SLY{} evaluation requests this
@@ -1494,10 +1542,6 @@ application's thread lands into the debugger (see
 (setf slynk:*sly-db-quit-restart* 'sb-thread:terminate-thread)
 @end example
 
-@vindex SLYNK:*BACKTRACE-PRINTER-BINDINGS*
-@vindex SLYNK:*MACROEXPAND-PRINTER-BINDINGS*
-@vindex SLYNK:*SLY-DB-PRINTER-BINDINGS*
-@vindex SLYNK:*SLYNK-PPRINT-BINDINGS*
 @item SLYNK:*BACKTRACE-PRINTER-BINDINGS*
 @itemx SLYNK:*MACROEXPAND-PRINTER-BINDINGS*
 @itemx SLYNK:*SLY-DB-PRINTER-BINDINGS*
@@ -1510,7 +1554,6 @@ the pretty printer for formatting backtraces in @SLY-DB{}, you can use:
 (push '(*print-pretty* . t) slynk:*sly-db-printer-bindings*).
 @end example
 
-@vindex SLYNK:*LOG-EVENTS*
 @item SLYNK:*LOG-EVENTS*
 Setting this variable to @code{t} causes all protocol messages
 exchanged with Emacs to be printed to @code{*TERMINAL-IO*}. This is
@@ -1524,6 +1567,12 @@ your Lisp system's own listener, usually in the buffer
 @node Tips and Tricks
 @chapter Tips and Tricks
 
+@menu
+* Connecting to a remote lisp::
+* Global IO Redirection::
+* Auto-SLY::
+@end menu
+
 @node Connecting to a remote lisp
 @section Connecting to a remote lisp
 
@@ -1534,6 +1583,12 @@ machine, load slynk and wait for incoming @SLY{} connections. On the
 local machine we start up emacs and tell @SLY{} to connect to the
 remote machine. The details are a bit messier but the underlying idea is
 that simple.
+
+@menu
+* Setting up the lisp image::
+* Setting up Emacs::
+* Setting up pathname translations::
+@end menu
 
 @node Setting up the lisp image
 @subsection Setting up the lisp image
@@ -1696,12 +1751,23 @@ just add this to your @file{.emacs}:
               (save-excursion (sly)))))
 @end example
 
-@node Contributed Packages
-@chapter Contributed Packages
+@node Extensions
+@chapter Extensions
 
 In version 2.1 we moved some functionality to separate packages.  This
 chapter tells you how to load contrib modules and describes what the
 particular packages do.
+
+@menu
+* Loading Contribs::
+* REPL::
+* Fuzzy Completion::
+* Autodoc::
+* SLY Stickers::
+* SLY Trace Dialog::
+* TRAMP Support::
+* Scratch Buffer::
+@end menu
 
 @node Loading Contribs
 @section Loading Contrib Packages
@@ -1710,12 +1776,13 @@ particular packages do.
 @cindex Contributions
 @cindex Plugins
 
-Contrib packages aren't loaded by default.  You have to modify your
-setup a bit so that Emacs knows where to find them and which of them
-to load.  Generally, you set the variable @code{sly-contribs} with
-the list of package-names that you want to use.  For example, a setup
-to load the @code{sly-scratch} and @code{sly-editing-commands}
-packages looks like:
+A special @code{sly-fancy} contrib package is loaded by default. You
+might never want to fiddle with it, but if you find that you don't
+like some package or you are having trouble with a package, you can
+modify your setup a bit.  Generally, you set the
+variable @code{sly-contribs} with the list of package-names that you
+want to use.  For example, a setup to load only the @code{sly-scratch}
+and @code{sly-mrepl} packages looks like:
 
 @example
 ;; @emph{Setup load-path and autoloads}
@@ -1724,27 +1791,11 @@ packages looks like:
 
 ;; @emph{Set your lisp system and some contribs}
 (setq inferior-lisp-program "/opt/sbcl/bin/sbcl")
-(setq sly-contribs '(sly-scratch sly-editing-commands))
+(setq sly-contribs '(sly-scratch sly-mrepl))
 @end example
 
 After starting @SLY{}, the commands of both packages should be
 available.
-
-The REPL and @code{sly-fancy} modules deserve special mention.  Many
-users consider the REPL (@pxref{REPL}) essential
-while @code{sly-fancy} (@pxref{sly-fancy}) loads the REPL and
-almost all of the popular contribs.  So, if you aren't sure what to
-choose start with:
-
-@example
-(setq sly-contribs '(sly-mrepl)) ; repl only
-@end example
-
-If you like what you see try this:
-
-@example
-(setq sly-contribs '(sly-fancy)) ; almost everything
-@end example
 
 @subsection Loading and unloading ``on the fly''
 
@@ -1792,33 +1843,25 @@ output is inserted in the right place, and doesn't get mixed up with
 user input.
 @end itemize
 
-To load the REPL use @code{(add-to-list 'sly-contribs 'sly-mrepl)} in your
-@code{.emacs}.
-
 @table @kbd
 
 @kbditem{C-c C-z, sly-switch-to-output-buffer}
 Select the output buffer, preferably in a different window.
 
-@kbditem{C-c C-y, sly-call-defun}
-Insert a call to the function defined around point into the REPL.
-
-@kbditem{C-c C-j, sly-eval-last-expression-in-repl}
-Inserts the last expression to the REPL and evaluates it there.
-Switches to the current packae of the source buffer for the duration.
-If used with a prefix argument, doesn't switch back afterwards.
-
 @end table
+
+@menu
+* REPL commands::
+* Input Navigation::
+* REPL output control::
+@end menu
 
 @node REPL commands
 @subsection REPL commands
 
 @table @kbd
 
-@kbditem{RET, sly-mrepl-return}
-Evaluate the current input in Lisp if it is complete. If incomplete,
-open a new line and indent. If a prefix argument is given then the
-input is evaluated without checking for completeness.
+@c TODO
 
 @end table
 
@@ -1828,21 +1871,25 @@ input is evaluated without checking for completeness.
 @cindex Input History
 
 The input navigation (a.k.a. history) commands are modelled after
-@code{coming}-mode.  Be careful if you are used to Bash-like
-keybindings: @kbd{M-p} and @kbd{M-n} use the current input as search
-pattern and only work Bash-like if the current line is
-empty. @kbd{C-<up>} and @kbd{C-<up>} work like the up and down keys in
-Bash.
+@code{coming}-mode.
+
+Bash-like keybindings are available: @kbd{M-p} and @kbd{M-n} navigate
+the input history incrementally while @kbd{C-r} does a ``reverse
+i-search''. @kbd{C-<up>} and @kbd{C-<up>} work like the up and down
+keys in Bash.
 
 @table @kbd
+
+@c TODO
 
 @end table
 
 @node REPL output control
 @subsection REPL output control
 
-@vindex SLYNK-MREPL:*GLOBALLY-REDIRECT-IO*
-@item SLYNK-MREPL:*GLOBALLY-REDIRECT-IO*
+@itemize
+@item @code{SLYNK-MREPL:*GLOBALLY-REDIRECT-IO*}
+
 When true this causes the standard streams (@code{*standard-output*},
 etc) to be globally redirected to the @REPL{} in Emacs. When
 @code{NIL} (the default) these streams are only temporarily redirected
@@ -1851,8 +1898,8 @@ to Emacs using dynamic bindings while handling requests. Note that
 Emacs, because it can interact badly with the Lisp's native @REPL{} by
 having it try to read from the Emacs one.
 
-@vindex SLYNK-MREPL:*USE-DEDICATED-OUTPUT-STREAM*
-@item SLYNK-MREPL:*USE-DEDICATED-OUTPUT-STREAM*
+@item @code{SLYNK-MREPL:*USE-DEDICATED-OUTPUT-STREAM*}
+
 This variable controls whether to use a more efficient mechanism for
 sending printed output from Lisp to Emacs.
 
@@ -1865,11 +1912,12 @@ difficult to communicate to a Lisp running on a remote host via SSH
 (@pxref{Connecting to a remote lisp}), so you should probably set this
 variable to @code{nil} when doing so.
 
-@vindex SLYNK:*DEDICATED-OUTPUT-STREAM-PORT*
-@item SLYNK:*DEDICATED-OUTPUT-STREAM-PORT*
+@item @code{SLYNK:*DEDICATED-OUTPUT-STREAM-PORT*}
+
 When @code{*USE-DEDICATED-OUTPUT-STREAM*} is @code{t} the stream will
 be opened on this port. The default value, @code{0}, means that the
 stream will be opened on some random port.
+@end itemize
 
 @node Fuzzy Completion
 @section Fuzzy Completion
@@ -1911,8 +1959,8 @@ variable @code{sly-complete-symbol-function} to this command, fuzzy
 completion will also be used for @kbd{M-TAB}.
 @end table
 
-@node sly-autodoc-mode
-@section @code{sly-autodoc-mode}
+@node Autodoc
+@section Autodoc
 
 Autodoc mode is an additional minor-mode for automatically showing
 information about symbols near the point. For function names the
@@ -1937,97 +1985,80 @@ or after sly-autodoc was already automatically called,
 display multiline arglist.
 @end table
 
-@vindex sly-use-autodoc-mode
 If the variable @code{sly-use-autodoc-mode} is set (default), Emacs
 starts a timer, otherwise the information is only displayed after
 pressing SPC.
 
-@vindex sly-autodoc-use-multiline-p
 If @code{sly-autodoc-use-multiline-p} is set to non-nil,
 allow long autodoc messages to resize echo area display.
 
-@node Editing Commands
-@section Editing Commands
+@node SLY Stickers
+@section SLY Stickers
 
-The package @code{sly-editing-commands} provides some commands to
-edit Lisp expressions.
+@SLY{} Stickers, in package @code{sly-stickers} is a live code
+annotation tool. It can be thought of as a replacement to the ``print''
+statements that programmers often include when debugging to check the
+return value of a particular variable or expression.
 
-@table @kbd
-@kbditem{C-c M-q, sly-reindent-defun}
-Re-indents the current defun, or refills the current paragraph.
-If point is inside a comment block, the text around point will be
-treated as a paragraph and will be filled with @code{fill-paragraph}.
-Otherwise, it will be treated as Lisp code, and the current defun
-will be reindented.  If the current defun has unbalanced parens,
-an attempt will be made to fix it before reindenting.
+However, in contrast to these annotation techniques, ``stickers'' are
+non-intrusive, meaning that saving your file doesn't save your
+annotation code along with it.
 
-@kbditem{C-c C-], sly-close-all-parens-in-sexp}
-Balance parentheses of open s-expressions at point.
-Insert enough right parentheses to balance unmatched left parentheses.
-Delete extra left parentheses.  Reformat trailing parentheses
-Lisp-stylishly.
+Here's the general workflow
 
-If REGION is true, operate on the region. Otherwise operate on
-the top-level sexp before point.
+@itemize @bullet
+@item
+In Lisp source files, using @kbd{C-c C-s C-s} or @code{M-x
+sly-stickers-dwim} sets a sticker on any Lisp form.
+@item
+Stickers are ``armed'' when a definition or a file is compiled with the
+familar @kbd{C-c C-c} (@code{M-x sly-compile-defun}) or @kbd{C-c C-k}
+(@code{M-x sly-compile-file}) commands. An armed sticker changes color from
+the default grey background to a blue background.
+@item
+From this point on, when the Lisp code is executed, the results of
+evaluating the underlying forms are captured in the Lisp side.
+@item
+@kbd{C-c C-s S} (@code{M-x sly-stickers-fetch}) populates the sticker
+overlay with the captured results, called ``recordings''. If a sticker
+has captured any recordings, it will turn green, otherwise it will turn
+red. A sticker whose Lisp expression has caused a non-local exit, will
+be also be marked with a special face.
+@item
+As an alternative to @code{sly-stickers-fetch}, @kbd{C-c C-s C-r}
+(@code{M-x sly-stickers-fetch-and-replay}) interactively walk the user
+through recordings in the order that they occured.
+@item
+At any point, stickers can be removed with the
+same @code{sly-stickers-dwim} keybinding, by placing the cursor at the
+beginning of a sticker.
+@item
+Stickers can be nested inside other stickers, so it is possible to
+record the value of an expression inside another expression which is
+also annotated.
+@item
+Stickers are interactive parts just like any other part in @SLY{} that
+represents Lisp-side objects, so they can be inspected and returned to
+the REPL, for example. To move through the stickers with the keyboard
+use the existing keybindings to move through compilatino notes(@kbd{M-p}
+and @kbd{M-n}) or use @kbd{C-c C-s p} and @kbd{C-c C-s n}
+(@code{sly-stickers-prev-sticker} and @code{sly-stickers-next-sticker}).
+@end itemize
 
-@cmditem{sly-insert-balanced-comments}
-Insert a set of balanced comments around the s-expression containing
-the point.  If this command is invoked repeatedly (without any other
-command occurring between invocations), the comment progressively
-moves outward over enclosing expressions.  If invoked with a positive
-prefix argument, the s-expression arg expressions out is enclosed in a
-set of balanced comments.
+There are some caveats when using @SLY{} Stickers:
 
-@kbditem{M-C-a, sly-beginning-of-defun}
-@kbditem{M-C-e, sly-end-of-defun}
-@end table
-
-@node Fancy Inspector
-@section Fancy Inspector
-
-@cindex Methods
-
-An alternative to default inspector is provided by the package
-`sly-fancy-inspector'.  This inspector knows a lot about CLOS
-objects and methods.  It provides many ``actions'' that can be
-selected to invoke Lisp code on the inspected object. For example, to
-present a generic function the inspector shows the documentation in
-plain text and presents each method with both a hyperlink to inspect
-the method object and a ``remove method'' action that you can invoke
-interactively.  The key-bindings are the same as for the basic
-inspector (@pxref{Inspector}).
-
-@node TRAMP
-@section TRAMP
-
-@cindex TRAMP
-
-The package @code{sly-tramp} provides some functions to set up
-filename translations for TRAMP. (@pxref{Setting up pathname
-translations})
-
-@node Scratch Buffer
-@section Scratch Buffer
-
-@anchor{sly-scratch}
-The @SLY{} scratch buffer, in contrib package @code{sly-scratch},
-imitates Emacs' usual @code{*scratch*} buffer.
-If @code{sly-scratch-file} is set, it is used to back the scratch
-buffer, making it persistent. The buffer is like any other Lisp
-buffer, except for the command bound to @kbd{C-j}.
-
-@table @kbd
-
-@kbditem{C-j, sly-eval-print-last-expression}
-Evaluate the expression sexp before point and insert print value into
-the current buffer.
-
-@cmditem{sly-scratch}
-Create a @file{*sly-scratch*} buffer. In this
-buffer you can enter Lisp expressions and evaluate them with
-@kbd{C-j}, like in Emacs's @file{*scratch*} buffer.
-
-@end table
+@itemize
+@item
+Stickers on unevaluated forms (such as @code{let} variable bindings, or
+other constructs) are rejected, though the function is still compiled as
+usual. To let the user about this, these stickers remain grey, and are
+marked as ``disarmed''. A message also appears in the echo area.
+@item
+Stickers placed on expressions inside backquoted expressions in macros
+are always armed, even though they may come to provoke a runtime error
+when the macro's expansion is run. Think of this when setting a sticker
+inside a macro definition.
+@end itemize
 
 @node SLY Trace Dialog
 @section SLY Trace Dialog
@@ -2046,15 +2077,6 @@ the @code{*trace-output*} stream (usually the REPL), the @SLY{}
 Trace Dialog collects and stores them in your lisp environment until,
 on user's request, they are fetched into Emacs and displayed in a
 dialog-like interactive view.
-
-To use this contrib, add it to @code{sly-contribs} in your
-@code{~/.emacs}, either directly by setting up @code{sly-fancy}
-(@pxref{sly-fancy}).
-
-@example
-;; setting up 'sly-fancy would also have worked
-(add-to-list 'sly-contribs 'sly-trace-dialog)
-@end example
 
 After starting up @SLY{}, @SLY{}'s Trace Dialog installs
 a @emph{Trace} menu in the menu-bar of any @code{sly-mode} buffer and
@@ -2140,11 +2162,37 @@ values so you can concentrate on the calling logic. Additionally,
 display additional detail about an entry when the cursor moves over
 it.
 
-@node sly-fancy
-@section Meta package: @code{sly-fancy}
+@node TRAMP Support
+@section TRAMP
 
-@code{sly-fancy} is a meta package which loads a combination of the
-most popular packages.
+@cindex TRAMP
+
+The package @code{sly-tramp} provides some functions to set up
+filename translations for TRAMP. (@pxref{Setting up pathname
+translations})
+
+@node Scratch Buffer
+@section Scratch Buffer
+
+@anchor{sly-scratch}
+The @SLY{} scratch buffer, in contrib package @code{sly-scratch},
+imitates Emacs' usual @code{*scratch*} buffer.
+If @code{sly-scratch-file} is set, it is used to back the scratch
+buffer, making it persistent. The buffer is like any other Lisp
+buffer, except for the command bound to @kbd{C-j}.
+
+@table @kbd
+
+@kbditem{C-j, sly-eval-print-last-expression}
+Evaluate the expression sexp before point and insert print value into
+the current buffer.
+
+@cmditem{sly-scratch}
+Create a @file{*sly-scratch*} buffer. In this
+buffer you can enter Lisp expressions and evaluate them with
+@kbd{C-j}, like in Emacs's @file{*scratch*} buffer.
+
+@end table
 
 @node Credits
 @chapter Credits
