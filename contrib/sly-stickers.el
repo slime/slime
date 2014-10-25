@@ -68,8 +68,8 @@
 
 (defvar sly-stickers-shortcut-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c S") 'sly-stickers-fetch-all-and-forget)
-    (define-key map (kbd "C-c C-s S") 'sly-stickers-fetch-all-and-forget)
+    (define-key map (kbd "C-c S") 'sly-stickers-fetch)
+    (define-key map (kbd "C-c C-s S") 'sly-stickers-fetch)
     (define-key map (kbd "C-c C-s C-r") 'sly-stickers-fetch-and-replay)
     map))
 
@@ -469,12 +469,12 @@ With interactive prefix arg PREFIX always delete stickers.
                   (sly-message "no sticker recordings")))
            (sly-stickers--kill-zombies)))
 
-(defun sly-stickers-fetch-all-and-forget ()
-  "Fetch and update stickers from Lisp, then forget recordings."
+(defun sly-stickers-fetch ()
+  "Fetch and update stickers from Lisp."
   (interactive)
   (sly-eval-async `(slynk-stickers:fetch)
     #'(lambda (result)
-        (let ((message (format "Fetched and forgot recordings for %s armed stickers" (length result))))
+        (let ((message (format "Fetched recordings for %s armed stickers" (length result))))
           (cl-loop for sticker-description in result
                    do (sly-stickers--process-sticker-description sticker-description))
           (sly-message message))
