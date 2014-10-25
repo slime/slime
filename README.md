@@ -30,8 +30,9 @@ xref, etc...) are still available , but with better integration.
 Read about the reasons for forking [here][2] and see the [NEWS.md][6] for
 complete list of differences between the two projects.
 
-SLY is currently *alpha* status and the
-[documentation is out of date](https://github.com/capitaomorte/sly/issues/9).
+SLY is currently *alpha* status. The
+[documentation can be found here][documentation], but beware
+[it's still a little out of date](https://github.com/capitaomorte/sly/issues/9).
 
 Install from MELPA
 ------------------
@@ -128,6 +129,7 @@ first part [CONTRIBUTING.md][5] file for instructions on how to contribute.
 [8]: http://common-lisp.net/project/slime/doc/html/Credits.html#Credits
 [9]: https://github.com/capitaomorte/sly/blob/master/CONTRIBUTING.md#architecture
 [10]: https://github.com/milkypostman/melpa
+[documentation]: http://capitaomorte.github.io/sly
 
 <!-- Local Variables: -->
 <!-- fill-column: 80 -->
