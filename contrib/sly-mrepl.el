@@ -62,7 +62,9 @@
 
 ;; User-visible variables
 ;;
-(defvar sly-mrepl-mode-hook '(sly-mrepl--ensure-no-font-lock)
+(defvar sly-mrepl-mode-hook
+  `(,@(if (version= emacs-version "24.3.1")
+          '(sly-mrepl--ensure-no-font-lock)))
   "Functions run after `sly-mrepl-mode' is set up")
 
 (defvar sly-mrepl-hook nil
@@ -125,7 +127,6 @@ emptied. See also `sly-mrepl-hook'")
 ;;
 (define-derived-mode sly-mrepl-mode comint-mode "mrepl"
   (sly-mode 1)
-  (font-lock-mode -1)
   (cl-loop for (var value)
            in `((comint-use-prompt-regexp nil)
                 (comint-inhibit-carriage-motion t)
@@ -310,6 +311,7 @@ emptied. See also `sly-mrepl-hook'")
              (add-text-properties start sly-mrepl--output-mark
                                   `(read-only t front-sticky (read-only)
                                               face ,face
+                                              font-lock-face ,face
                                               field sly-mrepl--output)))))
         (t
          (setq sly-mrepl--pending-output
@@ -331,7 +333,8 @@ emptied. See also `sly-mrepl-hook'")
                         (define-key map (kbd "RET") 'sly-mrepl-insert-input)
                         (define-key map [mouse-2] 'sly-mrepl-insert-input)
                         map))
-    (comint-send-input)))
+    (comint-send-input))
+  (sly-mrepl--ensure-prompt-face))
 
 (defun sly-mrepl--ensure-newline ()
   (unless (save-excursion
@@ -349,6 +352,13 @@ emptied. See also `sly-mrepl-hook'")
     (while (accept-process-output sly-mrepl--dedicated-stream
                                   0
                                   (and (eq (window-system) 'w32) 1)))))
+
+(defun sly-mrepl--ensure-prompt-face ()
+  "Override `comint.el''s use of `comint-highlight-prompt'."
+  (let ((inhibit-read-only t))
+    (add-text-properties (overlay-start sly-mrepl--last-prompt-overlay)
+                         (overlay-end sly-mrepl--last-prompt-overlay)
+                         '(font-lock-face sly-mrepl-prompt-face))))
 
 (defun sly-mrepl--insert-prompt (package prompt error-level &optional condition)
   (sly-mrepl--accept-process-output)
@@ -368,9 +378,11 @@ emptied. See also `sly-mrepl-hook'")
                  " "))
        (propertize
         (concat prompt "> ")
-        'face 'sly-mrepl-prompt-face))
+        'face 'sly-mrepl-prompt-face
+        'font-lock-face 'sly-mrepl-prompt-face))
       'sly-mrepl--prompt (downcase package)))
     (move-overlay sly-mrepl--last-prompt-overlay beg (sly-mrepl--mark)))
+  (sly-mrepl--ensure-prompt-face)
   (when condition
     (sly-mrepl--insert-output (format "; Evaluation errored on %s" condition)))
   (buffer-enable-undo))
