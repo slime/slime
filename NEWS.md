@@ -3,16 +3,16 @@ SLY 1.0.0-alpha-2 (estimated October 2014)
 
 ### sly-stickers: live source-code annotation tool
 
-`sly-stickers` is a live code annotation tool, a replacement to the
-``print'' statements often included to check the return value of a
-particular variable or expression. See a much more complete
+`sly-stickers` is a live code annotation tool, a replacement for the
+"print" statements that are often included for debugging the value of
+a particular variable or expression. See a much more complete
 description in http://capitaomorte.github.io/sly/#SLY-Stickers.
 
 Thanks to Artem Malyshev for early testing and ideas.
 
 ### Documentation rewrite
 
-The documentation rewrite in underway (github issue #9), mentioning
+The documentation rewrite is underway (github issue #9), mentioning
 only a residual amount of SLIME-specific functionality. Browse to
 http://capitaomorte.github.io/sly for the online version in HTML.
 
@@ -21,25 +21,11 @@ http://capitaomorte.github.io/sly for the online version in HTML.
 The README.md file has an updated install recipe, basically `M-x
 package-install RET sly RET`. Thanks to Kan-Ru Chen for the idea.
 
-### Swank is now called Slynk
+### mREPL enhancements
 
-Slynk is SLY's implementation of Swank, the supporting Lisp server
-where Emacs connectes to. A project-wide rename was performed,
-including this NEWS.md file.
-
-A `sly-retro` contrib, enabled by default ensures that:
-
-* SLY can still talk to non-lisp Swank backends
-* SLY can serve requests for the Swank protocol
-* Most, if not all, user customization in `~/.swankrc` are still valid
-  in SLY
-
-For details on the architecture of these changes, see the "Swank is
-now called Slynk" in the CONTRIBUTING.md.
-
-Thanks to Zach Beane for the great name.
-
-### mREPL enhacements
+The "comma" shortcut for "sayoonara", "restart lisp", "in-package"
+commands has been restored and uses ido-style completion by
+default. Suggested by Javier Olaechea (github #18).
 
 `C-c C-z` switches to the nearest REPL. Suggested by Javier Olaechea
 (github #13).
@@ -56,6 +42,9 @@ doesn't exist (github #5).
 * Closed github #26: `sly-mrepl` history saved when killing
   Emacs. Reported by Javier Olaechea.
 
+* Closed github #24: Common-lisp-style indentation now works in
+  `sly-mrepl`. Reported by Kan-Ru Chen.
+
 * Closed github #22: Compilation with `C-u` debug info now
   working. Reported by Javier Olaechea.
 
@@ -63,6 +52,23 @@ doesn't exist (github #5).
   streams. Reported by Paul M. Rodriguez.
 
 * Closed github #5: `sly-quit` no longer asks irrelevant questions
+
+### Swank is now called Slynk
+
+Slynk is SLY's implementation of Swank, the supporting Lisp server
+where Emacs connects to. A project-wide rename was performed,
+including this NEWS.md file.
+
+A `sly-retro` contrib, enabled by default ensures that:
+
+* SLY can still talk to non-lisp Swank backends
+* SLY can serve requests for the Swank protocol
+* Most user customization in `~/.swankrc` is still valid in SLY.
+
+For details on the architecture of these changes, see the "Swank is
+now called Slynk" in the CONTRIBUTING.md.
+
+Thanks to Zach Beane for the great name.
     
 ### On par with SLIME 2.10.1
 
