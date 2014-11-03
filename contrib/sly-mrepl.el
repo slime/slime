@@ -417,6 +417,11 @@ emptied. See also `sly-mrepl-hook'")
           (insert saved-text))))))
 
 (defun sly-mrepl--copy-objects-to-repl (method-args note &optional callback)
+  "Recall objects in the REPL history as a new entry.
+METHOD-ARGS are SWANK-MREPL:COPY-TO-REPL's optional args. If nil
+then the globally saved objects that
+SLYNK-MREPL:GLOBALLY-SAVE-OBJECT stored are considered, otherwise
+it is a list (ENTRY-IDX VALUE-IDX)."
   (sly-mrepl--eval-for-repl `(slynk-mrepl:copy-to-repl
                               ,@method-args)
                             'insert-values
@@ -817,7 +822,7 @@ Doesn't clear input history."
   (unless (and sticker-id recording-id)
     (sly-error "Sticker %s has no known recordings" sticker-id recording-id))
   (sly-mrepl--save-and-copy-for-repl
-     (format "Returning last recording of sticker id %s" sticker-id)
+     (format "Returning values of last recording of sticker %s" sticker-id)
      `(slynk-stickers:find-recording-or-lose ,recording-id)))
 
 (defun sly-db-copy-call-to-repl (frame-id spec)

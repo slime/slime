@@ -228,8 +228,8 @@
 
 (defslyfun globally-save-object (slave-slyfun &rest args)
   "Apply SLYFUN to ARGS and save the value.
- The saved value should be visible to all threads and retrieved via a
- :COPY-TO-REPL message."
+ The saved value should be visible to all threads and retrieved via
+ the COPY-TO-REPL slyfun."
   (setq *saved-objects* (multiple-value-list (apply slave-slyfun args)))
   t)
 
@@ -293,6 +293,7 @@ list."
     t))
 
 (defslyfun copy-to-repl (&optional entry-idx value-idx)
+  "Recall objects in *HISTORY* or *SAVED-OBJECTS* as the last entry."
   (let ((objects
           (cond ((and entry-idx value-idx)
                  (list (mrepl-get-object-from-history entry-idx value-idx)))

@@ -182,8 +182,9 @@ INSTRUMENTED-STRING fails, return NIL."
 
 (defslyfun find-recording-or-lose (recording-id)
   (let ((recording (gethash recording-id *recordings-by-id*)))
-    (or recording
-        (error "Cannot find recording ~a" recording-id))))
+    (unless recording
+      (error "Cannot find recording ~a" recording-id))
+    (values-list (values-of recording))))
 
 (defun find-sticker-or-lose (id)
   (let ((probe (gethash id *stickers* :unknown)))
