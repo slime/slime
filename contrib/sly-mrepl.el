@@ -121,6 +121,7 @@ emptied. See also `sly-mrepl-hook'")
   "Output that can't be inserted right now.")
 (defvar sly-mrepl--dedicated-stream-hooks)
 (defvar sly-mrepl--history-separator "####\n")
+(defvar sly-mrepl--dirty-history nil)
 
 
 ;; Major mode
@@ -136,7 +137,6 @@ emptied. See also `sly-mrepl-hook'")
                 (comint-history-isearch dwim)
                 (comint-input-ring-file-name "~/.sly-mrepl-history")
                 (comint-input-ignoredups t)
-                (comint-input-ring-size  1500)
                 (comint-prompt-read-only t)
                 (indent-line-function lisp-indent-line)
                 (sly-mrepl--read-mode nil)
@@ -327,6 +327,7 @@ emptied. See also `sly-mrepl-hook'")
                    (point-max)))
   (buffer-disable-undo)
   (overlay-put sly-mrepl--last-prompt-overlay 'face 'highlight)
+  (set (make-local-variable 'sly-mrepl--dirty-history) t)
   (sly-mrepl--commiting-text
       `(field sly-mrepl-input
               keymap ,(let ((map (make-sparse-keymap)))
@@ -498,20 +499,21 @@ emptied. See also `sly-mrepl-hook'")
     (comint-read-input-ring)
     ;; loop `current-ring' and readd it to `comint-input-ring'. Don't
     ;; add any duplicate entries. FIXME: this is very inneficient, but
-    ;; seems to work. Also note the double `1-' which is needed to
-    ;; correct #26.
-    (cl-loop for i from (1- (1- index)) downto 0
+    ;; seems to work.
+    (cl-loop for i from (1- index) downto 0
              for item = (ring-ref current-ring i)
              unless (ring-member comint-input-ring item)
              do (ring-insert comint-input-ring item))
     ;; Now save `comint-input-ring'
-    (comint-write-input-ring)))
+    (comint-write-input-ring)
+    (set (make-local-variable 'sly-mrepl--dirty-history) nil)))
 
 (defun sly-mrepl--save-all-histories ()
   (cl-loop for buffer in (buffer-list)
            do
            (with-current-buffer buffer
-             (when (eq major-mode 'sly-mrepl-mode)
+             (when (and (eq major-mode 'sly-mrepl-mode)
+                        sly-mrepl--dirty-history)
                (sly-mrepl--merge-and-save-history)))))
 
 (defun sly-mrepl--teardown (&optional reason)
