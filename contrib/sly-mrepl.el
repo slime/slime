@@ -486,17 +486,25 @@ emptied. See also `sly-mrepl-hook'")
     (comint-read-input-ring)))
 
 (defun sly-mrepl--merge-and-save-history ()
-  (let* ((current-ring (copy-tree comint-input-ring 'vectors-too))
-         (index (ring-length current-ring))
-         (comint-input-ring-separator sly-mrepl--history-separator))
-
-    ;; this sets comint-input-ring from the file
+  (let*
+      ;; To merge the file's history with the current buffer's
+      ;; history, start by deep-copying `comint-input-ring' to a
+      ;; separate variable.
+      ((current-ring (copy-tree comint-input-ring 'vectors-too))
+       (index (ring-length current-ring))
+       (comint-input-ring-separator sly-mrepl--history-separator))
+    ;; this sets `comint-input-ring' from the file
     ;;
     (comint-read-input-ring)
-    (cl-loop for i from (1- index) downto 0
+    ;; loop `current-ring' and readd it to `comint-input-ring'. Don't
+    ;; add any duplicate entries. FIXME: this is very inneficient, but
+    ;; seems to work. Also note the double `1-' which is needed to
+    ;; correct #26.
+    (cl-loop for i from (1- (1- index)) downto 0
              for item = (ring-ref current-ring i)
              unless (ring-member comint-input-ring item)
              do (ring-insert comint-input-ring item))
+    ;; Now save `comint-input-ring'
     (comint-write-input-ring)))
 
 (defun sly-mrepl--save-all-histories ()
