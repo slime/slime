@@ -52,7 +52,7 @@
 ;; inspector, xref, etc...) are still available, but with better
 ;; integration.
 ;; 
-;; See the NEWS.md file setting alongside this file for a complete
+;; See the NEWS.md file sitting alongside this file for a complete
 ;; list of features.
 
 ;;; Code:
