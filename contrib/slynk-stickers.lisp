@@ -9,7 +9,8 @@
            #:inspect-sticker-recording
            #:fetch
            #:forget
-           #:find-recording-or-lose))
+           #:find-recording-or-lose
+           #:visit-next))
 (in-package :slynk-stickers)
 
 (defvar *next-recording-id* 0)
@@ -130,9 +131,12 @@ INSTRUMENTED-STRING fails, return NIL."
 (defmacro record (id &rest body)
   `(call-with-sticker-recording ,id (lambda () ,@body)))
 
-(defun next-index-and-recording (ignore-list)
-  (loop for candidate-index = (incf (cdr *visitor*))
-        for recording = (and (< candidate-index (length *recordings*))
+(defun next-index-and-recording (ignore-list &optional previous-instead)
+  (loop for candidate-index = (if previous-instead
+                                  (decf (cdr *visitor*))
+                                  (incf (cdr *visitor*)))
+        for recording = (and
+                         (< -1 candidate-index (length *recordings*))
                              (aref *recordings* candidate-index))
         while recording
         unless (member (id-of (sticker-of recording))
@@ -140,12 +144,14 @@ INSTRUMENTED-STRING fails, return NIL."
           return (values candidate-index recording)))
 
 (defun describe-recording-for-emacs (recording)
+  "Describe RECORDING as (ID STRING-DESC EXITED-NON-LOCALLY-P)"
   (list (id-of recording)
         (recording-description-string recording nil 'print-first-value)
         (exited-non-locally-p recording)))
 
 (defun describe-sticker-for-emacs (sticker &optional recording)
-  "Describe STICKER as (ID NRECORDINGS DESC EXITED-NON-LOCALLY-P)"
+  "Describe STICKER as (ID NRECORDINGS . RECORDING-DESCRIPTION)
+RECORDING-DESCRIPTION is as given by DESCRIBE-RECORDING-FOR-EMACS."
   (let* ((recordings (recordings-of sticker))
          (recording (or recording
                         (car (last recordings)))))
@@ -154,12 +160,17 @@ INSTRUMENTED-STRING fails, return NIL."
            (and recording
                 (describe-recording-for-emacs recording)))))
 
-(defslyfun visit-next (key ignore-list)
+(defslyfun visit-next (key ignore-list &optional previous-instead)
+  "Visit the next recording for the visitor KEY.
+Ignore stickers whose ID is in IGNORE-LIST. With optional
+PREVIOUS-INSTEAD, visit the previous recording instead. Returns a
+list (RECORDING-INDEX TOTAL-RECORDINGS . STICKER-DESCRIPTION).
+STICKER-DESCRIPTION is as given by DESCRIBE-STICKER-FOR-EMACS."
   (unless (and *visitor*
                (eq key (car *visitor*)))
     (setf *visitor* (cons key -1)))
   (multiple-value-bind (index recording)
-      (next-index-and-recording ignore-list)
+      (next-index-and-recording ignore-list previous-instead)
     (setf (cdr *visitor*) index)
     (cond (recording
            (list* index

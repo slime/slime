@@ -435,8 +435,8 @@ With interactive prefix arg PREFIX always delete stickers.
                   (buffer-live-p (overlay-buffer sticker)))
              (when pop-to-sticker
                (pop-to-buffer (overlay-buffer sticker))
-               (goto-char (overlay-start sticker))
-               (sly-button-flash sticker))
+               (goto-char (overlay-start sticker)))
+             (sly-button-flash sticker)
              (sly-stickers--populate-sticker sticker nrecordings recording-description))
             (sticker
              ;; pretty normal so don't add noise
@@ -446,27 +446,86 @@ With interactive prefix arg PREFIX always delete stickers.
              ;; this sticker
              (push sticker-id sly-stickers--zombie-sticker-ids))))))
 
+(defvar sly-stickers--fetch-and-replay-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "n") 'next)
+    (define-key map (kbd "SPC") 'next)
+    (define-key map (kbd "DEL") 'previous)
+    (define-key map (kbd "p") 'previous)
+    (define-key map (kbd "h") 'sly-stickers--fetch-and-replay-help)
+    (define-key map (kbd "C-h") 'sly-stickers--fetch-and-replay-help)
+    (define-key map (kbd "q") 'quit)
+    (define-key map (kbd "C-g" 'quit))
+    (define-key map (kbd "i") 'ignore-sticker)
+    (define-key map (kbd "R") 'reset-ignore-list)
+    (define-key map (kbd "M-RET") 'sly-mrepl-copy-part-to-repl)
+    map))
+
+(defun sly-stickers--fetch-and-replay-help ()
+  (sly-with-popup-buffer ("sly-stickers help" :mode 'help-mode)
+    (insert (mapconcat #'identity
+                       '("n, SPC         jump to next sticker"
+                         "p, DEL         jump to previous sticker"
+                         "i              ignore current sticker"
+                         "R              reset ignore list"
+                         "h, C-h         this help"
+                         "M-RET          return sticker values to REPL")
+                       "\n"))))
+
+(defun sly-stickers--fetch-and-replay-1 (prompt ignore-list current-sticker-id)
+  (let ((binding (lookup-key sly-stickers--fetch-and-replay-map (vector (read-key prompt)) t)))
+    (cond ((and (symbolp binding)
+                (string-match "^sly-" (symbol-name binding)))
+           (if (commandp binding)
+               (call-interactively binding)
+             (funcall binding))
+           (setq binding 'repeat))
+          ((eq binding 'ignore-sticker)
+           (push current-sticker-id ignore-list))
+          ((eq binding 'reset-ignore-list)
+           (setq ignore-list nil)))
+    (list ignore-list binding)))
+
+
 (defun sly-stickers-fetch-and-replay ()
   "Interactively fetch and replay recordings from stickers"
   (interactive)
   (cl-loop with key = (cl-gensym "sticker-visitor-")
            with ignore-list = nil
-           ;; with some-stickers-p = nil
-           for (index total . sticker-description) = (sly-eval
-                                                        `(slynk-stickers:visit-next ',key ,ignore-list))
-           for description = (third sticker-description)
+           with binding = 'next
+           for (index total . sticker-description)
+           = (if (memq binding '(previous next))
+                 (sly-eval
+                  `(slynk-stickers:visit-next ',key ',ignore-list
+                                              ,(eq binding 'previous)))
+               `(,index ,total ,@sticker-description))
+           for (id _nrecordings _recid desc _exited-non-locally-p) = sticker-description
+           for prompt = (format "[sly] sticker: %s of %s => %s\n%sContinue%s?"
+                                (1+ (or index 0))
+                                total
+                                desc
+                                (if ignore-list
+                                    (format "Ignoring sticker%s %s. "
+                                            (if (cadr ignore-list) "s" "")
+                                            (concat (mapconcat #'pp-to-string
+                                                               (butlast ignore-list) ", ")
+                                                    (and (cadr ignore-list) " and ")
+                                                    (pp-to-string
+                                                     (car (last ignore-list)))))
+                                  "")
+                                (if binding
+                                    ""
+                                  " (npiR C-g quits, C-h for help)"))
            while index
            do
-           ;; (setq some-stickers-p t)
            (sly-stickers--process-sticker-description sticker-description 'pop-to-sticker)
-           while (y-or-n-p (format "[sly] (%s/%s) => %s\nContinue?"
-                                   index total description))
+           (cl-multiple-value-setq (ignore-list binding)
+             (sly-stickers--fetch-and-replay-1 prompt ignore-list id))
+           until (eq binding 'quit)
            finally
-           (cond ;; (some-stickers-p
-                 ;;  (when (y-or-n-p "[sly] forget about all recordings?")
-                 ;;    (sly-eval '(slynk-stickers:forget))))
-                 (t
-                  (sly-message "no sticker recordings")))
+           (sly-message (if index
+                            "User quit"
+                          "Quit. No more sticker recordings"))
            (sly-stickers--kill-zombies)))
 
 (defun sly-stickers-fetch ()
