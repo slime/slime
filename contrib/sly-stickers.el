@@ -455,7 +455,7 @@ With interactive prefix arg PREFIX always delete stickers.
     (define-key map (kbd "h") 'sly-stickers--fetch-and-replay-help)
     (define-key map (kbd "C-h") 'sly-stickers--fetch-and-replay-help)
     (define-key map (kbd "q") 'quit)
-    (define-key map (kbd "C-g" 'quit))
+    (define-key map (kbd "C-g") 'quit)
     (define-key map (kbd "i") 'ignore-sticker)
     (define-key map (kbd "R") 'reset-ignore-list)
     (define-key map (kbd "M-RET") 'sly-mrepl-copy-part-to-repl)
