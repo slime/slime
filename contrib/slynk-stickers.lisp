@@ -180,10 +180,12 @@ STICKER-DESCRIPTION is as given by DESCRIBE-STICKER-FOR-EMACS."
            nil))))
 
 (defslyfun fetch ()
+  "Describe each known sticker to Emacs."
   (loop for sticker being the hash-values of *stickers*
         collect (describe-sticker-for-emacs sticker)))
 
 (defslyfun forget ()
+  "Forget all sticker recordings."
   (maphash (lambda (id sticker)
              (declare (ignore id))
              (setf (recordings-of sticker) nil))

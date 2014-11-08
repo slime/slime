@@ -226,31 +226,31 @@ render the underlying text unreadable."
     (sly-stickers--set-tooltip sticker label)
     (sly-stickers--set-face sticker 'sly-stickers-placed-face)))
 
-(defun sly-stickers--populate-sticker (sticker total recording-description)
-  (let* ((id (sly-stickers--sticker-id sticker)))
+(defun sly-stickers--populate-sticker (sticker recording)
+  (let* ((id (sly-stickers--sticker-id sticker))
+         (total (sly-stickers--recording-sticker-total recording)))
     (cond ((cl-plusp total)
-           (button-put sticker 'part-label (format "Sticker %d has new recordings" id))
-           (when recording-description
-             (cl-destructuring-bind (recording-id description-string exited-non-locally-p)
-                 recording-description
-               (button-put sticker 'sly-stickers--last-known-recording
-                           (cons recording-id description-string))
-               (button-put sticker 'part-args (list id recording-id))
-               (sly-stickers--set-tooltip sticker
-                                          (format "Newest of %s new recordings => %s"
-                                                  total
-                                                  description-string))
-               (sly-stickers--set-face sticker
-                                       (if exited-non-locally-p
-                                           'sly-stickers-exited-non-locally-face
-                                         'sly-stickers-recordings-face)))))
+           (button-put sticker 'part-label (format "Sticker %d has %d recordings" id total))
+           (unless (sly-stickers--recording-void-p recording)
+             (button-put sticker 'sly-stickers--last-known-recording recording)
+             (button-put sticker 'part-args (list id
+                                                  (sly-stickers--recording-id recording)))
+             (sly-stickers--set-tooltip sticker
+                                        (format "Newest of %s recordings => %s"
+                                                total
+                                                (sly-stickers--recording-description recording)))
+             (sly-stickers--set-face sticker
+                                     (if (sly-stickers--recording-exited-non-locally-p recording)
+                                         'sly-stickers-exited-non-locally-face
+                                       'sly-stickers-recordings-face))))
           (t
            (let ((last-known-recording (button-get sticker 'sly-stickers--last-known-recording)))
              (button-put sticker 'part-label (format "Sticker %d has no recordings" id))
              (when last-known-recording
                (sly-stickers--set-tooltip sticker
                                           (format "No new recordings. Last known => %s"
-                                                  (cdr last-known-recording))))
+                                                  (sly-stickers--recording-description
+                                                   last-known-recording))))
              (sly-stickers--set-tooltip sticker "No new recordings")
              (sly-stickers--set-face sticker 'sly-stickers-empty-face))))))
 
@@ -426,25 +426,56 @@ With interactive prefix arg PREFIX always delete stickers.
     (sly-temp-message 3 1  (format " (killing zombie stickers %s)" sly-stickers--zombie-sticker-ids))
     (sly-eval-async `(slynk-stickers:kill-stickers ',sly-stickers--zombie-sticker-ids))))
 
-(defun sly-stickers--process-sticker-description
-    (description &optional pop-to-sticker)
-  (cl-destructuring-bind (sticker-id nrecordings &rest recording-description)
+(cl-defstruct (sly-stickers--recording
+               (:constructor sly-stickers--make-recording-1)
+               (:conc-name sly-stickers--recording-)
+               (:copier sly-stickers--copy-recording))
+  (sticker-id nil)
+  (sticker-total nil)
+  (id nil)
+  (description nil)
+  (exited-non-locally-p nil))
+
+(defun sly-stickers--recording-void-p (recording)
+  (not (sly-stickers--recording-id recording)))
+
+(defun sly-stickers--make-recording (description)
+  "Make a `sly-stickers--recording' from DESCRIPTION.
+A DESCRIPTION is how the Lisp side describes a sticker and
+usually its most recent recording. If it doesn't, a recording
+veryfying `sly-stickers--recording-void-p' is created."
+  (cl-destructuring-bind (sticker-id sticker-total . recording-description)
       description
-    (let* ((sticker (gethash sticker-id (sly-stickers--stickers))))
-      (cond ((and sticker (overlay-buffer sticker)
-                  (buffer-live-p (overlay-buffer sticker)))
-             (when pop-to-sticker
-               (pop-to-buffer (overlay-buffer sticker))
-               (goto-char (overlay-start sticker)))
-             (sly-button-flash sticker)
-             (sly-stickers--populate-sticker sticker nrecordings recording-description))
-            (sticker
-             ;; pretty normal so don't add noise
-             ;; (sly-message "Sticker %s has been deleted" id)
-             )
-            (t
-             ;; this sticker
-             (push sticker-id sly-stickers--zombie-sticker-ids))))))
+    (let ((recording (sly-stickers--make-recording-1
+                      :sticker-id sticker-id
+                      :sticker-total sticker-total)))
+      (when recording-description
+        (cl-destructuring-bind (recording-id recording-description exited-non-locally-p)
+            recording-description
+          (setf
+           (sly-stickers--recording-id recording) recording-id
+           (sly-stickers--recording-description recording) recording-description
+           (sly-stickers--recording-exited-non-locally-p recording) exited-non-locally-p)))
+      recording)))
+
+(defun sly-stickers--process-recording
+    (recording &optional pop-to-sticker)
+  (let* ((sticker-id (sly-stickers--recording-sticker-id recording))
+         (sticker (gethash sticker-id (sly-stickers--stickers))))
+    (cond ((and sticker (overlay-buffer sticker)
+                (buffer-live-p (overlay-buffer sticker)))
+           (when pop-to-sticker
+             (pop-to-buffer (overlay-buffer sticker))
+             (goto-char (overlay-start sticker)))
+           (sly-button-flash sticker)
+           (sly-stickers--populate-sticker sticker recording))
+          (sticker
+           ;; pretty normal so don't add noise
+           ;; (sly-message "Sticker %s has been deleted" id)
+           )
+          (t
+           ;; Emacs doesn't know of this sticker. It's a zombie
+           (push sticker-id sly-stickers--zombie-sticker-ids)))))
 
 
 
@@ -485,11 +516,7 @@ With interactive prefix arg PREFIX always delete stickers.
   ignore-list
   (index nil)
   (total 0)
-  (sticker-id nil)
-  (sticker-total nil)
-  (recording-id nil)
-  (recording-description nil)
-  (recording-exited-non-locally-p nil))
+  (recording nil))
 
 (defun sly-stickers--replay-prompt (state)
   "Produce a prompt and status string for STATE."
@@ -497,7 +524,8 @@ With interactive prefix arg PREFIX always delete stickers.
     (format "[sly] sticker: %s of %s => %s\n%sContinue%s?"
             (1+ (sly-stickers--state-index state))
             (sly-stickers--state-total state)
-            (sly-stickers--state-recording-description state)
+            (sly-stickers--recording-description
+             (sly-stickers--state-recording state))
             (if ignore-list
                 (format "Ignoring sticker%s %s. "
                         (if (cadr ignore-list) "s" "")
@@ -514,7 +542,8 @@ With interactive prefix arg PREFIX always delete stickers.
 
 (defun sly-stickers--replay-read-binding (state)
   "Read a binding from the user and modify STATE."
-  (let ((prompt (sly-stickers--replay-prompt state)))
+  (let ((prompt (sly-stickers--replay-prompt state))
+        (recording (sly-stickers--state-recording state)))
     (setf (sly-stickers--state-binding state)
           (lookup-key sly-stickers--replay-map (vector (read-key prompt)) t))
     (let ((binding (sly-stickers--state-binding state)))
@@ -525,7 +554,7 @@ With interactive prefix arg PREFIX always delete stickers.
                (funcall binding))
              (setf (sly-stickers--state-binding state) 'repeat))
             ((eq binding 'ignore-sticker)
-             (push (sly-stickers--state-sticker-id state)
+             (push (sly-stickers--recording-sticker-id recording)
                    (sly-stickers--state-ignore-list state)))
             ((eq binding 'reset-ignore-list)
              (setf (sly-stickers--state-ignore-list state) nil))))
@@ -545,17 +574,16 @@ With interactive prefix arg PREFIX always delete stickers.
     (if result
         (cl-destructuring-bind (index total . sticker-description)
             result
-          (cl-destructuring-bind (sticker-id sticker-total . recording-description)
-              sticker-description
-            (cl-destructuring-bind (recording-id recording-description exited-non-locally-p)
-                recording-description
-              (setf (sly-stickers--state-index state) index
-                    (sly-stickers--state-total state) total
-                    (sly-stickers--state-sticker-id state) sticker-id
-                    (sly-stickers--state-sticker-total state) sticker-total
-                    (sly-stickers--state-recording-id state) recording-id
-                    (sly-stickers--state-recording-description state) recording-description
-                    (sly-stickers--state-recording-exited-non-locally-p state) exited-non-locally-p))))
+          (setf (sly-stickers--state-recording state)
+                (sly-stickers--make-recording sticker-description))
+          (setf (sly-stickers--state-index state) index
+                (sly-stickers--state-total state) total)
+          ;; Assert that the recording isn't void
+          ;; 
+          (when (sly-stickers--recording-void-p
+                 (sly-stickers--state-recording state))
+            (sly-error "Attempt to visit a void recording described by %s"
+                       sticker-description)))
       ;; This invalidates the state
       ;; 
       (setf (sly-stickers--state-index state) nil))
@@ -579,13 +607,8 @@ With interactive prefix arg PREFIX always delete stickers.
            do
            ;; pop to and flash the sticker
            ;; 
-           (sly-stickers--process-sticker-description
-            (list (sly-stickers--state-sticker-id next-state)
-                  (sly-stickers--state-sticker-total next-state)
-                  (sly-stickers--state-recording-id next-state)
-                  (sly-stickers--state-recording-description next-state)
-                  (sly-stickers--state-recording-exited-non-locally-p next-state))
-            'pop-to-sticker)
+           (sly-stickers--process-recording (sly-stickers--state-recording next-state)
+                                            'pop-to-sticker)
            ;; 
            ;;
            (setq state (sly-stickers--replay-read-binding next-state))
@@ -603,7 +626,13 @@ With interactive prefix arg PREFIX always delete stickers.
     #'(lambda (result)
         (let ((message (format "Fetched recordings for %s armed stickers" (length result))))
           (cl-loop for sticker-description in result
-                   do (sly-stickers--process-sticker-description sticker-description))
+                   ;; Although we are analysing sticker descriptions
+                   ;; here, recordings are made to pass to
+                   ;; `sly-stickers--process-recording', although they
+                   ;; possibly are `sly-stickers--recording-void-p' if
+                   ;; the sticker has never been traversed.
+                   do (sly-stickers--process-recording
+                       (sly-stickers--make-recording sticker-description)))
           (sly-message message))
         (sly-stickers--kill-zombies))
     "CL_USER"))
