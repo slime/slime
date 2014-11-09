@@ -10,13 +10,11 @@
            #:fetch
            #:forget
            #:find-recording-or-lose
-           #:visit-next))
+           #:search-for-recording))
 (in-package :slynk-stickers)
 
-(defvar *next-recording-id* 0)
-
 (defclass recording ()
-  ((id :initform (incf *next-recording-id*)  :initarg :id :accessor id-of)
+  ((index :reader index-of)
    (ctime :initform (common-lisp:get-universal-time) :accessor ctime-of)
    (sticker :initform (error "required") :initarg :sticker :accessor sticker-of)
    (values :initform (error "required") :initarg :values :accessor values-of)
@@ -24,8 +22,8 @@
 
 (defmethod initialize-instance :after ((x recording) &key sticker)
   (push x (recordings-of sticker))
-  (vector-push-extend x *recordings*)
-  (setf (gethash (id-of x) *recordings-by-id*) x))
+  (setf (slot-value x 'index) (fill-pointer *recordings*))
+  (vector-push-extend x *recordings*))
 
 (defun recording-description-string (recording &optional stream print-first-value)
   (let ((values (values-of recording))
@@ -65,7 +63,6 @@
 ;;
 (defvar *stickers* (make-hash-table))
 (defvar *recordings* (make-array 40 :fill-pointer 0 :adjustable t))
-(defvar *recordings-by-id* (make-hash-table))
 (defvar *visitor* nil)
 
 (defslyfun compile-for-stickers (new-stickers
@@ -131,26 +128,41 @@ INSTRUMENTED-STRING fails, return NIL."
 (defmacro record (id &rest body)
   `(call-with-sticker-recording ,id (lambda () ,@body)))
 
-(defun next-index-and-recording (ignore-list &optional previous-instead)
-  (loop for candidate-index = (if previous-instead
-                                  (decf (cdr *visitor*))
-                                  (incf (cdr *visitor*)))
-        for recording = (and
-                         (< -1 candidate-index (length *recordings*))
-                             (aref *recordings* candidate-index))
-        while recording
+(define-condition abort-search (simple-error) ())
+
+(defun abort-search (format-control &rest format-args)
+  (error 'abort-search :format-control format-control :format-arguments format-args))
+
+(defun search-for-recording-1 (from ignore-list &key direction)
+  ;; if directly requesting a recording, ignore IGNORE-LIST for this
+  ;; invocation.
+  ;; 
+  (when (numberp direction)
+    (setq ignore-list nil))
+  (loop for candidate-id = (cond ((eq direction :next)
+                                  (incf from))
+                                 ((eq direction :prev)
+                                  (decf from))
+                                 ((numberp direction)
+                                  direction)
+                                 (t
+                                  (error "unknown direction spec ~a" direction)))
+        while (< -1 candidate-id (length *recordings*))
+        for recording = (aref *recordings* candidate-id)
         unless (member (id-of (sticker-of recording))
                        ignore-list)
-          return (values candidate-index recording)))
+          return recording
+        finally (abort-search "No such recording")))
 
 (defun describe-recording-for-emacs (recording)
   "Describe RECORDING as (ID STRING-DESC EXITED-NON-LOCALLY-P)"
-  (list (id-of recording)
+  (list (index-of recording)
         (recording-description-string recording nil 'print-first-value)
         (exited-non-locally-p recording)))
 
 (defun describe-sticker-for-emacs (sticker &optional recording)
-  "Describe STICKER as (ID NRECORDINGS . RECORDING-DESCRIPTION)
+  "Describe STICKER and either its latest recording or RECORDING.
+Returns a list (ID NRECORDINGS . RECORDING-DESCRIPTION).
 RECORDING-DESCRIPTION is as given by DESCRIBE-RECORDING-FOR-EMACS."
   (let* ((recordings (recordings-of sticker))
          (recording (or recording
@@ -160,24 +172,27 @@ RECORDING-DESCRIPTION is as given by DESCRIBE-RECORDING-FOR-EMACS."
            (and recording
                 (describe-recording-for-emacs recording)))))
 
-(defslyfun visit-next (key ignore-list &optional previous-instead)
+(defslyfun search-for-recording (key ignore-list direction)
   "Visit the next recording for the visitor KEY.
-Ignore stickers whose ID is in IGNORE-LIST. With optional
-PREVIOUS-INSTEAD, visit the previous recording instead. Returns a
-list (RECORDING-INDEX TOTAL-RECORDINGS . STICKER-DESCRIPTION).
-STICKER-DESCRIPTION is as given by DESCRIBE-STICKER-FOR-EMACS."
+Ignore stickers whose ID is in IGNORE-LIST. Direction can be the
+keyword :UP, :DOWN or a recording index.
+
+If a recording can be found return a list (TOTAL-RECORDINGS
+. STICKER-DESCRIPTION).  STICKER-DESCRIPTION is as given by
+DESCRIBE-STICKER-FOR-EMACS.
+
+Otherwise returns a list (NIL ERROR-DESCRIPTION)"
   (unless (and *visitor*
                (eq key (car *visitor*)))
     (setf *visitor* (cons key -1)))
-  (multiple-value-bind (index recording)
-      (next-index-and-recording ignore-list previous-instead)
-    (setf (cdr *visitor*) index)
-    (cond (recording
-           (list* index
-                  (length *recordings*)
-                  (describe-sticker-for-emacs (sticker-of recording) recording)))
-          (t
-           nil))))
+  (handler-case 
+      (let ((recording (search-for-recording-1 (cdr *visitor*) ignore-list
+                                               :direction direction)))
+        (setf (cdr *visitor*)  (index-of recording))
+        (list* (length *recordings*)
+               (describe-sticker-for-emacs (sticker-of recording) recording)))
+    (abort-search (error)
+      (list nil (format nil "~a" error)))))
 
 (defslyfun fetch ()
   "Describe each known sticker to Emacs."
@@ -190,13 +205,10 @@ STICKER-DESCRIPTION is as given by DESCRIBE-STICKER-FOR-EMACS."
              (declare (ignore id))
              (setf (recordings-of sticker) nil))
            *stickers*)
-  (setf (fill-pointer *recordings*) 0)
-  (clrhash *recordings-by-id*))
+  (setf (fill-pointer *recordings*) 0))
 
 (defslyfun find-recording-or-lose (recording-id)
-  (let ((recording (gethash recording-id *recordings-by-id*)))
-    (unless recording
-      (error "Cannot find recording ~a" recording-id))
+  (let ((recording (aref *recordings* recording-id)))
     (values-list (values-of recording))))
 
 (defun find-sticker-or-lose (id)

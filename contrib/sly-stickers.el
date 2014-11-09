@@ -70,6 +70,7 @@
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c S") 'sly-stickers-fetch)
     (define-key map (kbd "C-c C-s S") 'sly-stickers-fetch)
+    (define-key map (kbd "C-c C-s F") 'sly-stickers-forget)
     (define-key map (kbd "C-c C-s C-r") 'sly-stickers-replay)
     map))
 
@@ -483,10 +484,11 @@ veryfying `sly-stickers--recording-void-p' is created."
 ;;; 
 (defvar sly-stickers--replay-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "n") 'next)
-    (define-key map (kbd "SPC") 'next)
-    (define-key map (kbd "DEL") 'previous)
-    (define-key map (kbd "p") 'previous)
+    (define-key map (kbd "n") :next)
+    (define-key map (kbd "SPC") :next)
+    (define-key map (kbd "DEL") :prev)
+    (define-key map (kbd "p") :prev)
+    (define-key map (kbd "j") 'jump)
     (define-key map (kbd "h") 'sly-stickers--replay-help)
     (define-key map (kbd "C-h") 'sly-stickers--replay-help)
     (define-key map (kbd "q") 'quit)
@@ -499,11 +501,12 @@ veryfying `sly-stickers--recording-void-p' is created."
 (defun sly-stickers--replay-help ()
   (sly-with-popup-buffer ("sly-stickers help" :mode 'help-mode)
     (insert (mapconcat #'identity
-                       '("n, SPC         jump to next sticker"
-                         "p, DEL         jump to previous sticker"
+                       '("n, SPC         scan recordings forward"
+                         "p, DEL         scan recordings backward"
                          "i              ignore current sticker"
                          "R              reset ignore list"
                          "h, C-h         this help"
+                         "j              jump to recording"
                          "M-RET          return sticker values to REPL")
                        "\n"))))
 
@@ -512,22 +515,27 @@ veryfying `sly-stickers--recording-void-p' is created."
                (:conc-name sly-stickers--state-)
                (:copier sly-stickers--copy-state))
   (key (cl-gensym "sticker-visitor-"))
-  (binding 'next)
+  (binding 0)
   ignore-list
-  (index nil)
+  (error nil)
   (total 0)
   (recording nil))
 
 (defun sly-stickers--replay-prompt (state)
   "Produce a prompt and status string for STATE."
-  (let ((ignore-list (sly-stickers--state-ignore-list state)))
-    (format "[sly] sticker: %s of %s => %s\n%sContinue%s?"
-            (1+ (sly-stickers--state-index state))
+  (let ((ignore-list (sly-stickers--state-ignore-list state))
+        (recording (sly-stickers--state-recording state))
+        (error (sly-stickers--state-error state)))
+    (format "[sly] recording %s of %s in sticker %s\n  => %s\n%s%s%s"
+            (1+ (sly-stickers--recording-id recording))
             (sly-stickers--state-total state)
-            (sly-stickers--recording-description
-             (sly-stickers--state-recording state))
+            (sly-stickers--recording-sticker-id recording)
+            (sly-stickers--recording-description recording)
+            (if error
+                (format "  Error: %s\n" error)
+              "")
             (if ignore-list
-                (format "Ignoring sticker%s %s. "
+                (format "  Ignoring sticker%s %s.\n"
                         (if (cadr ignore-list) "s" "")
                         (concat (mapconcat #'pp-to-string
                                            (butlast ignore-list)
@@ -536,9 +544,7 @@ veryfying `sly-stickers--recording-void-p' is created."
                                 (pp-to-string
                                  (car (last ignore-list)))))
               "")
-            (if (not (sly-stickers--state-binding state))
-                " (npiR C-g quits, C-h for help)"
-              ""))))
+            "(n)ext)/(p)revious/(i)gnore/h(elp)/(q)uit")))
 
 (defun sly-stickers--replay-read-binding (state)
   "Read a binding from the user and modify STATE."
@@ -548,76 +554,97 @@ veryfying `sly-stickers--recording-void-p' is created."
           (lookup-key sly-stickers--replay-map (vector (read-key prompt)) t))
     (let ((binding (sly-stickers--state-binding state)))
       (cond ((and (symbolp binding)
+                  (fboundp binding)
                   (string-match "^sly-" (symbol-name binding)))
              (if (commandp binding)
                  (call-interactively binding)
                (funcall binding))
-             (setf (sly-stickers--state-binding state) 'repeat))
+             (setf binding 'repeat))
             ((eq binding 'ignore-sticker)
              (push (sly-stickers--recording-sticker-id recording)
                    (sly-stickers--state-ignore-list state)))
             ((eq binding 'reset-ignore-list)
-             (setf (sly-stickers--state-ignore-list state) nil))))
+             (setf (sly-stickers--state-ignore-list state) nil))
+            ((eq binding 'jump)
+             (let ((read (read-number (format "Jump to which recording [1-%d]?"
+                                              (sly-stickers--state-total state)))))
+               (setq binding (1- (round read))))))
+      (setf (sly-stickers--state-binding state) binding))
     state))
+
+
 
 
 (defun sly-stickers--replay-starting-state ()
   (sly-stickers--make-state))
 
-(defun sly-stickers--replay-next-state (state)
+(defun sly-stickers--replay-fetch-next (state)
   "Update STATE from Slynk according to its bindings."
   (let ((result (sly-eval
-                 `(slynk-stickers:visit-next ',(sly-stickers--state-key state)
-                                             ',(sly-stickers--state-ignore-list state)
-                                             ,(eq (sly-stickers--state-binding state)
-                                                  'previous)))))
-    (if result
-        (cl-destructuring-bind (index total . sticker-description)
-            result
-          (setf (sly-stickers--state-recording state)
-                (sly-stickers--make-recording sticker-description))
-          (setf (sly-stickers--state-index state) index
-                (sly-stickers--state-total state) total)
-          ;; Assert that the recording isn't void
-          ;; 
-          (when (sly-stickers--recording-void-p
-                 (sly-stickers--state-recording state))
-            (sly-error "Attempt to visit a void recording described by %s"
-                       sticker-description)))
-      ;; This invalidates the state
-      ;; 
-      (setf (sly-stickers--state-index state) nil))
+                 `(slynk-stickers:search-for-recording
+                   ',(sly-stickers--state-key state)
+                   ',(sly-stickers--state-ignore-list state)
+                   ,(sly-stickers--state-binding state)))))
+    (cond ((car result)
+           (setf (sly-stickers--state-error state) nil)
+           (cl-destructuring-bind (total . sticker-description)
+               result
+             (setf (sly-stickers--state-recording state)
+                   (sly-stickers--make-recording sticker-description))
+             (setf (sly-stickers--state-total state) total)
+             ;; Assert that the recording isn't void
+             ;; 
+             (when (sly-stickers--recording-void-p
+                    (sly-stickers--state-recording state))
+               (sly-error "Attempt to visit a void recording described by %s"
+                          sticker-description))))
+          (t
+           (setf (sly-stickers--state-error state) (cadr result))))
     state))
 
 
-(defun sly-stickers--replay-valid-state-p (state)
-  (sly-stickers--state-index state))
-
 (defun sly-stickers--replay-quit-state-p (state)
-  (eq (sly-stickers--state-binding state) 'quit))
+  (or
+   (not (sly-stickers--state-recording state))
+   (eq (sly-stickers--state-binding state) 'quit)))
 
-(defun sly-stickers-replay (&optional _resume-index)
+(defvar sly-stickers--replay-last-state nil)
+
+(defun sly-stickers-replay ()
   "Interactively replay recordings from stickers"
   (interactive)
-  (cl-loop with state = (sly-stickers--make-state)
-           for next-state = (if (memq (sly-stickers--state-binding state) '(next previous))
-                                (sly-stickers--replay-next-state state)
-                              state)
-           while (sly-stickers--replay-valid-state-p next-state)
-           do
-           ;; pop to and flash the sticker
-           ;; 
-           (sly-stickers--process-recording (sly-stickers--state-recording next-state)
-                                            'pop-to-sticker)
-           ;; 
-           ;;
-           (setq state (sly-stickers--replay-read-binding next-state))
-           until (sly-stickers--replay-quit-state-p state)
-           finally
-           (sly-message (if (sly-stickers--replay-quit-state-p state)
-                            "User quit"
-                          "Quit. No more sticker recordings"))
-           (sly-stickers--kill-zombies)))
+  (let ((state (sly-stickers--make-state)))
+    (when sly-stickers--replay-last-state
+      (let ((recording (sly-stickers--state-recording
+                        sly-stickers--replay-last-state)))
+        (and recording
+             (y-or-n-p (format "[sly] Resume from last recording %s of sticker %s?"
+                               (1+ (sly-stickers--recording-id recording))
+                               (sly-stickers--recording-sticker-id recording))))
+        (setf (sly-stickers--state-recording state) recording)
+        (setf (sly-stickers--state-binding state) (sly-stickers--recording-id recording))))
+    (unwind-protect
+        (cl-loop for next-state = (if (or (memq (sly-stickers--state-binding state)
+                                                '(:next :prev))
+                                          (numberp (sly-stickers--state-binding state)))
+                                      (sly-stickers--replay-fetch-next state)
+                                    state)
+                 while (not (sly-stickers--replay-quit-state-p state))
+                 do
+                 ;; pop to and flash the sticker whatever the state was
+                 ;;
+                 (sly-stickers--process-recording (sly-stickers--state-recording next-state)
+                                                  'pop-to-sticker)
+                 ;; 
+                 ;;
+                 (setq state (sly-stickers--replay-read-binding next-state))
+                 until (sly-stickers--replay-quit-state-p state))
+      (cond ((sly-stickers--state-recording state)
+             (setq sly-stickers--replay-last-state state)
+             (sly-message "Quit sticker recording replay"))
+            (t
+             (sly-message "No sticker recordings. Run some sticker-aware code first.")))
+      (sly-stickers--kill-zombies))))
 
 (defun sly-stickers-fetch ()
   "Fetch and update stickers from Lisp."
@@ -636,6 +663,14 @@ veryfying `sly-stickers--recording-void-p' is created."
           (sly-message message))
         (sly-stickers--kill-zombies))
     "CL_USER"))
+
+(defun sly-stickers-forget ()
+  "Forget about Lisp sticker recordings."
+  (interactive)
+  (sly-eval-async '(slynk-stickers:forget)
+    #'(lambda (_result)
+        (setq sly-stickers--replay-last-state nil)
+        (sly-message "Forgot all about sticker recordings."))))
 
 
 ;;; Sticker-aware compilation
