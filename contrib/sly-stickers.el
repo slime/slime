@@ -227,6 +227,18 @@ render the underlying text unreadable."
     (sly-stickers--set-tooltip sticker label)
     (sly-stickers--set-face sticker 'sly-stickers-placed-face)))
 
+(defun sly-stickers--recording-pretty-description (recording)
+  (let ((descs (sly-stickers--recording-value-descriptions recording)))
+    (cond ((sly-stickers--recording-exited-non-locally-p recording)
+           "exited non locally")
+          ((null descs)
+           "no values")
+          (t
+           (cl-loop for (v . rest) on descs
+                    concat (format "=> %s" v)
+                    when rest
+                    concat "\n")))))
+
 (defun sly-stickers--populate-sticker (sticker recording)
   (let* ((id (sly-stickers--sticker-id sticker))
          (total (sly-stickers--recording-sticker-total recording)))
@@ -237,9 +249,9 @@ render the underlying text unreadable."
              (button-put sticker 'part-args (list id
                                                   (sly-stickers--recording-id recording)))
              (sly-stickers--set-tooltip sticker
-                                        (format "Newest of %s recordings => %s"
+                                        (format "Newest of %s recordings:\n%s"
                                                 total
-                                                (sly-stickers--recording-description recording)))
+                                                (sly-stickers--recording-pretty-description recording)))
              (sly-stickers--set-face sticker
                                      (if (sly-stickers--recording-exited-non-locally-p recording)
                                          'sly-stickers-exited-non-locally-face
@@ -249,9 +261,8 @@ render the underlying text unreadable."
              (button-put sticker 'part-label (format "Sticker %d has no recordings" id))
              (when last-known-recording
                (sly-stickers--set-tooltip sticker
-                                          (format "No new recordings. Last known => %s"
-                                                  (sly-stickers--recording-description
-                                                   last-known-recording))))
+                                          (format "No new recordings. Last known:\n%s"
+                                                  (sly-stickers--recording-pretty-description last-known-recording))))
              (sly-stickers--set-tooltip sticker "No new recordings")
              (sly-stickers--set-face sticker 'sly-stickers-empty-face))))))
 
@@ -434,7 +445,7 @@ With interactive prefix arg PREFIX always delete stickers.
   (sticker-id nil)
   (sticker-total nil)
   (id nil)
-  (description nil)
+  (value-descriptions nil)
   (exited-non-locally-p nil))
 
 (defun sly-stickers--recording-void-p (recording)
@@ -451,11 +462,11 @@ veryfying `sly-stickers--recording-void-p' is created."
                       :sticker-id sticker-id
                       :sticker-total sticker-total)))
       (when recording-description
-        (cl-destructuring-bind (recording-id recording-description exited-non-locally-p)
+        (cl-destructuring-bind (recording-id value-descriptions exited-non-locally-p)
             recording-description
           (setf
            (sly-stickers--recording-id recording) recording-id
-           (sly-stickers--recording-description recording) recording-description
+           (sly-stickers--recording-value-descriptions recording) value-descriptions
            (sly-stickers--recording-exited-non-locally-p recording) exited-non-locally-p)))
       recording)))
 
@@ -507,7 +518,8 @@ veryfying `sly-stickers--recording-void-p' is created."
                          "R              reset ignore list"
                          "h, C-h         this help"
                          "j              jump to recording"
-                         "M-RET          return sticker values to REPL")
+                         "M-RET          return sticker values to REPL"
+                         "q, C-g         quit")
                        "\n"))))
 
 (cl-defstruct (sly-stickers--replay-state
@@ -523,14 +535,14 @@ veryfying `sly-stickers--recording-void-p' is created."
 
 (defun sly-stickers--replay-prompt (state)
   "Produce a prompt and status string for STATE."
-  (let ((ignore-list (sly-stickers--state-ignore-list state))
-        (recording (sly-stickers--state-recording state))
-        (error (sly-stickers--state-error state)))
-    (format "[sly] recording %s of %s in sticker %s\n  => %s\n%s%s%s"
+  (let* ((ignore-list (sly-stickers--state-ignore-list state))
+         (recording (sly-stickers--state-recording state))
+         (error (sly-stickers--state-error state)))
+    (format "[sly] recording %s of %s in sticker %s\n%s%s%s%s"
             (1+ (sly-stickers--recording-id recording))
             (sly-stickers--state-total state)
             (sly-stickers--recording-sticker-id recording)
-            (sly-stickers--recording-description recording)
+            (sly-stickers--recording-pretty-description recording)
             (if error
                 (format "  Error: %s\n" error)
               "")
@@ -572,9 +584,6 @@ veryfying `sly-stickers--recording-void-p' is created."
       (setf (sly-stickers--state-binding state) binding))
     state))
 
-
-
-
 (defun sly-stickers--replay-starting-state ()
   (sly-stickers--make-state))
 
@@ -611,7 +620,8 @@ veryfying `sly-stickers--recording-void-p' is created."
 (defvar sly-stickers--replay-last-state nil)
 
 (defun sly-stickers-replay ()
-  "Interactively replay recordings from stickers"
+  "Interactively replay sticker recordings fetched from Slynk.
+See also `sly-stickers-fetch'."
   (interactive)
   (let ((state (sly-stickers--make-state)))
     (when sly-stickers--replay-last-state
@@ -647,7 +657,8 @@ veryfying `sly-stickers--recording-void-p' is created."
       (sly-stickers--kill-zombies))))
 
 (defun sly-stickers-fetch ()
-  "Fetch and update stickers from Lisp."
+  "Fetch recordings from Slynk and update stickers accordingly.
+See also `sly-stickers-replay'."
   (interactive)
   (sly-eval-async `(slynk-stickers:fetch)
     #'(lambda (result)
@@ -665,12 +676,13 @@ veryfying `sly-stickers--recording-void-p' is created."
     "CL_USER"))
 
 (defun sly-stickers-forget ()
-  "Forget about Lisp sticker recordings."
+  "Forget about sticker recordings in the Slynk side."
   (interactive)
-  (sly-eval-async '(slynk-stickers:forget)
-    #'(lambda (_result)
-        (setq sly-stickers--replay-last-state nil)
-        (sly-message "Forgot all about sticker recordings."))))
+  (when (yes-or-no-p "[sly] Really forget about sticker recordings?")
+    (sly-eval-async '(slynk-stickers:forget)
+      #'(lambda (_result)
+          (setq sly-stickers--replay-last-state nil)
+          (sly-message "Forgot all about sticker recordings.")))))
 
 
 ;;; Sticker-aware compilation

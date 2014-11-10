@@ -34,7 +34,7 @@
            (format stream "exited non-locally"))
           ((listp values)
            (if (and print-first-value
-                    (car values))
+                    values)
                (format stream "~a" (slynk::to-line (car values)))
                (format stream "~a values" (length values))))
           (t
@@ -155,9 +155,12 @@ INSTRUMENTED-STRING fails, return NIL."
         finally (abort-search "No such recording")))
 
 (defun describe-recording-for-emacs (recording)
-  "Describe RECORDING as (ID STRING-DESC EXITED-NON-LOCALLY-P)"
+  "Describe RECORDING as (ID VALUE-DESCRIPTIONS EXITED-NON-LOCALLY-P)
+ID is a number. VALUE-DESCRIPTIONS is a list of
+strings. EXITED-NON-LOCALLY-P is an integer."
   (list (index-of recording)
-        (recording-description-string recording nil 'print-first-value)
+        (and (listp (values-of recording))
+             (mapcar #'slynk::to-line (values-of recording)))
         (exited-non-locally-p recording)))
 
 (defun describe-sticker-for-emacs (sticker &optional recording)
