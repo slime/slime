@@ -934,8 +934,6 @@ DIRECTORY change to this directory before starting the process.
                     :coding-system coding-system :init init :name name
                     :init-function init-function :env env)))
     (sly-check-coding-system coding-system)
-    (when (sly-bytecode-stale-p)
-      (sly-urge-bytecode-recompile))
     (let ((proc (sly-maybe-start-lisp program program-args env
                                         directory buffer)))
       (sly-inferior-connect proc args)
@@ -972,9 +970,8 @@ DIRECTORY change to this directory before starting the process.
 
 ;;;;; Start inferior lisp
 ;;;
-;;; Here is the protocol for starting SLY:
+;;; Here is the protocol for starting SLY via `M-x sly':
 ;;;
-;;;   0. Emacs recompiles/reloads sly.elc if it exists and is stale.
 ;;;   1. Emacs starts an inferior Lisp process.
 ;;;   2. Emacs tells Lisp (via stdio) to load and start Slynk.
 ;;;   3. Lisp recompiles the Slynk if needed.
@@ -988,30 +985,6 @@ DIRECTORY change to this directory before starting the process.
 
 (defvar sly-connect-retry-timer nil
   "Timer object while waiting for an inferior-lisp to start.")
-
-;;; Recompiling bytecode:
-
-(defun sly-bytecode-stale-p ()
-  "Return true if sly.elc is older than sly.el."
-  (sly--when-let (libfile (locate-library "sly"))
-    (let* ((basename (file-name-sans-extension libfile))
-           (sourcefile (concat basename ".el"))
-           (bytefile (concat basename ".elc")))
-      (and (file-exists-p bytefile)
-           (file-newer-than-file-p sourcefile bytefile)))))
-
-(defun sly-recompile-bytecode ()
-  "Recompile and reload sly."
-  (interactive)
-  (let ((sourcefile (concat (file-name-sans-extension (locate-library "sly"))
-                            ".el")))
-    (byte-compile-file sourcefile t)))
-
-(defun sly-urge-bytecode-recompile ()
-  "Urge the user to recompile sly.elc.
-Return true if we have been given permission to continue."
-  (when (y-or-n-p "sly.elc is older than source.  Recompile first? ")
-    (sly-recompile-bytecode)))
 
 (defun sly-abort-connection ()
   "Abort connection the current connection attempt."
