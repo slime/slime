@@ -18,7 +18,7 @@ env:
   - "CHECK_TARGET=check-indentation LISP=sbcl EMACS=emacs24"
 
 install:
-  - curl https://raw2.github.com/luismbo/cl-travis/master/install.sh | bash
+  - curl https://raw.githubusercontent.com/luismbo/cl-travis/master/install.sh | bash
   - if [ "$EMACS" = "emacs23" ]; then
         sudo apt-get -qq update &&
         sudo apt-get -qq -f install &&
