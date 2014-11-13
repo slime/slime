@@ -54,6 +54,8 @@
 ;; well-defined interface and implemented separately for each Lisp
 ;; implementation. This makes SLIME readily portable.
 
+;;; Code:
+
 
 ;;;; Dependencies and setup
 (eval-and-compile
