@@ -1,3 +1,11 @@
+2014-11-12  Mark H. David  <mhd@clozure.com>
+
+	Accept (function (function +)) as Lisp printer output for (function #'+).
+
+	* contrib/swank-arglists.lisp: changed function test-print-arglist
+	-- to provide two alternative accepted outputs -- and changed its
+	inner flet function test to accept multiple outputs.
+
 2014-10-24  Helmut Eller  <heller@common-lisp.net>
 
 	Experimental support for MLWorks
