@@ -1,3 +1,15 @@
+2014-11-14  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* doc/slime.texi (Installation): Reworked to add MELPA
+	instructions.
+
+	* doc/contributors.texi: Include this auto-generated file so that
+	MELPA is able to build the manual.
+
+	* README.md: Add instructions on how to use MELPA to install SLIME
+	and move the Git instructions to the manual and other minor
+	tweaks.
+
 2014-10-10  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* swank-loader.lisp (init): Delete swank/* packages.

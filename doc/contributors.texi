@@ -1,0 +1,51 @@
+@multitable @columnfractions 0,333333 0,333333 0,333333
+
+@item Helmut Eller @tab Tobias C. Rittweiler @tab Stas Boukarev
+@item Luke Gorrie @tab Matthias Koeppe @tab Marco Baringer
+@item Nikodemus Siivola @tab João Távora @tab Alan Ruttenberg
+@item Mark Evenson @tab Edi Weitz @tab Martin Simmons
+@item Luís Oliveira @tab Juho Snellman @tab Christophe Rhodes
+@item Peter Seibel @tab Geo Carncross @tab Attila Lendvai
+@item Douglas Crosher @tab Daniel Barlow @tab Wolfgang Jenkner
+@item Gábor Melis @tab Michael Weber @tab Lawrence Mitchell
+@item Terje Norderhaug @tab Brian Downing @tab Bill Clementson
+@item Andras Simon @tab Zach Beane @tab Espen Wiborg
+@item Antonio Menezes Leitao @tab Utz-Uwe Haus @tab Thomas Schilling
+@item Thomas F. Burdick @tab Takehiko Abe @tab Stelian Ionescu
+@item Richard M Kreuter @tab Raymond Toy @tab Matthew Danish
+@item Mark Harig @tab James Bielman @tab Harald Hanche-Olsen
+@item Andreas Fuchs @tab Willem Broekema @tab Taylor R. Campbell
+@item Paulo Madeira @tab Lars Magne Ingebrigtsen @tab John Paul Wallington
+@item Joerg Hoehle @tab Didier Verna @tab Bryan O'Connor
+@item Anton Kovalenko @tab Alan Shutko @tab Travis Cross
+@item Tobias Rittweiler @tab Tiago Maduro-Dias @tab Stefan Kamphausen
+@item Sean O'Rourke @tab Robert Lehr @tab Robert E. Brown
+@item Phil Hargett @tab Nathan Trapuzzano @tab Nathan Bird
+@item Jouni K Seppanen @tab Ivan Toshkov @tab Ian Eslick
+@item Gary King @tab Francois-Rene Rideau @tab Eric Blood
+@item Eduardo Muñoz @tab David Reitter @tab Christian Lynbech
+@item Chris Capel @tab Bjørn Nordbø @tab Ariel Badichi
+@item Anton Vodonosov @tab Alexey Dejneka @tab Alan Caulkins
+@item  @tab Yaroslav Kavenchuk @tab Wolfgang Mederle
+@item Wojciech Kaczmarek @tab William Bland @tab Vitaly Mayatskikh
+@item Tom Pierce @tab Tim Daly Jr. @tab Syohei YOSHIDA
+@item Sven Van Caekenberghe @tab Svein Ove Aas @tab Steve Smith
+@item StanisBaw Halik @tab Russell McManus @tab Rui Patrocínio
+@item Robert P. Goldman @tab Robert Macomber @tab Reini Urban
+@item R. Matthew Emerson @tab Pawel Ostrowski @tab Paul Collins
+@item Neil Van Dyke @tab NIIMI Satoshi @tab Mészáros Levente
+@item Mikel Bancroft @tab Matthew D. Swank @tab Matt Pillsbury
+@item Masayuki Onjo @tab Mark Wooding @tab Marco Monteiro
+@item Lynn Quam @tab Levente Mészáros @tab Lasse Rasinen
+@item Knut Olav Bøhmer @tab Kai Kaminski @tab Julian Stecklina
+@item Juergen Gmeiner @tab Jon Allen Boone @tab Johan Bockgård
+@item Jan Rychter @tab James McIlree @tab Ivan Shvedunov
+@item Ivan Boldyrev @tab Ignas Mikalajunas @tab Hannu Koivisto
+@item Gerd Flaig @tab Gail Zacharias @tab Frederic Brunel
+@item Dustin Long @tab Douglas Katzman @tab Daniel Koning
+@item Dan Weinreb @tab Dan Pierson @tab Cyrus Harmon
+@item Cecil Westerhof @tab Brian Mastenbrook @tab Brandon Bergren
+@item Bozhidar Batsov @tab Bob Halley @tab Barry Fishman
+@item B.Scott Michel @tab Andrew Myers @tab Aleksandar Bakic
+@item Alain Picard
+@end multitable

@@ -397,32 +397,42 @@ and submit a @emph{pull request}. Be sure to first read the
 @node Installation
 @section Installation
 
-With a Lisp implementation that can be started from the command-line,
-installation just requires a few lines in your @file{.emacs}:
+The easiest way to install and keep @SLIME{} up-to-date is using
+Emacs's built-in package manager. @SLIME{} is available from the
+@uref{http://melpa.org,,MELPA} repository. After
+@uref{http://melpa.org/#/getting-started,,setting up the MELPA repository},
+@SLIME{} can be installed via @kbd{M-x package-install RET slime RET}.
+You should then define your default Lisp in your @file{.emacs} as follows:
 
-@vindex inferior-lisp-program
-@vindex load-path
 @example
-;; @emph{Setup load-path, autoloads and your lisp system}
-(add-to-list 'load-path "~/dir/to/cloned/slime")
-(require 'slime-autoloads)
 (setq inferior-lisp-program "/opt/sbcl/bin/sbcl")
 @end example
 
-@c @iftex
-The snippet above also appears in the @file{README.md} file. You can
-copy&paste it from there, but remember to fill in the appropriate
-paths.
-@c @end iftex
+At this point, you should be ready to start @ref{Running,,running SLIME}.
 
 This is the minimal configuration with the fewest frills.  If the
 basic setup is working, you can try additional modules (@ref{Loading
 Contribs}).
 
-We recommend not loading the @acronym{ILISP} package into Emacs if you
-intend to use @SLIME{}. Doing so will add a lot of extra bindings to
-the keymap for Lisp source files that may be confusing and may not
-work correctly for a Lisp process started by @SLIME{}.
+@subsection Installing from Git
+
+If you'd rather install @SLIME{} directly from its
+@uref{https://github.com/slime/slime,,git repository}, you will need
+to add a few extra lines in your @file{.emacs}:
+
+@vindex inferior-lisp-program
+@vindex load-path
+@example
+;; @emph{Setup load-path, autoloads and your lisp system}
+;; @emph{Not needed if you install SLIME via MELPA}
+(add-to-list 'load-path "~/dir/to/cloned/slime")
+(require 'slime-autoloads)
+(setq inferior-lisp-program "/opt/sbcl/bin/sbcl")
+@end example
+
+You may optionally byte-compile @SLIME{} using @code{make compile
+contrib-compile}.
+
 
 @c -----------------------
 @node Running
