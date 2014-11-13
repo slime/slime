@@ -5,7 +5,8 @@
 ;; Keywords: languages, lisp, slime
 ;; Version: 2.10
 
-;;;; License
+;;;; License and Commentary
+
 ;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
 ;;     Copyright (C) 2004,2005,2006  Luke Gorrie, Helmut Eller
 ;;     Copyright (C) 2007,2008,2009  Helmut Eller, Tobias C. Rittweiler
@@ -27,32 +28,31 @@
 ;;     Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
 ;;     MA 02111-1307, USA.
 
-
-;;;; Commentary
+;;; Commentary:
+
+;; SLIME is the ``Superior Lisp Interaction Mode for Emacs.''
 ;;
-;; This file contains extensions for programming in Common Lisp. The
-;; main features are:
+;; SLIME extends Emacs with support for interactive programming in
+;; Common Lisp. The features are centered around slime-mode, an Emacs
+;; minor-mode that complements the standard lisp-mode. While lisp-mode
+;; supports editing Lisp source files, slime-mode adds support for
+;; interacting with a running Common Lisp process for compilation,
+;; debugging, documentation lookup, and so on.
 ;;
-;;   A socket-based communication/RPC interface between Emacs and
-;;   Lisp, enabling introspection and remote development.
+;; The slime-mode programming environment follows the example of
+;; Emacs's native Emacs Lisp environment. We have also included good
+;; ideas from similar systems (such as ILISP) and some new ideas of
+;; our own.
 ;;
-;;   The `slime-mode' minor-mode complementing `lisp-mode'. This new
-;;   mode includes many commands for interacting with the Common Lisp
-;;   process.
+;; SLIME is constructed from two parts: a user-interface written in
+;; Emacs Lisp, and a supporting server program written in Common
+;; Lisp. The two sides are connected together with a socket and
+;; communicate using an RPC-like protocol.
 ;;
-;;   A Common Lisp debugger written in Emacs Lisp. The debugger pops up
-;;   an Emacs buffer similar to the Emacs/Elisp debugger.
-;;
-;;   A Common Lisp inspector to interactively look at run-time data.
-;;
-;;   Trapping compiler messages and creating annotations in the source
-;;   file on the appropriate forms.
-;;
-;; SLIME should work with any recent GNU Emacsen (23+)
-;;
-;; In order to run SLIME, a supporting Lisp server called Swank is
-;; required. Swank is distributed with slime.el and will automatically
-;; be started in a normal installation.
+;; The Lisp server is primarily written in portable Common Lisp. The
+;; required implementation-specific functionality is specified by a
+;; well-defined interface and implemented separately for each Lisp
+;; implementation. This makes SLIME readily portable.
 
 
 ;;;; Dependencies and setup
