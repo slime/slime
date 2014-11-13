@@ -2020,18 +2020,21 @@ From this point on, when the Lisp code is executed, the results of
 evaluating the underlying forms are captured in the Lisp side.
 @item
 @kbd{C-c C-s S} (@code{M-x sly-stickers-fetch}) populates the sticker
-overlay with the captured results, called ``recordings''. If a sticker
+overlay with the latest captured results, called ``recordings''. If a sticker
 has captured any recordings, it will turn green, otherwise it will turn
 red. A sticker whose Lisp expression has caused a non-local exit, will
 be also be marked with a special face.
 @item
-As an alternative to @code{sly-stickers-fetch}, @kbd{C-c C-s C-r}
-(@code{M-x sly-stickers-fetch-and-replay}) interactively walk the user
-through recordings in the order that they occured.
+@kbd{C-c C-s C-r}
+(@code{M-x sly-stickers-replay}) interactively walk the user through
+recordings in the order that they occured. 
 @item
 At any point, stickers can be removed with the
 same @code{sly-stickers-dwim} keybinding, by placing the cursor at the
-beginning of a sticker.
+beginning of a sticker. Additionally adding prefix arguments
+to @code{sly-stickers-dwim} increase its scope, so @kbd{C-u C-c C-s
+C-s} will remove all stickers from the current function and @kbd{C-u
+C-u C-c C-s C-s} will remove all stickers from the current file.
 @item
 Stickers can be nested inside other stickers, so it is possible to
 record the value of an expression inside another expression which is
