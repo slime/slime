@@ -334,14 +334,13 @@ to T unless you want to debug slynk internals.")
 ;;;; Utilities
 
 ;; stolen from Hunchentoot
-(eval-when (:compile-toplevel :execute :load-toplevel)
-  (defmacro defvar-unbound (name &optional (doc-string ""))
-    "Convenience macro to declare unbound special variables with a
+(defmacro defvar-unbound (name &optional (doc-string ""))
+  "Convenience macro to declare unbound special variables with a
 documentation string."
-    `(progn
-       (defvar ,name)
-       (setf (documentation ',name 'variable) ,doc-string)
-       ',name)))
+  `(progn
+     (defvar ,name)
+     (setf (documentation ',name 'variable) ,doc-string)
+     ',name))
 
 
 ;;;;; Logging
@@ -695,13 +694,6 @@ corresponding values in the CDR of VALUE."
                                           (symbol-package ',conc-name))))
                       `(,getter ,',var))))
          ,@body))))
-
-(defmacro define-special (name doc)
-  "Define a special variable NAME with doc string DOC.
-This is like defvar, but NAME will not be initialized."
-  `(progn
-    (defvar ,name)
-    (setf (documentation ',name 'variable) ,doc)))
 
 
 ;;;;; Sentinel
@@ -1654,13 +1646,13 @@ VERSION: the protocol version"
 
 ;;;; Reading and printing
 
-(define-special *buffer-package*
+(defvar-unbound *buffer-package*
     "Package corresponding to sly-buffer-package.
 
 EVAL-FOR-EMACS binds *buffer-package*.  Strings originating from a sly
 buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 
-(define-special *buffer-readtable*
+(defvar-unbound *buffer-readtable*
     "Readtable associated with the current buffer")
 
 (defmacro with-buffer-syntax ((&optional package) &body body)
