@@ -1,3 +1,8 @@
+2014-11-17  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-all-xrefs): Know when to stop iterating over
+	buffer lines.
+
 2014-11-16  Bart Botta  <00003b@gmail.com>
 
 	Fix source locations when recompiling from an xref buffer.

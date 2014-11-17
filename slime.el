@@ -4717,13 +4717,13 @@ This is used by `slime-goto-next-xref'")
 (defun slime-all-xrefs ()
   (let ((xrefs nil))
     (save-excursion
-      (goto-char (point-min))
-      (while (ignore-errors (slime-next-line/not-add-newlines) t)
-        (let ((loc (get-text-property (point) 'slime-location)))
-          (when loc
-            (let* ((dspec (slime-xref-dspec-at-point))
-                   (xref  (make-slime-xref :dspec dspec :location loc)))
-              (push xref xrefs))))))
+     (goto-char (point-min))
+     (while (zerop (slime-next-line/not-add-newlines))
+       (let ((loc (get-text-property (point) 'slime-location)))
+         (when loc
+           (let* ((dspec (slime-xref-dspec-at-point))
+                  (xref  (make-slime-xref :dspec dspec :location loc)))
+             (push xref xrefs))))))
     (nreverse xrefs)))
 
 (defun slime-goto-xref ()
