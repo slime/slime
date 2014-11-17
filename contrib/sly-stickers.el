@@ -331,8 +331,11 @@ render the underlying text unreadable."
   ;; reaped later by `sly-stickers--bring-out-yer-dead'
   (delete-overlay sticker))
 
-(defun sly-stickers--sticker-modified (sticker after? _beg _end &optional _pre-change-len)
-  (unless after?
+(defun sly-stickers--sticker-modified (sticker after? beg end &optional _pre-change-len)
+  (unless (save-excursion
+            (goto-char beg)
+            (skip-chars-forward "\t\n\s")
+            (>= (point) end))
     (let ((inhibit-modification-hooks t))
       (sly-message "Deleting %s" (sly-stickers--briefly-describe-sticker sticker))
       (sly-stickers--delete sticker))))
