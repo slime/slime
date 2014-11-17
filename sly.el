@@ -4515,7 +4515,7 @@ This is used by `sly-goto-next-xref'")
   (let ((xrefs nil))
     (save-excursion
       (goto-char (point-min))
-      (while (ignore-errors (sly-next-line/not-add-newlines) t)
+      (while (zerop (sly-next-line/not-add-newlines))
         (sly--when-let (loc (get-text-property (point) 'sly-location))
           (let* ((dspec (sly-xref-dspec-at-point))
                  (xref  (make-sly-xref :dspec dspec :location loc)))
