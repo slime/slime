@@ -1,4 +1,4 @@
-SLY 1.0.0-alpha-2 (estimated October 2014)
+SLY 1.0.0-alpha-3 (estimated December 2014)
 ------------------------------------------
 
 ### sly-stickers: live source-code annotation tool
@@ -29,6 +29,10 @@ default. Suggested by Javier Olaechea (github #18).
 
 `C-c C-z` switches to the nearest REPL. Suggested by Javier Olaechea
 (github #13).
+
+When a connection disconnects, a status line is inserted in the REPL
+stating the reason for disconnection (network failure, user abort,
+etc...)
 
 ### Other enhancements
 
