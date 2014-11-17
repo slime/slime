@@ -541,7 +541,7 @@ veryfying `sly-stickers--recording-void-p' is created."
   (let* ((ignore-list (sly-stickers--state-ignore-list state))
          (recording (sly-stickers--state-recording state))
          (error (sly-stickers--state-error state)))
-    (format "[sly] recording %s of %s in sticker %s\n%s%s%s%s"
+    (format "[sly] recording %s of %s in sticker %s\n%s\n%s%s%s"
             (1+ (sly-stickers--recording-id recording))
             (sly-stickers--state-total state)
             (sly-stickers--recording-sticker-id recording)
