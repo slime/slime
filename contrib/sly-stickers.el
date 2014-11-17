@@ -40,15 +40,15 @@
   "Face for sticker just set")
 
 (defface sly-stickers-armed-face
-  '((t (:inherit hi-blue)))
+  '((t (:strike-through nil :inherit hi-blue)))
   "Face for stickers that have been armed")
 
 (defface sly-stickers-recordings-face
-  '((t (:inherit hi-green)))
+  '((t (:strike-through nil :inherit hi-green)))
   "Face for stickers that have new recordings")
 
 (defface sly-stickers-empty-face
-  '((t (:inherit hi-pink)))
+  '((t (:strike-through nil :inherit hi-pink)))
   "Face for stickers that have no recordings.")
 
 (defface sly-stickers-exited-non-locally-face
