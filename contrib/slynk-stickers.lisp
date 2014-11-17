@@ -149,10 +149,14 @@ INSTRUMENTED-STRING fails, return NIL."
                                   (error "unknown direction spec ~a" direction)))
         while (< -1 candidate-id (length *recordings*))
         for recording = (aref *recordings* candidate-id)
-        unless (member (id-of (sticker-of recording))
-                       ignore-list)
+        for sticker-id = (id-of (sticker-of recording))
+        unless (member sticker-id ignore-list)
+          ;; JT@14/11/17: Could also check if STICKER-ID is in
+          ;; *STICKERS* (meaning it has been killed by KILL-STICKERS),
+          ;; but for now it's better to warn the user on the Emacs
+          ;; side.
           return recording
-        finally (abort-search "No such recording")))
+        finally (abort-search "No such recording in direction: ~a" direction)))
 
 (defun describe-recording-for-emacs (recording)
   "Describe RECORDING as (ID VALUE-DESCRIPTIONS EXITED-NON-LOCALLY-P)
@@ -177,7 +181,7 @@ RECORDING-DESCRIPTION is as given by DESCRIBE-RECORDING-FOR-EMACS."
 
 (defslyfun search-for-recording (key ignore-list direction)
   "Visit the next recording for the visitor KEY.
-Ignore stickers whose ID is in IGNORE-LIST. Direction can be the
+Ignore stickers whose ID is in IGNORE-LIST. DIRECTION can be the
 keyword :UP, :DOWN or a recording index.
 
 If a recording can be found return a list (TOTAL-RECORDINGS

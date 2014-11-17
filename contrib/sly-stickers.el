@@ -1,4 +1,34 @@
-;;; -*-lexical-binding:t-*-
+;;; sly-stickers.el --- Live-code annotations for SLY  -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2014  João Távora
+
+;; Author: João Távora <joaotavora@gmail.com>
+;; Keywords: convenience, languages, lisp, tools
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;;; TODO:
+;;
+;; Save and restore stickers on connection change.
+;;
+;; Breaking stickers
+
+;;; Code:
+
+
 (require 'sly)
 (require 'sly-parse "lib/sly-parse")
 (require 'sly-buttons "lib/sly-buttons")
@@ -165,6 +195,7 @@ render the underlying text unreadable."
 
 
 (defun sly-stickers--sticker (from to)
+  "Place a new sticker from FROM to TO"
   (let* ((intersecting (sly-stickers--stickers-in from to))
          (contained (sly-stickers--stickers-between from to))
          (not-contained (cl-set-difference intersecting contained))
@@ -218,10 +249,7 @@ render the underlying text unreadable."
 
 (defun sly-stickers--disarm-sticker (sticker)
   (let* ((id (sly-stickers--sticker-id sticker))
-         (label (if id
-                    (format "Sticker %d failed to stick" id)
-                  ;; is brand new, never tried to arm it
-                  "Disarmed sticker")))
+         (label (format "Sticker %d failed to stick" id)))
     (button-put sticker 'part-args (list -1 nil))
     (button-put sticker 'part-label label)
     (sly-stickers--set-tooltip sticker label)
@@ -280,16 +308,6 @@ render the underlying text unreadable."
           (t
            retval))))
 
-(defun sly-stickers--bring-out-yer-dead ()
-  (let ((dead-ids))
-    (maphash #'(lambda (id sticker)
-                 ;; Put me down! I'm not dead
-                 (unless (overlay-buffer sticker)
-                   (push id dead-ids)
-                   (remhash id (sly-stickers--stickers))))
-             (sly-stickers--stickers))
-    dead-ids))
-
 (defun sly-stickers--briefly-describe-sticker (sticker)
   (let ((beg (button-start sticker))
         (end (button-end sticker)))
@@ -324,14 +342,25 @@ render the underlying text unreadable."
     (sly-stickers--set-face sticker)))
 
 (defun sly-stickers--delete (sticker)
-  (mapc #'sly-stickers--decrease-prio
-        (sly-stickers--sticker-substickers sticker))
-  ;; Notice that we *do* leave the sticker in the
-  ;; `sly-stickers--stickers' hash table. This is so that it may be
-  ;; reaped later by `sly-stickers--bring-out-yer-dead'
-  (delete-overlay sticker))
+  ;; Delete the overlay and take care of priorities for contained and
+  ;; containers, but note that a sticker might have no buffer anymore
+  ;; if that buffer was killed, for example...
+  ;; 
+  (when (and (overlay-buffer sticker)
+             (buffer-live-p (overlay-buffer sticker)))
+    (mapc #'sly-stickers--decrease-prio
+          (sly-stickers--sticker-substickers sticker))
+    (delete-overlay sticker))
+  ;; We also want to deregister it from the hashtable in case it's
+  ;; there (it's not there if it has never been armed)
+  ;; 
+  (let ((id (sly-stickers--sticker-id sticker)))
+    (when (gethash (sly-stickers--sticker-id sticker)
+                   (sly-stickers--stickers))
+      (remhash id (sly-stickers--stickers))
+      (add-to-list 'sly-stickers--zombie-sticker-ids id))))
 
-(defun sly-stickers--sticker-modified (sticker after? beg end &optional _pre-change-len)
+(defun sly-stickers--sticker-modified (sticker _after? beg end &optional _pre-change-len)
   (unless (save-excursion
             (goto-char beg)
             (skip-chars-forward "\t\n\s")
@@ -434,12 +463,14 @@ With interactive prefix arg PREFIX always delete stickers.
     (sly-message "No point placing stickers in string literals or comments"))))
 
 (defvar sly-stickers--zombie-sticker-ids nil
-  "Sticker ids reported by Lisp that no longer exist in Emacs.")
+  "Sticker ids that might exist in Slynk but no longer in Emacs.")
 
 (defun sly-stickers--kill-zombies ()
   (when sly-stickers--zombie-sticker-ids
     (sly-temp-message 3 1  (format " (killing zombie stickers %s)" sly-stickers--zombie-sticker-ids))
-    (sly-eval-async `(slynk-stickers:kill-stickers ',sly-stickers--zombie-sticker-ids))))
+    (sly-eval-async `(slynk-stickers:kill-stickers ',sly-stickers--zombie-sticker-ids)
+      #'(lambda (_result)
+          (setq sly-stickers--zombie-sticker-ids nil)))))
 
 (cl-defstruct (sly-stickers--recording
                (:constructor sly-stickers--make-recording-1)
@@ -481,16 +512,27 @@ veryfying `sly-stickers--recording-void-p' is created."
                 (buffer-live-p (overlay-buffer sticker)))
            (when pop-to-sticker
              (pop-to-buffer (overlay-buffer sticker))
-             (goto-char (overlay-start sticker)))
+             (let ((orig (point)))
+               (goto-char (overlay-start sticker))
+               (sly-recenter orig)))
            (sly-button-flash sticker)
-           (sly-stickers--populate-sticker sticker recording))
+           (sly-stickers--populate-sticker sticker recording)
+           t)
           (sticker
-           ;; pretty normal so don't add noise
-           ;; (sly-message "Sticker %s has been deleted" id)
-           )
+           ;; The recording mentions a sticker that hasn't been
+           ;; deleted but whose overlay can't be found. So delete it
+           ;; now and mark it a zombie.
+           (sly-stickers--delete sticker)
+           nil)
           (t
-           ;; Emacs doesn't know of this sticker. It's a zombie
-           (push sticker-id sly-stickers--zombie-sticker-ids)))))
+           ;; The sticker isn't in the `sly-stickers--stickers' hash
+           ;; table, so it has probably already been marked zombie,
+           ;; and possibly already deleted. We're probably just seeing
+           ;; it because recording playback doesn't filter these
+           ;; out. So add the id to the table anyway.
+           ;; 
+           (add-to-list 'sly-stickers--zombie-sticker-ids sticker-id)
+           nil))))
 
 
 
@@ -541,16 +583,19 @@ veryfying `sly-stickers--recording-void-p' is created."
   (let* ((ignore-list (sly-stickers--state-ignore-list state))
          (recording (sly-stickers--state-recording state))
          (error (sly-stickers--state-error state)))
-    (format "[sly] recording %s of %s in sticker %s\n%s\n%s%s%s"
+    (format "[sly] recording %s of %s in sticker %s\n  %s\n%s%s%s"
             (1+ (sly-stickers--recording-id recording))
             (sly-stickers--state-total state)
             (sly-stickers--recording-sticker-id recording)
-            (sly-stickers--recording-pretty-description recording)
+            (replace-regexp-in-string
+             "\n"
+             "\n  "
+             (sly-stickers--recording-pretty-description recording))
             (if error
-                (format "  Error: %s\n" error)
+                (format "error: %s\n" error)
               "")
             (if ignore-list
-                (format "  Ignoring sticker%s %s.\n"
+                (format "ignoring sticker%s %s.\n"
                         (if (cadr ignore-list) "s" "")
                         (concat (mapconcat #'pp-to-string
                                            (butlast ignore-list)
@@ -642,14 +687,15 @@ See also `sly-stickers-fetch'."
                                           (numberp (sly-stickers--state-binding state)))
                                       (sly-stickers--replay-fetch-next state)
                                     state)
+                 
                  while (not (sly-stickers--replay-quit-state-p state))
                  do
                  ;; pop to and flash the sticker whatever the state was
                  ;;
-                 (sly-stickers--process-recording (sly-stickers--state-recording next-state)
-                                                  'pop-to-sticker)
-                 ;; 
-                 ;;
+                 (unless (sly-stickers--process-recording (sly-stickers--state-recording next-state)
+                                                          'pop-to-sticker)
+                   (setf (sly-stickers--state-error state)
+                         "Can't find sticker (probably deleted!)"))
                  (setq state (sly-stickers--replay-read-binding next-state))
                  until (sly-stickers--replay-quit-state-p state))
       (cond ((sly-stickers--state-recording state)
@@ -700,8 +746,6 @@ compilation result.  If SYNC, use `sly-eval' other wise use
 a fallback.  If FLASH, flash the compiled region."
   (let* ((uninstrumented (buffer-substring-no-properties start end))
          (stickers (sly-stickers--stickers-between start end))
-         (dead-ids (append (mapcar #'sly-stickers--sticker-id stickers)
-                           (sly-stickers--bring-out-yer-dead)))
          (original-buffer (current-buffer)))
     (cond (stickers
            (when flash
@@ -735,7 +779,7 @@ a fallback.  If FLASH, flash the compiled region."
                (with-current-buffer original-buffer
                  (let ((form `(slynk-stickers:compile-for-stickers
                                ',new-ids
-                               ',dead-ids
+                               ',sly-stickers--zombie-sticker-ids
                                ,instrumented
                                ,(when fallback uninstrumented)
                                ,(buffer-name)
@@ -748,6 +792,7 @@ a fallback.  If FLASH, flash the compiled region."
                                 (sly-eval form))
                        (sly-eval-async form
                          (lambda (result)
+                           (setq sly-stickers--zombie-sticker-ids nil)
                            (funcall callback stickers result)))))))))
           (t
            (sly-compile-region-as-string start end)))))
@@ -807,3 +852,5 @@ Intented to be placed in `sly-compilation-finished-hook'"
                     (length unsuccessful))))))))
 
 (provide 'sly-stickers)
+;;; sly-stickers.el ends here
+
