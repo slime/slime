@@ -1747,11 +1747,12 @@ This is automatically synchronized from Lisp.")
       (sly-message "Switching to connection: %s" (sly-connection-name c))
       c)))
 
+(defvar sly-select-connection-hook nil)
+
 (defun sly-select-connection (process)
   "Make PROCESS the default connection."
-  (setq sly-default-connection process))
-
-(defvar sly-cycle-connections-hook nil)
+  (setq sly-default-connection process)
+  (run-hooks 'sly-select-connection-hook))
 
 (defun sly-cycle-connections ()
   "Change current sly connection, cycling through all connections."
@@ -1769,7 +1770,6 @@ This is automatically synchronized from Lisp.")
                             sly-net-processes))
                   (p (car tail)))
              (sly-select-connection p)
-             (run-hooks 'sly-cycle-connections-hook)
              (if (and sly-buffer-connection
                       (not (eq sly-buffer-connection p)))
                  (sly-message "switched to: %s but buffer remains in: %s"
