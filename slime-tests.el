@@ -1429,9 +1429,10 @@ Reconnect afterwards."
                                  (lambda () (car cell))
                                  0.5)
            (slime-test-eval-now "(defmacro .macro. () 't)")
-           (slime-who-macroexpands ".macro.")
-           (slime-wait-condition "Macroexpansion xrefs displayed"
-                                 (lambda () (get-buffer-window "*slime-xref*"))
+           (setcar cell nil)
+           (slime-xref :macroexpands ".macro." (lambda (&rest _) (setcar cell t)))
+           (slime-wait-condition "Macroexpansion xrefs computed"
+                                 (lambda () (car cell))
                                  0.5)
            (setcar cell nil)
            (with-current-buffer "*slime-xref*"
