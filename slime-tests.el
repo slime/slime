@@ -1407,4 +1407,41 @@ Reconnect afterwards."
               (unless (featurep 'slime)
                 (die "Expected SLIME to be fully loaded by now")))))
 
+(defun slime-test-eval-now (string)
+  (second (slime-eval `(swank:eval-and-grab-output ,string))))
+
+(def-slime-test (slime-recompile-all-xrefs (:fails-for "ccl" "cmucl")) ()
+  "Test recompilation of all references within an xref buffer."
+  '(())
+  (let* ((cell (cons nil nil))
+         (hook (slime-curry (lambda (cell &rest _) (setcar cell t)) cell)))
+    (add-hook 'slime-compilation-finished-hook hook)
+    (unwind-protect
+         (progn
+           (find-file (make-temp-file "slime-recompile-all-xrefs" nil ".lisp"))
+           (insert "(in-package :swank)
+\(defmacro .macro. () 'nil)
+\(defun .fn1. () (.macro.))
+\(defun .fn2. () (.macro.))")
+           (save-buffer)
+           (slime-compile-and-load-file)
+           (slime-wait-condition "Compilation finished"
+                                 (lambda () (car cell))
+                                 0.5)
+           (slime-test-eval-now "(defmacro .macro. () 't)")
+           (slime-who-macroexpands ".macro.")
+           (slime-wait-condition "Macroexpansion xrefs displayed"
+                                 (lambda () (get-buffer-window "*slime-xref*"))
+                                 0.5)
+           (setcar cell nil)
+           (with-current-buffer "*slime-xref*"
+             (slime-recompile-all-xrefs)
+             (slime-wait-condition "Compilation finished"
+                                   (lambda () (car cell))
+                                   0.5))
+           (should (cl-equalp (list (slime-test-eval-now "(.fn1.)")
+                                    (slime-test-eval-now "(.fn2.)"))
+                              '("T" "T"))))
+      (remove-hook 'slime-compilation-finished-hook hook))))
+
 (provide 'slime-tests)
