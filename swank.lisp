@@ -779,7 +779,15 @@ connections, otherwise it will be closed after the first."
 
 (defun setup-server (port announce-fn style dont-close backlog)
   (init-log-output)
-  (let* ((socket (create-socket *loopback-interface* port :backlog backlog))
+  (let* ((socket (restart-case
+                      (create-socket *loopback-interface* port :backlog backlog)
+                    (use-value (port)
+                      :report "Use a different port"
+                      :interactive (lambda ()
+                                     (format *query-io* "Enter port to use: ")
+                                     (finish-output *query-io*)
+                                     `(,(parse-integer (read-line *query-io*))))
+                      (create-socket *loopback-interface* port :backlog backlog))))
          (port (local-port socket)))
     (funcall announce-fn port)
     (labels ((serve () (accept-connections socket style dont-close))

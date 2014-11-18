@@ -1,3 +1,11 @@
+2014-11-18  Adlai Chandrasekhar <adlai.chandrasekhar@gmail.com>
+
+	Add a restart around socket creation to allow trying other ports
+	should the initially selected number be unavailable.
+
+	* swank.lisp (setup-server): Offer a use-value restart around the
+	call to backend code, which retries the call on a different port.
+
 2014-11-28  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Restore workingness for Allegro's modern mode.
