@@ -1369,5 +1369,53 @@ Reconnect afterwards."
                 (die "Expected SLY to be loaded with slynk-loader.lisp"))
               ,@sly-test-check-repl-forms)))
 
+
+;;; xref recompilation
+;;;
+(defun sly-test--eval-now (string)
+  (second (sly-eval `(swank:eval-and-grab-output ,string))))
+
+(def-sly-test (sly-recompile-all-xrefs (:fails-for "cmucl")) ()
+  "Test recompilation of all references within an xref buffer."
+  '(())
+  (let* ((cell (cons nil nil))
+         (hook (sly-curry (lambda (cell &rest _) (setcar cell t)) cell))
+         (filename (make-temp-file "sly-recompile-all-xrefs" nil ".lisp")))
+    (add-hook 'sly-compilation-finished-hook hook)
+    (unwind-protect
+        (with-temp-file filename
+          (set-visited-file-name filename)
+          (sly-test--eval-now "(defparameter swank::*.var.* nil)")
+          (insert "(in-package :swank)
+                    (defun .fn1. ())
+                    (defun .fn2. () (.fn1.) #.*.var.*)
+                    (defun .fn3. () (.fn1.) #.*.var.*)")
+          (save-buffer)
+          (sly-compile-and-load-file)
+          (sly-wait-condition "Compilation finished"
+                              (lambda () (car cell))
+                              0.5)
+          (sly-test--eval-now "(setq *.var.* t)")
+          (setcar cell nil)
+          (sly-xref :calls ".fn1."
+                    (lambda (&rest args)
+                      (apply #'sly-show-xrefs args)
+                      (setcar cell t)))
+          (sly-wait-condition "Xrefs computed and displayed"
+                              (lambda () (car cell))
+                              0.5)
+          (setcar cell nil)
+          (with-current-buffer sly-xref-last-buffer
+            (sly-recompile-all-xrefs)
+            (sly-wait-condition "Compilation finished"
+                                (lambda () (car cell))
+                                0.5))
+          (should (cl-equalp (list (sly-test--eval-now "(.fn2.)")
+                                   (sly-test--eval-now "(.fn3.)"))
+                             '("T" "T"))))
+      (remove-hook 'sly-compilation-finished-hook hook)
+      (when sly-xref-last-buffer
+        (kill-buffer sly-xref-last-buffer)))))
+
 
 (provide 'sly-tests)
