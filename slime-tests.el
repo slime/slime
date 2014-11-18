@@ -1410,39 +1410,46 @@ Reconnect afterwards."
 (defun slime-test-eval-now (string)
   (second (slime-eval `(swank:eval-and-grab-output ,string))))
 
-(def-slime-test (slime-recompile-all-xrefs (:fails-for "ccl" "cmucl")) ()
+(def-slime-test (slime-recompile-all-xrefs (:fails-for "cmucl")) ()
   "Test recompilation of all references within an xref buffer."
   '(())
   (let* ((cell (cons nil nil))
-         (hook (slime-curry (lambda (cell &rest _) (setcar cell t)) cell)))
+         (hook (slime-curry (lambda (cell &rest _) (setcar cell t)) cell))
+         (filename (make-temp-file "slime-recompile-all-xrefs" nil ".lisp")))
     (add-hook 'slime-compilation-finished-hook hook)
     (unwind-protect
-         (progn
-           (find-file (make-temp-file "slime-recompile-all-xrefs" nil ".lisp"))
+         (with-temp-file filename
+           (set-visited-file-name filename)
+           (slime-test-eval-now "(defparameter swank::*.var.* nil)")
            (insert "(in-package :swank)
-\(defmacro .macro. () 'nil)
-\(defun .fn1. () (.macro.))
-\(defun .fn2. () (.macro.))")
+                    (defun .fn1. ())
+                    (defun .fn2. () (.fn1.) #.*.var.*)
+                    (defun .fn3. () (.fn1.) #.*.var.*)")
            (save-buffer)
            (slime-compile-and-load-file)
            (slime-wait-condition "Compilation finished"
                                  (lambda () (car cell))
                                  0.5)
-           (slime-test-eval-now "(defmacro .macro. () 't)")
+           (slime-test-eval-now "(setq *.var.* t)")
            (setcar cell nil)
-           (slime-xref :macroexpands ".macro." (lambda (&rest _) (setcar cell t)))
-           (slime-wait-condition "Macroexpansion xrefs computed"
+           (slime-xref :calls ".fn1."
+                       (lambda (&rest args)
+                         (apply #'slime-show-xrefs args)
+                         (setcar cell t)))
+           (slime-wait-condition "Xrefs computed and displayed"
                                  (lambda () (car cell))
                                  0.5)
            (setcar cell nil)
-           (with-current-buffer "*slime-xref*"
+           (with-current-buffer slime-xref-last-buffer
              (slime-recompile-all-xrefs)
              (slime-wait-condition "Compilation finished"
                                    (lambda () (car cell))
                                    0.5))
-           (should (cl-equalp (list (slime-test-eval-now "(.fn1.)")
-                                    (slime-test-eval-now "(.fn2.)"))
+           (should (cl-equalp (list (slime-test-eval-now "(.fn2.)")
+                                    (slime-test-eval-now "(.fn3.)"))
                               '("T" "T"))))
-      (remove-hook 'slime-compilation-finished-hook hook))))
+      (remove-hook 'slime-compilation-finished-hook hook)
+      (when slime-xref-last-buffer
+        (kill-buffer slime-xref-last-buffer)))))
 
 (provide 'slime-tests)
