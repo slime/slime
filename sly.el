@@ -80,14 +80,16 @@
   (require 'compile)
   (require 'gud))
 
-(eval-and-compile
-  (defvar sly-path
-    (let ((path (or (locate-library "sly") load-file-name)))
-      (and path (file-name-directory path)))
-    "Directory containing the SLY package.
+(defvar sly-path nil
+  "Directory containing the SLY package.
 This is used to load the supporting Common Lisp library, Slynk.
 The default value is automatically computed from the location of the
-Emacs Lisp package."))
+Emacs Lisp package.")
+
+(eval-and-compile
+  (let ((path (or (locate-library "sly") load-file-name)))
+    (setq sly-path
+          (and path (file-name-directory path)))))
 
 (defun sly-slynk-path ()
   "Path where the bundled Slynk server is located."
