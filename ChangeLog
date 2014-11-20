@@ -1,3 +1,10 @@
+2014-11-22  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Avoid compiling a stale slime-path into slime.elc when upgrading
+	SLIME within an Emacs session, e.g. via MELPA. (gh issue #125)
+
+	* slime.el (slime-path): Use setq.
+
 2014-11-18  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Regression test for slime-recompile-all-xrefs.

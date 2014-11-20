@@ -83,14 +83,15 @@
   (require 'apropos)
   (require 'gud))
 
-(eval-and-compile
-  (defvar slime-path
-    (let ((path (or (locate-library "slime") load-file-name)))
-      (and path (file-name-directory path)))
-    "Directory containing the Slime package.
+(defvar slime-path nil
+  "Directory containing the Slime package.
 This is used to load the supporting Common Lisp library, Swank.
-The default value is automatically computed from the location of the
-Emacs Lisp package."))
+The default value is automatically computed from the location of
+the Emacs Lisp package.")
+
+(eval-and-compile
+ (let ((path (or (locate-library "slime") load-file-name)))
+   (setq slime-path (and path (file-name-directory path)))))
 
 (defvar slime-lisp-modes '(lisp-mode))
 (defvar slime-contribs nil
