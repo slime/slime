@@ -812,8 +812,10 @@ output; otherwise the new input is appended."
   "Return the current input as string.
 The input is the region from after the last prompt to the end of
 buffer. Presentations of old results are expanded into code."
-  (slime-buffer-substring-with-reified-output  slime-repl-input-start-mark
-					       (point-max)))
+  (slime-buffer-substring-with-reified-output slime-repl-input-start-mark
+                                              (if until-point-p
+                                                  (point)
+                                                (point-max))))
 
 (defun slime-presentation-on-return-pressed (end-of-input)
   (when (and (car (slime-presentation-around-or-before-point (point)))
