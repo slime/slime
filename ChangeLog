@@ -1,3 +1,10 @@
+2014-11-25  Ivan Shvedunov  <ivan4th@gmail.com>
+
+	Fix history behavior in REPL when using both presentations and paredit.
+
+	* contrib/slime-presentations.el: don't ignore until-point-p in
+	slime-presentation-current-input.
+
 2014-11-22  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Avoid compiling a stale slime-path into slime.elc when upgrading
