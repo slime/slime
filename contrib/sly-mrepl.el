@@ -46,8 +46,8 @@
    
    ;; Make C-c ~ bring popup REPL
    ;;
-   (define-key sly-editing-mode-map (kbd "C-c ~") 'sly-mrepl-sync-package-and-default-directory)
-   (define-key sly-editing-mode-map (kbd "C-c C-z") 'sly-mrepl)
+   (define-key sly-mode-map (kbd "C-c ~") 'sly-mrepl-sync-package-and-default-directory)
+   (define-key sly-mode-map (kbd "C-c C-z") 'sly-mrepl)
    ;; Insinuate ourselves in hooks
    ;;
    (add-hook 'sly-connected-hook 'sly-mrepl-on-connection)
@@ -280,7 +280,7 @@ emptied. See also `sly-mrepl-hook'")
     (funcall fn)))
 
 (defmacro sly-mrepl--with-repl-for (connection &rest body)
-  (declare (indent 1))
+  (declare (indent 1) (debug (sexp &rest form)))
   `(sly-mrepl--call-with-repl ,connection #'(lambda () ,@body)))
 
 (defun sly-mrepl--insert (string)
@@ -394,6 +394,17 @@ emptied. See also `sly-mrepl-hook'")
                                            value-idx entry-idx)))
 
 (defun sly-mrepl--eval-for-repl (slyfun-and-args &optional insert-p before-prompt after-prompt)
+  "Evaluate SLYFUN-AND-ARGS in Slynk, then call callbacks.
+
+SLYFUN-AND-ARGS is (SLYFUN . ARGS) and is called in
+Slynk. SLYFUN's multiple return values are captured in a list and
+passed to the optional unary callbacks BEFORE-PROMPT and
+AFTER-PROMPT, called before or after prompt insertion,
+respectively.
+
+If INSERT-P is non-nil, SLYFUN's results are printable
+representations of Slynk objects and should be inserted into the
+REPL."
   (sly-eval-async `(slynk-mrepl:eval-for-mrepl
                     ,sly-mrepl--remote-channel
                     ',(car slyfun-and-args)
@@ -748,21 +759,31 @@ handle to distinguish the new buffer from the existing."
       (sly-message "Guessed package \"%s\"" package))
     package))
 
-(defun sly-mrepl-sync-package-and-default-directory ()
+(defun sly-mrepl-sync-package-and-default-directory (&optional package directory)
   "Set Lisp's package and directory to the values in current buffer."
-  (interactive)
-  (let ((package (sly-current-package))
-        (directory default-directory))
-    (sly-mrepl--with-repl-for (sly-connection)
-      (cd directory)
-      (sly-mrepl--eval-for-repl
-       `(slynk-mrepl:sync-package-and-default-directory
-         ,package
-         ,directory)
-       nil
-       #'(lambda (_results)
+  (interactive (list (sly-current-package)
+                     (and buffer-file-name
+                          default-directory)))
+  (sly-mrepl--with-repl-for (sly-connection)
+    (when directory
+      (cd directory))
+    (sly-mrepl--eval-for-repl
+     `(slynk-mrepl:sync-package-and-default-directory
+       :package-name ,package
+       :directory ,directory)
+     nil
+     #'(lambda (results)
+         (cl-destructuring-bind (package-2 directory-2) results
            (sly-mrepl--insert-output
-            (format "; Synched package to %s and dir to %s" package directory)))))))
+            (cond ((and package directory)
+                   (format "; Synched package to %s and directory to %s" package-2 directory-2))
+                  (directory
+                   (format "; Synched directory to %s" directory-2))
+                  (package
+                   (format "; Synched package to %s" package-2))
+                  (t
+                   (format "; Remaining in package %s and directory %s"
+                           package-2 directory-2)))))))))
 
 (defun sly-mrepl-clear-repl ()
   "Clear all this REPL's output history.

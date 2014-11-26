@@ -253,7 +253,7 @@
 Calls SLAVE-SLYFUN with ARGS in the MREPL of REMOTE-ID. Both the
 target MREPL's thread and environment are considered.
 
-This function returns a list of with two elements. The first is a list
+This function returns a list of two elements. The first is a list
 of arguments as sent in the :PROMPT channel method reply. The second
 is the values list returned by SLAVE-SLYFUN transformed into a normal
 list."
@@ -308,11 +308,12 @@ list."
     (vector-push-extend objects *history*)
     (values-list (make-results objects))))
 
-(defslyfun sync-package-and-default-directory (package-name
-                                               directory)
-  (slynk:set-default-directory directory)
-  (guess-and-set-package package-name)
-  t)
+(defslyfun sync-package-and-default-directory (&key package-name directory)
+  (when directory
+    (slynk:set-default-directory directory))
+  (when package-name
+    (guess-and-set-package package-name))
+  (values (package-name *package*) (slynk-backend:default-directory)))
 
 
 ;;;; Dedicated stream
