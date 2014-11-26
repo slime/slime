@@ -119,8 +119,8 @@ providing the feature are found.")
 
 (defun sly--setup-contribs ()
   "Load and initialize contribs."
+  (add-to-list 'load-path (expand-file-name "contrib" sly-path))
   (when sly-contribs
-    (add-to-list 'load-path (expand-file-name "contrib" sly-path))
     (dolist (c sly-contribs)
       (unless (and (featurep c)
                    (assq c sly-required-modules))
