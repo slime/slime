@@ -1,3 +1,11 @@
+2014-11-26  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Make sure the contrib directory is pushed to load-path so that
+	package.el succeeds in byte compiling the contribs.
+
+	* slime.el (slime--setup-contribs): Always push the contrib
+	directory to load-path, even if there aren't any contribs to load.
+
 2014-11-22  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Avoid compiling a stale slime-path into slime.elc when upgrading

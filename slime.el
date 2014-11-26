@@ -114,8 +114,8 @@ CONTRIBS is a list of contrib packages to load. If `nil', use
 
 (defun slime--setup-contribs ()
   "Load and initialize contribs."
+  (add-to-list 'load-path (expand-file-name "contrib" slime-path))
   (when slime-contribs
-    (add-to-list 'load-path (expand-file-name "contrib" slime-path))
     (dolist (c slime-contribs)
       (unless (and (featurep c)
                    (memq c slime-required-modules))
