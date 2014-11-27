@@ -128,6 +128,10 @@ INSTRUMENTED-STRING fails, return NIL."
 (defmacro record (id &rest body)
   `(call-with-sticker-recording ,id (lambda () ,@body)))
 
+(define-setf-expander record (x &environment env)
+  (declare (ignore x env))
+  (error "Sorry, not allowing ~a for ~a" 'setf 'record))
+
 (define-condition abort-search (simple-error) ())
 
 (defun abort-search (format-control &rest format-args)
