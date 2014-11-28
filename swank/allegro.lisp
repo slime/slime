@@ -21,7 +21,7 @@
   )
 
 (defimplementation gray-package-name ()
-  "EXCL")
+  '#:excl)
 
 ;;; swank-mop
 

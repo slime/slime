@@ -1,3 +1,10 @@
+2014-11-28  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Restore workingness for Allegro's modern mode.
+
+	* swank/allegro.lisp (gray-package-name): Let the reader decide
+	whether the package name is in lower or upper case.
+
 2014-11-26  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Make sure the contrib directory is pushed to load-path so that
