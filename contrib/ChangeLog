@@ -1,3 +1,10 @@
+2014-11-30  Ivan Shvedunov  <ivan4th@gmail.com>
+
+	Revive swank-listener-hooks.
+
+	* swank-listener-hooks.lisp: updated to use repl-related symbols
+	from SWANK-REPL package, export *SLIME-REPL-EVAL-HOOKS*.
+
 2014-11-25  Ivan Shvedunov  <ivan4th@gmail.com>
 
 	Fix history behavior in REPL when using both presentations and
