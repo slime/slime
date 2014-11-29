@@ -216,7 +216,7 @@ Complete listing of keybindings with *Fuzzy Completions*:
 (defun slime-fuzzy-completions (prefix &optional default-package)
   "Get the list of sorted completion objects from completing
 `prefix' in `package' from the connected Lisp."
-  (let ((prefix (etypecase prefix
+  (let ((prefix (cl-etypecase prefix
                   (symbol (symbol-name prefix))
                   (string prefix))))
     (slime-eval `(swank:fuzzy-completions ,prefix
@@ -253,7 +253,7 @@ most recently enclosed macro or function."
   "Fuzzily completes the abbreviation at point into a symbol."
   (interactive)
   (when (save-excursion (re-search-backward "\"[^ \t\n]+\\=" nil t))
-    (return-from slime-fuzzy-complete-symbol
+    (cl-return-from slime-fuzzy-complete-symbol
       ;; don't add space after completion
       (let ((comint-completion-addsuffix '("/" . "")))
         (if slime-when-complete-filename-expand
@@ -263,7 +263,7 @@ most recently enclosed macro or function."
   (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
          (beg (move-marker (make-marker) (slime-symbol-start-pos)))
          (prefix (buffer-substring-no-properties beg end)))
-    (destructuring-bind (completion-set interrupted-p)
+    (cl-destructuring-bind (completion-set interrupted-p)
         (slime-fuzzy-completions prefix)
       (if (null completion-set)
           (progn (slime-minibuffer-respecting-message
@@ -301,16 +301,16 @@ Flags: boundp fboundp generic-function class macro special-operator package
   "Inserts the completion object `completion' as a formatted
 completion choice into the current buffer, and mark it with the
 proper text properties."
-  (destructuring-bind (symbol-name score chunks classification-string)
+  (cl-destructuring-bind (symbol-name score chunks classification-string)
       completion
     (let ((start (point))
           (end))
       (insert symbol-name)
       (setq end (point))
       (dolist (chunk chunks)
-        (put-text-property (+ start (first chunk))
-                           (+ start (first chunk)
-                              (length (second chunk)))
+        (put-text-property (+ start (cl-first chunk))
+                           (+ start (cl-first chunk)
+                              (length (cl-second chunk)))
                            'face 'bold))
       (put-text-property start (point) 'mouse-face 'highlight)
       (dotimes (i (- max-length (- end start)))
@@ -392,14 +392,14 @@ done."
     (insert slime-fuzzy-explanation)
     (let ((max-length 12))
       (dolist (completion completions)
-        (setf max-length (max max-length (length (first completion)))))
+        (setf max-length (max max-length (length (cl-first completion)))))
 
       (insert "Completion:")
       (dotimes (i (- max-length 10)) (insert " "))
       ;;     Flags:   Score:
       ;; ... -------  --------
       ;;     bfgctmsp
-      (let* ((example-classification-string (fourth (first completions)))
+      (let* ((example-classification-string (cl-fourth (cl-first completions)))
              (classification-length (length example-classification-string))
              (spaces (- classification-length (length "Flags:"))))
         (insert "Flags:")
@@ -446,7 +446,7 @@ already been inserted, it does nothing."
                  (not (eq slime-fuzzy-current-completion
                           current-completion)))
         (slime-fuzzy-insert
-         (first (get-text-property (point) 'completion)))
+         (cl-first (get-text-property (point) 'completion)))
         (setq slime-fuzzy-current-completion
               current-completion)))))
 
@@ -512,7 +512,7 @@ was selected."
     (with-current-buffer (slime-get-fuzzy-buffer)
       (let ((completion (get-text-property (point) 'completion)))
         (when completion
-          (slime-fuzzy-insert (first completion))
+          (slime-fuzzy-insert (cl-first completion))
           (slime-fuzzy-selected slime-fuzzy-original-text
                                 completion)
           (slime-fuzzy-done))))))
