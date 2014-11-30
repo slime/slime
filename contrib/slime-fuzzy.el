@@ -34,7 +34,7 @@ comletitions."
 
 (defcustom slime-when-complete-filename-expand nil
   "Use comint-replace-by-expanded-filename instead of
-comint-dynamic-complete-as-filename to complete file names"
+comint-filename-completion to complete file names"
   :group 'slime-mode
   :type 'boolean)
 
@@ -258,8 +258,10 @@ most recently enclosed macro or function."
       (let ((comint-completion-addsuffix '("/" . "")))
         (if slime-when-complete-filename-expand
             (comint-replace-by-expanded-filename)
-          ;; FIXME: use `coming-filename-completion' when dropping emacs23 
-          (comint-dynamic-complete-as-filename)))))
+          ;; FIXME: use `comint-filename-completion' when dropping emacs23
+          (funcall (if (>= emacs-major-version 24)
+                       'comint-filename-completion
+                     'comint-dynamic-complete-as-filename))))))
   (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
          (beg (move-marker (make-marker) (slime-symbol-start-pos)))
          (prefix (buffer-substring-no-properties beg end)))

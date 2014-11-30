@@ -1,5 +1,13 @@
 2014-11-30  Luís Oliveira  <loliveira@common-lisp.net>
 
+	* slime-fuzzy.el (slime-when-complete-filename-expand):
+	Tentatively mention `comint-filename-completion'.
+	(slime-fuzzy-complete-symbol): Avoid calling
+	comint-dynamic-complete-as-filename since it's been obsoleted in
+	Emacs 24.1.
+
+2014-11-30  Luís Oliveira  <loliveira@common-lisp.net>
+
 	Restore some of slime-cl-indent's custom indentations.
 
 	* slime-cl-indent.el (common-lisp-indent-function-1): fix
