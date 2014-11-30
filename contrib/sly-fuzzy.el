@@ -30,8 +30,8 @@ comletitions."
   :type 'integer)
 
 (defcustom sly-when-complete-filename-expand nil
-  "Use comint-replace-by-expanded-filename instead of
-comint-dynamic-complete-as-filename to complete file names"
+  "Use `comint-replace-by-expanded-filename' instead of
+`comint-filename-completion' to complete file names"
   :group 'sly-mode
   :type 'boolean)
 
@@ -280,8 +280,8 @@ most recently enclosed macro or function."
         (if sly-when-complete-filename-expand
             (comint-replace-by-expanded-filename)
           (comint-filename-completion)))))
-  (let* ((end (move-marker (make-marker) (sly-symbol-end-pos)))
-         (beg (move-marker (make-marker) (sly-symbol-start-pos)))
+  (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
+         (beg (move-marker (make-marker) (slime-symbol-start-pos)))
          (prefix (buffer-substring-no-properties beg end)))
     (cl-destructuring-bind (completion-set interrupted-p)
         (sly-fuzzy-completions prefix)
