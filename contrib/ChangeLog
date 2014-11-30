@@ -1,3 +1,10 @@
+2014-11-30  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Restore some of slime-cl-indent's custom indentations.
+
+	* slime-cl-indent.el (common-lisp-indent-function-1): fix
+	reference to undefined variable `containing-sexp'.
+
 2014-11-30  Leo Liu  <sdl.web@gmail.com>
 
 	* slime-package-fu.el (slime-export-symbols): Handle strings.
