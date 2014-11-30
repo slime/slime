@@ -2680,6 +2680,21 @@ This operation is \"lossy\" in the broad sense but not for display purposes."
 
 ;;;;; Compiler notes list
 
+(defun slime-note.severity (note)
+  (plist-get note :severity))
+
+(defun slime-note.message (note)
+  (plist-get note :message))
+
+(defun slime-note.source-context (note)
+  (plist-get note :source-context))
+
+(defun slime-note.location (note)
+  (plist-get note :location))
+
+(defun slime-severity-label (severity)
+  (cl-subseq (symbol-name severity) 1))
+
 (defun slime-one-line-ify (string)
   "Return a single-line version of STRING.
 Each newlines and following indentation is replaced by a single space."
@@ -2851,21 +2866,6 @@ This is quite an expensive operation so use carefully."
                              ((> line1 line2) nil)
                              (t (< col1 col2))))))))
           locs)))
-
-(defun slime-note.severity (note)
-  (plist-get note :severity))
-
-(defun slime-note.message (note)
-  (plist-get note :message))
-
-(defun slime-note.source-context (note)
-  (plist-get note :source-context))
-
-(defun slime-note.location (note)
-  (plist-get note :location))
-
-(defun slime-severity-label (severity)
-  (cl-subseq (symbol-name severity) 1))
 
 
 ;;;;; Adding a single compiler note

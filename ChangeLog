@@ -1,3 +1,10 @@
+2014-11-30  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Fix compiler warnings in slime.el.
+
+	* slime.el (slime-note.message): Move this and other slime-note
+	accessors up to avoid references before definition.
+
 2014-11-28  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Restore workingness for Allegro's modern mode.
