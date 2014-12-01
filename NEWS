@@ -1,5 +1,37 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
 
+* 2.11 (December 2014)
+
+** MELPA is now an officially supported installation method
+Various bugs involving installation and upgrading via package.el were
+fixed. See the README for more details. (Issues #125, #195, #208.)
+
+** Core
+*** Compilation via the xref buffer now works again
+
+** slime-repl / slime-presentations
+Only text to the left of the cursor should limit the scope of history
+navigation. Fixed a long-standing bug that violated this when
+slime-presentations was enabled. (Thanks to Ivan Shvedunov. PR #207.)
+
+** slime-package-fu
+Now handles strings as symbol designators, is mindful of trailing
+whitespace and properly handles an :export clause immediately
+following the package name. (Thanks to Leo Liu. PR #145.)
+
+** slime-indentation
+The edge case handling described in slime-cl-indent.el:958 have been
+has been restored.
+
+** Allegro CL backend
+Support for mlisp was restored. It had been broken by the previous
+release. (Reported by Alexandre Rademaker. Issue #209.)
+
+** New experimental SWANK backend for MLWorks
+
+** SWANK
+swank-listener-hooks was restored. (Thanks to Ivan Shvedunov. PR #210.)
+
 * 2.10.1 (October 2014)
 
 *** The SWANK-BACKEND nickname has been added to the SWANK/BACKEND package
