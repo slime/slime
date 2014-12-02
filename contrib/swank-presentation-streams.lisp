@@ -65,7 +65,7 @@ be sensitive and remember what object it is in the repl if predicate is true"
 	(funcall ,continue)))))
 
 ;;; Get pretty printer patches for SBCL at load (not compile) time.
-#+sbcl
+#+#:disable-dangerous-patching ; #+sbcl
 (eval-when (:load-toplevel)
   (handler-bind ((simple-error
 		  (lambda (c)
