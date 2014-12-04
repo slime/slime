@@ -30,6 +30,9 @@ default. Suggested by Javier Olaechea (github #18).
 `C-c C-z` switches to the nearest REPL. Suggested by Javier Olaechea
 (github #13).
 
+New customization variable `sly-mrepl-prevent-duplicate-history`
+for fine control over saved history.
+
 When a connection disconnects, a status line is inserted in the REPL
 stating the reason for disconnection (network failure, user abort,
 etc...)

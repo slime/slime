@@ -502,22 +502,47 @@ it is a list (ENTRY-IDX VALUE-IDX)."
   (let ((comint-input-ring-separator sly-mrepl--history-separator))
     (comint-read-input-ring)))
 
+(defcustom sly-mrepl-prevent-duplicate-history 'move
+  "If non-nil, prevent duplicate entries in input history.
+
+Otherwise (if nil), input entry are always added to the end of
+the history, even if they already occur in the history.
+
+If the non-nil value is `move', the previously occuring entry is
+discarded, i.e. moved to a more recent spot. Any other non-nil
+value laves the previous entry untouched and it is the more
+recent entry that is discarded."
+  :group 'sly)
+
 (defun sly-mrepl--merge-and-save-history ()
   (let*
       ;; To merge the file's history with the current buffer's
       ;; history, start by deep-copying `comint-input-ring' to a
       ;; separate variable.
+      ;; 
       ((current-ring (copy-tree comint-input-ring 'vectors-too))
        (index (ring-length current-ring))
        (comint-input-ring-separator sly-mrepl--history-separator))
     ;; this sets `comint-input-ring' from the file
     ;;
     (comint-read-input-ring)
-    ;; loop `current-ring' and readd it to `comint-input-ring'. Don't
-    ;; add any duplicate entries. FIXME: this is very inneficient, but
-    ;; seems to work.
+    ;; loop `current-ring', which potentially contains new entries and
+    ;; re-add entries to `comint-input-ring', which is now synched
+    ;; with the file and will be written to disk. Respect
+    ;; `sly-mrepl-prevent-duplicate-history'.
+    ;; 
     (cl-loop for i from (1- index) downto 0
              for item = (ring-ref current-ring i)
+             for existing-index = (ring-member comint-input-ring item)
+             do (cond ((and existing-index
+                            (eq sly-mrepl-prevent-duplicate-history 'move))
+                       (ring-remove comint-input-ring existing-index)
+                       (ring-insert comint-input-ring item))
+                      ((and existing-index
+                            (not sly-mrepl-prevent-duplicate-history))
+                       (ring-insert comint-input-ring item))
+                      (t
+                       (ring-insert comint-input-ring item)))
              unless (ring-member comint-input-ring item)
              do (ring-insert comint-input-ring item))
     ;; Now save `comint-input-ring'
