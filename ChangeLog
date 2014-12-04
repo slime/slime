@@ -1,5 +1,14 @@
 2014-12-04  Adlai Chandrasekhar <adlai.chandrasekhar@gmail.com>
 
+	Factor out an "AST-sugar" macro for concisely stating a condition
+	system idiom: restarting an operation after performing one or more
+	changes to its execution state and environment.
+
+	* swank.lisp (restart-loop, socket-quest): Factor out the macro, and
+	refactor socket-quest with it.
+
+2014-12-04  Adlai Chandrasekhar <adlai.chandrasekhar@gmail.com>
+
 	Factor out the socket-quest function, which also incorporates a default
 	behavior of incrementing the port number by one.
 
