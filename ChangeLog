@@ -1,3 +1,41 @@
+2014-12-04  Adlai Chandrasekhar <adlai.chandrasekhar@gmail.com>
+
+	Factor out an "AST-sugar" macro for concisely stating a condition
+	system idiom: restarting an operation after performing one or more
+	changes to its execution state and environment.
+
+	* swank.lisp (restart-loop, socket-quest): Factor out the macro, and
+	refactor socket-quest with it.
+
+2014-12-04  Adlai Chandrasekhar <adlai.chandrasekhar@gmail.com>
+
+	Factor out the socket-quest function, which also incorporates a default
+	behavior of incrementing the port number by one.
+
+	* swank.lisp (socket-quest, setup-server): Factor out the former, and
+	call it from the latter.
+	* contrib/swank-repl.lisp (open-dedicated-output-stream): Drop in a call
+	to our new quest-wrapper, for good measure.
+
+2014-12-04  Adlai Chandrasekhar <adlai.chandrasekhar@gmail.com>
+
+	Add a loop around the port number restart to allow multiple tries.
+
+	* swank.lisp (setup-server): Successful socket creation terminates
+	the loop through the return statement.
+
+2014-12-04  Adlai Chandrasekhar <adlai.chandraeskhar@gmail.com>
+
+	* swank.lisp Delete trailing whitespace.
+
+2014-11-18  Adlai Chandrasekhar <adlai.chandrasekhar@gmail.com>
+
+	Add a restart around socket creation to allow trying other ports
+	should the initially selected number be unavailable.
+
+	* swank.lisp (setup-server): Offer a use-value restart around the
+	call to backend code, which retries the call on a different port.
+
 2014-11-28  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Restore workingness for Allegro's modern mode.

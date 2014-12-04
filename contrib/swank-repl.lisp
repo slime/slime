@@ -134,8 +134,8 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
 Return an output stream suitable for writing program output.
 
 This is an optimized way for Lisp to deliver output to Emacs."
-  (let ((socket (create-socket *loopback-interface*
-                               *dedicated-output-stream-port*))
+  (let ((socket (socket-quest *loopback-interface*
+                              *dedicated-output-stream-port*))
         (ef (find-external-format-or-lose coding-system)))
     (unwind-protect
          (let ((port (local-port socket)))
