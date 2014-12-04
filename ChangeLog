@@ -1,5 +1,15 @@
 2014-12-04  Adlai Chandrasekhar <adlai.chandrasekhar@gmail.com>
 
+	Factor out the socket-quest function, which also incorporates a default
+	behavior of incrementing the port number by one.
+
+	* swank.lisp (socket-quest, setup-server): Factor out the former, and
+	call it from the latter.
+	* contrib/swank-repl.lisp (open-dedicated-output-stream): Drop in a call
+	to our new quest-wrapper, for good measure.
+
+2014-12-04  Adlai Chandrasekhar <adlai.chandrasekhar@gmail.com>
+
 	Add a loop around the port number restart to allow multiple tries.
 
 	* swank.lisp (setup-server): Successful socket creation terminates

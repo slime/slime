@@ -777,18 +777,23 @@ connections, otherwise it will be closed after the first."
 
 (defparameter *loopback-interface* "127.0.0.1")
 
+(defun socket-quest (port backlog)
+  (loop
+     (restart-case
+         (return (create-socket *loopback-interface* port :backlog backlog))
+       (use-value (&optional (new-port (1+ port)))
+         :report (lambda (out) (format out "Try a port other than ~D" port))
+         :interactive
+         (lambda ()
+           (format *query-io* "Enter port (defaults to ~D): " (1+ port))
+           (finish-output *query-io*)   ; necessary for tunnels
+           (handler-case (list (parse-integer (read-line *query-io*)))
+             ((or stream-error parse-error) ())))
+         (setq port new-port)))))
+
 (defun setup-server (port announce-fn style dont-close backlog)
   (init-log-output)
-  (let* ((socket (loop
-                    (restart-case
-                        (return (create-socket *loopback-interface* port :backlog backlog))
-                      (use-value (new-port)
-                        :report "Try a different port"
-                        :interactive (lambda ()
-                                       (format *query-io* "Enter port to use: ")
-                                       (finish-output *query-io*)
-                                       (list (parse-integer (read-line *query-io*))))
-                        (setq port new-port)))))
+  (let* ((socket (socket-quest port backlog))
          (port (local-port socket)))
     (funcall announce-fn port)
     (labels ((serve () (accept-connections socket style dont-close))
