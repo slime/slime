@@ -1,3 +1,7 @@
+2014-12-04  Adlai Chandrasekhar <adlai.chandraeskhar@gmail.com>
+
+	* swank.lisp Delete trailing whitespace.
+
 2014-11-18  Adlai Chandrasekhar <adlai.chandrasekhar@gmail.com>
 
 	Add a restart around socket creation to allow trying other ports

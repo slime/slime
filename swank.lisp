@@ -791,16 +791,16 @@ connections, otherwise it will be closed after the first."
          (port (local-port socket)))
     (funcall announce-fn port)
     (labels ((serve () (accept-connections socket style dont-close))
-             (note () (send-to-sentinel `(:add-server ,socket ,port 
+             (note () (send-to-sentinel `(:add-server ,socket ,port
                                                       ,(current-thread))))
              (serve-loop () (note) (loop do (serve) while dont-close)))
       (ecase style
-        (:spawn (initialize-multiprocessing 
+        (:spawn (initialize-multiprocessing
                  (lambda ()
                    (start-sentinel)
                    (spawn #'serve-loop :name (format nil "Swank ~s" port)))))
-        ((:fd-handler :sigio) 
-         (note) 
+        ((:fd-handler :sigio)
+         (note)
          (add-fd-handler socket #'serve))
         ((nil) (serve-loop))))
     port))
