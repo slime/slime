@@ -45,12 +45,13 @@
   #+armedbear '((swank abcl))
   #+cormanlisp '((swank corman) (swank gray))
   #+ecl '((swank ecl) (swank gray))
+  #+clasp '((swank clasp) (swank gray))
   #+mkcl '((swank mkcl) (swank gray))
   )
 
 (defparameter *implementation-features*
   '(:allegro :lispworks :sbcl :clozure :cmu :clisp :ccl :corman :cormanlisp
-    :armedbear :gcl :ecl :scl :mkcl))
+    :armedbear :gcl :ecl :scl :mkcl :clasp))
 
 (defparameter *os-features*
   '(:macosx :linux :windows :mswindows :win32 :solaris :darwin :sunos :hpux
@@ -73,6 +74,12 @@
               (when (>= (length vcs-id) 8)
                 (subseq vcs-id 0 8))))))
 
+#+clasp
+(defun clasp-version-string ()
+  (format nil "~A~@[-~A~]"
+          (lisp-implementation-version)
+          (core:lisp-implementation-id)))
+
 (defun lisp-version-string ()
   #+(or clozure cmu) (substitute-if #\_ (lambda (x) (find x " /"))
                                     (lisp-implementation-version))
@@ -93,7 +100,8 @@
   #+clisp     (let ((s (lisp-implementation-version)))
                 (subseq s 0 (position #\space s)))
   #+armedbear (lisp-implementation-version)
-  #+ecl (ecl-version-string) )
+  #+ecl (ecl-version-string)
+  #+clasp (clasp-version-string) )
 
 (defun unique-dir-name ()
   "Return a name that can be used as a directory name that is
