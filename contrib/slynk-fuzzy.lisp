@@ -14,6 +14,48 @@
   (slynk-require :slynk-util)
   (slynk-require :slynk-c-p-c))
 
+(defvar *fuzzy-duplicate-symbol-filter* :nearest-package
+  "Specifies how fuzzy-matching handles \"duplicate\" symbols.
+
+  In the case of multiple occurences of symbols with sames name in
+  different packages, :HOME-PACKAGE specifies that the match that
+  represents the home package of the symbol is used.
+  :NEAREST-PACKAGE specifies that symbols in the package with
+  highest score should be kept. :ALL specifies that duplicate
+  symbol filter mode should be turned off.
+
+  To specify a custom filter, set *FUZZY-DUPLICATE-SYMBOL-FILTER* to a
+  function accepting three arguments: the name of package being
+  examined, the list of names of all packages being examined with
+  packages with highest matching score listed first and an EQUAL
+  hash-table that is shared between calls to the function and can be
+  used for deduplication purposes. The function should return a
+  deduplication filter function which accepts a symbol and returns
+  true if the symbol should be kept.
+
+  For example, the effect of :HOME-PACKAGE can be also achieved by
+  specifying the following custom filter:
+
+  (setf *fuzzy-duplicate-symbol-filter*
+        #'(lambda (cur-package all-packages dedup-table)
+            (declare (ignore dedup-table))
+            (let ((packages (mapcar #'find-package
+                                    (remove cur-package all-packages))))
+              #'(lambda (symbol)
+                  (not (member (symbol-package symbol) packages))))))
+
+  And instead of :NEAREST-PACKAGE, the following can be used:
+
+  (setf *fuzzy-duplicate-symbol-filter*
+        #'(lambda (cur-package all-packages dedup-table)
+            (declare (ignore cur-package all-packages))
+            #'(lambda (symbol)
+                (unless (gethash (symbol-name symbol) dedup-table)
+                  (setf (gethash (symbol-name symbol) dedup-table) t)))))")
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (export '*fuzzy-duplicate-symbol-filter*))
+
 ;;; For nomenclature of the fuzzy completion section, please read
 ;;; through the following docstring.
 
@@ -228,7 +270,8 @@ TIME-LIMIT-IN-MSEC is NIL, an infinite time limit is assumed."
            (find-packages (designator time-limit)
              (fuzzy-find-matching-packages designator
                                            :time-limit-in-msec time-limit)))
-      (let ((time-limit time-limit-in-msec) (symbols) (packages) (results))
+      (let ((time-limit time-limit-in-msec) (symbols) (packages) (results)
+            (dedup-table (make-hash-table :test #'equal)))
         (cond ((not parsed-package-name) ; E.g. STRING = "asd"
                ;; We don't know if user is searching for a package or a symbol
                ;; within his current package. So we try to find either.
@@ -260,20 +303,17 @@ TIME-LIMIT-IN-MSEC is NIL, an infinite time limit is assumed."
                    (multiple-value-bind (matchings remaining-time)
                        ;; The duplication filter removes all those symbols
                        ;; which are present in more than one package
-                       ;; match. Specifically if such a package match
-                       ;; represents the home package of the symbol, it's the
-                       ;; one kept because this one is deemed to be the best
-                       ;; match.
+                       ;; match. See *FUZZY-DUPLICATE-SYMBOL-FILTER*
                        (find-symbols parsed-symbol-name package rest-time-limit
                                      (%make-duplicate-symbols-filter
-                                      (remove package-matching
-                                              symbol-packages)))
+                                      package-matching symbol-packages dedup-table))
                      (setf matchings (fix-up matchings package-matching))
                      (setf symbols   (concatenate 'vector symbols matchings))
                      (setf rest-time-limit remaining-time)
                      (let ((guessed-sort-duration
                              (%guess-sort-duration (length symbols))))
-                       (when (<= rest-time-limit guessed-sort-duration)
+                       (when (and rest-time-limit
+                                  (<= rest-time-limit guessed-sort-duration))
                          (decf rest-time-limit guessed-sort-duration)
                          (loop-finish))))
                    finally
@@ -297,15 +337,40 @@ TIME-LIMIT-IN-MSEC is NIL, an infinite time limit is assumed."
       (let ((comparasions (* 3.8 (* length (log length 2)))))
         (* 1000 (* comparasions (expt 10 -7)))))) ; msecs
 
-(defun %make-duplicate-symbols-filter (fuzzy-package-matchings)
-  ;; Returns a filter function that takes a symbol, and which returns T
-  ;; if and only if /no/ matching in FUZZY-PACKAGE-MATCHINGS represents
-  ;; the home-package of the symbol passed.
-  (let ((packages (mapcar #'(lambda (m)
-                              (find-package (fuzzy-matching.package-name m)))
-                          (coerce fuzzy-package-matchings 'list))))
-    #'(lambda (symbol)
-        (not (member (symbol-package symbol) packages)))))
+(defun %make-duplicate-symbols-filter (current-package-matching fuzzy-package-matchings dedup-table)
+  ;; Returns a filter function based on *FUZZY-DUPLICATE-SYMBOL-FILTER*.
+  (case *fuzzy-duplicate-symbol-filter*
+    (:home-package
+     ;; Return a filter function that takes a symbol, and which returns T
+     ;; if and only if /no/ matching in FUZZY-PACKAGE-MATCHINGS represents
+     ;; the home-package of the symbol passed.
+     (let ((packages (mapcar #'(lambda (m)
+                                 (find-package (fuzzy-matching.package-name m)))
+                             (remove current-package-matching
+                                     (coerce fuzzy-package-matchings 'list)))))
+       #'(lambda (symbol)
+           (not (member (symbol-package symbol) packages)))))
+    (:nearest-package
+     ;; Keep only the first occurence of the symbol.
+     #'(lambda (symbol)
+         (unless (gethash (symbol-name symbol) dedup-table)
+           (setf (gethash (symbol-name symbol) dedup-table) t))))
+    (:all
+     ;; No filter
+     #'identity)
+    (t
+     (typecase *fuzzy-duplicate-symbol-filter*
+       (function
+        ;; Custom filter
+        (funcall *fuzzy-duplicate-symbol-filter*
+                 (fuzzy-matching.package-name current-package-matching)
+                 (map 'list #'fuzzy-matching.package-name fuzzy-package-matchings)
+                 dedup-table))
+       (t
+        ;; Bad filter value
+        (warn "bad *FUZZY-DUPLICATE-SYMBOL-FILTER* value: ~s"
+              *fuzzy-duplicate-symbol-filter*)
+        #'identity)))))
 
 (defun fuzzy-matching-greaterp (m1 m2)
   "Returns T if fuzzy-matching M1 should be sorted before M2.
