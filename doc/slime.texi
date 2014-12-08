@@ -2550,7 +2550,16 @@ functions and for handling @code{make-instance},
 The package @code{slime-fuzzy} implements yet another symbol
 completion heuristic.
 
-[Somebody please describe what the algorithm actually does]
+@table @kbd
+@anchor{slime-fuzzy-complete-symbol}
+@kbditem{C-c M-i, slime-fuzzy-complete-symbol}
+Presents a list of likely completions to choose from for an
+abbreviation at point.  If you set the
+variable @code{slime-complete-symbol-function} to this command, fuzzy
+completion will also be used for @kbd{M-TAB}.
+@end table
+
+@subsection The Algorithm
 
 It attempts to complete a symbol all at once, instead of in pieces.
 For example, ``mvb'' will find ``@code{multiple-value-bind}'' and
@@ -2575,10 +2584,12 @@ previous letter's value, it will use that percentage instead.
 Finally, a small scaling factor is applied to favor shorter
 matches, all other things being equal.
 
+@subsection Duplicate Symbols
+
 In case a symbol is accessible via several packages, duplicate symbol
 filter specified via @code{*fuzzy-duplicate-symbol-filter*} swank
 variable is applied. @code{:nearest-package} value specifies that only
-symbols in the package with highest score should be kept. 
+symbols in the package with highest score should be kept.
 @code{:home-package} specifies that only the match that represents the home
 package of the symbol is used, and @code{:all} value specifies that
 duplicate symbol filter mode should be turned off.
@@ -2612,15 +2623,6 @@ And instead of @code{:home-package}, the following can be used:
             #'(lambda (symbol)
                 (not (member (symbol-package symbol) packages))))))
 @end example
-
-@table @kbd
-@anchor{slime-fuzzy-complete-symbol}
-@kbditem{C-c M-i, slime-fuzzy-complete-symbol}
-Presents a list of likely completions to choose from for an
-abbreviation at point.  If you set the
-variable @code{slime-complete-symbol-function} to this command, fuzzy
-completion will also be used for @kbd{M-TAB}.
-@end table
 
 @node slime-autodoc-mode
 @section @code{slime-autodoc-mode}
