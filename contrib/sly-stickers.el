@@ -41,12 +41,12 @@
   (:authors "João Távora <joaotavora@gmail.com>")
   (:license "GPL")
   (:slynk-dependencies slynk-stickers)
-  (:on-load (add-hook 'sly-editing-mode-hook 'sly-stickers-enable)
-            (add-hook 'sly-mode-hook 'sly-stickers-shortcuts-enable)
+  (:on-load (add-hook 'sly-editing-mode-hook 'sly-stickers-mode)
+            (add-hook 'sly-mode-hook 'sly-stickers-shortcut-mode)
             (setq sly-compile-region-function 'sly-stickers-compile-region-aware-of-stickers)
             (add-hook 'sly-compilation-finished-hook 'sly-stickers-after-buffer-compilation t))
-  (:on-unload (remove-hook 'sly-editing-mode-hook 'sly-stickers-enable)
-              (remove-hook 'sly-mode-hook 'sly-stickers-shortcuts-enable)
+  (:on-unload (remove-hook 'sly-editing-mode-hook 'sly-stickers-mode)
+              (remove-hook 'sly-mode-hook 'sly-stickers-shortcut-mode)
               (setq sly-compile-region-function 'sly-compile-region-as-string)
               (remove-hook 'sly-compilation-finished-hook 'sly-stickers-after-buffer-compilation)))
 
@@ -84,12 +84,6 @@
 (defface sly-stickers-exited-non-locally-face
   '((t (:strike-through t :inherit sly-stickers-empty-face)))
   "Face for stickers that have exited non-locally.")
-
-(defun sly-stickers-enable ()
-  (sly-stickers-mode 1))
-
-(defun sly-stickers-shortcuts-enable ()
-  (sly-stickers-shortcut-mode 1))
 
 (defvar sly-stickers-mode-map
   (let ((map (make-sparse-keymap)))

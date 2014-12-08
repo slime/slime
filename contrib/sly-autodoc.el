@@ -13,8 +13,8 @@
             "Tobias C. Rittweiler  <tcr@freebits.de>")
   (:sly-dependencies sly-parse)
   (:slynk-dependencies slynk-arglists)
-  (:on-load (add-hook 'sly-mode-hook 'sly-autodoc-enable))
-  (:on-unload (remove-hook 'sly-mode-hook 'sly-autodoc-enable)))
+  (:on-load (add-hook 'sly-mode-hook 'sly-autodoc-mode))
+  (:on-unload (remove-hook 'sly-mode-hook 'sly-autodoc-mode)))
 
 (defcustom sly-autodoc-accuracy-depth 10
   "Number of paren levels that autodoc takes into account for
@@ -168,7 +168,5 @@ If it's not in the cache, the cache will be updated asynchronously."
   (set (make-local-variable 'eldoc-documentation-function) 'sly-autodoc)
   (set (make-local-variable 'eldoc-minor-mode-string) "")
   (setq sly-autodoc-mode (eldoc-mode sly-autodoc-mode)))
-
-(defun sly-autodoc-enable  () (sly-autodoc-mode 1))
 
 (provide 'sly-autodoc)

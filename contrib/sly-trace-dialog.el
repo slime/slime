@@ -15,8 +15,8 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   (:authors "João Távora <joaotavora@gmail.com>")
   (:license "GPL")
   (:slynk-dependencies slynk-trace-dialog)
-  (:on-load (add-hook 'sly-mode-hook 'sly-trace-dialog-enable))
-  (:on-unload (remove-hook 'sly-mode-hook 'sly-trace-dialog-enable)))
+  (:on-load (add-hook 'sly-mode-hook 'sly-trace-dialog-shortcut-mode))
+  (:on-unload (remove-hook 'sly-mode-hook 'sly-trace-dialog-shortcut-mode)))
 
 
 ;;;; Variables
@@ -88,9 +88,6 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 
 (define-minor-mode sly-trace-dialog-shortcut-mode
   "Add keybindings for accessing SLY's Trace Dialog.")
-
-(defun sly-trace-dialog-enable ()
-  (sly-trace-dialog-shortcut-mode 1))
 
 (easy-menu-define sly-trace-dialog--shortcut-menu nil
   "Menu setting traces from anywhere in SLY."
