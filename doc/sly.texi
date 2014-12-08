@@ -1925,7 +1925,16 @@ stream will be opened on some random port.
 The package @code{sly-fuzzy} implements yet another symbol
 completion heuristic.
 
-[Somebody please describe what the algorithm actually does]
+@table @kbd
+@anchor{sly-fuzzy-complete-symbol}
+@kbditem{C-c M-i, sly-fuzzy-complete-symbol}
+Presents a list of likely completions to choose from for an
+abbreviation at point.  If you set the
+variable @code{sly-complete-symbol-function} to this command, fuzzy
+completion will also be used for @kbd{M-TAB}.
+@end table
+
+@subsection The Algorithm
 
 It attempts to complete a symbol all at once, instead of in pieces.
 For example, ``mvb'' will find ``@code{multiple-value-bind}'' and
@@ -1950,14 +1959,45 @@ previous letter's value, it will use that percentage instead.
 Finally, a small scaling factor is applied to favor shorter
 matches, all other things being equal.
 
-@table @kbd
-@anchor{sly-fuzzy-complete-symbol}
-@kbditem{C-c M-i, sly-fuzzy-complete-symbol}
-Presents a list of likely completions to choose from for an
-abbreviation at point.  If you set the
-variable @code{sly-complete-symbol-function} to this command, fuzzy
-completion will also be used for @kbd{M-TAB}.
-@end table
+@subsection Duplicate symbols
+
+In case a symbol is accessible via several packages, duplicate symbol
+filter specified via @code{*fuzzy-duplicate-symbol-filter*} swank
+variable is applied. @code{:nearest-package} value specifies that only
+symbols in the package with highest score should be kept. 
+@code{:home-package} specifies that only the match that represents the home
+package of the symbol is used, and @code{:all} value specifies that
+duplicate symbol filter mode should be turned off.
+
+To specify a custom filter, set @code{*fuzzy-duplicate-symbol-filter*}
+to a function accepting three arguments: the name of package being
+examined, the list of names of all packages being examined with
+packages with highest matching score listed first and an @code{equal}
+hash-table that is shared between calls to the function and can be
+used for deduplication purposes. The function should return a
+deduplication filter function which accepts a symbol and returns true
+if the symbol should be kept.
+
+For example, the effect of @code{:nearest-package} can be also achieved
+by specifying the following custom filter in @file{~/.swank.lisp}:
+@example
+(setf *fuzzy-duplicate-symbol-filter*
+      #'(lambda (cur-package all-packages dedup-table)
+          (declare (ignore cur-package all-packages))
+          #'(lambda (symbol)
+              (unless (gethash (symbol-name symbol) dedup-table)
+                (setf (gethash (symbol-name symbol) dedup-table) t)))))
+@end example
+And instead of @code{:home-package}, the following can be used:
+@example
+(setf *fuzzy-duplicate-symbol-filter*
+      #'(lambda (cur-package all-packages dedup-table)
+          (declare (ignore dedup-table))
+          (let ((packages (mapcar #'find-package
+                                  (remove cur-package all-packages))))
+            #'(lambda (symbol)
+                (not (member (symbol-package symbol) packages))))))
+@end example
 
 @node Autodoc
 @section Autodoc
