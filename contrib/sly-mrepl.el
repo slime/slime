@@ -48,6 +48,9 @@
    ;;
    (define-key sly-mode-map (kbd "C-c ~") 'sly-mrepl-sync-package-and-default-directory)
    (define-key sly-mode-map (kbd "C-c C-z") 'sly-mrepl)
+   (define-key sly-selector-map (kbd "~")  'sly-mrepl-sync-package-and-default-directory)
+   (define-key sly-selector-map (kbd "r") 'sly-mrepl)
+   
    ;; Insinuate ourselves in hooks
    ;;
    (add-hook 'sly-connected-hook 'sly-mrepl-on-connection)
@@ -373,9 +376,7 @@ emptied. See also `sly-mrepl-hook'")
        (when (cl-plusp error-level)
          (concat (sly-make-action-button
                   (format "[%d]" error-level)
-                  #'(lambda (_button)
-                      (sly--when-let (b (sly-db-find-buffer sly-current-thread))
-                        (pop-to-buffer b))))
+                  #'sly-db-pop-to-sldb-buffer-maybe)
                  " "))
        (propertize
         (concat prompt "> ")

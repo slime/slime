@@ -6,6 +6,8 @@
 (define-sly-contrib sly-scratch
   "Imitate Emacs' *scratch* buffer"
   (:authors "Helmut Eller  <heller@common-lisp.net>")
+  (:on-load
+   (define-key sly-selector-map (kbd "s") 'sly-scratch))
   (:license "GPL"))
 
 

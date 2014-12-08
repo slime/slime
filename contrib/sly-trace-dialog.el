@@ -15,8 +15,9 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
   (:authors "João Távora <joaotavora@gmail.com>")
   (:license "GPL")
   (:slynk-dependencies slynk-trace-dialog)
-  (:on-load (add-hook 'sly-mode-hook 'sly-trace-dialog-shortcut-mode))
-  (:on-unload (remove-hook 'sly-mode-hook 'sly-trace-dialog-shortcut-mode)))
+  (:on-load (add-hook 'sly-mode-hook 'sly-trace-dialog-shortcut-mode)
+            (define-key sly-selector-map (kbd "T") 'sly-trace-dialog))
+  (:on-unload (remove-hook 'sly-mode-hook 'sly-trace-dialogn-shortcut-mode)))
 
 
 ;;;; Variables

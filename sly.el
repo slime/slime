@@ -403,6 +403,28 @@ PROPERTIES specifies any default face properties."
     (define-key map (kbd "C-a") 'sly-who-specializes)
     map))
 
+(defvar sly-selector-map (let ((map (make-sparse-keymap)))
+                           (define-key map "c" 'sly-list-connections)
+                           (define-key map "t" 'sly-list-threads)
+                           (define-key map "d" 'sly-db-pop-to-debugger-maybe)
+                           (define-key map "e" 'sly-events-buffer)
+                           (define-key map "i" 'sly-inferior-lisp-buffer)
+                           map)
+  "A keymap for frequently used SLY shortcuts.
+By default, access to this keymap is done via \"C-c C-s\", which
+is installed in `sly-mode-map'. Users or extensions can plug in
+any command into it using
+
+   (define-key sly-selector-map (kbd \"k\") 'sly-command)
+
+Where \"k\" is the key to bind and \"sly-command\" is any
+interactive command.\".
+
+Users might also want to make `sly-selector-map' globally bound
+to some other key.
+
+   (global-set-key (kbd \"C-z\") sly-selector-map")
+
 (defvar sly-prefix-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-r")   'sly-eval-region)
@@ -423,6 +445,9 @@ PROPERTIES specifies any default face properties."
     (define-key map (kbd "C-d")  sly-doc-map)
     ;; Include XREF WHO-FOO keys...
     (define-key map (kbd "C-w")  sly-who-map)
+    ;; `sly-selector-map' bound to "C-c C-s" by default
+    ;;
+    (define-key map (kbd "C-s") sly-selector-map)
     map))
 
 (defvar sly-mode-map
@@ -905,6 +930,18 @@ The rules for selecting the arguments are rather complicated:
     (cl-destructuring-bind ((prog &rest args) &rest keys) arguments
       (cl-list* :name name :program prog :program-args args keys))))
 
+(defun sly-inferior-lisp-buffer (process &optional pop-to-buffer)
+  "Return PROCESS's buffer, with POP-TO-BUFFER, pop to it."
+  (interactive (list (sly-process) t))
+  (let ((buffer (and process
+                     (process-buffer process))))
+    (cond ((and buffer
+                pop-to-buffer)
+           (pop-to-buffer buffer))
+          (pop-to-buffer
+           (sly-message "No *inferior lisp* process for current connection!")))
+    buffer))
+
 (cl-defun sly-start (&key (program inferior-lisp-program) program-args
                           directory
                           (coding-system sly-net-coding-system)
@@ -937,7 +974,7 @@ DIRECTORY change to this directory before starting the process.
     (let ((proc (sly-maybe-start-lisp program program-args env
                                         directory buffer)))
       (sly-inferior-connect proc args)
-      (pop-to-buffer (process-buffer proc)))))
+      (sly-inferior-lisp-buffer proc 'pop-to-buffer))))
 
 (defun sly-start* (options)
   (apply #'sly-start options))
@@ -2279,28 +2316,33 @@ Debugged requests are ignored."
 	(pp-escape-newlines t))
     (pp event buffer)))
 
-(defun sly-events-buffer (process)
-  "Return or create the event log buffer."
-  (let ((probe (process-get process 'sly-events-buffer)))
-    (or (and (buffer-live-p probe)
-             probe)
-        (let ((buffer (get-buffer-create
-                       (apply #'sly-buffer-name
-                              :events
-                              (if (sly-connection-name process)
-                                  `(:connection ,process)
-                                `(:suffix ,(format "%s" process)))))))
-          (with-current-buffer buffer
-            (buffer-disable-undo)
-            (set (make-local-variable 'outline-regexp) "^(")
-            (set (make-local-variable 'comment-start) ";")
-            (set (make-local-variable 'comment-end) "")
-            (when sly-outline-mode-in-events-buffer
-              (outline-minor-mode))
-            (set (make-local-variable 'sly-buffer-connection) process)
-            (sly-mode 1))
-          (process-put process 'sly-events-buffer buffer)
-          buffer))))
+(defun sly-events-buffer (process &optional pop-to-buffer)
+  "Return or create the event log buffer.
+With optional POP-TO-BUFFER (on by default when calling
+interactively), also pop to the buffer."
+  (interactive (list (sly-current-connection) t))
+  (let* ((probe (process-get process 'sly-events-buffer))
+         (buffer (or (and (buffer-live-p probe)
+                          probe)
+                     (let ((buffer (get-buffer-create
+                                    (apply #'sly-buffer-name
+                                           :events
+                                           (if (sly-connection-name process)
+                                               `(:connection ,process)
+                                             `(:suffix ,(format "%s" process)))))))
+                       (with-current-buffer buffer
+                         (buffer-disable-undo)
+                         (set (make-local-variable 'outline-regexp) "^(")
+                         (set (make-local-variable 'comment-start) ";")
+                         (set (make-local-variable 'comment-end) "")
+                         (when sly-outline-mode-in-events-buffer
+                           (outline-minor-mode))
+                         (set (make-local-variable 'sly-buffer-connection) process)
+                         (sly-mode 1))
+                       (process-put process 'sly-events-buffer buffer)
+                       buffer))))
+    (when pop-to-buffer (pop-to-buffer buffer))
+    buffer))
 
 
 ;;;;; Cleanup after a quit
@@ -4953,6 +4995,13 @@ PREDICATE is executed in the buffer to test."
                     (and (eq sly-buffer-connection connection)
                          (eq sly-current-thread thread))))
                 (sly-db-buffers))))
+
+(defun sly-db-pop-to-debugger-maybe ()
+  "Maybe pop to *sly-db* buffer for current context."
+  (interactive)
+  (let ((b (sly-db-find-buffer sly-current-thread)))
+    (if b (pop-to-buffer b)
+      (sly-message "Can't find a *sly-db* debugger for this context"))))
 
 (defun sly-db-get-default-buffer ()
   "Get a sly-db buffer.
