@@ -14,43 +14,11 @@
   (swank-require :swank-util)
   (swank-require :swank-c-p-c))
 
-(defvar *fuzzy-duplicate-symbol-filter* :home-package
-  "Specifies duplicate symbol filter mode to be used in case of
-  multiple occurences of symbols with sames name in different
-  packages. The default value :HOME-PACKAGE specifies that the match
-  that represents the home package of the symbol is used.
-  :NEAREST-PACKAGE specifies that symbols in the package with
-  highest score should be kept. :ALL specifies that duplicate
-  symbol filter mode should be turned off.
-
-  To specify a custom filter, set *FUZZY-DUPLICATE-SYMBOL-FILTER* to a
-  function accepting three arguments: the name of package being
-  examined, the list of names of all packages being examined with
-  packages with highest matching score listed first and an EQUAL
-  hash-table that is shared between calls to the function and can be
-  used for deduplication purposes. The function should return a
-  deduplication filter function which accepts a symbol and returns
-  true if the symbol should be kept.
-
-  For example, the effect of :HOME-PACKAGE can be also achieved by
-  specifying the following custom filter:
-
-  (setf *fuzzy-duplicate-symbol-filter*
-        #'(lambda (cur-package all-packages dedup-table)
-            (declare (ignore dedup-table))
-            (let ((packages (mapcar #'find-package
-                                    (remove cur-package all-packages))))
-              #'(lambda (symbol)
-                  (not (member (symbol-package symbol) packages))))))
-
-  And instead of :NEAREST-PACKAGE, the following can be used:
-
-  (setf *fuzzy-duplicate-symbol-filter*
-        #'(lambda (cur-package all-packages dedup-table)
-            (declare (ignore cur-package all-packages))
-            #'(lambda (symbol)
-                (unless (gethash (symbol-name symbol) dedup-table)
-                  (setf (gethash (symbol-name symbol) dedup-table) t)))))")
+(defvar *fuzzy-duplicate-symbol-filter* :nearest-package
+  "Specifies how fuzzy-matching handles \"duplicate\" symbols.
+  Possible values are :NEAREST-PACKAGE :HOME-PACKAGE, or
+  a custom function. See Fuzzy Completion in the manual
+  for details.")
 
 (export '*fuzzy-duplicate-symbol-filter*)
 
