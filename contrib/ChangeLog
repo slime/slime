@@ -1,3 +1,10 @@
+2014-12-11  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Fix bug reported by Rodrigo Correia.
+
+	* swank-repl.lisp (package): Import SOCKET-QUEST.
+	(open-dedicated-output-stream): Fix call to SOCKET-QUEST.
+
 2014-12-07  Ivan Shvedunov  <ivan4th@gmail.com>
 
 	Add *FUZZY-DUPLICATE-SYMBOL-FILTER*.
