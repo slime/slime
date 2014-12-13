@@ -2499,13 +2499,9 @@ See `slime-compile-and-load-file' for further details."
 
 ;; FIXME: compilation-save-buffers-predicate was introduced in 24.1
 (defun slime--maybe-save-buffer ()
-  (when (and (buffer-modified-p)
-             (if compilation-ask-about-save
-                 (y-or-n-p (format "Save file %s? " (buffer-file-name)))
-                 (or (not (boundp 'compilation-save-buffers-predicate))
-                     (null compilation-save-buffers-predicate)
-                     (funcall compilation-save-buffers-predicate))))
-    (save-buffer)))
+  (save-some-buffers (not compilation-ask-about-save)
+                     (let ((this (current-buffer)))
+                       (lambda () (eq (current-buffer) this)))))
 
 (defun slime-hack-quotes (arglist)
   ;; eval is the wrong primitive, we really want funcall
