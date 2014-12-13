@@ -1,3 +1,12 @@
+2014-12-12  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Don't try to save every changed buffer when compiling a file.
+
+	* slime.el (slime--maybe-save-buffer): New function adapted from
+	slime--save-some-buffers that maybe saves the current buffer
+	rather than potentially every changed buffer.
+	(slime-compile-file): Use it.
+
 2014-12-04  Adlai Chandrasekhar <adlai.chandrasekhar@gmail.com>
 
 	Factor out an "AST-sugar" macro for concisely stating a condition
