@@ -2486,7 +2486,7 @@ See `slime-compile-and-load-file' for further details."
   (unless buffer-file-name
     (error "Buffer %s is not associated with a file." (buffer-name)))
   (check-parens)
-  (slime--save-some-buffers)
+  (slime--maybe-save-buffer)
   (run-hook-with-args 'slime-before-compile-functions (point-min) (point-max))
   (let ((file (slime-to-lisp-filename (buffer-file-name)))
         (options (slime-simplify-plist `(,@slime-compile-file-options
@@ -2498,10 +2498,10 @@ See `slime-compile-and-load-file' for further details."
     (message "Compiling %s..." file)))
 
 ;; FIXME: compilation-save-buffers-predicate was introduced in 24.1
-(defun slime--save-some-buffers ()
+(defun slime--maybe-save-buffer ()
   (save-some-buffers (not compilation-ask-about-save)
-                     (if (boundp 'compilation-save-buffers-predicate)
-                         compilation-save-buffers-predicate)))
+                     (let ((this (current-buffer)))
+                       (lambda () (eq (current-buffer) this)))))
 
 (defun slime-hack-quotes (arglist)
   ;; eval is the wrong primitive, we really want funcall
