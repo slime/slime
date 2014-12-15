@@ -13,18 +13,6 @@
 
 (in-package swank/clasp)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun clasp-version ()
-    (let ((version (find-symbol "+CLASP-VERSION-NUMBER+" :EXT)))
-      (if version
-          (symbol-value version)
-          0)))
-  (when (< (clasp-version) 100301)
-    (error "~&IMPORTANT:~%  ~
-              The version of CLASP you're using (~A) is too old.~%  ~
-              Please upgrade to at least 10.3.1.~%  ~
-              Sorry for the inconvenience.~%~%"
-           (lisp-implementation-version))))
 
 ;; Hard dependencies.
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -35,7 +23,7 @@
   (when (probe-file "sys:profile.fas")
     (require :profile)
     (pushnew :profile *features*))
-  (when (probe-file "sys:serve-event.fas")
+  (when (probe-file "sys:serve-event")
     (require :serve-event)
     (pushnew :serve-event *features*)))
 
@@ -46,13 +34,12 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (import-swank-mop-symbols
    :clos
-   (and (< (clasp-version) 121201)
-        `(:eql-specializer
-          :eql-specializer-object
-          :generic-function-declarations
-          :specializer-direct-methods
-          ,@(unless (fboundp 'clos:compute-applicable-methods-using-classes)
-              '(:compute-applicable-methods-using-classes))))))
+   `(:eql-specializer
+     :eql-specializer-object
+     :generic-function-declarations
+     :specializer-direct-methods
+     ,@(unless (fboundp 'clos:compute-applicable-methods-using-classes)
+               '(:compute-applicable-methods-using-classes)))))
 
 (defimplementation gray-package-name ()
   "GRAY")
@@ -61,12 +48,10 @@
 ;;;; TCP Server
 
 (defimplementation preferred-communication-style ()
-  ;; While CLASP does provide threads, some parts of it are not
-  ;; thread-safe (2010-02-23), including the compiler and CLOS.
+  ;; CLASP does not provide threads yet.
+  ;; ECLs swank implementation says that CLOS is not thread safe and
+  ;; I use ECLs CLOS implementation - this is a worry for the future.
   nil
-  ;; CLASP on Windows does not provide condition-variables
-  ;; (or #+(and threads (not windows)) :spawn
-  ;;     nil)
   )
 
 (defun resolve-hostname (name)
@@ -147,6 +132,7 @@
 ;;; current choice of NIL as communication-style in so far as CLASP's
 ;;; main-thread is also the Slime's REPL thread.
 
+#+clasp-working
 (defimplementation call-with-user-break-handler (real-handler function)
   (let ((old-handler #'si:terminal-interrupt))
     (setf (symbol-function 'si:terminal-interrupt)
@@ -173,14 +159,14 @@
   (si:getpid))
 
 (defimplementation set-default-directory (directory)
-  (ext:chdir (namestring directory))  ; adapts *DEFAULT-PATHNAME-DEFAULTS*.
+  (core:chdir (namestring directory))  ; adapts *DEFAULT-PATHNAME-DEFAULTS*.
   (default-directory))
 
 (defimplementation default-directory ()
-  (namestring (ext:getcwd)))
+  (namestring (core:getcwd)))
 
 (defimplementation quit-lisp ()
-  (ext:quit))
+  (core:quit))
 
 
 
@@ -205,11 +191,11 @@
   (defimplementation wait-for-input (streams &optional timeout)
     (assert (member timeout '(nil t)))
     (loop
-      (cond ((check-slime-interrupts) (return :interrupt))
-            (timeout (return (poll-streams streams 0)))
-            (t
-             (when-let (ready (poll-streams streams 0.2))
-               (return ready))))))  
+       (cond ((check-slime-interrupts) (return :interrupt))
+             (timeout (return (poll-streams streams 0)))
+             (t
+              (when-let (ready (poll-streams streams 0.2))
+                        (return ready))))))  
 
 ) ; #+serve-event (progn ...
 
@@ -262,11 +248,12 @@
         (make-error-location "No location found."))))
 
 (defimplementation call-with-compilation-hooks (function)
-  #+clasp-bytecmp
-  (funcall function)
-  #-clasp-bytecmp
+  (funcall function))
+#||  #-clasp-bytecmp
   (handler-bind ((c:compiler-message #'handle-compiler-message))
     (funcall function)))
+||#
+
 
 (defimplementation swank-compile-file (input-file output-file
                                        load-p external-format
@@ -317,11 +304,13 @@
 
 ;;;; Documentation
 
+#+clasp-working
 (defimplementation arglist (name)
   (multiple-value-bind (arglist foundp)
-      (ext:function-lambda-list name)
+      (core::function-lambda-list name)     ;; Uses bc-split
     (if foundp arglist :not-available)))
 
+#+clasp-working
 (defimplementation function-name (f)
   (typecase f
     (generic-function (clos:generic-function-name f))
@@ -330,6 +319,7 @@
 ;; FIXME
 ;; (defimplementation macroexpand-all (form))
 
+#+clasp-working
 (defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))
     (flet ((frob (type boundp)
@@ -341,6 +331,7 @@
       (frob :CLASS (lambda (x) (find-class x nil))))
     result))
 
+#+clasp-working
 (defimplementation describe-definition (name type)
   (case type
     (:variable (documentation name 'variable))
@@ -348,6 +339,7 @@
     (:class (documentation name 'class))
     (t nil)))
 
+#+clasp-working
 (defimplementation type-specifier-p (symbol)
   (or (subtypep nil symbol)
       (not (eq (type-specifier-arglist symbol) :not-available))))
@@ -361,15 +353,15 @@
      si::*ihs-top*
      si::*ihs-current*
      si::*ihs-base*
-     si::*frs-base*
-     si::*frs-top*
+#+frs     si::*frs-base*
+#+frs     si::*frs-top*
      si::*tpl-commands*
      si::*tpl-level*
-     si::frs-top
+#+frs     si::frs-top
      si::ihs-top
      si::ihs-fun
      si::ihs-env
-     si::sch-frs-base
+#+frs     si::sch-frs-base
      si::set-break-env
      si::set-current-ihs
      si::tpl-commands)))
@@ -384,12 +376,14 @@
 
 (defimplementation install-debugger-globally (function)
   (setq *debugger-hook* function)
-  (setq ext:*invoke-debugger-hook* (make-invoke-debugger-hook function)))
+  (setq ext:*invoke-debugger-hook* (make-invoke-debugger-hook function))
+  )
 
 (defimplementation call-with-debugger-hook (hook fun)
   (let ((*debugger-hook* hook)
         (ext:*invoke-debugger-hook* (make-invoke-debugger-hook hook)))
-    (funcall fun)))
+    (funcall fun))
+  )
 
 (defvar *backtrace* '())
 
@@ -429,15 +423,15 @@
   (declare (type function debugger-loop-fn))
   (let* ((*ihs-top* (ihs-top))
          (*ihs-current* *ihs-top*)
-         (*frs-base* (or (sch-frs-base *frs-top* *ihs-base*) (1+ (frs-top))))
-         (*frs-top* (frs-top))
+#+frs         (*frs-base* (or (sch-frs-base *frs-top* *ihs-base*) (1+ (frs-top))))
+#+frs         (*frs-top* (frs-top))
          (*tpl-level* (1+ *tpl-level*))
          (*backtrace* (loop for ihs from 0 below *ihs-top*
                             collect (list (si::ihs-fun ihs)
-                                          (si::ihs-env ihs)
+;                                          (si::ihs-env ihs)
                                           nil))))
     (declare (special *ihs-current*))
-    (loop for f from *frs-base* until *frs-top*
+#+frs    (loop for f from *frs-base* until *frs-top*
           do (let ((i (- (si::frs-ihs f) *ihs-base* 1)))
                (when (plusp i)
                  (let* ((x (elt *backtrace* i))
@@ -449,6 +443,8 @@
     (set-current-ihs)
     (let ((*ihs-base* *ihs-top*))
       (funcall debugger-loop-fn))))
+
+
 
 (defimplementation compute-backtrace (start end)
   (when (numberp end)
@@ -463,10 +459,11 @@
       (function-name x))))
 
 (defun function-position (fun)
-  (multiple-value-bind (file position)
-      (si::bc-file fun)
-    (when file
-      (make-file-location file position))))
+  (let* ((source-pos-info (function-source-pos-info fun)))
+    (when source-pos-info
+      (let ((position (source-pos-info-filepos source-pos-info))
+            (file (source-file-info-pathname (source-file-info source-pos-info))))
+        (make-file-location file position)))))
 
 (defun frame-function (frame)
   (let* ((x (first frame))
@@ -502,14 +499,17 @@
 (defimplementation frame-source-location (frame-number)
   (nth-value 1 (frame-function (elt *backtrace* frame-number))))
 
+#+clasp-working
 (defimplementation frame-catch-tags (frame-number)
   (third (elt *backtrace* frame-number)))
 
+#+clasp-working
 (defimplementation frame-locals (frame-number)
   (loop for (name . value) in (nth-value 2 (frame-decode-env
                                             (elt *backtrace* frame-number)))
         collect (list :name name :id 0 :value value)))
 
+#+clasp-working
 (defimplementation frame-var-value (frame-number var-number)
   (destructuring-bind (name . value)
       (elt
@@ -518,19 +518,24 @@
     (declare (ignore name))
     value))
 
+
+#+clasp-working
 (defimplementation disassemble-frame (frame-number)
   (let ((fun (frame-function (elt *backtrace* frame-number))))
     (disassemble fun)))
 
+#+clasp-working
 (defimplementation eval-in-frame (form frame-number)
   (let ((env (second (elt *backtrace* frame-number))))
     (si:eval-with-env form env)))
 
+#+clasp-working
 (defimplementation gdb-initial-commands ()
   ;; These signals are used by the GC.
   #+linux '("handle SIGPWR  noprint nostop"
             "handle SIGXCPU noprint nostop"))
 
+#+clasp-working
 (defimplementation command-line-args ()
   (loop for n from 0 below (si:argc) collect (si:argv n)))
 
@@ -564,8 +569,11 @@
   (make-location `(:etags-file ,+TAGS+)
                  `(:tag ,@tags)))
 
+
+
+#+clasp-working
 (defimplementation find-definitions (name)
-  (let ((annotations (ext:get-annotation name 'si::location :all)))
+  (let ((annotations (core:get-annotation name 'si::location :all)))
     (cond (annotations
            (loop for annotation in annotations
                  collect (destructuring-bind (dspec file . pos) annotation
@@ -638,6 +646,7 @@
             variable `CLASPSRCDIR'."
            (namestring (translate-logical-pathname #P"SYS:"))))) 
 
+#+clasp-working
 (defun assert-TAGS-file ()
   (unless (probe-file +TAGS+)
     (error "No TAGS file ~A found. It should have been installed with CLASP."
@@ -646,6 +655,7 @@
 (defun package-names (package)
   (cons (package-name package) (package-nicknames package)))
 
+#+clasp-working
 (defun source-location (object)
   (converting-errors-to-error-location
    (typecase object
@@ -685,6 +695,7 @@
         (assert flag)
         (make-TAGS-location c-name))))))
 
+#+clasp-working
 (defimplementation find-source-location (object)
   (or (source-location object)
       (make-error-location "Source definition of ~S not found." object)))
