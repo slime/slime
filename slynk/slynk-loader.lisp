@@ -251,6 +251,25 @@ If LOAD is true, load the fasl file."
 (defun setup ()
   (funcall (q "slynk::init")))
 
+(defun string-starts-with (string prefix)
+  (string-equal string prefix :end1 (min (length string) (length prefix))))
+
+(defun list-slynk-packages ()
+  (remove-if-not (lambda (package)
+                   (let ((name (package-name package)))
+                     (and (string-not-equal name "slynk-loader")
+                          (string-starts-with name "slynk"))))
+                 (list-all-packages)))
+
+(defun delete-packages (packages)
+  ;; since there can be dependencies between packages, and deleting a used
+  ;; package triggers an error, keep deleting them in reverse topological order
+  ;; until everything is deleted.
+  (loop do (dolist (package packages)
+             (when (package-name package)
+               (ignore-errors (delete-package package))))
+        while (some #'package-name packages)))
+
 (defun init (&key delete reload (setup t)
                   (quiet (not *load-verbose*))
                   load-contribs)
@@ -263,6 +282,7 @@ global variabes in SLYNK."
       (warn
        "LOAD-CONTRIBS arg to SLYNK-LOADER:INIT is deprecated and useless"))
   (when (and delete (find-package :slynk))
+    (delete-packages (list-slynk-packages))
     (mapc #'delete-package '(:slynk :slynk-io-package :slynk-backend)))
   (cond ((or (not (find-package :slynk)) reload)
          (load-slynk :quiet quiet))
