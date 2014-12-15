@@ -292,16 +292,27 @@ If LOAD is true, load the fasl file."
     (eval `(pushnew 'compile-contribs ,(q "swank::*after-init-hook*"))))
   (funcall (q "swank::init")))
 
+(defun string-starts-with (string prefix)
+  (string-equal string prefix :end1 (min (length string) (length prefix))))
+
 (defun list-swank-packages ()
-  (list* :swank
-         :swank-io-package
-         (remove-if (lambda (package)
-                      (< (string-not-equal #1="swank/" (package-name package))
-                         (length #1#)))
-                    (list-all-packages))))
+  (remove-if-not (lambda (package)
+                   (let ((name (package-name package)))
+                     (and (string-not-equal name "swank-loader")
+                          (string-starts-with name "swank"))))
+                 (list-all-packages)))
+
+(defun delete-packages (packages)
+  ;; since there can be dependencies between packages, and deleting a used
+  ;; package triggers an error, keep deleting them in reverse topological order
+  ;; until everything is deleted.
+  (loop do (dolist (package packages)
+             (when (package-name package)
+               (ignore-errors (delete-package package))))
+        while (some #'package-name packages)))
 
 (defun init (&key delete reload load-contribs (setup t)
-               (quiet (not *load-verbose*)))
+                  (quiet (not *load-verbose*)))
   "Load SWANK and initialize some global variables.
 If DELETE is true, delete any existing SWANK packages.
 If RELOAD is true, reload SWANK, even if the SWANK package already exists.
@@ -309,7 +320,7 @@ If LOAD-CONTRIBS is true, load all contribs
 If SETUP is true, load user init files and initialize some
 global variabes in SWANK."
   (when (and delete (find-package :swank))
-    (mapc #'delete-package (list-swank-packages)))
+    (delete-packages (list-swank-packages)))
   (cond ((or (not (find-package :swank)) reload)
          (load-swank :quiet quiet))
         (t

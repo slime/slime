@@ -1,3 +1,15 @@
+2014-12-15  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Fix deletion of SWANK packages in swank-loader.lisp. Reported by
+	Ruben Vaz.
+
+	* swank-loader.lisp (list-swank-packages): Catch more SWANK
+	packages.
+	(string-starts-with): Refactored out from LIST-SWANK-PACKAGES.
+	(delete-packages): New function capable of
+	deleting interdependent packages.
+	(init): Use it.
+
 2014-12-12  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Don't try to save every changed buffer when compiling a file.
