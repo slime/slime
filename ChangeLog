@@ -1,3 +1,10 @@
+2014-12-17  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* swank-loader.lisp (delete-packages): Robustify in case some
+	package outside the set returned by LIST-SWANK-PACKAGES uses one
+	of the SWANK packages. Previous version would enter an infinite
+	loop.
+
 2014-12-15  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Fix deletion of SWANK packages in swank-loader.lisp. Reported by

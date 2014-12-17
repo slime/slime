@@ -303,13 +303,16 @@ If LOAD is true, load the fasl file."
                  (list-all-packages)))
 
 (defun delete-packages (packages)
-  ;; since there can be dependencies between packages, and deleting a used
-  ;; package triggers an error, keep deleting them in reverse topological order
-  ;; until everything is deleted.
-  (loop do (dolist (package packages)
-             (when (package-name package)
-               (ignore-errors (delete-package package))))
-        while (some #'package-name packages)))
+  (dolist (package packages)
+    (flet ((handle-package-error (c)
+             (let ((pkgs (set-difference (package-used-by-list package)
+                                         packages)))
+               (when pkgs
+                 (warn "deleting ~a which is used by ~{~a~^, ~}."
+                       package pkgs))
+               (continue c))))
+      (handler-bind ((package-error #'handle-package-error))
+        (delete-package package)))))
 
 (defun init (&key delete reload load-contribs (setup t)
                   (quiet (not *load-verbose*)))
