@@ -66,8 +66,7 @@
 ;; User-visible variables
 ;;
 (defvar sly-mrepl-mode-hook
-  `(,@(if (version= emacs-version "24.3.1")
-          '(sly-mrepl--ensure-no-font-lock)))
+  `(sly-mrepl--ensure-no-font-lock)
   "Functions run after `sly-mrepl-mode' is set up")
 
 (defvar sly-mrepl-hook nil
