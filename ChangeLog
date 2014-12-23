@@ -1,3 +1,8 @@
+2014-12-23  Daniel Kochmański  <dkochmanski@gmail.com>
+
+	* swank-loader.lisp (*architecture-features*): Add ARM architectures
+	as reported by ECL (armv5l, armv6l and armv7l) to mentioned variable.
+
 2014-12-17  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* swank-loader.lisp (delete-packages): Robustify in case some
