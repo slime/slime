@@ -121,9 +121,11 @@ designator's format. The cases are as follows:
 ;;; A Fuzzy Matching -- Not to be confused with a fuzzy completion
 ;;; object that will be sent back to Emacs, as described above.
 
-(defstruct (fuzzy-matching (:conc-name   fuzzy-matching.)
-                           (:predicate   fuzzy-matching-p)
-                           (:constructor %make-fuzzy-matching))
+(defstruct (fuzzy-matching (:conc-name fuzzy-matching.)
+                           (:predicate fuzzy-matching-p)
+                           (:constructor make-fuzzy-matching
+                               (symbol package-name score package-chunks
+                                symbol-chunks &key (symbol-p t))))
   symbol            ; The symbol that has been found to match.
   symbol-p          ; To deffirentiate between completeing
                     ; package: and package:nil
@@ -134,14 +136,6 @@ designator's format. The cases are as follows:
   score             ; The higher the better SYMBOL is a match.
   package-chunks    ; Chunks pertaining to the package identifier of SYMBOL.
   symbol-chunks)    ; Chunks pertaining to SYMBOL's name.
-
-(defun make-fuzzy-matching (symbol package-name score package-chunks
-                            symbol-chunks &key (symbol-p t))
-  (declare (inline %make-fuzzy-matching))
-  (%make-fuzzy-matching :symbol symbol :package-name package-name :score score
-                        :package-chunks package-chunks
-                        :symbol-chunks symbol-chunks
-                        :symbol-p symbol-p))
 
 (defun %fuzzy-extract-matching-info (fuzzy-matching user-input-string)
   (multiple-value-bind (_ user-package-name __ input-internal-p)
