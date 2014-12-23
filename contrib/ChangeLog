@@ -1,3 +1,8 @@
+2014-12-23  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-fuzzy.lisp(make-fuzzy-matching): Simplify, no need to
+	define a wrapper function.
+
 2014-12-11  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Fix bug reported by Rodrigo Correia.
