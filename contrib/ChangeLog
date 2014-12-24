@@ -1,3 +1,8 @@
+2014-12-24  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-autodoc.el (slime-autodoc-mode): Don't bother with
+	"Slime autodoc mode enabled" unless it's called interactively.
+
 2014-12-23  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-fuzzy.lisp(make-fuzzy-matching): Simplify, no need to
