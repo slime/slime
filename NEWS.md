@@ -27,11 +27,15 @@ The "comma" shortcut for "sayoonara", "restart lisp", "in-package"
 commands has been restored and uses ido-style completion by
 default. Suggested by Javier Olaechea (github #18).
 
-`C-c C-z` switches to the nearest REPL. Suggested by Javier Olaechea
+`C-c C-z` switches to the nearest REPL, much like `sly-mrepl-sync`,
+but without changing the REPL's state. Suggested by Javier Olaechea
 (github #13).
 
+`sly-mrepl-sync` is now bound to `C-c ~` in any SLY buffer. A `C-u`
+prefix will also yank the last expression into the current REPL.
+
 New customization variable `sly-mrepl-prevent-duplicate-history`
-for fine control over saved history.
+offers finer control over saved history.
 
 When a connection disconnects, a status line is inserted in the REPL
 stating the reason for disconnection (network failure, user abort,

@@ -46,9 +46,9 @@
    
    ;; Make C-c ~ bring popup REPL
    ;;
-   (define-key sly-mode-map (kbd "C-c ~") 'sly-mrepl-sync-package-and-default-directory)
+   (define-key sly-mode-map (kbd "C-c ~") 'sly-mrepl-sync)
    (define-key sly-mode-map (kbd "C-c C-z") 'sly-mrepl)
-   (define-key sly-selector-map (kbd "~")  'sly-mrepl-sync-package-and-default-directory)
+   (define-key sly-selector-map (kbd "~")  'sly-mrepl-sync)
    (define-key sly-selector-map (kbd "r") 'sly-mrepl)
    
    ;; Insinuate ourselves in hooks
@@ -394,7 +394,7 @@ emptied. See also `sly-mrepl-hook'")
                                    (format "Returning value %s of history entry %s"
                                            value-idx entry-idx)))
 
-(defun sly-mrepl--eval-for-repl (slyfun-and-args &optional insert-p before-prompt after-prompt)
+(cl-defun sly-mrepl--eval-for-repl (slyfun-and-args &key insert-p before-prompt after-prompt)
   "Evaluate SLYFUN-AND-ARGS in Slynk, then call callbacks.
 
 SLYFUN-AND-ARGS is (SLYFUN . ARGS) and is called in
@@ -434,13 +434,14 @@ METHOD-ARGS are SWANK-MREPL:COPY-TO-REPL's optional args. If nil
 then the globally saved objects that
 SLYNK-MREPL:GLOBALLY-SAVE-OBJECT stored are considered, otherwise
 it is a list (ENTRY-IDX VALUE-IDX)."
-  (sly-mrepl--eval-for-repl `(slynk-mrepl:copy-to-repl
-                              ,@method-args)
-                            'insert-values
-                            (lambda (_objects)
-                              (when note
-                                (sly-mrepl--insert-output (concat "; " note))))
-                            callback))
+  (sly-mrepl--eval-for-repl
+   `(slynk-mrepl:copy-to-repl
+     ,@method-args)
+   :insert-p t
+   :before-prompt (lambda (_objects)
+                    (when note
+                      (sly-mrepl--insert-output (concat "; " note))))
+   :after-prompt callback))
 
 (defun sly-mrepl--make-result-button (result idx)
   (make-text-button (car result) nil
@@ -785,11 +786,20 @@ handle to distinguish the new buffer from the existing."
       (sly-message "Guessed package \"%s\"" package))
     package))
 
-(defun sly-mrepl-sync-package-and-default-directory (&optional package directory)
-  "Set Lisp's package and directory to the values in current buffer."
+(define-obsolete-function-alias 'sly-mrepl-sync-package-and-default-directory 'sly-mrepl-sync
+  "1.0.0-alpha-3")
+
+(defun sly-mrepl-sync (&optional package directory expression)
+  "Go to the REPL, and set Slynk's PACKAGE and DIRECTORY.
+Also yank EXPRESSION into the prompt.  Interactively gather
+PACKAGE and DIRECTORY these values from the current buffer, if
+available. In this scenario EXPRESSION is only set if a C-u
+prefix argument is given."
   (interactive (list (sly-current-package)
                      (and buffer-file-name
-                          default-directory)))
+                          default-directory)
+                     (and current-prefix-arg
+                          (sly-last-expression))))
   (sly-mrepl--with-repl-for (sly-connection)
     (when directory
       (cd directory))
@@ -797,7 +807,8 @@ handle to distinguish the new buffer from the existing."
      `(slynk-mrepl:sync-package-and-default-directory
        :package-name ,package
        :directory ,directory)
-     nil
+     :insert-p nil
+     :before-prompt
      #'(lambda (results)
          (cl-destructuring-bind (package-2 directory-2) results
            (sly-mrepl--insert-output
@@ -809,7 +820,15 @@ handle to distinguish the new buffer from the existing."
                    (format "; Synched package to %s" package-2))
                   (t
                    (format "; Remaining in package %s and directory %s"
-                           package-2 directory-2)))))))))
+                           package-2 directory-2))))))
+     :after-prompt
+     #'(lambda (_results)
+         (when expression
+           (goto-char (point-max))
+           (let ((saved (point)))
+             (insert expression)
+             (when (string-match "\n" expression)
+               (indent-region saved (point-max)))))))))
 
 (defun sly-mrepl-clear-repl ()
   "Clear all this REPL's output history.
@@ -964,7 +983,7 @@ When setting this variable outside of the Customize interface,
     `("mREPL"
       ["Go to default REPL" sly-mrepl ,C]
       ["New REPL" sly-mrepl-new ,C]
-      ["Sync Package & Directory" sly-mrepl-sync-package-and-default-directory
+      ["Sync Package & Directory" sly-mrepl-sync
        (and sly-editing-mode ,C)])))
 
 (easy-menu-add-item sly-menu nil sly-mrepl--shortcut-menu "Documentation")
