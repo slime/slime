@@ -376,7 +376,7 @@ emptied. See also `sly-mrepl-hook'")
        (when (cl-plusp error-level)
          (concat (sly-make-action-button
                   (format "[%d]" error-level)
-                  #'sly-db-pop-to-sldb-buffer-maybe)
+                  #'sly-db-pop-to-debugger-maybe)
                  " "))
        (propertize
         (concat prompt "> ")
