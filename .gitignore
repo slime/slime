@@ -35,4 +35,5 @@ doc/*.ops
 doc/*.pgs
 doc/*.vrs
 doc/*.tgz
+doc/gh-pages
 /dist/
