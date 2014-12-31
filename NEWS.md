@@ -1,4 +1,4 @@
-SLY 1.0.0-alpha-3 (estimated December 2014)
+SLY 1.0.0-alpha-3 (December 2014)
 ------------------------------------------
 
 ### sly-stickers: live source-code annotation tool

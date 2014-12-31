@@ -14,7 +14,7 @@
 @end direntry
 @c %**end of header
 
-@set SLYVER 1.0.0-alpha
+@set SLYVER 1.0.0-alpha-3
 @set UPDATED @today{}
 @set TITLE SLY User Manual
 @settitle @value{TITLE}, version @value{SLYVER}
