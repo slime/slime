@@ -1399,12 +1399,17 @@ Reconnect afterwards."
           (setcar cell nil)
           (sly-xref :calls ".fn1."
                     (lambda (&rest args)
-                      (apply #'sly-show-xrefs args)
+                      (apply #'sly-xref--show-results args)
                       (setcar cell t)))
           (sly-wait-condition "Xrefs computed and displayed"
                               (lambda () (car cell))
                               0.5)
           (setcar cell nil)
+          (should (cl-equalp (list (sly-test--eval-now "(.fn2.)")
+                                   (sly-test--eval-now "(.fn3.)"))
+                             '("nil" "nil")))
+          ;; Recompile now
+          ;; 
           (with-current-buffer sly-xref-last-buffer
             (sly-recompile-all-xrefs)
             (sly-wait-condition "Compilation finished"
