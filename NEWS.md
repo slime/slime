@@ -1,5 +1,31 @@
+SLY 1.0.0-beta (estimated February 2014)
+----------------------------------------
+
+### On par with SLIME 2.11
+
+Where applicable, SLY tracks bugfixes and improvements contributed to
+SLIME:
+
+- Hot updating via MELPA on won't cause SLYNK/SLY version mismatch
+
+  SLIME issue [125](https://github.com/slime/slime/issues/125)
+
+- Allegro's "modern mode" is supported again.
+
+- Port conflicts can be resolved interactively
+
+  SLIME issue [204](https://github.com/slime/slime/issues/204)
+
+- New `SLYNK-FUZZY:*FUZZY-DUPLICATE-SYMBOL-FILTER*` option.
+
+  SLIME issue [215](https://github.com/slime/slime/issues/215)
+
+- `sly-recompile-xrefs` has been fixed.
+
+- More minor issues.
+
 SLY 1.0.0-alpha-3 (December 2014)
-------------------------------------------
+---------------------------------
 
 ### sly-stickers: live source-code annotation tool
 
