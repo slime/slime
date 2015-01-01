@@ -33,27 +33,27 @@
    (:module "backend"
     :serial t
     :components (#+allegro
-                 (:file "slynk-allegro")
+                 (:file "allegro")
                  #+armedbear
-                 (:file "slynk-abcl")
+                 (:file "abcl")
                  #+clisp
-                 (:file "slynk-clisp")
+                 (:file "clisp")
                  #+clozure
-                 (:file "slynk-ccl")
+                 (:file "ccl")
                  #+cmu
-                 (:file "slynk-cmucl")
+                 (:file "cmucl")
                  #+cormanlisp
-                 (:file "slynk-corman")
+                 (:file "corman")
                  #+ecl
-                 (:file "slynk-ecl")
+                 (:file "ecl")
                  #+lispworks
-                 (:file "slynk-lispworks")
+                 (:file "lispworks")
                  #+sbcl
-                 (:file "slynk-sbcl")
+                 (:file "sbcl")
                  #+scl
-                 (:file "slynk-scl")
+                 (:file "scl")
                  #+mkcl
-                 (:file "slynk-mkcl")))
+                 (:file "mkcl")))
    #-armedbear
    (:file "slynk-gray")
    (:file "slynk-match")

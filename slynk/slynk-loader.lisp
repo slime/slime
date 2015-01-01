@@ -36,19 +36,19 @@
   "A list of directories to search for modules.")
 
 (defparameter *sysdep-files*
-  #+cmu '(slynk-source-path-parser slynk-source-file-cache (backend slynk-cmucl))
-  #+scl '(slynk-source-path-parser slynk-source-file-cache (backend slynk-scl))
+  #+cmu '(slynk-source-path-parser slynk-source-file-cache (backend cmucl))
+  #+scl '(slynk-source-path-parser slynk-source-file-cache (backend scl))
   #+sbcl '(slynk-source-path-parser slynk-source-file-cache
-           (backend slynk-sbcl))
-  #+clozure '(metering (backend slynk-ccl))
-  #+lispworks '((backend slynk-lispworks))
-  #+allegro '((backend slynk-allegro))
-  #+clisp '(xref metering (backend slynk-clisp))
-  #+armedbear '((backend slynk-abcl))
-  #+cormanlisp '((backend slynk-corman))
+           (backend sbcl))
+  #+clozure '(metering (backend ccl))
+  #+lispworks '((backend lispworks))
+  #+allegro '((backend allegro))
+  #+clisp '(xref metering (backend clisp))
+  #+armedbear '((backend abcl))
+  #+cormanlisp '((backend corman))
   #+ecl '(slynk-source-path-parser slynk-source-file-cache
-          (backend slynk-ecl))
-  #+mkcl '(backend slynk-mkcl))
+          (backend ecl))
+  #+mkcl '(backend mkcl))
 
 (defparameter *implementation-features*
   '(:allegro :lispworks :sbcl :clozure :cmu :clisp :ccl :corman :cormanlisp
