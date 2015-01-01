@@ -52,8 +52,8 @@
 ;; inspector, xref, etc...) are still available, but with better
 ;; integration.
 ;; 
-;; See the NEWS.md file sitting alongside this file for a complete
-;; list of features.
+;; See the NEWS.md file (should be sitting alongside this file) for a
+;; complete list of features.
 
 ;;; Code:
 
@@ -80,14 +80,19 @@
   (require 'compile)
   (require 'gud))
 
-(eval-and-compile
-  (defvar sly-path
-    (let ((path (or (locate-library "sly") load-file-name)))
-      (and path (file-name-directory path)))
-    "Directory containing the SLY package.
+(defvar sly-path nil
+  "Directory containing the SLY package.
 This is used to load the supporting Common Lisp library, Slynk.
 The default value is automatically computed from the location of the
-Emacs Lisp package."))
+Emacs Lisp package.")
+
+;; Determine `sly-path' at load time, regardless of filename (.el or
+;; .elc) being loaded.
+;; 
+(setq sly-path
+      (if load-file-name
+          (file-name-directory load-file-name)
+        (error "[sly] fatal: impossible to determine sly-path")))
 
 (defun sly-slynk-path ()
   "Path where the bundled Slynk server is located."
@@ -128,13 +133,15 @@ providing the feature are found.")
             (funcall init)))))))
 
 (eval-and-compile
-  (defun sly-version (&optional interactive)
-    "Read SLY's version of its own sly.el file."
+  (defun sly-version (&optional interactive file)
+    "Read SLY's version of its own sly.el file.
+If FILE is passed use that instead to discover the version."
     (interactive "p")
     (let ((version
            (with-temp-buffer
              (insert-file-contents-literally
-              (expand-file-name "sly.el" sly-path)
+              (or file
+                  (expand-file-name "sly.el" sly-path))
               nil 0 200)
              (and (search-forward-regexp
                    ";;[[:space:]]*Version:[[:space:]]*\\(.*\\)$" nil t)
@@ -144,8 +151,12 @@ providing the feature are found.")
         version))))
 
 (defvar sly-protocol-version nil)
+
 (setq sly-protocol-version
-      (eval-when-compile (sly-version)))
+      ;; Compile the version string into the generated .elc file, but
+      ;; don't actualy affect `sly-protocol-version' until load-time.
+      ;; 
+      (eval-when-compile (sly-version nil byte-compile-current-file)))
 
 
 ;;;; Customize groups
