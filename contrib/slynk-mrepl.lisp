@@ -43,7 +43,7 @@
 
 
 ;;; Helpers
-;;; 
+;;;
 (defvar *history* nil)
 
 (defvar *saved-objects* nil)
@@ -60,10 +60,50 @@
         (setf mode old-mode)))))
 
 (defun mrepl-get-history-entry (entry-idx)
-  (aref *history* entry-idx))
+  (let ((len (length *history*)))
+    (assert (and entry-idx
+                 (integerp entry-idx)
+                 (< -1 entry-idx len))
+            nil
+            "Illegal history entry ~a for ~a-long history"
+            entry-idx
+            len)
+    (aref *history* entry-idx)))
 
-(defun mrepl-get-object-from-history (entry-idx value-idx)
-  (nth value-idx (mrepl-get-history-entry entry-idx)))
+(defun mrepl-get-object-from-history (entry-idx &optional value-idx)
+  (let* ((entry (mrepl-get-history-entry entry-idx))
+         (len (length entry))
+         (value-idx (or value-idx 0)))
+    (assert (and value-idx
+                 (integerp value-idx)
+                 (< -1 value-idx len))
+            nil
+            "Illegal value index ~a for ~a-long entry"
+            value-idx
+            len)
+    (nth value-idx entry)))
+
+(defparameter *backreference-character* #\v
+  "Character used for #v<entry>:<value> backreferences in the REPL.
+Set this to some other value if it conflicts with some other reader
+macro that you wish to use in the REPL.
+Set this to NIL to turn this feature off.")
+
+(defun back-reference-reader (stream subchar arg)
+  "Reads #rfoo:bar into (MREPL-GET-OBJECT-FROM-HISTORY foo bar)."
+  (declare (ignore subchar arg))
+  (let* ((*readtable*
+           (let ((table (copy-readtable nil)))
+             (set-macro-character #\: (lambda (&rest args) nil) nil table)
+             table))
+         (entry-idx (progn
+                      (read stream)))
+         (value-idx (progn
+                      (and (eq #\: (peek-char nil stream))
+                           (read-char stream)
+                           (read stream)))))
+    `(mrepl-get-object-from-history
+      ,entry-idx ,value-idx)))
 
 (defun make-results (objects)
   (loop for value in objects
@@ -79,7 +119,7 @@
              ((error #'(lambda (err)
                          ;; ERRORED means we've been through this
                          ;; handler before in this level of MREPL-EVAL
-                         (unless errored 
+                         (unless errored
                            (push err (mrepl-pending-errors repl))
                            (setq aborted err errored err)
                            (with-listener repl
@@ -143,11 +183,19 @@
           (with-retry-restart (:msg "Retry SLY mREPL evaluation request.")
             (with-input-from-string (in string)
               (loop with values
-                    for form = (read in nil in)
+                    for form =
+                    (let ((*readtable* (let ((table (copy-readtable)))
+                                         (if *backreference-character*
+                                             (set-dispatch-macro-character
+                                              #\#
+                                              *backreference-character*
+                                              #'back-reference-reader table))
+                                         table)))
+                      (read in nil in))
                     until (eq form in)
                     do (setq values (multiple-value-list (eval (setq + form))))
                     finally
-                       (return values))))
+                    (return values))))
         (setf (cdr (assoc '*package* (slot-value repl 'slynk::env)))
               *package*)))))
 
@@ -188,7 +236,7 @@
 (define-channel-method :teardown ((r mrepl))
   ;; FIXME: this should be a `:before' spec and closing the channel in
   ;; slynk.lisp's :teardown method should suffice.
-  ;; 
+  ;;
   (setf (mrepl-mode r) :teardown)
   (call-next-method))
 
@@ -240,7 +288,7 @@
        (assert ,mrepl-sym)
        (assert
         (eq (slynk-backend:thread-id
-             (slynk-backend:current-thread)) 
+             (slynk-backend:current-thread))
             (channel-thread-id ,mrepl-sym))
         nil
         "This SLYFUN can only be called from threads belonging to MREPL")
@@ -282,8 +330,8 @@ list."
 ;;; "Slave" slyfuns.
 ;;;
 ;;; These are slyfuns intented to be called as the SLAVE-SLYFUN
-;;; argument of EVAL-FOR-MREPL. 
-;;; 
+;;; argument of EVAL-FOR-MREPL.
+;;;
 
 (defslyfun guess-and-set-package (package-name)
   (let ((package (slynk::guess-package package-name)))
@@ -369,14 +417,14 @@ deliver output to Emacs."
              ;; respect :LINE as a buffering type, hence this reader
              ;; conditional. This could/should be a definterface, but
              ;; looks harmless enough...
-             ;; 
+             ;;
              #+(or sbcl cmucl)
              dedicated
              ;; ...on other implementations we make a relaying gray
              ;; stream that is guaranteed to use line buffering for
              ;; WRITE-SEQUENCE. That stream writes to the dedicated
              ;; socket whenever it sees fit.
-             ;; 
+             ;;
              #-(or sbcl cmucl)
              (if (eq *dedicated-output-stream-buffering* :line)
                  (slynk-backend:make-output-stream
@@ -485,7 +533,7 @@ Assigns *CURRENT-<STREAM>* for all standard streams."
     (dolist (o *standard-output-streams*)
       (set (prefixed-var '#:current o)
            *standard-output*))
-    
+
     ;; FIXME: If we redirect standard input to Emacs then we get the
     ;; regular Lisp top-level trying to read from our REPL.
     ;;
@@ -508,7 +556,7 @@ Assigns *CURRENT-<STREAM>* for all standard streams."
   ;; Log to SLYNK:*LOG-OUTPUT* since the standard streams whose
   ;; redirection are about to be reverted might be in an unconsistent
   ;; state after, for instance, restarting an image.
-  ;; 
+  ;;
   (format slynk:*log-output* "~&; About to revert global IO direction~%")
   (when *target-listener-for-redirection*
     (flush-listener-streams *target-listener-for-redirection*))

@@ -1,6 +1,13 @@
 SLY 1.0.0-beta (estimated February 2014)
 ----------------------------------------
 
+### mREPL enhancements
+
+New reader macro used just in the REPL allows easy access to
+previously returned values. By default, `#v3` will access the first
+value of the fourth values-form ever returned and `#v3:2` will access
+the third of those values.
+
 ### On par with SLIME 2.11
 
 Where applicable, SLY tracks bugfixes and improvements contributed to
