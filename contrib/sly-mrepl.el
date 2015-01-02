@@ -974,6 +974,43 @@ When setting this variable outside of the Customize interface,
     (call-interactively command)))
 
 
+;;; Backreference highlighting
+;;;
+(defun sly-mrepl-highlight-results (&optional entry-idx value-idx)
+  (interactive)
+  (cl-loop
+   with inhibit-read-only = t
+   for button in (sly-button-buttons-in (point-min) (point-max))
+   when (and (button-type-subtype-p (button-type button) 'sly-mrepl-part)
+             (not (button-get button 'sly-mrepl--highlight-overlay)))
+   do (let ((overlay (make-overlay (button-start button) (button-end button)))
+            (e-idx (car (button-get button 'part-args)))
+            (v-idx (cadr (button-get button 'part-args))))
+        (when (and (or (not entry-idx)
+                       (= e-idx entry-idx))
+                   (or (not value-idx)
+                       (= v-idx value-idx)))
+          (button-put button 'sly-mrepl--highlight-overlay overlay)
+          (overlay-put overlay 'before-string
+                       (concat
+                        (propertize
+                         (format "%s:%s"
+                                 (car (button-get button 'part-args))
+                                 (cadr (button-get button 'part-args)))
+                         'face 'highlight)
+                        " "))))))
+
+(defun sly-mrepl-unhighlight-results ()
+  (interactive)
+  (cl-loop
+   with inhibit-read-only = t
+   for button in (sly-button-buttons-in (point-min) (point-max))
+   for overlay = (button-get button 'sly-mrepl--highlight-overlay)
+   when overlay
+   do (delete-overlay overlay)
+   (button-put button 'sly-mrepl--highlight-overlay nil)))
+
+
 ;;;; Menu
 ;;;;
 (easy-menu-define sly-mrepl--shortcut-menu nil
@@ -1027,7 +1064,6 @@ When setting this variable outside of the Customize interface,
   (interactive)
   (remove-hook 'after-change-functions 'sly-mrepl--debug 'local)
   (remove-hook 'post-command-hook 'sly-mrepl--debug 'local))
-
 
 
 ;;; Sylvesters
