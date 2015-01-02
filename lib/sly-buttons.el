@@ -43,6 +43,15 @@
            (unless no-error
              (error "[sly] No button at point"))))))
 
+(defun sly-button-buttons-in (beg end)
+  (save-excursion
+    (goto-char (point-min))
+    (cl-loop for count-current = t then nil
+             for button = (next-button (point) count-current)
+             while button
+             do (goto-char (button-start button))
+             collect button)))
+
 (defmacro sly-button-define-part-action (action label key)
   `(progn
      (defun ,action (button)
