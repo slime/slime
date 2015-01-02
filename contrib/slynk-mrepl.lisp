@@ -99,7 +99,7 @@ Set this to NIL to turn this feature off.")
          (entry-idx (progn
                       (read stream)))
          (value-idx (progn
-                      (and (eq #\: (peek-char nil stream))
+                      (and (eq #\: (peek-char nil stream nil nil))
                            (read-char stream)
                            (read stream)))))
     `(mrepl-get-object-from-history
