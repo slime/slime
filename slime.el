@@ -129,7 +129,8 @@ CONTRIBS is a list of contrib packages to load. If `nil', use
 (eval-and-compile
   (defun slime--changelog-file-name ()
     (expand-file-name "ChangeLog"
-                      (if byte-compile-current-file
+                      (if (and (boundp 'byte-compile-current-file)
+                               byte-compile-current-file)
                           (file-name-directory byte-compile-current-file)
                           slime-path)))
 
