@@ -72,6 +72,8 @@
 (require 'arc-mode)
 (require 'etags)
 (require 'apropos)
+(require 'bytecomp) ;; for `byte-compile-current-file' and
+                    ;; `sly-byte-compile-hotspots'.
 
 (require 'sly-messages "lib/sly-messages")
 (require 'sly-buttons "lib/sly-buttons")
@@ -6880,9 +6882,6 @@ The returned bounds are either nil or non-empty."
                         (2 font-lock-variable-name-face)))))
 
 ;;;; Finishing up
-
-(eval-when-compile
-  (require 'bytecomp))
 
 (defun sly--byte-compile (symbol)
   (require 'bytecomp) ;; tricky interaction between autoload and let.
