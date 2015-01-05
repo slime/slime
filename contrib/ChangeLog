@@ -1,3 +1,8 @@
+2015-01-05  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-arglists.lisp (class-from-class-name-form): ignore all
+	errors from FINALIZE-INHERITANCE, not just PROGRAM-ERROR.
+
 2014-12-24  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-autodoc.el (slime-autodoc-mode): Don't bother with

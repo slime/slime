@@ -752,9 +752,7 @@ forward keywords to OPERATOR."
                  (not (swank-mop:class-finalized-p class)))
         ;; Try to finalize the class, which can fail if
         ;; superclasses are not defined yet
-        (handler-case (swank-mop:finalize-inheritance class)
-          (program-error (c)
-            (declare (ignore c)))))
+        (ignore-errors (swank-mop:finalize-inheritance class)))
       class)))
 
 (defun extra-keywords/slots (class)
