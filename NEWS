@@ -1,5 +1,28 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
 
+* 2.12 (January 2015)
+
+** Core
+A couple of regression introduced in version 2.10 were fixed.
+
+*** slime-compile-buffer (C-c C-k) no longer tries to save every buffer
+*** slime-autodoc-mode doesn't spam the minibuffer anymore
+
+** SWANK
+*** CREATE-SERVER provides interactive restarts when port is taken
+Thanks to Adlai Chandrasekhar. (PR #204.)
+
+** slime-fuzzy
+New variable *FUZZY-DUPLICATE-SYMBOL-FILTER* allows customization of
+how symbols accessible from multiple packages should be
+canonicalized. Defaults to :NEAREST-PACKAGE, a departure from the
+previous default behaviour which is still available using
+:HOME-PACKAGE. The new behaviour expands "ui:e-l" to
+"uiop:ensure-list" rather than "uiop/utility:ensure-list". Consult the
+manual for other options and other details.
+
+Thanks to Ivan Shvedunov. (PR #205.)
+
 * 2.11 (December 2014)
 
 ** MELPA is now an officially supported installation method

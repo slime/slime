@@ -1,3 +1,28 @@
+2014-12-24  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-autodoc.el (slime-autodoc-mode): Don't bother with
+	"Slime autodoc mode enabled" unless it's called interactively.
+
+2014-12-23  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-fuzzy.lisp(make-fuzzy-matching): Simplify, no need to
+	define a wrapper function.
+
+2014-12-11  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Fix bug reported by Rodrigo Correia.
+
+	* swank-repl.lisp (package): Import SOCKET-QUEST.
+	(open-dedicated-output-stream): Fix call to SOCKET-QUEST.
+
+2014-12-07  Ivan Shvedunov  <ivan4th@gmail.com>
+
+	Add *FUZZY-DUPLICATE-SYMBOL-FILTER*.
+
+	* swank-fuzzy.lisp: Add *FUZZY-DUPLICATE-SYMBOL-FILTER* variable
+	that controls the removal of symbol name duplicates occurring
+	during fuzzy matching.
+
 2014-12-02  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* swank-presentation-streams.lisp: Don't load sbcl-pprint-patch
@@ -340,7 +365,7 @@
 	including use of lookup-and-save-presented-object-or-lose, but also
 	restoring insertion of the presentation into the repl editing stream.
 
-2014-04-17  Olof-Joachim Frahm <olof@macrolet.net>
+2014-04-17  Olof-Joachim Frahm  <olof@macrolet.net>
 
 	* slime-clipboard.el: Require `cl-lib`/`cl` for `lexical-let` and
 	`cl-` prefix.
@@ -493,7 +518,6 @@
 	* bridge.el (bridge-insert-function): new variable to solve
 	redefinition hack in slime-presentations.el
 	(bridge-insert): use it.
-
 
 2014-02-25  João Távora  <joaotavora@gmail.com>
 
@@ -845,19 +869,19 @@
 	* slime-parse.el: require 'slime-tests. Remove trailing
 	whitespace.
 
-2013-12-21 João Távora <joaotavora@gmail.com>
+2013-12-21  João Távora  <joaotavora@gmail.com>
 
 	* slime-presentations.el (slime-M-.-presentation): As in previous
 	patch, must return nil on failure so as not to break the
 	`run-hooks-until-success' logic of `slime-edit-definition-hooks'.
 
-2013-12-21 João Távora <joaotavora@gmail.com>
+2013-12-21  João Távora  <joaotavora@gmail.com>
 
 	* slime-fancy-inspector.el (slime-edit-inspector-part):
 	Since this lives in `slime-edit-definition-hooks', return
 	nil when not in an inspector buffer.
 
-2013-12-21  Samuel Freilich <sfreilich@google.com>
+2013-12-21  Samuel Freilich  <sfreilich@google.com>
 
 	* slime-cl-indent-test.txt: New tests 91-95.
 	* slime-cl-indent.el
@@ -870,7 +894,7 @@
 	(common-lisp-indent-indented-loop-macro-keyword): More subclauses.
 	(common-lisp-indent-loop-macro-1): Use new variables.
 
-2013-11-20  João Távora <joaotavora@gmail.com>
+2013-11-20  João Távora  <joaotavora@gmail.com>
 
 	* swank-trace-dialog.lisp: New file, new :swank-trace-dialog
 	package, uses new wrapping interface in swank-backend.el to trace
@@ -963,7 +987,7 @@
 	* slime-cl-indent.el (define-common-lisp-style "basic"): Don't set
 	`comment-column' to NIL, it only can accept integers.
 
-2012-12-26  Francois-Rene Rideau <tunes@google.com>
+2012-12-26  Francois-Rene Rideau  <tunes@google.com>
 
 	* swank-asdf.lisp: Better support for different versions of ASDF.
 
@@ -992,7 +1016,7 @@
 	default case when no :export symbols are present.
 	Because of (every anything nil) => T.
 
-2012-11-13  Francois-Rene Rideau <tunes@google.com>
+2012-11-13  Francois-Rene Rideau  <tunes@google.com>
 
 	* swank-asdf.lisp: Better ASDF support.
 
@@ -1027,7 +1051,7 @@
 	* swank-fancy-inspector.lisp (emacs-inspect symbol): On SBCL,
 	show information about type specifiers.
 
-2012-04-20  John Smith <ohwoeowho@googlemail.com>
+2012-04-20  John Smith  <ohwoeowho@googlemail.com>
 
 	Prettier arglists.
 
@@ -1916,7 +1940,7 @@
 
 	* slime-repl.el: Handle (:abort condition) message from lisp.
 
-2010-09-18  Tobias C. Rittweiler <tcr@freebits.de>
+2010-09-18  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-parse.el (slime-parse-form-upto-point): Fix lp#627308.
 
@@ -1926,7 +1950,7 @@
 	(slime-check-autodoc-at-point): Use it.
 	(autodoc.1): Add test case for above fix.
 
-2010-09-18  Tobias C. Rittweiler <tcr@freebits.de>
+2010-09-18  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-arglist.lisp (function-exists-p): Renamed from
 	FUNCTION-EXISTS-P. Uses new SWANK-BACKEND:VALID-FUNCTION-NAME-P
@@ -1999,7 +2023,7 @@
 
 	* slime-repl.el: Specify :on-unload action.
 
-2010-08-21  Anton Kovalenko <anton@sw4me.com>
+2010-08-21  Anton Kovalenko  <anton@sw4me.com>
 
 	Add support to save snapshots in backround.
 
@@ -2136,12 +2160,12 @@
 
 	* swank-arglists.lisp (decode-arglist): Handle (x . y) macro arglists.
 
-2010-05-14  Tobias C. Rittweiler <tcr@freebits.de>
+2010-05-14  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-highlight-edits.el, slime-hyperdoc.el, slime-mrepl.el,
           slime-snapshot.el: Fix typo.
 
-2010-05-13  Tobias C. Rittweiler <tcr@freebits.de>
+2010-05-13  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	Perform PATHNAME on file-streams safely.
 
@@ -2151,7 +2175,7 @@
 	(emacs-inspect file-stream): Use them.
 	(emacs-inspect stream-error): Ditto.
 
-2010-05-13  Tobias C. Rittweiler <tcr@freebits.de>
+2010-05-13  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-autodoc.el, slime-c-p-c.el, slime-compiler-notes-tree.el,
 	slime-enclosing-context.el, slime-fancy.el, slime-fuzzy.el,
@@ -3746,7 +3770,7 @@
 	is in scope of an FLET/LET/etc.
 	([test] enclosing-context.1): Test for this.
 
-2009-01-16   David Reitter <david.reitter@gmail.com>
+2009-01-16   David Reitter  <david.reitter@gmail.com>
 
 	* slime-repl.el (slime-repl-clear-buffer): Call recenter with t as
 	argument (to avoid erasing the entire frame).
@@ -3895,13 +3919,13 @@
 	`(slime-pop-to-location loc 'excursion)' no longer exists; use
 	`(slime-goto-source-location loc)' instead.
 
-2008-11-22  Geoff Wozniak <geoff@wozniak.ca>
+2008-11-22  Geoff Wozniak  <geoff@wozniak.ca>
 
 	* swank-c-p-c.lisp (parse-completion-arguments): Change the
 	package identifier from the string "KEYWORD" to the
 	form (symbol-name :keyword) for ACL's "modern" mode.
 
-2008-10-31  Nikodemus Siivola <nikodemus@random-state.net>
+2008-10-31  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* swank-presentation-streams.liso (slime-stream-p): delete
 	references to SB-IMPL::INDENTING-STREAM, which is unused in SBCL
@@ -3936,7 +3960,7 @@
 	* swank-kawa.scm (swank-require): Add a dummy definition to avoid
 	errors at startup.
 
-2008-10-11  Nikodemus Siivola <nikodemus@random-state.net>
+2008-10-11  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime-scratch.el (slime-scratch-file): New variable.
 	(slime-scratch-buffer): If *slime-scratch* does not exist and
@@ -4000,7 +4024,7 @@
 	length to one line to avoid (some) problems with big or circular
 	values.  Reported by Stas Boukarev.
 
-2008-08-22  Stelian Ionescu <sionescu@common-lisp.net>
+2008-08-22  Stelian Ionescu  <sionescu@common-lisp.net>
 
 	* swank-listener-hooks.lisp: Add missing IN-PACKAGE.
 
@@ -4053,7 +4077,7 @@
 	(slime-make-typeout-frame): use it
 	(slime-ensure-typeout-frame): ensure typeout buffer is visible
 
-2008-08-04  Adam Bozanich <adam.boz@gmail.com>
+2008-08-04  Adam Bozanich  <adam.boz@gmail.com>
 
 	* slime-asdf.el: Load swank-asdf.
 	This should avoid the rude disconnect if asdf wasn't loaded.
@@ -4098,7 +4122,7 @@
 	(slime-qualify-cl-symbol-name): Moved back to `slime.el' as
 	they're still used there.
 
-2008-04-17  Gábor Melis <mega@retes.hu>
+2008-04-17  Gábor Melis  <mega@retes.hu>
 
 	* swank-fancy-inspector.lisp (inspect-slot-for-emacs):
 	slime-read-object has been gone for a long time, replaced with
@@ -4314,7 +4338,7 @@
 	* swank-goo.goo: New file.
 	* swank-kawa.scm: New file.
 
-2008-01-11  Stelian Ionescu <sionescu@common-lisp.net>
+2008-01-11  Stelian Ionescu  <sionescu@common-lisp.net>
 
 	* slime-presentations.el
 	(slime-copy-or-inspect-presentation-at-mouse): Call
@@ -4542,7 +4566,7 @@
 
 	* slime-autodoc.el (slime-use-autodoc-mode): Change default to t.
 
-2007-09-15  Ariel Badichi <abadichi@bezeqint.net>
+2007-09-15  Ariel Badichi  <abadichi@bezeqint.net>
 
 	* swank-fancy-inspector.lisp (inspect-for-emacs package): When
         inspecting a package, the links in the use list and the used-by
