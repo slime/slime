@@ -14,6 +14,9 @@
 (in-package swank/clasp)
 
 
+(defmacro cslime-log (fmt &rest fmt-args)
+  `(format t ,fmt ,@fmt-args))
+
 ;; Hard dependencies.
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require 'sockets))
@@ -259,10 +262,18 @@
                                        load-p external-format
                                        &key policy)
   (declare (ignore policy))
-  (with-compilation-hooks ()
-    (compile-file input-file :output-file output-file
-                  :load load-p
-                  :external-format external-format)))
+  (format t "Compiling file input-file = ~a   output-file = ~a~%" input-file output-file)
+  ;; Ignore the output-file and generate our own
+  (let ((tmp-output-file (compile-file-pathname (si:mkstemp "TMP:clasp-swank-compile-file-"))))
+    (format t "Using tmp-output-file: ~a~%" tmp-output-file)
+    (multiple-value-bind (fasl warnings-p failure-p)
+        (with-compilation-hooks ()
+          (compile-file input-file :output-file tmp-output-file
+                        :external-format external-format))
+      (values fasl warnings-p
+              (or failure-p
+                  (when load-p
+                    (not (load fasl))))))))
 
 (defvar *tmpfile-map* (make-hash-table :test #'equal))
 
@@ -275,8 +286,7 @@
 (defun tmpfile-to-buffer (tmp-file)
   (gethash tmp-file *tmpfile-map*))
 
-(defimplementation swank-compile-string (string &key buffer position filename
-                                                policy)
+(defimplementation swank-compile-string (string &key buffer position filename policy)
   (declare (ignore policy))
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)        ; for compilation hooks
@@ -291,11 +301,11 @@
                (write-string string tmp-stream)
                (finish-output tmp-stream)
                (multiple-value-setq (fasl-file warnings-p failure-p)
-                 (compile-file tmp-file
-                   :load t
-                   :source-truename (or filename
-                                        (note-buffer-tmpfile tmp-file buffer))
-                   :source-offset (1- position))))
+                 (let ((truename (or filename (node-buffer-tmpfile tmp-file buffer))))
+                   (compile-file tmp-file
+                                 :source-debug-namestring truename
+                                 :source-debug-offset (1- position)))))
+          (when fasl-file (load fasl-file))
           (when (probe-file tmp-file)
             (delete-file tmp-file))
           (when fasl-file
@@ -304,22 +314,19 @@
 
 ;;;; Documentation
 
-#+clasp-working
 (defimplementation arglist (name)
   (multiple-value-bind (arglist foundp)
-      (core::function-lambda-list name)     ;; Uses bc-split
+      (core:function-lambda-list name)     ;; Uses bc-split
     (if foundp arglist :not-available)))
 
-#+clasp-working
 (defimplementation function-name (f)
   (typecase f
-    (generic-function (clos:generic-function-name f))
-    (function (si:compiled-function-name f))))
+    (generic-function (clos::generic-function-name f))
+    (function (ext:compiled-function-name f))))
 
 ;; FIXME
 ;; (defimplementation macroexpand-all (form))
 
-#+clasp-working
 (defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))
     (flet ((frob (type boundp)
@@ -331,7 +338,6 @@
       (frob :CLASS (lambda (x) (find-class x nil))))
     result))
 
-#+clasp-working
 (defimplementation describe-definition (name type)
   (case type
     (:variable (documentation name 'variable))
@@ -339,7 +345,6 @@
     (:class (documentation name 'class))
     (t nil)))
 
-#+clasp-working
 (defimplementation type-specifier-p (symbol)
   (or (subtypep nil symbol)
       (not (eq (type-specifier-arglist symbol) :not-available))))
@@ -428,7 +433,7 @@
          (*tpl-level* (1+ *tpl-level*))
          (*backtrace* (loop for ihs from 0 below *ihs-top*
                             collect (list (si::ihs-fun ihs)
-;                                          (si::ihs-env ihs)
+                                          (si::ihs-env ihs)
                                           nil))))
     (declare (special *ihs-current*))
 #+frs    (loop for f from *frs-base* until *frs-top*
@@ -459,11 +464,15 @@
       (function-name x))))
 
 (defun function-position (fun)
-  (let* ((source-pos-info (function-source-pos-info fun)))
+  (let* ((source-pos-info (core:function-source-pos-info fun)))
     (when source-pos-info
-      (let ((position (source-pos-info-filepos source-pos-info))
-            (file (source-file-info-pathname (source-file-info source-pos-info))))
-        (make-file-location file position)))))
+      (let* ((real-position (core:source-pos-info-filepos source-pos-info))
+             (sfi (core:source-file-info source-pos-info))
+             (real-pathname (core:source-file-info-pathname sfi))
+             (spoofed-namestring (core:source-file-info-source-debug-namestring sfi))
+             (spoofed-offset (core:source-file-info-source-debug-offset sfi))
+             (position (+ real-position spoofed-offset)))
+        (make-file-location spoofed-namestring position)))))
 
 (defun frame-function (frame)
   (let* ((x (first frame))
@@ -475,24 +484,6 @@
       (function (setf fun x position (function-position x))))
     (values fun position)))
 
-(defun frame-decode-env (frame)
-  (let ((functions '())
-        (blocks '())
-        (variables '()))
-    (setf frame (si::decode-ihs-env (second frame)))
-    (dolist (record (remove-if-not #'consp frame))
-      (let* ((record0 (car record))
-	     (record1 (cdr record)))
-	(cond ((or (symbolp record0) (stringp record0))
-	       (setq variables (acons record0 record1 variables)))
-	      ((not (si::fixnump record0))
-	       (push record1 functions))
-	      ((symbolp record1)
-	       (push record1 blocks))
-	      (t
-	       ))))
-    (values functions blocks variables)))
-
 (defimplementation print-frame (frame stream)
   (format stream "~A" (first frame)))
 
@@ -503,20 +494,30 @@
 (defimplementation frame-catch-tags (frame-number)
   (third (elt *backtrace* frame-number)))
 
-#+clasp-working
-(defimplementation frame-locals (frame-number)
-  (loop for (name . value) in (nth-value 2 (frame-decode-env
-                                            (elt *backtrace* frame-number)))
-        collect (list :name name :id 0 :value value)))
+(defun ihs-frame-id (frame-number)
+  (- (core:ihs-top) frame-number))
 
-#+clasp-working
+(defimplementation frame-locals (frame-number)
+  (let ((env (cadr (elt *backtrace* frame-number))))
+    (loop for x = env then (core:get-parent-environment x)
+       with id = 0
+       until (null x)
+       append (loop for name across (core:environment-debug-names x)
+                 for value across (core:environment-debug-values x)
+                 do (setq id (1+ id))
+                 collect (list :name name :id id :value value)))))
+
 (defimplementation frame-var-value (frame-number var-number)
-  (destructuring-bind (name . value)
-      (elt
-       (nth-value 2 (frame-decode-env (elt *backtrace* frame-number)))
-       var-number)
-    (declare (ignore name))
-    value))
+  (let ((env (cadr (elt *backtrace* frame-number))))
+    (block gotit
+      (loop for x = env then (core:get-parent-environment x)
+         with id = 0
+         until (null x)
+         do (loop for name across (core:environment-debug-names x)
+               for value across (core:environment-debug-values x)
+               do (setq id (1+ id))
+               do (when (eql id var-number)
+                    (return-from gotit value)))))))
 
 
 #+clasp-working
@@ -524,10 +525,9 @@
   (let ((fun (frame-function (elt *backtrace* frame-number))))
     (disassemble fun)))
 
-#+clasp-working
 (defimplementation eval-in-frame (form frame-number)
   (let ((env (second (elt *backtrace* frame-number))))
-    (si:eval-with-env form env)))
+    (core:compile-form-and-eval-with-env form env)))
 
 #+clasp-working
 (defimplementation gdb-initial-commands ()
@@ -571,7 +571,6 @@
 
 
 
-#+clasp-working
 (defimplementation find-definitions (name)
   (let ((annotations (core:get-annotation name 'si::location :all)))
     (cond (annotations
@@ -646,7 +645,6 @@
             variable `CLASPSRCDIR'."
            (namestring (translate-logical-pathname #P"SYS:"))))) 
 
-#+clasp-working
 (defun assert-TAGS-file ()
   (unless (probe-file +TAGS+)
     (error "No TAGS file ~A found. It should have been installed with CLASP."
@@ -655,7 +653,6 @@
 (defun package-names (package)
   (cons (package-name package) (package-nicknames package)))
 
-#+clasp-working
 (defun source-location (object)
   (converting-errors-to-error-location
    (typecase object
@@ -695,7 +692,6 @@
         (assert flag)
         (make-TAGS-location c-name))))))
 
-#+clasp-working
 (defimplementation find-source-location (object)
   (or (source-location object)
       (make-error-location "Source definition of ~S not found." object)))
