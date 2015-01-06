@@ -634,6 +634,38 @@ recent entry that is discarded."
     (sly-error "Not in a mREPL buffer")))
 
 
+;;; ELI-like history
+;;;
+;;;
+(defcustom sly-mrepl-eli-like-history-navigation nil
+  "If non-NIL navigate history like ELI.
+When this option is active, previous history entries navigated to
+by M-p and M-n keep the current input and use it to surround the
+history entry navigated to."
+  :type 'boolean
+  :group 'sly)
+
+(defvar sly-mrepl--eli-input-and-offset nil)
+
+(defun sly-mrepl--set-eli-input-and-offset ()
+  (setq sly-mrepl--eli-input-and-offset
+        (and sly-mrepl-eli-like-history-navigation
+             (cons (buffer-substring (sly-mrepl--mark) (point-max))
+                   (- (point) (sly-mrepl--mark))))))
+
+(defun sly-mrepl--surround-with-eli-input ()
+  (let ((existing (car sly-mrepl--eli-input-and-offset))
+        (offset (cdr sly-mrepl--eli-input-and-offset)))
+    (when (and existing
+               offset
+               (> offset 0))
+      (save-excursion
+        (goto-char (sly-mrepl--mark))
+        (insert (substring existing 0 offset))
+        (goto-char (point-max))
+        (insert (substring existing offset))))))
+
+
 ;;; Interactive commands
 ;;;
 (defun sly-mrepl-return (&optional end-of-input)
@@ -664,7 +696,13 @@ recent entry that is discarded."
 (defun sly-mrepl-previous-input-or-button (n)
   (interactive "p")
   (if (>= (point) (sly-mrepl--mark))
-      (comint-previous-input n)
+      (progn
+        (unless (memq last-command
+                      '(sly-mrepl-previous-input-or-button
+                        sly-mrepl-next-input-or-button))
+            (sly-mrepl--set-eli-input-and-offset))
+        (comint-previous-input n)
+        (sly-mrepl--surround-with-eli-input))
     (sly-button-backward n)))
 
 (defun sly-mrepl-next-input-or-button (n)
