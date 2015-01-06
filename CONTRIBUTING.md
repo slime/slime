@@ -161,7 +161,7 @@ better, please do so!_
 
 * Read [how to properly contribute to open source projects on Github][1].
 * Use a topic branch to easily amend a pull request later, if necessary.
-* Commit messages should use the syntax of GNU ChangLog entries.
+* Commit messages should use the syntax of GNU ChangeLog entries.
 * Open a [pull request][2] that relates to *only* one subject with a
   clear title and description in grammatically correct, complete
   sentences.
