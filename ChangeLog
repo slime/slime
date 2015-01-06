@@ -1,3 +1,10 @@
+2015-01-05  Christian Schafmeister  <chris.schaf@verizon.net>
+
+	* swank/clasp.lisp: New file.
+
+	* swank-loader.lisp (*sysdep-files*, *implementation-features*)
+	(clasp-version-string, lisp-version-string): Added CLASP backend.
+
 2014-12-23  Daniel Kochmański  <dkochmanski@gmail.com>
 
 	* swank-loader.lisp (*architecture-features*): Add ARM architectures

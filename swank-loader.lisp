@@ -101,7 +101,7 @@
                 (subseq s 0 (position #\space s)))
   #+armedbear (lisp-implementation-version)
   #+ecl (ecl-version-string)
-  #+clasp (clasp-version-string) )
+  #+clasp (clasp-version-string))
 
 (defun unique-dir-name ()
   "Return a name that can be used as a directory name that is

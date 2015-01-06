@@ -70,9 +70,6 @@
 
 (in-package :swank)
 
-
-
-
 
 ;;;; Top-level variables, constants, macros
 
@@ -298,7 +295,7 @@ Backend code should treat the connection structure as opaque.")
 (defun signal-swank-error (condition &optional (backtrace (safe-backtrace)))
   (error 'swank-error :condition condition :backtrace backtrace))
 
-(defvar *debug-on-swank-protocol-error* nil 
+(defvar *debug-on-swank-protocol-error* nil
   "When non-nil invoke the system debugger on errors that were
 signalled during decoding/encoding the wire protocol.  Do not set this
 to T unless you want to debug swank internals.")
@@ -1310,17 +1307,17 @@ event was found."
 
 (defun simple-repl ()
   (loop
-     (format t "~a> " (package-string-for-prompt *package*))
-     (force-output)
-     (let ((form (handler-case (read)
-                   (end-of-repl-input () (return)))))
-       (let ((- form)
-             (values (multiple-value-list (eval form))))
-         (setq *** **  ** *  * (car values)
-               /// //  // /  / values
-               +++ ++  ++ +  + form)
-         (cond ((null values) (format t "; No values~&"))
-               (t (mapc (lambda (v) (format t "~s~&" v)) values)))))))
+    (format t "~a> " (package-string-for-prompt *package*))
+    (force-output)
+    (let ((form (handler-case (read)
+                  (end-of-repl-input () (return)))))
+      (let ((- form)
+            (values (multiple-value-list (eval form))))
+        (setq *** **  ** *  * (car values)
+              /// //  // /  / values
+              +++ ++  ++ +  + form)
+        (cond ((null values) (format t "; No values~&"))
+              (t (mapc (lambda (v) (format t "~s~&" v)) values)))))))
 
 (defun make-repl-input-stream (connection stdin)
   (make-input-stream
