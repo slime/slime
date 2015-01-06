@@ -159,7 +159,13 @@ emptied. See also `sly-mrepl-hook'")
   (add-hook 'kill-emacs-hook 'sly-mrepl--save-all-histories)
   ;;(set (make-local-variable 'comint-get-old-input) 'ielm-get-old-input)
   (set-syntax-table lisp-mode-syntax-table)
-  (set-keymap-parent sly-mrepl-mode-map nil))
+  (set-keymap-parent sly-mrepl-mode-map nil)
+
+  ;; Add hooks to isearch-mode placed strategically after the ones
+  ;; set by comint.el itself.
+  ;;
+  (add-hook 'isearch-mode-hook 'sly-mrepl--setup-isearch-mode t t)
+  (add-hook 'isearch-mode-end-hook 'sly-mrepl--teardown-isearch-mode t t))
 
 
 ;;; Channel methods
@@ -645,25 +651,55 @@ history entry navigated to."
   :type 'boolean
   :group 'sly)
 
-(defvar sly-mrepl--eli-input-and-offset nil)
+(defvar sly-mrepl--eli-input nil)
 
-(defun sly-mrepl--set-eli-input-and-offset ()
-  (setq sly-mrepl--eli-input-and-offset
+(defun sly-mrepl--set-eli-input ()
+  (setq sly-mrepl--eli-input
         (and sly-mrepl-eli-like-history-navigation
-             (cons (buffer-substring (sly-mrepl--mark) (point-max))
-                   (- (point) (sly-mrepl--mark))))))
+             (let* ((offset (- (point) (sly-mrepl--mark)))
+                    (existing (and (> offset 0)
+                                   (buffer-substring (sly-mrepl--mark) (point-max)))))
+               (when existing
+                 (cons (substring existing 0 offset)
+                       (substring existing offset)))))))
 
 (defun sly-mrepl--surround-with-eli-input ()
-  (let ((existing (car sly-mrepl--eli-input-and-offset))
-        (offset (cdr sly-mrepl--eli-input-and-offset)))
-    (when (and existing
-               offset
-               (> offset 0))
-      (save-excursion
-        (goto-char (sly-mrepl--mark))
-        (insert (substring existing 0 offset))
-        (goto-char (point-max))
-        (insert (substring existing offset))))))
+  (when sly-mrepl--eli-input
+    (save-excursion
+      (goto-char (sly-mrepl--mark))
+      (insert (car sly-mrepl--eli-input))
+      (goto-char (point-max))
+      (insert (cdr sly-mrepl--eli-input)))))
+
+(defvar sly-mrepl--eli-input-overlay nil)
+
+(defun sly-mrepl--surround-with-eli-input-overlay ()
+  (if sly-mrepl--eli-input-overlay
+      (move-overlay sly-mrepl--eli-input-overlay
+                    (sly-mrepl--mark) (point-max))
+    (setq sly-mrepl--eli-input-overlay
+          (make-overlay (sly-mrepl--mark) (point-max))))
+  (overlay-put sly-mrepl--eli-input-overlay
+               'before-string (car sly-mrepl--eli-input))
+  (overlay-put sly-mrepl--eli-input-overlay
+               'after-string (cdr sly-mrepl--eli-input)))
+
+(defun sly-mrepl--setup-isearch-mode ()
+  (sly-mrepl--set-eli-input)
+  (when sly-mrepl-eli-like-history-navigation
+    (set (make-local-variable 'isearch-push-state-function)
+         #'sly-mrepl--isearch-push-state)))
+
+(defun sly-mrepl--isearch-push-state (&rest args)
+  (apply #'comint-history-isearch-push-state args)
+  (unless (memq this-command
+                '(isearch-backward isearch-forward))
+    (sly-mrepl--surround-with-eli-input-overlay)))
+
+(defun sly-mrepl--teardown-isearch-mode ()
+  (delete-overlay sly-mrepl--eli-input-overlay)
+  (setq sly-mrepl--eli-input-overlay nil)
+  (sly-mrepl--surround-with-eli-input))
 
 
 ;;; Interactive commands
@@ -700,7 +736,7 @@ history entry navigated to."
         (unless (memq last-command
                       '(sly-mrepl-previous-input-or-button
                         sly-mrepl-next-input-or-button))
-            (sly-mrepl--set-eli-input-and-offset))
+            (sly-mrepl--set-eli-input))
         (comint-previous-input n)
         (sly-mrepl--surround-with-eli-input))
     (sly-button-backward n)))
