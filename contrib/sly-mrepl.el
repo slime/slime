@@ -391,7 +391,7 @@ emptied. See also `sly-mrepl-hook'")
     (move-overlay sly-mrepl--last-prompt-overlay beg (sly-mrepl--mark)))
   (sly-mrepl--ensure-prompt-face)
   (when condition
-    (sly-mrepl--insert-output (format "; Evaluation errored on %s" condition)))
+    (sly-mrepl--insert-output (format "; Evaluation errored on %s\n" condition)))
   (buffer-enable-undo))
 
 (defun sly-mrepl--copy-part-to-repl (entry-idx value-idx)

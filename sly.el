@@ -5028,7 +5028,7 @@ PREDICATE is executed in the buffer to test."
                          (eq sly-current-thread thread))))
                 (sly-db-buffers))))
 
-(defun sly-db-pop-to-debugger-maybe ()
+(defun sly-db-pop-to-debugger-maybe (&optional _button)
   "Maybe pop to *sly-db* buffer for current context."
   (interactive)
   (let ((b (sly-db-find-buffer sly-current-thread)))

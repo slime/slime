@@ -153,7 +153,9 @@ Set this to NIL to turn this feature off.")
     ,(package-string-for-prompt *package*)
     ,(length (mrepl-pending-errors repl))
     ,@(when condition
-        (list (prin1-to-string condition)))))
+        (list (write-to-string condition
+                               :escape t
+                               :readably nil)))))
 
 (defun send-prompt (repl &optional condition)
   (send-to-remote-channel (mrepl-remote-id repl)
