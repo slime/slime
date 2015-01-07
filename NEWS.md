@@ -8,6 +8,10 @@ previously returned values. By default, `#v3` will access the first
 value of the fourth values-form ever returned and `#v3:2` will access
 the third of those values.
 
+New customization option `sly-mrepl-eli-like-history-navigation` makes
+history navigation via `C-r`, `M-p` and `M-n` keep the current input
+and add the history input at point.
+
 ### New commands `sly-next-connection` and `sly-prev-connection`
 
 Replace deprecated `sly-cycle-connections` and provide more feedback.
