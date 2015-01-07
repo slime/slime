@@ -450,8 +450,9 @@ to some other key.
     (define-key map (kbd "C-t")   'sly-toggle-trace-fdefinition)
     (define-key map (kbd "I")     'sly-inspect)
     (define-key map (kbd "C-x t") 'sly-list-threads)
-    (define-key map (kbd "C-x n") 'sly-cycle-connections)
+    (define-key map (kbd "C-x n") 'sly-next-connection)
     (define-key map (kbd "C-x c") 'sly-list-connections)
+    (define-key map (kbd "C-x p") 'sly-prev-connection)
     (define-key map (kbd "<")     'sly-list-callers)
     (define-key map (kbd ">")     'sly-list-callees)
     ;; Include DOC keys...
@@ -570,12 +571,14 @@ to some other key.
       (:propertize ,name
                    face sly-mode-line
                    keymap ,(let ((map (make-sparse-keymap)))
-                             (define-key map [mode-line mouse-1] 'sly-cycle-connections)
+                             (define-key map [mode-line mouse-1] 'sly-prev-connection)
                              (define-key map [mode-line mouse-2] 'sly-list-connections)
-                             (define-key map [mode-line mouse-3] 'sly-list-connections)
+                             (define-key map [mode-line mouse-3] 'sly-next-connection)
                              map)
                    mouse-face mode-line-highlight
-                   help-echo "mouse-1: cycle connections\nmouse-2, mouse-3: list connections")
+                   help-echo ,(concat "mouse-1: previous connection\n"
+                                      "mouse-2: list connections\n"
+                                      "mouse-3: next connection"))
       "/"
       ,(or package-name "*")
       "/"
@@ -1804,9 +1807,13 @@ This is automatically synchronized from Lisp.")
   (setq sly-default-connection process)
   (run-hooks 'sly-select-connection-hook))
 
-(defun sly-cycle-connections ()
-  "Change current sly connection, cycling through all connections."
-  (interactive)
+(define-obsolete-function-alias 'sly-cycle-connections 'sly-next-connection "1.0.0-beta")
+
+(defun sly-next-connection (arg &optional dont-wrap)
+  "Switch to the next SLY connection, cycling through all connections.
+Skip ARG-1 connections. Negative ARG means cycle back. DONT-WRAP
+means don't wrap around when last connection is reached."
+  (interactive "p")
   (cl-labels ((connection-full-name
                (c)
                (format "%s %s" (sly-connection-name c) (process-contact c))))
@@ -1815,18 +1822,30 @@ This is automatically synchronized from Lisp.")
           ((null (cdr sly-net-processes))
            (sly-message "Only one connection: %s" (connection-full-name (car sly-net-processes))))
           (t
-           (let* ((tail (or (cdr (member (sly-current-connection)
-                                         sly-net-processes))
-                            sly-net-processes))
-                  (p (car tail)))
-             (sly-select-connection p)
+           (let* ((dest (append (member (sly-current-connection)
+                                        sly-net-processes)
+                                (unless dont-wrap sly-net-processes)))
+                  (len (length sly-net-processes))
+                  (target (nth (mod arg len) 
+                               dest)))
+             (unless target
+               (sly-error "No more connections"))
+             (sly-select-connection target)
              (if (and sly-buffer-connection
-                      (not (eq sly-buffer-connection p)))
+                      (not (eq sly-buffer-connection target)))
                  (sly-message "switched to: %s but buffer remains in: %s"
-                              (connection-full-name p)
+                              (connection-full-name target)
                               (connection-full-name sly-buffer-connection))
-               (sly-message "switched to: %s" (connection-full-name p)))
+               (sly-message "switched to: %s (%s/%s)" (connection-full-name target)
+                            (1+ (cl-position target sly-net-processes))
+                            len))
              (sly--refresh-mode-line))))))
+
+(defun sly-prev-connection (arg &optional dont-wrap)
+  "Switch to the previous SLY connection, cycling through all connections.
+See `sly-next-connection' for other args."
+  (interactive "p")
+  (sly-next-connection (- arg) dont-wrap))
 
 (defun sly-disconnect (&optional interactive)
   "Close the current connection."

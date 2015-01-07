@@ -1313,8 +1313,11 @@ the ``connection list'' buffer:
 @kbditem{C-c C-x c, sly-list-connections}
 Pop up a buffer listing the established connections. 
 
-@kbditem{C-c C-x n, sly-cycle-connections}
-Change current Lisp connection by cycling through all connections.  
+@kbditem{C-c C-x n, sly-next-connection}
+Switch to the next Lisp connection by cycling through all connections.
+
+@kbditem{C-c C-x p, sly-prev-connection}
+Switch to the previous Lisp connection by cycling through all connections.  
 
 @kbditem{C-c C-x t, sly-list-threads}
 Pop up a buffer listing the current threads.

@@ -8,6 +8,10 @@ previously returned values. By default, `#v3` will access the first
 value of the fourth values-form ever returned and `#v3:2` will access
 the third of those values.
 
+### New commands `sly-next-connection` and `sly-prev-connection`
+
+Replace deprecated `sly-cycle-connections` and provide more feedback.
+
 ### On par with SLIME 2.11
 
 Where applicable, SLY tracks bugfixes and improvements contributed to
