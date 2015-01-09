@@ -3,10 +3,10 @@ SLY 1.0.0-beta (estimated February 2014)
 
 ### mREPL enhancements
 
-New reader macro used just in the REPL allows easy access to
-previously returned values. By default, `#v3` will access the first
-value of the fourth values-form ever returned and `#v3:2` will access
-the third of those values.
+In the REPL, a reader macro allows easy backreferences to previously
+returned values. `#v3` will access the first value of the fourth
+values-form ever returned and `#v3:2` will access the third of those
+values. Backreferences are automatically highlighted.
 
 New customization option `sly-mrepl-eli-like-history-navigation` makes
 history navigation via `C-r`, `M-p` and `M-n` keep the current input
