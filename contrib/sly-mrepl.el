@@ -164,8 +164,12 @@ emptied. See also `sly-mrepl-hook'")
   ;; Add hooks to isearch-mode placed strategically after the ones
   ;; set by comint.el itself.
   ;;
-  (add-hook 'isearch-mode-hook 'sly-mrepl--setup-isearch-mode t t)
-  (add-hook 'isearch-mode-end-hook 'sly-mrepl--teardown-isearch-mode t t))
+  (add-hook 'isearch-mode-hook 'sly-mrepl--setup-eli-history t t)
+  (add-hook 'isearch-mode-end-hook 'sly-mrepl--teardown-eli-history t t)
+
+  ;; Add a post-command-handler
+  ;;
+  (add-hook 'post-command-hook 'sly-mrepl--highlight-backreferences-maybe t t))
 
 
 ;;; Channel methods
@@ -684,7 +688,7 @@ history entry navigated to."
   (overlay-put sly-mrepl--eli-input-overlay
                'after-string (cdr sly-mrepl--eli-input)))
 
-(defun sly-mrepl--setup-isearch-mode ()
+(defun sly-mrepl--setup-eli-history ()
   (sly-mrepl--set-eli-input)
   (when sly-mrepl-eli-like-history-navigation
     (set (make-local-variable 'isearch-push-state-function)
@@ -696,7 +700,7 @@ history entry navigated to."
                 '(isearch-backward isearch-forward))
     (sly-mrepl--surround-with-eli-input-overlay)))
 
-(defun sly-mrepl--teardown-isearch-mode ()
+(defun sly-mrepl--teardown-eli-history ()
   (delete-overlay sly-mrepl--eli-input-overlay)
   (setq sly-mrepl--eli-input-overlay nil)
   (sly-mrepl--surround-with-eli-input))
@@ -1051,30 +1055,36 @@ When setting this variable outside of the Customize interface,
 ;;; Backreference highlighting
 ;;;
 (defun sly-mrepl-highlight-results (&optional entry-idx value-idx)
+  "Highlight REPL results for ENTRY-IDX and VALUE-IDX.
+If VALUE-IDX is nil, highlight all results for entry ENTRY-IDX.
+If ENTRY-IDX is nil, highlight all results.  Returns a list of
+result buttons thus highlighted"
   (interactive)
   (cl-loop
    with inhibit-read-only = t
    for button in (sly-button-buttons-in (point-min) (point-max))
+   for e-idx = (car (button-get button 'part-args))
+   for v-idx = (cadr (button-get button 'part-args))
    when (and (button-type-subtype-p (button-type button) 'sly-mrepl-part)
-             (not (button-get button 'sly-mrepl--highlight-overlay)))
-   do (let ((overlay (make-overlay (button-start button) (button-end button)))
-            (e-idx (car (button-get button 'part-args)))
-            (v-idx (cadr (button-get button 'part-args))))
-        (when (and (or (not entry-idx)
-                       (= e-idx entry-idx))
-                   (or (not value-idx)
-                       (= v-idx value-idx)))
-          (button-put button 'sly-mrepl--highlight-overlay overlay)
-          (overlay-put overlay 'before-string
-                       (concat
-                        (propertize
-                         (format "%s:%s"
-                                 (car (button-get button 'part-args))
-                                 (cadr (button-get button 'part-args)))
-                         'face 'highlight)
-                        " "))))))
+             (not (button-get button 'sly-mrepl--highlight-overlay))
+             (and (or (not entry-idx)
+                      (= e-idx entry-idx))
+                  (or (not value-idx)
+                      (= v-idx value-idx))))
+   collect button and
+   do (let ((overlay (make-overlay (button-start button) (button-end button))))
+        (button-put button 'sly-mrepl--highlight-overlay overlay)
+        (overlay-put overlay 'before-string
+                     (concat
+                      (propertize
+                       (format "%s:%s"
+                               (car (button-get button 'part-args))
+                               (cadr (button-get button 'part-args)))
+                       'face 'highlight)
+                      " ")))))
 
 (defun sly-mrepl-unhighlight-results ()
+  "Unhighlight all repl results"
   (interactive)
   (cl-loop
    with inhibit-read-only = t
@@ -1083,6 +1093,40 @@ When setting this variable outside of the Customize interface,
    when overlay
    do (delete-overlay overlay)
    (button-put button 'sly-mrepl--highlight-overlay nil)))
+
+(defvar sly-mrepl--backreference-overlay nil)
+(defvar sly-mrepl--backreference-prefix "#v")
+
+(defun sly-mrepl--highlight-backreferences-maybe ()
+  "Intended to be placed in `post-command-hook'."
+  (sly-mrepl-unhighlight-results)
+  (when sly-mrepl--backreference-overlay
+    (delete-overlay sly-mrepl--backreference-overlay))
+  (let* ((match (save-excursion
+                  (sly-beginning-of-symbol)
+                  (looking-at
+                   (format "%s\\([[:digit:]]+\\)?\\(:\\([[:digit:]]+\\)\\|:\\)?"
+                           sly-mrepl--backreference-prefix))))
+         (entry-idx (and match
+                         (parse-integer (match-string 1)))) 
+         (value-idx (and match
+                         (or (parse-integer (match-string 3))
+                             (and (not (match-string 2))
+                                  0)))))
+    (when match
+      (let ((buttons (sly-mrepl-highlight-results entry-idx value-idx))
+            (overlay (or sly-mrepl--backreference-overlay
+                         (set (make-variable-buffer-local 'sly-mrepl--backreference-overlay)
+                              (make-overlay 0 0)))))
+        (move-overlay sly-mrepl--backreference-overlay
+                      (match-beginning 0) (match-end 0))
+        (cond ((null buttons)
+               (overlay-put overlay 'face 'font-lock-warning-face))
+              ((and (not (cdr buttons))
+                    entry-idx)
+               (overlay-put overlay 'face 'highlight))
+              (t
+               (overlay-put overlay 'face 'sly-action-face)))))))
 
 
 ;;;; Menu
