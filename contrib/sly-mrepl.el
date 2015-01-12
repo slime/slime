@@ -164,8 +164,8 @@ emptied. See also `sly-mrepl-hook'")
   ;; Add hooks to isearch-mode placed strategically after the ones
   ;; set by comint.el itself.
   ;;
-  (add-hook 'isearch-mode-hook 'sly-mrepl--setup-eli-history t t)
-  (add-hook 'isearch-mode-end-hook 'sly-mrepl--teardown-eli-history t t)
+  (add-hook 'isearch-mode-hook 'sly-mrepl--setup-comint-isearch t t)
+  (add-hook 'isearch-mode-end-hook 'sly-mrepl--teardown-comint-isearch t t)
 
   ;; Add a post-command-handler
   ;;
@@ -268,7 +268,6 @@ emptied. See also `sly-mrepl-hook'")
 (defun sly-mrepl--process () (get-buffer-process (current-buffer))) ;stupid
 
 (defun sly-mrepl--mark () (process-mark (sly-mrepl--process)))
-
 (defmacro sly-mrepl--commiting-text (props &rest body)
   (declare (debug (sexp &rest form))
            (indent 1))
@@ -644,7 +643,7 @@ recent entry that is discarded."
     (sly-error "Not in a mREPL buffer")))
 
 
-;;; ELI-like history
+;;; ELI-like history (and a bugfix)
 ;;;
 ;;;
 (defcustom sly-mrepl-eli-like-history-navigation nil
@@ -688,7 +687,21 @@ history entry navigated to."
   (overlay-put sly-mrepl--eli-input-overlay
                'after-string (cdr sly-mrepl--eli-input)))
 
-(defun sly-mrepl--setup-eli-history ()
+(defun sly-mrepl--setup-comint-isearch ()
+  ;; Defeat Emacs bug 19572 in Emacs whereby comint refuses to
+  ;; i-search multi-line history entries. The doc of
+  ;; `isearch-search-fun-function' should explain the need for this
+  ;; lambda madness.
+  ;;
+  (set (make-local-variable 'isearch-search-fun-function)
+       #'(lambda ()
+           #'(lambda (&rest args)
+               (cl-letf
+                   (((symbol-function
+                      'comint-line-beginning-position)
+                     #'field-beginning))
+                 (apply (comint-history-isearch-search)
+                        args)))))
   (sly-mrepl--set-eli-input)
   (when sly-mrepl-eli-like-history-navigation
     (set (make-local-variable 'isearch-push-state-function)
@@ -700,7 +713,7 @@ history entry navigated to."
                 '(isearch-backward isearch-forward))
     (sly-mrepl--surround-with-eli-input-overlay)))
 
-(defun sly-mrepl--teardown-eli-history ()
+(defun sly-mrepl--teardown-comint-isearch ()
   (delete-overlay sly-mrepl--eli-input-overlay)
   (setq sly-mrepl--eli-input-overlay nil)
   (sly-mrepl--surround-with-eli-input))
