@@ -301,7 +301,7 @@
                (write-string string tmp-stream)
                (finish-output tmp-stream)
                (multiple-value-setq (fasl-file warnings-p failure-p)
-                 (let ((truename (or filename (node-buffer-tmpfile tmp-file buffer))))
+                 (let ((truename (or filename (note-buffer-tmpfile tmp-file buffer))))
                    (compile-file tmp-file
                                  :source-debug-namestring truename
                                  :source-debug-offset (1- position)))))
