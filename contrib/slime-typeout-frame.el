@@ -11,15 +11,14 @@
   (:on-load
    (unless (slime-typeout-tty-only-p)
      (add-hook 'slime-connected-hook 'slime-ensure-typeout-frame)
+     (add-hook 'slime-autodoc-mode-hook 'slime-typeout-wrap-autodoc)
      (cl-loop for (var value) in 
               '((slime-message-function slime-typeout-message)
-                (slime-background-message-function slime-typeout-message)
-                (slime-autodoc-message-function slime-typeout-autodoc-message)
-                (slime-autodoc-dimensions-function
-                 slime-typeout-autodoc-dimensions))
+                (slime-background-message-function slime-typeout-message))
               do (slime-typeout-frame-init-var var value))))
   (:on-unload
    (remove-hook 'slime-connected-hook 'slime-ensure-typeout-frame)
+   (remove-hook 'slime-autodoc-mode-hook 'slime-typeout-wrap-autodoc)
    (cl-loop for (var value) in slime-typeout-frame-unbind-stack 
             do (cond ((eq var 'slime-unbound) (makunbound var))
                      (t (set var value))))
@@ -87,15 +86,7 @@
         (switch-to-buffer (slime-typeout-buffer)))
     (slime-make-typeout-frame)))
 
-(defun slime-typeout-autodoc-message (doc)
-  ;; No need for refreshing per `slime-autodoc-pre-command-refresh-echo-area'.
-  ;; FIXME: eldoc doesn't know anything about this
-  (slime-typeout-message-aux "%s" doc))
-
-(defun slime-typeout-autodoc-dimensions ()
-  (cond ((slime-typeout-active-p)
-	 (list (window-width slime-typeout-window) nil))
-	(t
-	 (list 75 nil))))
+(defun slime-typeout-wrap-autodoc ()
+  (setq eldoc-message-function 'slime-typeout-message-aux))
 
 (provide 'slime-typeout-frame)

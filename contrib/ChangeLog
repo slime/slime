@@ -1,3 +1,11 @@
+2015-01-21  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Fix bitrot in slime-typeout-frame.
+
+	* slime-typeout-frame.el (slime-typeout-frame): Use
+	slime-autodoc-mode-hook.
+	(slime-typeout-wrap-autodoc): New function.
+
 2015-01-05  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-arglists.lisp (class-from-class-name-form): ignore all
