@@ -88,10 +88,7 @@
 This is used to load the supporting Common Lisp library, Swank.
 The default value is automatically computed from the location of
 the Emacs Lisp package.")
-
-(eval-and-compile
- (let ((path (or (locate-library "slime") load-file-name)))
-   (setq slime-path (and path (file-name-directory path)))))
+(setq slime-path (file-name-directory load-file-name))
 
 (defvar slime-lisp-modes '(lisp-mode))
 (defvar slime-contribs nil
@@ -130,11 +127,18 @@ CONTRIBS is a list of contrib packages to load. If `nil', use
        'common-lisp-indent-function))
 
 (eval-and-compile
+  (defun slime--changelog-file-name ()
+    (expand-file-name "ChangeLog"
+                      (if (and (boundp 'byte-compile-current-file)
+                               byte-compile-current-file)
+                          (file-name-directory byte-compile-current-file)
+                          slime-path)))
+
   (defun slime-changelog-date (&optional interactivep)
     "Return the datestring of the latest entry in the ChangeLog file.
 Return nil if the ChangeLog file cannot be found."
     (interactive "p")
-    (let ((changelog (expand-file-name "ChangeLog" slime-path))
+    (let ((changelog (slime--changelog-file-name))
           (date nil))
       (when (file-exists-p changelog)
         (with-temp-buffer

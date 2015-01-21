@@ -1,3 +1,16 @@
+2015-01-02  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* slime.el (slime-path): Only set slime-path at load-time. Setting
+	at compile time is potentially premature if compilation is not
+	immediately followed by loading. (See gh issue #125 for more
+	discussion.)
+	(slime--changelog-file-name): New function. Computes
+	the location of the SLIME ChangeLog based on
+	byte-compile-current-file at compile time, or based on slime-path
+	at load time when slime.el is not compiled.
+	(slime-changelog-date): Use slime--changelog-file-name. No longer
+	looks at slime-path at compile time.
+
 2015-01-05  Christian Schafmeister  <chris.schaf@verizon.net>
 
 	* swank/clasp.lisp: New file.
