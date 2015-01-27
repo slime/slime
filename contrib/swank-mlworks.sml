@@ -274,9 +274,9 @@ structure Swank = struct
 	       | NONE => raise UnknownFunction name)
 
 
-	fun getpid () =
+	local fun getpid () =
 	    Word32.toInt (Posix.Process.pidToWord (Posix.ProcEnv.getpid ()))
-
+	in
 	fun connectionInfo [] =
 	    Lst [Sym ":pid", Int (getpid ()),
 		 Sym ":lisp-implementation", Lst [Sym ":type", Str "MLWorks",
@@ -288,6 +288,7 @@ structure Swank = struct
 		 Sym ":features", Nil,
 		 Sym ":package", Lst [Sym ":name", Str "root",
 				      Sym ":prompt", Str "-"]]
+	end
 
 	fun nyi _ = Nil
 

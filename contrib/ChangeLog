@@ -1,3 +1,7 @@
+2015-01-27  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-mlworks.sml (Rpc.call.getpid): Limit scope.
+
 2015-01-21  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Fix bitrot in slime-typeout-frame.
