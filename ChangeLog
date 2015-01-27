@@ -1,5 +1,8 @@
 2015-01-27  Gábor Melis  <mega@retes.hu>
 
+	* Makefile (clean-fasls): Don't fail if ~/.slime/fasl/ does not
+	exist.
+
 	* swank/source-path-parser.lisp: Make source parser to honor
 	SWANK:*READTABLE-ALIST* which makes M-. work on SBCL even if
 	skipping over forms requires a special readtable.
