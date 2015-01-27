@@ -1,3 +1,12 @@
+2015-01-28  Helmut Eller  <heller@common-lisp.net>
+
+	* swank/source-path-parser.lisp (skip-toplevel-forms): Use the
+	package tracking code; return multiple values instead of a macro.
+	Also remove the error handling; let it crash.
+	(skip-one-toplevel-form): New helper.
+	(call-with-skipping-toplevel-forms, with-skipping-toplevel-forms):
+	Merged into skip-toplevel-forms.
+
 2015-01-27  Gábor Melis  <mega@retes.hu>
 
 	* Makefile (clean-fasls): Don't fail if ~/.slime/fasl/ does not
