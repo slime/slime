@@ -1,3 +1,9 @@
+2015-01-27  Gábor Melis  <mega@retes.hu>
+
+	* swank/source-path-parser.lisp: Make source parser to honor
+	SWANK:*READTABLE-ALIST* which makes M-. work on SBCL even if
+	skipping over forms requires a special readtable.
+
 2015-01-02  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* slime.el (slime-path): Only set slime-path at load-time. Setting
