@@ -2,6 +2,10 @@
 
 	* swank-mlworks.sml (Rpc.call.getpid): Limit scope.
 
+2015-01-27  Gábor Melis  <mega@retes.hu>
+
+	* slime-asdf.el: Require 'cl for loop, lexical-let.
+
 2015-01-21  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Fix bitrot in slime-typeout-frame.

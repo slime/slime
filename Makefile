@@ -88,7 +88,7 @@ FASLREGEX = .*\.\(fasl\|ufasl\|sse2f\|lx32fsl\|abcl\|fas\|lib\|trace\)$$
 
 clean-fasls:
 	find . -regex '$(FASLREGEX)' -exec rm -v {} \;
-	[ -d ~/.slime/fasl ] && rm -rf ~/.slime/fasl
+	[ ! -d ~/.slime/fasl ] || rm -rf ~/.slime/fasl
 
 clean: clean-fasls
 	find . -iname '*.elc' -exec rm {} \;
