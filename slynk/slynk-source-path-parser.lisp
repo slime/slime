@@ -102,18 +102,57 @@ subexpressions of the object to stream positions."
 (defun skip-whitespace (stream)
   (peek-char t stream))
 
+(defun readtable-for-package (package)
+  ;; KLUDGE: due to the load order we can't reference the swank
+  ;; package.
+  (funcall (read-from-string "swank::guess-buffer-readtable")
+           (string-upcase (package-name package))))
+
+(defun call-with-skipping-toplevel-forms (fn n stream)
+  (let ((*read-suppress* nil)
+        (*package* *package*)
+        (*readtable* *readtable*))
+    ;; Try to parse IN-PACKAGE forms and alter *READTABLE* and
+    ;; *PACKAGE* accordingly. In case of any errors, revert to
+    ;; suppressed reading, in the hope that it may yield useful
+    ;; results.
+    (flet ((skip-one ()
+             (let ((form (read stream)))
+               (when (and (consp form)
+                          (string= (first form) 'in-package)
+                          (second form))
+                 (let ((package (find-package (second form))))
+                   (if package
+                       (let ((readtable (readtable-for-package package)))
+                         (setf *package* package)
+                         (setf *readtable* readtable))
+                       (setf *read-suppress* t)))))))
+      (loop for i below n do
+        (block try-skipping
+          (handler-bind ((serious-condition
+                           (lambda (condition)
+                             (when swank/backend:*debug-swank-backend*
+                               (invoke-debugger condition))
+                             (return-from try-skipping))))
+            (skip-one)))))
+    (funcall fn)))
+
+(defmacro with-skipping-toplevel-forms ((n stream) &body body)
+  `(call-with-skipping-toplevel-forms (lambda () ,@body) ,n ,stream))
+
+;;; FIXME: kept only for backward compatibility with non-sbcl
+;;; backends, but it should be eliminated eventually.
 (defun skip-toplevel-forms (n stream)
-  (let ((*read-suppress* t))
-    (dotimes (i n)
-      (read stream))))
+  (with-skipping-toplevel-forms (n stream)
+    nil))
 
 (defun read-source-form (n stream)
   "Read the Nth toplevel form number with source location recording.
 Return the form and the source-map."
-  (skip-toplevel-forms n stream)
-  (skip-whitespace stream)
-  (let ((*read-suppress* nil))
-    (read-and-record-source-map stream)))
+  (with-skipping-toplevel-forms (n stream)
+    (skip-whitespace stream)
+    (let ((*read-suppress* nil))
+      (read-and-record-source-map stream))))
 
 (defun source-path-stream-position (path stream)
   "Search the source-path PATH in STREAM and return its position."
@@ -139,12 +178,12 @@ Return the form and the source-map."
   (let ((toplevel-number (first path))
 	(buffer))
     (with-open-file (file filename)
-      (skip-toplevel-forms (1+ toplevel-number) file)
-      (let ((endpos (file-position file)))
-	(setq buffer (make-array (list endpos) :element-type 'character
-				 :initial-element #\Space))
-	(assert (file-position file 0))
-	(read-sequence buffer file :end endpos)))
+      (with-skipping-toplevel-forms ((1+ toplevel-number) file)
+        (let ((endpos (file-position file)))
+          (setq buffer (make-array (list endpos) :element-type 'character
+                                   :initial-element #\Space))
+          (assert (file-position file 0))
+          (read-sequence buffer file :end endpos))))
     (source-path-string-position path buffer)))
 
 (defun source-path-source-position (path form source-map)
@@ -156,8 +195,10 @@ of the deepest (i.e. smallest) possible form is returned."
 		     for f = form then (nth n f)
 		     collect f)))
     ;; select the first subform present in source-map
-    (loop for form in (reverse forms)
-	  for positions = (gethash form source-map)
-	  until (and positions (null (cdr positions)))
-	  finally (destructuring-bind ((start . end)) positions
-		    (return (values start end))))))
+    (loop
+      for form in (reverse forms)
+      for positions = (gethash form source-map)
+      while positions
+      when (null (cdr positions))
+        return (destructuring-bind ((start . end)) positions
+                 (return (values start end))))))
