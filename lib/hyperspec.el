@@ -42,7 +42,7 @@
   "http://www.lispworks.com/reference/HyperSpec/"
   "The root of the Common Lisp HyperSpec URL.
 If you copy the HyperSpec to your local system, set this variable to
-something like \"file:/usr/local/doc/HyperSpec/\".")
+something like \"file://usr/local/doc/HyperSpec/\".")
 
 ;;; Added variable for CLHS symbol table. See details below.
 ;;;
