@@ -62,10 +62,10 @@ in the directory of the current buffer."
 `directory' and returns it if it's in `system-names'."
   (let ((asd-files
          (directory-files (file-name-directory directory) nil "\.asd$")))
-    (loop for system in asd-files
-          for candidate = (file-name-sans-extension system)
-          when (cl-find candidate system-names :test #'string-equal)
-            do (return candidate))))
+    (cl-loop for system in asd-files
+             for candidate = (file-name-sans-extension system)
+             when (cl-find candidate system-names :test #'string-equal)
+             do (return candidate))))
 
 (defun slime-determine-asdf-system (filename buffer-package)
   "Try to determine the asdf system that `filename' belongs to."
@@ -87,11 +87,11 @@ See also `slime-highlight-compiler-notes' and
 (defun slime-asdf-operation-finished-function (system)
   (if slime-asdf-collect-notes
       #'slime-compilation-finished
-      (lexical-let ((system system))
-        (lambda (result)
-          (let (slime-highlight-compiler-notes
-                slime-compilation-finished-hook)
-            (slime-compilation-finished result))))))
+      (slime-curry (lambda (system result)
+                     (let (slime-highlight-compiler-notes
+                           slime-compilation-finished-hook)
+                       (slime-compilation-finished result)))
+                   system)))
 
 (defun slime-oos (system operation &rest keyword-args)
   "Operate On System."

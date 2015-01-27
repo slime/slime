@@ -1,3 +1,12 @@
+2015-01-27  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Make slime-asdf no longer depend on cl which has been deprecated
+	in favor of cl-lib.
+
+	* slime-asdf.el (slime-find-asd-file): Add cl- prefix to loop.
+	(slime-asdf-operation-finished-function): Use slime-curry instead
+	of lexical-let.
+
 2015-01-27  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-mlworks.sml (Rpc.call.getpid): Limit scope.
