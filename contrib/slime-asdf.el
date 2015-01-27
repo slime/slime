@@ -1,8 +1,6 @@
 (require 'slime)
 (require 'cl-lib)
 (require 'grep)
-(eval-when-compile
-  (require 'cl))
 
 (define-slime-contrib slime-asdf
   "ASDF support."
