@@ -1,3 +1,8 @@
+2015-01-27  Helmut Eller  <heller@common-lisp.net>
+
+	* lib/hyperspec.el (common-lisp-hyperspec-root): Use file://
+	in example.
+
 2015-01-02  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* slime.el (slime-path): Only set slime-path at load-time. Setting
