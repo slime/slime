@@ -85,12 +85,16 @@ The source locations are stored in SOURCE-MAP."
       (install-wrappers rt)
       rt)))
 
+;; FIXME: try to do this with *READ-SUPPRESS* = t to avoid interning.
+;; Should be possible as we only need the right "list structure" and
+;; not the right atoms.
 (defun read-and-record-source-map (stream)
   "Read the next object from STREAM.
 Return the object together with a hashtable that maps
 subexpressions of the object to stream positions."
   (let* ((source-map (make-hash-table :test #'eq))
          (*readtable* (make-source-recording-readtable *readtable* source-map))
+	 (*read-suppress* nil)
 	 (start (file-position stream))
 	 (form (ignore-errors (read stream)))
 	 (end (file-position stream)))
@@ -102,57 +106,52 @@ subexpressions of the object to stream positions."
 (defun skip-whitespace (stream)
   (peek-char t stream))
 
+;; FIXME: do something cleaner than this.
 (defun readtable-for-package (package)
   ;; KLUDGE: due to the load order we can't reference the swank
   ;; package.
   (funcall (read-from-string "swank::guess-buffer-readtable")
            (string-upcase (package-name package))))
 
-(defun call-with-skipping-toplevel-forms (fn n stream)
-  (let ((*read-suppress* nil)
-        (*package* *package*)
-        (*readtable* *readtable*))
-    ;; Try to parse IN-PACKAGE forms and alter *READTABLE* and
-    ;; *PACKAGE* accordingly. In case of any errors, revert to
-    ;; suppressed reading, in the hope that it may yield useful
-    ;; results.
-    (flet ((skip-one ()
-             (let ((form (read stream)))
-               (when (and (consp form)
-                          (string= (first form) 'in-package)
-                          (second form))
-                 (let ((package (find-package (second form))))
-                   (if package
-                       (let ((readtable (readtable-for-package package)))
-                         (setf *package* package)
-                         (setf *readtable* readtable))
-                       (setf *read-suppress* t)))))))
-      (loop for i below n do
-        (block try-skipping
-          (handler-bind ((serious-condition
-                           (lambda (condition)
-                             (when swank/backend:*debug-swank-backend*
-                               (invoke-debugger condition))
-                             (return-from try-skipping))))
-            (skip-one)))))
-    (funcall fn)))
+(defun skip-one-toplevel-form (stream read-suppress package readtable)
+  ;; Read one form trying to parse IN-PACKAGE forms.
+  ;; Return three values: (NEW-READ-SUPPRESS NEW-PACKAGE NEW-READTABLE).
+  (let ((form (let ((*read-suppress* read-suppress)
+		    (*package* package)
+		    (*readtable* readtable))
+		(read stream))))
+    (cond ((and (consp form)
+		(string= (car form) 'in-package))
+	   (let ((pkg (find-package (second form))))
+	     (if pkg
+		 (values nil pkg (readtable-for-package pkg))
+		 (values t package readtable))))
+	  (t
+	   (values nil package readtable)))))
 
-(defmacro with-skipping-toplevel-forms ((n stream) &body body)
-  `(call-with-skipping-toplevel-forms (lambda () ,@body) ,n ,stream))
-
-;;; FIXME: kept only for backward compatibility with non-sbcl
-;;; backends, but it should be eliminated eventually.
+;; IDEA: maybe stop being so clever after the first IN-PACKAGE form.
+;;
+;; IDEA: 1) skip over the form with *READ-SUPPRESS* 2) reset the file
+;; position 3) use READ-LINE and only if the line matches a pattern
+;; process it as IN-PACKAGE.
 (defun skip-toplevel-forms (n stream)
-  (with-skipping-toplevel-forms (n stream)
-    nil))
+  ;; Skip over N toplevel forms.  Try to be clever and and recognize
+  ;; the IN-PACKAGE form.  For this *READ-SUPPRESS* is NIL (i.e. lots
+  ;; of interning) until a non-existing package would be needed.
+  (let ((read-suppress nil)
+	(package *package*)
+	(readtable *readtable*))
+    (dotimes (_ n)
+      (multiple-value-setq (read-suppress package readtable)
+	(skip-one-toplevel-form stream read-suppress package readtable)))
+    (values package readtable)))
 
 (defun read-source-form (n stream)
   "Read the Nth toplevel form number with source location recording.
 Return the form and the source-map."
-  (with-skipping-toplevel-forms (n stream)
+  (multiple-value-bind (*package* *readtable*) (skip-toplevel-forms n stream)
     (skip-whitespace stream)
-    (let ((*read-suppress* nil))
-      (read-and-record-source-map stream))))
+    (read-and-record-source-map stream)))
 
 (defun source-path-stream-position (path stream)
   "Search the source-path PATH in STREAM and return its position."
@@ -178,12 +177,12 @@ Return the form and the source-map."
   (let ((toplevel-number (first path))
 	(buffer))
     (with-open-file (file filename)
-      (with-skipping-toplevel-forms ((1+ toplevel-number) file)
-        (let ((endpos (file-position file)))
-          (setq buffer (make-array (list endpos) :element-type 'character
-                                   :initial-element #\Space))
-          (assert (file-position file 0))
-          (read-sequence buffer file :end endpos))))
+      (skip-toplevel-forms (1+ toplevel-number) file)
+      (let ((endpos (file-position file)))
+	(setq buffer (make-array (list endpos) :element-type 'character
+				 :initial-element #\Space))
+	(assert (file-position file 0))
+	(read-sequence buffer file :end endpos)))
     (source-path-string-position path buffer)))
 
 (defun source-path-source-position (path form source-map)
@@ -195,10 +194,9 @@ of the deepest (i.e. smallest) possible form is returned."
 		     for f = form then (nth n f)
 		     collect f)))
     ;; select the first subform present in source-map
-    (loop
-      for form in (reverse forms)
-      for positions = (gethash form source-map)
-      while positions
-      when (null (cdr positions))
-        return (destructuring-bind ((start . end)) positions
-                 (return (values start end))))))
+    (loop for form in (reverse forms)
+	  for positions = (gethash form source-map)
+	  while positions
+	  when (null (cdr positions))
+	  return (destructuring-bind ((start . end)) positions
+		   (return (values start end))))))
