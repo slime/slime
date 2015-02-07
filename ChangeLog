@@ -3,6 +3,14 @@
 	* swank/sbcl.lisp (definition-source-buffer-and-file-location):
 	Fix xrefs from C-c C-c. source-file-position may now return NIL,
 	be prepared.
+
+2015-02-08  Adlai Chandrasekhar  <adlai.chandrasekhar@gmail.com>
+
+	* slime.el (slime-next-connection, slime-prev-connection): New
+	functions for cycling connections in both directions, deprecating
+	slime-cycle-connections and adding 'C-c C-x p' (and ?p in
+	slime-selector) for cycling in the opposite direction.
+
 2015-01-28  Helmut Eller  <heller@common-lisp.net>
 
 	* swank/source-path-parser.lisp (skip-toplevel-forms): Use the
