@@ -1,3 +1,12 @@
+2015-02-11  Helmut Eller  <heller@common-lisp.net>
+
+	Update Kawa backend for version 2.0.
+
+	* swank-kawa.scm: Replace @ with \@ as @ is now a reader macro.
+	Also use #:foo instead if foo: as syntax for keywords, in
+	preparation to turn the --r7rs switch on.
+	(<in-port>, <out-port>): New aliases.
+
 2015-01-27  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Make slime-asdf no longer depend on cl which has been deprecated
