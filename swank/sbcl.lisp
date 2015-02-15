@@ -866,8 +866,9 @@ QUALITIES is an alist with (quality . value)"
                                     file-write-date) definition-source
     (let* ((namestring (namestring (translate-logical-pathname pathname)))
            (pos (if form-path
-                    (source-file-position namestring file-write-date
-                                          form-path)
+                    (or (source-file-position namestring file-write-date
+                                              form-path)
+                        character-offset)
                     character-offset))
            (snippet (source-hint-snippet namestring file-write-date pos)))
       (make-location `(:file ,namestring)
@@ -877,11 +878,11 @@ QUALITIES is an alist with (quality . value)"
                      `(:snippet ,snippet)))))
 
 (defun definition-source-buffer-and-file-location (definition-source)
-  (let ((buffer (definition-source-buffer-location definition-source))
-        (file (definition-source-file-location definition-source)))
+  (let ((buffer (definition-source-buffer-location definition-source)))
     (make-location (list :buffer-and-file
                          (cadr (location-buffer buffer))
-                         (cadr (location-buffer file)))
+                         (namestring (sb-introspect:definition-source-pathname
+                                      definition-source)))
                    (location-position buffer)
                    (location-hints buffer))))
 

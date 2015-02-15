@@ -1,3 +1,8 @@
+2015-02-12  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/sbcl.lisp (definition-source-buffer-and-file-location):
+	Fix xrefs from C-c C-c. source-file-position may now return NIL,
+	be prepared.
 2015-01-28  Helmut Eller  <heller@common-lisp.net>
 
 	* swank/source-path-parser.lisp (skip-toplevel-forms): Use the
