@@ -1,3 +1,10 @@
+2015-02-19  Charles Zhang  <carolusiacobus@gmail.com>
+
+	* slime-enclosing-context.el: Restore some long dead functions in
+	order to make the slime-mdot-fu contrib work again.
+	slime-edit-local-definition and meta-point on local variable and
+	function definitions work as a result.
+
 2015-02-15  Helmut Eller  <heller@common-lisp.net>
 
 	More updates for Kawa backend.
