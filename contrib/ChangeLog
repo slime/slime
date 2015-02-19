@@ -1,3 +1,10 @@
+2015-02-15  Helmut Eller  <heller@common-lisp.net>
+
+	More updates for Kawa backend.
+
+	* swank-kawa.scm: Use define-library to control namespace and
+	enable --r7rs.
+
 2015-02-11  Helmut Eller  <heller@common-lisp.net>
 
 	Update Kawa backend for version 2.0.

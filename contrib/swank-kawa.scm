@@ -5,13 +5,13 @@
 ;;; This file is licensed under the terms of the GNU General Public
 ;;; License as distributed with Emacs (press C-h C-c for details).
 
-;;;; Installation 
+;;;; Installation
 ;;
-;; 1. You need Kawa (version 1.14) and a JVM with debugger support.
+;; 1. You need Kawa (version 2.x) and a JVM with debugger support.
 ;;
 ;; 2. Compile this file and create swank-kawa.jar with:
-;;      java -cp kawa-1.14.jar:$JAVA_HOME/lib/tools.jar \
-;;           -Xss2M kawa.repl -d classes -C swank-kawa.scm &&
+;;      java -cp kawa.jar:$JAVA_HOME/lib/tools.jar \
+;;           -Xss2M kawa.repl --r7rs -d classes -C swank-kawa.scm &&
 ;;      jar cf swank-kawa.jar -C classes .
 ;;
 ;; 3. Add something like this to your .emacs:
@@ -25,7 +25,7 @@
           "-cp" "kawa-1.14.jar:swank-kawa.jar:/opt/jdk1.6.0/lib/tools.jar"
           ;; channel for debugger
           "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n"
-          ;; depending on JVM, compiler may need more stack 
+          ;; depending on JVM, compiler may need more stack
           "-Xss2M"
           ;; kawa without GUI
           "kawa.repl" "-s")
@@ -39,10 +39,10 @@
                   ;; Optionally add source paths of your code so
                   ;; that M-. works better:
                   ;;(set! swank-java-source-path
-		  ;;  (append
-		  ;;   '(,(expand-file-name "~/lisp/slime/contrib/")
-		  ;;     "/scratch/kawa")
-		  ;;   swank-java-source-path))
+                  ;;  (append
+                  ;;   '(,(expand-file-name "~/lisp/slime/contrib/")
+                  ;;     "/scratch/kawa")
+                  ;;   swank-java-source-path))
                   )))
 
 |#
@@ -50,38 +50,74 @@
 ;;
 ;;
 
-;;;; Module declaration
-
-(module-export start-swank create-swank-server swank-java-source-path break)
-
-(module-compile-options
- #:warn-unknown-member #t
- #:warn-invoke-unknown-method #t
- #:warn-undefined-variable #t
- )
-
-(import (rnrs hashtables))
-(import (only (gnu kawa slib syntaxutils) expand))
-(import (only (kawa regex) regex-match))
-
-(unless (regex-match #/^2\.0\./
-                     (scheme-implementation-version))
-  (error "swank-kawa.scm requires Kawa version 2.0"))
-
 
-;;;; Macros ()
+;;; Code:
+
+(define-library (swank macros)
+    (export df fun seq set fin esc
+            ! !! !s @ @s
+            when unless while dotimes dolist for packing with pushf == assert
+            mif mcase mlet mlet* typecase ignore-errors
+            ferror
+            )
+    (import (scheme base)
+            (only (kawa base)
+                  syntax
+                  quasisyntax
+                  syntax-case
+                  define-syntax-case
+                  identifier?
+
+                  invoke
+                  invoke-static
+                  field
+                  static-field
+                  instance?
+                  try-finally
+                  try-catch
+                  primitive-throw
+
+                  format
+                  reverse!
+                  as
+                  ))
+  (begin "
+("
+
+(define (ferror fstring #!rest args)
+  (let ((err (<java.lang.Error>
+              (as <java.lang.String> (apply format fstring args)))))
+    (primitive-throw err)))
+
+(define (rewrite-lambda-list args)
+  (syntax-case args ()
+    (() #`())
+    ((rest x ...) (eq? #'rest #!rest) args)
+    ((optional x ...) (eq? #'optional #!optional) args)
+    ((var args ...) (identifier? #'var)
+     #`(var #,@(rewrite-lambda-list #'(args ...))))
+    (((var type) args ...) (identifier? #'var)
+     #`((var :: type) #,@(rewrite-lambda-list #'(args ...))))))
 
 (define-syntax df
-  (syntax-rules (=>)
-    ((df name (args ... => return-type) body ...)
-     (define (name args ...) :: return-type (seq body ...)))
-    ((df name (args ...) body ...)
-     (define (name args ...) (seq body ...)))))
+  (lambda (stx)
+    (syntax-case stx (=>)
+      ((df name (args ... => return-type) body ...)
+       #`(define (name #,@(rewrite-lambda-list #'(args ...))) :: return-type
+                 (seq body ...)))
+      ((df name (args ...) body ...)
+       #`(define (name #,@(rewrite-lambda-list #'(args ...)))
+           (seq body ...))))))
 
 (define-syntax fun
-  (syntax-rules ()
-    ((fun (args ...) body ...)
-     (lambda (args ...) body ...))))
+  (lambda (stx)
+    (syntax-case stx (=>)
+      ((fun (args ... => return-type) body ...)
+       #`(lambda #,(rewrite-lambda-list #'(args ...)) :: return-type
+                 (seq body ...)))
+      ((fun (args ...) body ...)
+       #`(lambda #,(rewrite-lambda-list #'(args ...))
+           (seq body ...))))))
 
 (define-syntax fin
   (syntax-rules ()
@@ -90,9 +126,9 @@
 
 (define-syntax seq
   (syntax-rules ()
-    ((seq) 
+    ((seq)
      (begin #!void))
-    ((seq body ...) 
+    ((seq body ...)
      (begin body ...))))
 
 (define-syntax esc
@@ -100,7 +136,7 @@
     ((esc abort body ...)
      (let* ((key (<symbol>))
             (abort (lambda (val) (throw key val))))
-       (catch key 
+       (catch key
               (lambda () body ...)
               (lambda (key val) val))))))
 
@@ -114,27 +150,37 @@
     ((!! name1 name2 obj args ...)
      (! name1 (! name2 obj args ...)))))
 
-(define-syntax \@
+(define-syntax !s
   (syntax-rules ()
-    ((\@ name obj)
-     (field obj 'name))))
+    ((! class name args ...)
+     (invoke-static class 'name args ...))))
+
+(define-syntax @
+    (syntax-rules ()
+      ((@ name obj)
+       (field obj 'name))))
+
+(define-syntax @s
+  (syntax-rules (quote)
+    ((@s class name)
+     (static-field class (quote name)))))
 
 (define-syntax while
   (syntax-rules ()
     ((while exp body ...)
      (do () ((not exp)) body ...))))
 
-(define-syntax dotimes 
+(define-syntax dotimes
   (syntax-rules ()
     ((dotimes (i n result) body ...)
      (let ((max :: <int> n))
        (do ((i :: <int> 0 (as <int> (+ i 1))))
            ((= i max) result)
-           body ...)))
+         body ...)))
     ((dotimes (i n) body ...)
      (dotimes (i n #f) body ...))))
 
-(define-syntax dolist 
+(define-syntax dolist
   (syntax-rules ()
     ((dolist (e list) body ... )
      (for ((e list)) body ...))))
@@ -158,7 +204,7 @@
 ;;(define-syntax loop
 ;;  (syntax-rules (for = then collect until)
 ;;    ((loop for var = init then step until test collect exp)
-;;     (packing (pack) 
+;;     (packing (pack)
 ;;       (do ((var init step))
 ;;           (test)
 ;;         (pack exp))))
@@ -170,7 +216,7 @@
     ((with (vars ... (f args ...)) body ...)
      (f args ... (lambda (vars ...) body ...)))))
 
-(define-syntax pushf 
+(define-syntax pushf
   (syntax-rules ()
     ((pushf value var)
      (set! var (cons value var)))))
@@ -218,10 +264,10 @@
        (if (instance? tmp <pair>)
            (let ((tmp :: <pair> tmp))
              (mif (p (! get-car tmp))
-                (mif (ps (! get-cdr tmp))
-                     (set! result then)
-                     (set! fail? -1))
-                (set! fail? -1)))
+                  (mif (ps (! get-cdr tmp))
+                       (set! result then)
+                       (set! fail? -1))
+                  (set! fail? -1)))
            (set! fail? -1))
        (if (= fail? 0) result else)))
     |#
@@ -250,7 +296,7 @@
        (mif (pattern tmp)
             (begin body ...)
             (mcase tmp more ...))))
-    ((mcase exp) (ferror "mcase failed ~s\n~a" 'exp (pprint-to-string exp)))))
+    ((mcase exp) (ferror "mcase failed ~s\n~a" 'exp exp))))
 
 (define-syntax mlet
   (syntax-rules ()
@@ -260,18 +306,21 @@
             (begin body ...)
             (error "mlet failed" tmp))))))
 
-(define-syntax mlet* 
+(define-syntax mlet*
   (syntax-rules ()
     ((mlet* () body ...) (begin body ...))
     ((mlet* ((pattern value) ms ...) body ...)
      (mlet (pattern value) (mlet* (ms ...) body ...)))))
 
 (define-syntax typecase%
-  (syntax-rules (eql or)
+  (syntax-rules (eql or satisfies)
     ((typecase% var (#t body ...) more ...)
      (seq body ...))
     ((typecase% var ((eql value) body ...) more ...)
      (cond ((eqv? var 'value) body ...)
+           (else (typecase% var more ...))))
+    ((typecase% var ((satisfies predicate) body ...) more ...)
+     (cond ((predicate var) body ...)
            (else (typecase% var more ...))))
     ((typecase% var ((or type) body ...) more ...)
      (typecase% var (type body ...) more ...))
@@ -280,29 +329,82 @@
        (typecase% var
                   (type (f var)) ...
                   (#t (typecase% var more ...)))))
-    ((typecase% var (type body ...) more ...) 
-     (cond ((instance? var type) 
-            (let ((var :: type var))
+    ((typecase% var (type body ...) more ...)
+     (cond ((instance? var type)
+            (let ((var :: type (as type var)))
               body ...))
            (else (typecase% var more ...))))
     ((typecase% var)
-     (error "typecase% failed" var 
+     (error "typecase% failed" var
             (! getClass (as <object> var))))))
 
-(define-syntax-case typecase
-    ()
-  ((_ exp more ...) (identifier? (syntax exp))
-   #`(typecase% exp more ...))
-  ((_ exp more ...)
-   #`(let ((tmp exp))
-       (typecase% tmp more ...))))
+(define-syntax typecase
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ exp more ...) (identifier? (syntax exp))
+       #`(typecase% exp more ...))
+      ((_ exp more ...)
+       #`(let ((tmp exp))
+           (typecase% tmp more ...))))))
 
 (define-syntax ignore-errors
   (syntax-rules ()
     ((ignore-errors body ...)
-     (try-catch (begin body ...)
+     (try-catch (seq body ...)
                 (v <java.lang.Error> #f)
                 (v <java.lang.Exception> #f)))))
+
+))
+
+(define-library (swank-kawa)
+    (export start-swank
+            create-swank-server
+            swank-java-source-path
+            break)
+    (import (scheme base)
+            (scheme file)
+            (scheme repl)
+            (scheme read)
+            (scheme write)
+            (scheme eval)
+            (scheme process-context)
+            (swank macros)
+            (only (kawa base)
+
+                  define-alias
+                  define-variable
+
+                  define-simple-class
+                  this
+
+                  invoke-special
+                  instance?
+                  as
+
+                  primitive-throw
+                  try-finally
+                  try-catch
+                  synchronized
+
+                  call-with-input-string
+                  call-with-output-string
+                  force-output
+                  format
+
+                  make-process
+                  command-parse
+
+                  runnable
+
+                  scheme-implementation-version
+                  reverse!
+                  )
+            (rnrs hashtables)
+            (only (gnu kawa slib syntaxutils) expand)
+            (only (kawa regex) regex-match))
+  (begin "
+("
+
 
 ;;(define-syntax dc
 ;;  (syntax-rules ()
@@ -311,7 +413,7 @@
 ;;    ;;((dc name () %% (props ...) (prop type) more ...)
 ;;    ;; (dc name () %% (props ... (prop type)) more ...))
 ;;    ((dc name () %% ((prop type) ...))
-;;     (define-simple-class name () 
+;;     (define-simple-class name ()
 ;;                          ((*init* (prop :: type) ...)
 ;;                           (set (field (this) 'prop) prop) ...)
 ;;                          (prop :type type) ...))
@@ -321,46 +423,46 @@
 
 ;;;; Aliases
 
-(define-alias <server-socket> <java.net.ServerSocket>)
-(define-alias <socket> <java.net.Socket>)
-(define-alias <in> <java.io.InputStreamReader>)
-(define-alias <out> <java.io.OutputStreamWriter>)
-(define-alias <in-port> <gnu.kawa.io.InPort>)
-(define-alias <out-port> <gnu.kawa.io.OutPort>)
-(define-alias <file> <java.io.File>)
-(define-alias <str> <java.lang.String>)
-(define-alias <builder> <java.lang.StringBuilder>)
-(define-alias <throwable> <java.lang.Throwable>)
-(define-alias <source-error> <gnu.text.SourceError>)
-(define-alias <module-info> <gnu.expr.ModuleInfo>)
-(define-alias <iterable> <java.lang.Iterable>)
-(define-alias <thread> <java.lang.Thread>)
-(define-alias <queue> <java.util.concurrent.LinkedBlockingQueue>)
-(define-alias <exchanger> <java.util.concurrent.Exchanger>)
-(define-alias <timeunit> <java.util.concurrent.TimeUnit>)
-(define-alias <vm> <com.sun.jdi.VirtualMachine>)
-(define-alias <mirror> <com.sun.jdi.Mirror>)
-(define-alias <value> <com.sun.jdi.Value>)
-(define-alias <thread-ref> <com.sun.jdi.ThreadReference>)
-(define-alias <obj-ref> <com.sun.jdi.ObjectReference>)
-(define-alias <array-ref> <com.sun.jdi.ArrayReference>)
-(define-alias <str-ref> <com.sun.jdi.StringReference>)
-(define-alias <meth-ref> <com.sun.jdi.Method>)
-(define-alias <class-type> <com.sun.jdi.ClassType>)
-(define-alias <ref-type> <com.sun.jdi.ReferenceType>)
-(define-alias <frame> <com.sun.jdi.StackFrame>)
-(define-alias <field> <com.sun.jdi.Field>)
-(define-alias <local-var> <com.sun.jdi.LocalVariable>)
-(define-alias <location> <com.sun.jdi.Location>)
-(define-alias <absent-exc> <com.sun.jdi.AbsentInformationException>)
-(define-alias <event> <com.sun.jdi.event.Event>)
-(define-alias <exception-event> <com.sun.jdi.event.ExceptionEvent>)
-(define-alias <step-event> <com.sun.jdi.event.StepEvent>)
-(define-alias <breakpoint-event> <com.sun.jdi.event.BreakpointEvent>)
-(define-alias <env> <gnu.mapping.Environment>)
+(define-alias <server-socket> java.net.ServerSocket)
+(define-alias <socket> java.net.Socket)
+(define-alias <in> java.io.InputStreamReader)
+(define-alias <out> java.io.OutputStreamWriter)
+(define-alias <in-port> gnu.kawa.io.InPort)
+(define-alias <out-port> gnu.kawa.io.OutPort)
+(define-alias <file> java.io.File)
+(define-alias <str> java.lang.String)
+(define-alias <builder> java.lang.StringBuilder)
+(define-alias <throwable> java.lang.Throwable)
+(define-alias <source-error> gnu.text.SourceError)
+(define-alias <module-info> gnu.expr.ModuleInfo)
+(define-alias <iterable> java.lang.Iterable)
+(define-alias <thread> java.lang.Thread)
+(define-alias <queue> java.util.concurrent.LinkedBlockingQueue)
+(define-alias <exchanger> java.util.concurrent.Exchanger)
+(define-alias <timeunit> java.util.concurrent.TimeUnit)
+(define-alias <vm> com.sun.jdi.VirtualMachine)
+(define-alias <mirror> com.sun.jdi.Mirror)
+(define-alias <value> com.sun.jdi.Value)
+(define-alias <thread-ref> com.sun.jdi.ThreadReference)
+(define-alias <obj-ref> com.sun.jdi.ObjectReference)
+(define-alias <array-ref> com.sun.jdi.ArrayReference)
+(define-alias <str-ref> com.sun.jdi.StringReference)
+(define-alias <meth-ref> com.sun.jdi.Method)
+(define-alias <class-type> com.sun.jdi.ClassType)
+(define-alias <ref-type> com.sun.jdi.ReferenceType)
+(define-alias <frame> com.sun.jdi.StackFrame)
+(define-alias <field> com.sun.jdi.Field)
+(define-alias <local-var> com.sun.jdi.LocalVariable)
+(define-alias <location> com.sun.jdi.Location)
+(define-alias <absent-exc> com.sun.jdi.AbsentInformationException)
+(define-alias <event> com.sun.jdi.event.Event)
+(define-alias <exception-event> com.sun.jdi.event.ExceptionEvent)
+(define-alias <step-event> com.sun.jdi.event.StepEvent)
+(define-alias <breakpoint-event> com.sun.jdi.event.BreakpointEvent)
+(define-alias <env> gnu.mapping.Environment)
 
 (define-simple-class <chan> ()
-  (owner :: <thread> #:init (java.lang.Thread:currentThread))
+  (owner :: <thread> #:init (!s java.lang.Thread currentThread))
   (peer :: <chan>)
   (queue :: <queue> #:init (<queue>))
   (lock #:init (<object>)))
@@ -368,7 +470,7 @@
 
 ;;;; Entry Points
 
-(df create-swank-server (port-number) 
+(df create-swank-server (port-number)
   (setup-server port-number announce-port))
 
 (df start-swank (port-file)
@@ -412,9 +514,10 @@
           ((out . _) (spawn/chan/catch (fun (c) (writer outs c))))
           ((dbg . _) (spawn/chan/catch vm-monitor))
           (user-env  (interaction-environment))
-          (x (seq 
+          (x (seq
                (! set-flag user-env #t #|<env>:THREAD_SAFE|# 8)
-               (! set-flag user-env #f #|<env>:DIRECT_INHERITED_ON_SET|# 16)))
+               (! set-flag user-env #f #|<env>:DIRECT_INHERITED_ON_SET|# 16)
+               #f))
           ((listener . _)
            (spawn/chan (fun (c) (listener c user-env))))
           (inspector #f)
@@ -437,7 +540,7 @@
           ((_ (':emacs-rex ('|swank:sldb-continue|) pkg thread id))
            (send dbg `(thread-continue ,thread ,id)))
           ((_ (':emacs-rex ('|swank:frame-source-location| frame)
-			   pkg thread id))
+                           pkg thread id))
            (send dbg `(frame-src-loc ,thread ,frame ,id)))
           ((_ (':emacs-rex ('|swank:frame-locals-and-catch-tags| frame)
                            pkg thread id))
@@ -456,7 +559,7 @@
           ((_ (':emacs-rex ('|swank:init-inspector| str . _) pkg _ id))
            (set inspector (make-inspector user-env (vm)))
            (send inspector `(init ,str ,id)))
-          ((_ (':emacs-rex ('|swank:inspect-frame-var| frame var) 
+          ((_ (':emacs-rex ('|swank:inspect-frame-var| frame var)
                            pkg thread id))
            (mlet ((im . ex) (chan))
              (set inspector (make-inspector user-env (vm)))
@@ -496,14 +599,14 @@
 (df find-thread (id threads listener (vm <vm>))
   (cond ((== id ':repl-thread) listener)
         ((== id 't) listener
-         ;;(if (null? threads) 
-         ;;    listener 
+         ;;(if (null? threads)
+         ;;    listener
          ;;    (vm-mirror vm (car threads)))
          )
-        (#t 
-         (let ((f (find-if threads 
+        (#t
+         (let ((f (find-if threads
                       (fun (t :: <thread>)
-                        (= id (! uniqueID 
+                        (= id (! uniqueID
                                  (as <thread-ref> (vm-mirror vm t)))))
                       #f)))
            (cond (f (vm-mirror vm f))
@@ -514,19 +617,19 @@
 
 (df reader ((in <in>) (c <chan>))
   (! set-name (current-thread) "swank-net-reader")
-  (let ((rt (gnu.kawa.lispexpr.ReadTable:createInitial))) ; ':' not special
+  (let ((rt (!s gnu.kawa.lispexpr.ReadTable createInitial))) ; ':' not special
     (while #t
       (send c (decode-message in rt)))))
 
 (df decode-message ((in <in>) (rt  <gnu.kawa.lispexpr.ReadTable>) => <list>)
   (let* ((header (read-chunk in 6))
-         (len (java.lang.Integer:parseInt header 16)))
-    (call-with-input-string (read-chunk in len) 
+         (len (!s java.lang.Integer parseInt header 16)))
+    (call-with-input-string (read-chunk in len)
                             (fun ((port <input-port>))
                               (%read port rt)))))
 
 (df read-chunk ((in <in>) (len <int>) => <str>)
-  (let ((chars (<char[]> length: len)))
+  (let ((chars (<char[]> #:length len)))
     (let loop ((offset :: <int> 0))
       (cond ((= offset len) (<str> chars))
             (#t (let ((count (! read in chars offset (- len offset))))
@@ -535,11 +638,11 @@
 
 ;;; FIXME: not thread safe
 (df %read ((port <in-port>) (table <gnu.kawa.lispexpr.ReadTable>))
-  (let ((old (gnu.kawa.lispexpr.ReadTable:getCurrent)))
+  (let ((old (!s gnu.kawa.lispexpr.ReadTable getCurrent)))
     (try-finally
-     (seq (gnu.kawa.lispexpr.ReadTable:setCurrent table)
+     (seq (!s gnu.kawa.lispexpr.ReadTable setCurrent table)
           (read port))
-     (gnu.kawa.lispexpr.ReadTable:setCurrent old))))
+     (!s gnu.kawa.lispexpr.ReadTable setCurrent old))))
 
 
 ;;;; Writer thread
@@ -600,7 +703,7 @@
            (let ((qname (string->symbol (string-append "swank:" string))))
              (put *slime-funs* qname fun))))))
 
-(define-syntax defslimefun 
+(define-syntax defslimefun
   (syntax-rules ()
     ((defslimefun name (args ...) body ...)
      (seq
@@ -608,11 +711,11 @@
        (%defslimefun 'name name)))))
 
 (defslimefun connection-info ((env <env>))
-  (let ((prop java.lang.System:getProperty))
-  `(:pid 
-    0 
+  (let ((prop (fun (name) (!s java.lang.System getProperty name))))
+  `(:pid
+    0
     :style :spawn
-    :lisp-implementation (:type "Kawa" :name "kawa" 
+    :lisp-implementation (:type "Kawa" :name "kawa"
                                 :version ,(scheme-implementation-version))
     :machine (:instance ,(prop "java.vm.name") :type ,(prop "os.name")
                         :version ,(prop "java.runtime.version"))
@@ -621,13 +724,13 @@
     :encoding (:coding-systems ("iso-8859-1"))
     )))
 
- 
+
 ;;;; Listener
 
 (df listener ((c <chan>) (env <env>))
   (! set-name (current-thread) "swank-listener")
   (log "listener: ~s ~s ~s ~s\n"
-       (current-thread) ((current-thread):hashCode) c env)
+       (current-thread) (! hashCode (current-thread)) c env)
   (let ((out (make-swank-outport (rpc c `(get-channel)))))
     (set (current-output-port) out)
     (let ((vm (as <vm> (rpc c `(get-vm)))))
@@ -643,8 +746,7 @@
   ((*init*)
    (invoke-special <throwable> (this) '*init* ))
   ((abort) :: void
-   (primitive-throw (this))
-   #!void))
+   (primitive-throw (this))))
 
 (df listener-loop ((c <chan>) (env <env>) port)
   (while (not (nul? c))
@@ -654,8 +756,8 @@
                        (close-port port)
                        (reply-abort c id)
                        (send (car (spawn/chan
-                                   (fun (cc) 
-                                     (listener (recv cc) env)))) 
+                                   (fun (cc)
+                                     (listener (recv cc) env))))
                              c)
                        (set c #!null))))
         (! set-uncaught-exception-handler (current-thread)
@@ -667,7 +769,7 @@
          (ex <java.lang.Exception> (invoke-debugger ex) (restart))
          (ex <java.lang.Error> (invoke-debugger ex) (restart))
          (ex <listener-abort>
-             (let ((flag (java.lang.Thread:interrupted)))
+             (let ((flag (!s java.lang.Thread interrupted)))
                (log "listener-abort: ~s ~a\n" ex flag))
              (restart))
          )))))
@@ -719,12 +821,12 @@
 
 ;;;; Compilation
 
-(defslimefun compile-file-for-emacs (env (filename <str>) load? 
+(defslimefun compile-file-for-emacs (env (filename <str>) load?
                                          #!optional options)
   (let ((jar (cat (path-sans-extension (filepath filename)) ".jar")))
-    (wrap-compilation 
+    (wrap-compilation
      (fun ((m <gnu.text.SourceMessages>))
-       (kawa.lang.CompileFile:read filename m))
+       (!s kawa.lang.CompileFile read filename m))
      jar (if (lisp-bool load?) env #f) #f)))
 
 (df wrap-compilation (f jar env delete?)
@@ -732,12 +834,13 @@
         (messages (<gnu.text.SourceMessages>)))
     (try-catch
      (let ((c (as <gnu.expr.Compilation> (f messages))))
-       (set (\@ explicit c) #t)
+       (set (@ explicit c) #t)
        (! compile-to-archive c (! get-module c) jar))
      (ex <throwable>
          (log "error during compilation: ~a\n~a" ex (! getStackTrace ex))
          (! error messages (as <char> #\f)
-            (to-str (exception-message ex)) #!null)))
+            (to-str (exception-message ex)) #!null)
+         #f))
     (log "compilation done.\n")
     (let ((success? (zero? (! get-error-count messages))))
       (when (and env success?)
@@ -745,9 +848,9 @@
         (eval `(load ,jar) env)
         (log "loading ... done.\n"))
       (when delete?
-        (ignore-errors (delete-file jar)))
+        (ignore-errors (delete-file jar) #f))
       (let ((end-time (current-time)))
-        (list ':compilation-result 
+        (list ':compilation-result
               (compiler-notes-for-emacs messages)
               (if success? 't 'nil)
               (/ (- end-time start-time) 1000.0))))))
@@ -756,14 +859,14 @@
   (wrap-compilation
    (fun ((m <gnu.text.SourceMessages>))
      (let ((c (as <gnu.expr.Compilation>
-                  (call-with-input-string 
+                  (call-with-input-string
                    string
                    (fun ((p <in-port>))
-                     (! set-path p 
-                        (format "~s" 
+                     (! set-path p
+                        (format "~s"
                                 `(buffer ,buffer offset ,offset str ,string)))
-                     (kawa.lang.CompileFile:read p m))))))
-       (let ((o (\@ currentOptions c)))
+                     (!s kawa.lang.CompileFile read p m))))))
+       (let ((o (@ currentOptions c)))
          (! set o "warn-invoke-unknown-method" #t)
          (! set o "warn-undefined-variable" #t))
        (let ((m (! getModule c)))
@@ -773,29 +876,29 @@
 
 (df compiler-notes-for-emacs ((messages <gnu.text.SourceMessages>))
   (packing (pack)
-    (do ((e (! get-errors messages) (\@ next e)))
+    (do ((e (! get-errors messages) (@ next e)))
         ((nul? e))
       (pack (source-error>elisp e)))))
 
 (df source-error>elisp ((e <source-error>) => <list>)
-  (list ':message (to-string (\@ message e))
-        ':severity (case (integer->char (\@ severity e))
+  (list ':message (to-string (@ message e))
+        ':severity (case (integer->char (@ severity e))
                     ((#\e #\f) ':error)
                     ((#\w) ':warning)
                     (else ':note))
         ':location (error-loc>elisp e)))
 
 (df error-loc>elisp ((e <source-error>))
-  (cond ((nul? (\@ filename e)) `(:error "No source location"))
-        ((! starts-with (\@ filename e) "(buffer ")
+  (cond ((nul? (@ filename e)) `(:error "No source location"))
+        ((! starts-with (@ filename e) "(buffer ")
          (mlet (('buffer b 'offset ('quote ((:position o) _)) 'str s)
-                (read-from-string (\@ filename e)))
-           (let ((off (line>offset (1- (\@ line e)) s))
-                 (col (1- (\@ column e))))
+                (read-from-string (@ filename e)))
+           (let ((off (line>offset (1- (@ line e)) s))
+                 (col (1- (@ column e))))
              `(:location (:buffer ,b) (:position ,(+ o off col)) nil))))
         (#t
-         `(:location (:file ,(to-string (\@ filename e)))
-                     (:line ,(\@ line e) ,(1- (\@ column e)))
+         `(:location (:file ,(to-string (@ filename e)))
+                     (:line ,(@ line e) ,(1- (@ column e)))
                      nil))))
 
 (df line>offset ((line <int>) (s <str>) => <int>)
@@ -864,8 +967,8 @@
      (mcase (arglist obj)
        ('#f 'nil)
        ((args rtype)
-        (format "(~a~{~^ ~a~})~a" name 
-                (map (fun (e) 
+        (format "(~a~{~^ ~a~})~a" name
+                (map (fun (e)
                        (if (equal (cadr e) "java.lang.Object") (car e) e))
                      args)
                 (if (equal rtype "java.lang.Object")
@@ -875,7 +978,7 @@
 
 (df arglist (obj)
   (typecase obj
-    (<gnu.expr.ModuleMethod> 
+    (<gnu.expr.ModuleMethod>
      (let* ((mref (module-method>meth-ref obj)))
        (list (mapi (! arguments mref)
                    (fun ((v <local-var>))
@@ -896,16 +999,16 @@
 (define-simple-class <swank-location> (<location>)
   (file #:init #f)
   (line #:init #f)
-  ((*init* file name) 
-   (set (\@ file (this)) file)
-   (set (\@ line (this)) line))
+  ((*init* file name)
+   (set (@ file (this)) file)
+   (set (@ line (this)) line))
   ((lineNumber) :: <int> (or line (absent)))
-  ((lineNumber (s <str>)) :: int (! lineNumber (this)))
+  ((lineNumber (s :: <str>)) :: int (! lineNumber (this)))
   ((method) :: <meth-ref> (absent))
   ((sourcePath) :: <str> (or file (absent)))
-  ((sourcePath (s <str>)) :: <str> (! sourcePath (this)))
+  ((sourcePath (s :: <str>)) :: <str> (! sourcePath (this)))
   ((sourceName) :: <str> (absent))
-  ((sourceName (s <str>)) :: <str> (! sourceName (this)))
+  ((sourceName (s :: <str>)) :: <str> (! sourceName (this)))
   ((declaringType) :: <ref-type> (absent))
   ((codeIndex) :: <long> -1)
   ((virtualMachine) :: <vm> *the-vm*)
@@ -937,7 +1040,7 @@
 
 (df src-loc (o => <location>)
   (typecase o
-    (<gnu.expr.PrimProcedure> (src-loc (\@ method o)))
+    (<gnu.expr.PrimProcedure> (src-loc (@ method o)))
     (<gnu.expr.ModuleMethod> (module-method>src-loc o))
     (<gnu.expr.GenericProc> (<swank-location> #f #f))
     (<java.lang.Class> (class>src-loc o))
@@ -949,7 +1052,7 @@
 
 (df module-method>meth-ref ((f <gnu.expr.ModuleMethod>) => <meth-ref>)
   (let* ((module (! reference-type
-                    (as <obj-ref> (vm-mirror *the-vm* (\@ module f)))))
+                    (as <obj-ref> (vm-mirror *the-vm* (@ module f)))))
          (1st-method-by-name (fun (name)
                                (let ((i (! methods-by-name module name)))
                                  (cond ((! is-empty i) #f)
@@ -962,8 +1065,8 @@
 
 (df mangled-name ((f <gnu.expr.ModuleMethod>))
   (let* ((name0 (! get-name f))
-         (name (cond ((nul? name0) (format "lambda~d" (\@ selector f)))
-                     (#t (gnu.expr.Compilation:mangleName name0)))))
+         (name (cond ((nul? name0) (format "lambda~d" (@ selector f)))
+                     (#t (!s gnu.expr.Compilation mangleName name0)))))
     name))
 
 (df class>src-loc ((c <java.lang.Class>) => <location>)
@@ -978,10 +1081,11 @@
                        (vm-mirror *the-vm* class))))
 
 (df class>class-type ((class <java.lang.Class>) => <class-type>)
-  (class>ref-type class))
+  (as <class-type> (class>ref-type class)))
 
 (df bytemethod>src-loc ((m <gnu.bytecode.Method>) => <location>)
-  (let* ((cls (class>class-type (! get-reflect-class (! get-declaring-class m))))
+  (let* ((cls (class>class-type (! get-reflect-class
+                                   (! get-declaring-class m))))
          (name (! get-name m))
          (sig (! get-signature m))
          (meth (! concrete-method-by-name cls name sig)))
@@ -994,7 +1098,7 @@
           (ignore-errors (! line-number l "Java"))))
   (mcase (src-loc>list l)
     ((name path line)
-     (cond ((not path) 
+     (cond ((not path)
             `(:error ,(call-with-abort (fun () (! source-path l)))))
            ((! starts-with (as <str> path) "(buffer ")
             (mlet (('buffer b 'offset o 'str s) (read-from-string path))
@@ -1004,22 +1108,18 @@
            (#t
             `(:location ,(or (find-file-in-path name (source-path))
                              (find-file-in-path path (source-path))
-                             (ferror "Can't find source-path: ~s ~s ~a" 
+                             (ferror "Can't find source-path: ~s ~s ~a"
                                      path name (source-path)))
                         (:line ,(or line -1)) ()))))))
 
 (df src-loc>str ((l <location>))
   (cond ((nul? l) "<null-location>")
-        (#t (format "~a ~a ~a" 
+        (#t (format "~a ~a ~a"
                     (or (ignore-errors (! source-path l))
                         (ignore-errors (! source-name l))
                         (ignore-errors (!! name declaring-type l)))
                     (ignore-errors (!! name method l))
                     (ignore-errors (! lineNumber l))))))
-
-(df ferror (fstring #!rest args)
-  (let ((err (<java.lang.Error> (to-str (apply format fstring args)))))
-    (primitive-throw err)))
 
 ;;;;;; class-path hacking
 
@@ -1029,35 +1129,36 @@
   (let ((f (<file> filename)))
     (cond ((! isAbsolute f) `(:file ,filename))
           (#t (let ((result #f))
-                (find-if path (fun (dir) 
+                (find-if path (fun (dir)
                                 (let ((x (find-file-in-dir f dir)))
                                   (set result x)))
                          #f)
                 result)))))
 
 (df find-file-in-dir ((file <file>) (dir <str>))
-  (let ((filename (! getPath file)))
+  (let ((filename :: <str> (! getPath file)))
     (or (let ((child (<file> (<file> dir) filename)))
           (and (! exists child)
                `(:file ,(! getPath child))))
-        (try-catch 
+        (try-catch
          (and (not (nul? (! getEntry (<java.util.zip.ZipFile> dir) filename)))
               `(:zip ,dir ,filename))
          (ex <throwable> #f)))))
 
 (define swank-java-source-path
-  (let ((jre-home (<java.lang.System>:getProperty "java.home")))
-    (list (! get-path (<file> (! get-parent (<file> jre-home)) "src.zip"))
-          )))
+  (let* ((jre-home :: <str> (!s <java.lang.System> getProperty "java.home"))
+         (parent :: <str> (! get-parent (<file> jre-home))))
+    (list (! get-path (<file> parent "src.zip")))))
 
 (df source-path ()
   (mlet ((base) (search-path-prop "user.dir"))
-    (append 
+    (append
      (list base)
      (map (fun ((s <str>))
-             (let ((f (<file> s)))
+            (let ((f (<file> s))
+                  (base :: <str> (as <str> base)))
                (cond ((! isAbsolute f) s)
-                     (#t (<file> (as <str> base) s):path))))
+                     (#t (! getPath (<file> base s))))))
           (class-path))
      swank-java-source-path)))
 
@@ -1066,17 +1167,17 @@
           (search-path-prop "sun.boot.class.path")))
 
 (df search-path-prop ((name <str>))
-  (array-to-list (! split (java.lang.System:getProperty name)
-                    <file>:pathSeparator)))
+  (array-to-list (! split (!s java.lang.System getProperty name)
+                    (@s <file> pathSeparator))))
 
-;;;; Disassemble 
+;;;; Disassemble
 
 (defslimefun disassemble-form (env form)
   (mcase (read-from-string form)
     (('quote name)
      (let ((f (eval name env)))
        (typecase f
-         (<gnu.expr.ModuleMethod> 
+         (<gnu.expr.ModuleMethod>
           (disassemble-to-string (module-method>meth-ref f))))))))
 
 (df disassemble-to-string ((mr <meth-ref>) => <str>)
@@ -1093,18 +1194,18 @@
 (df disas-header ((mr <meth-ref>) (out <java.io.PrintWriter>))
   (let* ((++ (fun ((str <str>)) (! write out str)))
          (? (fun (flag str) (if flag (++ str)))))
-    (? (! is-static mr) "static ") 
+    (? (! is-static mr) "static ")
     (? (! is-final mr) "final ")
-    (? (! is-private mr) "private ") 
+    (? (! is-private mr) "private ")
     (? (! is-protected mr) "protected ")
     (? (! is-public mr) "public ")
     (++ (! name mr)) (++ (! signature mr)) (++ "\n")))
 
-(df disas-code ((cpool <byte[]>) (cpoolcount <int>) (bytecode <byte[]>) 
+(df disas-code ((cpool <byte[]>) (cpoolcount <int>) (bytecode <byte[]>)
                 (out <java.io.PrintWriter>))
   (let* ((ct (<gnu.bytecode.ClassType> "foo"))
-	 (met (! addMethod ct "bar" 0))
-	 (ca (<gnu.bytecode.CodeAttr> met))
+         (met (! addMethod ct "bar" 0))
+         (ca (<gnu.bytecode.CodeAttr> met))
          (constants (let* ((bs (<java.io.ByteArrayOutputStream>))
                            (s (<java.io.DataOutputStream> bs)))
                       (! write-short s cpoolcount)
@@ -1150,13 +1251,13 @@
 (df %swank-macroexpand (string env)
   (pprint-to-string (%macroexpand (read-from-string string) env)))
 
-(df %macroexpand (sexp env) (expand sexp env: env))
+(df %macroexpand (sexp env) (expand sexp #:env env))
 
 
 ;;;; Inspector
 
-(define-simple-class <inspector-state> () 
-  (object #:init #!null) 
+(define-simple-class <inspector-state> ()
+  (object #:init #!null)
   (parts :: <java.util.ArrayList> #:init (<java.util.ArrayList>) )
   (stack :: <list> #:init '())
   (content :: <list> #:init '()))
@@ -1181,7 +1282,7 @@
                 (obj (vm-demirror vm mirror)))
            (reply c (inspect-object obj state vm) id)))
         (('inspect-part n id)
-         (let ((part (! get (\@ parts state) n)))
+         (let ((part (! get (@ parts state) n)))
            (reply c (inspect-object part state vm) id)))
         (('pop id)
          (reply c (inspector-pop state vm) id))
@@ -1190,30 +1291,30 @@
          (set open #f))))))
 
 (df inspect-object (obj (state <inspector-state>) (vm <vm>))
-  (set (\@ object state) obj)
-  (set (\@ parts state) (<java.util.ArrayList>))
-  (pushf obj (\@ stack state))
-  (set (\@ content state) (inspector-content 
-                          `("class: " (:value ,(! getClass obj)) "\n" 
+  (set (@ object state) obj)
+  (set (@ parts state) (<java.util.ArrayList>))
+  (pushf obj (@ stack state))
+  (set (@ content state) (inspector-content
+                          `("class: " (:value ,(! getClass obj)) "\n"
                             ,@(inspect obj vm))
                           state))
   (cond ((nul? obj) (list ':title "#!null" ':id 0 ':content `()))
         (#t
-         (list ':title (pprint-to-string obj) 
+         (list ':title (pprint-to-string obj)
                ':id (assign-index obj state)
-               ':content (let ((c (\@ content state)))
+               ':content (let ((c (@ content state)))
                            (content-range  c 0 (len c)))))))
 
 (df inspect (obj vm)
   (let ((obj (as <obj-ref> (vm-mirror vm obj))))
-    (typecase obj 
+    (typecase obj
       (<array-ref> (inspect-array-ref vm obj))
       (<obj-ref> (inspect-obj-ref vm obj)))))
 
 (df inspect-array-ref ((vm <vm>) (obj <array-ref>))
   (packing (pack)
     (let ((i 0))
-      (for (((v <value>) (! getValues obj)))
+      (for (((v :: <value>) (! getValues obj)))
         (pack (format "~d: " i))
         (pack `(:value ,(vm-demirror vm v)))
         (pack "\n")
@@ -1225,18 +1326,18 @@
          (values (! getValues obj fields))
          (ifields '()) (sfields '()) (imeths '()) (smeths '())
          (frob (lambda (lists) (apply append (reverse lists)))))
-    (for (((f <field>) fields))
+    (for (((f :: <field>) fields))
       (let* ((val (as <value> (! get values f)))
              (l `(,(! name f) ": " (:value ,(vm-demirror vm val)) "\n")))
-        (if (! is-static f) 
+        (if (! is-static f)
             (pushf l sfields)
             (pushf l ifields))))
-    (for (((m <meth-ref>) (! allMethods type)))
+    (for (((m :: <meth-ref>) (! allMethods type)))
       (let ((l `(,(! name m) ,(! signature m) "\n")))
         (if (! is-static m)
             (pushf l smeths)
             (pushf l imeths))))
-    `(,@(frob ifields) 
+    `(,@(frob ifields)
       "--- static fields ---\n" ,@(frob sfields)
       "--- methods ---\n" ,@(frob imeths)
       "--- static methods ---\n" ,@(frob smeths))))
@@ -1250,17 +1351,17 @@
        content))
 
 (df assign-index (obj (state <inspector-state>) => <int>)
-  (! add (\@ parts state) obj)
-  (1- (! size  (\@ parts state))))
+  (! add (@ parts state) obj)
+  (1- (! size  (@ parts state))))
 
 (df content-range (l start end)
   (let* ((len (length l)) (end (min len end)))
     (list (subseq l start end) len start end)))
 
 (df inspector-pop ((state <inspector-state>) vm)
-  (cond ((<= 2 (len (\@ stack state)))
-         (let ((obj (cadr (\@ stack state))))
-           (set (\@ stack state) (cddr (\@ stack state)))
+  (cond ((<= 2 (len (@ stack state)))
+         (let ((obj (cadr (@ stack state))))
+           (set (@ stack state) (cddr (@ stack state)))
            (inspect-object obj state vm)))
         (#t 'nil)))
 
@@ -1269,7 +1370,7 @@
 (define-simple-class <swank-writer> (<java.io.Writer>)
   (q :: <queue> #:init (<queue> (as <int> 100)))
   ((*init*) (invoke-special <java.io.Writer> (this) '*init*))
-  ((write (buffer <char[]>) (from <int>) (to <int>)) :: <void>
+  ((write (buffer :: <char[]>) (from :: <int>) (to :: <int>)) :: <void>
    (synchronized (this)
      (assert (not (== q #!null)))
      (! put q `(write ,(<str> buffer from to)))))
@@ -1291,10 +1392,10 @@
          (flush (fun ()
                   (unless (zero? (! length builder))
                     (send out `(forward (:write-string ,(<str> builder))))
-                    (set! builder:length 0)))) ; pure magic
+                    (! setLength builder 0))))
          (closed #f))
     (while (not closed)
-      (mcase (! poll q (as long 200) <timeunit>:MILLISECONDS)
+      (mcase (! poll q (as long 200) (@s <timeunit> MILLISECONDS))
         ('#!null (flush))
         (('write s)
          (! append builder (as <str> s))
@@ -1303,13 +1404,13 @@
         (('flush ex)
          (flush)
          (! exchange (as <exchanger> ex) #!null))
-        ('close        
+        ('close
          (set closed #t)
          (flush))))))
 
 (df make-swank-outport ((out <chan>))
   (let ((w (<swank-writer>)))
-    (mlet ((in . _) (spawn/chan (fun (c) (swank-writer c (\@ q w)))))
+    (mlet ((in . _) (spawn/chan (fun (c) (swank-writer c (@ q w)))))
       (send in out))
     (<out-port> w  #t #t)))
 
@@ -1324,8 +1425,8 @@
   (let ((vm (vm-attach)))
     (log-vm-props vm)
     (request-breakpoint vm)
-    (mlet* (((ev . _) (spawn/chan/catch 
-                       (fun (c) 
+    (mlet* (((ev . _) (spawn/chan/catch
+                       (fun (c)
                          (let ((q (! eventQueue vm)))
                            (while #t
                              (send c `(vm-event ,(to-list (! remove q)))))))))
@@ -1363,12 +1464,12 @@
            (set state (del state 'all-threads)))
           ((,ev . ('vm-event es))
            ;;(log "vm-events: len=~a\n" (len es))
-           (for (((e <event>) (as <list> es)))
+           (for (((e :: <event>) (as <list> es)))
              (set state (process-vm-event e c state))))
           ((_ . ('get-exception from tid))
            (mlet ((_ _ es) (get state tid #f))
              (send from (let ((e (car es)))
-                          (typecase e 
+                          (typecase e
                             (<exception-event> (! exception e))
                             (<event> e))))))
           ((_ . ('get-local rc tid frame var))
@@ -1423,7 +1524,7 @@
          ;; XXX redundant in debug-thread
          (let* ((level 1)
                 (state (put state tid (list tref level (list e)))))
-           (send c `(forward (:debug ,tid ,level 
+           (send c `(forward (:debug ,tid ,level
                                      ,@(debug-info tid 0 15 state))))
            (send c `(forward (:debug-activate ,tid ,level)))
            state))
@@ -1437,12 +1538,12 @@
   (names)
   (values :: <java.util.Map>)
   (self)
-  ((*init* (loc <location>) args names (values <java.util.Map>) self)
-   (set (\@ loc (this)) loc)
-   (set (\@ args (this)) args)
-   (set (\@ names (this)) names)
-   (set (\@ values (this)) values)
-   (set (\@ self (this)) self))
+  ((*init* (loc :: <location>) args names (values :: <java.util.Map>) self)
+   (set (@ loc (this)) loc)
+   (set (@ args (this)) args)
+   (set (@ names (this)) names)
+   (set (@ values (this)) values)
+   (set (@ self (this)) self))
   ((toString) :: <str>
    (format "#<ff ~a>" (src-loc>str loc))))
 
@@ -1451,7 +1552,7 @@
     (iter (! frames t)
           (fun ((f <frame>))
             (let ((vars (ignore-errors (! visibleVariables f))))
-              (pack (<faked-frame> 
+              (pack (<faked-frame>
                      (or (ignore-errors (! location f)) #!null)
                      (ignore-errors (! getArgumentValues f))
                      (or vars #!null)
@@ -1461,7 +1562,7 @@
 
 (define-simple-class <interrupt-event> (<event>)
   (thread :: <thread-ref>)
-  ((*init* (thread :: <thread-ref>)) (set (\@ thread (this)) thread))
+  ((*init* (thread :: <thread-ref>)) (set (@ thread (this)) thread))
   ((request) :: <com.sun.jdi.request.EventRequest> #!null)
   ((virtualMachine) :: <vm> (! virtualMachine thread)))
 
@@ -1481,7 +1582,7 @@
          (meth :: <meth-ref> (1st (! methodsByName class "breakpoint")))
          (erm (! eventRequestManager vm))
          (req (! createBreakpointRequest erm (! location meth))))
-    (! setSuspendPolicy req (\@ SUSPEND_EVENT_THREAD req))
+    (! setSuspendPolicy req (@ SUSPEND_EVENT_THREAD req))
     (! put-property req 'swank #t)
     (! put-property req 'argname "condition")
     (! enable req)))
@@ -1530,11 +1631,11 @@
                  (<exception-event> (! exception ev))
                  (<interrupt-event> (<java.lang.Exception> "Interrupt"))))
            (desc (typecase ex
-                   (<obj-ref> 
+                   (<obj-ref>
                     ;;(log "ex: ~a ~a\n" ex (vm-demirror vm ex))
                     (! toString (vm-demirror vm ex)))
                    (<java.lang.Throwable> (! toString ex))))
-           (type (format "  [type ~a]" 
+           (type (format "  [type ~a]"
                          (typecase ex
                            (<obj-ref> (! name (! referenceType ex)))
                            (<object> (!! getName getClass ex)))))
@@ -1588,29 +1689,29 @@
   (let ((loc (! location f))
         (vm (! virtualMachine f)))
     (format "~a (~a)" (!! name method loc)
-            (call-with-abort 
+            (call-with-abort
              (fun () (format "~{~a~^ ~}"
-                             (mapi (! getArgumentValues f) 
-                                   (fun (arg) 
+                             (mapi (! getArgumentValues f)
+                                   (fun (arg)
                                      (pprint-to-string
                                       (vm-demirror vm arg))))))))))
 
 (df frame-src-loc ((tid <int>) (n <int>) state)
-  (try-catch 
+  (try-catch
    (mlet* (((frame vm) (nth-frame tid n state))
            (vm (as <vm> vm)))
-     (src-loc>elisp 
+     (src-loc>elisp
       (typecase frame
         (<frame> (! location frame))
-        (<faked-frame> (\@ loc frame))
+        (<faked-frame> (@ loc frame))
         (<java.lang.StackTraceElement>
          (let* ((classname (! getClassName frame))
                 (classes (! classesByName vm classname))
                 (t (as <ref-type> (1st classes))))
            (1st (! locationsOfLine t (! getLineNumber frame))))))))
-   (ex <throwable> 
+   (ex <throwable>
        (let ((msg (! getMessage ex)))
-         `(:error ,(if (== msg #!null) 
+         `(:error ,(if (== msg #!null)
                        (! toString ex)
                        msg))))))
 
@@ -1633,7 +1734,7 @@
   (mlet ((thread _ _) (get state tid #f))
     (let* ((thread (as <thread-ref> thread))
            (vm (! virtualMachine thread))
-           (p (fun (x) (pprint-to-string 
+           (p (fun (x) (pprint-to-string
                         (call-with-abort (fun () (vm-demirror vm x)))))))
       (map (fun (x)
              (mlet ((name value) x)
@@ -1661,11 +1762,11 @@
                    (let ((var (as <local-var> (! getKey e)))
                          (val (as <value> (! getValue e))))
                      (pack (list (! name var) (p val)))))))))
-      (<faked-frame> 
+      (<faked-frame>
        (packing (pack)
-         (when (\@ self frame) 
-           (pack (list "this" (\@ self frame))))
-         (iter (! entrySet (\@ values frame))
+         (when (@ self frame)
+           (pack (list "this" (@ self frame))))
+         (iter (! entrySet (@ values frame))
                (fun ((e <java.util.Map$Entry>))
                  (let ((var (as <local-var> (! getKey e)))
                        (val (as <value> (! getValue e))))
@@ -1676,7 +1777,7 @@
   (mlet ((frame _) (nth-frame tid frame state))
     (typecase frame
       (<java.lang.StackTraceElement> "<??>")
-      (<frame> 
+      (<frame>
        (let* ((l (! location frame))
               (m (! method l))
               (c (! declaringType l)))
@@ -1688,7 +1789,7 @@
 (df throw-to-toplevel ((tid <int>) (id <int>) (c <chan>) state)
   (mlet ((tref level exc) (get state tid #f))
     (let* ((t (as <thread-ref> tref))
-           (ev (car exc))) 
+           (ev (car exc)))
       (typecase ev
         (<exception-event> ; actually uncaughtException
          (! resume t)
@@ -1700,7 +1801,7 @@
            (send c `(forward (:debug-return ,tid ,level nil))))
          (del state tid))
         (<breakpoint-event>
-         ;; XXX race condition? 
+         ;; XXX race condition?
          (log "resume from from break (suspendCount: ~d)\n" (! suspendCount t))
          (let ((vm (! virtualMachine t))
                (k (fun () (primitive-throw (<listener-abort>)))))
@@ -1741,46 +1842,51 @@
   (let* ((vm (! virtual-machine t))
          (erm (! eventRequestManager vm))
          (<sr> <com.sun.jdi.request.StepRequest>)
-         (req (! createStepRequest erm t <sr>:STEP_MIN <sr>:STEP_OVER)))
-    (! setSuspendPolicy req (\@ SUSPEND_EVENT_THREAD req))
+         (req (! createStepRequest erm t
+                 (@s <sr> STEP_MIN)
+                 (@s <sr> STEP_OVER))))
+    (! setSuspendPolicy req (@ SUSPEND_EVENT_THREAD req))
     (! addCountFilter req 1)
     (! put-property req 'continuation k)
     (! enable req)))
 
-(df eval-in-thread ((t <thread-ref>) sexp 
-		    #!optional (env :: <env> (<env>:current)))
+(df eval-in-thread ((t <thread-ref>) sexp
+                    #!optional (env :: <env> (!s <env> current)))
   (let* ((vm (! virtualMachine t))
-	 (sc :: <class-type>
-	     (1st (! classes-by-name vm "kawa.standard.Scheme")))
-	 (ev :: <meth-ref>
-	     (1st (! methods-by-name sc "eval" 
-		     (cat "(Ljava/lang/Object;Lgnu/mapping/Environment;)"
-			  "Ljava/lang/Object;")))))
-    (! invokeMethod sc t ev (list sexp env) sc:INVOKE_SINGLE_THREADED)))
+         (sc :: <class-type>
+             (1st (! classes-by-name vm "kawa.standard.Scheme")))
+         (ev :: <meth-ref>
+             (1st (! methods-by-name sc "eval"
+                     (cat "(Ljava/lang/Object;Lgnu/mapping/Environment;)"
+                          "Ljava/lang/Object;")))))
+    (! invokeMethod sc t ev (list sexp env)
+       (@s <class-type> INVOKE_SINGLE_THREADED))))
 
-;;;;; Threads 
+;;;;; Threads
 
 (df list-threads (vm :: <vm> state)
   (let* ((threads (! allThreads vm)))
     (put state 'all-threads threads)
     (packing (pack)
+      (pack '(\:id \:name \:status \:priority))
       (iter threads (fun ((t <thread-ref>))
-                      (pack (list (! name t)
+                      (pack (list (! uniqueID t)
+                                  (! name t)
                                   (let ((s (thread-status t)))
                                     (if (! is-suspended t)
                                         (cat "SUSPENDED/" s)
                                         s))
-                                  (! uniqueID t))))))))
+                                  0)))))))
 
 (df thread-status (t :: <thread-ref>)
   (let ((s (! status t)))
-    (cond ((= s t:THREAD_STATUS_UNKNOWN) "UNKNOWN")
-          ((= s t:THREAD_STATUS_ZOMBIE) "ZOMBIE")
-          ((= s t:THREAD_STATUS_RUNNING) "RUNNING")
-          ((= s t:THREAD_STATUS_SLEEPING) "SLEEPING")
-          ((= s t:THREAD_STATUS_MONITOR) "MONITOR")
-          ((= s t:THREAD_STATUS_WAIT) "WAIT")
-          ((= s t:THREAD_STATUS_NOT_STARTED) "NOT_STARTED")
+    (cond ((= s (@s <thread-ref> THREAD_STATUS_UNKNOWN)) "UNKNOWN")
+          ((= s (@s <thread-ref> THREAD_STATUS_ZOMBIE)) "ZOMBIE")
+          ((= s (@s <thread-ref> THREAD_STATUS_RUNNING)) "RUNNING")
+          ((= s (@s <thread-ref> THREAD_STATUS_SLEEPING)) "SLEEPING")
+          ((= s (@s <thread-ref> THREAD_STATUS_MONITOR)) "MONITOR")
+          ((= s (@s <thread-ref> THREAD_STATUS_WAIT)) "WAIT")
+          ((= s (@s <thread-ref> THREAD_STATUS_NOT_STARTED)) "NOT_STARTED")
           (#t "<bug>"))))
 
 ;;;;; Bootstrap
@@ -1792,11 +1898,11 @@
   (log "attaching: ~a ~a\n" pid timeout)
   (let* ((<ac> <com.sun.jdi.connect.AttachingConnector>)
          (<arg> <com.sun.jdi.connect.Connector$Argument>)
-         (vmm (com.sun.jdi.Bootstrap:virtualMachineManager))
+         (vmm (!s com.sun.jdi.Bootstrap virtualMachineManager))
          (pa (as <ac>
-                 (or 
+                 (or
                   (find-if (! attaching-connectors vmm)
-                           (fun (x :: <ac>) 
+                           (fun (x :: <ac>)
                              (! equals (! name x) "com.sun.jdi.ProcessAttach"))
                            #f)
                   (error "ProcessAttach connector not found"))))
@@ -1815,7 +1921,7 @@
 (df request-uncaught-exception-events ((vm <vm>))
   (let* ((erm (! eventRequestManager vm))
          (req (! createExceptionRequest erm #!null #f #t)))
-    (! setSuspendPolicy req (\@ SUSPEND_EVENT_THREAD req))
+    (! setSuspendPolicy req (@ SUSPEND_EVENT_THREAD req))
     (! addThreadFilter req (vm-mirror vm (current-thread)))
     (! enable req)))
 
@@ -1823,7 +1929,7 @@
 (df request-caught-exception-events ((vm <vm>))
   (let* ((erm (! eventRequestManager vm))
          (req (! createExceptionRequest erm #!null #t #f)))
-    (! setSuspendPolicy req (\@ SUSPEND_EVENT_THREAD req))
+    (! setSuspendPolicy req (@ SUSPEND_EVENT_THREAD req))
     (! addThreadFilter req (vm-mirror vm (current-thread)))
     (! addClassExclusionFilter req "java.lang.ClassLoader")
     (! addClassExclusionFilter req "java.net.URLClassLoader")
@@ -1831,7 +1937,7 @@
     (! enable req)))
 
 (df set-stacktrace-recording ((vm <vm>) (flag <boolean>))
-  (for (((e <com.sun.jdi.request.ExceptionRequest>) 
+  (for (((e :: <com.sun.jdi.request.ExceptionRequest>)
          (!! exceptionRequests eventRequestManager vm)))
     (when (! notify-caught e)
       (! setEnabled e flag))))
@@ -1841,10 +1947,11 @@
 (df vm-to-string ((vm <vm>))
   (let* ((obj (as <ref-type> (1st (! classesByName vm "java.lang.Object"))))
          (met (as <meth-ref> (1st (! methodsByName obj "toString")))))
-    (fun ((o <obj-ref>) (t <thread-ref>)) 
+    (fun ((o <obj-ref>) (t <thread-ref>))
       (! value
          (as <str-ref>
-             (! invokeMethod o t met '() o:INVOKE_SINGLE_THREADED))))))
+             (! invokeMethod o t met '()
+                (@s <obj-ref> INVOKE_SINGLE_THREADED)))))))
 
 (define-simple-class <swank-global-variable> ()
   (var #:allocation 'static))
@@ -1856,14 +1963,15 @@
 
 (df init-global-field ((vm <vm>))
   (when (nul? *global-get-mirror*)
-    (set <swank-global-variable>:var #!null) ; prepare class
+    (set (@s <swank-global-variable> var) #!null) ; prepare class
     (let* ((c (as <com.sun.jdi.ClassType>
                   (1st (! classes-by-name vm "swank$Mnglobal$Mnvariable"))))
            (f (! fieldByName c "var")))
       (set *global-get-mirror* (fun () (! getValue c f)))
       (set *global-set-mirror* (fun ((v <obj-ref>)) (! setValue c f v))))
-    (set *global-get-raw* (fun () <swank-global-variable>:var))
-    (set *global-set-raw* (fun (x) (set <swank-global-variable>:var x)))))
+    (set *global-get-raw* (fun () '() (@s <swank-global-variable> var)))
+    (set *global-set-raw* (fun (x)
+                            (set (@s <swank-global-variable> var) x)))))
 
 (df vm-mirror ((vm <vm>) obj)
   (synchronized vm
@@ -1873,7 +1981,7 @@
 
 (df vm-demirror ((vm <vm>) (v <value>))
   (synchronized vm
-    (if (== v #!null) 
+    (if (== v #!null)
       #!null
       (typecase v
         (<obj-ref> (init-global-field vm)
@@ -1891,16 +1999,16 @@
 (df vm-set-slot ((vm <vm>) (o <object>) (name <str>) value)
   (let* ((o (as <obj-ref> (vm-mirror vm o)))
          (t (! reference-type o))
-	 (f (! field-by-name t name)))
+         (f (! field-by-name t name)))
     (! set-value o f (vm-mirror vm value))))
 
 (define-simple-class <ucex-handler>
     (<java.lang.Thread$UncaughtExceptionHandler>)
   (f :: <gnu.mapping.Procedure>)
-  ((*init* (f :: <gnu.mapping.Procedure>)) (set (\@ f (this)) f))
-  ((uncaughtException (t <thread>) (e <throwable>))
+  ((*init* (f :: <gnu.mapping.Procedure>)) (set (@ f (this)) f))
+  ((uncaughtException (t :: <thread>) (e :: <throwable>))
    :: <void>
-   (! println (java.lang.System:.err) (to-str "uhexc:::"))
+   (! println (@s java.lang.System err) (to-str "uhexc:::"))
    (! apply2 f t e)
    #!void))
 
@@ -1918,7 +2026,7 @@
 ;; without that deficiency but something in upstream changed and it no
 ;; longer worked. Now we use the normal RunnableClosure and at the
 ;; cost of taking stack snapshots on every throw.
-(df %%runnable (f => <java.lang.Runnable>) 
+(df %%runnable (f => <java.lang.Runnable>)
   ;;(<runnable> f)
   ;;(<gnu.mapping.RunnableClosure> f)
   ;;(runnable f)
@@ -1929,19 +2037,19 @@
   (runnable
    (fun ()
      (try-catch (f)
-                (ex <throwable> 
+                (ex <throwable>
                     (log "exception in thread ~s: ~s" (current-thread)
                           ex)
                     (! printStackTrace ex))))))
 
-(df chan () 
+(df chan ()
   (let ((lock (<object>))
         (im (<chan>))
         (ex (<chan>)))
-    (set (\@ lock im) lock)
-    (set (\@ lock ex) lock)
-    (set (\@ peer im) ex)
-    (set (\@ peer ex) im)
+    (set (@ lock im) lock)
+    (set (@ lock ex) lock)
+    (set (@ peer im) ex)
+    (set (@ peer ex) im)
     (cons im ex)))
 
 (df immutable? (obj)
@@ -1964,9 +2072,9 @@
                    (#t (append (reverse! r) (pass o))))))
           ((instance? obj <chan>)
            (let ((o :: <chan> obj))
-             (assert (== (\@ owner o) (current-thread)))
-             (synchronized (\@ lock c)
-               (set (\@ owner o) (\@ owner (\@ peer c))))
+             (assert (== (@ owner o) (current-thread)))
+             (synchronized (@ lock c)
+               (set (@ owner o) (@ owner (@ peer c))))
              o))
           ((or (instance? obj <env>)
                (instance? obj <mirror>))
@@ -1974,13 +2082,13 @@
            obj
            )
           (#t (error "can't send" obj (class-name-sans-package obj)))))
-  ;;(log "send: ~s ~s -> ~s\n" value (\@ owner c) (\@ owner (\@ peer c)))
-  (assert (== (\@ owner c) (current-thread)))
-  ;;(log "lock: ~s send\n" (\@ owner (\@ peer c)))
-  (synchronized (\@ owner (\@ peer c))
-    (! put (\@ queue (\@ peer c)) (pass value))
-    (! notify (\@ owner (\@ peer c))))
-  ;;(log "unlock: ~s send\n" (\@ owner (\@ peer c)))
+  ;;(log "send: ~s ~s -> ~s\n" value (@ owner c) (@ owner (@ peer c)))
+  (assert (== (@ owner c) (current-thread)))
+  ;;(log "lock: ~s send\n" (@ owner (@ peer c)))
+  (synchronized (@ owner (@ peer c))
+    (! put (@ queue (@ peer c)) (pass value))
+    (! notify (@ owner (@ peer c))))
+  ;;(log "unlock: ~s send\n" (@ owner (@ peer c)))
   )
 
 (df recv ((c <chan>))
@@ -1991,24 +2099,24 @@
 
 (df recv/timeout ((cs <iterable>) (timeout <long>))
   (let ((self (current-thread))
-        (end (if (zero? timeout) 
-                 0 
+        (end (if (zero? timeout)
+                 0
                  (+ (current-time) timeout))))
     ;;(log "lock: ~s recv\n" self)
     (synchronized self
       (let loop ()
         ;;(log "receive-loop: ~s\n" self)
-        (let ((ready (find-if cs 
+        (let ((ready (find-if cs
                               (fun ((c <chan>))
-                                (not (! is-empty (\@ queue c))))
+                                (not (! is-empty (@ queue c))))
                               #f)))
           (cond (ready
                  ;;(log "unlock: ~s recv\n" self)
-                 (cons ready (! take (\@ queue (as <chan> ready)))))
+                 (cons ready (! take (@ queue (as <chan> ready)))))
                 ((zero? timeout)
                  ;;(log "wait: ~s recv\n" self)
                  (! wait self) (loop))
-                (#t 
+                (#t
                  (let ((now (current-time)))
                    (cond ((<= end now)
                           'timeout)
@@ -2026,14 +2134,14 @@
 (df spawn/chan (f)
   (mlet ((im . ex) (chan))
     (let ((thread (<thread> (%%runnable (fun () (f ex))))))
-      (set (\@ owner ex) thread)
+      (set (@ owner ex) thread)
       (! start thread)
       (cons im thread))))
 
 (df spawn/chan/catch (f)
-  (spawn/chan 
+  (spawn/chan
    (fun (c)
-     (try-catch 
+     (try-catch
       (f c)
       (ex <throwable>
           (send c `(error ,(! toString ex)
@@ -2062,7 +2170,7 @@
     (<string> (string-length x))
     (<vector> (vector-length x))
     (<java.util.List> (! size x))
-    (<object[]> (\@ length x))))
+    (<object[]> (@ length x))))
 
 ;;(df put (tab key value) (hash-table-set! tab key value) tab)
 ;;(df get (tab key default) (hash-table-ref/default tab key default))
@@ -2076,8 +2184,8 @@
 
 (df equal (x y => <boolean>) (equal? x y))
 
-(df current-thread (=> <thread>) (java.lang.Thread:currentThread))
-(df current-time (=> <long>) (java.lang.System:currentTimeMillis))
+(df current-thread (=> <thread>) (!s java.lang.Thread currentThread))
+(df current-time (=> <long>) (!s java.lang.System currentTimeMillis))
 
 (df nul? (x) (== x #!null))
 
@@ -2090,8 +2198,8 @@
   (let* ((w (<java.io.StringWriter>))
          (p (<out-port> w #t #f)))
     (try-catch (print-object obj p)
-               (ex <throwable> 
-                   (format p "#<error while printing ~a ~a>" 
+               (ex <throwable>
+                   (format p "#<error while printing ~a ~a>"
                            ex (class-name-sans-package ex))))
     (! flush p)
     (to-string (! getBuffer w))))
@@ -2102,7 +2210,7 @@
     ((or (eql #!null) (eql #!eof)
          <list> <number> <character> <string> <vector> <procedure> <boolean>)
      (write obj stream))
-    (#t 
+    (#t
      #;(print-unreadable-object obj stream)
      (write obj stream)
      )))
@@ -2131,7 +2239,7 @@
 
 (df array-to-list ((array <object[]>) => <list>)
   (packing (pack)
-    (dotimes (i (\@ length array))
+    (dotimes (i (@ length array))
       (pack (array i)))))
 
 (df lisp-bool (obj)
@@ -2155,8 +2263,8 @@
                   (#t n)))
           (e <java.lang.Throwable>
              (format "#<~a: ~a>" e (! get-message e)))))))
-        
-(df list-env (#!optional (env :: <env> (<env>:current)))
+
+(df list-env (#!optional (env :: <env> (!s <env> current)))
   (let ((enum (! enumerateAllLocations env)))
     (packing (pack)
       (while (! hasMoreElements enum)
@@ -2164,7 +2272,7 @@
 
 (df list-file (filename)
   (with (port (call-with-input-file filename))
-    (let* ((lang (gnu.expr.Language:getDefaultLanguage))
+    (let* ((lang (!s gnu.expr.Language getDefaultLanguage))
            (messages (<gnu.text.SourceMessages>))
            (comp (! parse lang (as <in-port> port) messages 0)))
       (! get-module comp))))
@@ -2183,20 +2291,20 @@
 (df %time (f)
   (define-alias <mf> <java.lang.management.ManagementFactory>)
   (define-alias <gc> <java.lang.management.GarbageCollectorMXBean>)
-  (let* ((gcs (<mf>:getGarbageCollectorMXBeans))
-         (mem (<mf>:getMemoryMXBean))
-         (jit (<mf>:getCompilationMXBean))
+  (let* ((gcs (!s <mf> getGarbageCollectorMXBeans))
+         (mem (!s <mf> getMemoryMXBean))
+         (jit (!s <mf> getCompilationMXBean))
          (oldjit (! getTotalCompilationTime jit))
          (oldgc (packing (pack)
                   (iter gcs (fun ((gc <gc>))
-                              (pack (cons gc 
+                              (pack (cons gc
                                           (list (! getCollectionCount gc)
                                                 (! getCollectionTime gc))))))))
          (heap (!! getUsed getHeapMemoryUsage mem))
          (nonheap (!! getUsed getNonHeapMemoryUsage mem))
-         (start (java.lang.System:nanoTime))
+         (start (!s java.lang.System nanoTime))
          (values (f))
-         (end (java.lang.System:nanoTime))
+         (end (!s java.lang.System nanoTime))
          (newheap (!! getUsed getHeapMemoryUsage mem))
          (newnonheap (!! getUsed getNonHeapMemoryUsage mem)))
     (format #t "~&")
@@ -2219,7 +2327,7 @@
      (%time (lambda () form)))))
 
 (df gc ()
-  (let* ((mem (java.lang.management.ManagementFactory:getMemoryMXBean))
+  (let* ((mem (!s java.lang.management.ManagementFactory getMemoryMXBean))
          (oheap (!! getUsed getHeapMemoryUsage mem))
          (onheap (!! getUsed getNonHeapMemoryUsage mem))
          (_ (! gc mem))
@@ -2229,8 +2337,9 @@
              (- heap oheap) heap (- onheap nheap) nheap)))
 
 (df room ()
-  (let* ((pools (java.lang.management.ManagementFactory:getMemoryPoolMXBeans))
-         (mem (java.lang.management.ManagementFactory:getMemoryMXBean))
+  (let* ((pools (!s java.lang.management.ManagementFactory
+                    getMemoryPoolMXBeans))
+         (mem (!s java.lang.management.ManagementFactory getMemoryMXBean))
          (heap (!! getUsed  getHeapMemoryUsage mem))
          (nheap (!! getUsed getNonHeapMemoryUsage mem)))
     (iter pools (fun ((p <java.lang.management.MemoryPoolMXBean>))
@@ -2248,15 +2357,15 @@
 ;;             (<byte[]> class)
 ;;             (<symbol> (read-class-file class))))
 ;;          (cdata (<sun.tools.javap.ClassData> (<is> bytes)))
-;;          (p (<sun.tools.javap.JavapPrinter> 
-;; 	     (<is> bytes)
+;;          (p (<sun.tools.javap.JavapPrinter>
+;;           (<is> bytes)
 ;;              (current-output-port)
 ;;              (<sun.tools.javap.JavapEnvironment>))))
 ;;     (cond (method
 ;;            (dolist ((m <sun.tools.javap.MethodData>)
 ;;                     (array-to-list (! getMethods cdata)))
 ;;              (when (and (equal (to-str method) (! getName m))
-;;                         (or (not signature) 
+;;                         (or (not signature)
 ;;                             (equal signature (! getInternalSig m))))
 ;;                (! printMethodSignature p m (! getAccess m))
 ;;                (! printExceptions p m)
@@ -2275,26 +2384,26 @@
     (! to-byte-array os)))
 
 (df read-class-file ((name <symbol>) => <byte[]>)
-  (let ((f (cat (! replace (to-str name) (as <char> #\.) (as <char> #\/)) 
+  (let ((f (cat (! replace (to-str name) (as <char> #\.) (as <char> #\/))
                 ".class")))
     (mcase (find-file-in-path f (class-path))
       ('#f (ferror "Can't find classfile for ~s" name))
       ((:zip zipfile entry)
        (let* ((z (<java.util.zip.ZipFile> (as <str> zipfile)))
-              (e (z:getEntry (as <str> entry))))
-         (read-bytes (z:getInputStream e))))
+              (e (! getEntry z (as <str> entry))))
+         (read-bytes (! getInputStream z e))))
       ((:file s) (read-bytes (<java.io.FileInputStream> (as <str> s)))))))
 
 (df all-instances ((vm <vm>) (classname <str>))
   (mappend (fun ((c <class-type>)) (to-list (! instances c (as long 9999))))
-	   (%all-subclasses vm classname)))
+           (%all-subclasses vm classname)))
 
 (df %all-subclasses ((vm <vm>) (classname <str>))
   (mappend (fun ((c <class-type>)) (cons c (to-list (! subclasses c))))
            (to-list (! classes-by-name vm classname))))
 
 (df with-output-to-string (thunk => <str>)
-  (call-with-output-string 
+  (call-with-output-string
    (fun (s) (parameterize ((current-output-port s)) (thunk)))))
 
 (df find-if ((i <iterable>) test default)
@@ -2331,7 +2440,7 @@
   (packing (pack) (for ((e i)) (pack e))))
 
 (df as-list ((o <java.lang.Object[]>) => <java.util.List>)
-  (java.util.Arrays:asList o))
+  (!s java.util.Arrays asList o))
 
 (df mappend (f list)
   (apply append (map f list)))
@@ -2342,20 +2451,19 @@
     (<vector> (apply vector (! sub-list s from to)))
     (<str> (! substring s from to))
     (<byte[]> (let* ((len (as <int> (- to from)))
-                     (t (<byte[]> length: len)))
-                (java.lang.System:arraycopy s from t 0 len)
+                     (t (<byte[]> #:length len)))
+                (!s java.lang.System arraycopy s from t 0 len)
                 t))))
 
 (df to-string (obj => <string>)
-  (cond ((instance? obj <str>) (<gnu.lists.FString> (as <str> obj)))
-        ((string? obj) obj)
-        ((symbol? obj) (symbol->string obj))
-        ((instance? obj <java.lang.StringBuffer>)
-         (<gnu.lists.FString> (as <java.lang.StringBuffer> obj)))
-        ((instance? obj <java.lang.StringBuilder>)
-         (<gnu.lists.FString> (as <java.lang.StringBuilder> obj)))
-        (#t (error "Not a string designator" obj 
-                   (class-name-sans-package obj)))))
+  (typecase obj
+    (<str> (<gnu.lists.FString> obj))
+    ((satisfies string?) obj)
+    ((satisfies symbol?) (symbol->string obj))
+    (<java.lang.StringBuffer> (<gnu.lists.FString> obj))
+    (<java.lang.StringBuilder> (<gnu.lists.FString> obj))
+    (#t (error "Not a string designator" obj
+               (class-name-sans-package obj)))))
 
 (df to-str (obj => <str>)
   (cond ((instance? obj <str>) obj)
@@ -2364,10 +2472,12 @@
         (#t (error "Not a string designator" obj
                    (class-name-sans-package obj)))))
 
+))
+
 ;; Local Variables:
-;; mode: goo 
+;; mode: goo
 ;; compile-command: "\
 ;;  rm -rf classes && \
-;;  JAVA_OPTS=-Xss2M kawa -d classes -C swank-kawa.scm && \
+;;  JAVA_OPTS=-Xss2M kawa --r7rs -d classes -C swank-kawa.scm && \
 ;;  jar cf swank-kawa.jar -C classes ."
 ;; End:
