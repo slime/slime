@@ -1,3 +1,9 @@
+2015-02-19  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* slime.el (slime-cycle-connections): It's an obsolete function,
+	not an obsolete variable.
+	(slime-prev-connection): Tweak docstring.
+
 2015-02-12  Stas Boukarev  <stassats@gmail.com>
 
 	* swank/sbcl.lisp (definition-source-buffer-and-file-location):

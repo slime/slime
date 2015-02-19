@@ -1706,12 +1706,12 @@ This doesn't mean it will connect right after Slime is loaded."
   (interactive)
   (slime-cycle-connections-within slime-net-processes))
 
-(define-obsolete-variable-alias 'slime-cycle-connections
-'slime-next-connection "2.12")
+(define-obsolete-function-alias 'slime-cycle-connections
+  'slime-next-connection "2.13")
 
 (defun slime-prev-connection ()
   "Change current slime connection, cycling through all connections.
-Goes in reverse order, relative to `slime-cycle-connections'."
+Goes in reverse order, relative to `slime-next-connection'."
   (interactive)
   (slime-cycle-connections-within (reverse slime-net-processes)))
 
