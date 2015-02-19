@@ -1,3 +1,10 @@
+2015-02-19  Charles Zhang  <carolusiacobus@gmail.com>
+
+	* contrib/slime-enclosing-context.el: Restore some long dead functions
+	in order to make the slime-mdot-fu contrib work again.
+	slime-edit-local-definition and meta-point on local
+	variable and function definitions work as a result.
+
 2015-02-12  Stas Boukarev  <stassats@gmail.com>
 
 	* swank/sbcl.lisp (definition-source-buffer-and-file-location):
