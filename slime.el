@@ -520,7 +520,8 @@ information."
     ("\C-t"  slime-toggle-trace-fdefinition)
     ("I"     slime-inspect)
     ("\C-xt" slime-list-threads)
-    ("\C-xn" slime-cycle-connections)
+    ("\C-xn" slime-next-connection)
+    ("\C-xp" slime-prev-connection)
     ("\C-xc" slime-list-connections)
     ("<"     slime-list-callers)
     (">"     slime-list-callees)
@@ -1690,16 +1691,29 @@ This doesn't mean it will connect right after Slime is loaded."
 
 (defvar slime-cycle-connections-hook nil)
 
-(defun slime-cycle-connections ()
+(defun slime-cycle-connections-within (connections)
+  (let* ((tail (or (cdr (member (slime-current-connection) connections))
+                   connections))        ; loop around to the beginning
+         (next (car tail)))
+    (slime-select-connection next)
+    (run-hooks 'slime-cycle-connections-hook)
+    (message "Lisp: %s %s"
+             (slime-connection-name next)
+             (process-contact next))))
+
+(defun slime-next-connection ()
   "Change current slime connection, cycling through all connections."
   (interactive)
-  (let* ((tail (or (cdr (member (slime-current-connection)
-                                slime-net-processes))
-                   slime-net-processes))
-         (p (car tail)))
-    (slime-select-connection p)
-    (run-hooks 'slime-cycle-connections-hook)
-    (message "Lisp: %s %s" (slime-connection-name p) (process-contact p))))
+  (slime-cycle-connections-within slime-net-processes))
+
+(define-obsolete-function-alias 'slime-cycle-connections
+  'slime-next-connection "2.13")
+
+(defun slime-prev-connection ()
+  "Change current slime connection, cycling through all connections.
+Goes in reverse order, relative to `slime-next-connection'."
+  (interactive)
+  (slime-cycle-connections-within (reverse slime-net-processes)))
 
 (cl-defmacro slime-with-connection-buffer ((&optional process) &rest body)
   "Execute BODY in the process-buffer of PROCESS.
@@ -6839,7 +6853,14 @@ switch-to-buffer."
 
 (def-slime-selector-method ?n
   "Cycle to the next Lisp connection."
-  (slime-cycle-connections)
+  (slime-next-connection)
+  (concat "*slime-repl "
+          (slime-connection-name (slime-current-connection))
+          "*"))
+
+(def-slime-selector-method ?p
+  "Cycle to the previous Lisp connection."
+  (slime-prev-connection)
   (concat "*slime-repl "
           (slime-connection-name (slime-current-connection))
           "*"))

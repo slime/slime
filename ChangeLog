@@ -5,11 +5,25 @@
 	slime-edit-local-definition and meta-point on local
 	variable and function definitions work as a result.
 
+2015-02-19  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* slime.el (slime-cycle-connections): It's an obsolete function,
+	not an obsolete variable.
+	(slime-prev-connection): Tweak docstring.
+
 2015-02-12  Stas Boukarev  <stassats@gmail.com>
 
 	* swank/sbcl.lisp (definition-source-buffer-and-file-location):
 	Fix xrefs from C-c C-c. source-file-position may now return NIL,
 	be prepared.
+
+2015-02-08  Adlai Chandrasekhar  <adlai.chandrasekhar@gmail.com>
+
+	* slime.el (slime-next-connection, slime-prev-connection): New
+	functions for cycling connections in both directions, deprecating
+	slime-cycle-connections and adding 'C-c C-x p' (and ?p in
+	slime-selector) for cycling in the opposite direction.
+
 2015-01-28  Helmut Eller  <heller@common-lisp.net>
 
 	* swank/source-path-parser.lisp (skip-toplevel-forms): Use the
