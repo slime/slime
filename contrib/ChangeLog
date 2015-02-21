@@ -3,6 +3,10 @@
 	* slime-enclosing-context.el (slime-variable-binding-ops-alist):
 	Also look at LET*.
 
+2015-03-01  Charles Zhang  <carolusiacobus@gmail.com>
+
+	* doc/slime.texi: Add documentation for mdot-fu contrib.
+
 2015-02-19  Charles Zhang  <carolusiacobus@gmail.com>
 
 	* slime-enclosing-context.el: Restore some long dead functions in
