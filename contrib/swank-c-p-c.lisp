@@ -163,7 +163,9 @@ Return these values:
 INPUT is used to guess the preferred case."
   (ecase (readtable-case *readtable*)
     (:upcase (cond ((or with-escaping-p
-                        (not (some #'lower-case-p input)))
+                        (if (eq *print-case* :downcase)
+                            (some #'upper-case-p input)
+                            (not (some #'lower-case-p input))))
                     #'identity)
                    (t #'string-downcase)))
     (:invert (lambda (output)
