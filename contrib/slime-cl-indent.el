@@ -43,7 +43,6 @@
 
 (require 'slime) ; only for its cl-lib loading smartness
 (require 'cl-lib)
-(eval-when-compile (require 'cl))
 
 (defgroup lisp-indent nil
   "Indentation in Lisp."
