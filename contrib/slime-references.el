@@ -1,6 +1,9 @@
+;; -*- lexical-binding: t; -*-
+
 (require 'slime)
 (require 'advice)
 (require 'slime-compiler-notes-tree) ; FIXME: actually only uses the tree bits, so that should be a library.
+(require 'cl-lib)
 
 (define-slime-contrib slime-references
   "Clickable references to documentation (SBCL only)."
