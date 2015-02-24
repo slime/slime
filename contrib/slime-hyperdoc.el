@@ -1,7 +1,10 @@
+;; -*- lexical-binding: t; -*-
+
 (require 'slime)
 (require 'url-http)
 (require 'browse-url)
 (eval-when-compile (require 'cl)) ; lexical-let
+(require 'cl-lib)
 
 (defvar slime-old-documentation-lookup-function 
   slime-documentation-lookup-function)
