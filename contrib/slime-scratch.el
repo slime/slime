@@ -1,4 +1,4 @@
-;;; slime-scratch.el
+;;; slime-scratch.el -*- lexical-binding: t; -*-
 
 (require 'slime)
 (require 'cl-lib)

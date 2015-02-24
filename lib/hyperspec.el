@@ -1,4 +1,4 @@
-;;; hyperspec.el --- Browse documentation from the Common Lisp HyperSpec
+;;; hyperspec.el --- Browse documentation from the Common Lisp HyperSpec -*- lexical-binding: t; -*-
 
 ;; Copyright 1997 Naggum Software
 

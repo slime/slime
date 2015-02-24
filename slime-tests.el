@@ -1,4 +1,4 @@
-;;; slime-tests.el --- Automated tests for slime.el
+;;; slime-tests.el --- Automated tests for slime.el -*- lexical-binding: t; -*-
 ;;
 ;;;; License
 ;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller

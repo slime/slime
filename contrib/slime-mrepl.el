@@ -1,4 +1,4 @@
-;; An experimental implementation of multiple REPLs multiplexed over a
+;; An experimental implementation of multiple REPLs multiplexed over a -*- lexical-binding: t; -*-
 ;; single Slime socket.  M-x slime-open-listener creates a new REPL
 ;; buffer.
 ;;

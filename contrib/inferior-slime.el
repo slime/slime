@@ -1,4 +1,4 @@
-;;; inferior-slime.el --- Minor mode with Slime keys for comint buffers
+;;; inferior-slime.el --- Minor mode with Slime keys for comint buffers -*- lexical-binding: t; -*-
 ;;
 ;; Author: Luke Gorrie  <luke@synap.se>
 ;; License: GNU GPL (same license as Emacs)

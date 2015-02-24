@@ -1,3 +1,5 @@
+;; -*- lexical-binding: t; -*-
+
 (require 'slime-enclosing-context)
 (require 'slime-tests)
 (require 'cl-lib)

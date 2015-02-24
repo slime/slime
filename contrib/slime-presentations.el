@@ -1,3 +1,5 @@
+;; -*- lexical-binding: t; -*-
+
 (require 'slime)
 (require 'bridge)
 (require 'cl-lib)
