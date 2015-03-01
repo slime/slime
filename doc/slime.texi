@@ -2155,6 +2155,7 @@ particular packages do.
 * Scratch Buffer::
 * SLIME Trace Dialog::
 * slime-sprof::
+* SLIME Enhanced M-.::
 * slime-fancy::
 @end menu
 
@@ -3176,6 +3177,13 @@ Disassemble function.
 Toggle exclusion of swank functions from the report.
 
 @end table
+
+@node SLIME Enhanced M-.
+@section SLIME Enhanced M-.
+@code{slime-mdot-fu} enables meta-point to jump to local variables
+bound with @code{let} and @code{let*}, in addition to function bindings
+declared with @code{flet} and @code{labels}, via
+@code{slime-edit-local-definition}.
 
 @node slime-fancy
 @section Meta package: @code{slime-fancy}
