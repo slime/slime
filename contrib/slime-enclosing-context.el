@@ -192,7 +192,8 @@ Examples:
  (nreverse points))))
 
 (defvar slime-variable-binding-ops-alist
-  '((let &bindings &body)))
+  '((let &bindings &body)
+    (let* &bindings &body)))
 
 (defvar slime-function-binding-ops-alist
   '((flet &bindings &body)
