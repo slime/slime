@@ -1,9 +1,38 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
 
+* 2.13 (March 2015)
+
+** Core
+*** slime-cycle-connections has been deprecated
+It has been replaced by slime-next-connection and
+slime-prev-connection. A shortcut for the latter has been added to
+slime-selector.
+
+** slime-mdot-fu
+The slime-mdot-fu contrib has been brought back to life. (Thanks to Charles
+Zhang. Issues #8, #231 and #232.)
+
+** slime-typeout-frame
+The slime-typeout-frame contrib has been restored. (Issue #221.)
+
+** SBCL backend
+*** Fixed xrefs coming from C-c C-c
+Issue #227.
+
+** CMUCL, SBCL and SCL backends
+*** Better support for custom readtables
+Functionality that depends on SWANK's source-path-parser, such as
+`slime-find-definition', now works properly in face of custom
+readtables by honoring SWANK:*READTABLE-ALIST*. (Thanks to Gábor
+Melis. PR #244.)
+
+** Kawa backend
+*** Updated for Kawa version 2.0
+
 * 2.12 (January 2015)
 
 ** Core
-A couple of regression introduced in version 2.10 were fixed.
+A couple of regressions introduced in version 2.10 were fixed.
 
 *** slime-compile-buffer (C-c C-k) no longer tries to save every buffer
 *** slime-autodoc-mode doesn't spam the minibuffer anymore
