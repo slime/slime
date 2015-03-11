@@ -295,7 +295,7 @@ says that I am starting to print an object with this id. The second says I am fi
     (fdefinition 'sb-impl::%print-unreadable-object))
   (sb-ext:without-package-locks 
     (setf (fdefinition 'sb-impl::%print-unreadable-object)
-	  (lambda (object stream type identity body)
+	  (lambda (object stream type identity &optional body)
 	    (presenting-object object stream
 	      (funcall *saved-%print-unreadable-object* 
 		       object stream type identity body))))

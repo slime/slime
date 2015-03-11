@@ -1,3 +1,9 @@
+2015-07-09  Russ Tyndall  <russ@acceleration.net>
+
+	* swank-presentation-streams.lisp: updated
+	sb-impl::%print-unreadable-object wrapper to accept body
+	optionally, as per new SBCL.
+
 2015-07-08  Peter Feigl  <craven@gmx.net>
 
 	Base64-decode literal image data. This fixes problems with sending
