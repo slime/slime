@@ -576,9 +576,10 @@ information."
                               (source-path-string-position
                                source-path *buffer-substring*))))
         ((compiling-from-file-p file)
-         (make-location (list :file (namestring file))
-                        (list :position (1+ (source-path-file-position
-                                             source-path file)))))
+         (let ((position (source-path-file-position source-path file)))
+           (make-location (list :file (namestring file))
+                          (list :position (and position
+                                               (1+ position))))))
         ((compiling-from-generated-code-p file source)
          (make-location (list :source-form source)
                         (list :position 1)))

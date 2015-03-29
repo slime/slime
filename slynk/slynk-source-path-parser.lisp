@@ -194,9 +194,7 @@ of the deepest (i.e. smallest) possible form is returned."
 		     for f = form then (nth n f)
 		     collect f)))
     ;; select the first subform present in source-map
-    (loop for form in (reverse forms)
-	  for positions = (gethash form source-map)
-	  while positions
-	  when (null (cdr positions))
-	  return (destructuring-bind ((start . end)) positions
-		   (return (values start end))))))
+    (loop for form in (nreverse forms)
+	  for ((start . end) . rest) = (gethash form source-map)
+	  when (and start end (not rest))
+	  return (return (values start end)))))
