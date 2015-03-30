@@ -1,4 +1,4 @@
-SLY 1.0.0-beta (estimated February 2014)
+SLY 1.0.0-beta (March 2014)
 ----------------------------------------
 
 ### mREPL enhancements
@@ -16,10 +16,15 @@ and add the history input at point.
 
 Replace deprecated `sly-cycle-connections` and provide more feedback.
 
-### On par with SLIME 2.11
+### On par with SLIME 2.13
 
 Where applicable, SLY tracks bugfixes and improvements contributed to
 SLIME:
+
+- Experimental CLASP support (see `slynk/backend/clasp.lisp`).
+
+- Fix a source-path-parsing bug. A problem raised and solved by Gabor
+  Mélis in http://permalink.gmane.org/gmane.lisp.slime.devel/11543.
 
 - Hot updating via MELPA on won't cause SLYNK/SLY version mismatch
 
