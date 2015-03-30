@@ -48,11 +48,12 @@
   #+cormanlisp '((backend corman))
   #+ecl '(slynk-source-path-parser slynk-source-file-cache
           (backend ecl))
-  #+mkcl '(backend mkcl))
+  #+clasp '((backend clasp))
+  #+mkcl '((backend mkcl)))
 
 (defparameter *implementation-features*
   '(:allegro :lispworks :sbcl :clozure :cmu :clisp :ccl :corman :cormanlisp
-    :armedbear :gcl :ecl :scl :mkcl))
+    :armedbear :gcl :ecl :scl :mkcl :clasp))
 
 (defparameter *os-features*
   '(:macosx :linux :windows :mswindows :win32 :solaris :darwin :sunos :hpux
@@ -74,6 +75,12 @@
             (let ((vcs-id (funcall (q "ext:lisp-implementation-vcs-id"))))
               (when (>= (length vcs-id) 8)
                 (subseq vcs-id 0 8))))))
+
+#+clasp
+(defun clasp-version-string ()
+  (format nil "~A~@[-~A~]"
+          (lisp-implementation-version)
+          (core:lisp-implementation-id)))
 
 (defun lisp-version-string ()
   #+(or clozure cmu) (substitute-if #\_ (lambda (x) (find x " /"))
