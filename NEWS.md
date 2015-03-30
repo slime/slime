@@ -1,4 +1,4 @@
-SLY 1.0.0-beta (March 2014)
+SLY 1.0.0-beta (March 2015)
 ----------------------------------------
 
 ### mREPL enhancements
