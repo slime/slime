@@ -1,3 +1,9 @@
+2015-03-31  Mark Evenson  <evenson.not.org@gmail.com>
+
+	* swank/abcl.lisp (frame-locals): Triage for inspecting locals of
+	the stack.  Functionally better, partly able to resolve all lambda
+	lists by at least returning warnings rather than errors.
+
 2015-03-29  Stas Boukarev  <stassats@gmail.com>
 
 	* swank/source-path-parser.lisp (source-path-source-position): Do
