@@ -376,15 +376,28 @@
                 stream))
 
 (defimplementation frame-locals (index)
- (loop
-    :with name = "??"
-    :for id :upfrom 0
-    :for value :in (java:jcall "toLispList" (nth-frame index))
-    :collecting  (list :name name :id id :value value)))
+    (loop
+       :for id :upfrom 0
+       :with frame = (java:jcall "toLispList" (nth-frame index))
+       :with operator = (first frame)
+       :with values = (rest frame)
+       :with arglist = (if (and operator (consp values))
+                           (jvm::match-lambda-list
+                            (multiple-value-list
+                             (jvm::parse-lambda-list
+                              (arglist operator)))
+                            values)
+                           :not-available)
+       :for value in values
+       :collecting (list
+                    :name (if (consp arglist)
+                              (nth id arglist)
+                              (format nil "arg~A" id))
+                    :id id
+                    :value value)))
 
 (defimplementation frame-var-value (index id)
- (elt (java:jcall "toLispList" (nth-frame index)) id))
-
+ (elt (rest (java:jcall "toLispList" (nth-frame index))) id))
 
 #+nil
 (defimplementation disassemble-frame (index)
