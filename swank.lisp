@@ -1761,10 +1761,13 @@ Errors are trapped and invoke our debugger."
                (format nil "~A~D (~a bit~:p, #x~X, #o~O, #b~B)" 
                        *echo-area-prefix*
                        i (integer-length i) i i i)))
-            ((and (typep (car values) 'ratio) (null (cdr values)))
-             (format nil "~A~D (~:*~f)" 
-                     *echo-area-prefix*
-                     (car values)))
+            ((and (typep (car values) 'ratio)
+                  (null (cdr values))
+                  (ignore-errors
+                   ;; The ratio may be to large to be represented as a single float
+                   (format nil "~A~D (~:*~f)" 
+                           *echo-area-prefix*
+                           (car values)))))
             (t (format nil "~a~{~S~^, ~}" *echo-area-prefix* values))))))
 
 (defmacro values-to-string (values)
