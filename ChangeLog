@@ -1,3 +1,9 @@
+2015-04-03  Mark Evenson  <evenson@quoth>
+
+	* swank/abcl.lisp (frame-locals frame-var-value): Fix off by one
+	errors in inspecting arguments across stack frames.  Attempt to
+	match arguments to parameters recorded at compile time.
+
 2015-04-02  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (format-values-for-echo-area): Present a float
