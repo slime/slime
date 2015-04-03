@@ -375,15 +375,39 @@
   (write-string (sys:frame-to-string frame)
                 stream))
 
+;;; Sorry, but can't seem to declare DEFIMPLEMENTATION under FLET.
+;;; --ME 20150403
+(defun nth-frame-list (index)
+  (java:jcall "toLispList" (nth-frame index)))
+
+(defun match-lambda (operator values)
+  (jvm::match-lambda-list
+   (multiple-value-list
+    (jvm::parse-lambda-list (ext:arglist operator)))
+   values))
+
 (defimplementation frame-locals (index)
- (loop
-    :with name = "??"
-    :for id :upfrom 0
-    :for value :in (java:jcall "toLispList" (nth-frame index))
-    :collecting  (list :name name :id id :value value)))
+  (loop
+     :for id :upfrom 0
+     :with frame = (nth-frame-list index)
+     :with operator = (first frame)
+     :with values = (rest frame)
+     :with arglist = (if (and operator (consp values) (not (null values)))
+                         (handler-case
+                             (match-lambda operator values)
+                           (jvm::lambda-list-mismatch (e)
+                             :lambda-list-mismatch))
+                         :not-available)
+     :for value :in values
+     :collecting (list
+                  :name (if (not (keywordp arglist))
+                            (first (nth id arglist))
+                            (format nil "arg~A" id))
+                  :id id
+                  :value value)))
 
 (defimplementation frame-var-value (index id)
- (elt (java:jcall "toLispList" (nth-frame index)) id))
+  (elt (rest (java:jcall "toLispList" (nth-frame index))) id))
 
 
 #+nil
