@@ -748,19 +748,16 @@ QUALITIES is an alist with (quality . value)"
     :transform :deftransform
     :optimizer :defoptimizer
     :vop :define-vop
-    :source-transform :define-source-transform)
+    :source-transform :define-source-transform
+    :ir1-convert :def-ir1-translator)
   "Map SB-INTROSPECT definition type names to Slime-friendly forms")
 
-(defun definition-specifier (type name)
+(defun definition-specifier (type)
   "Return a pretty specifier for NAME representing a definition of type TYPE."
-  (if (and (symbolp name)
-           (eq type :function)
-           (sb-int:info :function :ir1-convert name))
-      :def-ir1-translator
-      (getf *definition-types* type)))
+  (getf *definition-types* type))
 
 (defun make-dspec (type name source-location)
-  (let ((spec (definition-specifier type name))
+  (let ((spec (definition-specifier type))
         (desc (sb-introspect::definition-source-description source-location)))
     (if (eq :define-vop spec)
         ;; The first part of the VOP description is the name of the template
