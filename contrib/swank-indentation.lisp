@@ -22,6 +22,7 @@ Otherwise return DEFAULT."
                                 (t (return-from get-indentation-hint default)))
                           s default))
   (:method ((o function) s &optional default)
+    "Should be ready to accept strings and symbols."
     (handler-case (funcall o s default)
       (error () default))))
 

@@ -1,5 +1,9 @@
 2015-04-21  Lucien Pullen  <drurowin@gmail.com>
 
+	* contrib/slime-cl-indent.el (common-lisp-get-indentation)
+	(common-lisp-indent-function-1): Query swank when the function
+	name has not been interned.
+
 	* contrib/swank-indent.lisp (has-application-indentation-hint-p):
 	Use get-indentation-hint instead of hardcoding hash tables.
 	(*application-hints*): Type-independent name of the hints list.
