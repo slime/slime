@@ -529,7 +529,7 @@ none has been specified."
 (add-hook 'lisp-mode-hook 'common-lisp-lisp-mode-hook)
 
 
-;;;; The indentation specs are stored at three levels. In order of priority:
+;;;; The indentation specs are stored at four levels. In order of priority:
 ;;;;
 ;;;; 1. Indentation as set by current style, from the indentation table
 ;;;;    in the current style.
@@ -537,7 +537,11 @@ none has been specified."
 ;;;; 2. Globally set indentation, from the `common-lisp-indent-function'
 ;;;;    property of the symbol.
 ;;;;
-;;;; 3. Per-package indentation derived by the system. A live Common Lisp
+;;;; 3. Indentation derived by the system for presently uninterned symbols.
+;;;;    A live Common Lisp system may (via Swank) define indentation specs
+;;;;    based on things other than symbol lookup tables.
+;;;;
+;;;; 4. Per-package indentation derived by the system. A live Common Lisp
 ;;;;    system may (via Slime, eg.) add indentation specs to
 ;;;;    common-lisp-system-indentation, where they are associated with
 ;;;;    the package of the symbol. Then we run some lossy heuristics and
@@ -586,8 +590,12 @@ given point. Defaults to `common-lisp-guess-current-package'.")
           ;; From style
           (when common-lisp-style
             (gethash name (common-lisp-active-style-methods)))
+          ;; From the system itself.
+          (when (stringp name)
+            (slime-send '(swank::send-to-emacs '(:value (swank::symbol-indentation ,name)))))
           ;; From global settings.
-          (get name 'common-lisp-indent-function)
+          (when (symbolp name)
+            (get name 'common-lisp-indent-function))
           ;; From system derived information.
           (let ((system-info (gethash name common-lisp-system-indentation)))
             (if (not (cdr system-info))
@@ -813,8 +821,11 @@ For example, the function `case' has an indent property
                                         tem (point)))
                     function full)
               (goto-char tem)
-              (setq tem (intern-soft function)
-                    method (common-lisp-get-indentation tem))
+              (when (null (intern-soft function))
+                (setq method (common-lisp-get-indentation function full)))
+              (when (null method)
+                (setq tem (intern-soft function)
+                      method (common-lisp-get-indentation tem)))
               (cond ((and (null method)
                           (string-match ":[^:]+" function))
                      ;; The pleblisp package feature

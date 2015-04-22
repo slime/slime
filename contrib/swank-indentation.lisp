@@ -1,15 +1,35 @@
 (in-package :swank)
 
-(defvar *application-hints-tables* '()
-  "A list of hash tables mapping symbols to indentation hints (lists 
-of symbols and numbers as per cl-indent.el). Applications can add hash 
-tables to the list to change the auto indentation slime sends to 
-emacs.")
+(defvar *application-hints* '()
+  "A list of rules mapping symbols to indentation hints (lists of
+symbols and numbers as per cl-indent.el).  Applications can add rules to
+the list to change the auto indentation slime sends to emacs.
+
+See methods of `get-indentation-hint' for acceptable rule types.")
+
+(define-symbol-macro *application-hints-tables* *application-hints*)
+(setf (documentation '*application-hints-tables* 'variable)
+      "Backwards-compatible name.  Use `*application-hints*' instead.")
+
+(defgeneric get-indentation-hint (rule symbol &optional default)
+  (:documentation "The indentation hint for SYMBOL or DEFAULT.")
+  (:method ((o hash-table) s &optional default) (gethash s o default))
+  (:method ((o symbol) s &optional default)
+    "When RULE is fbound, call it.  Otherwise if RULE is bound, dereference it.
+Otherwise return DEFAULT."
+    (get-indentation-hint (cond ((fboundp o) (fdefinition o))
+                                ((boundp o) (symbol-value o))
+                                (t (return-from get-indentation-hint default)))
+                          s default))
+  (:method ((o function) s &optional default)
+    "Should be ready to accept strings and symbols."
+    (handler-case (funcall o s default)
+      (error () default))))
 
 (defun has-application-indentation-hint-p (symbol)
   (let ((default (load-time-value (gensym))))
-    (dolist (table *application-hints-tables*)
-      (let ((indentation (gethash symbol table default)))
+    (dolist (table *application-hints*)
+      (let ((indentation (get-indentation-hint table symbol default)))
         (unless (eq default indentation)
           (return-from has-application-indentation-hint-p
             (values indentation t))))))
