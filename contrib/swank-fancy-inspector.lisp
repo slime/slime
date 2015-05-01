@@ -113,10 +113,7 @@
        (unless (eq t fun)
          (append
           `("Type-specifier lambda-list: "
-            ,(inspector-princ
-              (if (eq :primitive kind)
-                  (arglist fun)
-                  (sb-int:info :type :lambda-list symbol)))
+            ,(inspector-princ (arglist fun))
             (:newline))
           (multiple-value-bind (expansion ok)
               (handler-case (sb-ext:typexpand-1 symbol)
