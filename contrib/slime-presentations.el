@@ -39,15 +39,8 @@
 ;;           'slime-presentation-inspector-insert-ispec))
 ;;
 (defface slime-repl-output-mouseover-face
-  (if (featurep 'xemacs)
-      '((t (:bold t)))
-    (if (slime-face-inheritance-possible-p)
-        '((t
-           (:box
-            (:line-width 1 :color "black" :style released-button)
-            :inherit
-            slime-repl-inputed-output-face)))
-      '((t (:box (:line-width 1 :color "black"))))))
+    '((t (:box (:line-width 1 :color "black" :style released-button)
+          :inherit slime-repl-inputed-output-face)))
   "Face for Lisp output in the SLIME REPL, when the mouse hovers over it"
   :group 'slime-repl)
 

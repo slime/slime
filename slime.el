@@ -325,18 +325,8 @@ argument."
   "Face for notes from the compiler."
   :group 'slime-mode-faces)
 
-(defun slime-face-inheritance-possible-p ()
-  "Return true if the :inherit face attribute is supported."
-  (assq :inherit custom-face-attributes))
-
 (defface slime-highlight-face
-  (if (slime-face-inheritance-possible-p)
-      '((t (:inherit highlight :underline nil)))
-    '((((class color) (background light))
-       (:background "darkseagreen2"))
-      (((class color) (background dark))
-       (:background "darkolivegreen"))
-      (t (:inverse-video t))))
+    '((t (:inherit highlight :underline nil)))
   "Face for compiler notes while selected."
   :group 'slime-mode-faces)
 
@@ -369,8 +359,7 @@ PROPERTIES specifies any default face properties."
   (section        "the labels of major sections in the debugger buffer")
   (frame-label    "backtrace frame numbers")
   (restart-type   "restart names."
-                  (if (slime-face-inheritance-possible-p)
-                      '(:inherit font-lock-keyword-face)))
+                  '(:inherit font-lock-keyword-face))
   (restart        "restart descriptions")
   (restart-number "restart numbers (correspond to keystrokes to invoke)"
                   '(:bold t))
@@ -6350,17 +6339,12 @@ was called originally."
   :group 'slime-inspector)
 
 (defface slime-inspector-value-face
-  (if (slime-face-inheritance-possible-p)
-      '((t (:inherit font-lock-builtin-face)))
-    '((((background light)) (:foreground "MediumBlue" :bold t))
-      (((background dark)) (:foreground "LightGray" :bold t))))
+    '((t (:inherit font-lock-builtin-face)))
   "Face for things which can themselves be inspected."
   :group 'slime-inspector)
 
 (defface slime-inspector-action-face
-  (if (slime-face-inheritance-possible-p)
-      '((t (:inherit font-lock-warning-face)))
-    '((t (:foreground "OrangeRed"))))
+    '((t (:inherit font-lock-warning-face)))
   "Face for labels of inspector actions."
   :group 'slime-inspector)
 

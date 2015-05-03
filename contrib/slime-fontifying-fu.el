@@ -36,10 +36,7 @@ Fontify CHECK-FOO like CHECK-TYPE."
     'lisp-mode slime-additional-font-lock-keywords)))
 
 (defface slime-reader-conditional-face
-  (if (slime-face-inheritance-possible-p)
     '((t (:inherit font-lock-comment-face)))
-  '((((background light)) (:foreground "DimGray" :bold t))
-    (((background dark)) (:foreground "LightGray" :bold t))))
   "Face for compiler notes while selected."
   :group 'slime-mode-faces)
 

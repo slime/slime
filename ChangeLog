@@ -1,3 +1,13 @@
+2015-05-03  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Remove obsolete function slime-face-inheritance-possible-p. Face
+	inheritance has been available since Emacs 21.1, released in 2001.
+
+	* slime.el (slime-face-inheritance-possible-p): Remove it.
+	(slime-inspector-value-face, slime-inspector-action-face)
+	(define-sldb-faces, slime-highlight-face): Remove call to
+	slime-face-inheritance-possible-p.
+
 2015-05-03  Mark Evenson  <evenson.not.org@gmail.com>
 
 	* swank/abcl.lisp (frame-locals frame-var-value): Fix off by one
