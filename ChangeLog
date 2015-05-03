@@ -1,5 +1,12 @@
 2015-05-03  Luís Oliveira  <loliveira@common-lisp.net>
 
+	Add default values for many SLDB faces as suggested by Attila
+	Lendvai in pull request #107.
+
+	* slime.el (define-sldb-faces): Add more default values.
+
+2015-05-03  Luís Oliveira  <loliveira@common-lisp.net>
+
 	Remove obsolete function slime-face-inheritance-possible-p. Face
 	inheritance has been available since Emacs 21.1, released in 2001.
 

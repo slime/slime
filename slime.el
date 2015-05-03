@@ -355,9 +355,12 @@ PROPERTIES specifies any default face properties."
 
 (define-sldb-faces
   (topline        "the top line describing the error")
-  (condition      "the condition class")
-  (section        "the labels of major sections in the debugger buffer")
-  (frame-label    "backtrace frame numbers")
+  (condition      "the condition class"
+                  '(:inherit font-lock-warning-face))
+  (section        "the labels of major sections in the debugger buffer"
+                  '(:inherit header-line))
+  (frame-label    "backtrace frame numbers"
+                  '(:inherit shadow))
   (restart-type   "restart names."
                   '(:inherit font-lock-keyword-face))
   (restart        "restart descriptions")
@@ -371,9 +374,11 @@ PROPERTIES specifies any default face properties."
    "frames which are surely not restartable")
   (detailed-frame-line
    "function names and arguments in a detailed (expanded) frame")
-  (local-name     "local variable names")
+  (local-name     "local variable names"
+                  '(:inherit font-lock-variable-name-face))
   (local-value    "local variable values")
-  (catch-tag      "catch tags"))
+  (catch-tag      "catch tags"
+                  '(:inherit highlight)))
 
 
 ;;;; Minor modes
