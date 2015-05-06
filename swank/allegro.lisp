@@ -425,6 +425,8 @@
 
 ;; TODO: report it as a bug to Franz that the condition's plist
 ;; slot contains (:loc nil).
+;; HACK: to get round this broken behaviour fall back on end for
+;; location of compile error
 (defun handle-undefined-functions-warning (condition)
   (let ((fargs (slot-value condition 'excl::format-arguments)))
     (loop for (fname . locs) in (car fargs) do
@@ -433,8 +435,8 @@
                                               (2 (values-list loc))
                                               (3 (destructuring-bind
                                                        (start end file) loc
-                                                   (declare (ignore end))
-                                                   (values start file))))
+                                                   (values (or start end)
+                                                           file))))
               (signal-compiler-condition
                :original-condition condition
                :severity :warning
