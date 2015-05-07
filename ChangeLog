@@ -1,3 +1,17 @@
+2015-05-07  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Review slime-connection-list commands and bindings. Initial patch
+	courtesy of Attila Lendvai.
+
+	* slime.el (slime-disconnect-connection-at-point): New function.
+	(slime-connection-list-quit-inferior-lisp): Renamed from
+	slime-quit-connection-at-point and added confirmation message.
+	(slime-connection-list-restart-inferior-lisp): Renamed from
+	slime-restart-connection-at-point and added confirmation message.
+	(slime-connection-list-mode-map): Bind "k" to
+	slime-disconnect-connection-at-point and make the quit and restart
+	bindings less likely to be triggered by mistake.
+
 2015-05-07  Attila Lendvai  <attila.lendvai@gmail.com>
 
 	Make the inspector work more like web browsers: bind left click to
