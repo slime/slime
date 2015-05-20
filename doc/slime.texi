@@ -3362,8 +3362,6 @@ keybinding (if there is one) refer to the function description.
 @fcnindex{slime-connect}
 @fcnindex{slime-connection-list-make-default}
 @c @fcnindex{slime-connection-list-mode}
-@c @fcnindex{slime-connection-list-quit-inferior-lisp}
-@c @fcnindex{slime-connection-list-restart-inferior-lisp}
 @c @fcnindex{slime-copy-presentation-at-point}
 @fcnindex{slime-describe-function}
 @fcnindex{slime-describe-symbol}
@@ -3437,6 +3435,7 @@ keybinding (if there is one) refer to the function description.
 @fcnindex{slime-profile-reset}
 @fcnindex{slime-profiled-functions}
 @fcnindex{slime-quit}
+@c @fcnindex{slime-quit-connection-at-point}
 @c @fcnindex{slime-quit-lisp}
 @c @fcnindex{slime-re-evaluate-defvar}
 @c @fcnindex{slime-recompile-bytecode}
@@ -3476,6 +3475,7 @@ keybinding (if there is one) refer to the function description.
 @fcnindex{slime-repl-set-package}
 @c @fcnindex{slime-repl-shortcut-help}
 @c @fcnindex{slime-reset}
+@c @fcnindex{slime-restart-connection-at-point}
 @c @fcnindex{slime-restart-inferior-lisp}
 @c @fcnindex{slime-restart-inferior-lisp-aux}
 @fcnindex{slime-scratch}
