@@ -4544,6 +4544,8 @@ The most important commands:
   ("v" 'slime-show-xref)
   ("n" 'slime-xref-next-line)
   ("p" 'slime-xref-prev-line)
+  ("." 'slime-xref-next-line)
+  ("," 'slime-xref-prev-line)
   ("\C-c\C-c" 'slime-recompile-xref)
   ("\C-c\C-k" 'slime-recompile-all-xrefs)
   ("\M-," 'slime-xref-retract)
