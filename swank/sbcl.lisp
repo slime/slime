@@ -637,9 +637,7 @@ QUALITIES is an alist with (quality . value)"
   #+#.(swank/backend:with-symbol 'restrict-compiler-policy 'sb-ext)
   (loop with policy = (sb-ext:restrict-compiler-policy)
         for (quality) in qualities
-        collect (cons quality
-                      (or (cdr (assoc quality policy))
-                          0))))
+        collect (cons quality (sb-c::policy-quality policy quality))))
 
 (defun (setf compiler-policy) (policy)
   (declare (ignorable policy))
