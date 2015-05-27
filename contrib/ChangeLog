@@ -1,3 +1,9 @@
+2015-05-27  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* swank-c-p-c.lisp (completion-output-case-converter): Take a
+	better guess at symbol case when only a package prefix is
+	provided.
+
 2015-05-03  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* slime-fontifying-fu.el (slime-reader-conditional-face): Remove
