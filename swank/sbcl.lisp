@@ -631,6 +631,13 @@ compiler state."
        (warning                   #'handle-notification-condition))
     (funcall function)))
 
+;;; HACK: SBCL 1.2.12 shipped with a bug where
+;;; SB-EXT:RESTRICT-COMPILER-POLICY would signal an error when there
+;;; were no policy restrictions in place. This workaround ensures the
+;;; existence of at least one dummy restriction.
+(handler-case (sb-ext:restrict-compiler-policy)
+  (error () (sb-ext:restrict-compiler-policy 'debug)))
+
 (defun compiler-policy (qualities)
   "Return compiler policy qualities present in the QUALITIES alist.
 QUALITIES is an alist with (quality . value)"

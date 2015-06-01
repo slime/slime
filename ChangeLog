@@ -1,3 +1,8 @@
+2015-06-01  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* swank/sbcl.lisp: Added workaround for a bug in SBCL 1.2.12's
+	SB-EXT:RESTRICT-COMPILER-POLICY. Courtesy of Stas Boukarev.
+
 2015-05-20  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-xref-mode-map): Bind . and , for compatibility.
