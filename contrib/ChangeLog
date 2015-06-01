@@ -1,3 +1,7 @@
+2015-06-01  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* slime-fancy.el (slime-fancy): Depend on slime-mdot-fu.
+
 2015-05-27  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* swank-c-p-c.lisp (completion-output-case-converter): Take a
