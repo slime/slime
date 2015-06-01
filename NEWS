@@ -1,5 +1,26 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
 
+* 2.14 (June 2015)
+** Core
+*** Rationals are displayed in the echo area as floats too
+*** Some of SLDB's faces now have MORE COLOR
+*** Clicking with mouse-1 within inspector does things
+As do mouse-6 and mouse-7. (Thanks to Attila Lendvai.)
+
+** slime-c-p-c (Compound Prefix Completion)
+*** Now takes a better guess at symbol case (issue #233)
+
+** slime-fancy
+*** slime-mdot-fu is now enabled by default
+
+** SBCL backend
+*** Now able to jump to ir1-translators, declaims and alien types
+*** Various updates supporting SBCL 1.2.12
+
+** ABCL backend
+*** Fixed inspection of frame-locals in the debugger
+(Thanks to Mark Evenson.)
+
 * 2.13 (March 2015)
 
 ** Core
