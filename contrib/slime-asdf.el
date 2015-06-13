@@ -65,7 +65,7 @@ in the directory of the current buffer."
     (cl-loop for system in asd-files
              for candidate = (file-name-sans-extension system)
              when (cl-find candidate system-names :test #'string-equal)
-             do (return candidate))))
+             do (cl-return candidate))))
 
 (defun slime-determine-asdf-system (filename buffer-package)
   "Try to determine the asdf system that `filename' belongs to."

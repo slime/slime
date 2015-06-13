@@ -1,3 +1,11 @@
+2015-06-13  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Fix github issue #248 reported by egarrulo.
+
+	* slime-asdf.el (slime-find-asd-file): Use cl-return rather than
+	return since, in recent versions of Emacs, the latter does not see
+	the cl-block established by cl-loop.
+
 2015-06-01  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* slime-fancy.el (slime-fancy): Depend on slime-mdot-fu.
