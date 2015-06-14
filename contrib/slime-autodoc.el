@@ -106,6 +106,10 @@
 	(slime-insert-propertized '(face highlight) highlight)))
     (buffer-substring (point-min) (point-max))))
 
+(define-obsolete-function-alias 'slime-fontify-string
+  'slime-autodoc--fontify
+  "SLIME 2.10")
+
 
 ;;;; Autodocs (automatic context-sensitive help)
 
