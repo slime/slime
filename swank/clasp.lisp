@@ -162,11 +162,11 @@
   (si:getpid))
 
 (defimplementation set-default-directory (directory)
-  (core:chdir (namestring directory))  ; adapts *DEFAULT-PATHNAME-DEFAULTS*.
+  (ext:chdir (namestring directory))  ; adapts *DEFAULT-PATHNAME-DEFAULTS*.
   (default-directory))
 
 (defimplementation default-directory ()
-  (namestring (core:getcwd)))
+  (namestring (ext:getcwd)))
 
 (defimplementation quit-lisp ()
   (core:quit))
@@ -231,8 +231,8 @@
      :original-condition condition
      :message (princ-to-string condition)
      :severity (etypecase condition
-                 (c:compiler-fatal-error :error)
-                 (c:compiler-error       :error)
+                 (cmp:compiler-fatal-error :error)
+                 (cmp:compiler-error       :error)
                  (error                  :error)
                  (style-warning          :style-warning)
                  (warning                :warning))
@@ -240,8 +240,8 @@
 
 #-clasp-bytecmp
 (defun condition-location (condition)
-  (let ((file     (c:compiler-message-file condition))
-        (position (c:compiler-message-file-position condition)))
+  (let ((file     (cmp:compiler-message-file condition))
+        (position (cmp:compiler-message-file-position condition)))
     (if (and position (not (minusp position)))
         (if *buffer-name*
             (make-buffer-location *buffer-name*
@@ -325,7 +325,8 @@
     (function (ext:compiled-function-name f))))
 
 ;; FIXME
-;; (defimplementation macroexpand-all (form))
+(defimplementation macroexpand-all (form)
+  (macroexpand form))
 
 (defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))
@@ -511,7 +512,7 @@
   (let ((env (cadr (elt *backtrace* frame-number))))
     (block gotit
       (loop for x = env then (core:get-parent-environment x)
-         with id = 0
+         with id = -1
          until (null x)
          do (loop for name across (core:environment-debug-names x)
                for value across (core:environment-debug-values x)
