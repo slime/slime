@@ -1,4 +1,10 @@
-2015-06-23  Christian Schafmeister <chris.schaf@verizon.net>
+2015-06-24  Angelo Rossi  <angelo.rossi.homelab@gmail.com>
+
+	* swank-loader.lisp (*architecture-features*): Add :mips and
+	:mipsel.
+
+2015-06-23  Christian Schafmeister  <chris.schaf@verizon.net>
+
 	* swank/clasp.lisp: Made it compatible with the upcoming
 	release of clasp and this breaks compatibility with the
 	current "master" release of clasp. Moved some symbols
