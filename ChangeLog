@@ -1,5 +1,8 @@
 2015-06-27  Stas Boukarev  <stassats@gmail.com>
 
+	* swank.lisp (*pre-reply-hook*): Don't add
+	sync-indentation-to-emacs on CLASP, it takes too much time.
+
 	* swank/clasp.lisp (assert-source-directory): Uses the SYS logical
 	host, not SRC.
 

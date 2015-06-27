@@ -3737,6 +3737,8 @@ Collisions are caused because package information is ignored."
             (format stream "~&Symbols with collisions:~%~{  ~S~%~}"
                     collisions))))))
 
+;;; FIXME: it's too slow on CLASP right now, remove once it's fast enough.
+#-clasp
 (add-hook *pre-reply-hook* 'sync-indentation-to-emacs)
 
 
