@@ -1,3 +1,8 @@
+2015-06-27  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/clasp.lisp (assert-source-directory): Uses the SYS logical
+	host, not SRC.
+
 2015-06-24  Angelo Rossi  <angelo.rossi.homelab@gmail.com>
 
 	* swank-loader.lisp (*architecture-features*): Add :mips and

@@ -640,7 +640,7 @@
   `(satisfies c-function-p))
 
 (defun assert-source-directory ()
-  (unless (probe-file #P"SRC:")
+  (unless (probe-file #P"SYS:")
     (error "CLASP's source directory ~A does not exist. ~
             You can specify a different location via the environment ~
             variable `CLASPSRCDIR'."
