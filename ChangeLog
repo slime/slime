@@ -1,3 +1,8 @@
+2015-07-09  Jim Newton  <jimka.issy@gmail.com>
+
+	* contrib/slime-enclosing-context.el (slime-edit-definition): Use
+	cl-values.
+
 2015-07-09  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Fix issue #255, reported by rgivan1.
