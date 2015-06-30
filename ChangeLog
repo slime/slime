@@ -1,3 +1,9 @@
+2015-06-30 Jim Newton <jimka.issy@gmail.com>
+
+	* contrib/slime-enclosing-context.el
+	slime-edit-definition was broken because of a call to (values ...)
+	rather than (cl-values ...)
+	
 2015-06-01  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* swank/sbcl.lisp: Added workaround for a bug in SBCL 1.2.12's

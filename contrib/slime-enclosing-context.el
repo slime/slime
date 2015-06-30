@@ -186,7 +186,7 @@ Examples:
                     (push arg-index arg-indices)
                     (push (point) points))))
                 (backward-up-list 1)))))))
-    (values
+    (cl-values
      (nreverse result)
      (nreverse arg-indices)
  (nreverse points))))
