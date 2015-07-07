@@ -1,3 +1,8 @@
+2015-07-07  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/sbcl.lisp (definition-source-file-location): Stop errors
+	from source-path-parser from producing no locations at all.
+
 2015-06-27  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (*pre-reply-hook*): Don't add
