@@ -29,8 +29,7 @@
    read-source-form
    source-path-string-position
    source-path-file-position
-   source-path-source-position
-   ))
+   source-path-source-position))
 
 (in-package swank/source-path-parser)
 
