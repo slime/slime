@@ -1,3 +1,9 @@
+﻿2015-07-08  Denis Budyak <budden73@gmail.com>
+	* swank.lisp, slime.el, contrib/slime-snapshot.el: emacs-rex event is replaced
+	with emacs-rex-rt event. Readtable name is passed in emacs-rex-rt event. When buffer contains
+	(optional-package::in-readtable :readtable-name) at beginning of line, readtable-name will be passed to swank and
+	bound around evaluation
+
 2015-06-27  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (*pre-reply-hook*): Don't add
