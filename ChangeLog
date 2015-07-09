@@ -1,3 +1,10 @@
+2015-07-09  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Fix issue #255, reported by rgivan1.
+
+	* swank/ccl.lisp (function-name-package): Handle traced functions
+	and setf functions.
+
 2015-07-07  YOKOTA Yuki  <y2q.actionman@gmail.com>
 
 	* swank-loader.lisp (list-fasls): New function.
