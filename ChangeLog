@@ -1,3 +1,7 @@
+2015-07-09  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/clasp.lisp (print-frame): Print function names, not
+	function objects.
 2015-07-09  Jim Newton  <jimka.issy@gmail.com>
 
 	* contrib/slime-enclosing-context.el (slime-edit-definition): Use

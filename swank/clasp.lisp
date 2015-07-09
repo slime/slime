@@ -486,7 +486,7 @@
     (values fun position)))
 
 (defimplementation print-frame (frame stream)
-  (format stream "~A" (first frame)))
+  (format stream "(~s ...)" (function-name (first frame))))
 
 (defimplementation frame-source-location (frame-number)
   (nth-value 1 (frame-function (elt *backtrace* frame-number))))
