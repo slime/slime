@@ -1,4 +1,25 @@
+2015-07-09  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/clasp.lisp (print-frame): Print function names, not
+	function objects.
+2015-07-09  Jim Newton  <jimka.issy@gmail.com>
+
+	* contrib/slime-enclosing-context.el (slime-edit-definition): Use
+	cl-values.
+
+2015-07-09  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Fix issue #255, reported by rgivan1.
+
+	* swank/ccl.lisp (function-name-package): Handle traced functions
+	and setf functions.
+
+2015-07-07  YOKOTA Yuki  <y2q.actionman@gmail.com>
+
+	* swank-loader.lisp (list-fasls): New function.
+
 2015-07-08  Denis Budyak <budden73@gmail.com>
+	
 	* swank.lisp, slime.el, contrib/slime-snapshot.el: emacs-rex event is replaced
 	with emacs-rex-rt event. Readtable name is passed in emacs-rex-rt event. When buffer contains
 	(optional-package::in-readtable :readtable-name) at beginning of line, readtable-name will be passed to swank and

@@ -21,6 +21,7 @@
   (:use :cl)
   (:export :init
            :dump-image
+           :list-fasls
            :*source-directory*
            :*fasl-directory*))
 
@@ -345,3 +346,19 @@ global variabes in SWANK."
 (defun dump-image (filename)
   (init :setup nil)
   (funcall (q "swank/backend:save-image") filename))
+
+(defun list-fasls (&key (include-contribs t) (compile t)
+                        (quiet (not *compile-verbose*)))
+  "List up SWANK's fasls along with their dependencies."
+  (flet ((collect-fasls (files fasl-dir)
+           (when compile
+             (compile-files files fasl-dir nil quiet))
+           (loop for src in files
+                 when (probe-file (binary-pathname src fasl-dir))
+                   collect it)))
+    (append (collect-fasls (src-files *swank-files* *source-directory*)
+                           *fasl-directory*)
+            (when include-contribs
+              (collect-fasls (src-files *contribs*
+                                        (contrib-dir *source-directory*))
+                             (contrib-dir *fasl-directory*))))))

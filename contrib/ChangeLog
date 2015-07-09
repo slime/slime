@@ -1,3 +1,20 @@
+2015-07-09  Russ Tyndall  <russ@acceleration.net>
+
+	* swank-presentation-streams.lisp: updated
+	sb-impl::%print-unreadable-object wrapper to accept body
+	optionally, as per new SBCL.
+
+2015-07-08  Peter Feigl  <craven@gmx.net>
+
+	Base64-decode literal image data. This fixes problems with sending
+	actual binary data over the wire.
+
+	* slime-media.el (slime-media-decode-image): New function.
+	(slime-dispatch-media-event): If image data is passed as :data,
+	assume it is base64-encoded and decode it using
+	slime-media-decode-image. If there is no :data, don't change
+	anything.
+
 2015-06-14  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Fix github issue #249 reported by egarrulo.
