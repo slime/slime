@@ -527,7 +527,14 @@ confronted with nasty #.-fu."
        "
        "SWANK"
        "[ \t]*(defun .foo. "
-       ))
+       )
+      ("(in-package swank)
+ (eval-when (:compile-toplevel) (defparameter *bar* 456))
+ (eval-when (:load-toplevel :execute) (makunbound '*bar*))
+ (defun bar () #.*bar*)
+ (defun .foo. () 123)"
+	"SWANK"
+	"[ \t]*(defun .foo. () 123)"))
   (let ((slime-buffer-package buffer-package))
     (with-temp-buffer
       (insert buffer-content)
@@ -543,8 +550,7 @@ confronted with nasty #.-fu."
         (slime-edit-definition ".foo.")
         (slime-check ("Definition of `.foo.' is in buffer `%s'." bufname)
           (string= (buffer-name) bufname))
-        (slime-check "Definition now at point." (looking-at snippet)))
-      )))
+        (slime-check "Definition now at point." (looking-at snippet))))))
 
 (def-slime-test (find-definition.3
                  (:fails-for "abcl" "allegro" "clisp" "lispworks" "sbcl"

@@ -29,7 +29,8 @@
    read-source-form
    source-path-string-position
    source-path-file-position
-   source-path-source-position))
+   source-path-source-position)
+  (:shadow ignore-errors))
 
 (in-package swank/source-path-parser)
 
@@ -38,6 +39,11 @@
   (assert (or (not (get-macro-character #\space rt))
 	      (nth-value 1 (get-macro-character #\space rt))))
   (assert (not (get-macro-character #\\ rt))))
+
+(eval-when (:compile-toplevel)
+  (defmacro ignore-errors (&rest forms)
+    ;;`(progn . ,forms) ; for debugging
+    `(cl:ignore-errors . ,forms)))
 
 (defun make-sharpdot-reader (orig-sharpdot-reader)
   (lambda (s c n)
@@ -102,8 +108,23 @@ subexpressions of the object to stream positions."
       (push (cons start end) (gethash form source-map)))
     (values form source-map)))
 
-(defun skip-whitespace (stream)
-  (peek-char t stream))
+(defun starts-with-p (string prefix)
+  (declare (type string string prefix))
+  (not (mismatch string prefix
+		 :end1 (min (length string) (length prefix))
+		 :test #'char-equal)))
+
+(defun extract-package (line)
+  (declare (type string line))
+  (let ((name (cadr (read-from-string line))))
+    (find-package name)))
+
+#+(or)
+(progn
+  (assert (extract-package "(in-package cl)"))
+  (assert (extract-package "(cl:in-package cl)"))
+  (assert (extract-package "(in-package \"CL\")"))
+  (assert (extract-package "(in-package #:cl)")))
 
 ;; FIXME: do something cleaner than this.
 (defun readtable-for-package (package)
@@ -112,44 +133,41 @@ subexpressions of the object to stream positions."
   (funcall (read-from-string "swank::guess-buffer-readtable")
            (string-upcase (package-name package))))
 
-(defun skip-one-toplevel-form (stream read-suppress package readtable)
-  ;; Read one form trying to parse IN-PACKAGE forms.
-  ;; Return three values: (NEW-READ-SUPPRESS NEW-PACKAGE NEW-READTABLE).
-  (let ((form (let ((*read-suppress* read-suppress)
-		    (*package* package)
-		    (*readtable* readtable))
-		(read stream))))
-    (cond ((and (consp form)
-		(string= (car form) 'in-package))
-	   (let ((pkg (find-package (second form))))
-	     (if pkg
-		 (values nil pkg (readtable-for-package pkg))
-		 (values t package readtable))))
-	  (t
-	   (values nil package readtable)))))
-
-;; IDEA: maybe stop being so clever after the first IN-PACKAGE form.
+;; Search STREAM for a "(in-package ...)" form.  Use that to derive
+;; the values for *PACKAGE* and *READTABLE*.
 ;;
-;; IDEA: 1) skip over the form with *READ-SUPPRESS* 2) reset the file
-;; position 3) use READ-LINE and only if the line matches a pattern
-;; process it as IN-PACKAGE.
+;; IDEA: move GUESS-READER-STATE to swank.lisp so that all backends
+;; use the same heuristic and to avoid the need to access
+;; swank::guess-buffer-readtable from here.
+(defun guess-reader-state (stream)
+  (let* ((point (file-position stream))
+	 (pkg *package*))
+    (file-position stream 0)
+    (loop for line = (read-line stream nil nil) do
+	  (when (not line) (return))
+	  (when (or (starts-with-p line "(in-package ")
+		    (starts-with-p line "(cl:in-package "))
+	    (let ((p (extract-package line)))
+	      (when p (setf pkg p)))
+	    (return)))
+    (file-position stream point)
+    (values (readtable-for-package pkg) pkg)))
+
+(defun skip-whitespace (stream)
+  (peek-char t stream))
+
+;; Skip over N toplevel forms.
 (defun skip-toplevel-forms (n stream)
-  ;; Skip over N toplevel forms.  Try to be clever and and recognize
-  ;; the IN-PACKAGE form.  For this *READ-SUPPRESS* is NIL (i.e. lots
-  ;; of interning) until a non-existing package would be needed.
-  (let ((read-suppress nil)
-	(package *package*)
-	(readtable *readtable*))
-    (dotimes (_ n)
-      (multiple-value-setq (read-suppress package readtable)
-	(skip-one-toplevel-form stream read-suppress package readtable)))
-    (values package readtable)))
+  (let ((*read-suppress* t))
+    (dotimes (i n)
+      (read stream))
+    (skip-whitespace stream)))
 
 (defun read-source-form (n stream)
   "Read the Nth toplevel form number with source location recording.
 Return the form and the source-map."
-  (multiple-value-bind (*package* *readtable*) (skip-toplevel-forms n stream)
-    (skip-whitespace stream)
+  (multiple-value-bind (*readtable* *package*) (guess-reader-state stream)
+    (skip-toplevel-forms n stream)
     (read-and-record-source-map stream)))
 
 (defun source-path-stream-position (path stream)
