@@ -22,7 +22,7 @@
       '((kawa
          ("java"
           ;; needed jar files
-          "-cp" "kawa-1.14.jar:swank-kawa.jar:/opt/jdk1.6.0/lib/tools.jar"
+          "-cp" "kawa-2.0.1.jar:swank-kawa.jar:/opt/jdk1.8.0/lib/tools.jar"
           ;; channel for debugger
           "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n"
           ;; depending on JVM, compiler may need more stack
@@ -44,6 +44,11 @@
                   ;;     "/scratch/kawa")
                   ;;   swank-java-source-path))
                   )))
+
+;; Optionally define a command to start it.
+(defun kawa ()
+  (interactive)
+  (slime 'kawa))
 
 |#
 ;; 4. Start everything with  M-- M-x slime kawa
