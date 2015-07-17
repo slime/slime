@@ -1,3 +1,39 @@
+2015-07-17  Helmut Eller  <heller@common-lisp.net>
+
+	Start using completion-at-point.
+
+	That saves us the complex code to display the list of completions.
+	Unfortunately, slime-complete-symbol-function doesn't work well to
+	customize it.  Had to introduce a replacment:
+	slime-completion-at-point-functions.
+
+	* slime.el (slime-complete-symbol): Use completion-at-point.
+	(slime-completion-at-point-functions): New.
+	(slime--completion-at-point-functions): New helper.
+	(slime-complete-symbol-function): Obsolete, but have to keep it
+	around for some time.
+	(slime-simple-completion-at-point): Renamed from
+	slime-simple-complete-symbol to avoid confusion.
+	(slime-filename-completion): Renamed from
+	slime-maybe-complete-as-filename.
+	(slime-simple-complete-symbol): Backward compatible replacement.
+
+	(slime-completions-buffer-name)
+	(slime-complete-saved-window-configuration)
+	(slime-completions-window)
+	(slime-complete-maybe-save-window-configuration)
+	(slime-complete-delay-restoration)
+	(slime-complete-forget-window-configuration)
+	(slime-complete-restore-window-configuration)
+	(slime-complete-maybe-restore-window-configuration)
+	(slime-completion-window-active-p, slime-display-completion-list)
+	(slime-display-or-scroll-completions, slime-scroll-completions)
+	(slime-minibuffer-respecting-message): Move to
+	contrib/slime-c-p-c.el
+
+	* slime-tests.el (complete-symbol): Update tests.
+	* doc/slime.texi: Update documentation for symbol completion.
+
 2015-07-15  Helmut Eller  <heller@common-lisp.net>
 
 	Use *READ-SUPPRESS* more often while searching source locations.

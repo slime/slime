@@ -586,18 +586,16 @@ confronted with nasty #.-fu."
 (def-slime-test complete-symbol
     (prefix expected-completions)
     "Find the completions of a symbol-name prefix."
-    '(("cl:compile" (("cl:compile" "cl:compile-file" "cl:compile-file-pathname"
-                      "cl:compiled-function" "cl:compiled-function-p"
-                      "cl:compiler-macro" "cl:compiler-macro-function")
-                     "cl:compile"))
-      ("cl:foobar" (nil ""))
-      ("swank::compile-file" (("swank::compile-file"
-                               "swank::compile-file-for-emacs"
-                               "swank::compile-file-if-needed"
-                               "swank::compile-file-output"
-                               "swank::compile-file-pathname")
-                              "swank::compile-file"))
-      ("cl:m-v-l" (nil "")))
+    '(("cl:compile" ("cl:compile" "cl:compile-file" "cl:compile-file-pathname"
+		     "cl:compiled-function" "cl:compiled-function-p"
+		     "cl:compiler-macro" "cl:compiler-macro-function"))
+      ("cl:foobar" ())
+      ("swank::compile-file" ("swank::compile-file"
+			      "swank::compile-file-for-emacs"
+			      "swank::compile-file-if-needed"
+			      "swank::compile-file-output"
+			      "swank::compile-file-pathname"))
+      ("cl:m-v-l" ()))
   (let ((completions (slime-simple-completions prefix)))
     (slime-test-expect "Completion set" expected-completions completions)))
 

@@ -275,12 +275,22 @@ argument."
                    (and tags-table-list
                         (slime-etags-definitions name))))))
 
-(defcustom slime-complete-symbol-function 'slime-simple-complete-symbol
-  "*Function to perform symbol completion."
+;; FIXME: remove one day
+(defcustom slime-complete-symbol-function 'nil
+  "Obsolete. Use `slime-completion-at-point-functions' instead."
   :group 'slime-mode
-  :type '(choice (const :tag "Simple" slime-simple-complete-symbol)
-                 (const :tag "Compound" slime-complete-symbol*)
+  :type '(choice (const :tag "Compound" slime-complete-symbol*)
                  (const :tag "Fuzzy" slime-fuzzy-complete-symbol)))
+
+(defcustom slime-completion-at-point-functions
+  '(slime-filename-completion
+    slime-simple-completion-at-point)
+  "List of functions to perform completion.
+Works like `completion-at-point-functions'.
+
+`slime-complete-symbol' prepends this list to `completion-at-point-functions'
+before calling `completion-at-point'."
+  :group 'slime-mode)
 
 ;;;;; slime-mode-faces
 
@@ -3509,157 +3519,43 @@ more than one space."
 
 ;;;; Completion
 
-;; XXX those long names are ugly to read; long names an indicator for
-;; bad factoring?
-
-(defvar slime-completions-buffer-name "*Completions*")
-
-;; FIXME: can probably use quit-window instead
-(make-variable-buffer-local
- (defvar slime-complete-saved-window-configuration nil
-   "Window configuration before we show the *Completions* buffer.
-This is buffer local in the buffer where the completion is
-performed."))
-
-(make-variable-buffer-local
- (defvar slime-completions-window nil
-   "The window displaying *Completions* after saving window configuration.
-If this window is no longer active or displaying the completions
-buffer then we can ignore `slime-complete-saved-window-configuration'."))
-
-(defun slime-complete-maybe-save-window-configuration ()
-  "Maybe save the current window configuration.
-Return true if the configuration was saved."
-  (unless (or slime-complete-saved-window-configuration
-              (get-buffer-window slime-completions-buffer-name))
-    (setq slime-complete-saved-window-configuration
-          (current-window-configuration))
-    t))
-
-(defun slime-complete-delay-restoration ()
-  (add-hook 'pre-command-hook
-            'slime-complete-maybe-restore-window-configuration
-            'append
-            'local))
-
-(defun slime-complete-forget-window-configuration ()
-  (setq slime-complete-saved-window-configuration nil)
-  (setq slime-completions-window nil))
-
-(defun slime-complete-restore-window-configuration ()
-  "Restore the window config if available."
-  (remove-hook 'pre-command-hook
-               'slime-complete-maybe-restore-window-configuration)
-  (when (and slime-complete-saved-window-configuration
-             (slime-completion-window-active-p))
-    (save-excursion (set-window-configuration
-                     slime-complete-saved-window-configuration))
-    (setq slime-complete-saved-window-configuration nil)
-    (when (buffer-live-p slime-completions-buffer-name)
-      (kill-buffer slime-completions-buffer-name))))
-
-(defun slime-complete-maybe-restore-window-configuration ()
-  "Restore the window configuration, if the following command
-terminates a current completion."
-  (remove-hook 'pre-command-hook
-               'slime-complete-maybe-restore-window-configuration)
-  (condition-case err
-      (cond ((cl-find last-command-event "()\"'`,# \r\n:")
-             (slime-complete-restore-window-configuration))
-            ((not (slime-completion-window-active-p))
-             (slime-complete-forget-window-configuration))
-            (t
-             (slime-complete-delay-restoration)))
-    (error
-     ;; Because this is called on the pre-command-hook, we mustn't let
-     ;; errors propagate.
-     (message "Error in slime-complete-restore-window-configuration: %S"
-              err))))
-
-(defun slime-completion-window-active-p ()
-  "Is the completion window currently active?"
-  (and (window-live-p slime-completions-window)
-       (equal (buffer-name (window-buffer slime-completions-window))
-              slime-completions-buffer-name)))
-
-(defun slime-display-completion-list (completions base)
-  (let ((savedp (slime-complete-maybe-save-window-configuration)))
-    (with-output-to-temp-buffer slime-completions-buffer-name
-      (display-completion-list completions)
-      (let ((offset (- (point) 1 (length base))))
-        (with-current-buffer standard-output
-          (setq completion-base-position offset)
-          (set-syntax-table lisp-mode-syntax-table))))
-    (when savedp
-      (setq slime-completions-window
-            (get-buffer-window slime-completions-buffer-name)))))
-
-(defun slime-display-or-scroll-completions (completions base)
-  (cond ((and (eq last-command this-command)
-              (slime-completion-window-active-p))
-         (slime-scroll-completions))
+(defun slime--completion-at-point-functions ()
+  (cond (slime-complete-symbol-function ; FIXME: for backward compatibilty
+         (list (lambda () slime-complete-symbol-function)))
         (t
-         (slime-display-completion-list completions base)))
-  (slime-complete-delay-restoration))
-
-(defun slime-scroll-completions ()
-  (let ((window slime-completions-window))
-    (with-current-buffer (window-buffer window)
-      (if (pos-visible-in-window-p (point-max) window)
-          (set-window-start window (point-min))
-        (save-selected-window
-          (select-window window)
-          (scroll-up))))))
+         (append slime-completion-at-point-functions
+                 completion-at-point-functions))))
 
 (defun slime-complete-symbol ()
   "Complete the symbol at point.
 
-Completion is performed by `slime-complete-symbol-function'."
+Completion is performed by `slime-completion-at-point-functions'."
   (interactive)
-  (funcall slime-complete-symbol-function))
+  (let ((completion-at-point-functions (slime--completion-at-point-functions)))
+    (completion-at-point)))
 
-(defun slime-simple-complete-symbol ()
+(defun slime-simple-completion-at-point ()
   "Complete the symbol at point.
-Perform completion more similar to Emacs' complete-symbol."
-  (or (slime-maybe-complete-as-filename)
-      (let* ((end (point))
-             (beg (slime-symbol-start-pos))
-             (prefix (buffer-substring-no-properties beg end))
-             (result (slime-simple-completions prefix)))
-        (cl-destructuring-bind (completions partial) result
-          (if (null completions)
-              (progn (slime-minibuffer-respecting-message
-                      "Can't find completion for \"%s\"" prefix)
-                     (ding)
-                     (slime-complete-restore-window-configuration))
-            (insert-and-inherit (substring partial (length prefix)))
-            (cond ((slime-length= completions 1)
-                   (slime-minibuffer-respecting-message "Sole completion")
-                   (slime-complete-restore-window-configuration))
-                  ;; Incomplete
-                  (t
-                   (when (member partial completions)
-                     (slime-minibuffer-respecting-message
-                      "Complete but not unique"))
-                   (slime-display-or-scroll-completions completions
-                                                        partial))))))))
+Perform completion similar to `elisp-completion-at-point'."
+  (let* ((end (point))
+         (beg (slime-symbol-start-pos)))
+    (list beg end (completion-table-dynamic #'slime-simple-completions))))
 
-(defun slime-maybe-complete-as-filename ()
+(defun slime-filename-completion ()
   "If point is at a string starting with \", complete it as filename.
 Return nil if point is not at filename."
   (when (save-excursion (re-search-backward "\"[^ \t\n]+\\="
-                                            (max (point-min)
-                                                 (- (point) 1000)) t))
+                                            (max (point-min) (- (point) 1000))
+                                            t))
     (let ((comint-completion-addsuffix '("/" . "\"")))
-      (comint-replace-by-expanded-filename)
-      t)))
+      (comint-filename-completion))))
 
-(defun slime-minibuffer-respecting-message (format &rest format-args)
-  "Display TEXT as a message, without hiding any minibuffer contents."
-  (let ((text (format " [%s]" (apply #'format format format-args))))
-    (if (minibuffer-window-active-p (minibuffer-window))
-        (minibuffer-message text)
-      (message "%s" text))))
+;; FIXME: for backward compatibility.  Remove it one day
+;; together with slime-complete-symbol-function.
+(defun slime-simple-complete-symbol ()
+  (let ((completion-at-point-functions '(slime-maybe-complete-as-filename
+                                         slime-simple-completion-at-point)))
+    (completion-at-point)))
 
 (defun slime-indent-and-complete-symbol ()
   "Indent the current line and perform symbol completion.
@@ -3712,9 +3608,12 @@ alist but ignores CDRs."
   (mapcar (lambda (x) (cons x nil)) list))
 
 (defun slime-simple-completions (prefix)
-  (let ((slime-current-thread t))
-    (slime-eval
-     `(swank:simple-completions ,prefix ',(slime-current-package)))))
+  (cl-destructuring-bind (completions _partial)
+      (let ((slime-current-thread t))
+        (slime-eval
+         `(swank:simple-completions ,(substring-no-properties prefix)
+                                    ',(slime-current-package))))
+    completions))
 
 
 ;;;; Edit definition
@@ -5981,7 +5880,7 @@ truly screwed up."
       (dolist (cmd commands)
         ;; First wait until gdb was initialized, then wait until current
         ;; command was processed.
-        (while (not (looking-back comint-prompt-regexp))
+        (while (not (looking-back comint-prompt-regexp nil))
           (sit-for 0.01))
         ;; We do not use `gud-call' because we want the initial commands
         ;; to be displayed by the user so he knows what he's got.

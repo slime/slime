@@ -1,4 +1,11 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
+* 2.15 (July 2015)
+** Core
+*** Completions are now displayed with `completion-at-point'.
+The new variable `slime-completion-at-point-functions' should now be
+used to customize completion.  The old variable
+`slime-complete-symbol-function' still works, but it is considered
+obsolete and will be removed eventually.
 
 * 2.14 (June 2015)
 ** Core
