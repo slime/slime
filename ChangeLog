@@ -1,3 +1,8 @@
+2015-07-18  Mark Karpov <markkarpov@openmailbox.org>
+
+	* slime-autoloads.el (hyperspec-lookup): Fix autoload spec of the
+	function.
+
 2015-07-17  Helmut Eller  <heller@common-lisp.net>
 
 	Start using completion-at-point.
