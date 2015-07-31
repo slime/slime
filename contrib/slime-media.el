@@ -20,7 +20,8 @@
 (defun slime-dispatch-media-event (event)
   (slime-dcase event
     ((:write-image image string)
-     (let ((img (find-image (slime-media-decode-image image))))
+     (let ((img (or (find-image (slime-media-decode-image image))
+                    (create-image image))))
        (slime-media-insert-image img string))
      t)
     ((:popup-buffer bufname string mode)
