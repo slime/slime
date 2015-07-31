@@ -4925,11 +4925,13 @@ argument is given, with CL:MACROEXPAND."
        'swank:swank-expand
      'swank:swank-expand-1)))
 
-(defun slime-format-string-expand ()
+(defun slime-format-string-expand (&optional string)
   "Expand the format-string at point and display it."
-  (interactive)
-  (slime-eval-macroexpand 'swank:swank-format-string-expand
-                          (slime-string-at-point-or-error)))
+  (interactive (list (or (and (not current-prefix-arg)
+                              (slime-string-at-point))
+                         (slime-read-from-minibuffer "Expand format: "
+                                                     (slime-string-at-point)))))
+  (slime-eval-macroexpand 'swank:swank-format-string-expand string))
 
 
 ;;;; Subprocess control
@@ -7418,9 +7420,10 @@ The returned bounds are either nil or non-empty."
 (defun slime-string-at-point ()
   "Returns the string at point as a string, otherwise nil."
   (let ((sexp (slime-sexp-at-point)))
-    (if (eql (char-syntax (aref sexp 0)) ?\")
+    (if (and sexp
+             (eql (char-syntax (aref sexp 0)) ?\"))
         sexp
-      nil)))
+        nil)))
 
 (defun slime-string-at-point-or-error ()
   "Return the sexp at point as a string, othwise signal an error."

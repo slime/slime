@@ -1,3 +1,8 @@
+2015-07-31  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-format-string-expand): When there's no string at
+	point, read a string from the minibuffer.
+
 2015-07-18  Mark Karpov <markkarpov@openmailbox.org>
 
 	* slime-autoloads.el (hyperspec-lookup): Fix autoload spec of the
@@ -61,6 +66,7 @@
 
 	* swank/clasp.lisp (print-frame): Print function names, not
 	function objects.
+
 2015-07-09  Jim Newton  <jimka.issy@gmail.com>
 
 	* contrib/slime-enclosing-context.el (slime-edit-definition): Use
