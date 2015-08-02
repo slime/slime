@@ -154,7 +154,7 @@ subexpressions of the object to stream positions."
     (values (readtable-for-package pkg) pkg)))
 
 (defun skip-whitespace (stream)
-  (peek-char t stream))
+  (peek-char t stream nil nil))
 
 ;; Skip over N toplevel forms.
 (defun skip-toplevel-forms (n stream)

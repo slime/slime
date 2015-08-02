@@ -1,3 +1,8 @@
+2015-08-02  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/source-path-parser.lisp (skip-whitespace): ignore EOF,
+	there may no non-whitespace characters left.
+
 2015-07-31  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-format-string-expand): When there's no string at
