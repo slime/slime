@@ -1323,7 +1323,7 @@ The default condition handler for timer functions (see
     "Hack and be merry!"
     "Your hacking starts... NOW!"
     "May the source be with you!"
-    "Take this REPL, brother, and may it serve you well."
+    ,(format "Take this REPL, %s, and may it serve you well." (nth (random 2) '("brother" "sister")))
     "Lemonodor-fame is but a hack away!"
     ,(format "%s, this could be the start of a beautiful program."
              (slime-user-first-name)))
