@@ -837,35 +837,74 @@ QUALITIES is an alist with (quality . value)"
             (pathname :file-without-position)
             (t :invalid)))))
 
+#+#.(swank/backend:with-symbol 'definition-source-form-number 'sb-introspect)
+(defun form-number-position (definition-source stream)
+  (let* ((tlf-number (car (sb-introspect:definition-source-form-path definition-source)))
+         (form-number (sb-introspect:definition-source-form-number definition-source)))
+    (multiple-value-bind (tlf pos-map) (read-source-form tlf-number stream)
+      (let* ((path-table (sb-di::form-number-translations tlf 0))
+             (path (cond ((<= (length path-table) form-number)
+                          (warn "inconsistent form-number-translations")
+                          (list 0))
+                         (t
+                          (reverse (cdr (aref path-table form-number)))))))
+        (source-path-source-position path tlf pos-map)))))
+
+#+#.(swank/backend:with-symbol 'definition-source-form-number 'sb-introspect)
+(defun file-form-number-position (definition-source)
+  (let* ((code-date (sb-introspect:definition-source-file-write-date definition-source))
+         (filename (sb-introspect:definition-source-pathname definition-source))
+         (*readtable* (guess-readtable-for-filename filename))
+         (source-code (get-source-code filename code-date)))
+    (with-debootstrapping
+      (with-input-from-string (s source-code)
+        (form-number-position definition-source s)))))
+
+#+#.(swank/backend:with-symbol 'definition-source-form-number 'sb-introspect)
+(defun string-form-number-position (definition-source string)
+  (with-input-from-string (s string)
+    (form-number-position definition-source s)))
+
 (defun definition-source-buffer-location (definition-source)
   (with-definition-source (form-path character-offset plist) definition-source
     (destructuring-bind (&key emacs-buffer emacs-position emacs-directory
                               emacs-string &allow-other-keys)
         plist
-      (let ((*readtable* (guess-readtable-for-filename emacs-directory)))
-        (multiple-value-bind (start end)
-            (if form-path
-                (with-debootstrapping
-                  (source-path-string-position form-path
-                                               emacs-string))
-                (values character-offset
-                        most-positive-fixnum))
-          (make-location
-           `(:buffer ,emacs-buffer)
-           `(:offset ,emacs-position ,start)
-           `(:snippet
-             ,(subseq emacs-string
-                      start
-                      (min end (+ start *source-snippet-size*))))))))))
+      (let ((*readtable* (guess-readtable-for-filename emacs-directory))
+            start
+            end)
+        (with-debootstrapping
+          (or
+           (and form-path
+                (or
+                 #+#.(swank/backend:with-symbol 'definition-source-form-number 'sb-introspect)
+                 (setf (values start end)
+                       (and (sb-introspect:definition-source-form-number definition-source)
+                            (string-form-number-position definition-source emacs-string)))
+                 (setf (values start end)
+                       (source-path-string-position form-path emacs-string))))
+           (setf start character-offset
+                 end most-positive-fixnum)))
+        (make-location
+         `(:buffer ,emacs-buffer)
+         `(:offset ,emacs-position ,start)
+         `(:snippet
+           ,(subseq emacs-string
+                    start
+                    (min end (+ start *source-snippet-size*)))))))))
 
 (defun definition-source-file-location (definition-source)
   (with-definition-source (pathname form-path character-offset plist
-                                    file-write-date) definition-source
+                           file-write-date) definition-source
     (let* ((namestring (namestring (translate-logical-pathname pathname)))
            (pos (or (and form-path
-                         (ignore-errors
-                          (source-file-position namestring file-write-date
-                                                form-path)))
+                         (or
+                          #+#.(swank/backend:with-symbol 'definition-source-form-number 'sb-introspect)
+                          (and (sb-introspect:definition-source-form-number definition-source)
+                               (ignore-errors (file-form-number-position definition-source)))
+                          (ignore-errors
+                           (source-file-position namestring file-write-date
+                                                 form-path))))
                     character-offset))
            (snippet (source-hint-snippet namestring file-write-date pos)))
       (make-location `(:file ,namestring)

@@ -1,3 +1,8 @@
+2015-08-04  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/sbcl.lisp: make use of the newly provided form number for
+	top-level forms.
+
 2015-08-02  Stas Boukarev  <stassats@gmail.com>
 
 	* swank/source-path-parser.lisp (skip-whitespace): ignore EOF,
