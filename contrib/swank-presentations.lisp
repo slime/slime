@@ -11,7 +11,7 @@
 
 (in-package :swank)
 
-(eval-when (:compile-toplevel :load-toplevel)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (swank-require :swank-repl))
 
 ;;;; Recording and accessing results of computations

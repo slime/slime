@@ -10,7 +10,7 @@
 
 (in-package :swank)
 
-(eval-when (:compile-toplevel :load-toplevel)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (swank-require :swank-presentations))
 
 ;; This file contains a mechanism for printing to the slime repl so
