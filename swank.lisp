@@ -2593,20 +2593,20 @@ the filename of the module (or nil if the file doesn't exist).")
 
 (defun merged-directory (dirname defaults)
   (pathname-directory
-   (merge-pathnames 
+   (merge-pathnames
     (make-pathname :directory `(:relative ,dirname) :defaults defaults)
     defaults)))
 
 (defvar *load-path* '()
   "A list of directories to search for modules.")
 
-(defun module-canditates (name dir)
+(defun module-candidates (name dir)
   (list (compile-file-pathname (make-pathname :name name :defaults dir))
         (make-pathname :name name :type "lisp" :defaults dir)))
 
 (defun find-module (module)
   (let ((name (string-downcase module)))
-    (some (lambda (dir) (some #'probe-file (module-canditates name dir)))
+    (some (lambda (dir) (some #'probe-file (module-candidates name dir)))
           *load-path*)))
 
 
