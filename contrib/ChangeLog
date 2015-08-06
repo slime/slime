@@ -1,3 +1,12 @@
+2015-08-06  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Fix LOOP warning. Reported by Jerome Ibanes.
+
+	* swank-c-p-c.lisp (make-compound-prefix-matcher): Move
+	declaration of TPOS up so that it precedes the iteration
+	clause. (Strict LOOP implementations, namely Lispworks's, complain
+	about it.)
+
 2015-07-31  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-media.el (slime-dispatch-media-event): now works when
