@@ -1,3 +1,8 @@
+2015-08-14  Angelo Rossi <angelo.rossi.homelab@gmail.com>
+	* swank-loader.lisp: Added :mips and :mipsel keyword
+	to the *architecture-features*.
+	
+	
 2015-06-23  Christian Schafmeister <chris.schaf@verizon.net>
 	* swank/clasp.lisp: Made it compatible with the upcoming
 	release of clasp and this breaks compatibility with the
