@@ -1,3 +1,7 @@
+2015-08-18  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/clasp.lisp (print-frame): Print arguments on newer Clasp versions. 
+
 2015-08-14  Stas Boukarev  <stassats@gmail.com>
 
 	* swank/source-path-parser.lisp (make-source-recorder): Fix

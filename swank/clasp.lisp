@@ -435,7 +435,7 @@
          (*backtrace* (loop for ihs from 0 below *ihs-top*
                             collect (list (si::ihs-fun ihs)
                                           (si::ihs-env ihs)
-                                          nil))))
+                                          ihs))))
     (declare (special *ihs-current*))
 #+frs    (loop for f from *frs-base* until *frs-top*
           do (let ((i (- (si::frs-ihs f) *ihs-base* 1)))
@@ -450,13 +450,10 @@
     (let ((*ihs-base* *ihs-top*))
       (funcall debugger-loop-fn))))
 
-
-
 (defimplementation compute-backtrace (start end)
-  (when (numberp end)
-    (setf end (min end (length *backtrace*))))
-  (loop for f in (subseq *backtrace* start end)
-        collect f))
+  (subseq *backtrace* start
+          (and (numberp end)
+               (min end (length *backtrace*)))))
 
 (defun frame-name (frame)
   (let ((x (first frame)))
@@ -486,7 +483,11 @@
     (values fun position)))
 
 (defimplementation print-frame (frame stream)
-  (format stream "(~s ...)" (function-name (first frame))))
+  (format stream "(~s~{ ~s~})" (function-name (first frame))
+          #+#.(swank/backend:with-symbol 'ihs-arguments 'core)
+          (coerce (core:ihs-arguments (third frame)) 'list)
+          #-#.(swank/backend:with-symbol 'ihs-arguments 'core)
+          nil))
 
 (defimplementation frame-source-location (frame-number)
   (nth-value 1 (frame-function (elt *backtrace* frame-number))))
