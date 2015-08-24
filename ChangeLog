@@ -1,6 +1,13 @@
+2015-08-24  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* slime.el (slime-next-connection, slime-prev-connection): Reverse
+	the ordering so that slime-next-connection moves down in the
+	slime-connection-list.
+
 2015-08-18  Stas Boukarev  <stassats@gmail.com>
 
-	* swank/clasp.lisp (print-frame): Print arguments on newer Clasp versions. 
+	* swank/clasp.lisp (print-frame): Print arguments on newer Clasp
+	versions.
 
 2015-08-14  Stas Boukarev  <stassats@gmail.com>
 
