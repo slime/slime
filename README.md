@@ -40,8 +40,9 @@ Contribs
 --------
 
 SLIME comes with additional contributed packages or "contribs". When SLIME
-is loaded it loads the contribs you set up before in `slime-contribs`. You
-can use the command `slime-setup` to reload contribs.
+is loaded it loads the contribs you set up before in `slime-contribs` (i.e.
+in the `init` block if you use [`use-package`](https://github.com/jwiegley/use-package)).
+You can use the command `slime-setup` to reload contribs.
 
 The most-often used contrib is `slime-fancy`, which primarily installs a
 popular set of other contributed packages. It includes a better REPL, and
