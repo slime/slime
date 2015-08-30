@@ -7,6 +7,9 @@ used to customize completion.  The old variable
 `slime-complete-symbol-function' still works, but it is considered
 obsolete and will be removed eventually.
 
+** SBCL backend
+*** M-. can locate forms within PROGN/MACROLET/etc. Needs SBCL 1.2.15 
+
 * 2.14 (June 2015)
 ** Core
 *** Rationals are displayed in the echo area as floats too
