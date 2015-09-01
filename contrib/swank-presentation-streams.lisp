@@ -89,12 +89,13 @@ Two special return values:
 :DEDICATED -- Output ends up on a dedicated output stream
 :REPL-RESULT -- Output ends up on the :repl-results target.
 "
+    (if (eq stream t) 
+	(setq stream *standard-output*))
+
     (if (eq last-stream stream)
 	last-answer
 	(progn
 	  (setq last-stream stream)
-	  (if (eq stream t) 
-	      (setq stream *standard-output*))
 	  (setq last-answer 
 		(or #+openmcl 
 		    (and (typep stream 'ccl::xp-stream) 
