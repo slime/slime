@@ -414,6 +414,31 @@ This is the minimal configuration with the fewest frills.  If the
 basic setup is working, you can try additional modules (@ref{Loading
 Contribs}).
 
+@subsection use-package
+
+You can also use @uref{https://github.com/jwiegley/use-package,,use-package} to install and configure @SLIME{} in one place:
+
+@example
+(use-package slime :ensure t
+  :init
+  (setq slime-contribs                     '(slime-fancy)
+        slime-complete-symbol-function     'slime-fuzzy-complete-symbol
+        slime-net-coding-system            'utf-8-unix
+        slime-lisp-implementations         '((ccl64 ("/usr/local/bin/ccl64"))
+                                             (sbcl  ("/usr/local/bin/sbcl"))
+                                             (abcl  ("/usr/local/bin/abcl"))
+                                             (clisp ("/usr/local/bin/clisp"))
+                                             (ccl   ("/usr/local/bin/ccl"))))
+  :config
+  (setq common-lisp-hyperspec-root         "/usr/local/share/doc/hyperspec/HyperSpec/"
+        common-lisp-hyperspec-symbol-table (concat common-lisp-hyperspec-root "Data/Map_Sym.txt")
+        common-lisp-hyperspec-issuex-table (concat common-lisp-hyperspec-root "Data/Map_IssX.txt")))
+@end example
+
+If the package is not already installed, @code{:ensure t} makes sure that it is automatically installed via the package manager. You still have to add @uref{http://melpa.org,,MELPA} as described at the beginning of this section.
+
+You will probably need to adjust the paths and remove implementations you do not need. The paths in the example are for packages installed on OS X via @uref{http://brew.sh,,homebrew}.
+
 @subsection Installing from Git
 
 If you'd rather install @SLIME{} directly from its
