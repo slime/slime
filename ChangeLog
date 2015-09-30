@@ -1,3 +1,7 @@
+2015-09-30  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-loader.lisp (*architecture-features*): Add :arm64.
+
 2015-08-24  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* slime.el (slime-next-connection, slime-prev-connection): Reverse
