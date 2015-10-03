@@ -102,12 +102,13 @@
   :spawn)
 
 (defimplementation create-socket (host port &key backlog)
-  (ccl:make-socket :connect :passive :local-port port
-                   :local-host host :reuse-address t
-                   :backlog (or backlog 5)))
+  (multiple-value-call #'ccl:make-socket
+    :connect :passive :local-host host :backlog (or backlog 5)
+    (if (typep port 'integer) (values :reuse-address t :local-port port)
+        (values :local-filename port :address-family :file))))
 
 (defimplementation local-port (socket)
-  (ccl:local-port socket))
+  (or (ccl:local-port socket) (ccl:local-filename socket)))
 
 (defimplementation close-socket (socket)
   (close socket))
