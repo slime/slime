@@ -1996,3 +1996,9 @@ stack."
            (values-list retlist))
       (when after
         (funcall after (if completed retlist :exited-non-locally))))))
+
+(defmethod sexp-in-bounds-p ((s sb-impl::comma) i)
+  (= i 1))
+
+(defmethod sexp-ref ((s sb-impl::comma) i)
+  (sb-c::comma-expr s))

@@ -1,3 +1,21 @@
+2015-10-11  Helmut Eller  <heller@common-lisp.net>
+
+	Deal with SBCL's sb-c::comma-expr
+
+	* swank/source-path-parser.lisp (sexp-in-bounds-p)
+	(sexp-ref): New generic functions.
+	(source-path-source-position): Use them.
+
+	* swank/sbcl.lisp (sexp-in-bounds-p): Define methods for
+	sb-c::comma-expr.
+
+2015-10-11  Helmut Eller  <heller@common-lisp.net>
+
+	Remove slime-pre-command-actions; apparently not needed anymore.
+
+	* slime.el (slime-pre-command-hook, slime-setup-command-hooks)
+	(slime-post-command-hook, slime-pre-command-hook): Deleted.
+
 2015-09-30  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-loader.lisp (*architecture-features*): Add :arm64.
