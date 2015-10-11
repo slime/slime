@@ -3557,6 +3557,9 @@ Return nil if point is not at filename."
                                          slime-simple-completion-at-point)))
     (completion-at-point)))
 
+;; NOTE: the original idea was to bind this to TAB but that no longer
+;; works as `completion-at-point' sets a transient keymap that
+;; overrides TAB.  So this is rather useless now.
 (defun slime-indent-and-complete-symbol ()
   "Indent the current line and perform symbol completion.
 First indent the line. If indenting doesn't move point, complete

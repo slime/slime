@@ -35,7 +35,7 @@
 (slime-define-keys slime-mrepl-mode-map
   ((kbd "RET") 'slime-mrepl-return)
   ([return] 'slime-mrepl-return)
-  ((kbd "TAB") 'slime-indent-and-complete-symbol)
+  ;;((kbd "TAB") 'slime-indent-and-complete-symbol)
   ((kbd "C-c C-b") 'slime-interrupt)
   ((kbd "C-c C-c") 'slime-interrupt))
 
