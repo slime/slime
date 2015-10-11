@@ -440,9 +440,7 @@ Full set of commands:
 \\{slime-mode-map}"
   nil
   nil
-  slime-mode-indirect-map
-  (slime-setup-command-hooks))
-
+  slime-mode-indirect-map)
 
 
 ;;;;;; Modeline
@@ -636,29 +634,6 @@ If BOTHP is true also add bindings with control modifier."
   nil
   nil
   slime-editing-map)
-
-
-;;;; Setup initial `slime-mode' hooks
-
-(make-variable-buffer-local
- (defvar slime-pre-command-actions nil
-   "List of functions to execute before the next Emacs command.
-This list of flushed between commands."))
-
-(defun slime-pre-command-hook ()
-  "Execute all functions in `slime-pre-command-actions', then NIL it."
-  (dolist (undo-fn slime-pre-command-actions)
-    (funcall undo-fn))
-  (setq slime-pre-command-actions nil))
-
-(defun slime-post-command-hook ()
-  (when (null pre-command-hook) ; sometimes this is lost
-    (add-hook 'pre-command-hook 'slime-pre-command-hook)))
-
-(defun slime-setup-command-hooks ()
-  "Setup a buffer-local `pre-command-hook' to call `slime-pre-command-hook'."
-  (add-hook 'pre-command-hook 'slime-pre-command-hook 'append 'local)
-  (add-hook 'post-command-hook 'slime-post-command-hook 'append 'local))
 
 
 ;;;; Framework'ey bits

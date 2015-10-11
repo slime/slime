@@ -1,3 +1,15 @@
+2015-10-11  Helmut Eller  <heller@common-lisp.net>
+
+	Don't rebind TAB is slime-repl-mode.
+
+	That works no longer as Emacs' completion framework overrides TAB
+	with a transient keymap.
+
+	* slime-repl.el (slime-repl-mode): Set
+	completion-at-point-functions and tab-always-indent to get a
+	similar behavior to slime-indent-and-complete-symbol.
+	* inferior-slime.el (inferior-slime-mode): Idem.
+
 2015-08-06  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Some contribs did not invoke SWANK-REQUIRE when the lisp file was
