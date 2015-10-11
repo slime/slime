@@ -1,5 +1,10 @@
 2015-10-11  Helmut Eller  <heller@common-lisp.net>
 
+	* slime-repl.el (slime-repl-mode): Delete remaining use of
+	slime-setup-command-hooks.
+
+2015-10-11  Helmut Eller  <heller@common-lisp.net>
+
 	Don't rebind TAB is slime-repl-mode.
 
 	That works no longer as Emacs' completion framework overrides TAB

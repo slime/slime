@@ -499,7 +499,6 @@ joined together."))
               'slime-repl-safe-save-merged-history
               'append t))
   (add-hook 'kill-emacs-hook 'slime-repl-save-all-histories)
-  (slime-setup-command-hooks)
   ;; At the REPL, we define beginning-of-defun and end-of-defun to be
   ;; the start of the previous prompt or next prompt respectively.
   ;; Notice the interplay with SLIME-REPL-BEGINNING-OF-DEFUN.
