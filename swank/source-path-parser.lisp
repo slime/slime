@@ -225,9 +225,9 @@ Return the form and the source-map."
 subforms along the path are considered and the start and end position
 of the deepest (i.e. smallest) possible form is returned."
   ;; compute all subforms along path
-  (let ((forms (loop for n in path
-		     for f = form then (and (sexp-in-bounds-p f n)
-					    (sexp-ref f n))
+  (let ((forms (loop for i in path
+		     for f = form then (if (sexp-in-bounds-p f i)
+					   (sexp-ref f i))
 		     collect f)))
     ;; select the first subform present in source-map
     (loop for form in (nreverse forms)

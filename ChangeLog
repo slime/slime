@@ -1,3 +1,10 @@
+2015-10-12  Helmut Eller  <heller@common-lisp.net>
+
+	Fix github issue#273.
+
+	* swank/sbcl.lisp (sexp-in-bounds-p, sexp-ref): Don't define in
+	older SBCLs.
+
 2015-10-11  Helmut Eller  <heller@common-lisp.net>
 
 	Deal with SBCL's sb-c::comma-expr
