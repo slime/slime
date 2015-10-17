@@ -287,9 +287,7 @@ argument."
     slime-simple-completion-at-point)
   "List of functions to perform completion.
 Works like `completion-at-point-functions'.
-
-`slime-complete-symbol' prepends this list to `completion-at-point-functions'
-before calling `completion-at-point'."
+`slime--completion-at-point' uses this variable."
   :group 'slime-mode)
 
 ;;;;; slime-mode-faces
@@ -404,6 +402,12 @@ more easily. See `slime-init-keymaps'.")
 (defvar slime-dispatching-connection)
 (defvar slime-current-thread)
 
+(defun slime--on ()
+  (add-hook 'completion-at-point-functions #'slime--completion-at-point nil t))
+
+(defun slime--off ()
+  (remove-hook 'completion-at-point-functions #'slime--completion-at-point t))
+
 (define-minor-mode slime-mode
   "\\<slime-mode-map>\
 SLIME: The Superior Lisp Interaction Mode for Emacs (minor-mode).
@@ -438,15 +442,13 @@ Evaluation commands:
 
 Full set of commands:
 \\{slime-mode-map}"
-  nil
-  nil
-  slime-mode-indirect-map)
+  :keymap slime-mode-indirect-map
+  :lighter (:eval (slime-modeline-string))
+  (cond (slime-mode (slime--on))
+        (t (slime--off))))
 
 
 ;;;;;; Modeline
-
-(add-to-list 'minor-mode-alist
-             `(slime-mode (:eval (slime-modeline-string))))
 
 (defun slime-modeline-string ()
   "Return the string to display in the modeline.
@@ -539,7 +541,6 @@ edit s-exprs, e.g. for source buffers and the REPL.")
 
 (defvar slime-editing-keys
   `(;; Arglist display & completion
-    ("\M-\t"      slime-complete-symbol)
     (" "          slime-space)
     ;; Evaluating
     ;;("\C-x\M-e" slime-eval-last-expression-display-output :inferior t)
@@ -552,7 +553,7 @@ edit s-exprs, e.g. for source buffers and the REPL.")
     (,(kbd "C-M-.")   slime-next-location)
     (,(kbd "C-M-,")   slime-previous-location)
     ;; Obsolete, redundant bindings
-    ("\C-c\C-i" slime-complete-symbol)
+    ("\C-c\C-i" completion-at-point)
     ;;("\M-*" pop-tag-mark) ; almost to clever
     ))
 
@@ -3494,20 +3495,24 @@ more than one space."
 
 ;;;; Completion
 
-(defun slime--completion-at-point-functions ()
-  (cond (slime-complete-symbol-function ; FIXME: for backward compatibilty
-         (list (lambda () slime-complete-symbol-function)))
+;; FIXME: use this in Emacs 24
+;;(define-obsolete-function-alias slime-complete-symbol completion-at-point)
+
+(defalias 'slime-complete-symbol #'completion-at-point)
+(make-obsolete 'slime-complete-symbol #'completion-at-point "2015-10-17")
+
+;; This is the function that we add to
+;; `completion-at-point-functions'.  For backward-compatibilty we look
+;; at `slime-complete-symbol-function' first.  The indirection through
+;; `slime-completion-at-point-functions' is used so that users don't
+;; have to set `completion-at-point-functions' in every slime-like
+;; buffer.
+(defun slime--completion-at-point ()
+  (cond (slime-complete-symbol-function
+         slime-complete-symbol-function)
         (t
-         (append slime-completion-at-point-functions
-                 completion-at-point-functions))))
-
-(defun slime-complete-symbol ()
-  "Complete the symbol at point.
-
-Completion is performed by `slime-completion-at-point-functions'."
-  (interactive)
-  (let ((completion-at-point-functions (slime--completion-at-point-functions)))
-    (completion-at-point)))
+         (run-hook-with-args-until-success
+          'slime-completion-at-point-functions))))
 
 (defun slime-simple-completion-at-point ()
   "Complete the symbol at point.
@@ -3546,15 +3551,15 @@ for the most recently enclosed macro or function."
       (lisp-indent-line))
     (when (= pos (point))
       (cond ((save-excursion (re-search-backward "[^() \n\t\r]+\\=" nil t))
-             (slime-complete-symbol))
+             (completion-at-point))
             ((memq (char-before) '(?\t ?\ ))
              (slime-echo-arglist))))))
 
 (defvar slime-minibuffer-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map minibuffer-local-map)
-    (define-key map "\t" 'slime-complete-symbol)
-    (define-key map "\M-\t" 'slime-complete-symbol)
+    (define-key map "\t" #'completion-at-point)
+    (define-key map "\M-\t" #'completion-at-point)
     map)
   "Minibuffer keymap used for reading CL expressions.")
 
@@ -3567,7 +3572,9 @@ for the most recently enclosed macro or function."
           (lambda ()
             (setq slime-buffer-package package)
             (setq slime-buffer-connection connection)
-            (set-syntax-table lisp-mode-syntax-table)))
+            (set-syntax-table lisp-mode-syntax-table)
+            (add-hook 'completion-at-point-functions
+                      #'slime--completion-at-point nil t)))
         minibuffer-setup-hook))
 
 (defun slime-read-from-minibuffer (prompt &optional initial-value history)
@@ -6903,7 +6910,7 @@ is setup, unless the user already set one explicitly."
     `("SLIME"
       [ "Edit Definition..."       slime-edit-definition ,C ]
       [ "Return From Definition"   slime-pop-find-definition-stack ,C ]
-      [ "Complete Symbol"          slime-complete-symbol ,C ]
+      [ "Complete Symbol"          completion-at-point ,C ]
       "--"
       ("Evaluation"
        [ "Eval Defun"              slime-eval-defun ,C ]

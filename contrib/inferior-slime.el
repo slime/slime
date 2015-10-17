@@ -25,8 +25,7 @@ subset of the bindings from `slime-mode'.
   ;; Fake binding to coax `define-minor-mode' to create the keymap
   '((" " 'undefined))
 
-  (setq-local completion-at-point-functions
-	      slime-completion-at-point-functions)
+  (add-hook 'completion-at-point-functions #'slime--completion-at-point nil t)
   (setq-local tab-always-indent 'complete))
 
 (defun inferior-slime-return ()

@@ -1,3 +1,17 @@
+2015-10-17  Helmut Eller  <heller@common-lisp.net>
+
+	Set completion-at-point-functions in slime-mode buffers.
+	Related to github issue #272.
+
+	* slime.el (slime--completion-at-point): New function that tries
+	to be backward-compatible.
+	(slime--on, slime--off): New.  Set/reset
+	completion-at-point-functions.
+	(slime-mode): Use slime--on, slime--off
+	(slime-complete-symbol): Make obsolete.
+	(slime-minibuffer-setup-hook): Set completion-at-point-functions.
+	(slime--completion-at-point-functions): Deleted.
+
 2015-10-17  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (eval-in-emacs): wrap unreadable results in a
