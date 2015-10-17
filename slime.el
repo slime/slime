@@ -3837,9 +3837,9 @@ The result is a (possibly empty) list of definitions."
       (and (consp x)
            (let ((l x))
              (while (consp l)
-               (slime-check-eval-in-emacs-result (car x))
+               (slime-lisp-readable-p (car x))
                (setq l (cdr l)))
-             (slime-check-eval-in-emacs-result l)))))
+             (slime-lisp-readable-p l)))))
 
 (defun slime-eval-for-lisp (thread tag form-string)
   (let ((ok nil)
