@@ -3822,6 +3822,18 @@ The result is a (possibly empty) list of definitions."
 
 ;;;; Eval for Lisp
 
+(defun slime-lisp-readable-p (x)
+  (or (stringp x)
+      (memq x '(nil t))
+      (integerp x)
+      (keywordp x)
+      (and (consp x)
+           (let ((l x))
+             (while (consp l)
+               (slime-check-eval-in-emacs-result (car x))
+               (setq l (cdr l)))
+             (slime-check-eval-in-emacs-result l)))))
+
 (defun slime-eval-for-lisp (thread tag form-string)
   (let ((ok nil)
         (value nil)
@@ -3832,36 +3844,24 @@ The result is a (possibly empty) list of definitions."
             (progn
               (slime-check-eval-in-emacs-enabled)
               (setq value (eval (read form-string)))
-              (slime-check-eval-in-emacs-result value)
               (setq ok t))
           ((debug error)
            (setq error err)))
-      (let ((result (cond (ok `(:ok ,value))
+      (let ((result (cond ((and ok
+                                (not (slime-lisp-readable-p value)))
+                           `(:unreadable ,(slime-prin1-to-string value)))
+                          (ok `(:ok ,value))
                           (error `(:error ,(symbol-name (car error))
-                                          . ,(mapcar #'prin1-to-string
+                                          . ,(mapcar #'slime-prin1-to-string
                                                      (cdr error))))
                           (t `(:abort)))))
         (slime-dispatch-event `(:emacs-return ,thread ,tag ,result) c)))))
 
-(defun slime-check-eval-in-emacs-result (x)
-  "Raise an error if X can't be marshaled."
-  (or (stringp x)
-      (memq x '(nil t))
-      (integerp x)
-      (keywordp x)
-      (and (consp x)
-           (let ((l x))
-             (while (consp l)
-               (slime-check-eval-in-emacs-result (car x))
-               (setq l (cdr l)))
-             (slime-check-eval-in-emacs-result l)))
-      (error "Non-serializable return value: %S" x)))
-
 (defun slime-check-eval-in-emacs-enabled ()
   "Raise an error if `slime-enable-evaluate-in-emacs' isn't true."
   (unless slime-enable-evaluate-in-emacs
-    (error (concat "slime-eval-in-emacs disabled for security."
-                   "Set slime-enable-evaluate-in-emacs true to enable it."))))
+    (error (concat "slime-eval-in-emacs disabled for security. "
+                   "Set `slime-enable-evaluate-in-emacs' true to enable it."))))
 
 
 ;;;; `ED'

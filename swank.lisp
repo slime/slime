@@ -66,7 +66,10 @@
            #:y-or-n-p-in-emacs
            #:*find-definitions-right-trim*
            #:*find-definitions-left-trim*
-           #:*after-toggle-trace-hook*))
+           #:*after-toggle-trace-hook*
+           #:unredable-result
+           #:unredable-result-p
+           #:unredable-result-string))
 
 (in-package :swank)
 
@@ -1429,6 +1432,14 @@ entered nothing, returns NIL when user pressed C-g."
                                            ,prompt ,initial-value))
     (third (wait-for-event `(:emacs-return ,tag result)))))
 
+(defstruct (unredable-result
+            (:constructor make-unredable-result (string))
+            (:copier nil)
+            (:print-object
+             (lambda (object stream)
+               (print-unreadable-object (object stream :type t)
+                 (princ (unredable-result-string object) stream)))))
+  string)
 
 (defun process-form-for-emacs (form)
   "Returns a string which emacs will read as equivalent to
@@ -1464,6 +1475,7 @@ converted to lower case."
 				  ,(process-form-for-emacs form)))
 	   (let ((value (caddr (wait-for-event `(:emacs-return ,tag result)))))
 	     (dcase value
+               ((:unreadable value) (make-unredable-result value))
 	       ((:ok value) value)
                ((:error kind . data) (error "~a: ~{~a~}" kind data))
 	       ((:abort) (abort))))))))
