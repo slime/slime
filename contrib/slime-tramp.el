@@ -1,6 +1,9 @@
+;; -*- lexical-binding: t; -*-
+
 (require 'slime)
 (require 'tramp)
 (eval-when-compile (require 'cl)) ; lexical-let
+(require 'cl-lib)
 
 (define-slime-contrib slime-tramp
   "Filename translations for tramp"

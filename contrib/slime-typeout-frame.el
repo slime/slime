@@ -1,3 +1,5 @@
+;;  -*- lexical-binding: t; -*-
+
 (require 'slime)
 (require 'slime-autodoc)
 (require 'cl-lib)

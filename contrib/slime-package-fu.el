@@ -1,6 +1,9 @@
+;; -*- lexical-binding: t; -*-
+
 (require 'slime)
 (require 'slime-c-p-c)
 (require 'slime-parse)
+(require 'cl-lib)
 
 (defvar slime-package-fu-init-undo-stack nil)
 

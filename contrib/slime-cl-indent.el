@@ -1,4 +1,4 @@
-;;; slime-cl-indent.el --- enhanced lisp-indent mode
+;;; slime-cl-indent.el --- enhanced lisp-indent mode -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 1987, 2000-2011 Free Software Foundation, Inc.
 
@@ -43,7 +43,6 @@
 
 (require 'slime) ; only for its cl-lib loading smartness
 (require 'cl-lib)
-(eval-when-compile (require 'cl))
 
 (defgroup lisp-indent nil
   "Indentation in Lisp."

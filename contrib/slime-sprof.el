@@ -1,3 +1,5 @@
+;; -*- lexical-binding: t; -*-
+
 (require 'slime)
 (require 'cl-lib)
 (eval-when-compile (require 'cl)) ; lexical-let*

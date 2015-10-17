@@ -1,5 +1,8 @@
+;; -*- lexical-binding: t; -*-
+
 (require 'slime)
 (require 'slime-parse)
+(require 'cl-lib)
 
 (define-slime-contrib slime-enclosing-context
   "Utilities on top of slime-parse."
