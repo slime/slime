@@ -1,5 +1,11 @@
 2015-10-18  Helmut Eller  <heller@common-lisp.net>
 
+	Minor factorization.
+
+	* slime.el (slime-setup-completion): New.  Use it where approriate.
+
+2015-10-18  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-complete-symbol-function)
 	(slime-indent-and-complete-symbol): Mark as obsolete.
 

@@ -407,7 +407,7 @@ more easily. See `slime-init-keymaps'.")
 (defvar slime-current-thread)
 
 (defun slime--on ()
-  (add-hook 'completion-at-point-functions #'slime--completion-at-point nil t))
+  (slime-setup-completion))
 
 (defun slime--off ()
   (remove-hook 'completion-at-point-functions #'slime--completion-at-point t))
@@ -3518,6 +3518,9 @@ more than one space."
          (run-hook-with-args-until-success
           'slime-completion-at-point-functions))))
 
+(defun slime-setup-completion ()
+  (add-hook 'completion-at-point-functions #'slime--completion-at-point nil t))
+
 (defun slime-simple-completion-at-point ()
   "Complete the symbol at point.
 Perform completion similar to `elisp-completion-at-point'."
@@ -3581,8 +3584,7 @@ for the most recently enclosed macro or function."
             (setq slime-buffer-package package)
             (setq slime-buffer-connection connection)
             (set-syntax-table lisp-mode-syntax-table)
-            (add-hook 'completion-at-point-functions
-                      #'slime--completion-at-point nil t)))
+            (slime-setup-completion)))
         minibuffer-setup-hook))
 
 (defun slime-read-from-minibuffer (prompt &optional initial-value history)
