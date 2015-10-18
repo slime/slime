@@ -1,5 +1,6 @@
 (require 'slime)
 (require 'slime-repl)
+(require 'slime-c-p-c)
 (require 'cl-lib)
 
 (define-slime-contrib slime-fuzzy

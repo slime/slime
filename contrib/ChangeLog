@@ -1,3 +1,11 @@
+2015-10-18  Helmut Eller  <heller@common-lisp.net>
+
+	Stop using slime-complete-symbol-function.
+	Use slime-completion-at-point-functions instead.
+
+	* slime-c-p-c.el (slime-c-p-c-completion-at-point): New. Set
+	slime-completion-at-point-functions acordingly.
+
 2015-10-17  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-repl.el (slime-repl-mode): Use slime--completion-at-point.
