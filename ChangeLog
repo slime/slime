@@ -1,3 +1,12 @@
+2015-10-18  Jack Pugmire  <jep@openmailbox.org>
+
+	Fixed some documentation bugs for the mrepl contrib.
+
+	* doc/slime.texi (Contributed Packages) : Replace reference to
+	slime-open-listener with slime-new-mrepl
+
+	* contrib/slime-mrepl.el: Fixed outdated header comment
+
 2015-10-18  Helmut Eller  <heller@common-lisp.net>
 
 	Minor factorization.

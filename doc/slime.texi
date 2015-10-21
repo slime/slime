@@ -2422,7 +2422,7 @@ Quit all Lisps and close all @SLIME{} buffers.
 @section Multiple REPLs
 
 The @code{slime-mrepl} package adds support for multiple listener
-buffers.  The command @kbd{M-x slime-open-listener} creates a new
+buffers.  The command @kbd{M-x slime-new-mrepl} creates a new
 buffer.  In a multi-threaded Lisp, each listener is associated with a
 separate thread.  In a single-threaded Lisp it's also possible to
 create multiple listener buffers but the commands are executed
