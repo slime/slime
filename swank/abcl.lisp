@@ -284,6 +284,15 @@
 (defimplementation macroexpand-all (form &optional env)
   (ext:macroexpand-all form env))
 
+(defimplementation collect-macro-forms (form &optional env)
+  ;; Currently detects only normal macros, not compiler macros.
+  (declare (ignore env))
+  (with-collected-macro-forms (macro-forms)
+      (handler-bind ((warning #'muffle-warning))
+        (ignore-errors
+          (compile nil `(lambda () ,(macroexpand-all form env)))))
+    (values macro-forms nil)))
+
 (defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))
     (flet ((doc (kind &optional (sym symbol))
