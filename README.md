@@ -48,7 +48,7 @@ popular set of other contributed packages. It includes a better REPL, and
 many more nice features.
 
 
-Licence
+License
 -------
 
 SLIME is free software. All files, unless explicitly stated otherwise, are
