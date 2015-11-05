@@ -1,7 +1,168 @@
+2015-10-18  Jack Pugmire  <jep@openmailbox.org>
+
+	Fixed some documentation bugs for the mrepl contrib.
+
+	* doc/slime.texi (Contributed Packages) : Replace reference to
+	slime-open-listener with slime-new-mrepl
+
+	* contrib/slime-mrepl.el: Fixed outdated header comment
+
+2015-10-18  Helmut Eller  <heller@common-lisp.net>
+
+	Minor factorization.
+
+	* slime.el (slime-setup-completion): New.  Use it where approriate.
+
+2015-10-18  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-complete-symbol-function)
+	(slime-indent-and-complete-symbol): Mark as obsolete.
+
+2015-10-17  Helmut Eller  <heller@common-lisp.net>
+
+	Set completion-at-point-functions in slime-mode buffers.
+	Related to github issue #272.
+
+	* slime.el (slime--completion-at-point): New function that tries
+	to be backward-compatible.
+	(slime--on, slime--off): New.  Set/reset
+	completion-at-point-functions.
+	(slime-mode): Use slime--on, slime--off
+	(slime-complete-symbol): Make obsolete.
+	(slime-minibuffer-setup-hook): Set completion-at-point-functions.
+	(slime--completion-at-point-functions): Deleted.
+
+2015-10-17  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (eval-in-emacs): wrap unreadable results in a
+	structure. Should make it easier to work with than signalling an
+	error.
+
+2015-10-12  Helmut Eller  <heller@common-lisp.net>
+
+	Fix github issue#273.
+
+	* swank/sbcl.lisp (sexp-in-bounds-p, sexp-ref): Don't define in
+	older SBCLs.
+
+2015-10-11  Helmut Eller  <heller@common-lisp.net>
+
+	Deal with SBCL's sb-c::comma-expr
+
+	* swank/source-path-parser.lisp (sexp-in-bounds-p)
+	(sexp-ref): New generic functions.
+	(source-path-source-position): Use them.
+
+	* swank/sbcl.lisp (sexp-in-bounds-p): Define methods for
+	sb-c::comma-expr.
+
+2015-10-11  Helmut Eller  <heller@common-lisp.net>
+
+	Remove slime-pre-command-actions; apparently not needed anymore.
+
+	* slime.el (slime-pre-command-hook, slime-setup-command-hooks)
+	(slime-post-command-hook, slime-pre-command-hook): Deleted.
+
+2015-09-30  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-loader.lisp (*architecture-features*): Add :arm64.
+
+2015-08-24  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* slime.el (slime-next-connection, slime-prev-connection): Reverse
+	the ordering so that slime-next-connection moves down in the
+	slime-connection-list.
+
+2015-08-18  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/clasp.lisp (print-frame): Print arguments on newer Clasp
+	versions.
+
+2015-08-14  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/source-path-parser.lisp (make-source-recorder): Fix
+	handling of recursive calls to macros producing the same forms.
+	e.g. #+(and) (a)
+
+2015-08-04  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/sbcl.lisp: make use of the newly provided form number for
+	top-level forms.
+
+2015-08-02  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/source-path-parser.lisp (skip-whitespace): ignore EOF,
+	there may no non-whitespace characters left.
+
+2015-07-31  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-format-string-expand): When there's no string at
+	point, read a string from the minibuffer.
+
+2015-07-18  Mark Karpov <markkarpov@openmailbox.org>
+
+	* slime-autoloads.el (hyperspec-lookup): Fix autoload spec of the
+	function.
+
+2015-07-17  Helmut Eller  <heller@common-lisp.net>
+
+	Start using completion-at-point.
+
+	That saves us the complex code to display the list of completions.
+	Unfortunately, slime-complete-symbol-function doesn't work well to
+	customize it.  Had to introduce a replacment:
+	slime-completion-at-point-functions.
+
+	* slime.el (slime-complete-symbol): Use completion-at-point.
+	(slime-completion-at-point-functions): New.
+	(slime--completion-at-point-functions): New helper.
+	(slime-complete-symbol-function): Obsolete, but have to keep it
+	around for some time.
+	(slime-simple-completion-at-point): Renamed from
+	slime-simple-complete-symbol to avoid confusion.
+	(slime-filename-completion): Renamed from
+	slime-maybe-complete-as-filename.
+	(slime-simple-complete-symbol): Backward compatible replacement.
+
+	(slime-completions-buffer-name)
+	(slime-complete-saved-window-configuration)
+	(slime-completions-window)
+	(slime-complete-maybe-save-window-configuration)
+	(slime-complete-delay-restoration)
+	(slime-complete-forget-window-configuration)
+	(slime-complete-restore-window-configuration)
+	(slime-complete-maybe-restore-window-configuration)
+	(slime-completion-window-active-p, slime-display-completion-list)
+	(slime-display-or-scroll-completions, slime-scroll-completions)
+	(slime-minibuffer-respecting-message): Move to
+	contrib/slime-c-p-c.el
+
+	* slime-tests.el (complete-symbol): Update tests.
+	* doc/slime.texi: Update documentation for symbol completion.
+
+2015-07-15  Helmut Eller  <heller@common-lisp.net>
+
+	Use *READ-SUPPRESS* more often while searching source locations.
+	This avoids certain reader errors when the compile-time and
+	load-time state is different and also avoids some unnecessary
+	interning.
+
+	* swank/source-path-parser.lisp (read-source-form): Use
+	guess-reader-state to setup *package* and *readtable* before using
+	the reader.
+	(guess-reader-state, starts-with-p, extract-package): New helpers.
+	(skip-toplevel-forms):  Bind *read-suppress* to t while
+	skipping over top-level forms.
+	(ignore-errors): Shadow cl:ignore-errors so that it can be
+	redefined during debugging.
+
+	* slime-tests.el (find-definition.2): New test case.
+
 2015-07-09  Stas Boukarev  <stassats@gmail.com>
 
 	* swank/clasp.lisp (print-frame): Print function names, not
 	function objects.
+
 2015-07-09  Jim Newton  <jimka.issy@gmail.com>
 
 	* contrib/slime-enclosing-context.el (slime-edit-definition): Use

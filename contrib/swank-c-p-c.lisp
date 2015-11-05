@@ -236,8 +236,8 @@ DELIMITER may be a character, or a list of characters."
 			         delimiter))))
     (lambda (prefix target)
       (declare (type simple-string prefix target))
-      (loop for ch across prefix
-	    with tpos = 0
+      (loop with tpos = 0
+	    for ch across prefix
 	    always (and (< tpos (length target))
 			(let ((delimiter (car (member ch delimiters :test test))))
 			  (if delimiter

@@ -451,16 +451,15 @@
       (funcall debugger-loop-fn))))
 
 (defimplementation compute-backtrace (start end)
-  (when (numberp end)
-    (setf end (min end (length *backtrace*))))
-  (loop for f in (subseq *backtrace* start end)
-        collect f))
+  (subseq *backtrace* start
+          (and (numberp end)
+               (min end (length *backtrace*)))))
 
 (defun frame-name (frame)
   (let ((x (first frame)))
     (if (symbolp x)
-      x
-      (function-name x))))
+        x
+        (function-name x))))
 
 (defun function-position (fun)
   (multiple-value-bind (file position)

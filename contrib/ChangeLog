@@ -1,3 +1,62 @@
+2015-10-18  Helmut Eller  <heller@common-lisp.net>
+
+	Stop using slime-complete-symbol-function.
+	Use slime-completion-at-point-functions instead.
+
+	* slime-c-p-c.el (slime-c-p-c-completion-at-point): New. Set
+	slime-completion-at-point-functions acordingly.
+
+2015-10-17  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-repl.el (slime-repl-mode): Use slime--completion-at-point.
+	* inferior-slime.el (inferior-slime-mode): Idem.
+
+2015-10-11  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-repl.el (slime-repl-mode): Delete remaining use of
+	slime-setup-command-hooks.
+
+2015-10-11  Helmut Eller  <heller@common-lisp.net>
+
+	Don't rebind TAB is slime-repl-mode.
+
+	That works no longer as Emacs' completion framework overrides TAB
+	with a transient keymap.
+
+	* slime-repl.el (slime-repl-mode): Set
+	completion-at-point-functions and tab-always-indent to get a
+	similar behavior to slime-indent-and-complete-symbol.
+	* inferior-slime.el (inferior-slime-mode): Idem.
+
+2015-08-06  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Some contribs did not invoke SWANK-REQUIRE when the lisp file was
+	LOADed directly. It's yet not clear why that happens, but this
+	should fix GitHub issue #247.
+
+	* swank-presentations.lisp: Invoke SWANK-REQUIRE at :EXECUTE-time
+	too.
+
+	* swank-presentation-streams.lisp: Ditto.
+
+2015-08-06  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Fix LOOP warning. Reported by Jerome Ibanes.
+
+	* swank-c-p-c.lisp (make-compound-prefix-matcher): Move
+	declaration of TPOS up so that it precedes the iteration
+	clause. (Strict LOOP implementations, namely Lispworks's, complain
+	about it.)
+
+2015-07-31  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-media.el (slime-dispatch-media-event): now works when
+	image is just a pathname.
+
+2015-07-17  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-kawa.scm: Minor addition to installation instructions.
+
 2015-07-09  Russ Tyndall  <russ@acceleration.net>
 
 	* swank-presentation-streams.lisp: updated

@@ -527,7 +527,14 @@ confronted with nasty #.-fu."
        "
        "SWANK"
        "[ \t]*(defun .foo. "
-       ))
+       )
+      ("(in-package swank)
+ (eval-when (:compile-toplevel) (defparameter *bar* 456))
+ (eval-when (:load-toplevel :execute) (makunbound '*bar*))
+ (defun bar () #.*bar*)
+ (defun .foo. () 123)"
+	"SWANK"
+	"[ \t]*(defun .foo. () 123)"))
   (let ((slime-buffer-package buffer-package))
     (with-temp-buffer
       (insert buffer-content)
@@ -543,8 +550,7 @@ confronted with nasty #.-fu."
         (slime-edit-definition ".foo.")
         (slime-check ("Definition of `.foo.' is in buffer `%s'." bufname)
           (string= (buffer-name) bufname))
-        (slime-check "Definition now at point." (looking-at snippet)))
-      )))
+        (slime-check "Definition now at point." (looking-at snippet))))))
 
 (def-slime-test (find-definition.3
                  (:fails-for "abcl" "allegro" "clisp" "lispworks" "sbcl"
@@ -580,18 +586,16 @@ confronted with nasty #.-fu."
 (def-slime-test complete-symbol
     (prefix expected-completions)
     "Find the completions of a symbol-name prefix."
-    '(("cl:compile" (("cl:compile" "cl:compile-file" "cl:compile-file-pathname"
-                      "cl:compiled-function" "cl:compiled-function-p"
-                      "cl:compiler-macro" "cl:compiler-macro-function")
-                     "cl:compile"))
-      ("cl:foobar" (nil ""))
-      ("swank::compile-file" (("swank::compile-file"
-                               "swank::compile-file-for-emacs"
-                               "swank::compile-file-if-needed"
-                               "swank::compile-file-output"
-                               "swank::compile-file-pathname")
-                              "swank::compile-file"))
-      ("cl:m-v-l" (nil "")))
+    '(("cl:compile" ("cl:compile" "cl:compile-file" "cl:compile-file-pathname"
+		     "cl:compiled-function" "cl:compiled-function-p"
+		     "cl:compiler-macro" "cl:compiler-macro-function"))
+      ("cl:foobar" ())
+      ("swank::compile-file" ("swank::compile-file"
+			      "swank::compile-file-for-emacs"
+			      "swank::compile-file-if-needed"
+			      "swank::compile-file-output"
+			      "swank::compile-file-pathname"))
+      ("cl:m-v-l" ()))
   (let ((completions (slime-simple-completions prefix)))
     (slime-test-expect "Completion set" expected-completions completions)))
 

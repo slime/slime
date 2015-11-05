@@ -66,7 +66,10 @@
            #:y-or-n-p-in-emacs
            #:*find-definitions-right-trim*
            #:*find-definitions-left-trim*
-           #:*after-toggle-trace-hook*))
+           #:*after-toggle-trace-hook*
+           #:unredable-result
+           #:unredable-result-p
+           #:unredable-result-string))
 
 (in-package :swank)
 
@@ -1093,7 +1096,8 @@ The processing is done in the extent of the toplevel restart."
        :presentation-start :presentation-end
        :new-package :new-features :ed :indentation-update
        :eval :eval-no-wait :background-message :inspect :ping
-       :y-or-n-p :read-from-minibuffer :read-string :read-aborted :test-delay)
+       :y-or-n-p :read-from-minibuffer :read-string :read-aborted :test-delay
+       :write-image)
       &rest _)
      (declare (ignore _))
      (encode-message event (current-socket-io)))
@@ -1428,6 +1432,14 @@ entered nothing, returns NIL when user pressed C-g."
                                            ,prompt ,initial-value))
     (third (wait-for-event `(:emacs-return ,tag result)))))
 
+(defstruct (unredable-result
+            (:constructor make-unredable-result (string))
+            (:copier nil)
+            (:print-object
+             (lambda (object stream)
+               (print-unreadable-object (object stream :type t)
+                 (princ (unredable-result-string object) stream)))))
+  string)
 
 (defun process-form-for-emacs (form)
   "Returns a string which emacs will read as equivalent to
@@ -1463,6 +1475,7 @@ converted to lower case."
 				  ,(process-form-for-emacs form)))
 	   (let ((value (caddr (wait-for-event `(:emacs-return ,tag result)))))
 	     (dcase value
+               ((:unreadable value) (make-unredable-result value))
 	       ((:ok value) value)
                ((:error kind . data) (error "~a: ~{~a~}" kind data))
 	       ((:abort) (abort))))))))
@@ -2621,20 +2634,20 @@ the filename of the module (or nil if the file doesn't exist).")
 
 (defun merged-directory (dirname defaults)
   (pathname-directory
-   (merge-pathnames 
+   (merge-pathnames
     (make-pathname :directory `(:relative ,dirname) :defaults defaults)
     defaults)))
 
 (defvar *load-path* '()
   "A list of directories to search for modules.")
 
-(defun module-canditates (name dir)
+(defun module-candidates (name dir)
   (list (compile-file-pathname (make-pathname :name name :defaults dir))
         (make-pathname :name name :type "lisp" :defaults dir)))
 
 (defun find-module (module)
   (let ((name (string-downcase module)))
-    (some (lambda (dir) (some #'probe-file (module-canditates name dir)))
+    (some (lambda (dir) (some #'probe-file (module-candidates name dir)))
           *load-path*)))
 
 

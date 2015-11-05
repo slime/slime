@@ -12,8 +12,8 @@
 @end direntry
 @c %**end of header
 
-@set EDITION 2.14
-@set SLIMEVER 2.14
+@set EDITION 2.15
+@set SLIMEVER 2.15
 @set UPDATED @today{}
 @set TITLE SLIME User Manual
 @settitle @value{TITLE}, version @value{EDITION}
@@ -486,15 +486,8 @@ can add one of the following to your init file:
 
 @example
 (add-hook 'slime-load-hook
-   #'(lambda ()
-       (define-key slime-prefix-map (kbd "M-h") 'slime-documentation-lookup)))
-@end example
-
-Or just:
-
-@example
-(eval-after-load 'slime
-  `(define-key slime-prefix-map (kbd "M-h") 'slime-documentation-lookup))
+  (lambda ()
+     (define-key slime-prefix-map (kbd "M-h") 'slime-documentation-lookup)))
 @end example
 
 The former technique works only for @SLIME{}'s core keymaps, not it's
@@ -951,7 +944,7 @@ completion tries harder.
 @c @itemx C-M-i
 Complete the symbol at point. Note that three styles of completion are
 available in @SLIME{}; the default is similar to normal Emacs
-completion (@pxref{slime-complete-symbol-function}).
+completion (@pxref{slime-completion-at-point-functions}).
 
 @end table
 
@@ -1694,16 +1687,19 @@ buffers popped up by @SLIME{}. This is @code{t} by default, which
 ensures that lines do not wrap in backtraces, apropos listings, and so
 on. It can however cause information to spill off the screen.
 
-@anchor{slime-complete-symbol-function}
-@vindex slime-complete-symbol-function
-@item slime-complete-symbol-function
-The function to use for completion of Lisp symbols. Three completion
-styles are available: @code{slime-simple-complete-symbol},
+@anchor{slime-completion-at-point-functions}
+@vindex slime-completion-at-point-functions
+@item slime-completion-at-point-functions
+A list of functions used for completion of Lisp symbols.  This works
+as the standard
+@code{completion-at-point-functions}
+(@pxref{Completion in Buffers,,,elisp}).  Three completion
+styles are available: @code{slime-simple-completion-at-point},
 @code{slime-complete-symbol*} (@pxref{Compound Completion}),
 and @code{slime-fuzzy-complete-symbol} (@pxref{Fuzzy Completion}).
 
-The default is @code{slime-simple-complete-symbol}, which completes in
-the usual Emacs way.
+The default is @code{slime-simple-completion-at-point}, which
+completes in the usual Emacs way.
 
 @vindex slime-filename-translations
 @item slime-filename-translations
@@ -2426,7 +2422,7 @@ Quit all Lisps and close all @SLIME{} buffers.
 @section Multiple REPLs
 
 The @code{slime-mrepl} package adds support for multiple listener
-buffers.  The command @kbd{M-x slime-open-listener} creates a new
+buffers.  The command @kbd{M-x slime-new-mrepl} creates a new
 buffer.  In a multi-threaded Lisp, each listener is associated with a
 separate thread.  In a single-threaded Lisp it's also possible to
 create multiple listener buffers but the commands are executed
@@ -2608,21 +2604,21 @@ For example, the effect of @code{:nearest-package} can be also achieved
 by specifying the following custom filter in @file{~/.swank.lisp}:
 @example
 (setf *fuzzy-duplicate-symbol-filter*
-      #'(lambda (cur-package all-packages dedup-table)
-          (declare (ignore cur-package all-packages))
-          #'(lambda (symbol)
-              (unless (gethash (symbol-name symbol) dedup-table)
-                (setf (gethash (symbol-name symbol) dedup-table) t)))))
+      (lambda (cur-package all-packages dedup-table)
+        (declare (ignore cur-package all-packages))
+        (lambda (symbol)
+           (unless (gethash (symbol-name symbol) dedup-table)
+              (setf (gethash (symbol-name symbol) dedup-table) t)))))
 @end example
 And instead of @code{:home-package}, the following can be used:
 @example
 (setf *fuzzy-duplicate-symbol-filter*
-      #'(lambda (cur-package all-packages dedup-table)
-          (declare (ignore dedup-table))
-          (let ((packages (mapcar #'find-package
-                                  (remove cur-package all-packages))))
-            #'(lambda (symbol)
-                (not (member (symbol-package symbol) packages))))))
+      (lambda (cur-package all-packages dedup-table)
+        (declare (ignore dedup-table))
+        (let ((packages (mapcar #'find-package
+                                (remove cur-package all-packages))))
+          (lambda (symbol)
+            (not (member (symbol-package symbol) packages))))))
 @end example
 
 @node slime-autodoc-mode

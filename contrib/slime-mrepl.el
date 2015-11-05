@@ -1,6 +1,5 @@
 ;; An experimental implementation of multiple REPLs multiplexed over a
-;; single Slime socket.  M-x slime-open-listener creates a new REPL
-;; buffer.
+;; single Slime socket.  M-x slime-new-mrepl creates a new REPL buffer.
 ;;
 (require 'slime)
 (require 'inferior-slime) ; inferior-slime-indent-lime
@@ -35,7 +34,7 @@
 (slime-define-keys slime-mrepl-mode-map
   ((kbd "RET") 'slime-mrepl-return)
   ([return] 'slime-mrepl-return)
-  ((kbd "TAB") 'slime-indent-and-complete-symbol)
+  ;;((kbd "TAB") 'slime-indent-and-complete-symbol)
   ((kbd "C-c C-b") 'slime-interrupt)
   ((kbd "C-c C-c") 'slime-interrupt))
 
