@@ -935,7 +935,7 @@ if the file doesn't exist; otherwise the first line of the file."
          ,k))))
 
 (defun handle-requests (connection &optional timeout)
-  "Read and process :emacs-rex requests.
+  "Read and process :emacs-rex-rt requests.
 The processing is done in the extent of the toplevel restart."
   (with-connection (connection)
     (cond (*sldb-quit-restart*
@@ -950,12 +950,12 @@ The processing is done in the extent of the toplevel restart."
   "Read and process requests from Emacs."
   (loop
    (multiple-value-bind (event timeout?)
-       (wait-for-event `(or (:emacs-rex . _)
+       (wait-for-event `(or (:emacs-rex-rt . _)
                             (:emacs-channel-send . _))
                        timeout)
     (when timeout? (return))
     (dcase event
-      ((:emacs-rex &rest args) (apply #'eval-for-emacs args))
+      ((:emacs-rex-rt &rest args) (apply #'eval-for-emacs args))
       ((:emacs-channel-send channel (selector &rest args))
        (channel-send channel selector args))))))
 
@@ -1056,7 +1056,7 @@ The processing is done in the extent of the toplevel restart."
            (with-bindings *default-worker-thread-bindings*
              (with-top-level-restart (connection nil)
                (apply #'eval-for-emacs 
-                      (cdr (wait-for-event `(:emacs-rex . _)))))))
+                      (cdr (wait-for-event `(:emacs-rex-rt . _)))))))
          :name "worker"))
 
 (defun add-active-thread (connection thread)
@@ -1076,11 +1076,11 @@ The processing is done in the extent of the toplevel restart."
   "Handle an event triggered either by Emacs or within Lisp."
   (log-event "dispatch-event: ~s~%" event)
   (dcase event
-    ((:emacs-rex form package thread-id id)
+    ((:emacs-rex-rt form package readtable thread-id id)
      (let ((thread (thread-for-evaluation connection thread-id)))
        (cond (thread
               (add-active-thread connection thread)
-              (send-event thread `(:emacs-rex ,form ,package ,id)))
+              (send-event thread `(:emacs-rex-rt ,form ,package ,readtable ,id)))
              (t
               (encode-message 
                (list :invalid-rpc id
@@ -1727,6 +1727,34 @@ Return nil if no package matches."
                          :test #'string=)))
         *readtable*)))
 
+(defvar find-readtable-fn nil "to be filled later")
+
+(defun guess-readtable-rt (string)
+  "Guess which readtable corresponds to STRING.
+Return nil if no readtable matches."
+  (when string
+    (cond
+      (find-readtable-fn
+       (or
+        (funcall find-readtable-fn (intern string :keyword))
+        (funcall find-readtable-fn nil)))
+      ((find-package :editor-hints.named-readtables)
+       (setf find-readtable-fn
+             (find-symbol "FIND-READTABLE" :editor-hints.named-readtables))
+       (guess-readtable-rt string))
+      (t
+       *readtable*))))
+
+
+(defun guess-buffer-readtable-rt (package-string readtable-string)
+  "Return a readtable for STRING. 
+Fall back to the current if no such package exists."
+  (or
+   (and readtable-string (guess-readtable-rt readtable-string))
+   (guess-buffer-readtable package-string)))
+
+
+
 
 ;;;; Evaluation
 
@@ -1739,14 +1767,15 @@ Fall back to the current if no such package exists."
   (or (and string (guess-package string))
       *package*))
 
-(defun eval-for-emacs (form buffer-package id)
-  "Bind *BUFFER-PACKAGE* to BUFFER-PACKAGE and evaluate FORM.
+
+(defun eval-for-emacs (form buffer-package buffer-readtable id)
+  "Bind *BUFFER-PACKAGE* to BUFFER-PACKAGE, *READTABLE* to buffer-readtable and evaluate FORM.
 Return the result to the continuation ID.
 Errors are trapped and invoke our debugger."
   (let (ok result condition)
     (unwind-protect
          (let ((*buffer-package* (guess-buffer-package buffer-package))
-               (*buffer-readtable* (guess-buffer-readtable buffer-package))
+               (*buffer-readtable* (guess-buffer-readtable-rt buffer-package buffer-readtable))
                (*pending-continuations* (cons id *pending-continuations*)))
            (check-type *buffer-package* package)
            (check-type *buffer-readtable* readtable)
@@ -2165,9 +2194,9 @@ after Emacs causes a restart to be invoked."
           (loop 
            (handler-case 
                (dcase (wait-for-event 
-                                  `(or (:emacs-rex . _)
+                                  `(or (:emacs-rex-rt . _)
                                        (:sldb-return ,(1+ level))))
-                 ((:emacs-rex &rest args) (apply #'eval-for-emacs args))
+                 ((:emacs-rex-rt &rest args) (apply #'eval-for-emacs args))
                  ((:sldb-return _) (declare (ignore _)) (return nil)))
              (sldb-condition (c) 
                (handle-sldb-condition c))))))
