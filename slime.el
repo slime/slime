@@ -1963,10 +1963,6 @@ fixnum a specific thread."))
    "The Lisp package associated with the current buffer.
 This is set only in buffers bound to specific packages."))
 
-;;; BEGINNING OF BUDDEN'S ADDITIONS ;;;;;;;;;;;;;;;;
-
-; slime-current-package -> slime-find-buffer-package -> slime-find-buffer-package-function var -> slime-search-buffer-package 
-
 (defun budden-slime-current-readtable ()
   "Finds readtable specification in a current buffer. It must be a form like
  (in-readtable :name)
@@ -1999,16 +1995,6 @@ This is set only in buffers bound to specific packages."))
             ))))
     (message pkg)
     pkg))
-
-
-(defun a ()
-  "Test"
-  (interactive)
-  (budden-slime-current-readtable))
-
-
-;;; END OF BUDDEN'S ADDITIONS ;;;;;;;;;;;;;;;;
-
 
 ;;; `slime-rex' is the RPC primitive which is used to implement both
 ;;; `slime-eval' and `slime-eval-async'. You can use it directly if
