@@ -571,6 +571,16 @@ This is used to resolve filenames without directory component."
   '())
 
 
+;;;; Packages
+
+(definterface guess-locally-nicknamed-package (name base-package)
+  "Return the package whose local nickname in BASE-PACKAGE matches NAME.
+Return NIL if local nicknames are not implemented or if there is no
+such package."
+  (declare (ignore name base-package))
+  nil)
+
+
 ;;;; Compilation
 
 (definterface call-with-compilation-hooks (func)

@@ -418,6 +418,14 @@
     (loop for p in (remove-if-not #'sbcl-package-p (list-all-packages))
           collect (cons (package-name p) readtable))))
 
+;;; Packages
+
+#+#.(swank/backend:with-symbol "FIND-PACKAGE-USING-PACKAGE" "SB-IMPL")
+(defimplementation guess-locally-nicknamed-package (name base-package)
+  (when name
+    (let ((name (symbol-name (swank::parse-string name :keyword))))
+      (sb-impl::find-package-using-package name base-package))))
+
 ;;; Utilities
 
 (defun swank-value (name &optional errorp)
