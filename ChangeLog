@@ -12,6 +12,8 @@
 	really nice. package.lisp is loaded before swank.lisp and
 	swank/backend.lisp
 
+	* swank.lisp (parse-package): Use parse-string instead of read-from-string.
+
 2015-11-09 Jan Moringen  <jmoringe@techfak.uni-bielefeld.de>
 
 	Complete symbols in locally-nicknamed packages
