@@ -419,11 +419,15 @@
 
 ;;; Packages
 
-#+#.(swank/backend:with-symbol "FIND-PACKAGE-USING-PACKAGE" "SB-IMPL")
+#+#.(swank/backend:with-symbol 'find-package-using-package 'sb-impl)
 (defimplementation guess-locally-nicknamed-package (name base-package)
   (when name
     (let ((name (symbol-name (swank:parse-string name :keyword))))
       (sb-impl::find-package-using-package name base-package))))
+
+#+#.(swank/backend:with-symbol 'package-local-nicknames 'sb-ext)
+(defimplementation package-local-nicknames (package)
+  (sb-ext:package-local-nicknames package))
 
 ;;; Utilities
 

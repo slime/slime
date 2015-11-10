@@ -1,3 +1,8 @@
+2015-11-10  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-fuzzy.lisp (fuzzy-find-matching-packages): match package
+	local nicknames.
+
 2015-10-18  Helmut Eller  <heller@common-lisp.net>
 
 	Stop using slime-complete-symbol-function.

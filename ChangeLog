@@ -1,5 +1,7 @@
 2015-11-10  Stas Boukarev  <stassats@gmail.com>
 
+	* swank/backend.lisp (package-local-nicknames): New interface.
+
 	* packages.lisp: New file, put swank, swank/backend and friends
 	there. The SWANK package depends on SWANK/BACKEND, but some
 	swank/backends want to use functions from SWANK and accomplish

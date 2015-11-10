@@ -478,6 +478,12 @@ such package."
   (declare (ignore name base-package))
   nil)
 
+(definterface package-local-nicknames (package)
+  "Returns an alist of local-nickname . actual-package) describing the
+nicknames local to the designated package."
+  (declare (ignore package))
+  nil)
+
 
 ;;;; Compilation
 
