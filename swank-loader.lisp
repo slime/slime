@@ -238,7 +238,8 @@ If LOAD is true, load the fasl file."
           names))
 
 (defvar *swank-files*
-  `((swank backend) ,@*sysdep-files* (swank match) (swank rpc)
+  `(packages
+    (swank backend) ,@*sysdep-files* (swank match) (swank rpc)
     swank))
 
 (defvar *contribs*
@@ -264,8 +265,9 @@ If LOAD is true, load the fasl file."
 
 (defun load-swank (&key (src-dir *source-directory*)
                      (fasl-dir *fasl-directory*)
-                     quiet)
-  (compile-files (src-files *swank-files* src-dir) fasl-dir t quiet)
+                        quiet)
+  (with-compilation-unit ()
+    (compile-files (src-files *swank-files* src-dir) fasl-dir t quiet))
   (funcall (q "swank::before-init")
            (slime-version-string)
            (list (contrib-dir fasl-dir)

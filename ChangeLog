@@ -1,4 +1,13 @@
-2015-11-09    <jmoringe@techfak.uni-bielefeld.de>
+2015-11-10  Stas Boukarev  <stassats@gmail.com>
+
+	* packages.lisp: New file, put swank, swank/backend and friends
+	there. The SWANK package depends on SWANK/BACKEND, but some
+	swank/backends want to use functions from SWANK and accomplish
+	that by using (funcall (find-symbol x :swank)), which is not
+	really nice. package.lisp is loaded before swank.lisp and
+	swank/backend.lisp
+
+2015-11-09 Jan Moringen  <jmoringe@techfak.uni-bielefeld.de>
 
 	Complete symbols in locally-nicknamed packages
 

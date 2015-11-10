@@ -10,70 +10,7 @@
 ;;; them separately for each Lisp implementation. These extensions are
 ;;; available to us here via the `SWANK/BACKEND' package.
 
-(defpackage swank
-  (:use cl swank/backend swank/match swank/rpc)
-  (:export #:startup-multiprocessing
-           #:start-server
-           #:create-server
-           #:stop-server
-           #:restart-server
-           #:ed-in-emacs
-           #:inspect-in-emacs
-           #:print-indentation-lossage
-           #:invoke-slime-debugger
-           #:swank-debugger-hook
-           #:emacs-inspect
-           ;;#:inspect-slot-for-emacs
-           ;; These are user-configurable variables:
-           #:*communication-style*
-           #:*dont-close*
-           #:*fasl-pathname-function*
-           #:*log-events*
-           #:*log-output*
-           #:*use-dedicated-output-stream*
-           #:*dedicated-output-stream-port*
-           #:*configure-emacs-indentation*
-           #:*readtable-alist*
-           #:*globally-redirect-io*
-           #:*global-debugger*
-           #:*sldb-quit-restart*
-           #:*backtrace-printer-bindings*
-           #:*default-worker-thread-bindings*
-           #:*macroexpand-printer-bindings*
-           #:*swank-pprint-bindings*
-           #:*record-repl-results*
-           #:*inspector-verbose*
-           ;; This is SETFable.
-           #:debug-on-swank-error
-           ;; These are re-exported directly from the backend:
-           #:buffer-first-change
-           #:frame-source-location
-           #:gdb-initial-commands
-           #:restart-frame
-           #:sldb-step 
-           #:sldb-break
-           #:sldb-break-on-return
-           #:profiled-functions
-           #:profile-report
-           #:profile-reset
-           #:unprofile-all
-           #:profile-package
-           #:default-directory
-           #:set-default-directory
-           #:quit-lisp
-           #:eval-for-emacs
-           #:eval-in-emacs
-           #:y-or-n-p-in-emacs
-           #:*find-definitions-right-trim*
-           #:*find-definitions-left-trim*
-           #:*after-toggle-trace-hook*
-           #:unredable-result
-           #:unredable-result-p
-           #:unredable-result-string))
-
 (in-package :swank)
-
-
 ;;;; Top-level variables, constants, macros
 
 (defconstant cl-package (find-package :cl)

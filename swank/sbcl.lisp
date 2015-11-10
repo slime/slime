@@ -317,8 +317,7 @@
                 ,@(cond ((and external-format (sb-int:featurep :sb-unicode))
                          `(:external-format ,external-format))
                         (t '()))
-                :serve-events ,(eq :fd-handler
-                                   (swank-value '*communication-style* t))
+                :serve-events ,(eq :fd-handler swank:*communication-style*)
                   ;; SBCL < 1.0.42.43 doesn't support :SERVE-EVENTS
                   ;; argument.
                 :allow-other-keys t)))
@@ -423,19 +422,10 @@
 #+#.(swank/backend:with-symbol "FIND-PACKAGE-USING-PACKAGE" "SB-IMPL")
 (defimplementation guess-locally-nicknamed-package (name base-package)
   (when name
-    (let ((name (symbol-name (swank::parse-string name :keyword))))
+    (let ((name (symbol-name (swank:parse-string name :keyword))))
       (sb-impl::find-package-using-package name base-package))))
 
 ;;; Utilities
-
-(defun swank-value (name &optional errorp)
-  ;; Easy way to refer to symbol values in SWANK, which doesn't yet exist when
-  ;; this is file is loaded.
-  (let ((symbol (find-symbol (string name) :swank)))
-    (if (and symbol (or errorp (boundp symbol)))
-        (symbol-value symbol)
-        (when errorp
-          (error "~S does not exist in SWANK." name)))))
 
 #+#.(swank/backend:with-symbol 'function-lambda-list 'sb-introspect)
 (defimplementation arglist (fname)
@@ -1260,7 +1250,7 @@ stack."
 (defun lisp-source-location (code-location)
   (let ((source (prin1-to-string
                  (sb-debug::code-location-source-form code-location 100)))
-        (condition (swank-value '*swank-debugger-condition*)))
+        (condition *swank-debugger-condition*))
     (if (and (typep condition 'sb-impl::step-form-condition)
              (search "SB-IMPL::WITH-STEPPING-ENABLED" source
                      :test #'char-equal)
