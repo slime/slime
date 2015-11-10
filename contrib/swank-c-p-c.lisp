@@ -154,7 +154,7 @@ Return these values:
 			(default-package))
 		       ((equal package-name "")
 			(guess-package (symbol-name :keyword)))
-		       ((guess-locally-nicknamed-package
+		       ((find-locally-nicknamed-package
 			 package-name (default-package)))
 		       (t
 			(guess-package package-name)))))

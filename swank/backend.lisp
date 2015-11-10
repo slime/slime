@@ -471,18 +471,17 @@ This is used to resolve filenames without directory component."
 
 ;;;; Packages
 
-(definterface guess-locally-nicknamed-package (name base-package)
-  "Return the package whose local nickname in BASE-PACKAGE matches NAME.
-Return NIL if local nicknames are not implemented or if there is no
-such package."
-  (declare (ignore name base-package))
-  nil)
-
 (definterface package-local-nicknames (package)
-  "Returns an alist of local-nickname . actual-package) describing the
+  "Returns an alist of (local-nickname . actual-package) describing the
 nicknames local to the designated package."
   (declare (ignore package))
   nil)
+
+(definterface find-locally-nicknamed-package (name base-package)
+  "Return the package whose local nickname in BASE-PACKAGE matches NAME.
+Return NIL if local nicknames are not implemented or if there is no
+such package."
+  (cdr (assoc name (package-local-nicknames base-package) :test #'string-equal)))
 
 
 ;;;; Compilation

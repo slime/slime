@@ -814,3 +814,7 @@ part of *sysdep-pathnames* in swank.loader.lisp.
 
 (defimplementation quit-lisp ()
   (ext:exit))
+;;;
+#+#.(swank/backend:with-symbol 'package-local-nicknames 'ext)
+(defimplementation package-local-nicknames (package)
+  (ext:package-local-nicknames package))

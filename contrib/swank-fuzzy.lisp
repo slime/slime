@@ -230,7 +230,7 @@ TIME-LIMIT-IN-MSEC is NIL, an infinite time limit is assumed."
              (fuzzy-find-matching-packages designator
                                            :time-limit-in-msec time-limit))
            (maybe-find-local-package (name)
-             (or (guess-locally-nicknamed-package name *buffer-package*)
+             (or (find-locally-nicknamed-package name *buffer-package*)
                  (find-package name))))
       (let ((time-limit time-limit-in-msec) (symbols) (packages) (results)
             (dedup-table (make-hash-table :test #'equal)))
