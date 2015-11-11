@@ -1637,7 +1637,8 @@ Return the symbol and a flag indicating whether the symbols was found."
 Return the package or nil."
   ;; STRING comes usually from a (in-package STRING) form.
   (ignore-errors
-    (find-package (parse-string string *swank-io-package*))))
+    (find-package (let ((*package* *swank-io-package*))
+                    (read-from-string string)))))
 
 (defun unparse-name (string)
   "Print the name STRING according to the current printer settings."
