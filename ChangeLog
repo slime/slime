@@ -1,3 +1,8 @@
+2015-11-18  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/sbcl.lisp (sigio-handler): run handlers with interrupts
+	enabled.
+
 2015-11-10  Stas Boukarev  <stassats@gmail.com>
 
 	* swank/abcl.lisp (package-local-nicknames): Support local

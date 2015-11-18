@@ -138,13 +138,13 @@
 
   (defun sigio-handler (signal code scp)
     (declare (ignore signal code scp))
-    (mapc (lambda (handler)
-            (funcall (the function (cdr handler))))
-          *sigio-handlers*))
+    (sb-sys:with-interrupts
+      (mapc (lambda (handler)
+              (funcall (the function (cdr handler))))
+            *sigio-handlers*)))
 
   (defun set-sigio-handler ()
-    (sb-sys:enable-interrupt sb-unix:sigio (lambda (signal code scp)
-                                             (sigio-handler signal code scp))))
+    (sb-sys:enable-interrupt sb-unix:sigio #'sigio-handler))
 
   (defun enable-sigio-on-fd (fd)
     (sb-posix::fcntl fd sb-posix::f-setfl sb-posix::o-async)
