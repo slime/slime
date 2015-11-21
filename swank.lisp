@@ -3590,24 +3590,25 @@ If FORCE is true then start again without considering the old cache."
   "Update the cache and return the changes in a (SYMBOL INDENT PACKAGES) list.
 If FORCE is true then check all symbols, otherwise only check symbols
 belonging to PACKAGE."
-  (let ((alist '()))
-    (flet ((consider (symbol)
-             (let ((indent (symbol-indentation symbol)))
-               (when indent
-                 (unless (equal (gethash symbol cache) indent)
-                   (setf (gethash symbol cache) indent)
-                   (let ((pkgs (mapcar #'package-name 
-                                       (symbol-packages symbol)))
-                         (name (string-downcase symbol)))
-                     (push (list name indent pkgs) alist)))))))
-      (cond (force
-             (do-all-symbols (symbol)
-               (consider symbol)))
-            (t
-             (do-symbols (symbol package)
-               (when (eq (symbol-package symbol) package)
-                 (consider symbol)))))
-      alist)))
+  (when (package-name package)
+    (let ((alist '()))
+      (flet ((consider (symbol)
+               (let ((indent (symbol-indentation symbol)))
+                 (when indent
+                   (unless (equal (gethash symbol cache) indent)
+                     (setf (gethash symbol cache) indent)
+                     (let ((pkgs (mapcar #'package-name
+                                         (symbol-packages symbol)))
+                           (name (string-downcase symbol)))
+                       (push (list name indent pkgs) alist)))))))
+        (cond (force
+               (do-all-symbols (symbol)
+                 (consider symbol)))
+              (t
+               (do-symbols (symbol package)
+                 (when (eq (symbol-package symbol) package)
+                   (consider symbol)))))
+        alist))))
 
 (defun package-names (package)
   "Return the name and all nicknames of PACKAGE in a fresh list."
