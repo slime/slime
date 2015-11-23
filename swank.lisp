@@ -3596,14 +3596,14 @@ belonging to PACKAGE."
                (when indent
                  (unless (equal (gethash symbol cache) indent)
                    (setf (gethash symbol cache) indent)
-                   (let ((pkgs (mapcar #'package-name 
+                   (let ((pkgs (mapcar #'package-name
                                        (symbol-packages symbol)))
                          (name (string-downcase symbol)))
                      (push (list name indent pkgs) alist)))))))
       (cond (force
              (do-all-symbols (symbol)
                (consider symbol)))
-            (t
+            ((package-name package)
              (do-symbols (symbol package)
                (when (eq (symbol-package symbol) package)
                  (consider symbol)))))
