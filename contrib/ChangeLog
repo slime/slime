@@ -1,3 +1,12 @@
+2015-11-26  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* swank-repl.lisp (create-repl): Let the global redirection
+	mechanism handle the stream redirection instead of binding output
+	and io streams in the REPL thread. This lets redirect REPL output
+	in subsequent connections that request global redirection. (See
+	<http://thread.gmane.org/gmane.lisp.slime.devel/11645> for
+	discussion and a use case.)
+
 2015-11-10  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-fuzzy.lisp (fuzzy-find-matching-packages): match package
