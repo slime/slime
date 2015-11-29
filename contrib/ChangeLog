@@ -1,3 +1,8 @@
+2015-11-29  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-fancy-inspector.lisp (inspect-type-specifier): The latest
+	SBCL doesn't have :type :translator info anymore.
+
 2015-11-26  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* swank-repl.lisp (create-repl): Let the global redirection
@@ -18,7 +23,7 @@
 	Use slime-completion-at-point-functions instead.
 
 	* slime-c-p-c.el (slime-c-p-c-completion-at-point): New. Set
-	slime-completion-at-point-functions acordingly.
+	slime-completion-at-point-functions accordingly.
 
 2015-10-17  Helmut Eller  <heller@common-lisp.net>
 
