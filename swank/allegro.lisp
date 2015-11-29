@@ -110,7 +110,8 @@
   (handler-case (excl:arglist symbol)
     (simple-error () :not-available)))
 
-(defimplementation macroexpand-all (form)
+(defimplementation macroexpand-all (form &optional env)
+  (declare (ignore env))
   #+(version>= 8 0)
   (excl::walk-form form)
   #-(version>= 8 0)

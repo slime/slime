@@ -281,8 +281,8 @@
 (defimplementation function-name (function)
   (nth-value 2 (function-lambda-expression function)))
 
-(defimplementation macroexpand-all (form)
-  (ext:macroexpand-all form))
+(defimplementation macroexpand-all (form &optional env)
+  (ext:macroexpand-all form env))
 
 (defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))
