@@ -260,7 +260,8 @@
           (return (ext:arglist fname)))
         :not-available)))
 
-(defimplementation macroexpand-all (form)
+(defimplementation macroexpand-all (form &optional env)
+  (declare (ignore env))
   (ext:expand-form form))
 
 (defimplementation describe-symbol-for-emacs (symbol)

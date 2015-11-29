@@ -1073,8 +1073,8 @@ Return a list of the form (NAME LOCATION)."
 
 ;;; macroexpansion
 
-(defimplementation macroexpand-all (form)
-  (sb-cltl2:macroexpand-all form))
+(defimplementation macroexpand-all (form &optional env)
+  (sb-cltl2:macroexpand-all form env))
 
 
 ;;; Debugging

@@ -995,7 +995,8 @@ Signal an error if no constructor can be found."
 
 ;;;; Miscellaneous.
 
-(defimplementation macroexpand-all (form)
+(defimplementation macroexpand-all (form &optional env)
+  (declare (ignore env))
   (macroexpand form))
 
 (defimplementation set-default-directory (directory)
