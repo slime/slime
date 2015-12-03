@@ -32,6 +32,7 @@
   (lconc buf items))
 
 (defmacro print-vals (&rest args)
+  "Debugging macro for printing exressions and their evaluated values."
   (let* ((var (gensym))
 	(content (loop :for arg :in args
 			:for n = 1 :then (1+ n)
@@ -42,13 +43,21 @@
        (finish-output)
        ,var)))
 
-(cl:defgeneric class-to-dot (classes stream &rest args &key max-parents max-children open))
+(cl:defgeneric class-to-dot (classes stream &rest args &key max-parents max-children open)
+  (:documentation "Function for creating a class graph in either the form of a .dot file or .png"))
 
 (cl:defmethod class-to-dot ((class-name symbol) dot-stream &rest args &key (max-parents 999) (max-children 999) (open nil))
+  "If called with symbol, call CLASS-TO-DOT recursively with the class it designates."
   (declare (ignore max-parents max-children open))
   (apply #'class-to-dot (list (find-class class-name)) dot-stream args))
 
 (cl:defmethod class-to-dot (classes (path pathname) &rest args &key (max-parents 999) (max-children 999) (open nil))
+  "Generate a graphical image (using graphviz) to represent the superclasses (up to T, shown) and the 
+subclasses (down to NIL, not shown).
+If the given pathname has extension 'dot' then populate the .dot file with the dot 
+language instructions to draw the CLOS class graph.
+If the given path name has the extension 'png' then generate the graphical image
+corresponding to the CLOS class (or classes)."
   (declare (ignore max-parents max-children))
   (cond ((string= "dot" (pathname-type path))
 	 (with-open-file (stream path :direction :output :if-exists :rename)
@@ -65,15 +74,27 @@
 	 (error "invalid path ~A" path))))
 
 (cl:defmethod class-to-dot (classes (dot-stream (eql nil)) &rest args &key (max-parents 999) (max-children 999) (open nil))
+  "If NIL is given as DOT-STREAM, generate a program in the dot language and return
+it as a string.  The program when executed will draw a graph of the CLOS
+classes designated."
   (declare (ignore max-parents max-children open))
   (with-output-to-string (str)
     (apply #'class-to-dot classes str args)))
 
 (cl:defmethod class-to-dot (classes (dot-stream (eql t)) &rest args &key (max-parents 999) (max-children 999) (open nil))
+  "If T is given as DOT-STREAM, generate a program in the dot language and print
+it to *STANDARD-OUTPUT*.  The program when executed will draw a graph of the CLOS
+classes designated."
   (declare (ignore max-parents max-children open))
   (apply #'class-to-dot classes *STANDARD-OUTPUT* args))
 
 (cl:defmethod class-to-dot ((classes list) (dot-stream stream) &rest args &key (max-parents 999) (max-children 999) (open nil))
+  "Generate a program in the dot language which when executed will draw a graph of the CLOS
+class designated by CLASSES.  CLASSES is a list of class designators which are symbols or classes.
+The dot program is printed to the given stream DOT-STREAM.
+The resulting graph starts at the designated classes (shown in green).
+The superclasses extend upward to T (in pink).
+The subclasses extend downward (in pink)."
   (declare (ignore open))
   (cond
     ((some #'symbolp classes)
@@ -144,6 +165,12 @@
        (format dot-stream "}~%")))))
 
 (defun class-graph-for-slime (class-name file-name)
+  "Function called from slime. CLASS-NAME is a string which was the symbol-at-point.
+FILE-NAME is the name of a tmp file which CL is allowed to write to.
+CLASS-GRAPH-FOR-SLIME calls CLASS-TO-DOT to populate the designated file with
+the PNG format image of a CLOS class graph representing the class hierarchy.
+The slime function, class-graph, calls this function and then displays the image
+in an emacs buffer."
   (cond
     ((stringp class-name)
      (class-graph-for-slime (swank::find-definitions-find-symbol-or-package class-name)
