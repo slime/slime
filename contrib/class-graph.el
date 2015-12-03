@@ -8,15 +8,9 @@
 
 (defun class-graph (class-name)
   (interactive "P")
-  (let ((class-name (or class-name
-			(slime-symbol-at-point)))
-	(file-name "/tmp/graph.png"))
-    (when (slime-interactive-eval (format "(class-graph:class-graph-for-slime '%s %S)" 
-					  class-name file-name))
-      (find-file file-name)
-      (image-mode-fit-frame))
-    ;; (when (slime-eval `(class-graph:class-graph-for-slime ',class-name ,file-name))
-    ;;   (find-file file-name)
-    ;;   (image-mode-fit-frame))
-    ))
-
+  (let* ((class-name (or class-name
+			 (slime-symbol-at-point)))
+	 (tmp-file (make-temp-file (format "%s-" class-name) nil ".png")))
+    (slime-eval `(class-graph:class-graph-for-slime ,class-name ,tmp-file))
+    (find-file tmp-file)
+    (image-mode-fit-frame)))

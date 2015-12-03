@@ -56,6 +56,7 @@
 	((string= "png" (pathname-type path))
 	 (let ((dotpath (merge-pathnames (make-pathname :type "dot")  path)))
 	   (apply #'class-to-dot classes dotpath args)
+	   ;; TODO need to take some action if "dot" is not found in the UNIX path
 	   (sb-ext:run-program "dot" (list "-Tpng" (namestring dotpath) "-o" (namestring path)) :search t)
 	   (when open
 	     ;; TODO this only works on the MAC,
@@ -145,8 +146,7 @@
 (defun class-graph-for-slime (class-name file-name)
   (cond
     ((stringp class-name)
-     (class-graph-for-slime (with-input-from-string (str class-name)
-			      (read str))
+     (class-graph-for-slime (swank::find-definitions-find-symbol-or-package class-name)
 			    file-name))
     ((find-class class-name nil)
      (class-to-dot (list (find-class class-name)) (pathname file-name))
