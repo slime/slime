@@ -1068,10 +1068,10 @@ DIRECTORY change to this directory before starting the process.
                        "Port: " (cl-first slime-connect-port-history)
                        nil nil '(slime-connect-port-history . 1)))
                      nil t))
-  (when (and interactive-p
-             slime-net-processes
-             (y-or-n-p "Close old connections first? "))
-    (slime-disconnect-all))
+  ;; (when (and interactive-p
+  ;;            slime-net-processes
+  ;;            (y-or-n-p "Close old connections first? "))
+  ;;   (slime-disconnect-all))
   (message "Connecting to Swank on port %S.." port)
   (let* ((process (slime-net-connect host port))
          (slime-dispatching-connection process))
