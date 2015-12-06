@@ -162,12 +162,8 @@ Return nil if nothing appropriate is available."
   (fresh-line *error-output*)
   (pprint-logical-block (*error-output* () :per-line-prefix ";; ")
     (format *error-output*
-            "~%Error while ~A ~A:~%  ~A~%Aborting.~%"
-            context pathname condition))
-  (when (equal (directory-namestring pathname)
-               (directory-namestring *fasl-directory*))
-    (ignore-errors (delete-file pathname)))
-  (abort))
+            "~%Error ~A ~A:~%  ~A~%"
+            context pathname condition)))
 
 (defun compile-files (files fasl-dir load quiet)
   "Compile each file in FILES if the source is newer than its
@@ -177,32 +173,30 @@ If LOAD is true, load the fasl file."
         (state :unknown))
     (dolist (src files)
       (let ((dest (binary-pathname src fasl-dir)))
-        (handler-case
-            (progn
-              (when (or needs-recompile
-                        (not (probe-file dest))
-                        (file-newer-p src dest))
-                (ensure-directories-exist dest)
-                ;; need to recompile SRC, so we'll need to recompile
-                ;; everything after this too.
-                (setq needs-recompile t)
-                (setq state :compile)
-                (or (compile-file src :output-file dest :print nil
+        (handler-bind
+            ((error (lambda (c)
+                      (ecase state
+                        (:compile (handle-swank-load-error c "compiling" src))
+                        (:load    (handle-swank-load-error c "loading" dest))
+                        (:unknown (handle-swank-load-error c "???ing" src))))))
+          (when (or needs-recompile
+                    (not (probe-file dest))
+                    (file-newer-p src dest))
+            (ensure-directories-exist dest)
+            ;; need to recompile SRC, so we'll need to recompile
+            ;; everything after this too.
+            (setf needs-recompile t
+                  state :compile)
+            (or (compile-file src :output-file dest :print nil
                                   :verbose (not quiet))
-                    ;; An implementation may not necessarily signal a
-                    ;; condition itself when COMPILE-FILE fails (e.g. ECL)
-                    (error "COMPILE-FILE returned NIL.")))
-              (when load
-                (setq state :load)
-                (load dest :verbose (not quiet))))
-          ;; Fail as early as possible
-          (serious-condition (c)
-            (ecase state
-              (:compile (handle-swank-load-error c "compiling" src))
-              (:load    (handle-swank-load-error c "loading" dest))
-              (:unknown (handle-swank-load-error c "???ing" src)))))))))
+                ;; An implementation may not necessarily signal a
+                ;; condition itself when COMPILE-FILE fails (e.g. ECL)
+                (error "COMPILE-FILE returned NIL.")))
+          (when load
+            (setf state :load)
+            (load dest :verbose (not quiet))))))))
 
-#+(or cormanlisp)
+#+cormanlisp
 (defun compile-files (files fasl-dir load quiet)
   "Corman Lisp has trouble with compiled files."
   (declare (ignore fasl-dir))

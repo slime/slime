@@ -1,3 +1,8 @@
+2015-12-06  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-loader.lisp (compile-files): Don't abort on errors,
+	otherwise it's impossible to debug them.
+
 2015-11-23  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* swank.lisp (indentation-cache-loop): Marginally robustify the
