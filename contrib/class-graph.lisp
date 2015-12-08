@@ -501,11 +501,20 @@ Returns a plist with fields
 		    (getf (cdr stmt) :attrs))
 	       (destructuring-bind (node-plist &rest _ &key attrs) stmt
 		 (declare (ignore _))
-		 (push (list :class (read-from-string (getf node-plist :node)) ;; class name
-			     :bb `(,@(mapcar #'read-from-string (cl-ppcre:split "," (read-prop "pos" attrs)))
-				   ,(read-from-string (read-prop "width" attrs))
-				   ,(read-from-string (read-prop "height" attrs))))
-		       (getf data :coords))))))
+		 (let* ((pos (mapcar #'read-from-string (cl-ppcre:split "," (read-prop "pos" attrs))))
+			(x (car pos))
+			(y (cadr pos))
+			(width  (read-from-string (read-prop "width" attrs)))
+			(height (read-from-string (read-prop "height" attrs))))
+		   (push (list :class (read-from-string (getf node-plist :node)) ;; class name
+			       :pos pos
+			       :width width
+			       :height height
+			       :bb `(,x
+				     ,y
+				     ,(+ x width)
+				     ,(+ y height)))
+			 (getf data :coords)))))))
       data)))
 
 (defun class-graph-for-slime (class-name file-name)
@@ -520,8 +529,7 @@ in an emacs buffer."
      (class-graph-for-slime (swank::find-definitions-find-symbol-or-package class-name)
 			    file-name))
     ((find-class class-name nil)
-     (class-to-dot (list (find-class class-name)) (pathname file-name))
-     file-name)
+     (class-to-dot (list (find-class class-name)) (pathname file-name)))
     (t
      (error "No such class ~A" class-name))))
   
