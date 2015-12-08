@@ -1,3 +1,8 @@
+2015-12-08  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/clasp.lisp (source-location): clasp now uses the same
+	method for c-function source location as for lisp functions.
+
 2015-12-06  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-loader.lisp (compile-files): Don't abort on errors,
