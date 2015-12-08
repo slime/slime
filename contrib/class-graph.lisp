@@ -1,3 +1,7 @@
+(ql:quickload :yacc)
+(ql:quickload :cl-ppcre)
+(ql:quickload :closer-mop)
+
 (defpackage "CLASS-GRAPH"
   (:use :cl :c2mop)
   (:nicknames "GR")
@@ -318,6 +322,9 @@ The subclasses extend downward (in pink)."
 ;; 
 (yacc:define-parser *dot-parser*
   (:start-symbol vgraph)
+  (:print-lookaheads nil)
+  (:print-goto-graph nil)
+  (:print-states nil)
   (:terminals (|;| { } [ ] = |,| |:| |--| |->| node edge graph digraph subgraph strict ID))
   (:precedence ())
 
@@ -340,16 +347,14 @@ The subclasses extend downward (in pink)."
    ())
 
   ;; stmt_list	:	[ stmt [ ';' ] [ stmt_list ] ]
+  ;; stmt_list	:	[ stmt [ ';' ] stmt_list ]
   (stmt-list
-   (stmt |optional-;| optional-stmt-list (lambda (stmt _ osl)
-					   (declare (ignore _))
-					   (cons stmt osl)))
+   (stmt |optional-;| stmt-list (lambda (stmt _ osl)
+				  (declare (ignore _))
+				  (cons stmt osl)))
    ())
   (|optional-;|
    |;|
-   ())
-  (optional-stmt-list
-   stmt-list
    ())
 
   ;; stmt	  :	node_stmt
