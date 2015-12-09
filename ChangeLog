@@ -1,3 +1,7 @@
+2015-12-09  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/sbcl.lisp (feature-in-list-p): Don't fall on :host-feature.
+
 2015-12-08  Stas Boukarev  <stassats@gmail.com>
 
 	* swank/clasp.lisp (source-location): clasp now uses the same
