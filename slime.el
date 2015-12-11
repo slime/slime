@@ -4805,7 +4805,7 @@ When displaying XREF information, this goes to the previous reference."
 This variable specifies both what was expanded and how.")
 
 (defun slime-eval-macroexpand (expander &optional string)
-  (let ((string (or string (slime-sexp-at-point))))
+  (let ((string (or string (slime-sexp-at-point-or-error))))
     (setq slime-eval-macroexpand-expression `(,expander ,string))
     (slime-eval-async slime-eval-macroexpand-expression
       #'slime-initialize-macroexpansion-buffer)))
@@ -4843,7 +4843,7 @@ This variable specifies both what was expanded and how.")
 NB: Does not affect slime-eval-macroexpand-expression"
   (interactive)
   (let* ((bounds (or (slime-bounds-of-sexp-at-point)
-                     (error "No sexp at point"))))
+                     (user-error "No sexp at point"))))
     (lexical-let* ((start (copy-marker (car bounds)))
                    (end (copy-marker (cdr bounds)))
                    (point (point))
@@ -7410,7 +7410,7 @@ The returned bounds are either nil or non-empty."
 
 (defun slime-sexp-at-point-or-error ()
   "Return the sexp at point as a string, othwise signal an error."
-  (or (slime-sexp-at-point) (error "No expression at point.")))
+  (or (slime-sexp-at-point) (user-error "No expression at point")))
 
 (defun slime-string-at-point ()
   "Returns the string at point as a string, otherwise nil."
