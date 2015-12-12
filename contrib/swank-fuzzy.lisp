@@ -228,7 +228,10 @@ TIME-LIMIT-IN-MSEC is NIL, an infinite time limit is assumed."
                                           :filter (or filter #'identity)))
            (find-packages (designator time-limit)
              (fuzzy-find-matching-packages designator
-                                           :time-limit-in-msec time-limit)))
+                                           :time-limit-in-msec time-limit))
+           (maybe-find-local-package (name)
+             (or (find-locally-nicknamed-package name *buffer-package*)
+                 (find-package name))))
       (let ((time-limit time-limit-in-msec) (symbols) (packages) (results)
             (dedup-table (make-hash-table :test #'equal)))
         (cond ((not parsed-package-name) ; E.g. STRING = "asd"
@@ -256,8 +259,9 @@ TIME-LIMIT-IN-MSEC is NIL, an infinite time limit is assumed."
                        (sort symbol-packages #'fuzzy-matching-greaterp))
                  (loop
                    for package-matching across symbol-packages
-                   for package = (find-package (fuzzy-matching.package-name
-                                                package-matching))
+                   for package = (maybe-find-local-package
+                                  (fuzzy-matching.package-name
+                                   package-matching))
                    while (or (not time-limit) (> rest-time-limit 0)) do
                    (multiple-value-bind (matchings remaining-time)
                        ;; The duplication filter removes all those symbols
@@ -424,37 +428,44 @@ Cf. FUZZY-FIND-MATCHING-SYMBOLS."
     (declare (type boolean time-limit-p))
     (declare (type integer time-limit rtime-at-start))
     (declare (type function converter))
-    (if (and time-limit-p (<= time-limit 0))
-        (values #() time-limit)
-        (loop for package in (list-all-packages) do
-              ;; Find best-matching package-nickname:
-              (loop with max-pkg-name = ""
-                    with max-result   = nil
-                    with max-score    = 0
-                    for package-name in (package-names package)
-                    for converted-name = (funcall converter package-name)
-                    do
-                    (multiple-value-bind (result score)
-                        (compute-highest-scoring-completion name
-                                                            converted-name)
-                      (when (and result (> score max-score))
-                        (setf max-pkg-name package-name)
-                        (setf max-result   result)
-                        (setf max-score    score)))
-                    finally
-                    (when max-result
-                      (vector-push-extend
-                       (make-fuzzy-matching nil max-pkg-name
-                                            max-score max-result '()
-                                            :symbol-p nil)
-                       completions)))
-              finally
-                (return
-                  (values completions
-                          (and time-limit-p
-                               (let ((elapsed-time (- (get-real-time-in-msecs)
-                                                      rtime-at-start)))
-                                 (- time-limit elapsed-time)))))))))
+    (flet ((match-package (names)
+             (loop with max-pkg-name = ""
+                   with max-result   = nil
+                   with max-score    = 0
+                   for package-name in names
+                   for converted-name = (funcall converter package-name)
+                   do
+                   (multiple-value-bind (result score)
+                       (compute-highest-scoring-completion name
+                                                           converted-name)
+                     (when (and result (> score max-score))
+                       (setf max-pkg-name package-name)
+                       (setf max-result   result)
+                       (setf max-score    score)))
+                   finally
+                   (when max-result
+                     (vector-push-extend
+                      (make-fuzzy-matching nil max-pkg-name
+                                           max-score max-result '()
+                                           :symbol-p nil)
+                      completions)))))
+     (cond ((and time-limit-p (<= time-limit 0))
+            (values #() time-limit))
+           (t
+            (loop for (nick) in (package-local-nicknames *buffer-package*)
+                  do
+                  (match-package (list nick)))
+            (loop for package in (list-all-packages)
+                  do
+                  ;; Find best-matching package-nickname:
+                  (match-package (package-names package))
+                  finally
+                  (return
+                    (values completions
+                            (and time-limit-p
+                                 (let ((elapsed-time (- (get-real-time-in-msecs)
+                                                        rtime-at-start)))
+                                   (- time-limit elapsed-time)))))))))))
 
 
 (defslimefun fuzzy-completion-selected (original-string completion)

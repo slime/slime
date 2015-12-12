@@ -138,13 +138,13 @@
 
   (defun sigio-handler (signal code scp)
     (declare (ignore signal code scp))
-    (mapc (lambda (handler)
-            (funcall (the function (cdr handler))))
-          *sigio-handlers*))
+    (sb-sys:with-interrupts
+      (mapc (lambda (handler)
+              (funcall (the function (cdr handler))))
+            *sigio-handlers*)))
 
   (defun set-sigio-handler ()
-    (sb-sys:enable-interrupt sb-unix:sigio (lambda (signal code scp)
-                                             (sigio-handler signal code scp))))
+    (sb-sys:enable-interrupt sb-unix:sigio #'sigio-handler))
 
   (defun enable-sigio-on-fd (fd)
     (sb-posix::fcntl fd sb-posix::f-setfl sb-posix::o-async)
@@ -317,8 +317,7 @@
                 ,@(cond ((and external-format (sb-int:featurep :sb-unicode))
                          `(:external-format ,external-format))
                         (t '()))
-                :serve-events ,(eq :fd-handler
-                                   (swank-value '*communication-style* t))
+                :serve-events ,(eq :fd-handler swank:*communication-style*)
                   ;; SBCL < 1.0.42.43 doesn't support :SERVE-EVENTS
                   ;; argument.
                 :allow-other-keys t)))
@@ -344,7 +343,10 @@
     (symbol (member feature list :test #'eq))
     (cons (flet ((subfeature-in-list-p (subfeature)
                    (feature-in-list-p subfeature list)))
-            (ecase (first feature)
+            ;; Don't use ECASE since SBCL also has :host-feature,
+            ;; don't need to handle it or anything else appearing in
+            ;; the future or in erronous code.
+            (case (first feature)
               (:or  (some  #'subfeature-in-list-p (rest feature)))
               (:and (every #'subfeature-in-list-p (rest feature)))
               (:not (destructuring-bind (e) (cdr feature)
@@ -418,16 +420,13 @@
     (loop for p in (remove-if-not #'sbcl-package-p (list-all-packages))
           collect (cons (package-name p) readtable))))
 
-;;; Utilities
+;;; Packages
 
-(defun swank-value (name &optional errorp)
-  ;; Easy way to refer to symbol values in SWANK, which doesn't yet exist when
-  ;; this is file is loaded.
-  (let ((symbol (find-symbol (string name) :swank)))
-    (if (and symbol (or errorp (boundp symbol)))
-        (symbol-value symbol)
-        (when errorp
-          (error "~S does not exist in SWANK." name)))))
+#+#.(swank/backend:with-symbol 'package-local-nicknames 'sb-ext)
+(defimplementation package-local-nicknames (package)
+  (sb-ext:package-local-nicknames package))
+
+;;; Utilities
 
 #+#.(swank/backend:with-symbol 'function-lambda-list 'sb-introspect)
 (defimplementation arglist (fname)
@@ -1252,7 +1251,7 @@ stack."
 (defun lisp-source-location (code-location)
   (let ((source (prin1-to-string
                  (sb-debug::code-location-source-form code-location 100)))
-        (condition (swank-value '*swank-debugger-condition*)))
+        (condition *swank-debugger-condition*))
     (if (and (typep condition 'sb-impl::step-form-condition)
              (search "SB-IMPL::WITH-STEPPING-ENABLED" source
                      :test #'char-equal)
@@ -1996,3 +1995,11 @@ stack."
            (values-list retlist))
       (when after
         (funcall after (if completed retlist :exited-non-locally))))))
+
+#+#.(swank/backend:with-symbol 'comma-expr 'sb-impl)
+(progn
+  (defmethod sexp-in-bounds-p ((s sb-impl::comma) i)
+    (= i 1))
+
+  (defmethod sexp-ref ((s sb-impl::comma) i)
+    (sb-impl::comma-expr s)))

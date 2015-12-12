@@ -8,15 +8,6 @@
 ;;; are disclaimed.
 ;;;
 
-(defpackage swank/rpc
-  (:use :cl)
-  (:export
-   read-message
-   swank-reader-error
-   swank-reader-error.packet
-   swank-reader-error.cause
-   write-message))
-
 (in-package swank/rpc)
 
 

@@ -102,7 +102,10 @@
                 (:defined
                  (or (sb-int:info :type :expander symbol) t))
                 (:primitive
-                 (or (sb-int:info :type :translator symbol) t)))))
+                 (or (if (swank/sbcl::sbcl-version>= 1 3 1)
+                         (car (sb-int:info :type :expander symbol))
+                         (sb-int:info :type :translator symbol))
+                     t)))))
     (when fun
       (append
        (list
@@ -895,46 +898,46 @@ SPECIAL-OPERATOR groups."
                                                               zone))))))
 
 (defmethod emacs-inspect ((i integer))
-          (append
-           `(,(format nil "Value: ~D = #x~8,'0X = #o~O = #b~,,' ,8:B~@[ = ~E~]"
-                      i i i i (ignore-errors (coerce i 'float)))
-              (:newline))
-           (when (< -1 i char-code-limit)
-             (label-value-line "Code-char" (code-char i)))
-           (label-value-line "Integer-length" (integer-length i))
-           (ignore-errors
-             (label-value-line "Universal-time" (format-iso8601-time i t)))))
+  (append
+   `(,(format nil "Value: ~D = #x~8,'0X = #o~O = #b~,,' ,8:B~@[ = ~E~]"
+	      i i i i (ignore-errors (coerce i 'float)))
+     (:newline))
+   (when (< -1 i char-code-limit)
+     (label-value-line "Code-char" (code-char i)))
+   (label-value-line "Integer-length" (integer-length i))
+   (ignore-errors
+    (label-value-line "Universal-time" (format-iso8601-time i t)))))
 
 (defmethod emacs-inspect ((c complex))
-          (label-value-line*
-           ("Real part" (realpart c))
-           ("Imaginary part" (imagpart c))))
+  (label-value-line*
+   ("Real part" (realpart c))
+   ("Imaginary part" (imagpart c))))
 
 (defmethod emacs-inspect ((r ratio))
-          (label-value-line*
-           ("Numerator" (numerator r))
-           ("Denominator" (denominator r))
-           ("As float" (float r))))
+  (label-value-line*
+   ("Numerator" (numerator r))
+   ("Denominator" (denominator r))
+   ("As float" (float r))))
 
 (defmethod emacs-inspect ((f float))
-          (cond
-            ((> f most-positive-long-float)
-             (list "Positive infinity."))
-            ((< f most-negative-long-float)
-             (list "Negative infinity."))
-            ((not (= f f))
-             (list "Not a Number."))
-            (t
-             (multiple-value-bind (significand exponent sign) (decode-float f)
-               (append
-                `("Scientific: " ,(format nil "~E" f) (:newline)
-                                 "Decoded: "
-                                 (:value ,sign) " * "
-                                 (:value ,significand) " * "
-                                 (:value ,(float-radix f)) "^"
-                                 (:value ,exponent) (:newline))
-                (label-value-line "Digits" (float-digits f))
-                (label-value-line "Precision" (float-precision f)))))))
+  (cond
+    ((> f most-positive-long-float)
+     (list "Positive infinity."))
+    ((< f most-negative-long-float)
+     (list "Negative infinity."))
+    ((not (= f f))
+     (list "Not a Number."))
+    (t
+     (multiple-value-bind (significand exponent sign) (decode-float f)
+       (append
+	`("Scientific: " ,(format nil "~E" f) (:newline)
+			 "Decoded: "
+			 (:value ,sign) " * "
+			 (:value ,significand) " * "
+			 (:value ,(float-radix f)) "^"
+			 (:value ,exponent) (:newline))
+	(label-value-line "Digits" (float-digits f))
+	(label-value-line "Precision" (float-precision f)))))))
 
 (defun make-pathname-ispec (pathname position)
   `("Pathname: "

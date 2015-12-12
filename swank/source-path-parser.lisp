@@ -29,7 +29,10 @@
    read-source-form
    source-path-string-position
    source-path-file-position
-   source-path-source-position)
+   source-path-source-position
+
+   sexp-in-bounds-p
+   sexp-ref)
   (:shadow ignore-errors))
 
 (in-package swank/source-path-parser)
@@ -211,13 +214,20 @@ Return the form and the source-map."
 	(read-sequence buffer file :end endpos)))
     (source-path-string-position path buffer)))
 
+(defgeneric sexp-in-bounds-p (sexp i)
+  (:method ((s list) i) (< i (length s))))
+
+(defgeneric sexp-ref (sexp i)
+  (:method ((s list) i) (elt s i)))
+
 (defun source-path-source-position (path form source-map)
   "Return the start position of PATH from FORM and SOURCE-MAP.  All
 subforms along the path are considered and the start and end position
 of the deepest (i.e. smallest) possible form is returned."
   ;; compute all subforms along path
-  (let ((forms (loop for n in path
-		     for f = form then (nth n f)
+  (let ((forms (loop for i in path
+		     for f = form then (if (sexp-in-bounds-p f i)
+					   (sexp-ref f i))
 		     collect f)))
     ;; select the first subform present in source-map
     (loop for form in (nreverse forms)

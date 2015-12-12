@@ -10,108 +10,6 @@
 ;;; separately for each Lisp. Each is declared as a generic function
 ;;; for which swank-<implementation>.lisp provides methods.
 
-(defpackage swank/backend
-  (:use cl)
-  (:nicknames swank-backend)
-  (:export *debug-swank-backend*
-           sldb-condition
-           compiler-condition
-           original-condition
-           message
-           source-context
-           condition
-           severity
-           with-compilation-hooks
-           make-location
-           location
-           location-p
-           location-buffer
-           location-position
-	   location-hints
-           position-p
-           position-pos
-           print-output-to-string
-           quit-lisp
-           references
-           unbound-slot-filler
-           declaration-arglist
-           type-specifier-arglist
-           with-struct
-           when-let
-	   defimplementation
-	   converting-errors-to-error-location
-	   make-error-location
-	   deinit-log-output
-           ;; interrupt macro for the backend
-           *pending-slime-interrupts*
-           check-slime-interrupts
-           *interrupt-queued-handler*
-           ;; inspector related symbols
-           emacs-inspect
-           label-value-line
-           label-value-line*
-           with-symbol
-           ;; package helper for backend
-           import-to-swank-mop
-           import-swank-mop-symbols
-	   ;;
-
-           ))
-
-;; FIXME: rename to sawnk/mop
-(defpackage swank-mop
-  (:use)
-  (:export
-   ;; classes
-   standard-generic-function
-   standard-slot-definition
-   standard-method
-   standard-class
-   eql-specializer
-   eql-specializer-object
-   ;; standard-class readers
-   class-default-initargs
-   class-direct-default-initargs
-   class-direct-slots
-   class-direct-subclasses
-   class-direct-superclasses
-   class-finalized-p
-   class-name
-   class-precedence-list
-   class-prototype
-   class-slots
-   specializer-direct-methods
-   ;; generic function readers
-   generic-function-argument-precedence-order
-   generic-function-declarations
-   generic-function-lambda-list
-   generic-function-methods
-   generic-function-method-class
-   generic-function-method-combination
-   generic-function-name
-   ;; method readers
-   method-generic-function
-   method-function
-   method-lambda-list
-   method-specializers
-   method-qualifiers
-   ;; slot readers
-   slot-definition-allocation
-   slot-definition-documentation
-   slot-definition-initargs
-   slot-definition-initform
-   slot-definition-initfunction
-   slot-definition-name
-   slot-definition-type
-   slot-definition-readers
-   slot-definition-writers
-   slot-boundp-using-class
-   slot-value-using-class
-   slot-makunbound-using-class
-   ;; generic function protocol
-   compute-applicable-methods-using-classes
-   finalize-inheritance))
-
 (in-package swank/backend)
 
 
@@ -569,6 +467,21 @@ This is used to resolve filenames without directory component."
 (definterface default-readtable-alist ()
   "Return a suitable initial value for SWANK:*READTABLE-ALIST*."
   '())
+
+
+;;;; Packages
+
+(definterface package-local-nicknames (package)
+  "Returns an alist of (local-nickname . actual-package) describing the
+nicknames local to the designated package."
+  (declare (ignore package))
+  nil)
+
+(definterface find-locally-nicknamed-package (name base-package)
+  "Return the package whose local nickname in BASE-PACKAGE matches NAME.
+Return NIL if local nicknames are not implemented or if there is no
+such package."
+  (cdr (assoc name (package-local-nicknames base-package) :test #'string-equal)))
 
 
 ;;;; Compilation
@@ -1492,8 +1405,7 @@ COMPLETION-FUNCTION, if non-nil, should be called after saving the image.")
 
 (defun deinit-log-output ()
   ;; Can't hang on to an fd-stream from a previous session.
-  (setf (symbol-value (find-symbol "*LOG-OUTPUT*" 'swank))
-        nil))
+  (setf swank:*log-output* nil))
 
 
 ;;;; Wrapping

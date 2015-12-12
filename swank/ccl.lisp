@@ -84,10 +84,6 @@
    openmcl-mop:slot-boundp-using-class
    openmcl-mop:slot-makunbound-using-class))
 
-(defmacro swank-sym (sym)
-  (let ((str (symbol-name sym)))
-    `(or (find-symbol ,str :swank)
-         (error "There is no symbol named ~a in the SWANK package" ,str))))
 ;;; UTF8
 
 (defimplementation string-to-utf8 (string)
@@ -333,10 +329,9 @@
 ;; such as *emacs-connection*.
 (defun find-repl-thread ()
   (let* ((*break-on-signals* nil)
-         (conn (funcall (swank-sym default-connection))))
-    (and conn
-         (ignore-errors ;; this errors if no repl-thread
-           (funcall (swank-sym repl-thread) conn)))))
+         (conn (swank::default-connection)))
+    (and (swank::multithreaded-connection-p conn)
+         (swank::mconn.repl-thread conn))))
 
 (defimplementation call-with-debugger-hook (hook fun)
   (let ((*debugger-hook* hook)

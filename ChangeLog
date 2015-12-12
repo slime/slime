@@ -1,3 +1,137 @@
+2015-12-11  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Avoid Lisp errors when we fail to identify the sexp at point in
+	the during slime-expand-1 and friends.
+
+	* slime.el (slime-eval-macroexpand): Use
+	slime-sexp-at-point-or-error.
+	(slime-eval-macroexpand-inplace, slime-sexp-at-point-or-error):
+	Use user-error.
+
+2015-12-09  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/sbcl.lisp (feature-in-list-p): Don't fall on :host-feature.
+
+2015-12-08  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/clasp.lisp (source-location): clasp now uses the same
+	method for c-function source location as for lisp functions.
+
+2015-12-06  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-loader.lisp (compile-files): Don't abort on errors,
+	otherwise it's impossible to debug them.
+
+2015-11-23  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* swank.lisp (indentation-cache-loop): Marginally robustify the
+	indentation cache thread by adding an abort restart, so that
+	errors during the handling of one request don't kill the whole
+	thread as easily.
+	(update-indentation/delta-for-emacs): Don't attempt to iterate
+	over deleted packages.
+
+2015-11-18  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/sbcl.lisp (sigio-handler): run handlers with interrupts
+	enabled.
+
+2015-11-10  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/abcl.lisp (package-local-nicknames): Support local
+	nickname completion on ABCL too.
+
+	* swank/backend.lisp (package-local-nicknames): New interface.
+
+	* packages.lisp: New file, put swank, swank/backend and friends
+	there. The SWANK package depends on SWANK/BACKEND, but some
+	swank/backends want to use functions from SWANK and accomplish
+	that by using (funcall (find-symbol x :swank)), which is not
+	really nice. package.lisp is loaded before swank.lisp and
+	swank/backend.lisp
+
+2015-11-09 Jan Moringen  <jmoringe@techfak.uni-bielefeld.de>
+
+	Complete symbols in locally-nicknamed packages
+
+	* contrib/swank-c-p-c.lisp (parse-completion-arguments):
+	additionally call guess-locally-nicknamed-package
+
+	* swank/backend.lisp (definterface guess-locally-nicknamed-package):
+	new interface for package-local nicknames
+
+	* swank/sbcl.lisp (defimplementation guess-locally-nicknamed-package):
+	implementation for SBCL
+
+2015-10-18  Jack Pugmire  <jep@openmailbox.org>
+
+	Fixed some documentation bugs for the mrepl contrib.
+
+	* doc/slime.texi (Contributed Packages) : Replace reference to
+	slime-open-listener with slime-new-mrepl
+
+	* contrib/slime-mrepl.el: Fixed outdated header comment
+
+2015-10-18  Helmut Eller  <heller@common-lisp.net>
+
+	Minor factorization.
+
+	* slime.el (slime-setup-completion): New.  Use it where approriate.
+
+2015-10-18  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-complete-symbol-function)
+	(slime-indent-and-complete-symbol): Mark as obsolete.
+
+2015-10-17  Helmut Eller  <heller@common-lisp.net>
+
+	Set completion-at-point-functions in slime-mode buffers.
+	Related to github issue #272.
+
+	* slime.el (slime--completion-at-point): New function that tries
+	to be backward-compatible.
+	(slime--on, slime--off): New.  Set/reset
+	completion-at-point-functions.
+	(slime-mode): Use slime--on, slime--off
+	(slime-complete-symbol): Make obsolete.
+	(slime-minibuffer-setup-hook): Set completion-at-point-functions.
+	(slime--completion-at-point-functions): Deleted.
+
+2015-10-17  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (eval-in-emacs): wrap unreadable results in a
+	structure. Should make it easier to work with than signalling an
+	error.
+
+2015-10-12  Helmut Eller  <heller@common-lisp.net>
+
+	Fix github issue#273.
+
+	* swank/sbcl.lisp (sexp-in-bounds-p, sexp-ref): Don't define in
+	older SBCLs.
+
+2015-10-11  Helmut Eller  <heller@common-lisp.net>
+
+	Deal with SBCL's sb-c::comma-expr
+
+	* swank/source-path-parser.lisp (sexp-in-bounds-p)
+	(sexp-ref): New generic functions.
+	(source-path-source-position): Use them.
+
+	* swank/sbcl.lisp (sexp-in-bounds-p): Define methods for
+	sb-c::comma-expr.
+
+2015-10-11  Helmut Eller  <heller@common-lisp.net>
+
+	Remove slime-pre-command-actions; apparently not needed anymore.
+
+	* slime.el (slime-pre-command-hook, slime-setup-command-hooks)
+	(slime-post-command-hook, slime-pre-command-hook): Deleted.
+
+2015-09-30  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-loader.lisp (*architecture-features*): Add :arm64.
+
 2015-08-24  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* slime.el (slime-next-connection, slime-prev-connection): Reverse
