@@ -1,3 +1,17 @@
+2015-12-13  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* doc/slime.texi (Macro-expansion): Make it clear that the cursor
+	should be positioned where the sexp starts before invoking a
+	macroexpansion command. (Suggested by Mirko Vukovic.) Document
+	slime-expand-1.
+
+	* slime.el (slime-expand-1): Update docstring to reflect that
+	compiler macros are handled.
+	(slime-macroexpand-1, slime-macroexpand-all)
+	(slime-macroexpand-all-inplace, slime-compiler-macroexpand-1)
+	(slime-compiler-macroexpand-1-inplace): Make it clear that cursor
+	should be positioned where the sexp starts.
+
 2015-12-11  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Avoid Lisp errors when we fail to identify the sexp at point in

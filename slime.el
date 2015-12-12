@@ -4862,7 +4862,7 @@ NB: Does not affect slime-eval-macroexpand-expression"
               (goto-char point))))))))
 
 (defun slime-macroexpand-1 (&optional repeatedly)
-  "Display the macro expansion of the form at point.
+  "Display the macro expansion of the form starting at point.
 The form is expanded with CL:MACROEXPAND-1 or, if a prefix
 argument is given, with CL:MACROEXPAND."
   (interactive "P")
@@ -4875,17 +4875,18 @@ argument is given, with CL:MACROEXPAND."
    (if repeatedly 'swank:swank-macroexpand 'swank:swank-macroexpand-1)))
 
 (defun slime-macroexpand-all ()
-  "Display the recursively macro expanded sexp at point."
+  "Display the recursively macro expanded sexp starting at
+point."
   (interactive)
   (slime-eval-macroexpand 'swank:swank-macroexpand-all))
 
 (defun slime-macroexpand-all-inplace ()
-  "Display the recursively macro expanded sexp at point."
+  "Display the recursively macro expanded sexp starting at point."
   (interactive)
   (slime-eval-macroexpand-inplace 'swank:swank-macroexpand-all))
 
 (defun slime-compiler-macroexpand-1 (&optional repeatedly)
-  "Display the compiler-macro expansion of sexp at point."
+  "Display the compiler-macro expansion of sexp starting at point."
   (interactive "P")
   (slime-eval-macroexpand
    (if repeatedly
@@ -4893,7 +4894,7 @@ argument is given, with CL:MACROEXPAND."
      'swank:swank-compiler-macroexpand-1)))
 
 (defun slime-compiler-macroexpand-1-inplace (&optional repeatedly)
-  "Display the compiler-macro expansion of sexp at point."
+  "Display the compiler-macro expansion of sexp starting at point."
   (interactive "P")
   (slime-eval-macroexpand-inplace
    (if repeatedly
@@ -4901,9 +4902,11 @@ argument is given, with CL:MACROEXPAND."
      'swank:swank-compiler-macroexpand-1)))
 
 (defun slime-expand-1 (&optional repeatedly)
-  "Display the macro expansion of the form at point.
+  "Display the macro expansion of the form starting at point.
 The form is expanded with CL:MACROEXPAND-1 or, if a prefix
-argument is given, with CL:MACROEXPAND."
+argument is given, with CL:MACROEXPAND.  If the form denotes a
+compiler macro, SWANK/BACKEND:COMPILER-MACROEXPAND or
+SWANK/BACKEND:COMPILER-MACROEXPAND-1 are used instead."
   (interactive "P")
   (slime-eval-macroexpand
    (if repeatedly

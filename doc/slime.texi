@@ -1124,18 +1124,24 @@ Recompile all definitions.
 @cindex Macros
 
 @table @kbd
-@kbditem{C-c C-m, slime-macroexpand-1}
-Macroexpand the expression at point once.  If invoked with a prefix
-argument, use macroexpand instead of macroexpand-1.
+@kbditem{C-c C-m, slime-expand-1}
+Macroexpand (or compiler-macroexpand) the expression starting at point
+once.  If invoked with a prefix argument use macroexpand instead or
+macroexpand-1 (or compiler-macroexpand instead of
+compiler-macroexpand-1).
+
+@cmditem{slime-macroexpand-1}
+Macroexpand the expression starting at point once.  If invoked with a
+prefix argument, use macroexpand instead of macroexpand-1.
 
 @kbditem{C-c M-m, slime-macroexpand-all}
-Fully macroexpand the expression at point.
+Fully macroexpand the expression starting at point.
 
 @cmditem{slime-compiler-macroexpand-1}
-Display the compiler-macro expansion of sexp at point.
+Display the compiler-macro expansion of sexp starting at point.
 
 @cmditem{slime-compiler-macroexpand}
-Repeatedy expand compiler macros of sexp at point.
+Repeatedy expand compiler macros of sexp starting at point.
 
 @end table
 
