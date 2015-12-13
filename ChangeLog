@@ -1,5 +1,12 @@
 2015-12-13  Luís Oliveira  <loliveira@common-lisp.net>
 
+	* swank/ccl.lisp (toggle-trace): Really toggle rather than trace
+	unconditionally, parse defmethod specs properly, return a string
+	as swank-toggle-trace expects.
+	(parse-defmethod-spec): New utility function.
+
+2015-12-13  Luís Oliveira  <loliveira@common-lisp.net>
+
 	* doc/slime.texi (Macro-expansion): Make it clear that the cursor
 	should be positioned where the sexp starts before invoking a
 	macroexpansion command. (Suggested by Mirko Vukovic.) Document

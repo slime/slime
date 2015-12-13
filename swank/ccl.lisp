@@ -626,18 +626,31 @@
     (:type
      (describe (or (find-class symbol nil) symbol)))))
 
+;; spec ::= (:defmethod <name> {<qualifier>}* ({<specializer>}*))
+(defun parse-defmethod-spec (spec)
+  (values (second spec)
+          (subseq spec 2 (position-if #'consp spec))
+          (find-if #'consp (cddr spec))))
+
 (defimplementation toggle-trace (spec)
   "We currently ignore just about everything."
-  (ecase (car spec)
-    (setf
-     (ccl:trace-function spec))
-    ((:defgeneric)
-     (ccl:trace-function (second spec)))
-    ((:defmethod)
-     (destructuring-bind (name qualifiers specializers) (cdr spec)
-       (ccl:trace-function
-        (find-method (fdefinition name) qualifiers specializers)))))
-  t)
+  (let ((what (ecase (first spec)
+                ((setf)
+                 spec)
+                ((:defgeneric)
+                 (second spec))
+                ((:defmethod)
+                 (multiple-value-bind (name qualifiers specializers)
+                     (parse-defmethod-spec spec)
+                   (find-method (fdefinition name)
+                                qualifiers
+                                specializers))))))
+    (cond ((member what (trace) :test #'equal)
+           (ccl::%untrace what)
+           (format nil "~S is now untraced." what))
+          (t
+           (ccl:trace-function what)
+           (format nil "~S is now traced." what)))))
 
 ;;; Macroexpansion
 
