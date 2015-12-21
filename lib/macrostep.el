@@ -804,7 +804,8 @@ value of DEFINITION in the result will be nil."
           `(macro . ,local-definition)
         (let ((compiler-macro-definition
                (and macrostep-expand-compiler-macros
-                    (get head 'compiler-macro))))
+                    (or (get head 'compiler-macro)
+			(get head 'cl-compiler-macro)))))
           (if (and compiler-macro-definition
                    (not (eq form
                             (apply compiler-macro-definition form (cdr form)))))
@@ -835,12 +836,12 @@ expansion until a non-macro-call results."
        form)
       ((macro)
        (apply definition (cdr form)))
-      ((compiler-macro
-        (let ((expansion
-               (apply definition form (cdr form))))
-          (if (equal form expansion)
-              (error "Form left unchanged by compiler macro")
-            expansion)))))))
+      ((compiler-macro)
+       (let ((expansion
+	      (apply definition form (cdr form))))
+	 (if (equal form expansion)
+	     (error "Form left unchanged by compiler macro")
+	   expansion))))))
 
 (put 'macrostep-grab-environment-failed 'error-conditions
      '(macrostep-grab-environment-failed error))
