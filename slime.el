@@ -175,12 +175,14 @@ Return nil if the ChangeLog file cannot be found."
 This applies to buffers that present lines as rows of data, such as
 debugger backtraces and apropos listings."
   :type 'boolean
+  :risky t
   :group 'slime-ui)
 
 (defcustom slime-kill-without-query-p nil
   "If non-nil, kill SLIME processes without query when quitting Emacs.
 This applies to the *inferior-lisp* buffer and the network connections."
   :type 'boolean
+  :risky t
   :group 'slime-ui)
 
 ;;;;; slime-lisp
@@ -195,27 +197,32 @@ This applies to the *inferior-lisp* buffer and the network connections."
 This name is interpreted relative to the directory containing
 slime.el, but could also be set to an absolute filename."
   :type 'string
+  :risky t
   :group 'slime-lisp)
 
 (defcustom slime-connected-hook nil
   "List of functions to call when SLIME connects to Lisp."
   :type 'hook
+  :risky t
   :group 'slime-lisp)
 
 (defcustom slime-enable-evaluate-in-emacs nil
   "*If non-nil, the inferior Lisp can evaluate arbitrary forms in Emacs.
 The default is nil, as this feature can be a security risk."
   :type '(boolean)
+  :risky t
   :group 'slime-lisp)
 
 (defcustom slime-lisp-host "127.0.0.1"
   "The default hostname (or IP address) to connect to."
   :type 'string
+  :risky t
   :group 'slime-lisp)
 
-(defcustom slime-port 4005
+(defcustom slime-port "~/.slime/socket"
   "Port to use as the default for `slime-connect'."
-  :type 'integer
+  :type '(or integer string)
+  :risky t
   :group 'slime-lisp)
 
 (defvar slime-connect-host-history (list slime-lisp-host))
@@ -250,6 +257,7 @@ See also `slime-net-valid-coding-systems'."
               (mapcar (lambda (x)
                         (list 'const (car x)))
                       slime-net-valid-coding-systems))
+  :risky t
   :group 'slime-lisp)
 
 ;;;;; slime-mode
@@ -1090,10 +1098,16 @@ DIRECTORY change to this directory before starting the process.
 ;;;
 ;;;   0. Emacs recompiles/reloads slime.elc if it exists and is stale.
 ;;;   1. Emacs starts an inferior Lisp process.
+;;;   2. Emacs creates a secure directory named after the Lisp process PID.
 ;;;   2. Emacs tells Lisp (via stdio) to load and start Swank.
 ;;;   3. Lisp recompiles the Swank if needed.
-;;;   4. Lisp starts the Swank server and writes its TCP port to a temp file.
-;;;   5. Emacs reads the temp file to get the port and then connects.
+;;;   4. Lisp starts the Swank server and either:
+;;;     - binds to a TCP port and write the port number and password to file.
+;;;     - creates and connects to a Unix domain socket.
+;;;   5. - If Lisp bound to a TCP socket, Emacs reads the files to get the
+;;;        port and password and then connects.
+;;;      - If Lisp created a Unix domain socket, Emacs connects to it
+;;;        (no password needed).
 ;;;   6. Emacs prints a message of warm encouragement for the hacking ahead.
 ;;;
 ;;; Between steps 2-5 Emacs polls for the creation of the temp file so
@@ -1163,24 +1177,54 @@ Return true if we have been given permission to continue."
   "Hook called whenever a new process gets started.")
 
 (defun slime-start-lisp (program program-args env directory buffer)
-  "Does the same as `inferior-lisp' but less ugly.
-Return the created process."
+  "Does the same as `inferior-lisp' but less ugly.  Also creates the
+secure directories Swank needs.  Return the created process."
   (with-current-buffer (get-buffer-create buffer)
     (when directory
       (cd (expand-file-name directory)))
-    (comint-mode)
-    (let ((process-environment (append env process-environment))
-          (process-connection-type nil))
-      (comint-exec (current-buffer) "inferior-lisp" program nil program-args))
-    (lisp-mode-variables t)
-    (let ((proc (get-buffer-process (current-buffer))))
-      (slime-set-query-on-exit-flag proc)
-      (run-hooks 'slime-inferior-process-start-hook)
-      proc)))
+    (let ((umask (default-file-modes))
+          (kill-inferior t)
+          (proc nil)
+          (filename nil))
+      (unwind-protect
+          (progn
+            ;; Set restrictive file permissions.
+            ;; This will be used by the inferior-lisp for the socket.
+            (set-default-file-modes ?\700)
+            (comint-mode)
+            (let ((process-environment (append env process-environment))
+                  (process-connection-type nil))
+              (comint-exec (current-buffer) "inferior-lisp" program nil program-args))
+            (lisp-mode-variables t)
+            (setq proc (get-buffer-process (current-buffer))
+                  kill-inferior t)
+            (let ((filename (slime-swank-port-directory proc)))
+              ;; Delete any existing directory of the same name
+              (condition-case nil
+                  (delete-directory filename t)
+                (file-error nil))
+              (condition-case nil
+                  (make-directory "~/.slime")
+                (file-already-exists nil))
+              (slime-set-query-on-exit-flag proc)
+
+              ;; Create the secure directory
+              (make-directory filename)
+
+              ;; Run any hooks set by the user
+              (run-hooks 'slime-inferior-process-start-hook)
+
+              ;; Record the process as started
+              (setq kill-inferior nil)
+              proc))
+        (set-default-file-modes umask)
+        (when kill-inferior
+          ;; Errors occurred during startup.  The process is useless.
+          (delete-process proc)
+          (delete-directory filename))))))
 
 (defun slime-inferior-connect (process args)
   "Start a Swank server in the inferior Lisp and connect."
-  (slime-delete-swank-port-file 'quiet)
   (slime-start-swank-server process args)
   (slime-read-port-and-connect process))
 
@@ -1194,7 +1238,8 @@ See `slime-start'.")
     (with-current-buffer (process-buffer process)
       (make-local-variable 'slime-inferior-lisp-args)
       (setq slime-inferior-lisp-args args)
-      (let ((str (funcall init (slime-swank-port-file) coding-system)))
+      (let ((str (funcall init
+                          (slime-swank-port-directory process) coding-system)))
         (goto-char (process-mark process))
         (insert-before-markers str)
         (process-send-string process str)))))
@@ -1218,26 +1263,29 @@ See `slime-start'."
                      :verbose t)
                (funcall (read-from-string "swank-loader:init"))
                (funcall (read-from-string "swank:start-server")
-                        ,(slime-to-lisp-filename port-filename))))))
+                        ,(slime-to-lisp-filename
+                          (expand-file-name port-filename)))))))
 
-(defun slime-swank-port-file ()
-  "Filename where the SWANK server writes its TCP port number."
-  (expand-file-name (format "slime.%S" (emacs-pid)) (slime-temp-directory)))
+(defun slime-swank-port-directory (process)
+  "Directory where the SWANK server writes its TCP port number or
+creates its socket."
+  (expand-file-name (format "~/.slime/swank-server-%S/" (process-id process))))
 
 (defun slime-temp-directory ()
   (cond ((fboundp 'temp-directory) (temp-directory))
         ((boundp 'temporary-file-directory) temporary-file-directory)
         (t "/tmp/")))
 
-(defun slime-delete-swank-port-file (&optional quiet)
+
+(defun slime-delete-swank-port-file (process &optional quiet)
   (condition-case data
-      (delete-file (slime-swank-port-file))
+      (delete-file (slime-swank-port-directory process))
     (error
      (cl-ecase quiet
        ((nil) (signal (car data) (cdr data)))
        (quiet)
        (message (message "Unable to delete swank port file %S"
-                         (slime-swank-port-file)))))))
+                         (slime-swank-port-directory process)))))))
 
 (defun slime-read-port-and-connect (inferior-process)
   (slime-attempt-connection inferior-process nil 1))
@@ -1246,17 +1294,28 @@ See `slime-start'."
   ;; A small one-state machine to attempt a connection with
   ;; timer-based retries.
   (slime-cancel-connect-retry-timer)
-  (let ((file (slime-swank-port-file)))
+  (let* ((file (slime-swank-port-directory process))
+         (unix-socket (concat file "socket"))
+         (port-file (concat file "port"))
+         (args (slime-inferior-lisp-args process))
+         (coding-system (plist-get args :coding-system))
+         (file-modes (default-file-modes)))
+    (unwind-protect
+        (progn
+          (set-default-file-modes ?\700)
+          (make-directory file t))
+      (set-default-file-modes file-modes))
     (unless (active-minibuffer-window)
-      (message "Polling %S .. %d (Abort with `M-x slime-abort-connection'.)"
-               file attempt))
-    (cond ((and (file-exists-p file)
-                (> (nth 7 (file-attributes file)) 0)) ; file size
-           (let ((port (slime-read-swank-port))
-                 (args (slime-inferior-lisp-args process)))
-             (slime-delete-swank-port-file 'message)
-             (let ((c (slime-connect slime-lisp-host port
-                                     (plist-get args :coding-system))))
+      (message "Polling '%S' and '%S' .. %d (Abort with `M-x slime-abort-connection'.)"
+               unix-socket (concat file "/port") attempt))
+    (cond ((file-exists-p unix-socket)
+           (let ((c (slime-connect nil unix-socket coding-system)))
+             (slime-set-inferior-process c process)))
+          ((and (file-exists-p port-file)
+                (> (nth 7 (file-attributes port-file)) 0)) ; file size
+           (let ((port (slime-read-swank-port port-file)))
+             (delete-directory file t) ; We can delete this now
+             (let ((c (slime-connect slime-lisp-host port coding-system)))
                (slime-set-inferior-process c process))))
           ((and retries (zerop retries))
            (message "Gave up connecting to Swank after %d attempts." attempt))
@@ -1291,13 +1350,12 @@ The default condition handler for timer functions (see
     (cancel-timer slime-connect-retry-timer)
     (setq slime-connect-retry-timer nil)))
 
-(defun slime-read-swank-port ()
+(defun slime-read-swank-port (slime-swank-port-file)
   "Read the Swank server port number from the `slime-swank-port-file'."
   (save-excursion
     (with-temp-buffer
-      (insert-file-contents (slime-swank-port-file))
-      (goto-char (point-min))
-      (let ((port (read (current-buffer))))
+      (insert-file-contents slime-swank-port-file)
+      (let ((port (string-to-number (buffer-string))))
         (cl-assert (integerp port))
         port))))
 
@@ -1366,12 +1424,27 @@ first line of the file."
 	(buffer-substring (point-min) (line-end-position)))
     (file-error nil)))
 
+(defvar slime-connection-type (if (or (string= system-type "ms-dos")
+                                      (string= system-type "windows-nt"))
+                                  'tcp
+                                'local)
+  "Type of connection between Emacs and Swank. `local' (default
+on Unix) uses Unix domain sockets, which are much more secure and
+are faster than `nil', which uses TCP sockets.  However, Unix
+domain sockets are not supported on Windows or by all Common Lisp
+implementations")
+
 ;;; Interface
 (defun slime-net-connect (host port)
   "Establish a connection with a CL."
   (let* ((inhibit-quit nil)
-         (proc (open-network-stream "SLIME Lisp" nil host port))
+         (proc (make-network-process :name "SLIME Lisp"
+                                     :buffer nil
+                                     :host host
+                                     :service port
+                                     :family (if host 'ipv4 'local)))
          (buffer (slime-make-net-buffer " *cl-connection*")))
+    (unless host (delete-file port))
     (push proc slime-net-processes)
     (set-process-buffer proc buffer)
     (set-process-filter proc 'slime-net-filter)
@@ -1381,7 +1454,8 @@ first line of the file."
       (set-process-coding-system proc 'binary 'binary))
     (let ((secret (slime-secret)))
       (when secret
-        (slime-net-send secret proc)))
+        ;;; Don't log the secret!
+        (slime-net-send secret proc t)))
     proc))
 
 (defun slime-make-net-buffer (name)
@@ -1421,16 +1495,20 @@ first line of the file."
   (cl-third (slime-find-coding-system coding-system)))
 
 ;;; Interface
-(defun slime-net-send (sexp proc)
+(defun slime-net-send (sexp proc &optional nolog)
   "Send a SEXP to Lisp over the socket PROC.
 This is the lowest level of communication. The sexp will be READ and
-EVAL'd by Lisp."
+EVAL'd by Lisp.
+
+This is logged unless `nolog' is non-`nil'. Set `nolog' to be non-`nil'
+to suppress logging (such as in the case of a password)."
   (let* ((payload (encode-coding-string
                    (concat (slime-prin1-to-string sexp) "\n")
                    'utf-8-unix))
          (string (concat (slime-net-encode-length (length payload))
                          payload)))
-    (slime-log-event sexp)
+    (unless nolog
+      (slime-log-event sexp))
     (process-send-string proc string)))
 
 (defun slime-safe-encoding-p (coding-system string)

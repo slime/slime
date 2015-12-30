@@ -156,7 +156,14 @@
     (ext:convert-string-from-bytes octets enc)))
 
 ;;;; TCP Server
+#+unix
+(defimplementation create-socket (host port &key backlog)
+  (multiple-value-bind (socket address)
+      (rawsock:open-unix-socket port)
+    (declare (ignore address)) ;; FIXME: should we do something with the address?
+    (socket:socket-server 0 :interface socket :backlog (or backlog 5)))
 
+#-unix
 (defimplementation create-socket (host port &key backlog)
   (socket:socket-server port :interface host :backlog (or backlog 5)))
 

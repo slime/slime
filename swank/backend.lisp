@@ -325,9 +325,11 @@ This will be used like so:
 
 ;;;; TCP server
 
-(definterface create-socket (host port &key backlog)
-  "Create a listening TCP socket on interface HOST and port PORT.
-BACKLOG queue length for incoming connections.")
+(definterface create-socket (host port filename &key backlog)
+  "Create a listening Unix domain socket with filename FILENAME.
+If Unix domain sockets are not supported, create a TCP socket on
+interface HOST and port PORT.  BACKLOG is the queue length for
+incoming connections.")
 
 (definterface local-port (socket)
   "Return the local port number of SOCKET.")

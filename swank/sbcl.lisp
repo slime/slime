@@ -93,11 +93,26 @@
   (car (sb-bsd-sockets:host-ent-addresses
         (sb-bsd-sockets:get-host-by-name name))))
 
-(defimplementation create-socket (host port &key backlog)
-  (let ((socket (make-instance 'sb-bsd-sockets:inet-socket
-                               :type :stream
-                               :protocol :tcp)))
+#-win32
+(defimplementation create-socket (host port filename &key backlog)
+  (declare (ignore host port))
+  (let ((socket (make-instance 'sb-bsd-sockets:local-socket
+                               :type :stream)))
+    ;; SO_REUSEADDR harmless for AF_UNIX sockets, since untrusted processes
+    ;; can't connect anyway
     (setf (sb-bsd-sockets:sockopt-reuse-address socket) t)
+    (sb-bsd-sockets:socket-bind socket filename)
+    (sb-bsd-sockets:socket-listen socket (or backlog 5))
+    socket))
+
+#+win32
+(defimplementation create-socket (host port filename &key backlog)
+  (declare (ignore filename))
+  (let ((socket
+         (make-instance 'sb-bsd-sockets:inet-socket
+                        :type :stream
+                        :protocol :tcp)))
+    (setf (sb-bsd-sockets:sockopt-reuse-address socket) nil)
     (sb-bsd-sockets:socket-bind socket (resolve-hostname host) port)
     (sb-bsd-sockets:socket-listen socket (or backlog 5))
     socket))

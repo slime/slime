@@ -73,17 +73,35 @@
   (car (sb-bsd-sockets:host-ent-addresses
         (sb-bsd-sockets:get-host-by-name name))))
 
-(defimplementation create-socket (host port &key backlog)
-  (let ((socket (make-instance 'sb-bsd-sockets:inet-socket
-			       :type :stream
-			       :protocol :tcp)))
-    (setf (sb-bsd-sockets:sockopt-reuse-address socket) t)
+#-windows
+(defimplementation create-socket (host port filename &key backlog)
+  (declare (ignore host port))
+  (let ((socket (make-instance 'sb-bsd-sockets:local-socket
+                               :type :stream)))
+    (sb-bsd-sockets:socket-bind socket filename)
+    (sb-bsd-sockets:socket-listen socket (or backlog 5))
+    socket))
+
+#+windows
+(defimplementation create-socket (host port filename &key backlog)
+  (declare (ignore filename))
+  (let ((socket
+         (make-instance 'sb-bsd-sockets:inet-socket
+                        :type :stream
+                        :protocol :tcp)))
+    (setf (sb-bsd-sockets:sockopt-reuse-address socket) nil)
     (sb-bsd-sockets:socket-bind socket (resolve-hostname host) port)
     (sb-bsd-sockets:socket-listen socket (or backlog 5))
     socket))
 
+#+windows
 (defimplementation local-port (socket)
   (nth-value 1 (sb-bsd-sockets:socket-name socket)))
+
+#-windows
+(defimplementation local-port (socket)
+  (declare (ignore socket))
+  nil)
 
 (defimplementation close-socket (socket)
   (sb-bsd-sockets:socket-close socket))
@@ -100,7 +118,7 @@
                                                   ((nil) :none)
                                                   (:line :line))
                                      :element-type (if external-format
-                                                       'character 
+                                                       'character
                                                        '(unsigned-byte 8))
                                      :external-format external-format))
 (defun accept (socket)
@@ -118,7 +136,7 @@
 
 (defvar *external-format-to-coding-system*
   '((:latin-1
-     "latin-1" "latin-1-unix" "iso-latin-1-unix" 
+     "latin-1" "latin-1-unix" "iso-latin-1-unix"
      "iso-8859-1" "iso-8859-1-unix")
     (:utf-8 "utf-8" "utf-8-unix")))
 
@@ -209,7 +227,7 @@
             (timeout (return (poll-streams streams 0)))
             (t
              (when-let (ready (poll-streams streams 0.2))
-               (return ready))))))  
+               (return ready))))))
 
 ) ; #+serve-event (progn ...
 
@@ -635,7 +653,7 @@
     (error "ECL's source directory ~A does not exist. ~
             You can specify a different location via the environment ~
             variable `ECLSRCDIR'."
-           (namestring (translate-logical-pathname #P"SYS:"))))) 
+           (namestring (translate-logical-pathname #P"SYS:")))))
 
 (defun assert-TAGS-file ()
   (unless (probe-file +TAGS+)

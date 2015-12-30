@@ -30,9 +30,8 @@
   :spawn)
 
 (defimplementation create-socket (host port &key backlog)
-  (let ((addr (resolve-hostname host)))
-    (ext:create-inet-listener port :stream :host addr :reuse-address t
-                              :backlog (or backlog 5))))
+  (assert (null port))
+  (ext:create-unix-listener port :stream :backlog (or backlog 5)))
 
 (defimplementation local-port (socket)
   (nth-value 1 (ext::get-socket-host-and-port (socket-fd socket))))

@@ -689,26 +689,26 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
 
 (defvar *communication-style* (preferred-communication-style))
 
-(defvar *dont-close* nil
+(defvar *dont-close* t
   "Default value of :dont-close argument to start-server and
   create-server.")
 
-(defun start-server (port-file &key (style *communication-style*)
+(defun start-server (socket-directory &key (style *communication-style*)
                                     (dont-close *dont-close*))
   "Start the server and write the listen port number to PORT-FILE.
 This is the entry point for Emacs."
-  (setup-server 0
-                (lambda (port) (announce-server-port port-file port))
+  (setup-server 0 socket-directory
+                (lambda (port) (announce-server-port socket-directory port))
                 style dont-close nil))
 
-(defun create-server (&key (port default-server-port)
-                        (style *communication-style*)
-                        (dont-close *dont-close*)
-                        backlog)
+(defun create-server (socket-directory &key (port default-server-port)
+                                            (style *communication-style*)
+                                            (dont-close *dont-close*)
+                                            backlog)
   "Start a SWANK server on PORT running in STYLE.
 If DONT-CLOSE is true then the listen socket will accept multiple
 connections, otherwise it will be closed after the first."
-  (setup-server port #'simple-announce-function
+  (setup-server port socket-directory #'simple-announce-function
                 style dont-close backlog))
 
 (defun find-external-format-or-lose (coding-system)
@@ -724,9 +724,12 @@ explicit transfer of control), all within an implicit block named nil.
 e.g.: (restart-loop (http-request url) (use-value (new) (setq url new)))"
   `(loop (restart-case (return ,form) ,@clauses)))
 
-(defun socket-quest (port backlog)
-  (restart-loop (create-socket *loopback-interface* port :backlog backlog)
-    (use-value (&optional (new-port (1+ port)))
+(defun socket-quest (port filename backlog)
+  (restart-loop (create-socket *loopback-interface* port
+                               (concatenate 'string filename
+                                            "/socket")
+                               :backlog backlog)
+    (Use-value (&optional (new-port (1+ port)))
       :report (lambda (stream) (format stream "Try a port other than ~D" port))
       :interactive
       (lambda ()
@@ -735,9 +738,9 @@ e.g.: (restart-loop (http-request url) (use-value (new) (setq url new)))"
         (ignore-errors (list (parse-integer (read-line *query-io*)))))
       (setq port new-port))))
 
-(defun setup-server (port announce-fn style dont-close backlog)
+(defun setup-server (port filename announce-fn style dont-close backlog)
   (init-log-output)
-  (let* ((socket (socket-quest port backlog))
+  (let* ((socket (socket-quest port filename backlog))
          (port (local-port socket)))
     (funcall announce-fn port)
     (labels ((serve () (accept-connections socket style dont-close))
@@ -760,8 +763,8 @@ e.g.: (restart-loop (http-request url) (use-value (new) (setq url new)))"
   (send-to-sentinel `(:stop-server :port ,port)))
 
 (defun restart-server (&key (port default-server-port)
-                       (style *communication-style*)
-                       (dont-close *dont-close*))
+                         (style *communication-style*)
+                         (dont-close *dont-close*))
   "Stop the server listening on PORT, then start a new SWANK server 
 on PORT running in STYLE. If DONT-CLOSE is true then the listen socket 
 will accept multiple connections, otherwise it will be closed after the 
@@ -820,12 +823,13 @@ if the file doesn't exist; otherwise the first line of the file."
        (:fd-handler (deinstall-fd-handler connection))))))
 
 (defun announce-server-port (file port)
-  (with-open-file (s file
-                     :direction :output
-                     :if-exists :error
-                     :if-does-not-exist :create)
-    (format s "~S~%" port))
-  (simple-announce-function port))
+  (when port
+    (with-open-file (s file
+                       :direction :output
+                       :if-exists :error
+                       :if-does-not-exist :create)
+      (format s "~S~%" port))
+    (simple-announce-function port)))
 
 (defun simple-announce-function (port)
   (when *swank-debug-p*
@@ -3468,12 +3472,14 @@ Example:
 (defslimefun kill-nth-thread (index)
   (kill-thread (nth-thread index)))
 
-(defslimefun start-swank-server-in-thread (index port-file-name)
+(defslimefun start-swank-server-in-thread (index port-directory-name)
   "Interrupt the INDEXth thread and make it start a swank server.
-The server port is written to PORT-FILE-NAME."
+The server port is written to PORT-DIRECTORY-NAME/port, unless UNIX domain
+sockets are supported, in which case the socket is created with filename
+PORT-DIRECTORY-NAME/socket."
   (interrupt-thread (nth-thread index)
                     (lambda ()
-                      (start-server port-file-name :style nil))))
+                      (start-server port-directory-name :style nil))))
 
 ;;;; Class browser
 
