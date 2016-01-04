@@ -1396,8 +1396,8 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 
 ;;;; Miscellaneous.
 
-(defimplementation macroexpand-all (form)
-  (walker:macroexpand-all form))
+(defimplementation macroexpand-all (form &optional env)
+  (walker:macroexpand-all form env))
 
 (defimplementation compiler-macroexpand-1 (form &optional env)
   (ext:compiler-macroexpand-1 form env))

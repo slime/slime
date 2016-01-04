@@ -328,7 +328,17 @@
     (function (si:compiled-function-name f))))
 
 ;; FIXME
-;; (defimplementation macroexpand-all (form))
+;; (defimplementation macroexpand-all (form &optional env)
+;; (declare (ignore env))
+
+(defimplementation collect-macro-forms (form &optional env)
+  ;; Currently detects only normal macros, not compiler macros.
+  (declare (ignore env))
+  (with-collected-macro-forms (macro-forms)
+    (handler-bind ((warning #'muffle-warning))
+      (ignore-errors
+        (compile nil `(lambda () ,form))))
+    (values macro-forms nil)))
 
 (defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))

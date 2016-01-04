@@ -699,7 +699,7 @@ available."
         (and (consp form) (length=2 form)
              (eq (first form) 'setf) (symbolp (second form))))))
 
-(definterface macroexpand-all (form)
+(definterface macroexpand-all (form &optional env)
    "Recursively expand all macros in FORM.
 Return the resulting form.")
 
@@ -726,6 +726,46 @@ NIL."
                    (frob new-form t)
                    (values new-form expanded)))))
     (frob form env)))
+
+(defmacro with-collected-macro-forms
+    ((forms &optional result) instrumented-form &body body)
+  "Collect macro forms by locally binding *MACROEXPAND-HOOK*.
+
+Evaluates INSTRUMENTED-FORM and collects any forms which undergo
+macro-expansion into a list.  Then evaluates BODY with FORMS bound to
+the list of forms, and RESULT (optionally) bound to the value of
+INSTRUMENTED-FORM."
+  (assert (and (symbolp forms) (not (null forms))))
+  (assert (symbolp result))
+  `(call-with-collected-macro-forms
+    (lambda (,forms ,(or result (gensym))) ,@body)
+    (lambda () ,instrumented-form)))
+
+(defun call-with-collected-macro-forms (body-fn instrumented-fn)
+  (let ((return-value nil)
+        (collected-forms '()))
+    (let* ((real-macroexpand-hook *macroexpand-hook*)
+           (*macroexpand-hook*
+            (lambda (macro-function form environment)
+              (let ((result (funcall real-macroexpand-hook
+                                     macro-function form environment)))
+                (unless (eq result form)
+                  (push form collected-forms))
+                result))))
+      (setf return-value (funcall instrumented-fn)))
+    (funcall body-fn collected-forms return-value)))
+
+(definterface collect-macro-forms (form &optional env)
+  "Collect subforms of FORM which undergo (compiler-)macro expansion.
+Returns two values: a list of macro forms and a list of compiler macro
+forms."
+  (with-collected-macro-forms (macro-forms expansion)
+      (ignore-errors (macroexpand-all form env))
+    (with-collected-macro-forms (compiler-macro-forms)
+        (handler-bind ((warning #'muffle-warning))
+          (ignore-errors
+            (compile nil `(lambda () ,expansion))))
+      (values macro-forms compiler-macro-forms))))
 
 (definterface format-string-expand (control-string)
   "Expand the format string CONTROL-STRING."

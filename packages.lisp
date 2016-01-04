@@ -55,7 +55,9 @@
            unprofile-all
            profile-report
            profile-reset
-           profile-package))
+           profile-package
+
+           with-collected-macro-forms))
 
 (defpackage swank/rpc
   (:use :cl)

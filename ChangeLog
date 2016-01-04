@@ -38,6 +38,30 @@
 	* swank/clasp.lisp (source-location): clasp now uses the same
 	method for c-function source location as for lisp functions.
 
+2015-12-07  Jon Oddie  <j.j.oddie@gmail.com>
+
+	Add `slime-macrostep' contrib.
+
+	* slime.el: Depend on macrostep 0.9.
+
+	* lib/macrostep.el: New file.  This is a bundled version of the
+	library developed at http://github.com/joddie/macrostep and also
+	available via MELPA.  The bundled copy will be used as a fallback
+	if it is not installed separately.
+
+	* swank/backend.lisp (collect-macro-forms): New backend helper
+	used by `slime-macrostep', and a generic implementation.
+	(with-collected-macro-forms): New macro to ease implementing
+	`collect-macro-forms' by let-binding *MACROEXPAND-HOOK*
+	* swank/sbcl.lisp (collect-macro-forms): SBCL implementation using
+	a code-walker.
+	* swank/abcl.lisp (collect-macro-forms): ABCL implementation using
+	WITH-COLLECTED-MACRO-FORMS.
+	* swank/clisp.lisp (collect-macro-forms): CLISP implementation
+	using WITH-COLLECTED-MACRO-FORMS.
+
+	* swank-loader.lisp (*contribs*): Add `swank-macrostep'.
+
 2015-12-06  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-loader.lisp (compile-files): Don't abort on errors,

@@ -348,7 +348,8 @@
   ;; It is a bit a shame we have to load the entire module to get that.
   (require 'walker))
 
-(defimplementation macroexpand-all (form)
+(defimplementation macroexpand-all (form &optional env)
+  (declare (ignore env))
   (walker:macroexpand-all form))
 
 (defimplementation describe-symbol-for-emacs (symbol)

@@ -325,7 +325,8 @@
     (function (ext:compiled-function-name f))))
 
 ;; FIXME
-(defimplementation macroexpand-all (form)
+(defimplementation macroexpand-all (form &optional env)
+  (declare (ignore env))
   (macroexpand form))
 
 (defimplementation describe-symbol-for-emacs (symbol)

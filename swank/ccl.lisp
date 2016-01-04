@@ -654,8 +654,8 @@
 
 ;;; Macroexpansion
 
-(defimplementation macroexpand-all (form)
-  (ccl:macroexpand-all form))
+(defimplementation macroexpand-all (form &optional env)
+  (ccl:macroexpand-all form env))
 
 ;;;; Inspection
 
