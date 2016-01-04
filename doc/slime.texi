@@ -1642,11 +1642,11 @@ The commands available in the connection-list buffer are:
 @kbditem{RET, slime-goto-connection}
 Pop to the @acronym{REPL} buffer of the connection at point.
 
-@kbditem{d, slime-connection-list-make-default}
+@kbditem{d, slime-connection-list/make-default}
 Make the connection at point the ``default'' connection. It will then
 be used for commands in @code{slime-mode} source buffers.
 
-@kbditem{g, slime-update-connection-list}
+@kbditem{g, slime-connection-list/update}
 Update the connection list in the buffer.
 
 @kbditem{q, slime-temp-buffer-quit}
@@ -3362,8 +3362,10 @@ keybinding (if there is one) refer to the function description.
 @c @fcnindex{slime-complete-form}
 @fcnindex{slime-complete-symbol}
 @fcnindex{slime-connect}
-@fcnindex{slime-connection-list-make-default}
+@fcnindex{slime-connection-list/make-default}
 @c @fcnindex{slime-connection-list-mode}
+@c @fcnindex{slime-connection-list/quit-inferior-lisp}
+@c @fcnindex{slime-connection-list/restart-inferior-lisp}
 @c @fcnindex{slime-copy-presentation-at-point}
 @fcnindex{slime-describe-function}
 @fcnindex{slime-describe-symbol}
@@ -3437,8 +3439,7 @@ keybinding (if there is one) refer to the function description.
 @fcnindex{slime-profile-reset}
 @fcnindex{slime-profiled-functions}
 @fcnindex{slime-quit}
-@c @fcnindex{slime-quit-connection-at-point}
-@c @fcnindex{slime-quit-lisp}
+@c @fcnindex{slime-quit-inferior-lisp}
 @c @fcnindex{slime-re-evaluate-defvar}
 @c @fcnindex{slime-recompile-bytecode}
 @c @fcnindex{slime-register-lisp-implementation}
@@ -3477,7 +3478,6 @@ keybinding (if there is one) refer to the function description.
 @fcnindex{slime-repl-set-package}
 @c @fcnindex{slime-repl-shortcut-help}
 @c @fcnindex{slime-reset}
-@c @fcnindex{slime-restart-connection-at-point}
 @c @fcnindex{slime-restart-inferior-lisp}
 @c @fcnindex{slime-restart-inferior-lisp-aux}
 @fcnindex{slime-scratch}
@@ -3503,7 +3503,7 @@ keybinding (if there is one) refer to the function description.
 @fcnindex{slime-undefine-function}
 @fcnindex{slime-unprofile-all}
 @fcnindex{slime-untrace-all}
-@fcnindex{slime-update-connection-list}
+@fcnindex{slime-connection-list/update}
 @c @fcnindex{slime-update-indentation}                  ???
 @fcnindex{slime-who-binds}
 @fcnindex{slime-who-calls}
