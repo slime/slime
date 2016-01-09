@@ -98,20 +98,27 @@
   :spawn)
 
 #-windows-target
-(defimplementation create-socket (host port &key backlog)
-  (declare (ignore host))
-  (ccl:make-socket :connect :passive :reuse-address nil
-                   :auto-close t :backlog (or backlog 5)
-                   :local-filename port :address-family :file))
+(defimplementation create-socket (host port filename &key backlog)
+  (declare (ignore host port))
+  (cons (ccl:make-socket :connect :passive
+                         :auto-close t :backlog (or backlog 5)
+                         :local-filename filename :address-family :file)
+        filename))
 
 #+windows-target
-(defimplementation create-socket (host port &key backlog)
-  (ccl:make-socket :connect :passive :reuse-address nil
-                   :auto-close t :backlog (or backlog 5)
-                   :local-port port :local-host host))
-
+(defimplementation create-socket (host port filename &key backlog)
+  (declare (ignore filename))
+  (cons (ccl:make-socket :connect :passive :reuse-address nil
+                         :auto-close t :backlog (or backlog 5)
+                         :local-port port :local-host host)
+        port))
+#+windows-target
 (defimplementation local-port (socket)
   (ccl:local-port socket))
+
+#-windows-target
+(defimplementation local-port (socket)
+  (ccl:local-filename socket))
 
 (defimplementation close-socket (socket)
   (close socket))

@@ -51,18 +51,25 @@
   :spawn)
 
 #+mswindows
-(defimplementation create-socket (host port &key backlog)
-  (socket:make-socket :connect :passive :local-port port
-                      :local-host host :reuse-address nil
-                      :backlog (or backlog 5)))
+(defimplementation create-socket (host port filename &key backlog)
+  (declare (ignore filename))
+  (cons (socket:make-socket :connect :passive :local-port port
+                            :local-host host :reuse-address nil
+                            :backlog (or backlog 5))
+        port))
 #-mswindows
-(defimplementation create-socket (host port &key backlog)
-  (socket:make-socket :connect :passive
-                      :local-host port :reuse-address nil
-                      :address-family :file))
-
+(defimplementation create-socket (host port filename &key backlog)
+  (cons (socket:make-socket :connect :passive
+                            :local-filename filename :reuse-address nil
+                            :address-family :file)
+        filename))
+#+mswindows
 (defimplementation local-port (socket)
   (socket:local-port socket))
+
+#-mswindows
+(defimplementation local-port (socket)
+  (socket:local-filename socket))
 
 (defimplementation close-socket (socket)
   (close socket))
@@ -470,7 +477,7 @@
     (reader-error () (values nil nil t))))
 
 (defun call-with-temp-file (fn)
-  (let ((tmpname (system:make-temp-file-name)))
+  (let ((tmpname (swank:make-temp-filename)))
     (unwind-protect
          (with-open-file (file tmpname :direction :output :if-exists :error)
            (funcall fn file tmpname))

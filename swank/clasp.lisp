@@ -302,7 +302,9 @@
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)        ; for compilation hooks
           (*buffer-start-position* position))
-      (let ((tmp-file (si:mkstemp "TMP:clasp-swank-tmpfile-"))
+      (let ((tmp-file (si:mkstemp
+                       (format nil "~A/clasp-swank-tmpfile-"
+                               swank::*temporary-directory*)))
             (fasl-file)
             (warnings-p)
             (failure-p))

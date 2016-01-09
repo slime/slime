@@ -516,7 +516,7 @@
       ((member :top-level)
        (list :error (format nil "Defined at toplevel: ~A" fspec)))
       (null
-       (list :error (format nil "Unkown source location for ~A" fspec))))))
+       (list :error (format nil "Unknown source location for ~A" fspec))))))
 
 (defun fspec-definition-locations (fspec)
   (let ((defs (excl::find-multiple-definitions fspec)))

@@ -287,7 +287,9 @@
         (compile-from-stream s)))))
 
 (defun compile-from-stream (stream)
-  (let ((file (mkcl:mkstemp "TMP:MKCL-SWANK-TMPXXXXXX"))
+  (let ((file (mkcl:mkstemp
+               (format nil "~A/mkcl-swank-tmpXXXXXX"
+                       swank::*temporary-directory*)))
         output-truename
         warnings-p
         failure-p

@@ -80,7 +80,7 @@
                                :type :stream)))
     (sb-bsd-sockets:socket-bind socket filename)
     (sb-bsd-sockets:socket-listen socket (or backlog 5))
-    socket))
+    (cons socket filename)))
 
 #+windows
 (defimplementation create-socket (host port filename &key backlog)
@@ -92,7 +92,7 @@
     (setf (sb-bsd-sockets:sockopt-reuse-address socket) nil)
     (sb-bsd-sockets:socket-bind socket (resolve-hostname host) port)
     (sb-bsd-sockets:socket-listen socket (or backlog 5))
-    socket))
+    (cons socket port)))
 
 #+windows
 (defimplementation local-port (socket)
@@ -100,8 +100,7 @@
 
 #-windows
 (defimplementation local-port (socket)
-  (declare (ignore socket))
-  nil)
+  (sb-bsd-sockets:socket-name socket))
 
 (defimplementation close-socket (socket)
   (sb-bsd-sockets:socket-close socket))
@@ -312,7 +311,9 @@
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)        ; for compilation hooks
           (*buffer-start-position* position))
-      (let ((tmp-file (si:mkstemp "TMP:ecl-swank-tmpfile-"))
+      (let ((tmp-file (si:mkstemp
+                       (format nil "~A/ecl-swank-tmpfile-"
+                               swank::*temporary-directory*)))
             (fasl-file)
             (warnings-p)
             (failure-p))

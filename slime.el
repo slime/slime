@@ -213,11 +213,12 @@ The default is nil, as this feature can be a security risk."
   :risky t
   :group 'slime-lisp)
 
-(defcustom slime-lisp-host "127.0.0.1"
-  "The default hostname (or IP address) to connect to."
-  :type 'string
-  :risky t
-  :group 'slime-lisp)
+;;; Slime has no business connecting to anything but localhost
+;; (defcustom slime-lisp-host "127.0.0.1"
+;;   "The default hostname (or IP address) to connect to."
+;;   :type 'string
+;;   :risky t
+;;   :group 'slime-lisp)
 
 (defcustom slime-port "~/.slime/socket"
   "Port to use as the default for `slime-connect'."
@@ -225,14 +226,14 @@ The default is nil, as this feature can be a security risk."
   :risky t
   :group 'slime-lisp)
 
-(defvar slime-connect-host-history (list slime-lisp-host))
+;; (defvar slime-connect-host-history (list slime-lisp-host))
 (defvar slime-connect-port-history (list (prin1-to-string slime-port)))
 
 (defvar slime-net-valid-coding-systems
-  '((iso-latin-1-unix nil "iso-latin-1-unix")
+  '((utf-8-unix       t   "utf-8-unix")
+    (iso-latin-1-unix nil "iso-latin-1-unix")
     (iso-8859-1-unix  nil "iso-latin-1-unix")
     (binary           nil "iso-latin-1-unix")
-    (utf-8-unix       t   "utf-8-unix")
     (emacs-mule-unix  t   "emacs-mule-unix")
     (euc-jp-unix      t   "euc-jp-unix"))
   "A list of valid coding systems.
@@ -1066,12 +1067,9 @@ DIRECTORY change to this directory before starting the process.
 (defun slime-start* (options)
   (apply #'slime-start options))
 
-(defun slime-connect (host port &optional _coding-system interactive-p)
+(defun slime-connect (port &optional _coding-system interactive-p)
   "Connect to a running Swank server. Return the connection."
-  (interactive (list (read-from-minibuffer
-                      "Host: " (cl-first slime-connect-host-history)
-                      nil nil '(slime-connect-host-history . 1))
-                     (string-to-number
+  (interactive (list (read-from-string
                       (read-from-minibuffer
                        "Port: " (cl-first slime-connect-port-history)
                        nil nil '(slime-connect-port-history . 1)))
@@ -1081,7 +1079,7 @@ DIRECTORY change to this directory before starting the process.
              (y-or-n-p "Close old connections first? "))
     (slime-disconnect-all))
   (message "Connecting to Swank on port %S.." port)
-  (let* ((process (slime-net-connect host port))
+  (let* ((process (slime-net-connect port))
          (slime-dispatching-connection process))
     (slime-setup-connection process)))
 
@@ -1179,13 +1177,15 @@ Return true if we have been given permission to continue."
 (defun slime-start-lisp (program program-args env directory buffer)
   "Does the same as `inferior-lisp' but less ugly.  Also creates the
 secure directories Swank needs.  Return the created process."
+  (condition-case nil
+      (make-directory "~/.slime")
+    (file-already-exists nil))
   (with-current-buffer (get-buffer-create buffer)
     (when directory
       (cd (expand-file-name directory)))
     (let ((umask (default-file-modes))
           (kill-inferior t)
-          (proc nil)
-          (filename nil))
+          (proc nil))
       (unwind-protect
           (progn
             ;; Set restrictive file permissions.
@@ -1196,32 +1196,21 @@ secure directories Swank needs.  Return the created process."
                   (process-connection-type nil))
               (comint-exec (current-buffer) "inferior-lisp" program nil program-args))
             (lisp-mode-variables t)
-            (setq proc (get-buffer-process (current-buffer))
-                  kill-inferior t)
-            (let ((filename (slime-swank-port-directory proc)))
-              ;; Delete any existing directory of the same name
-              (condition-case nil
-                  (delete-directory filename t)
-                (file-error nil))
-              (condition-case nil
-                  (make-directory "~/.slime")
-                (file-already-exists nil))
-              (slime-set-query-on-exit-flag proc)
+            (setq proc (get-buffer-process (current-buffer)))
+            (slime-register-process proc)
 
-              ;; Create the secure directory
-              (make-directory filename)
+            ;; Run any hooks set by the user
+            (run-hooks 'slime-inferior-process-start-hook)
 
-              ;; Run any hooks set by the user
-              (run-hooks 'slime-inferior-process-start-hook)
-
-              ;; Record the process as started
-              (setq kill-inferior nil)
-              proc))
+            (setq kill-inferior nil)
+            proc)
         (set-default-file-modes umask)
         (when kill-inferior
           ;; Errors occurred during startup.  The process is useless.
-          (delete-process proc)
-          (delete-directory filename))))))
+          (delete-process proc))))))
+
+(defun slime-read-port-and-connect (inferior-process &optional port-directory)
+  (slime-attempt-connection inferior-process nil 1 port-directory))
 
 (defun slime-inferior-connect (process args)
   "Start a Swank server in the inferior Lisp and connect."
@@ -1269,7 +1258,7 @@ See `slime-start'."
 (defun slime-swank-port-directory (process)
   "Directory where the SWANK server writes its TCP port number or
 creates its socket."
-  (expand-file-name (format "~/.slime/swank-server-%S/" (process-id process))))
+  (gethash process slime-temporary-directories))
 
 (defun slime-temp-directory ()
   (cond ((fboundp 'temp-directory) (temp-directory))
@@ -1279,7 +1268,7 @@ creates its socket."
 
 (defun slime-delete-swank-port-file (process &optional quiet)
   (condition-case data
-      (delete-file (slime-swank-port-directory process))
+      (delete-directory (slime-swank-port-directory process))
     (error
      (cl-ecase quiet
        ((nil) (signal (car data) (cdr data)))
@@ -1287,36 +1276,24 @@ creates its socket."
        (message (message "Unable to delete swank port file %S"
                          (slime-swank-port-directory process)))))))
 
-(defun slime-read-port-and-connect (inferior-process)
-  (slime-attempt-connection inferior-process nil 1))
-
-(defun slime-attempt-connection (process retries attempt)
+(defun slime-attempt-connection (process retries attempt &optional port-directory)
   ;; A small one-state machine to attempt a connection with
   ;; timer-based retries.
   (slime-cancel-connect-retry-timer)
-  (let* ((file (slime-swank-port-directory process))
-         (unix-socket (concat file "socket"))
+  (let* ((file (or port-directory (slime-swank-port-directory process)))
          (port-file (concat file "port"))
          (args (slime-inferior-lisp-args process))
-         (coding-system (plist-get args :coding-system))
-         (file-modes (default-file-modes)))
-    (unwind-protect
-        (progn
-          (set-default-file-modes ?\700)
-          (make-directory file t))
-      (set-default-file-modes file-modes))
+         (coding-system (plist-get args :coding-system)))
     (unless (active-minibuffer-window)
-      (message "Polling '%S' and '%S' .. %d (Abort with `M-x slime-abort-connection'.)"
-               unix-socket (concat file "/port") attempt))
-    (cond ((file-exists-p unix-socket)
-           (let ((c (slime-connect nil unix-socket coding-system)))
-             (slime-set-inferior-process c process)))
-          ((and (file-exists-p port-file)
+      (message "Polling '%S' .. %d (Abort with `M-x slime-abort-connection'.)"
+               port-file attempt))
+    (cond ((and (file-exists-p port-file)
                 (> (nth 7 (file-attributes port-file)) 0)) ; file size
-           (let ((port (slime-read-swank-port port-file)))
-             (delete-directory file t) ; We can delete this now
-             (let ((c (slime-connect slime-lisp-host port coding-system)))
-               (slime-set-inferior-process c process))))
+           (let ((port (car (slime-read-swank-port port-file))))
+             ;; (delete-directory file t) ; We can delete this now
+             (let ((c (slime-connect port coding-system)))
+               (slime-set-inferior-process c process)
+               c)))
           ((and retries (zerop retries))
            (message "Gave up connecting to Swank after %d attempts." attempt))
           ((eq (process-status process) 'exit)
@@ -1355,9 +1332,7 @@ The default condition handler for timer functions (see
   (save-excursion
     (with-temp-buffer
       (insert-file-contents slime-swank-port-file)
-      (let ((port (string-to-number (buffer-string))))
-        (cl-assert (integerp port))
-        port))))
+      (read-from-string (buffer-string)))))
 
 (defun slime-toggle-debug-on-swank-error ()
   (interactive)
@@ -1391,6 +1366,47 @@ The default condition handler for timer functions (see
   (eval (nth (random (length slime-words-of-encouragement))
              slime-words-of-encouragement)))
 
+
+;;;; Process/file table management
+;;;
+;;; This section covers management of the tables of Common Lisp
+;;; processes and associated temporary files.
+;;; Each inferior process has a temporary directory associated
+;;; with it, which must be deleted when the process is ended.
+;;; This ensures that that happens.
+(defvar slime-temporary-directories (make-hash-table)
+  "Hash table of temporary directories in use by SLIME")
+
+(defun slime-unregister-process (process &optional _reason)
+  "Unregister `process' from the hash table of processes"
+  (declare (ignore reason))
+  (condition-case nil
+      (delete-directory (gethash process slime-temporary-directories) t)
+    (file-error nil))
+  (remhash process slime-temporary-directories))
+
+(defun slime-register-process (process)
+  "Register the process `process' in the hash table of processes
+and set its sentinel appropriately"
+  (slime-set-query-on-exit-flag process)
+  (set-process-sentinel process #'slime-unregister-process)
+  (let ((temp-dir
+         (concat
+          (make-temp-file
+           (format "swank-server-%S-" (process-id process)) t) "/")))
+    (puthash process temp-dir slime-temporary-directories)
+    (process-send-string
+     process (format "(defvar cl-user::*temporary-directory* %S)\n\n" temp-dir))))
+
+(defun slime-kill-all-inferiors ()
+  "Kill all `inferior-lisp' processes, and delete the associated
+temporary directories."
+  (maphash (lambda (process _directory)
+             (declare (ignore directory))
+             (slime-unregister-process process))
+             slime-temporary-directories))
+
+(add-hook 'kill-emacs-hook #'slime-kill-all-inferiors)
 
 ;;;; Networking
 ;;;
@@ -1435,16 +1451,18 @@ domain sockets are not supported on Windows or by all Common Lisp
 implementations")
 
 ;;; Interface
-(defun slime-net-connect (host port)
+(defun slime-net-connect (port)
   "Establish a connection with a CL."
+  (assert (stringp port))
   (let* ((inhibit-quit nil)
+         (use-host (integerp port))
          (proc (make-network-process :name "SLIME Lisp"
                                      :buffer nil
-                                     :host host
+                                     :host (and use-host "127.0.0.1")
                                      :service port
-                                     :family (if host 'ipv4 'local)))
+                                     :family (if use-host 'ipv4 'local)))
          (buffer (slime-make-net-buffer " *cl-connection*")))
-    (unless host (delete-file port))
+    ;;(unless host (delete-file port))
     (push proc slime-net-processes)
     (set-process-buffer proc buffer)
     (set-process-filter proc 'slime-net-filter)
@@ -2308,7 +2326,8 @@ Debugged requests are ignored."
              (princ (format "Invalid protocol message:\n%s\n\n%s"
                             condition packet))
              (goto-char (point-min)))
-           (error "Invalid protocol message"))
+           (error (format "Invalid protocol message:\n%s\n\n%s"
+                            condition packet)))
           ((:invalid-rpc id message)
            (setf (slime-rex-continuations)
                  (cl-remove id (slime-rex-continuations) :key #'car))

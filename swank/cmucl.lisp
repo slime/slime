@@ -1830,7 +1830,7 @@ Try to create a informative message."
   `(call/temporary-file (lambda (,stream ,filename) . ,body)))
 
 (defun call/temporary-file (fun)
-  (let ((name (system::pick-temporary-file-name)))
+  (let ((name (swank:make-temp-filename)))
     (unwind-protect
          (with-open-file (stream name :direction :output :if-exists :supersede)
            (funcall fun stream name))

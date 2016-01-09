@@ -98,12 +98,9 @@
   (declare (ignore host port))
   (let ((socket (make-instance 'sb-bsd-sockets:local-socket
                                :type :stream)))
-    ;; SO_REUSEADDR harmless for AF_UNIX sockets, since untrusted processes
-    ;; can't connect anyway
-    (setf (sb-bsd-sockets:sockopt-reuse-address socket) t)
     (sb-bsd-sockets:socket-bind socket filename)
     (sb-bsd-sockets:socket-listen socket (or backlog 5))
-    socket))
+    (cons socket filename)))
 
 #+win32
 (defimplementation create-socket (host port filename &key backlog)
@@ -115,10 +112,11 @@
     (setf (sb-bsd-sockets:sockopt-reuse-address socket) nil)
     (sb-bsd-sockets:socket-bind socket (resolve-hostname host) port)
     (sb-bsd-sockets:socket-listen socket (or backlog 5))
-    socket))
+    (cons socket port)))
 
 (defimplementation local-port (socket)
-  (nth-value 1 (sb-bsd-sockets:socket-name socket)))
+  #+win32(nth-value 1 (sb-bsd-sockets:socket-name socket))
+  #-win32(sb-bsd-sockets:socket-name socket))
 
 (defimplementation close-socket (socket)
   (sb-sys:invalidate-descriptor (socket-fd socket))
@@ -699,18 +697,22 @@ QUALITIES is an alist with (quality . value)"
 ;;;     (compile nil `(lambda () ,(read-from-string string)))
 ;;; did not provide.
 
-(locally (declare (sb-ext:muffle-conditions sb-ext:compiler-note))
+(locally
+    (declare (sb-ext:muffle-conditions sb-ext:compiler-note))
 
-(sb-alien:define-alien-routine (#-win32 "tempnam" #+win32 "_tempnam" tempnam)
-    sb-alien:c-string
-  (dir sb-alien:c-string)
-  (prefix sb-alien:c-string))
+  ;; OK to use these (normally-insecure) functions
+  ;; as we are in a secure directory
+  (sb-alien:define-alien-routine (#-win32 "tempnam" #+win32 "_tempnam" tempnam)
+      (* sb-alien:unsigned-char)
+    (dir sb-alien:c-string)
+    (prefix sb-alien:c-string)))
 
-)
-
-(defun temp-file-name ()
-  "Return a temporary file name to compile strings into."
-  (tempnam nil nil))
+(defun temp-file ()
+  "Return a temporary file stream name to compile strings into, and its path."
+  (let ((alien-val (tempnam swank::*temporary-directory* nil)))
+    (prog1
+        (copy-seq (sb-alien:cast alien-val sb-alien:c-string))
+      (sb-alien:free-alien alien-val))))
 
 (defvar *trap-load-time-warnings* t)
 
@@ -719,7 +721,7 @@ QUALITIES is an alist with (quality . value)"
   (let ((*buffer-name* buffer)
         (*buffer-offset* position)
         (*buffer-substring* string)
-        (*buffer-tmpfile* (temp-file-name)))
+        (*buffer-tmpfile* (temp-file)))
     (labels ((load-it (filename)
                (cond (*trap-load-time-warnings*
                       (with-compilation-hooks () (load filename)))
