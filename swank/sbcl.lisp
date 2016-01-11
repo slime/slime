@@ -697,22 +697,29 @@ QUALITIES is an alist with (quality . value)"
 ;;;     (compile nil `(lambda () ,(read-from-string string)))
 ;;; did not provide.
 
-(locally
-    (declare (sb-ext:muffle-conditions sb-ext:compiler-note))
-
-  ;; OK to use these (normally-insecure) functions
-  ;; as we are in a secure directory
-  (sb-alien:define-alien-routine (#-win32 "tempnam" #+win32 "_tempnam" tempnam)
-      (* sb-alien:unsigned-char)
-    (dir sb-alien:c-string)
-    (prefix sb-alien:c-string)))
+#+win32
+(defun mkstemp (template)
+  "Implementation of mkstemp"
+  ;; KLUDGE: sb-unix is implementation detail
+  (multiple-value-bind
+        (fd name)
+      (sb-unix:sb-mkstemp template #o600)
+    (declare (string name))
+    (let ((len-1 (- (length name) 1)))
+      (assert (eql (aref name len-1) #\NUL))
+      (values fd (subseq name 0 len-1)))))
+#-win32
+#.(import 'sb-posix:mkstemp)
 
 (defun temp-file ()
-  "Return a temporary file stream name to compile strings into, and its path."
-  (let ((alien-val (tempnam swank::*temporary-directory* nil)))
-    (prog1
-        (copy-seq (sb-alien:cast alien-val sb-alien:c-string))
-      (sb-alien:free-alien alien-val))))
+  "Return a temporary file stream to compile strings into, and its path."
+  (multiple-value-bind
+        (fd name)
+      (mkstemp
+       (concatenate 'string
+                    (swank::temporary-directory) "slime-temp-XXXXXX"))
+    (values
+     (make-fd-stream fd :utf-8) name)))
 
 (defvar *trap-load-time-warnings* t)
 
@@ -720,35 +727,39 @@ QUALITIES is an alist with (quality . value)"
                                          policy)
   (let ((*buffer-name* buffer)
         (*buffer-offset* position)
-        (*buffer-substring* string)
-        (*buffer-tmpfile* (temp-file)))
-    (labels ((load-it (filename)
-               (cond (*trap-load-time-warnings*
-                      (with-compilation-hooks () (load filename)))
-                     (t (load filename))))
-             (cf ()
-               (with-compiler-policy policy
-                 (with-compilation-unit
-                     (:source-plist (list :emacs-buffer buffer
-                                          :emacs-filename filename
-                                          :emacs-string string
-                                          :emacs-position position)
-                      :source-namestring filename
-                      :allow-other-keys t)
-                   (compile-file *buffer-tmpfile* :external-format :utf-8)))))
-      (with-open-file (s *buffer-tmpfile* :direction :output :if-exists :error
-                         :external-format :utf-8)
-        (write-string string s))
-      (unwind-protect
-           (multiple-value-bind (output-file warningsp failurep)
-               (with-compilation-hooks () (cf))
-             (declare (ignore warningsp))
-             (when output-file
-               (load-it output-file))
-             (not failurep))
+        (*buffer-substring* string))
+    (multiple-value-bind
+          (s *buffer-tmpfile*)
+        (temp-file)
+      (labels ((load-it (filename)
+                 (cond (*trap-load-time-warnings*
+                        (with-compilation-hooks () (load filename)))
+                       (t (load filename))))
+               (cf ()
+                 (with-compiler-policy policy
+                   (with-compilation-unit
+                       (:source-plist (list :emacs-buffer buffer
+                                            :emacs-filename filename
+                                            :emacs-string string
+                                            :emacs-position position)
+                        :source-namestring filename
+                        :allow-other-keys t)
+                     (compile-file *buffer-tmpfile* :external-format :utf-8)))))
+        (unwind-protect
+           (progn
+             (unwind-protect
+                  (write-string string s)
+               (force-output s)
+               (close s))
+             (multiple-value-bind (output-file warningsp failurep)
+                 (with-compilation-hooks () (cf))
+               (declare (ignore warningsp))
+               (when output-file
+                 (load-it output-file))
+               (not failurep)))
         (ignore-errors
           (delete-file *buffer-tmpfile*)
-          (delete-file (compile-file-pathname *buffer-tmpfile*)))))))
+          (delete-file (compile-file-pathname *buffer-tmpfile*))))))))
 
 ;;;; Definitions
 

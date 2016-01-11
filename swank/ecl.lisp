@@ -312,14 +312,14 @@
     (let ((*buffer-name* buffer)        ; for compilation hooks
           (*buffer-start-position* position))
       (let ((tmp-file (si:mkstemp
-                       (format nil "~A/ecl-swank-tmpfile-"
-                               swank::*temporary-directory*)))
+                       (format nil "~A/ecl-swank-tmpfile-XXXXXX"
+                               (swank::temporary-directory))))
             (fasl-file)
             (warnings-p)
             (failure-p))
         (unwind-protect
              (with-open-file (tmp-stream tmp-file :direction :output
-                                                  :if-exists :supersede)
+                                         :if-exists :supersede)
                (write-string string tmp-stream)
                (finish-output tmp-stream)
                (multiple-value-setq (fasl-file warnings-p failure-p)

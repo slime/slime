@@ -209,13 +209,16 @@ Backend code should treat the connection structure as opaque.")
 (defvar *temp-filename-index* 0
   "Ordinal index of temporary filenames")
 
+(defvar *temporary-directory* nil
+  "Temporary directory created for us by Emacs")
+
 (defslimefun make-temp-filename ()
   "Create a temporary filename in a secure directory"
   (format nil "~A/slime-temp-file-~A"
-          swank::*temporary-directory*
-          (call-with-lock-held +filename-index-lock+
+          *temporary-directory*
+          (call-with-lock-held *filename-index-lock*
                                (lambda ()
-                                 (incf swank::*temp-filename-index*)))))
+                                 (incf *temp-filename-index*)))))
 
 (defvar *emacs-connection* nil
   "The connection to Emacs currently in use.")
@@ -715,11 +718,13 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
   "Default value of :dont-close argument to start-server and
   create-server.")
 
-(defvar *temporary-directory* nil
-  "Temporary directory created for us by Emacs")
-
+(defun temporary-directory ()
+  "Returns the temporary directory created for us by Emacs"
+  *temporary-directory*)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (export 'temporary-directory (find-package :swank)))
 (defun start-server (socket-directory &key (style *communication-style*)
-                                    (dont-close *dont-close*))
+                                        (dont-close *dont-close*))
   "Start the server and write the listen port number to PORT-FILE.
 This is the entry point for Emacs."
   (setq *temporary-directory* socket-directory)
@@ -753,44 +758,9 @@ e.g.: (restart-loop (http-request url) (use-value (new) (setq url new)))"
 
 (defvar *socket-count* 0 "The number of connections")
 
-#+nil
-(defun swank-create-socket (port filename backlog)
-  "Creates a socket for SWANK"
-  (if *global-socket*
-      (progn
-        (assert (> *socket-count* 0))
-        (incf *socket-count*))
-      (progn
-        (assert (zerop *socket-count*))
-        (setq *global-socket*
-              (create-socket *loopback-interface* port filename
-                             :backlog backlog))
-        (setq *socket-count* 1)))
-  *global-socket*)
-
-(defun delete-parent-directory (name)
-  "Delete file & parent directory"
-  (let* ((pathname (pathname name))
-         (final-pathname (make-pathname :name nil :defaults pathname)))
-    (delete-file pathname)
-    (delete-directory final-pathname)))
-
-(defun swank-destroy-socket (socket)
-  "Destroys a socket"
-  (when *global-socket*
-    (assert (eq socket *global-socket*))
-    (assert socket)
-    (assert (> *socket-count* 0))
-    (decf *socket-count*)
-    (when (zerop *socket-count*)
-      (let ((fname (local-port socket)))
-        (when (not (numberp fname))
-          (delete-parent-directory fname)))
-      (close-socket socket)
-      (setq *global-socket* nil))))
-
 (defvar *nth-socket* 0
   "The number of sockets created by SWANK in this inferior Lisp")
+
 (defun socket-quest (port backlog)
   (restart-loop
       (if (null *servers*)
@@ -808,9 +778,7 @@ e.g.: (restart-loop (http-request url) (use-value (new) (setq url new)))"
         (format *query-io* "Enter port or filename (defaults to ~D): " (1+ port))
         (finish-output *query-io*)      ; necessary for tunnels
         (ignore-errors (list (read-from-string (read-line *query-io*)))))
-      (if (numberp new-port)
-          (setq port new-port)
-          (setq filename new-port)))))
+      (setq port new-port))))
 
 (defun setup-server (port announce-fn style dont-close backlog)
   (init-log-output)
@@ -835,17 +803,16 @@ e.g.: (restart-loop (http-request url) (use-value (new) (setq url new)))"
   "Stop server running on PORT."
   (send-to-sentinel `(:stop-server :port ,port)))
 
-(defun restart-server (socket-directory &key (port default-server-port)
-                                          (style *communication-style*)
-                                          (dont-close *dont-close*))
+(defun restart-server (&key (port default-server-port)
+                         (style *communication-style*)
+                         (dont-close *dont-close*))
   "Stop the server listening on PORT, then start a new SWANK server 
 on PORT running in STYLE. If DONT-CLOSE is true then the listen socket 
 will accept multiple connections, otherwise it will be closed after the 
 first."
   (stop-server port)
   (sleep 5)
-  (create-server socket-directory
-                 :port port :style style :dont-close dont-close))
+  (create-server :port port :style style :dont-close dont-close))
 
 (defun accept-connections (socket style dont-close)
   (let ((client (unwind-protect
@@ -910,6 +877,9 @@ if the file doesn't exist; otherwise the first line of the file."
                      :if-exists :error
                      :if-does-not-exist :create)
     (format s "~S~%" port))
+  (handler-case
+      (delete-file port-new-name)
+    (file-error nil))
   (rename-file port-original-name port-new-name)
   (simple-announce-function port)))
 

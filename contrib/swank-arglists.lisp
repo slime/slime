@@ -77,6 +77,13 @@ Otherwise NIL is returned."
          (progn ,@body))))
 
 
+;;; FIXME suppliedp?
+(defstruct (optional-arg
+            (:conc-name optional-arg.)
+            (:constructor %make-optional-arg))
+  arg-name
+  default-arg)
+
 ;;;; Arglist Definition
 
 (defstruct (arglist (:conc-name arglist.) (:predicate arglist-p))
@@ -132,6 +139,13 @@ Otherwise NIL is returned."
 	     (:conc-name #:arglist-dummy.)
              (:constructor make-arglist-dummy (string-representation)))
   string-representation)
+
+(defstruct (keyword-arg
+            (:conc-name keyword-arg.)
+            (:constructor %make-keyword-arg))
+  keyword
+  arg-name
+  default-arg)
 
 (defun empty-arg-p (dummy)
   (and (arglist-dummy-p dummy)
@@ -420,13 +434,6 @@ Otherwise NIL is returned."
     (symbol arg)
     (arglist (encode-arglist arg))))
 
-(defstruct (keyword-arg
-            (:conc-name keyword-arg.)
-            (:constructor %make-keyword-arg))
-  keyword
-  arg-name
-  default-arg)
-
 (defun canonicalize-default-arg (form)
   (if (equalp ''nil form)
       nil
@@ -493,13 +500,6 @@ Return three values: keyword, argument name, default arg."
                   (make-keyword-arg :x 'y nil)))
   (assert (equalp (decode-keyword-arg '((:x y) t))
                   (make-keyword-arg :x 'y t))))
-
-;;; FIXME suppliedp?
-(defstruct (optional-arg
-            (:conc-name optional-arg.)
-            (:constructor %make-optional-arg))
-  arg-name
-  default-arg)
 
 (defun make-optional-arg (arg-name default-arg)
   (%make-optional-arg :arg-name arg-name

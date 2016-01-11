@@ -614,7 +614,7 @@ confronted with nasty #.-fu."
     (accept-process-output) ; run idle timers
     (slime-test-expect "Completed string" expected-result actual-result)))
 
-(def-slime-test arglist
+(def-slime-test (arglist (:fails-for "ecl"))
     ;; N.B. Allegro apparently doesn't return the default values of
     ;; optional parameters. Thus the regexp in the start-server
     ;; expected value. In a perfect world we'd find a way to smooth
@@ -658,7 +658,7 @@ string buffer position filename policy)")
         (equal (read (current-buffer)) subform))))
   (slime-check-top-level))
 
-(def-slime-test (compile-defun (:fails-for "allegro" "lispworks" "clisp"))
+(def-slime-test (compile-defun (:fails-for "allegro" "lispworks" "clisp" "ecl"))
     (program subform)
     "Compile PROGRAM containing errors.
 Confirm that SUBFORM is correctly located."
@@ -1273,8 +1273,8 @@ This test will fail more likely before dispatch caches are warmed up."
                               (length slime-net-processes)))
       (delete-directory temp-directory t)
       (slime-select-connection old-connection))))
-(when t
-(def-slime-test disconnect-and-reconnect
+
+(def-slime-test (disconnect-and-reconnect (:style :spawn))
     ()
     "Close the connetion.
 Confirm that the subprocess continues gracefully.
@@ -1302,7 +1302,7 @@ Reconnect afterwards."
                             (lambda ()
                               (not (member hook slime-connected-hook)))
                             5))))
-)
+
 
 ;;;; SLIME-loading tests that launch separate Emacsen
 ;;;;

@@ -1177,37 +1177,38 @@ Return true if we have been given permission to continue."
 (defun slime-start-lisp (program program-args env directory buffer)
   "Does the same as `inferior-lisp' but less ugly.  Also creates the
 secure directories Swank needs.  Return the created process."
-  (condition-case nil
-      (make-directory "~/.slime")
-    (file-already-exists nil))
-  (with-current-buffer (get-buffer-create buffer)
-    (when directory
-      (cd (expand-file-name directory)))
-    (let ((umask (default-file-modes))
-          (kill-inferior t)
-          (proc nil))
-      (unwind-protect
-          (progn
-            ;; Set restrictive file permissions.
-            ;; This will be used by the inferior-lisp for the socket.
-            (set-default-file-modes ?\700)
-            (comint-mode)
-            (let ((process-environment (append env process-environment))
-                  (process-connection-type nil))
-              (comint-exec (current-buffer) "inferior-lisp" program nil program-args))
-            (lisp-mode-variables t)
-            (setq proc (get-buffer-process (current-buffer)))
-            (slime-register-process proc)
-
-            ;; Run any hooks set by the user
-            (run-hooks 'slime-inferior-process-start-hook)
-
-            (setq kill-inferior nil)
-            proc)
-        (set-default-file-modes umask)
-        (when kill-inferior
-          ;; Errors occurred during startup.  The process is useless.
-          (delete-process proc))))))
+  (let ((umask (default-file-modes)))
+    (unwind-protect
+        (progn
+          ;; Set restrictive file permissions.
+          ;; This will be used by the inferior-lisp for the socket.
+          (set-default-file-modes ?\700)
+          (condition-case nil
+              (make-directory "~/.slime")
+            (file-already-exists nil))
+          (with-current-buffer (get-buffer-create buffer)
+            (when directory
+              (cd (expand-file-name directory)))
+            (let ((kill-inferior t)
+                  (proc nil))
+              (unwind-protect
+                  (progn
+                    (comint-mode)
+                    (let ((process-environment (append env process-environment))
+                          (process-connection-type nil))
+                      (comint-exec (current-buffer)
+                                   "inferior-lisp" program nil program-args))
+                    (lisp-mode-variables t)
+                    (setq proc (get-buffer-process (current-buffer)))
+                    (slime-register-process proc)
+                    ;; Run any hooks set by the user
+                    (run-hooks 'slime-inferior-process-start-hook)
+                    (setq kill-inferior nil)
+                    proc)
+                (when kill-inferior
+                  ;; Errors occurred during startup.  The process is useless.
+                  (delete-process proc))))))
+      (set-default-file-modes umask))))
 
 (defun slime-read-port-and-connect (inferior-process &optional port-directory)
   (slime-attempt-connection inferior-process nil 1 port-directory))
@@ -1393,10 +1394,12 @@ and set its sentinel appropriately"
   (let ((temp-dir
          (concat
           (make-temp-file
-           (format "swank-server-%S-" (process-id process)) t) "/")))
+           (format "swank-server-%S-" (process-id process)) t "/"))))
     (puthash process temp-dir slime-temporary-directories)
-    (process-send-string
-     process (format "(defvar cl-user::*temporary-directory* %S)\n\n" temp-dir))))
+    (and nil (process-send-string
+     process (format "(defvar
+                       cl-user::*temporary-directory* %S %S)\n\n"
+                     temp-dir "Temporary directory created for us by Emacs")))))
 
 (defun slime-kill-all-inferiors ()
   "Kill all `inferior-lisp' processes, and delete the associated
