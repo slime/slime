@@ -1,3 +1,10 @@
+2016-01-11  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-fancy-inspector.lisp (inspect-type-specifier): Avoid
+	calling (sb-int:info :type :translator) as it now produces a
+	style-warning, guard it through #., not just with
+	swank/sbcl::sbcl-version>=.
+
 2015-11-29  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-fancy-inspector.lisp (inspect-type-specifier): The latest
