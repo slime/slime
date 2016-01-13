@@ -103,7 +103,10 @@
                  (or (sb-int:info :type :expander symbol) t))
                 (:primitive
                  (or #.(if (swank/sbcl::sbcl-version>= 1 3 1)
-                           '(car (sb-int:info :type :expander symbol))
+                           '(let ((x (sb-int:info :type :expander symbol)))
+                             (if (consp x)
+                                 (car x)
+                                 x))
                            '(sb-int:info :type :translator symbol))
                      t)))))
     (when fun
@@ -114,16 +117,21 @@
         '(:newline))
        (docstring-ispec "Type-specifier documentation" symbol 'type)
        (unless (eq t fun)
-         (append
-          `("Type-specifier lambda-list: "
-            ,(inspector-princ (arglist fun))
-            (:newline))
-          (multiple-value-bind (expansion ok)
-              (handler-case (sb-ext:typexpand-1 symbol)
-                (error () (values nil nil)))
-            (when ok
-              (list "Type-specifier expansion: "
-                    (princ-to-string expansion))))))))))
+         (let ((arglist (arglist fun)))
+           (append
+            `("Type-specifier lambda-list: "
+              ;; Could use ~:s, but inspector-princ does a bit more,
+              ;; and not all NILs in the arglist should be printed that way.
+              ,(if arglist
+                   (inspector-princ arglist)
+                   "()")
+              (:newline))
+            (multiple-value-bind (expansion ok)
+                (handler-case (sb-ext:typexpand-1 symbol)
+                  (error () (values nil nil)))
+              (when ok
+                (list "Type-specifier expansion: "
+                      (princ-to-string expansion)))))))))))
 
 (defun docstring-ispec (label object kind)
   "Return a inspector spec if OBJECT has a docstring of kind KIND."

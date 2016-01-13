@@ -1,3 +1,9 @@
+2016-01-13  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-fancy-inspector.lisp (inspect-type-specifier):
+	(sb-int:info :type :expander symbol) not always returns a list.
+	Also print an empty lambda-list as () not NIL.
+
 2016-01-11  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-repl.lisp (*globally-redirect-io*): move the definition
