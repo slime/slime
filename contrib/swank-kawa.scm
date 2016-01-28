@@ -1583,7 +1583,7 @@
 
 ;; Enable breakpoints event on the breakpoint function.
 (df request-breakpoint ((vm <vm>))
-  (let* ((class :: <class-type> (1st (! classesByName vm "swank$Mnkawa")))
+  (let* ((class :: <class-type> (1st (! classesByName vm "swank-kawa")))
          (meth :: <meth-ref> (1st (! methodsByName class "breakpoint")))
          (erm (! eventRequestManager vm))
          (req (! createBreakpointRequest erm (! location meth))))
@@ -1970,7 +1970,7 @@
   (when (nul? *global-get-mirror*)
     (set (@s <swank-global-variable> var) #!null) ; prepare class
     (let* ((c (as <com.sun.jdi.ClassType>
-                  (1st (! classes-by-name vm "swank$Mnglobal$Mnvariable"))))
+                  (1st (! classes-by-name vm "swank-global-variable"))))
            (f (! fieldByName c "var")))
       (set *global-get-mirror* (fun () (! getValue c f)))
       (set *global-set-mirror* (fun ((v <obj-ref>)) (! setValue c f v))))
