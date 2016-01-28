@@ -1,3 +1,8 @@
+2016-01-29  Sergey Kostyaev  <s.kostyaev@office.ngs.ru>
+
+	* swank-kawa.scm (request-breakpoint, init-global-field): Handle
+	new class names.
+
 2016-01-29  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* swank-presentation-streams.lisp: Don't monkey patch various
