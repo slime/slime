@@ -2,6 +2,7 @@
 
 	* swank/clasp.lisp (frame-source-location): Properly locate
 	functions by calling SOURCE-LOCATION.
+	* swank/clasp.lisp: remove tags support, no longer used.
 
 2015-12-13  Luís Oliveira  <loliveira@common-lisp.net>
 

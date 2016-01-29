@@ -538,9 +538,6 @@
 
 ;;;; Definitions
 
-(defvar +TAGS+ (namestring
-                (merge-pathnames "TAGS" (translate-logical-pathname "SYS:"))))
-
 (defun make-file-location (file file-position)
   ;; File positions in CL start at 0, but Emacs' buffer positions
   ;; start at 1. We specify (:ALIGN T) because the positions comming
@@ -554,12 +551,6 @@
   (make-location `(:buffer ,buffer-name)
                  `(:offset ,start-position ,offset)
                  `(:align t)))
-
-(defun make-TAGS-location (&rest tags)
-  (make-location `(:etags-file ,+TAGS+)
-                 `(:tag ,@tags)))
-
-
 
 (defimplementation find-definitions (name)
   (let ((annotations (core:get-annotation name 'si::location :all)))
@@ -628,21 +619,6 @@
 (deftype c-function ()
   `(satisfies c-function-p))
 
-(defun assert-source-directory ()
-  (unless (probe-file #P"SYS:")
-    (error "CLASP's source directory ~A does not exist. ~
-            You can specify a different location via the environment ~
-            variable `CLASPSRCDIR'."
-           (namestring (translate-logical-pathname #P"SYS:"))))) 
-
-(defun assert-TAGS-file ()
-  (unless (probe-file +TAGS+)
-    (error "No TAGS file ~A found. It should have been installed with CLASP."
-           +TAGS+)))
-
-(defun package-names (package)
-  (cons (package-name package) (package-nicknames package)))
-
 (defun source-location (object)
   (converting-errors-to-error-location
    (typecase object
@@ -659,11 +635,7 @@
      (method
       ;; FIXME: This will always return NIL at the moment; CLASP does not
       ;; store debug information for methods yet.
-      (source-location (clos:method-function object)))
-     ((member nil t)
-      (multiple-value-bind (flag c-name) (si:mangle-name object)
-        (assert flag)
-        (make-TAGS-location c-name))))))
+      (source-location (clos:method-function object))))))
 
 (defimplementation find-source-location (object)
   (or (source-location object)
