@@ -215,7 +215,10 @@ Return the form and the source-map."
     (source-path-string-position path buffer)))
 
 (defgeneric sexp-in-bounds-p (sexp i)
-  (:method ((s list) i) (< i (length s))))
+  (:method ((list list) i)
+    (< i (loop for e on list
+               count t)))
+  (:method ((sexp t) i) nil))
 
 (defgeneric sexp-ref (sexp i)
   (:method ((s list) i) (elt s i)))

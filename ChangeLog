@@ -1,5 +1,8 @@
 2016-01-29  Stas Boukarev  <stassats@gmail.com>
 
+	* swank/source-path-parser.lisp (sexp-in-bounds-p): Don't fall
+	victim to dotted lists and atoms.
+
 	* swank/clasp.lisp (frame-source-location): Properly locate
 	functions by calling SOURCE-LOCATION.
 	* swank/clasp.lisp: remove tags support, no longer used.
