@@ -1,3 +1,9 @@
+2016-01-29  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* swank-presentation-streams.lisp: Don't monkey patch various
+	stream printing internals unconditionally. Instead wait for
+	init-presentation-streams, if it happens.
+
 2016-01-13  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-fancy-inspector.lisp (inspect-type-specifier):
