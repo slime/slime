@@ -461,26 +461,14 @@
       x
       (function-name x))))
 
-(defun function-position (fun)
-  (let* ((source-pos-info (core:function-source-pos-info fun)))
-    (when source-pos-info
-      (let* ((real-position (core:source-pos-info-filepos source-pos-info))
-             (sfi (core:source-file-info source-pos-info))
-             (real-pathname (core:source-file-info-pathname sfi))
-             (spoofed-namestring (core:source-file-info-source-debug-namestring sfi))
-             (spoofed-offset (core:source-file-info-source-debug-offset sfi))
-             (position (+ real-position spoofed-offset)))
-        (make-file-location spoofed-namestring position)))))
-
-(defun frame-function (frame)
-  (let* ((x (first frame))
-         fun position)
+(defun frame-function (frame-number)
+  (let ((x (first (elt *backtrace* frame-number))))
     (etypecase x
-      (symbol (and (fboundp x)
-                   (setf fun (fdefinition x)
-                         position (function-position fun))))
-      (function (setf fun x position (function-position x))))
-    (values fun position)))
+      (symbol
+       (and (fboundp x)
+            (fdefinition x)))
+      (function
+       x))))
 
 (defimplementation print-frame (frame stream)
   (format stream "(~s~{ ~s~})" (function-name (first frame))
@@ -490,7 +478,7 @@
           nil))
 
 (defimplementation frame-source-location (frame-number)
-  (nth-value 1 (frame-function (elt *backtrace* frame-number))))
+  (source-location (frame-function frame-number)))
 
 #+clasp-working
 (defimplementation frame-catch-tags (frame-number)
@@ -524,7 +512,7 @@
 
 #+clasp-working
 (defimplementation disassemble-frame (frame-number)
-  (let ((fun (frame-function (elt *backtrace* frame-number))))
+  (let ((fun (frame-function frame-number)))
     (disassemble fun)))
 
 (defimplementation eval-in-frame (form frame-number)
