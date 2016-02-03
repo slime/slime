@@ -233,6 +233,7 @@ Contributed Packages
 * SLIME Trace Dialog::
 * slime-sprof::
 * slime-fancy::
+* Quicklisp::
 
 REPL: the ``top level''
 
@@ -2159,6 +2160,7 @@ particular packages do.
 * slime-sprof::
 * SLIME Enhanced M-.::
 * slime-fancy::
+* Quicklisp::
 @end menu
 
 @node Loading Contribs
@@ -3192,6 +3194,21 @@ declared with @code{flet} and @code{labels}, via
 
 @code{slime-fancy} is a meta package which loads a combination of the
 most popular packages.
+
+@node Quicklisp
+@section Quicklisp
+The package @code{slime-quicklisp} adds support for loading Quicklisp
+systems in the REPL buffer.  In order for this to work, Quicklisp
+should have already been loaded in the Lisp implementation.  Refer
+to @url{https://www.quicklisp.org/} for Quicklisp installation
+details.
+
+The package installs the following REPL shortcuts (@pxref{Shortcuts}):
+
+@table @kbd
+@item quicklisp-quickload (aka ql)
+Load a Quicklisp system.
+@end table
 
 @c -----------------------
 @node Credits
