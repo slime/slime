@@ -1,3 +1,9 @@
+2016-02-03  Matthew Kennedy  <burnsidemk@gmail.com>
+
+	* contrib: Add `slime-quicklisp' contrib.
+
+	* swank-loader.lisp (*contribs*): Add `swank-quicklisp`.
+
 2016-02-02  Jon Oddie  <j.j.oddie@gmail.com>
 
 	Add `slime-macrostep' contrib.
