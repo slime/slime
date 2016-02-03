@@ -247,7 +247,8 @@ If LOAD is true, load the fasl file."
     #+sbcl swank-sbcl-exts
     swank-mrepl
     swank-trace-dialog
-    swank-macrostep)
+    swank-macrostep
+    swank-quicklisp)
   "List of names for contrib modules.")
 
 (defun append-dir (absolute name)
