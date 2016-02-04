@@ -6,12 +6,12 @@
 
 (in-package :swank)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (unless (member :quicklisp *features*)
-    (error "Could not find Quicklisp already loaded.")))
-
 (defslimefun list-quicklisp-systems ()
   "Returns the Quicklisp systems list."
-  (mapcar #'ql-dist:name (ql:system-list)))
+  (if (member :quicklisp *features*)
+      (let ((ql-dist-name (find-symbol "NAME" "QL-DIST"))
+            (ql-system-list (find-symbol "SYSTEM-LIST" "QL")))
+        (mapcar ql-dist-name (funcall ql-system-list)))
+      (error "Could not find Quicklisp already loaded.")))
 
 (provide :swank-quicklisp)
