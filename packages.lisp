@@ -2,6 +2,7 @@
   (:use cl)
   (:nicknames swank-backend)
   (:export *debug-swank-backend*
+           *log-output*
            sldb-condition
            compiler-condition
            original-condition
@@ -145,7 +146,6 @@
            #:*dont-close*
            #:*fasl-pathname-function*
            #:*log-events*
-           #:*log-output*
            #:*use-dedicated-output-stream*
            #:*dedicated-output-stream-port*
            #:*configure-emacs-indentation*

@@ -282,7 +282,6 @@ to T unless you want to debug swank internals.")
     package))
 
 (defvar *log-events* nil)
-(defvar *log-output* nil) ; should be nil for image dumpers
 
 (defun init-log-output ()
   (unless *log-output*

@@ -1,3 +1,7 @@
+2016-02-10  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/backend.lisp: Squash a couple compilation warnings.
+
 2016-02-03  Matthew Kennedy  <burnsidemk@gmail.com>
 
 	* contrib: Add `slime-quicklisp' contrib.

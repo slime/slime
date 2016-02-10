@@ -27,6 +27,8 @@ magic but really show every frame including SWANK related ones.")
   "List of interface functions that are not implemented.
 DEFINTERFACE adds to this list and DEFIMPLEMENTATION removes.")
 
+(defvar *log-output* nil)            ; should be nil for image dumpers
+
 (defmacro definterface (name args documentation &rest default-body)
   "Define an interface function for the backend to implement.
 A function is defined with NAME, ARGS, and DOCUMENTATION.  This
@@ -737,9 +739,13 @@ the list of forms, and RESULT (optionally) bound to the value of
 INSTRUMENTED-FORM."
   (assert (and (symbolp forms) (not (null forms))))
   (assert (symbolp result))
-  `(call-with-collected-macro-forms
-    (lambda (,forms ,(or result (gensym))) ,@body)
-    (lambda () ,instrumented-form)))
+  (let ((result-symbol (or result (gensym))))
+   `(call-with-collected-macro-forms
+     (lambda (,forms ,result-symbol)
+       (declare (ignore ,@(and (not result)
+                               `(,result-symbol))))
+       ,@body)
+     (lambda () ,instrumented-form))))
 
 (defun call-with-collected-macro-forms (body-fn instrumented-fn)
   (let ((return-value nil)
@@ -1445,7 +1451,7 @@ COMPLETION-FUNCTION, if non-nil, should be called after saving the image.")
 
 (defun deinit-log-output ()
   ;; Can't hang on to an fd-stream from a previous session.
-  (setf swank:*log-output* nil))
+  (setf *log-output* nil))
 
 
 ;;;; Wrapping
