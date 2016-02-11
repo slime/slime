@@ -52,10 +52,9 @@
                      ;; SB-ASSEM:INST invokes a symbolic INSTR-FN with
                      ;; current segment and current vop implicitly.
                      (decode-instruction-arglist instr-name
-                                                 #-#.(swank/backend:with-symbol 'inst-emitter-symbol 'sb-assem)
-                                                 (cddr arglist)
-                                                 #+#.(swank/backend:with-symbol 'inst-emitter-symbol 'sb-assem)
-                                                 arglist)))))))))
+                                                 (if (get instr-fn :macro)
+                                                     arglist
+                                                     (cddr arglist)))))))))))
 
 
 ) ; PROGN
