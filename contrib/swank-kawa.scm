@@ -507,6 +507,8 @@
 (define-variable *last-stacktrace* #f)
 (df %vm (=> <vm>) *the-vm*)
 
+(define-variable *parent-env* (interaction-environment))
+
 ;; FIXME: this needs factorization.  But I guess the whole idea of
 ;; using bidirectional channels just sucks.  Mailboxes owned by a
 ;; single thread to which everybody can send are much easier to use.
@@ -789,6 +791,7 @@
   (list "user" "user"))
 
 (defslimefun interactive-eval (env str)
+  (eval (read-from-string str) *parent-env*)
   (values-for-echo-area (eval (read-from-string str) env)))
 
 (defslimefun interactive-eval-region (env (s <string>))
@@ -797,7 +800,9 @@
      (let next ((result (values)))
        (let ((form (read port)))
          (cond ((== form #!eof) result)
-               (#t (next (eval form env)))))))))
+               (#t (next (begin
+                           (eval form *parent-env*)
+                           (eval form env))))))))))
 
 (defslimefun |swank-repl:listener-eval| (env string)
   (let* ((form (read-from-string string))
@@ -916,6 +921,7 @@
     offset))
 
 (defslimefun load-file (env filename)
+  (eval `(load ,filename) *parent-env*)
   (format "Loaded: ~a => ~s" filename (eval `(load ,filename) env)))
 
 ;;;; Completion
