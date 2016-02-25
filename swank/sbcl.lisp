@@ -290,9 +290,7 @@
         (unless (= val -1)
           (return-from handle-listen (zerop val)))))
 
-    nil)
-
-  )
+    nil))
 
 (defvar *external-format-to-coding-system*
   '((:iso-8859-1
@@ -746,20 +744,20 @@ QUALITIES is an alist with (quality . value)"
                         :allow-other-keys t)
                      (compile-file *buffer-tmpfile* :external-format :utf-8)))))
         (unwind-protect
-           (progn
-             (unwind-protect
-                  (write-string string s)
-               (force-output s)
-               (close s))
-             (multiple-value-bind (output-file warningsp failurep)
-                 (with-compilation-hooks () (cf))
-               (declare (ignore warningsp))
-               (when output-file
-                 (load-it output-file))
-               (not failurep)))
-        (ignore-errors
-          (delete-file *buffer-tmpfile*)
-          (delete-file (compile-file-pathname *buffer-tmpfile*))))))))
+             (progn
+               (unwind-protect
+                    (write-string string s)
+                 (force-output s)
+                 (close s))
+               (multiple-value-bind (output-file warningsp failurep)
+                   (with-compilation-hooks () (cf))
+                 (declare (ignore warningsp))
+                 (when output-file
+                   (load-it output-file))
+                 (not failurep)))
+          (ignore-errors
+            (delete-file *buffer-tmpfile*)
+            (delete-file (compile-file-pathname *buffer-tmpfile*))))))))
 
 ;;;; Definitions
 
@@ -1876,26 +1874,25 @@ stack."
   #+#.(swank/sbcl::sbcl-with-weak-hash-tables)
   (sb-ext:hash-table-weakness hashtable))
 
-#-win32
-(defimplementation save-image (filename &optional restart-function)
-  (flet ((restart-sbcl ()
-           (sb-debug::enable-debugger)
-           (setf sb-impl::*descriptor-handlers* nil)
-           (funcall restart-function)))
-    (let ((pid (sb-posix:fork)))
-      (cond ((= pid 0)
-             (sb-debug::disable-debugger)
-             (apply #'sb-ext:save-lisp-and-die filename
-                    (when restart-function
-                      (list :toplevel #'restart-sbcl))))
-            (t
-             (multiple-value-bind (rpid status) (sb-posix:waitpid pid 0)
+#+unix
+(progn
+  (defimplementation save-image (filename &optional restart-function)
+    (flet ((restart-sbcl ()
+             (sb-debug::enable-debugger)
+             (setf sb-impl::*descriptor-handlers* nil)
+             (funcall restart-function)))
+      (let ((pid (sb-posix:fork)))
+        (cond ((= pid 0)
+               (sb-debug::disable-debugger)
+               (apply #'sb-ext:save-lisp-and-die filename
+                      (when restart-function
+                        (list :toplevel #'restart-sbcl))))
+              (t
+               (multiple-value-bind (rpid status) (sb-posix:waitpid pid 0)
                (assert (= pid rpid))
                (assert (and (sb-posix:wifexited status)
                             (zerop (sb-posix:wexitstatus status))))))))))
 
-#+unix
-(progn
   (sb-alien:define-alien-routine ("execv" sys-execv) sb-alien:int
     (program sb-alien:c-string)
     (argv (* sb-alien:c-string)))
@@ -1944,7 +1941,7 @@ stack."
                          :dual-channel-p t
                          :external-format external-format))
 
-#-win32
+#+unix
 (defimplementation background-save-image (filename &key restart-function
                                                    completion-function)
   (flet ((restart-sbcl ()

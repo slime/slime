@@ -1476,7 +1476,7 @@ implementations")
     (let ((secret (slime-secret)))
       (when secret
         ;;; Don't log the secret!
-        (slime-net-send secret proc t)))
+        (process-send-string proc secret)))
     proc))
 
 (defun slime-make-net-buffer (name)

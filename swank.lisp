@@ -826,17 +826,29 @@ first."
       (send-to-sentinel `(:stop-server :socket ,socket)))))
 
 (declaim (notinline string-differences-count))
+
+(defun check-diff (a b c)
+  (declare ((unsigned-byte 8) a b c))
+  (setq c (logior c (logxor a b))))
 (defun string-differences-count (a b)
-  )
+  (check-type a (array (unsigned-byte 8)))
+  (check-type b (array (unsigned-byte 8)))
+  (let ((len (length a))
+        (c 0))
+    (assert (= len (length b)))
+    (loop named blank
+       for i from 0 to len
+       do (setq c (check-diff a b c))
+       finally (return c))))
 
 (defun authenticate-client (stream)
-  (let ((secret (slime-secret)))
+  (let ((secret (slime-secret))
+        (arr (make-array 16 :element-type '(unsigned-byte 8) :initial-element 0)))
     (when secret
-      (set-stream-timeout stream 20)
-      (let ((first-val (decode-message stream)))
-        (unless (and (stringp first-val) (string= first-val secret))
-          (error "Incoming connection doesn't know the password.")))
-      (set-stream-timeout stream nil))))
+      (let ((index (read-sequence arr stream)))
+        (unless (and (= index (length secret))
+                     (= 0 (string-differences-count arr secret)))
+          (error "Incoming connection doesn't know the password."))))))
 
 (defun slime-secret ()
   "Finds the magic secret from the user's home directory.  Returns nil
