@@ -1,3 +1,49 @@
+2016-02-11  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-sbcl-exts.lisp (compute-enriched-decoded-arglist):
+	Properly handle instruction macros and instruction functions.
+
+2016-02-07  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-sbcl-exts.lisp (compute-enriched-decoded-arglist): Adjust
+	for the changes in SBCL.
+
+2016-02-02  Jon Oddie  <j.j.oddie@gmail.com>
+
+	Add `slime-macrostep' contrib (fancy in-place macroexpansion).
+
+	* slime-macrostep.el: New file.
+	* swank-macrostep.lisp: New file.
+	* test/slime-macrostep-tests.el: New file.
+	* slime-fancy.el (slime-fancy): Add `slime-macrostep'.
+
+2016-01-29  Sergey Kostyaev  <s.kostyaev@office.ngs.ru>
+
+	* swank-kawa.scm (request-breakpoint, init-global-field): Handle
+	new class names.
+
+2016-01-29  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* swank-presentation-streams.lisp: Don't monkey patch various
+	stream printing internals unconditionally. Instead wait for
+	init-presentation-streams, if it happens.
+
+2016-01-13  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-fancy-inspector.lisp (inspect-type-specifier):
+	(sb-int:info :type :expander symbol) not always returns a list.
+	Also print an empty lambda-list as () not NIL.
+
+2016-01-11  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-repl.lisp (*globally-redirect-io*): move the definition
+	before its usage.
+
+	* swank-fancy-inspector.lisp (inspect-type-specifier): Avoid
+	calling (sb-int:info :type :translator) as it now produces a
+	style-warning, guard it through #., not just with
+	swank/sbcl::sbcl-version>=.
+
 2015-11-29  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-fancy-inspector.lisp (inspect-type-specifier): The latest

@@ -1,4 +1,13 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
+* 2.17 (February 2016)
+** Contribs
+*** New contrib, slime-macrostep, for more advanced in-place macroexpansion.
+*** New contrib, slime-quicklisp.
+
+* 2.16 (January 2016)
+*** Auto-completion now supports package-local nicknames on SBCL and ABCL.
+*** Bug fixes and updates for newer implementations.
+
 * 2.15 (August 2015)
 ** Core
 *** Completions are now displayed with `completion-at-point'.

@@ -2,6 +2,7 @@
   (:use cl)
   (:nicknames swank-backend)
   (:export *debug-swank-backend*
+           *log-output*
            sldb-condition
            compiler-condition
            original-condition
@@ -55,7 +56,9 @@
            unprofile-all
            profile-report
            profile-reset
-           profile-package))
+           profile-package
+
+           with-collected-macro-forms))
 
 (defpackage swank/rpc
   (:use :cl)
@@ -143,7 +146,6 @@
            #:*dont-close*
            #:*fasl-pathname-function*
            #:*log-events*
-           #:*log-output*
            #:*use-dedicated-output-stream*
            #:*dedicated-output-stream-port*
            #:*configure-emacs-indentation*

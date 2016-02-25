@@ -86,6 +86,9 @@ which is used just to send output.")
   "The buffering scheme that should be used for the output stream.
 Valid values are nil, t, :line")
 
+(defvar *globally-redirect-io* nil
+  "When non-nil globally redirect all standard streams to Emacs.")
+
 (defun open-streams (connection properties)
   "Return the 5 streams for IO redirection:
 DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
@@ -323,9 +326,6 @@ LISTENER-EVAL directly, so that spacial variables *, etc are set."
 ;;; *CURRENT-STANDARD-INPUT*, etc. We never shadow the "current"
 ;;; variables, so they can always be assigned to affect a global
 ;;; change.
-
-(defvar *globally-redirect-io* nil
-  "When non-nil globally redirect all standard streams to Emacs.")
 
 ;;;;; Global redirection setup
 

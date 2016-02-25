@@ -244,34 +244,33 @@ says that I am starting to print an object with this id. The second says I am fi
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; Example: Tell openmcl and cmucl to always present unreadable objects. try (describe 'class) 
 #+openmcl
 (in-package :ccl)
-#+openmcl
-(let ((*warn-if-redefine-kernel* nil)
-      (*warn-if-redefine* nil))
-  (defun %print-unreadable-object (object stream type id thunk)
-    (cond ((null stream) (setq stream *standard-output*))
-	  ((eq stream t) (setq stream *terminal-io*)))
-    (swank::presenting-object object stream
-      (write-unreadable-start object stream)
-      (when type
-	(princ (type-of object) stream)
-	(stream-write-char stream #\space))
-      (when thunk 
-	(funcall thunk))
-      (if id
-	  (%write-address object stream #\>)
-	  (pp-end-block stream ">"))
-      nil))
-  (defmethod print-object :around ((pathname pathname) stream)
-    (swank::presenting-object-if
-	(swank::can-present-readable-objects stream)
-	pathname stream (call-next-method))))
 
 #+openmcl
-(ccl::def-load-pointers clear-presentations ()
-  (swank::clear-presentation-tables))
+(defun monkey-patch-stream-printing ()
+  (let ((*warn-if-redefine-kernel* nil)
+	(*warn-if-redefine* nil))
+    (defun %print-unreadable-object (object stream type id thunk)
+      (cond ((null stream) (setq stream *standard-output*))
+	    ((eq stream t) (setq stream *terminal-io*)))
+      (swank::presenting-object object stream
+	(write-unreadable-start object stream)
+	(when type
+	  (princ (type-of object) stream)
+	  (stream-write-char stream #\space))
+	(when thunk
+	  (funcall thunk))
+	(if id
+	    (%write-address object stream #\>)
+	    (pp-end-block stream ">"))
+	nil))
+    (defmethod print-object :around ((pathname pathname) stream)
+      (swank::presenting-object-if
+	  (swank::can-present-readable-objects stream)
+	  pathname stream (call-next-method))))
+  (ccl::def-load-pointers clear-presentations ()
+    (swank::clear-presentation-tables)))
 
 (in-package :swank)
 
@@ -285,39 +284,49 @@ says that I am starting to print an object with this id. The second says I am fi
     (presenting-object-if (can-present-readable-objects stream) pathname stream
       (fwrappers:call-next-function)))
 
-  (fwrappers::fwrap 'lisp::%print-pathname  #'presenting-pathname-wrapper)
-  (fwrappers::fwrap 'lisp::%print-unreadable-object  #'presenting-unreadable-wrapper)
-  )
+  (defun monkey-patch-stream-printing ()
+    (fwrappers::fwrap 'lisp::%print-pathname  #'presenting-pathname-wrapper)
+    (fwrappers::fwrap 'lisp::%print-unreadable-object  #'presenting-unreadable-wrapper)))
 
 #+sbcl
-(progn 
+(progn
   (defvar *saved-%print-unreadable-object*
     (fdefinition 'sb-impl::%print-unreadable-object))
-  (sb-ext:without-package-locks 
-    (setf (fdefinition 'sb-impl::%print-unreadable-object)
-	  (lambda (object stream type identity &optional body)
-	    (presenting-object object stream
-	      (funcall *saved-%print-unreadable-object* 
-		       object stream type identity body))))
-    (defmethod print-object :around ((object pathname) stream)
-      (presenting-object object stream
-	(call-next-method)))))
+
+  (defun monkey-patch-stream-printing ()
+    (sb-ext:without-package-locks
+      (when (eq (fdefinition 'sb-impl::%print-unreadable-object)
+		*saved-%print-unreadable-object*)
+	(setf (fdefinition 'sb-impl::%print-unreadable-object)
+	      (lambda (object stream type identity &optional body)
+		(presenting-object object stream
+		  (funcall *saved-%print-unreadable-object*
+			   object stream type identity body)))))
+      (defmethod print-object :around ((object pathname) stream)
+	(presenting-object object stream
+	  (call-next-method))))))
 
 #+allegro
 (progn
-  (excl:def-fwrapper presenting-unreadable-wrapper (object stream type identity continuation) 
+  (excl:def-fwrapper presenting-unreadable-wrapper (object stream type identity continuation)
     (swank::presenting-object object stream (excl:call-next-fwrapper)))
   (excl:def-fwrapper presenting-pathname-wrapper (pathname stream depth)
     (presenting-object-if (can-present-readable-objects stream) pathname stream
       (excl:call-next-fwrapper)))
-  (excl:fwrap 'excl::print-unreadable-object-1 
-	      'print-unreadable-present 'presenting-unreadable-wrapper)
-  (excl:fwrap 'excl::pathname-printer 
-	      'print-pathname-present 'presenting-pathname-wrapper))
+  (defun monkey-patch-stream-printing ()
+    (excl:fwrap 'excl::print-unreadable-object-1
+		'print-unreadable-present 'presenting-unreadable-wrapper)
+    (excl:fwrap 'excl::pathname-printer
+		'print-pathname-present 'presenting-pathname-wrapper)))
+
+#-(or allegro sbcl cmu openmcl)
+(defun monkey-patch-stream-printing ()
+  (values))
 
 ;; Hook into SWANK.
 
 (defslimefun init-presentation-streams ()
+  (monkey-patch-stream-printing)
   ;; FIXME: import/use swank-repl to avoid package qualifier.
   (setq swank-repl:*send-repl-results-function*
 	'present-repl-results-via-presentation-streams))

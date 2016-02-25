@@ -27,6 +27,8 @@ magic but really show every frame including SWANK related ones.")
   "List of interface functions that are not implemented.
 DEFINTERFACE adds to this list and DEFIMPLEMENTATION removes.")
 
+(defvar *log-output* nil)            ; should be nil for image dumpers
+
 (defmacro definterface (name args documentation &rest default-body)
   "Define an interface function for the backend to implement.
 A function is defined with NAME, ARGS, and DOCUMENTATION.  This
@@ -701,7 +703,7 @@ available."
         (and (consp form) (length=2 form)
              (eq (first form) 'setf) (symbolp (second form))))))
 
-(definterface macroexpand-all (form)
+(definterface macroexpand-all (form &optional env)
    "Recursively expand all macros in FORM.
 Return the resulting form.")
 
@@ -728,6 +730,50 @@ NIL."
                    (frob new-form t)
                    (values new-form expanded)))))
     (frob form env)))
+
+(defmacro with-collected-macro-forms
+    ((forms &optional result) instrumented-form &body body)
+  "Collect macro forms by locally binding *MACROEXPAND-HOOK*.
+
+Evaluates INSTRUMENTED-FORM and collects any forms which undergo
+macro-expansion into a list.  Then evaluates BODY with FORMS bound to
+the list of forms, and RESULT (optionally) bound to the value of
+INSTRUMENTED-FORM."
+  (assert (and (symbolp forms) (not (null forms))))
+  (assert (symbolp result))
+  (let ((result-symbol (or result (gensym))))
+   `(call-with-collected-macro-forms
+     (lambda (,forms ,result-symbol)
+       (declare (ignore ,@(and (not result)
+                               `(,result-symbol))))
+       ,@body)
+     (lambda () ,instrumented-form))))
+
+(defun call-with-collected-macro-forms (body-fn instrumented-fn)
+  (let ((return-value nil)
+        (collected-forms '()))
+    (let* ((real-macroexpand-hook *macroexpand-hook*)
+           (*macroexpand-hook*
+            (lambda (macro-function form environment)
+              (let ((result (funcall real-macroexpand-hook
+                                     macro-function form environment)))
+                (unless (eq result form)
+                  (push form collected-forms))
+                result))))
+      (setf return-value (funcall instrumented-fn)))
+    (funcall body-fn collected-forms return-value)))
+
+(definterface collect-macro-forms (form &optional env)
+  "Collect subforms of FORM which undergo (compiler-)macro expansion.
+Returns two values: a list of macro forms and a list of compiler macro
+forms."
+  (with-collected-macro-forms (macro-forms expansion)
+      (ignore-errors (macroexpand-all form env))
+    (with-collected-macro-forms (compiler-macro-forms)
+        (handler-bind ((warning #'muffle-warning))
+          (ignore-errors
+            (compile nil `(lambda () ,expansion))))
+      (values macro-forms compiler-macro-forms))))
 
 (definterface format-string-expand (control-string)
   "Expand the format string CONTROL-STRING."
@@ -1407,7 +1453,7 @@ COMPLETION-FUNCTION, if non-nil, should be called after saving the image.")
 
 (defun deinit-log-output ()
   ;; Can't hang on to an fd-stream from a previous session.
-  (setf swank:*log-output* nil))
+  (setf *log-output* nil))
 
 
 ;;;; Wrapping
