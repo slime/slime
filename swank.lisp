@@ -828,7 +828,7 @@ first."
 (declaim (notinline string-differences-count))
 
 (defun check-diff (a b c)
-  (declare ((unsigned-byte 8) a b c))
+  (declare (type (unsigned-byte 8) a b c))
   (setq c (logior c (logxor a b))))
 (defun string-differences-count (a b)
   (check-type a (array (unsigned-byte 8)))
@@ -836,7 +836,7 @@ first."
   (let ((len (length a))
         (c 0))
     (assert (= len (length b)))
-    (loop named blank
+    (loop
        for i from 0 to len
        do (setq c (check-diff a b c))
        finally (return c))))

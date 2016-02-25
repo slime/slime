@@ -2093,10 +2093,10 @@ Note: don't use backquote syntax for SEXP, because various Emacs
 versions cannot deal with that."
   (declare (indent 2))
   (let ((result (cl-gensym)))
-    `(lexical-let ,(cl-loop for var in saved-vars
-                            collect (cl-etypecase var
-                                      (symbol (list var var))
-                                      (cons var)))
+    `(let ,(cl-loop for var in saved-vars
+                    collect (cl-etypecase var
+                              (symbol (list var var))
+                              (cons var)))
        (slime-dispatch-event
         (list :emacs-rex ,sexp ,package ,thread
               (lambda (,result)
@@ -2256,7 +2256,10 @@ Debugged requests are ignored."
 (defvar slime-event-hooks)
 
 (defun slime-dispatch-event (event &optional process)
-  (let ((slime-dispatching-connection (or process (slime-connection))))
+  (let ((slime-dispatching-connection (or process (slime-connection)))
+        (print-quoted t)
+        (print-circle t)
+        (print-gensym t))
     (or (run-hook-with-args-until-success 'slime-event-hooks event)
         (slime-dcase event
           ((:emacs-rex form package thread continuation)
