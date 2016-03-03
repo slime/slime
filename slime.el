@@ -589,6 +589,7 @@ edit s-exprs, e.g. for source buffers and the REPL.")
     (?f slime-describe-function)
     (?h slime-documentation-lookup)
     (?~ common-lisp-hyperspec-format)
+    (?g common-lisp-hyperspec-glossary-term)
     (?# common-lisp-hyperspec-lookup-reader-macro)))
 
 (defvar slime-who-map nil
