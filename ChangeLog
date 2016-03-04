@@ -1,3 +1,7 @@
+2016-03-04  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (xref-doit): translate :sets to who-sets.
+
 2016-02-10  Stas Boukarev  <stassats@gmail.com>
 
 	* swank/backend.lisp: Squash a couple compilation warnings.

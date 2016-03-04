@@ -2988,6 +2988,7 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
   (define-xref-action :calls-who    #'calls-who)
   (define-xref-action :references   #'who-references)
   (define-xref-action :binds        #'who-binds)
+  (define-xref-action :sets         #'who-sets)
   (define-xref-action :macroexpands #'who-macroexpands)
   (define-xref-action :specializes  #'who-specializes)
   (define-xref-action :callers      #'list-callers)
