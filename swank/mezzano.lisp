@@ -114,7 +114,7 @@
                (slot-value socket '%connection-fifo)))
 
 (defimplementation preferred-communication-style ()
-  nil)
+  :spawn)
 
 ;;;; Unix signals
 ;;;; ????
@@ -444,6 +444,109 @@
     result))
 
 ;;;; Multithreading
+
+;; FIXME: This should be a weak table.
+(defvar *thread-ids-for-emacs* (make-hash-table))
+(defvar *next-thread-id-for-emacs* 0)
+(defvar *thread-id-for-emacs-lock* (mezzano.supervisor:make-mutex
+                                    "SWANK thread ID table"))
+
+(defimplementation spawn (fn &key name)
+  (mezzano.supervisor:make-thread fn :name name))
+
+(defimplementation thread-id (thread)
+  (mezzano.supervisor:with-mutex (*thread-id-for-emacs-lock*)
+    (let ((id (gethash thread *thread-ids-for-emacs*)))
+      (when (null id)
+        (setf id (incf *next-thread-id-for-emacs*)
+              (gethash thread *thread-ids-for-emacs*) id
+              (gethash id *thread-ids-for-emacs*) thread))
+      id)))
+
+(defimplementation find-thread (id)
+  (mezzano.supervisor:with-mutex (*thread-id-for-emacs-lock*)
+    (gethash id *thread-ids-for-emacs*)))
+
+(defimplementation thread-name (thread)
+  (mezzano.supervisor:thread-name thread))
+
+(defimplementation thread-status (thread)
+  (format nil "~:(~A~)" (mezzano.supervisor:thread-state thread)))
+
+(defimplementation current-thread ()
+  (mezzano.supervisor:current-thread))
+
+(defimplementation all-threads ()
+  (mezzano.supervisor:all-threads))
+
+(defimplementation thread-alive-p (thread)
+  (not (eql (mezzano.supervisor:thread-state thread) :dead)))
+
+(defimplementation interrupt-thread (thread fn)
+  (mezzano.supervisor:establish-thread-foothold thread fn))
+
+(defimplementation kill-thread (thread)
+  ;; Documentation says not to execute unwind-protected sections, but there's no
+  ;; way to do that.
+  ;; And killing threads at arbitrary points without unwinding them is a good
+  ;; way to hose the system.
+  (mezzano.supervisor:terminate-thread thread))
+
+(defvar *mailbox-lock* (mezzano.supervisor:make-mutex "mailbox lock"))
+(defvar *mailboxes* (make-hash-table)) ; should also be weak.
+
+(defstruct (mailbox (:conc-name mailbox.))
+  thread
+  (mutex (mezzano.supervisor:make-mutex))
+  (queue '() :type list))
+
+(defun mailbox (thread)
+  "Return THREAD's mailbox."
+  (mezzano.supervisor:with-mutex (*mailbox-lock*)
+    (let ((mbox (gethash thread *mailboxes*)))
+      (when (not mbox)
+        (setf mbox (make-mailbox :thread thread)
+              (gethash thread *mailboxes*) mbox))
+      mbox)))
+
+(defimplementation send (thread message)
+  (let* ((mbox (mailbox thread))
+         (mutex (mailbox.mutex mbox)))
+    (mezzano.supervisor:with-mutex (mutex)
+      (setf (mailbox.queue mbox)
+            (nconc (mailbox.queue mbox) (list message))))))
+
+(defimplementation receive-if (test &optional timeout)
+  (let* ((mbox (mailbox (current-thread)))
+         (mutex (mailbox.mutex mbox)))
+    (assert (or (not timeout) (eq timeout t)))
+    (loop
+       (check-slime-interrupts)
+       (mezzano.supervisor:with-mutex (mutex)
+         (let* ((q (mailbox.queue mbox))
+                (tail (member-if test q)))
+           (when tail
+             (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
+             (return (car tail))))
+         (when (eq timeout t) (return (values nil t))))
+       (sleep 0.2))))
+
+(defvar *registered-threads* (make-hash-table))
+(defvar *registered-threads-lock* (mezzano.supervisor:make-mutex "registered threads lock"))
+
+(defimplementation register-thread (name thread)
+  (declare (type symbol name))
+  (mezzano.supervisor:with-mutex (*registered-threads-lock*)
+    (etypecase thread
+      (null
+       (remhash name *registered-threads*))
+      (mezzano.supervisor:thread
+       (setf (gethash name *registered-threads*) thread))))
+  nil)
+
+(defimplementation find-registered (name)
+  (mezzano.supervisor:with-mutex (*registered-threads-lock*)
+    (values (gethash name *registered-threads*))))
 
 (defimplementation wait-for-input (streams &optional timeout)
   (loop
