@@ -462,3 +462,24 @@
            (decf timeout 1)
            (when (not (plusp timeout))
              (return '()))))))
+
+;;;;  Locks
+
+(defimplementation make-lock (&key name)
+  (mezzano.supervisor:make-mutex name))
+
+(defimplementation call-with-lock-held (lock function)
+  (mezzano.supervisor:with-mutex (lock)
+    (funcall function)))
+
+;;;; Character names
+
+(defimplementation character-completion-set (prefix matchp)
+  ;; TODO: Unicode characters too.
+  (loop
+     for names in sys.int::*char-name-alist*
+     append
+       (loop
+          for name in (rest names)
+          when (funcall matchp prefix name)
+          collect name)))
