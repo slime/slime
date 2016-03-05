@@ -129,6 +129,11 @@
 (defimplementation print-frame (frame stream)
   (format stream "~S" (sys.int::function-from-frame frame)))
 
+(defimplementation frame-source-location (frame-number)
+  (let* ((frame (nth frame-number *current-backtrace*))
+         (fn (sys.int::function-from-frame frame)))
+    (function-location fn)))
+
 (defimplementation frame-locals (frame-number)
   (let* ((frame (nth frame-number *current-backtrace*))
          (fn (sys.int::function-from-frame frame))
@@ -146,7 +151,7 @@
     (multiple-value-bind (env-slot env-layout)
         (sys.int::debug-info-closure-layout info)
       (when env-slot
-        (let ((env-object (sys.int::read-frame-slot frame (env-slot info))))
+        (let ((env-object (sys.int::read-frame-slot frame env-slot)))
           (dolist (level env-layout)
             (loop
                for i from 1
@@ -158,7 +163,6 @@
                        result)
                  (incf var-id))
             (setf env-object (svref env-object 0))))))
-    (format *terminal-io* "Frame locals: ~S~%" result)
     (reverse result)))
 
 (defimplementation frame-var-value (frame-number var-id)
@@ -323,7 +327,11 @@
       (macro
        (get name 'sys.int::macro-lambda-list))
       (fn
-       (sys.int::debug-info-lambda-list (sys.int::function-debug-info fn)))
+       (cond
+         ((typep fn 'sys.clos:standard-generic-function)
+          (sys.clos:generic-function-lambda-list fn))
+         (t
+          (sys.int::debug-info-lambda-list (sys.int::function-debug-info fn)))))
       (t :not-available))))
 
 (defimplementation type-specifier-p (symbol)
