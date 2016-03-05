@@ -135,27 +135,28 @@
          (info (sys.int::function-debug-info fn))
          (result '())
          (var-id 0))
-    (when (and (listp info) (eql (first info) :debug-info))
-      (loop
-         for (name stack-slot) in (third info)
-         do
-           (push (list :name name
-                       :id var-id
-                       :value (sys.int::read-frame-slot frame stack-slot))
-                 result)
-           (incf var-id))
-      (when (fourth info)
-        (let ((env-object (sys.int::read-frame-slot frame (fourth info))))
-          (dolist (level (fifth info))
-            (do ((i 1 (1+ i))
-                 (var level (cdr var)))
-                ((null var))
-              (when (car var)
-                (push (list :name (car var)
-                            :id var-id
-                            :value (svref env-object i))
-                      result)
-                (incf var-id)))
+    (loop
+       for (name stack-slot) in (sys.int::debug-info-local-variable-locations info)
+       do
+         (push (list :name name
+                     :id var-id
+                     :value (sys.int::read-frame-slot frame stack-slot))
+               result)
+         (incf var-id))
+    (multiple-value-bind (env-slot env-layout)
+        (sys.int::debug-info-closure-layout info)
+      (when env-slot
+        (let ((env-object (sys.int::read-frame-slot frame (env-slot info))))
+          (dolist (level env-layout)
+            (loop
+               for i from 1
+               for name in level
+               when name do
+                 (push (list :name name
+                             :id var-id
+                             :value (svref env-object i))
+                       result)
+                 (incf var-id))
             (setf env-object (svref env-object 0))))))
     (format *terminal-io* "Frame locals: ~S~%" result)
     (reverse result)))
@@ -165,27 +166,83 @@
          (fn (sys.int::function-from-frame frame))
          (info (sys.int::function-debug-info fn))
          (current-var-id 0))
-    (when (and (listp info) (eql (first info) :debug-info))
-      (loop
-         for (name stack-slot) in (third info)
-         do
-           (when (eql current-var-id var-id)
-             (return-from frame-var-value
-               (sys.int::read-frame-slot frame stack-slot)))
-           (incf current-var-id))
-      (when (fourth info)
-        (let ((env-object (sys.int::read-frame-slot frame (fourth info))))
-          (dolist (level (fifth info))
-            (do ((i 1 (1+ i))
-                 (var level (cdr var)))
-                ((null var))
-              (when (car var)
-                (when (eql current-var-id var-id)
-                  (return-from frame-var-value
-                    (svref env-object i)))
-                (incf current-var-id)))
+    (loop
+       for (name stack-slot) in (sys.int::debug-info-local-variable-locations info)
+       do
+         (when (eql current-var-id var-id)
+           (return-from frame-var-value
+             (sys.int::read-frame-slot frame stack-slot)))
+         (incf current-var-id))
+    (multiple-value-bind (env-slot env-layout)
+        (sys.int::debug-info-closure-layout info)
+      (when env-slot
+        (let ((env-object (sys.int::read-frame-slot frame env-slot)))
+          (dolist (level env-layout)
+            (loop
+               for i from 1
+               for name in level
+               when name do
+                 (when (eql current-var-id var-id)
+                   (return-from frame-var-value
+                     (svref env-object i)))
+                 (incf current-var-id))
             (setf env-object (svref env-object 0))))))
     (error "Invalid variable id ~D for frame number ~D." var-id frame-number)))
+
+;;;; Definition finding
+
+(defun top-level-form-position (pathname tlf)
+  (ignore-errors
+    (with-open-file (s pathname)
+      (loop
+         repeat tlf
+         do (with-standard-io-syntax
+              (let ((*read-suppress* t)
+                    (*read-eval* nil))
+                (read s nil))))
+      (make-location `(:file ,(namestring s))
+                     `(:position ,(1+ (file-position s)))))))
+
+(defimplementation find-definitions (name)
+  (let ((result '()))
+    (labels ((frob-fn (dspec fn)
+               (let* ((info (sys.int::function-debug-info fn))
+                      (pathname (sys.int::debug-info-source-pathname info))
+                      (tlf (sys.int::debug-info-source-top-level-form-number info))
+                      (loc (top-level-form-position pathname tlf)))
+                 (when loc
+                   (push (list dspec loc) result))))
+             (try-fn (name)
+               (when (valid-function-name-p name)
+                 (when (and (fboundp name)
+                            (not (and (symbolp name)
+                                      (or (special-operator-p name)
+                                          (macro-function name)))))
+                   (let ((fn (fdefinition name)))
+                     (cond ((typep fn 'sys.clos:standard-generic-function)
+                            (dolist (m (sys.clos:generic-function-methods fn))
+                              (frob-fn `(defmethod ,name
+                                            ,@(sys.clos:method-qualifiers m)
+                                          ,(mapcar #'sys.clos:class-name
+                                                   (sys.clos:method-specializers m)))
+                                       (sys.clos:method-function m))))
+                           (t
+                            (frob-fn `(defun ,name) fn)))))
+                 (when (compiler-macro-function name)
+                   (frob-fn `(define-compiler-macro ,name)
+                            (compiler-macro-function name))))))
+      (try-fn name)
+      (try-fn `(setf name))
+      (try-fn `(sys.int::cas name))
+      (when (and (symbolp name)
+                 (get name 'sys.int::setf-expander))
+        (frob-fn `(define-setf-expander ,name)
+                 (get name 'sys.int::setf-expander)))
+      (when (and (symbolp name)
+                 (macro-function name))
+        (frob-fn `(defmacro ,name)
+                 (macro-function name))))
+    result))
 
 ;;;; Documentation
 
@@ -199,8 +256,7 @@
       (macro
        (get name 'sys.int::macro-lambda-list))
       (fn
-       (let ((info (sys.int::function-debug-info fn)))
-         (eighth info)))
+       (sys.int::debug-info-lambda-list (sys.int::function-debug-info fn)))
       (t :not-available))))
 
 (defimplementation type-specifier-p (symbol)
@@ -214,15 +270,26 @@
 (defimplementation function-name (function)
   (sys.int::function-name function))
 
+(defimplementation valid-function-name-p (form)
+  "Is FORM syntactically valid to name a function?
+   If true, FBOUNDP should not signal a type-error for FORM."
+  (flet ((length=2 (list)
+           (and (not (null (cdr list))) (null (cddr list)))))
+    (or (symbolp form)
+        (and (consp form) (length=2 form)
+             (or (eq (first form) 'setf)
+                 (eq (first form) 'sys.int::cas))
+             (symbolp (second form))))))
+
 (defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))
     (when (boundp symbol)
       (setf (getf result :variable) nil))
     (when (and (fboundp symbol)
                (not (macro-function symbol)))
-      (setf (getf result :function) (ninth (sys.int::function-debug-info (fdefinition symbol)))))
+      (setf (getf result :function) (sys.int::debug-info-docstring (sys.int::function-debug-info (fdefinition symbol)))))
     (when (fboundp `(setf ,symbol))
-      (setf (getf result :setf) (ninth (sys.int::function-debug-info (fdefinition `(setf ,symbol))))))
+      (setf (getf result :setf) (sys.int::debug-info-docstring (sys.int::function-debug-info (fdefinition `(setf ,symbol))))))
     (when (get symbol 'sys.int::setf-expander)
       (setf (getf result :setf) nil))
     (when (special-operator-p symbol)
