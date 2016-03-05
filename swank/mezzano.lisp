@@ -449,7 +449,9 @@
   (loop
        (let ((ready '()))
          (dolist (s streams)
-           (when (listen s)
+           (when (or (listen s)
+                     (and (typep s 'mezzano.network.tcp::tcp-stream)
+                          (mezzano.network.tcp::tcp-connection-closed-p s)))
              (push s ready)))
          (when ready
            (return ready))
