@@ -28,6 +28,38 @@
                                       :slot-definition-documentation
                                       :slot-definition-type))
 
+(defun swank-mop:class-finalized-p (class)
+  (declare (ignore class))
+  t)
+
+(defun swank-mop:class-prototype (class)
+  (allocate-instance (if (symbolp class)
+                         (find-class class)
+                         class)))
+
+(defun swank-mop:specializer-direct-methods (obj)
+  (declare (ignore obj))
+  '())
+
+(defun swank-mop:generic-function-argument-precedence-order (gf)
+  (sys.clos:generic-function-lambda-list gf))
+
+(defun swank-mop:generic-function-declarations (gf)
+  (declare (ignore gf))
+  '())
+
+(defun swank-mop:generic-function-method-combination (gf)
+  (declare (ignore gf))
+  :standard)
+
+(defun swank-mop:slot-definition-documentation (slot)
+  (declare (ignore slot))
+  nil)
+
+(defun swank-mop:slot-definition-type (slot)
+  (declare (ignore slot))
+  t)
+
 (defimplementation gray-package-name ()
   "SYS.GRAY")
 
