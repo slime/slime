@@ -203,13 +203,17 @@
       (make-location `(:file ,(namestring s))
                      `(:position ,(1+ (file-position s)))))))
 
+(defun function-location (function)
+  "Return a location object for FUNCTION."
+  (let* ((info (sys.int::function-debug-info function))
+         (pathname (sys.int::debug-info-source-pathname info))
+         (tlf (sys.int::debug-info-source-top-level-form-number info)))
+    (top-level-form-position pathname tlf)))
+
 (defimplementation find-definitions (name)
   (let ((result '()))
     (labels ((frob-fn (dspec fn)
-               (let* ((info (sys.int::function-debug-info fn))
-                      (pathname (sys.int::debug-info-source-pathname info))
-                      (tlf (sys.int::debug-info-source-top-level-form-number info))
-                      (loc (top-level-form-position pathname tlf)))
+               (let ((loc (function-location fn)))
                  (when loc
                    (push (list dspec loc) result))))
              (try-fn (name)
@@ -243,6 +247,69 @@
         (frob-fn `(defmacro ,name)
                  (macro-function name))))
     result))
+
+;;;; XREF
+;;; Simpler variants.
+
+(defun find-all-frefs ()
+  (let ((frefs (make-array 500 :adjustable t :fill-pointer 0))
+        (keep-going t))
+    (loop
+       (when (not keep-going)
+         (return))
+       (adjust-array frefs (* (array-dimension frefs 0) 2))
+       (setf keep-going nil
+             (fill-pointer frefs) 0)
+       ;; Walk the wired area looking for FREFs.
+       (sys.int::walk-area
+        :wired
+        (lambda (object address size)
+          (when (sys.int::function-reference-p object)
+            (when (not (vector-push object frefs))
+              (setf keep-going t))))))
+    (remove-duplicates (coerce frefs 'list))))
+
+(defimplementation list-callers (function-name)
+  (let ((frefs (find-all-frefs))
+        (fref-for-fn (sys.int::function-reference function-name))
+        (callers '()))
+    (loop
+       for fref in frefs
+       for fn = (sys.int::function-reference-function fref)
+       when fn
+       do (when (member fref-for-fn
+                        (get-all-frefs-in-function fn))
+            (pushnew fref callers)))
+    ;; CALLERS contains all FREFs that call FUNCTION-NAME.
+    ;; Convert to nice result.
+    (loop
+       for fref in callers
+       for name = (sys.int::function-reference-name fref)
+       for fn = (sys.int::function-reference-function fref)
+       when fn
+       collect `((defun ,name) ,(function-location fn)))))
+
+(defun get-all-frefs-in-function (function)
+  (loop
+     for i below (sys.int::function-pool-size function)
+     for entry = (sys.int::function-pool-object function i)
+     when (sys.int::function-reference-p entry)
+     collect entry
+     when (compiled-function-p entry) ; closures
+     append (get-all-frefs-in-function entry)))
+
+(defimplementation list-callees (function-name)
+  (let* ((fn (fdefinition function-name))
+         ;; Grovel around in the function's constant pool looking for function-references.
+         ;; These may be for #', but they're probably going to be for normal calls.
+         ;; TODO: This doesn't work well on interpreted functions or funcallable instances.
+         (callees (remove-duplicates (get-all-frefs-in-function fn))))
+    (loop
+       for fref in callees
+       for name = (sys.int::function-reference-name fref)
+       for fn = (sys.int::function-reference-function fref)
+       when fn
+       collect `((defun ,name) ,(function-location fn)))))
 
 ;;;; Documentation
 
