@@ -124,11 +124,43 @@
 
 ;;;; Compilation
 
+(defun signal-compiler-condition (condition severity)
+  (signal 'compiler-condition
+          :original-condition condition
+          :severity severity
+          :message (format nil "~A" condition)
+          :location nil))
+
+(defimplementation call-with-compilation-hooks (func)
+  (handler-bind
+      ((sys.int::error
+        (lambda (c)
+          (signal-compiler-condition c :error)))
+       (warning
+        (lambda (c)
+          (signal-compiler-condition c :warning)))
+       (sys.int::style-warning
+        (lambda (c)
+          (signal-compiler-condition c :style-warning))))
+    (funcall func)))
+
 (defimplementation swank-compile-string (string &key buffer position filename
                                                 policy)
   (declare (ignore buffer position filename policy))
-  (eval (read-from-string (concatenate 'string "(progn " string " )")))
+  (with-compilation-hooks ()
+    (eval (read-from-string (concatenate 'string "(progn " string " )"))))
   t)
+
+(defimplementation swank-compile-file (input-file output-file load-p
+                                                  external-format
+                                                  &key policy)
+  (with-compilation-hooks ()
+    (multiple-value-prog1
+        (compile-file input-file
+                      :output-file output-file
+                      :external-format external-format)
+      (when load-p
+        (load output-file)))))
 
 (defimplementation find-external-format (coding-system)
   (if (or (equal coding-system "utf-8")
