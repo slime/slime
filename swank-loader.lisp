@@ -48,15 +48,16 @@
   #+ecl '((swank ecl) (swank gray))
   #+clasp '((swank clasp) (swank gray))
   #+mkcl '((swank mkcl) (swank gray))
+  #+mezzano '((swank mezzano) (swank gray))
   )
 
 (defparameter *implementation-features*
   '(:allegro :lispworks :sbcl :clozure :cmu :clisp :ccl :corman :cormanlisp
-    :armedbear :gcl :ecl :scl :mkcl :clasp))
+    :armedbear :gcl :ecl :scl :mkcl :clasp :mezzano))
 
 (defparameter *os-features*
   '(:macosx :linux :windows :mswindows :win32 :solaris :darwin :sunos :hpux
-    :unix))
+    :unix :mezzano))
 
 (defparameter *architecture-features*
   '(:powerpc :ppc :x86 :x86-64 :x86_64 :amd64 :i686 :i586 :i486 :pc386 :iapx386
@@ -103,7 +104,8 @@
                 (subseq s 0 (position #\space s)))
   #+armedbear (lisp-implementation-version)
   #+ecl (ecl-version-string)
-  #+clasp (clasp-version-string))
+  #+clasp (clasp-version-string)
+  #+mezzano (lisp-implementation-version))
 
 (defun unique-dir-name ()
   "Return a name that can be used as a directory name that is
