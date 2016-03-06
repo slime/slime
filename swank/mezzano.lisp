@@ -338,24 +338,31 @@
     (remove-duplicates (coerce frefs 'list))))
 
 (defimplementation list-callers (function-name)
-  (let ((frefs (find-all-frefs))
-        (fref-for-fn (sys.int::function-reference function-name))
+  (let ((fref-for-fn (sys.int::function-reference function-name))
         (callers '()))
     (loop
-       for fref in frefs
+       for fref in (find-all-frefs)
        for fn = (sys.int::function-reference-function fref)
-       when fn
-       do (when (member fref-for-fn
-                        (get-all-frefs-in-function fn))
-            (pushnew fref callers)))
-    ;; CALLERS contains all FREFs that call FUNCTION-NAME.
-    ;; Convert to nice result.
-    (loop
-       for fref in callers
        for name = (sys.int::function-reference-name fref)
-       for fn = (sys.int::function-reference-function fref)
        when fn
-       collect `((defun ,name) ,(function-location fn)))))
+       do
+         (cond ((typep fn 'standard-generic-function)
+                (dolist (m (sys.clos:generic-function-methods fn))
+                  (when (member fref-for-fn
+                                (get-all-frefs-in-function (sys.clos:method-function m)))
+                    (push `((defmethod ,name
+                                ,@(sys.clos:method-qualifiers m)
+                              ,(mapcar (lambda (specializer)
+                                         (if (typep specializer 'standard-class)
+                                             (sys.clos:class-name specializer)
+                                             specializer))
+                                       (sys.clos:method-specializers m)))
+                            ,(function-location (sys.clos:method-function m)))
+                          callers))))
+               ((member fref-for-fn
+                        (get-all-frefs-in-function fn))
+                (push `((defun ,name) ,(function-location fn)) callers))))
+    callers))
 
 (defun get-all-frefs-in-function (function)
   (loop
