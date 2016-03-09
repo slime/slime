@@ -1,5 +1,6 @@
 2016-03-09  Tomas Zellerin  <tomas@zellerin.cz>
 
+	* swank/rpc.lisp (simple-read): We did not gain anything by custom string reader.
 	* swank/rpc.lisp (simple-read): Fix handling of symbols.
 
 2016-03-04  Stas Boukarev  <stassats@gmail.com>
