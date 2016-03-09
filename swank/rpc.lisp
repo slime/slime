@@ -75,12 +75,6 @@
    "Read a form that conforms to the protocol, otherwise signal an error."
    (let ((c (read-char)))
      (case c
-       (#\" (with-output-to-string (*standard-output*)
-              (loop for c = (read-char) do
-                    (case c
-                      (#\" (return))
-                      (#\\ (write-char (read-char)))
-                      (t (write-char c))))))
        (#\( (loop collect (simple-read)
                   while (ecase (read-char)
                           (#\) nil)
@@ -95,7 +89,7 @@
                        while (and ch (digit-char-p ch))
                        collect ch
                        finally (unread-char ch)))))
-          ((or (eql c #\:) (alpha-char-p c))
+          ((or (member c '(#\: #\")) (alpha-char-p c))
            (unread-char c)
            (read-preserving-whitespace))
           (t (error "Invalid character ~:c" c)))))))
