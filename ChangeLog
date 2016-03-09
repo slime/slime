@@ -1,3 +1,7 @@
+2016-03-09  Tomas Zellerin  <tomas@zellerin.cz>
+
+	* swank/rpc.lisp (simple-read): Fix handling of symbols.
+
 2016-03-04  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (xref-doit): translate :sets to who-sets.

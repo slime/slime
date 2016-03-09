@@ -57,9 +57,8 @@
           (t
            (error "Short read: length=~D  count=~D" length count)))))
 
-;; FIXME: no one ever tested this and will probably not work.
 (defparameter *validate-input* nil
-  "Set to true to require input that strictly conforms to the protocol")
+  "Set to true to require input that more strictly conforms to the protocol")
 
 (defun read-form (string package)
   (with-standard-io-syntax
@@ -87,15 +86,19 @@
                           (#\) nil)
                           (#\space t))))
        (#\' `(quote ,(simple-read)))
-       (t (let ((string (with-output-to-string (*standard-output*)
-                          (loop for ch = c then (read-char nil nil) do
-                                (case ch
-                                  ((nil) (return))
-                                  (#\\ (write-char (read-char)))
-                                  ((#\space #\)) (unread-char ch)(return))
-                                  (t (write-char ch)))))))
-            (cond ((digit-char-p c) (parse-integer string))
-                  ((intern string))))))))
+       (t
+        (cond
+          ((digit-char-p c)
+           (parse-integer
+            (map 'simple-string #'identity
+                 (loop for ch = c then (read-char nil nil)
+                       while (and ch (digit-char-p ch))
+                       collect ch
+                       finally (unread-char ch)))))
+          ((or (eql c #\:) (alpha-char-p c))
+           (unread-char c)
+           (read-preserving-whitespace))
+          (t (error "Invalid character ~:c" c)))))))
 
 
 ;;;;; Output
