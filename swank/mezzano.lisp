@@ -110,8 +110,15 @@
 (defimplementation accept-connection (socket &key external-format
                                              buffering timeout)
   (declare (ignore external-format buffering timeout))
-  (mezzano.supervisor:fifo-pop
-               (slot-value socket '%connection-fifo)))
+  (loop
+     (let ((value (mezzano.supervisor:fifo-pop
+                   (slot-value socket '%connection-fifo)
+                   nil)))
+       (when value
+         (return value)))
+     ;; Poke standard-input every now and then to keep the console alive.
+     (listen)
+     (sleep 0.5)))
 
 (defimplementation preferred-communication-style ()
   :spawn)
