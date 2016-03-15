@@ -775,19 +775,29 @@ first."
                                                :buffering t)
                   (unless dont-close
                     (close-socket socket)))))
-    (authenticate-client client)
-    (serve-requests (make-connection socket client style))
-    (unless dont-close
-      (send-to-sentinel `(:stop-server :socket ,socket)))))
+    (when  (authenticate-client client)
+      (serve-requests (make-connection socket client style))
+      (unless dont-close
+        (send-to-sentinel `(:stop-server :socket ,socket))))))
 
 (defun authenticate-client (stream)
-  (let ((secret (slime-secret)))
-    (when secret
-      (set-stream-timeout stream 20)
-      (let ((first-val (decode-message stream)))
-        (unless (and (stringp first-val) (string= first-val secret))
-          (error "Incoming connection doesn't know the password.")))
-      (set-stream-timeout stream nil))))
+  "NIL if secret password was expected but not provided correctly."
+  (let ((secret (slime-secret))
+        (swank/rpc::*validate-input* t))
+    (if secret
+        (handler-case
+            (progn
+              (set-stream-timeout stream 20)
+              (let ((first-val (decode-message stream)))
+                (unless (and (stringp first-val) (string= first-val secret))
+                  (error "Incoming connection doesn't know the password.")))
+              (set-stream-timeout stream nil)
+              t)
+          (error (e)
+            (close stream)
+            (warn "Swank password: ~a" e)
+            nil))
+        t)))
 
 (defun slime-secret ()
   "Finds the magic secret from the user's home directory.  Returns nil
