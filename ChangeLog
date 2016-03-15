@@ -1,5 +1,7 @@
 2016-03-15  Tomas Zellerin  <tomas@zellerin.cz>
 
+	* swank/sbcl.lisp (set-stream-timeout): Implement stream timeout.
+
 	* swank.lisp (authenticate-client): Read password message in more secure way.
 	(authenticate-client): When password reading fails, return nil and
 	close socket instead of hanging.

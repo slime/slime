@@ -89,6 +89,13 @@
     ((member :win32 *features*) nil)
     (t :fd-handler)))
 
+(defimplementation set-stream-timeout (stream timeout)
+  "Set the 'stream 'timeout.  The timeout is either the real number
+  specifying the timeout in seconds or 'nil for no timeout."
+  (setf (sb-impl::fd-stream-timeout stream)
+        (when timeout
+          (coerce timeout 'single-float))))
+
 (defun resolve-hostname (name)
   (car (sb-bsd-sockets:host-ent-addresses
         (sb-bsd-sockets:get-host-by-name name))))
