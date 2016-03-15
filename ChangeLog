@@ -1,3 +1,7 @@
+2016-03-15  Tomas Zellerin  <tomas@zellerin.cz>
+
+	* swank.lisp (authenticate-client): Read password message in more secure way.
+
 2016-03-09  Tomas Zellerin  <tomas@zellerin.cz>
 
 	* swank/rpc.lisp (simple-read): We did not gain anything by custom string reader.

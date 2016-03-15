@@ -781,7 +781,8 @@ first."
       (send-to-sentinel `(:stop-server :socket ,socket)))))
 
 (defun authenticate-client (stream)
-  (let ((secret (slime-secret)))
+  (let ((secret (slime-secret))
+        (swank/rpc::*validate-input* t))
     (when secret
       (set-stream-timeout stream 20)
       (let ((first-val (decode-message stream)))
