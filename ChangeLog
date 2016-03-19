@@ -1,3 +1,8 @@
+2016-03-19  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/sbcl.lisp (describe-symbol-for-emacs): Adjust for new
+	SBCL, (sb-int:info :setf :inverse) is no longer present.
+
 2016-03-09  Tomas Zellerin  <tomas@zellerin.cz>
 
 	* swank/rpc.lisp (simple-read): We did not gain anything by custom string reader.
