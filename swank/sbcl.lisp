@@ -959,7 +959,7 @@ QUALITIES is an alist with (quality . value)"
                                :function
                                (or name (function-name function))))
 
-(defun setf-expander-p (symbol)
+(defun setf-expander (symbol)
   (or 
    #+#.(cl:if (sb-c::meta-info :setf :inverse ()) '(:and) '(:or))
    (sb-int:info :setf :inverse symbol)
