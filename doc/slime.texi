@@ -380,15 +380,6 @@ git clone https://github.com/slime/slime.git
 You might substitute @code{https} for @code{http} if you're having
 problems with that protocol.
 
-If you want to find out what's new since the version you're currently
-running, you can diff the local @file{ChangeLog} against the
-repository version:
-
-@example
-git fetch origin
-git diff HEAD origin/master ChangeLog
-@end example
-
 If you want to hack on @SLIME{}, use Github's @emph{fork} functionality
 and submit a @emph{pull request}. Be sure to first read the
 @uref{https://github.com/slime/slime/blob/master/CONTRIBUTING.md,,CONTRIBUTING.md} file first.
