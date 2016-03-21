@@ -36,7 +36,7 @@ SELECTOR  -- selector for ERT tests ($(SELECTOR))\n"
 
 # Compilation
 #
-slime.elc: slime.el ChangeLog lib/hyperspec.elc
+slime.elc: slime.el lib/hyperspec.elc
 
 %.elc: %.el
 	$(EMACS) -Q $(LOAD_PATH) --batch -f batch-byte-compile $<
