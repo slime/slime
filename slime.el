@@ -81,7 +81,10 @@
 
 (eval-when-compile
   (require 'apropos)
-  (require 'gud))
+  (require 'gud)
+  (require 'lisp-mnt))
+
+(declare-function lm-version "lisp-mnt")
 
 (defvar slime-path nil
   "Directory containing the Slime package.
@@ -89,6 +92,15 @@ This is used to load the supporting Common Lisp library, Swank.
 The default value is automatically computed from the location of
 the Emacs Lisp package.")
 (setq slime-path (file-name-directory load-file-name))
+
+(defvar slime-version nil
+  "The version of SLIME that you're using.")
+(setq slime-version
+      (eval-when-compile
+       (lm-version (if (and (boundp 'byte-compile-current-file)
+                            byte-compile-current-file)
+                       byte-compile-current-file
+                     load-file-name))))
 
 (defvar slime-lisp-modes '(lisp-mode))
 (defvar slime-contribs nil
