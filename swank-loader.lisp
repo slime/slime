@@ -133,12 +133,19 @@ operating system, and hardware architecture."
   "Returns true if NEW-FILE is newer than OLD-FILE."
   (> (file-write-date new-file) (file-write-date old-file)))
 
+(defun string-starts-with (string prefix)
+  (string-equal string prefix :end1 (min (length string) (length prefix))))
+
 (defun slime-version-string ()
   "Return a string identifying the SLIME version.
 Return nil if nothing appropriate is available."
-  (with-open-file (s (merge-pathnames "ChangeLog" *source-directory*)
+  (with-open-file (s (merge-pathnames "slime.el" *source-directory*)
                      :if-does-not-exist nil)
-    (and s (symbol-name (read s)))))
+    (loop with prefix = ";; Version: "
+          for line = (read-line s nil :eof)
+          until (eq line :eof)
+          when (string-starts-with line prefix)
+            return (subseq line (length prefix)))))
 
 (defun default-fasl-dir ()
   (merge-pathnames
@@ -299,9 +306,6 @@ If LOAD is true, load the fasl file."
          (contrib-dir *source-directory*))
     (eval `(pushnew 'compile-contribs ,(q "swank::*after-init-hook*"))))
   (funcall (q "swank::init")))
-
-(defun string-starts-with (string prefix)
-  (string-equal string prefix :end1 (min (length string) (length prefix))))
 
 (defun list-swank-packages ()
   (remove-if-not (lambda (package)
