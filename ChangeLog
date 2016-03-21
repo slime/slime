@@ -1,5 +1,13 @@
 2016-03-21  Luís Oliveira  <loliveira@common-lisp.net>
 
+	* swank/sbcl.lisp (sbcl-with-setf-inverse-meta-info): Backwards
+	compatibility test for :setf :inverse info that takes special care
+	not to trip on package locks due to interning SB-C::META-INFO on
+	older SBCLs.
+	(setf-expander): Use it.
+
+2016-03-21  Luís Oliveira  <loliveira@common-lisp.net>
+
 	* swank/backend.lisp (boolean-to-feature-expression): New function.
 	(with-symbol): Use it.
 

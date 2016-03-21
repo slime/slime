@@ -41,7 +41,16 @@
     (with-symbol 'who-calls 'sb-introspect))
   ;; ... for restart-frame support (1.0.2)
   (defun sbcl-with-restart-frame ()
-    (with-symbol 'frame-has-debug-tag-p 'sb-debug)))
+    (with-symbol 'frame-has-debug-tag-p 'sb-debug))
+  ;; ... for :setf :inverse info (1.1.17)
+  (defun sbcl-with-setf-inverse-meta-info ()
+    (boolean-to-feature-expression
+     ;; going through FIND-SYMBOL since META-INFO was renamed from
+     ;; TYPE-INFO in 1.2.10.
+     (let ((sym (find-symbol "META-INFO" "SB-C")))
+       (and sym
+            (fboundp sym)
+            (funcall sym :setf :inverse ()))))))
 
 ;;; swank-mop
 
@@ -960,8 +969,8 @@ QUALITIES is an alist with (quality . value)"
                                (or name (function-name function))))
 
 (defun setf-expander (symbol)
-  (or 
-   #+#.(cl:if (sb-c::meta-info :setf :inverse ()) '(:and) '(:or))
+  (or
+   #+#.(swank/sbcl::sbcl-with-setf-inverse-meta-info)
    (sb-int:info :setf :inverse symbol)
    (sb-int:info :setf :expander symbol)))
 
