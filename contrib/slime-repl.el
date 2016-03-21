@@ -156,8 +156,7 @@ current repl's (as per slime-output-buffer) window."
 
 (defun slime-repl-insert-banner ()
   (when (zerop (buffer-size))
-    (let ((welcome (concat "; SLIME " (or (slime-changelog-date)
-                                          "- ChangeLog file not found"))))
+    (let ((welcome (concat "; SLIME " slime-version)))
       (insert welcome))))
 
 (defun slime-init-output-buffer (connection)
