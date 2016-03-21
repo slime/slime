@@ -148,12 +148,18 @@ This will be used like so:
   `(let ((,var ,value))
      (when ,var ,@body)))
 
-(defun with-symbol (name package)
-  "Generate a form suitable for testing with #+."
-  (if (and (find-package package)
-           (find-symbol (string name) package))
+(defun boolean-to-feature-expression (value)
+  "Converts a boolean VALUE to a form suitable for testing with #+."
+  (if value
       '(:and)
       '(:or)))
+
+(defun with-symbol (name package)
+  "Check if a symbol with a given NAME exists in PACKAGE and returns a
+form suitable for testing with #+."
+  (boolean-to-feature-expression
+   (and (find-package package)
+        (find-symbol (string name) package))))
 
 
 ;;;; UFT8

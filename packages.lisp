@@ -39,6 +39,7 @@
            emacs-inspect
            label-value-line
            label-value-line*
+           boolean-to-feature-expression
            with-symbol
            ;; package helper for backend
            import-to-swank-mop

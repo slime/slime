@@ -1,3 +1,10 @@
+2016-03-21  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* swank/backend.lisp (boolean-to-feature-expression): New function.
+	(with-symbol): Use it.
+
+	* packages.lisp (swank/backend): Export it.
+
 2016-03-19  Stas Boukarev  <stassats@gmail.com>
 
 	* swank/sbcl.lisp (describe-symbol-for-emacs): Adjust for new
