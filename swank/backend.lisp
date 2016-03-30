@@ -718,8 +718,13 @@ defined, invoke the expander function using *macroexpand-hook* and
 return the results and T.  Otherwise, return the original form and
 NIL."
   (let ((fun (and (consp form)
-                  (valid-function-name-p (car form))
-                  (compiler-macro-function (car form)))))
+                  (or (and (eq (car form) 'funcall)
+                           (or (eq (caadr form) 'quote)
+                               (eq (caadr form) 'function))
+                           (valid-function-name-p (cadadr form))
+                           (compiler-macro-function (cadadr form)))
+                      (and (valid-function-name-p (car form))
+                           (compiler-macro-function (car form)))))))
     (if fun
 	(let ((result (funcall *macroexpand-hook* fun form env)))
           (values result (not (eq result form))))
