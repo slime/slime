@@ -717,14 +717,14 @@ If FORM is a function call for which a compiler-macro has been
 defined, invoke the expander function using *macroexpand-hook* and
 return the results and T.  Otherwise, return the original form and
 NIL."
-  (let ((fun (and (consp form)
-                  (or (and (eq (car form) 'funcall)
-                           (or (eq (caadr form) 'quote)
-                               (eq (caadr form) 'function))
-                           (valid-function-name-p (cadadr form))
-                           (compiler-macro-function (cadadr form)))
-                      (and (valid-function-name-p (car form))
-                           (compiler-macro-function (car form)))))))
+  (let* ((fun-name (and (consp form)
+                        (or (and (eq (car form) 'funcall)
+                                 (or (eq (caadr form) 'quote)
+                                     (eq (caadr form) 'function))
+                                 (cadadr form))
+                            (car form))))
+         (fun (and (valid-function-name-p fun-name)
+                   (compiler-macro-function fun-name))))
     (if fun
 	(let ((result (funcall *macroexpand-hook* fun form env)))
           (values result (not (eq result form))))
