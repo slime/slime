@@ -1,3 +1,8 @@
+2016-04-02  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/abcl.lisp: import mop:slot-makunbound-using-class into
+	swank-mop.
+
 2016-03-21  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* swank/sbcl.lisp (sbcl-with-setf-inverse-meta-info): Backwards
