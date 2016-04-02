@@ -1,5 +1,8 @@
 2016-04-02  Stas Boukarev  <stassats@gmail.com>
 
+	* swank/sbcl.lisp (lisp-source-location): qualify the package of
+	swank:*swank-debugger-condition*.
+
 	* swank/abcl.lisp: import mop:slot-makunbound-using-class into
 	swank-mop.
 

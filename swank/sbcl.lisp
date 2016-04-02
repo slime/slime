@@ -1285,7 +1285,7 @@ stack."
 (defun lisp-source-location (code-location)
   (let ((source (prin1-to-string
                  (sb-debug::code-location-source-form code-location 100)))
-        (condition *swank-debugger-condition*))
+        (condition swank:*swank-debugger-condition*))
     (if (and (typep condition 'sb-impl::step-form-condition)
              (search "SB-IMPL::WITH-STEPPING-ENABLED" source
                      :test #'char-equal)
