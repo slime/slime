@@ -1,3 +1,9 @@
+2016-04-09  W. David Jarvis <venantius@gmail.com>
+
+	* contrib/swank-mit-scheme.scm: changed compilation result
+	filename to not explicitly look for `.com` extensions and instead
+	allow the compiler to do its own extension lookup.
+
 2016-02-11  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sbcl-exts.lisp (compute-enriched-decoded-arglist):
