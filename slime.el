@@ -84,6 +84,8 @@
   (require 'gud)
   (require 'lisp-mnt))
 
+(declare-function lm-version "lisp-mnt")
+
 (defvar slime-path nil
   "Directory containing the Slime package.
 This is used to load the supporting Common Lisp library, Swank.
@@ -93,12 +95,12 @@ the Emacs Lisp package.")
 
 (defvar slime-version nil
   "The version of SLIME that you're using.")
-(eval-when-compile
-  (setq slime-version
-        (lm-version (if (and (boundp 'byte-compile-current-file)
-                             byte-compile-current-file)
-                        byte-compile-current-file
-                        load-file-name))))
+(setq slime-version
+      (eval-when-compile
+       (lm-version (if (and (boundp 'byte-compile-current-file)
+                            byte-compile-current-file)
+                       byte-compile-current-file
+                     load-file-name))))
 
 (defvar slime-lisp-modes '(lisp-mode))
 (defvar slime-contribs nil
