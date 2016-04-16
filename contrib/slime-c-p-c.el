@@ -274,7 +274,7 @@ current buffer."
     (let ((result (slime-eval `(swank:completions-for-character
                                 ,(cl-subseq prefix 2)))))
       (when (car result)
-        (list (mapcar 'append-char-syntax (car result))
+        (list (mapcar #'append-char-syntax (car result))
               (append-char-syntax (cadr result)))))))
 
 
