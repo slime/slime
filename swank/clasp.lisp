@@ -428,7 +428,9 @@
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
-  (let* ((*ihs-top* (ihs-top))
+  (let* ((*ihs-top* (or #+#.(swank/backend:with-symbol '*stack-top-hint* 'core)
+                        core:*stack-top-hint*
+                        (ihs-top)))
          (*ihs-current* *ihs-top*)
 #+frs         (*frs-base* (or (sch-frs-base *frs-top* *ihs-base*) (1+ (frs-top))))
 #+frs         (*frs-top* (frs-top))

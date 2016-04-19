@@ -1,6 +1,7 @@
 2016-04-19  Stas Boukarev  <stassats@gmail.com>
 
 	* swank/clasp.lisp (frame-locals): list function arguments.
+	(call-with-debugging-environment): Use core:*stack-top-hint*
 
 2016-04-02  Stas Boukarev  <stassats@gmail.com>
 
