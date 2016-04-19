@@ -1,3 +1,7 @@
+2016-04-19  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/clasp.lisp (frame-locals): list function arguments.
+
 2016-04-02  Stas Boukarev  <stassats@gmail.com>
 
 	* swank/sbcl.lisp (lisp-source-location): qualify the package of

@@ -489,27 +489,28 @@
   (- (core:ihs-top) frame-number))
 
 (defimplementation frame-locals (frame-number)
-  (let ((env (cadr (elt *backtrace* frame-number))))
-    (loop for x = env then (core:get-parent-environment x)
-       with id = 0
-       until (null x)
-       append (loop for name across (core:environment-debug-names x)
-                 for value across (core:environment-debug-values x)
-                 do (setq id (1+ id))
-                 collect (list :name name :id id :value value)))))
+  (let* ((frame (elt *backtrace* frame-number))
+         (env (second frame))
+         (locals (loop for x = env then (core:get-parent-environment x)
+                       while x
+                       nconc (loop for name across (core:environment-debug-names x)
+                                   for value across (core:environment-debug-values x)
+                                   collect (list :name name :id 0 :value value)))))
+    (nconc
+     (loop for arg across (core:ihs-arguments (third frame))
+           for i from 0
+           collect (list :name (intern (format nil "ARG~d" i) #.*package*)
+                         :id 0
+                         :value arg))
+     locals)))
 
 (defimplementation frame-var-value (frame-number var-number)
-  (let ((env (cadr (elt *backtrace* frame-number))))
-    (block gotit
-      (loop for x = env then (core:get-parent-environment x)
-         with id = -1
-         until (null x)
-         do (loop for name across (core:environment-debug-names x)
-               for value across (core:environment-debug-values x)
-               do (setq id (1+ id))
-               do (when (eql id var-number)
-                    (return-from gotit value)))))))
-
+  (let* ((frame (elt *backtrace* frame-number))
+         (env (second frame))
+         (args (core:ihs-arguments (third frame))))
+    (if (< var-number (length args))
+        (svref args var-number)
+        (elt (frame-locals frame-number) var-number))))
 
 #+clasp-working
 (defimplementation disassemble-frame (frame-number)
