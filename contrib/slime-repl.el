@@ -1173,12 +1173,12 @@ truncated.  That part is untested, though!"
 (defun slime-repl-safe-save-merged-history ()
   (slime-repl-call-with-handler
    #'slime-repl-save-merged-history
-   "%S while saving the history. Continue? "))
+   (format "%%S while saving the history %S. Continue? " slime-repl-history-file)))
 
 (defun slime-repl-safe-load-history ()
   (slime-repl-call-with-handler
    #'slime-repl-load-history
-   "%S while loading the history. Continue? "))
+   (format "%%S while loading the history %S. Continue? "  slime-repl-history-file)))
 
 (defun slime-repl-call-with-handler (fun query)
   "Call FUN in the context of an error handler.
