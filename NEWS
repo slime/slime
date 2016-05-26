@@ -1,6 +1,8 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
 * 2.18 (May 2016)
 *** Mostly bug fixes and compatibility with newer implementations
+*** Fixed "Error: The variable SWANK/SBCL::*SWANK-DEBUGGER-CONDITION* is unbound."
+when trying to view source of evaluated function.
 
 * 2.17 (February 2016)
 ** Contribs
