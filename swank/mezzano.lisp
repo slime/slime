@@ -192,6 +192,10 @@
          (push (list (1- i) fp prev-fp) *current-backtrace*)
          (setf prev-fp fp))))
     (setf *current-backtrace* (reverse *current-backtrace*))
+    ;; Drop the topmost frame, which is finished call to MAP-BACKTRACE.
+    (pop *current-backtrace*)
+    ;; And the next one for good measure.
+    (pop *current-backtrace*)
     (funcall debugger-loop-fn)))
 
 (defimplementation compute-backtrace (start end)
