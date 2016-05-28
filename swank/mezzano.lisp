@@ -584,12 +584,26 @@
 
 ;;;;  Locks
 
+(defstruct recursive-lock
+  mutex
+  (depth 0))
+
 (defimplementation make-lock (&key name)
-  (mezzano.supervisor:make-mutex name))
+  (make-recursive-lock
+   :mutex (mezzano.supervisor:make-mutex name)))
 
 (defimplementation call-with-lock-held (lock function)
-  (mezzano.supervisor:with-mutex (lock)
-    (funcall function)))
+  (cond ((mezzano.supervisor:mutex-held-p
+          (recursive-lock-mutex lock))
+         (unwind-protect
+              (progn (incf (recursive-lock-depth lock))
+                     (funcall function))
+           (decf (recursive-lock-depth lock))))
+        (t
+         (mezzano.supervisor:with-mutex ((recursive-lock-mutex lock))
+           (multiple-value-prog1
+               (funcall function)
+             (assert (eql (recursive-lock-depth lock) 0)))))))
 
 ;;;; Character names
 
