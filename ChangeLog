@@ -1,3 +1,7 @@
+2016-05-28  Ernesto Alfonso  <erjoalgo@gmail.com>
+
+	* slime.el (slime-words-of-encouragement): Allow slime to also encourage "sister" hackers
+
 2016-04-19  Stas Boukarev  <stassats@gmail.com>
 
 	* swank/clasp.lisp (frame-locals): list function arguments.
