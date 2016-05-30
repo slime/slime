@@ -509,7 +509,11 @@ joined together."))
 (defun slime-repl-buffer (&optional create connection)
   "Get the REPL buffer for the current connection; optionally create."
   (funcall (if create #'get-buffer-create #'get-buffer)
-           (format "*slime-repl %s*" (slime-connection-name connection))))
+           (format "*slime-repl %s%s*"
+		   (slime-connection-name connection)
+		   (let ((tag (slime-connection-tag connection)))
+		     (if (and tag (not (string= tag "")))
+			 (concat " [" tag "]") "")))))
 
 (defun slime-repl ()
   (interactive)

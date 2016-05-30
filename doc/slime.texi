@@ -1656,6 +1656,9 @@ Quit the connection list (kill buffer, restore window configuration).
 @kbditem{R, slime-restart-connection-at-point}
 Restart the Lisp process for the connection at point.
 
+@kbditem{t, slime-connection-list-change-tag}
+Tag the Lisp process for the connection at point.
+
 @cmditem{slime-connect}
 Connect to a running Swank server.
 
