@@ -97,17 +97,16 @@
 (defimplementation preferred-communication-style ()
   :spawn)
 
-#+nil
-;;#-windows-target
+#|
+#-windows-target
 (defimplementation create-socket (host port filename &key backlog)
   (declare (ignore host port))
   (cons
   (ccl:make-socket :connect :passive
                    :auto-close t :backlog (or backlog 5)
                    :local-filename filename :address-family :file)
-        filename))
+        filename))|#
 
-;;#+windows-target
 (defimplementation create-socket (host port filename &key backlog)
   (declare (ignore filename))
   (cons (ccl:make-socket :connect :passive :local-port port
@@ -220,7 +219,7 @@
                                          policy)
   (declare (ignore policy))
   (with-compilation-hooks ()
-    (let ((temp-file-name (swank:make-temp-filename))
+    (let ((temp-file-name (ccl:temp-pathname))
           (ccl:*save-source-locations* t))
       (unwind-protect
            (progn
