@@ -41,7 +41,16 @@
     (with-symbol 'who-calls 'sb-introspect))
   ;; ... for restart-frame support (1.0.2)
   (defun sbcl-with-restart-frame ()
-    (with-symbol 'frame-has-debug-tag-p 'sb-debug)))
+    (with-symbol 'frame-has-debug-tag-p 'sb-debug))
+  ;; ... for :setf :inverse info (1.1.17)
+  (defun sbcl-with-setf-inverse-meta-info ()
+    (boolean-to-feature-expression
+     ;; going through FIND-SYMBOL since META-INFO was renamed from
+     ;; TYPE-INFO in 1.2.10.
+     (let ((sym (find-symbol "META-INFO" "SB-C")))
+       (and sym
+            (fboundp sym)
+            (funcall sym :setf :inverse ()))))))
 
 ;;; swank-mop
 
@@ -985,6 +994,12 @@ QUALITIES is an alist with (quality . value)"
                                :function
                                (or name (function-name function))))
 
+(defun setf-expander (symbol)
+  (or
+   #+#.(swank/sbcl::sbcl-with-setf-inverse-meta-info)
+   (sb-int:info :setf :inverse symbol)
+   (sb-int:info :setf :expander symbol)))
+
 (defimplementation describe-symbol-for-emacs (symbol)
   "Return a plist describing SYMBOL.
 Return NIL if the symbol is unbound."
@@ -1009,9 +1024,8 @@ Return NIL if the symbol is unbound."
                (t :function))
          (doc 'function)))
       (maybe-push
-       :setf (if (or (sb-int:info :setf :inverse symbol)
-                     (sb-int:info :setf :expander symbol))
-                 (doc 'setf)))
+       :setf (and (setf-expander symbol) 
+                  (doc 'setf)))
       (maybe-push
        :type (if (sb-int:info :type :kind symbol)
                  (doc 'type)))
@@ -1024,8 +1038,7 @@ Return NIL if the symbol is unbound."
     (:function
      (describe (symbol-function symbol)))
     (:setf
-     (describe (or (sb-int:info :setf :inverse symbol)
-                   (sb-int:info :setf :expander symbol))))
+     (describe (setf-expander symbol)))
     (:class
      (describe (find-class symbol)))
     (:type
@@ -1298,7 +1311,7 @@ stack."
 (defun lisp-source-location (code-location)
   (let ((source (prin1-to-string
                  (sb-debug::code-location-source-form code-location 100)))
-        (condition *swank-debugger-condition*))
+        (condition swank:*swank-debugger-condition*))
     (if (and (typep condition 'sb-impl::step-form-condition)
              (search "SB-IMPL::WITH-STEPPING-ENABLED" source
                      :test #'char-equal)

@@ -135,7 +135,7 @@
    mop:slot-definition-writers
    slot-boundp-using-class
    slot-value-using-class
-   ))
+   mop:slot-makunbound-using-class))
 
 ;;;; TCP Server
 

@@ -1,4 +1,7 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
+* 2.18 (May 2016)
+*** Mostly bug fixes and compatibility with newer implementations
+
 * 2.17 (February 2016)
 ** Contribs
 *** New contrib, slime-macrostep, for more advanced in-place macroexpansion.

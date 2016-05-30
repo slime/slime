@@ -1,3 +1,45 @@
+2016-04-19  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/clasp.lisp (frame-locals): list function arguments.
+	(call-with-debugging-environment): Use core:*stack-top-hint*
+
+2016-04-02  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/sbcl.lisp (lisp-source-location): qualify the package of
+	swank:*swank-debugger-condition*.
+
+	* swank/abcl.lisp: import mop:slot-makunbound-using-class into
+	swank-mop.
+
+2016-03-21  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* swank/sbcl.lisp (sbcl-with-setf-inverse-meta-info): Backwards
+	compatibility test for :setf :inverse info that takes special care
+	not to trip on package locks due to interning SB-C::META-INFO on
+	older SBCLs.
+	(setf-expander): Use it.
+
+2016-03-21  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* swank/backend.lisp (boolean-to-feature-expression): New function.
+	(with-symbol): Use it.
+
+	* packages.lisp (swank/backend): Export it.
+
+2016-03-19  Stas Boukarev  <stassats@gmail.com>
+
+	* swank/sbcl.lisp (describe-symbol-for-emacs): Adjust for new
+	SBCL, (sb-int:info :setf :inverse) is no longer present.
+
+2016-03-09  Tomas Zellerin  <tomas@zellerin.cz>
+
+	* swank/rpc.lisp (simple-read): We did not gain anything by custom string reader.
+	* swank/rpc.lisp (simple-read): Fix handling of symbols.
+
+2016-03-04  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (xref-doit): translate :sets to who-sets.
+
 2016-02-10  Stas Boukarev  <stassats@gmail.com>
 
 	* swank/backend.lisp: Squash a couple compilation warnings.
