@@ -221,7 +221,7 @@
                                          policy)
   (declare (ignore policy))
   (with-compilation-hooks ()
-    (let ((temp-file-name (swank:make-temp-file))
+    (let ((temp-file-name (swank:make-temp-filename))
           (ccl:*save-source-locations* t))
       (unwind-protect
            (progn
