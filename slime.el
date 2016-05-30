@@ -1456,7 +1456,6 @@ implementations")
 ;;; Interface
 (defun slime-net-connect (port)
   "Establish a connection with a CL."
-  (assert (stringp port))
   (let* ((inhibit-quit nil)
          (use-host (integerp port))
          (proc (make-network-process :name "SLIME Lisp"
