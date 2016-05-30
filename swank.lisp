@@ -728,7 +728,7 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
 This is the entry point for Emacs."
   (setq *temporary-directory* socket-directory)
   (assert (null (pathname-name (pathname *temporary-directory*))))
-  (setup-server 0
+  (setup-server default-server-port
                 (lambda (port) (announce-server-port socket-directory port))
                 style dont-close nil))
 

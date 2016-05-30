@@ -1290,7 +1290,9 @@ creates its socket."
                port-file attempt))
     (cond ((and (file-exists-p port-file)
                 (> (nth 7 (file-attributes port-file)) 0)) ; file size
-           (let ((port (car (slime-read-swank-port port-file))))
+           (let* ((datum (slime-read-swank-port port-file))
+                  (port (car datum))
+                  (service (cdr datum)))
              ;; (delete-directory file t) ; We can delete this now
              (let ((c (slime-connect port coding-system)))
                (slime-set-inferior-process c process)
@@ -1460,7 +1462,9 @@ implementations")
          (use-host (integerp port))
          (proc (make-network-process :name "SLIME Lisp"
                                      :buffer nil
-                                     :host (and use-host "127.0.0.1")
+                                     :host (when use-host
+                                             (assert (not (zerop port)))
+                                             "127.0.0.1")
                                      :service port
                                      :family (if use-host 'ipv4 'local)))
          (buffer (slime-make-net-buffer " *cl-connection*")))
