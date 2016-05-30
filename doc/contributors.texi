@@ -51,4 +51,5 @@
 @item Brandon Bergren @tab Bozhidar Batsov @tab Bob Halley
 @item Barry Fishman @tab B.Scott Michel @tab Andrew Myers
 @item Aleksandar Bakic @tab Alain Picard @tab Adam Bozanich
+@item Wojciech Gac
 @end multitable
