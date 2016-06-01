@@ -1,6 +1,6 @@
 Known problems with SLIME                                   -*- outline -*-
 
-* Common to all backendsh
+* Common to all backends
 
 ** Caution: network security
 
@@ -18,6 +18,10 @@ Unix domain sockets.  Unix domain sockets are secured by filesystem
 permissions and SLIME is thus immune to this attack on such systems.
 Currently, Unix domain sockets are supported on Unix systems with all
 supported Lisps except ABCL and LispWorks.
+
+It is planned (but not yet implemented) to use cryptographic
+authentication on TCP socket messages to solve the problem once and
+for all.
 
 ** READ-CHAR-NO-HANG is broken
 

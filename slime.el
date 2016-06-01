@@ -1,4 +1,4 @@
-;;; slime.el --- Superior Lisp Interaction Mode for Emacs -*-lexical-binding:t-*-
+;;; slime.el --- Superior Lisp Interaction Mode for Emacs -*- lexical-binding: t -*-
 
 ;; URL: https://github.com/slime/slime
 ;; Package-Requires: ((cl-lib "0.5") (macrostep "0.9"))
@@ -1383,7 +1383,6 @@ The default condition handler for timer functions (see
 
 (defun slime-unregister-process (process &optional _reason)
   "Unregister `process' from the hash table of processes"
-  (declare (ignore reason))
   (condition-case nil
       (delete-directory (gethash process slime-temporary-directories) t)
     (file-error nil))
@@ -2097,10 +2096,10 @@ Note: don't use backquote syntax for SEXP, because various Emacs
 versions cannot deal with that."
   (declare (indent 2))
   (let ((result (cl-gensym)))
-    `(let ,(cl-loop for var in saved-vars
-                    collect (cl-etypecase var
-                              (symbol (list var var))
-                              (cons var)))
+    `(lexical-let ,(cl-loop for var in saved-vars
+                            collect (cl-etypecase var
+                                      (symbol (list var var))
+                                      (cons var)))
        (slime-dispatch-event
         (list :emacs-rex ,sexp ,package ,thread
               (lambda (,result)
