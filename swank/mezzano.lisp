@@ -17,48 +17,18 @@
 
 ;;; swank-mop
 
-(import-swank-mop-symbols :sys.clos '(:class-default-initargs
-                                      :class-direct-default-initargs
-                                      :class-finalized-p
-                                      :class-prototype
-                                      :specializer-direct-methods
-                                      :generic-function-argument-precedence-order
-                                      :generic-function-declarations
-                                      :generic-function-method-combination
-                                      :slot-definition-documentation
-                                      :slot-definition-type))
-
-(defun swank-mop:class-finalized-p (class)
-  (declare (ignore class))
-  t)
-
-(defun swank-mop:class-prototype (class)
-  (allocate-instance (if (symbolp class)
-                         (find-class class)
-                         class)))
+(import-swank-mop-symbols :mezzano.clos '(:class-default-initargs
+                                          :class-direct-default-initargs
+                                          :specializer-direct-methods
+                                          :generic-function-declarations))
 
 (defun swank-mop:specializer-direct-methods (obj)
   (declare (ignore obj))
   '())
 
-(defun swank-mop:generic-function-argument-precedence-order (gf)
-  (sys.clos:generic-function-lambda-list gf))
-
 (defun swank-mop:generic-function-declarations (gf)
   (declare (ignore gf))
   '())
-
-(defun swank-mop:generic-function-method-combination (gf)
-  (declare (ignore gf))
-  :standard)
-
-(defun swank-mop:slot-definition-documentation (slot)
-  (declare (ignore slot))
-  nil)
-
-(defun swank-mop:slot-definition-type (slot)
-  (declare (ignore slot))
-  t)
 
 (defimplementation gray-package-name ()
   "SYS.GRAY")
@@ -302,13 +272,13 @@
                                       (or (special-operator-p name)
                                           (macro-function name)))))
                    (let ((fn (fdefinition name)))
-                     (cond ((typep fn 'sys.clos:standard-generic-function)
-                            (dolist (m (sys.clos:generic-function-methods fn))
+                     (cond ((typep fn 'mezzano.clos:standard-generic-function)
+                            (dolist (m (mezzano.clos:generic-function-methods fn))
                               (frob-fn `(defmethod ,name
-                                            ,@(sys.clos:method-qualifiers m)
-                                          ,(mapcar #'sys.clos:class-name
-                                                   (sys.clos:method-specializers m)))
-                                       (sys.clos:method-function m))))
+                                            ,@(mezzano.clos:method-qualifiers m)
+                                          ,(mapcar #'mezzano.clos:class-name
+                                                   (mezzano.clos:method-specializers m)))
+                                       (mezzano.clos:method-function m))))
                            (t
                             (frob-fn `(defun ,name) fn)))))
                  (when (compiler-macro-function name)
@@ -358,17 +328,17 @@
        when fn
        do
          (cond ((typep fn 'standard-generic-function)
-                (dolist (m (sys.clos:generic-function-methods fn))
+                (dolist (m (mezzano.clos:generic-function-methods fn))
                   (when (member fref-for-fn
-                                (get-all-frefs-in-function (sys.clos:method-function m)))
+                                (get-all-frefs-in-function (mezzano.clos:method-function m)))
                     (push `((defmethod ,name
-                                ,@(sys.clos:method-qualifiers m)
+                                ,@(mezzano.clos:method-qualifiers m)
                               ,(mapcar (lambda (specializer)
                                          (if (typep specializer 'standard-class)
-                                             (sys.clos:class-name specializer)
+                                             (mezzano.clos:class-name specializer)
                                              specializer))
-                                       (sys.clos:method-specializers m)))
-                            ,(function-location (sys.clos:method-function m)))
+                                       (mezzano.clos:method-specializers m)))
+                            ,(function-location (mezzano.clos:method-function m)))
                           callers))))
                ((member fref-for-fn
                         (get-all-frefs-in-function fn))
@@ -410,8 +380,8 @@
        (get name 'sys.int::macro-lambda-list))
       (fn
        (cond
-         ((typep fn 'sys.clos:standard-generic-function)
-          (sys.clos:generic-function-lambda-list fn))
+         ((typep fn 'mezzano.clos:standard-generic-function)
+          (mezzano.clos:generic-function-lambda-list fn))
          (t
           (sys.int::debug-info-lambda-list (sys.int::function-debug-info fn)))))
       (t :not-available))))
