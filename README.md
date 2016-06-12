@@ -17,7 +17,7 @@ For much more information, consult [the manual][1].
 Quick setup instructions
 ------------------------
 
-  1. [Setup the MELPA repository][2], if you haven't already, and install
+  1. [Set up the MELPA repository][2], if you haven't already, and install
      SLIME using `M-x package-install RET slime RET`.
 
   2. Add the following lines to your `~/.emacs` file, filling in in
