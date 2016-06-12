@@ -146,6 +146,8 @@ better, please do so!_
 * Open a [pull request][2] that relates to *only* one subject with a
   clear title and description in grammatically correct, complete
   sentences.
+* Write [good commit messages][3].
 
 [1]: http://gun.io/blog/how-to-github-fork-branch-and-pull-request
 [2]: https://help.github.com/articles/using-pull-requests
+[3]: http://chris.beams.io/posts/git-commit/
