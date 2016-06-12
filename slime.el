@@ -97,10 +97,14 @@ the Emacs Lisp package.")
   "The version of SLIME that you're using.")
 (setq slime-version
       (eval-when-compile
-       (lm-version (if (and (boundp 'byte-compile-current-file)
-                            byte-compile-current-file)
-                       byte-compile-current-file
-                     load-file-name))))
+       (lm-version
+        (cl-find "slime.el"
+                 (remove nil
+                         (list load-file-name
+                               (when (boundp 'byte-compile-current-file)
+                                 byte-compile-current-file)))
+                 :key #'file-name-nondirectory
+                 :test #'string-equal))))
 
 (defvar slime-lisp-modes '(lisp-mode))
 (defvar slime-contribs nil
