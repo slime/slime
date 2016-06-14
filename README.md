@@ -26,7 +26,7 @@ Quick setup instructions
      ```el
      ;; Set your lisp system and, optionally, some contribs
      (setq inferior-lisp-program "/opt/sbcl/bin/sbcl")
-     (slime-setup '(slime-fancy))
+     (setq slime-contribs '(slime-fancy))
      ```
 
   3. Use `M-x slime` to fire up and connect to an inferior Lisp. SLIME will
@@ -40,7 +40,7 @@ Contribs
 --------
 
 SLIME comes with additional contributed packages or "contribs".
-Contribs can be loaded with the `slime-setup` function.
+Contribs can be selected via the `slime-contribs` list.
 
 The most-often used contrib is `slime-fancy`, which primarily installs a
 popular set of other contributed packages. It includes a better REPL, and

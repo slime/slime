@@ -943,6 +943,7 @@ See `slime-lisp-implementations'")
 (defun slime (&optional command coding-system)
   "Start an inferior^_superior Lisp and connect to its Swank server."
   (interactive)
+  (slime-setup)
   (let ((inferior-lisp-program (or command inferior-lisp-program))
         (slime-net-coding-system (or coding-system slime-net-coding-system)))
     (slime-start* (cond ((and command (symbolp command))
@@ -1061,6 +1062,7 @@ DIRECTORY change to this directory before starting the process.
                        "Port: " (cl-first slime-connect-port-history)
                        nil nil '(slime-connect-port-history . 1)))
                      nil t))
+  (slime-setup)
   (when (and interactive-p
              slime-net-processes
              (y-or-n-p "Close old connections first? "))
@@ -7491,8 +7493,6 @@ The returned bounds are either nil or non-empty."
 
 (run-hooks 'slime-load-hook)
 (provide 'slime)
-
-(slime-setup)
 
 ;; Local Variables:
 ;; outline-regexp: ";;;;+"
