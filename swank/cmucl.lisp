@@ -52,20 +52,22 @@
 (defimplementation preferred-communication-style ()
   :sigio)
 
-#-(or darwin mips)
+#+win32
 (defimplementation create-socket (host port &key backlog)
+  ;; (assert (null port))
   (let* ((addr (resolve-hostname host))
          (addr (if (not (find-symbol "SOCKET-ERROR" :ext))
                    (ext:htonl addr)
                    addr)))
-    (ext:create-inet-listener port :stream :reuse-address t :host addr
+    (ext:create-inet-listener port :stream
+                              :reuse-address nil
+                              :host addr
                               :backlog (or backlog 5))))
 
-;; There seems to be a bug in create-inet-listener on Mac/OSX and Irix.
-#+(or darwin mips)
+#-win32
 (defimplementation create-socket (host port &key backlog)
-  (declare (ignore host))
-  (ext:create-inet-listener port :stream :reuse-address t))
+  (assert (null host))
+  (ext:create-unix-listener port :stream :backlog backlog))
 
 (defimplementation local-port (socket)
   (nth-value 1 (ext::get-socket-host-and-port (socket-fd socket))))
@@ -74,6 +76,7 @@
   (let ((fd (socket-fd socket)))
     (sys:invalidate-descriptor fd)
     (ext:close-socket fd)))
+
 
 (defimplementation accept-connection (socket &key
                                       external-format buffering timeout)
@@ -1827,7 +1830,7 @@ Try to create a informative message."
   `(call/temporary-file (lambda (,stream ,filename) . ,body)))
 
 (defun call/temporary-file (fun)
-  (let ((name (system::pick-temporary-file-name)))
+  (let ((name (swank:make-temp-filename)))
     (unwind-protect
          (with-open-file (stream name :direction :output :if-exists :supersede)
            (funcall fun stream name))

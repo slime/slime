@@ -32,7 +32,7 @@ install:
     fi
 
 script:
-  - make LISP=$LISP EMACS=$EMACS $CHECK_TARGET
+  - make "LISP=$LISP" "EMACS=$EMACS" "$CHECK_TARGET"
 
 notifications:
   email:

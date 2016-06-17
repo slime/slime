@@ -62,19 +62,19 @@
   ("(swank::emacs-connected*HERE*"    "(emacs-connected)")
   ("(swank::emacs-connected *HERE*"   "(emacs-connected)")
   ("(swank::create-socket*HERE*"
-   "(create-socket host port &key backlog)")
+   "(create-socket host port filename &key backlog)")
   ("(swank::create-socket *HERE*"
-   "(create-socket ===> host <=== port &key backlog)")
+   "(create-socket ===> host <=== port filename &key backlog)")
   ("(swank::create-socket foo *HERE*"
-   "(create-socket host ===> port <=== &key backlog)")
+   "(create-socket host ===> port <=== filename &key backlog)")
 
   ;; Test that autodoc differentiates between exported and
   ;; unexported symbols.
   ("(swank:create-socket*HERE*" :not-available)
 
   ;; Test if cursor is on non-existing required parameter
-  ("(swank::create-socket foo bar *HERE*"
-   "(create-socket host port &key backlog)")
+  ("(swank::create-socket foo bar baz *HERE*"
+   "(create-socket host port filename &key backlog)")
 
   ;; Test cursor in front of opening parenthesis
   ("(swank::with-struct *HERE*(foo. x y) *struct* body1)"
@@ -88,19 +88,19 @@
   ;; Test that "variable content display" is not triggered for
   ;; trivial constants.
   ("(swank::create-socket t*HERE*"
-   "(create-socket ===> host <=== port &key backlog)")
+   "(create-socket ===> host <=== port filename &key backlog)")
   ("(swank::create-socket :foo*HERE*"
-   "(create-socket ===> host <=== port &key backlog)")
+   "(create-socket ===> host <=== port filename &key backlog)")
 
   ;; Test with syntactic sugar
   ("#'(lambda () (swank::create-socket*HERE*"
-   "(create-socket host port &key backlog)")
+   "(create-socket host port filename &key backlog)")
   ("`(lambda () ,(swank::create-socket*HERE*"
-   "(create-socket host port &key backlog)")
+   "(create-socket host port filename &key backlog)")
   ("(remove-if #'(lambda () (swank::create-socket*HERE*"
-   "(create-socket host port &key backlog)")
+   "(create-socket host port filename &key backlog)")
   ("`(remove-if #'(lambda () ,@(swank::create-socket*HERE*"
-   "(create-socket host port &key backlog)")
+   "(create-socket host port filename &key backlog)")
 
   ;; Test &optional
   ("(swank::symbol-status foo *HERE*"
@@ -145,7 +145,7 @@
    :skip-trailing-test-p t
    :fails-for ("allegro" "ccl"))
   ("(swank::start-server \"/tmp/foo\" :dont-close *HERE*"
-   "(start-server port-file &key (style swank:*communication-style*)\
+   "(start-server socket-directory &key (style swank:*communication-style*)\
  ===> (dont-close swank:*dont-close*) <===)"
    :fails-for ("allegro" "ccl"))
 

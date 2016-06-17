@@ -202,8 +202,29 @@ Backend code should treat the connection structure as opaque.")
   (active-threads '() :type list)
   )
 
+(defvar *filename-index-lock*
+  (make-lock :name "Temporary filename index lock")
+  "Lock protecting the temporary filename ordinal")
+
+(defvar *temp-filename-index* 0
+  "Ordinal index of temporary filenames")
+
+(defvar *temporary-directory* nil
+  "Temporary directory created for us by Emacs")
+
+(defslimefun make-temp-filename ()
+  "Create a temporary filename in a secure directory"
+  (format nil "~A/slime-temp-file-~A"
+          *temporary-directory*
+          (call-with-lock-held *filename-index-lock*
+                               (lambda ()
+                                 (incf *temp-filename-index*)))))
+
 (defvar *emacs-connection* nil
   "The connection to Emacs currently in use.")
+
+(defvar *global-socket* nil
+  "The global socket")
 
 (defun make-connection (socket stream style)
   (let ((conn (funcall (ecase style
@@ -564,15 +585,19 @@ recently established one."
      (sentinel-maybe-exit))))
 
 (defun sentinel-stop-server (key value)
-  (let ((probe (find value *servers* :key (ecase key 
+  (let ((probe (find value *servers* :key (ecase key
                                             (:socket #'car)
                                             (:port #'cadr)))))
-    (cond (probe 
+    (cond (probe
            (setq *servers* (delete probe *servers*))
-           (destructuring-bind (socket _port thread) probe
-             (declare (ignore _port))
-             (ignore-errors (close-socket socket))
-             (when (and thread 
+           (destructuring-bind (socket port thread) probe
+             (when (null *servers*)
+               (ignore-errors (close-socket socket))
+               (unless (numberp port)
+                 (handler-case
+                     (delete-file port)
+                   (file-error ()))))
+             (when (and thread
                         (thread-alive-p thread)
                         (not (eq thread (current-thread))))
                (kill-thread thread))))
@@ -688,16 +713,23 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
 
 (defvar *communication-style* (preferred-communication-style))
 
-(defvar *dont-close* nil
+(defvar *dont-close* t
   "Default value of :dont-close argument to start-server and
   create-server.")
 
-(defun start-server (port-file &key (style *communication-style*)
-                                    (dont-close *dont-close*))
+(defun temporary-directory ()
+  "Returns the temporary directory created for us by Emacs"
+  *temporary-directory*)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (export 'temporary-directory (find-package :swank)))
+(defun start-server (socket-directory &key (style *communication-style*)
+                                        (dont-close *dont-close*))
   "Start the server and write the listen port number to PORT-FILE.
 This is the entry point for Emacs."
-  (setup-server 0
-                (lambda (port) (announce-server-port port-file port))
+  (setq *temporary-directory* socket-directory)
+  (assert (null (pathname-name (pathname *temporary-directory*))))
+  (setup-server default-server-port
+                (lambda (port) (announce-server-port socket-directory port))
                 style dont-close nil))
 
 (defun create-server (&key (port default-server-port)
@@ -723,21 +755,33 @@ explicit transfer of control), all within an implicit block named nil.
 e.g.: (restart-loop (http-request url) (use-value (new) (setq url new)))"
   `(loop (restart-case (return ,form) ,@clauses)))
 
+(defvar *socket-count* 0 "The number of connections")
+
+(defvar *nth-socket* 0
+  "The number of sockets created by SWANK in this inferior Lisp")
+
 (defun socket-quest (port backlog)
-  (restart-loop (create-socket *loopback-interface* port :backlog backlog)
-    (use-value (&optional (new-port (1+ port)))
+  (restart-loop
+      (if (null *servers*)
+          (create-socket *loopback-interface* port
+                         (format nil
+                                 "~A/socket-~S" *temporary-directory*
+                                 (incf *nth-socket*))
+                         :backlog backlog)
+          (let ((val (car *servers*)))
+            (cons (car val) (cadr val))))
+    (Use-value (&optional (new-port (1+ port)))
       :report (lambda (stream) (format stream "Try a port other than ~D" port))
       :interactive
       (lambda ()
-        (format *query-io* "Enter port (defaults to ~D): " (1+ port))
+        (format *query-io* "Enter port or filename (defaults to ~D): " (1+ port))
         (finish-output *query-io*)      ; necessary for tunnels
-        (ignore-errors (list (parse-integer (read-line *query-io*)))))
+        (ignore-errors (list (read-from-string (read-line *query-io*)))))
       (setq port new-port))))
 
 (defun setup-server (port announce-fn style dont-close backlog)
   (init-log-output)
-  (let* ((socket (socket-quest port backlog))
-         (port (local-port socket)))
+  (destructuring-bind (socket . port) (socket-quest port backlog)
     (funcall announce-fn port)
     (labels ((serve () (accept-connections socket style dont-close))
              (note () (send-to-sentinel `(:add-server ,socket ,port
@@ -759,8 +803,8 @@ e.g.: (restart-loop (http-request url) (use-value (new) (setq url new)))"
   (send-to-sentinel `(:stop-server :port ,port)))
 
 (defun restart-server (&key (port default-server-port)
-                       (style *communication-style*)
-                       (dont-close *dont-close*))
+                         (style *communication-style*)
+                         (dont-close *dont-close*))
   "Stop the server listening on PORT, then start a new SWANK server 
 on PORT running in STYLE. If DONT-CLOSE is true then the listen socket 
 will accept multiple connections, otherwise it will be closed after the 
@@ -770,24 +814,40 @@ first."
   (create-server :port port :style style :dont-close dont-close))
 
 (defun accept-connections (socket style dont-close)
-  (let ((client (unwind-protect 
+  (let ((client (unwind-protect
                      (accept-connection socket :external-format nil
                                                :buffering t)
-                  (unless dont-close
-                    (close-socket socket)))))
+                  #+nil(unless dont-close
+                         (close-socket socket)))))
     (authenticate-client client)
     (serve-requests (make-connection socket client style))
     (unless dont-close
       (send-to-sentinel `(:stop-server :socket ,socket)))))
 
+(declaim (notinline string-differences-count))
+
+(defun check-diff (a b c)
+  (declare (type (unsigned-byte 8) a b c))
+  (setq c (logior c (logxor a b))))
+(defun string-differences-count (a b)
+  (check-type a (array (unsigned-byte 8)))
+  (check-type b (array (unsigned-byte 8)))
+  (let ((len (length a))
+        (c 0))
+    (assert (= len (length b)))
+    (loop
+       for i from 0 to len
+       do (setq c (check-diff a b c))
+       finally (return c))))
+
 (defun authenticate-client (stream)
-  (let ((secret (slime-secret)))
+  (let ((secret (slime-secret))
+        (arr (make-array 16 :element-type '(unsigned-byte 8) :initial-element 0)))
     (when secret
-      (set-stream-timeout stream 20)
-      (let ((first-val (decode-message stream)))
-        (unless (and (stringp first-val) (string= first-val secret))
-          (error "Incoming connection doesn't know the password.")))
-      (set-stream-timeout stream nil))))
+      (let ((index (read-sequence arr stream)))
+        (unless (and (= index (length secret))
+                     (= 0 (string-differences-count arr secret)))
+          (error "Incoming connection doesn't know the password."))))))
 
 (defun slime-secret ()
   "Finds the magic secret from the user's home directory.  Returns nil
@@ -819,12 +879,20 @@ if the file doesn't exist; otherwise the first line of the file."
        (:fd-handler (deinstall-fd-handler connection))))))
 
 (defun announce-server-port (file port)
-  (with-open-file (s file
+  (assert port)
+  (assert (null (pathname-name (pathname file))))
+  (let ((port-original-name (make-pathname :name "port1" :defaults file))
+        (port-new-name (make-pathname :name "port" :defaults file)))
+  (with-open-file (s port-original-name
                      :direction :output
                      :if-exists :error
                      :if-does-not-exist :create)
     (format s "~S~%" port))
-  (simple-announce-function port))
+  (handler-case
+      (delete-file port-new-name)
+    (file-error nil))
+  (rename-file port-original-name port-new-name)
+  (simple-announce-function port)))
 
 (defun simple-announce-function (port)
   (when *swank-debug-p*
@@ -3468,12 +3536,14 @@ Example:
 (defslimefun kill-nth-thread (index)
   (kill-thread (nth-thread index)))
 
-(defslimefun start-swank-server-in-thread (index port-file-name)
+(defslimefun start-swank-server-in-thread (index port-directory-name)
   "Interrupt the INDEXth thread and make it start a swank server.
-The server port is written to PORT-FILE-NAME."
+The server port is written to PORT-DIRECTORY-NAME/port, unless UNIX domain
+sockets are supported, in which case the socket is created with filename
+PORT-DIRECTORY-NAME/socket."
   (interrupt-thread (nth-thread index)
                     (lambda ()
-                      (start-server port-file-name :style nil))))
+                      (start-server port-directory-name :style nil))))
 
 ;;;; Class browser
 

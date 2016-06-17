@@ -4,13 +4,24 @@ Known problems with SLIME                                   -*- outline -*-
 
 ** Caution: network security
 
-The `M-x slime' command has Lisp listen on a TCP socket and wait for
-Emacs to connect, which typically takes on the order of one second. If
-someone else were to connect to this socket then they could use the
-SLIME protocol to control the Lisp process.
+On Windows systems, and on Lisps that do not support Unix domain
+sockets, the `M-x slime' command has Lisp listen on a TCP socket and
+wait for Emacs to connect, which typically takes on the order of one
+second. If someone else were to connect to this socket then they could
+use the SLIME protocol to control the Lisp process.
 
 The listen socket is bound on the loopback interface in all Lisps that
 support this. This way remote hosts are unable to connect.
+
+Note that this is not a problem on Unix hosts for Lisps that support
+Unix domain sockets.  Unix domain sockets are secured by filesystem
+permissions and SLIME is thus immune to this attack on such systems.
+Currently, Unix domain sockets are supported on Unix systems with all
+supported Lisps except ABCL and LispWorks.
+
+It is planned (but not yet implemented) to use cryptographic
+authentication on TCP socket messages to solve the problem once and
+for all.
 
 ** READ-CHAR-NO-HANG is broken
 

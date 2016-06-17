@@ -767,7 +767,7 @@ function names like \(SETF GET)."
   (assert buffer)
   (assert position)
   (let* ((location (list :emacs-buffer buffer position))
-         (tmpname (hcl:make-temp-file nil "lisp")))
+         (tmpname (hcl:make-temp-file swank::*temporary-directory* "lisp")))
     (with-swank-compilation-unit (location)
       (compile-from-temp-file 
        (with-output-to-string (s)

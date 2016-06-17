@@ -97,13 +97,26 @@
 (defimplementation preferred-communication-style ()
   :spawn)
 
-(defimplementation create-socket (host port &key backlog)
-  (ccl:make-socket :connect :passive :local-port port
-                   :local-host host :reuse-address t
-                   :backlog (or backlog 5)))
+#-windows-target
+(defimplementation create-socket (host port filename &key backlog)
+  (declare (ignore host port))
+  (cons
+  (ccl:make-socket :connect :passive
+                   :auto-close t :backlog (or backlog 5)
+                   :local-filename filename :address-family :file)
+        filename))
+
+#+windows-target
+(defimplementation create-socket (host port filename &key backlog)
+  (declare (ignore filename))
+  (cons (ccl:make-socket :connect :passive :local-port port
+                         :local-host host :reuse-address t
+                         :backlog (or backlog 5))
+        port))
 
 (defimplementation local-port (socket)
-  (ccl:local-port socket))
+  (or (ccl:local-port socket)
+      (ccl:local-filename socket)))
 
 (defimplementation close-socket (socket)
   (close socket))

@@ -54,11 +54,22 @@
   (car (sb-bsd-sockets:host-ent-addresses
         (sb-bsd-sockets:get-host-by-name name))))
 
+#-win32
 (defimplementation create-socket (host port &key backlog)
-  (let ((socket (make-instance 'sb-bsd-sockets:inet-socket
-			       :type :stream
-			       :protocol :tcp)))
-    (setf (sb-bsd-sockets:sockopt-reuse-address socket) t)
+  (declare (ignore host))
+  (let ((socket (make-instance 'sb-bsd-sockets:local-socket
+                               :type :stream)))
+    (sb-bsd-sockets:socket-bind socket port)
+    (sb-bsd-sockets:socket-listen socket (or backlog 5))
+    socket))
+
+#+win32
+(defimplementation create-socket (host port &key backlog)
+  (let ((socket
+         (make-instance 'sb-bsd-sockets:inet-socket
+                        :type :stream
+                        :protocol :tcp)))
+    (setf (sb-bsd-sockets:sockopt-reuse-address socket) nil)
     (sb-bsd-sockets:socket-bind socket (resolve-hostname host) port)
     (sb-bsd-sockets:socket-listen socket (or backlog 5))
     socket))
@@ -276,7 +287,9 @@
         (compile-from-stream s)))))
 
 (defun compile-from-stream (stream)
-  (let ((file (mkcl:mkstemp "TMP:MKCL-SWANK-TMPXXXXXX"))
+  (let ((file (mkcl:mkstemp
+               (format nil "~A/mkcl-swank-tmpXXXXXX"
+                       swank::*temporary-directory*)))
         output-truename
         warnings-p
         failure-p

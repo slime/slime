@@ -13,7 +13,10 @@ ELFILES := slime.el slime-autoloads.el slime-tests.el $(wildcard lib/*.el)
 ELCFILES := $(ELFILES:.el=.elc)
 
 default: compile contrib-compile
-
+export EMACS
+export LISP
+export SELECTOR
+export LOAD_PATH
 all: compile
 
 help:
@@ -30,9 +33,10 @@ help       -- print this message\n"
 help-vars:
 	@printf "\
 Main make variables:\n\
-EMACS     -- program to start Emacs ($(EMACS))\n\
-LISP      -- program to start Lisp ($(LISP))\n\
-SELECTOR  -- selector for ERT tests ($(SELECTOR))\n"
+EMACS     -- program to start Emacs (%s)\n\
+LISP      -- program to start Lisp (%s)\n\
+SELECTOR  -- selector for ERT tests (%s)\n" \
+	"$$EMACS" "$$LISP" "$$SELECTOR"
 
 # Compilation
 #
@@ -49,10 +53,11 @@ SELECTOR=t
 
 check: compile
 	$(EMACS) -Q --batch $(LOAD_PATH)				\
+		--eval '(setq debug-on-error t)'			\
 		--eval "(require 'slime-tests)"				\
 		--eval "(slime-setup)"					\
-		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
-		--eval '(slime-batch-test (quote $(SELECTOR)))'
+		--eval '(setq inferior-lisp-program (getenv "LISP"))'	\
+		--eval '(slime-batch-test (intern (getenv "SELECTOR")))'
 
 # run tests interactively
 #
@@ -60,10 +65,11 @@ check: compile
 # are fixed.
 test: compile
 	$(EMACS) -Q -nw $(LOAD_PATH)					\
+		--eval '(setq debug-on-error t)'			\
 		--eval "(require 'slime-tests)"				\
 		--eval "(slime-setup)"					\
-		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
-		--eval '(slime-batch-test (quote $(SELECTOR)))'
+		--eval '(setq inferior-lisp-program (getenv "LISP"))'	\
+		--eval '(slime-batch-test (intern (getenv "SELECTOR")))'
 
 compile-swank:
 	echo '(load "swank-loader.lisp")' '(swank-loader:init :setup nil)' \
