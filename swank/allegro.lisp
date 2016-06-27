@@ -371,7 +371,7 @@
 
 (defun handle-compiler-warning (condition)
   (declare (optimize (debug 3) (speed 0) (space 0)))
-  (cond ((and (not *buffer-name*)
+  (cond ((and #-(version>= 10 0) (not *buffer-name*)
               (compiler-undefined-functions-called-warning-p condition))
          (handle-undefined-functions-warning condition))
         ((and (typep condition 'excl::compiler-note)
@@ -392,37 +392,49 @@
                       (reader-error  :read-error)
                       (error         :error))
           :message (format nil "~A" condition)
-          :location (if (typep condition 'reader-error)
-                        (location-for-reader-error condition)
-                        (location-for-warning condition))))))
+          :location (compiler-warning-location condition)))))
 
-(defun location-for-warning (condition)
-  (let ((loc (getf (slot-value condition 'excl::plist) :loc)))
+(defun condition-pathname-and-position (condition)
+  (let* ((context #+(version>= 10 0)
+                  (getf (slot-value condition 'excl::plist)
+                        :source-context))
+         (location-available (and context
+                                  (excl::source-context-start-char context))))
+    (cond (location-available
+           (values (excl::source-context-pathname context)
+                   (when-let (start-char (excl::source-context-start-char context))
+                     (1+ (if (listp start-char) ; HACK
+                             (first start-char)
+                             start-char)))))
+          ((typep condition 'reader-error)
+           (let ((pos  (car (last (slot-value condition 'excl::format-arguments))))
+                 (file (pathname (stream-error-stream condition))))
+             (when (integerp pos)
+               (values file pos))))
+          (t
+           (let ((loc (getf (slot-value condition 'excl::plist) :loc)))
+             (when loc
+               (destructuring-bind (file . pos) loc
+                 (let ((start (if (consp pos) ; 8.2 and newer
+                                  (car pos)
+                                  pos)))
+                   (values file (1+ start))))))))))
+
+(defun compiler-warning-location (condition)
+  (multiple-value-bind (pathname position)
+      (condition-pathname-and-position condition)
     (cond (*buffer-name*
            (make-location
             (list :buffer *buffer-name*)
-            (list :offset *buffer-start-position* 0)))
-          (loc
-           (destructuring-bind (file . pos) loc
-             (let ((start (cond ((consp pos) ; 8.2 and newer
-                                 (car pos))
-                                (t pos))))
-               (make-location
-                (list :file (namestring (truename file)))
-                (list :position (1+ start))))))
+            (if position
+                (list :position position)
+                (list :offset *buffer-start-position* 0))))
+          (pathname
+           (make-location
+            (list :file (namestring (truename pathname)))
+            (list :position position)))
           (t
            (make-error-location "No error location available.")))))
-
-(defun location-for-reader-error (condition)
-  (let ((pos  (car (last (slot-value condition 'excl::format-arguments))))
-        (file (pathname (stream-error-stream condition))))
-    (if (integerp pos)
-        (if *buffer-name*
-            (make-location `(:buffer ,*buffer-name*)
-                           `(:offset ,*buffer-start-position* ,pos))
-            (make-location `(:file ,(namestring (truename file)))
-                           `(:position ,pos)))
-        (make-error-location "No error location available."))))
 
 ;; TODO: report it as a bug to Franz that the condition's plist
 ;; slot contains (:loc nil).
@@ -457,7 +469,12 @@
   (handler-case
       (with-compilation-hooks ()
         (let ((*buffer-name* nil)
-              (*compile-filename* input-file))
+              (*compile-filename* input-file)
+              #+(version>= 8 2)
+              (compiler:save-source-level-debug-info-switch t)
+              (excl:*load-source-file-info* t)
+              #+(version>= 8 2)
+              (excl:*load-source-debug-info* t))
           (compile-file *compile-filename*
                         :output-file output-file
                         :load-after-compile load-p
@@ -483,18 +500,19 @@ to do this, this factors in the length of the inserted header itself."
   (with-standard-io-syntax
     (let* ((*package* (find-package :keyword))
            (source-pathname-form
-            `(cl:eval-when (:compile-toplevel :load-toplevel :execute)
-               (cl:setq excl::*source-pathname*
-                        (pathname ,(sys::frob-source-file file)))))
+             `(cl:eval-when (:compile-toplevel :load-toplevel :execute)
+                (cl:setq excl::*source-pathname*
+                         (pathname ,(sys::frob-source-file file)))))
            (source-pathname-string (write-to-string source-pathname-form))
-           (position-form-length-bound 80) ; should be enough for everyone
+           (position-form-length-bound 160) ; should be enough for everyone
            (header-length (+ (length source-pathname-string)
                              position-form-length-bound))
            (position-form
-            `(cl:setq excl::*partial-source-file-p* ,(- file-offset
-                                                        header-length
-                                                        1 ; for the newline
-                                                        )))
+             `(cl:eval-when (:compile-toplevel :load-toplevel :execute)
+                (cl:setq excl::*partial-source-file-p* ,(- file-offset
+                                                           header-length
+                                                           1 ; for the newline
+                                                           ))))
            (position-form-string (write-to-string position-form))
            (padding-string (make-string (- position-form-length-bound
                                            (length position-form-string))
@@ -520,9 +538,6 @@ to do this, this factors in the length of the inserted header itself."
        (declare (ignore warnings?))
        (when binary-filename
          (let ((excl:*load-source-file-info* t)
-               ;; NOTE: requires lldb. jt -- don't know the meaning of
-               ;; this note.
-               ;;
                #+(version>= 8 2)
                (excl:*load-source-debug-info* t))
            excl::*source-pathname*

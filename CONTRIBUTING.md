@@ -23,24 +23,6 @@ from the running Common Lisp system.
 maintained by their respective authors. Consult contrib/README for
 more information.
 
-## ChangeLog
-
-For each change we make an entry in the `ChangeLog` file. This is
-typically done using the command `add-change-log-entry-other-window`
-(`C-x 4 a`).
-
-ChangeLog diffs are automatically sent to the slime-devel mailing list
-each day as a sort of digest summary of the slime-cvs list.
-
-There are good tips on writing ChangeLog entries in the
-[GNU Coding Standards][3].
-
-For information about Emacs's ChangeLog support see the `Change Log'
-and `Change Logs and VC' nodes of the Emacs manual:
-
-* http://www.gnu.org/software/emacs/manual/html_node/emacs/Change-Log.html#Change-Log
-* http://www.gnu.org/software/emacs/manual/html_node/emacs/Change-Logs-and-VC.html#Change-Logs-and-VC
-
 ## Test Suite
 
 The Makefile includes a `check` target to run the ERT-based test
@@ -161,11 +143,11 @@ better, please do so!_
 
 * Read [how to properly contribute to open source projects on Github][1].
 * Use a topic branch to easily amend a pull request later, if necessary.
-* Commit messages should use the syntax of GNU ChangeLog entries.
 * Open a [pull request][2] that relates to *only* one subject with a
   clear title and description in grammatically correct, complete
   sentences.
+* Write [good commit messages][3].
 
 [1]: http://gun.io/blog/how-to-github-fork-branch-and-pull-request
 [2]: https://help.github.com/articles/using-pull-requests
-[3]: http://www.gnu.org/prep/standards/html_node/Style-of-Change-Logs.html#Style-of-Change-Logs
+[3]: http://chris.beams.io/posts/git-commit/

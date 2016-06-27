@@ -62,19 +62,19 @@ uninstall: uninstall-info
 # Create contributors.texi, a texinfo table listing all known
 # contributors of code.
 #
-# Explicitly includes Eric Marsden (pre-ChangeLog hacker)
-#
 # The gist of this horror show is that the contributor list is piped
 # into texinfo-tabulate.awk with one name per line, sorted
-# alphabetically.
-CHANGELOGS=../ChangeLog ../contrib/ChangeLog
-contributors.texi: $(CHANGELOGS) Makefile texinfo-tabulate.awk
-	cat $(CHANGELOGS) | \
+# by number of contributions.
+LAST_CHANGELOG_COMMIT=ab6d1bd5c9d3c5b4a6299b8c864ce4acfd25cbcc
+contributors.texi: ../slime.el Makefile texinfo-tabulate.awk
+	git show $(LAST_CHANGELOG_COMMIT):ChangeLog \
+	         $(LAST_CHANGELOG_COMMIT):contrib/ChangeLog | \
 	sed -ne '/^[0-9]/{s/^[^ ]* *//; s/ *<.*//; p;}' | \
+	(cat; git log $(LAST_CHANGELOG_COMMIT).. --format='%aN') | \
 	sort | \
 	uniq -c | \
-	sort -nr| \
-	sed -e 's/^[^A-Z]*//' | \
+	sort -nr | \
+	sed -e 's/^[^A-Z]*//; /^$$/d' | \
 	LC_ALL=C awk -f texinfo-tabulate.awk \
 	> $@
 
