@@ -13,8 +13,6 @@
 
 (in-package swank/mezzano)
 
-(defclass logical-pathname () ())
-
 ;;; swank-mop
 
 (import-swank-mop-symbols :mezzano.clos '(:class-default-initargs
