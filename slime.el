@@ -127,15 +127,13 @@ CONTRIBS is a list of contrib packages to load. If `nil', use
 
 (defun slime--setup-contribs ()
   "Load and initialize contribs."
-  (add-to-list 'load-path (expand-file-name "contrib" slime-path))
-  (when slime-contribs
-    (dolist (c slime-contribs)
-      (unless (and (featurep c)
-                   (memq c slime-required-modules))
-        (require c)
-        (let ((init (intern (format "%s-init" c))))
-          (when (fboundp init)
-            (funcall init)))))))
+  (dolist (c slime-contribs)
+    (unless (and (featurep c)
+                 (memq c slime-required-modules))
+      (require c)
+      (let ((init (intern (format "%s-init" c))))
+        (when (fboundp init)
+          (funcall init))))))
 
 (defun slime-lisp-mode-hook ()
   (slime-mode 1)
@@ -7490,6 +7488,8 @@ The returned bounds are either nil or non-empty."
           slime-forward-reader-conditional)))
 
 (slime--compile-hotspots)
+
+(add-to-list 'load-path (expand-file-name "contrib" slime-path))
 
 (run-hooks 'slime-load-hook)
 (provide 'slime)
