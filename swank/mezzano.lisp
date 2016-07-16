@@ -121,9 +121,13 @@
 
 (defimplementation swank-compile-string (string &key buffer position filename
                                                 policy)
-  (declare (ignore buffer position filename policy))
-  (with-compilation-hooks ()
-    (eval (read-from-string (concatenate 'string "(progn " string " )"))))
+  (declare (ignore buffer policy))
+  (let* ((*load-pathname* (ignore-errors (pathname filename)))
+         (*load-truename* (when *load-pathname*
+                            (ignore-errors (truename *load-pathname*))))
+         (sys.int::*top-level-form-number* `(:position ,position)))
+    (with-compilation-hooks ()
+      (eval (read-from-string (concatenate 'string "(progn " string " )")))))
   t)
 
 (defimplementation swank-compile-file (input-file output-file load-p
@@ -255,7 +259,12 @@
   (let* ((info (sys.int::function-debug-info function))
          (pathname (sys.int::debug-info-source-pathname info))
          (tlf (sys.int::debug-info-source-top-level-form-number info)))
-    (top-level-form-position pathname tlf)))
+    (cond ((and (consp tlf)
+                (eql (first tlf) :position))
+           (make-location `(:file ,(namestring pathname))
+                          `(:position ,(second tlf))))
+          (t
+           (top-level-form-position pathname tlf)))))
 
 (defimplementation find-definitions (name)
   (let ((result '()))
