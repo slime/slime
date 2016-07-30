@@ -508,7 +508,11 @@ joined together."))
 (defun slime-repl-buffer (&optional create connection)
   "Get the REPL buffer for the current connection; optionally create."
   (funcall (if create #'get-buffer-create #'get-buffer)
-           (format "*slime-repl %s*" (slime-connection-name connection))))
+           (format "*slime-repl %s%s*"
+		   (slime-connection-name connection)
+		   (let ((tag (slime-connection-tag connection)))
+		     (if (and tag (not (string= tag "")))
+			 (concat " [" tag "]") "")))))
 
 (defun slime-repl ()
   (interactive)
@@ -1196,6 +1200,7 @@ The handler will use qeuery to ask the use if the error should be ingored."
   (let ((map (make-sparse-keymap)))
     (define-key map "\C-m" 'slime-repl-return)
     (define-key map [return] 'slime-repl-return)
+    (define-key map (kbd "TAB") 'self-insert-command)
     (define-key map "\C-c\C-b" 'slime-repl-read-break)
     (define-key map "\C-c\C-c" 'slime-repl-read-break)
     (define-key map [remap slime-indent-and-complete-symbol] 'ignore)
