@@ -251,7 +251,7 @@
               (let ((*read-suppress* t)
                     (*read-eval* nil))
                 (read s nil))))
-      (make-location `(:file ,(namestring s))
+      (make-location `(:file ,(enough-namestring s (make-pathname :host (pathname-host s))))
                      `(:position ,(1+ (file-position s)))))))
 
 (defun function-location (function)
@@ -261,7 +261,7 @@
          (tlf (sys.int::debug-info-source-top-level-form-number info)))
     (cond ((and (consp tlf)
                 (eql (first tlf) :position))
-           (make-location `(:file ,(namestring pathname))
+           (make-location `(:file ,(enough-namestring pathname (make-pathname :host (pathname-host pathname))))
                           `(:position ,(second tlf))))
           (t
            (top-level-form-position pathname tlf)))))
