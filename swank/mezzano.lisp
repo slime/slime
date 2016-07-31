@@ -597,3 +597,31 @@
           for name in (rest names)
           when (funcall matchp prefix name)
           collect name)))
+
+;;;; Inspector
+
+(defmethod emacs-inspect ((o function))
+  (case (sys.int::%object-tag o)
+    (#.sys.int::+object-tag-function+
+     (label-value-line*
+      (:name (sys.int::function-name o))
+      (:arglist (arglist o))
+      (:debug-info (sys.int::function-debug-info o))))
+    (#.sys.int::+object-tag-closure+
+     (append
+      (label-value-line :function (sys.int::%closure-function o))
+      `("Closed over values:" (:newline))
+      (loop
+         for i below (sys.int::%closure-length o)
+         append (label-value-line i (sys.int::%closure-value o i)))))
+    (t
+     (call-next-method))))
+
+(defmethod emacs-inspect ((o sys.int::weak-pointer))
+  (label-value-line*
+   (:value (sys.int::weak-pointer-value o))))
+
+(defmethod emacs-inspect ((o sys.int::function-reference))
+  (label-value-line*
+   (:name (sys.int::function-reference-name o))
+   (:function (sys.int::function-reference-function o))))
