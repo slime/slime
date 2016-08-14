@@ -1,5 +1,6 @@
 (require 'slime)
 (require 'slime-parse)
+(require 'cl-lib)
 
 (define-slime-contrib slime-enclosing-context
   "Utilities on top of slime-parse."
@@ -19,7 +20,7 @@ If SKIP-BLANKS-P is true, leading whitespaces &c are skipped.
         ;; Is there an additional sexp in front of us?
         (save-excursion
           (unless (slime-point-moves-p (ignore-errors (forward-sexp)))
-            (return)))
+            (cl-return)))
         (push (slime-sexp-at-point) result)
         ;; Skip current sexp
         (ignore-errors (forward-sexp) (skip-chars-forward "[:space:]")))
@@ -47,33 +48,6 @@ parsing, and are then returned back as multiple values."
              (parser (if (and entry (listp entry))
                          (apply (first entry) (rest entry))
                        entry)))
-        (ignore-errors
-          (forward-char (1+ (length current-op)))
-          (skip-chars-forward "[:space:]"))
-        (when parser
-          (multiple-value-setq (forms indices points)
-            ;; We pass the fully qualified name (`current-op'), so it's the
-            ;; fully qualified name that will be sent to SWANK.
-            (funcall parser current-op user-point forms indices points))))))
-  (values forms indices points))
-
-(defun slime-parse-extended-operator-name (user-point forms indices points)
-  "Assume that point is directly at the operator that should be parsed.
-USER-POINT is the value of `point' where the user was looking at.
-OPS, INDICES and POINTS are updated to reflect the new values after
-parsing, and are then returned back as multiple values."
-  ;; OPS, INDICES and POINTS are like the finally returned values of
-  ;; SLIME-ENCLOSING-FORM-SPECS except that they're in reversed order,
-  ;; i.e. the leftmost operator comes first.
-  (save-excursion
-    (ignore-errors
-      (let* ((current-op (first (first forms)))
-             (op-name (upcase (slime-cl-symbol-name current-op)))
-             (assoc (assoc op-name slime-extended-operator-name-parser-alist))
-             (entry (cdr assoc))
-             (parser (if (and entry (listp entry))
-                         (apply (first entry) (rest entry))
-                         entry)))
         (ignore-errors
           (forward-char (1+ (length current-op)))
           (skip-chars-forward "[:space:]"))
@@ -157,15 +131,15 @@ Examples:
               (if (or (and (char-after)
                            (member (char-syntax (char-after)) '(?\( ?')))
                       (member (char-syntax (char-before)) '(?\  ?>)))
-                  (incf arg-index))
+                  (cl-incf arg-index))
               (ignore-errors (backward-sexp 1))
               (while (and (< arg-index 64)
                           (ignore-errors (backward-sexp 1)
                                          (> (point) (point-min))))
-                (incf arg-index))
+                (cl-incf arg-index))
               (backward-up-list 1)
               (when (member (char-syntax (char-after)) '(?\( ?'))
-                (incf level)
+                (cl-incf level)
                 (forward-char 1)
                 (let ((name (slime-symbol-at-point)))
                   (cond
