@@ -31,33 +31,6 @@ If SKIP-BLANKS-P is true, leading whitespaces &c are skipped.
       (member (char-syntax (aref string 0))
  '(?w ?_ ?\' ?\\))))
 
-(defun slime-parse-extended-operator-name (user-point forms indices points)
-  "Assume that point is directly at the operator that should be parsed.
-USER-POINT is the value of `point' where the user was looking at.
-OPS, INDICES and POINTS are updated to reflect the new values after
-parsing, and are then returned back as multiple values."
-  ;; OPS, INDICES and POINTS are like the finally returned values of
-  ;; SLIME-ENCLOSING-FORM-SPECS except that they're in reversed order,
-  ;; i.e. the leftmost operator comes first.
-  (save-excursion
-    (ignore-errors
-      (let* ((current-op (first (first forms)))
-             (op-name (upcase (slime-cl-symbol-name current-op)))
-             (assoc (assoc op-name slime-extended-operator-name-parser-alist))
-             (entry (cdr assoc))
-             (parser (if (and entry (listp entry))
-                         (apply (first entry) (rest entry))
-                       entry)))
-        (ignore-errors
-          (forward-char (1+ (length current-op)))
-          (skip-chars-forward "[:space:]"))
-        (when parser
-          (multiple-value-setq (forms indices points)
-            ;; We pass the fully qualified name (`current-op'), so it's the
-            ;; fully qualified name that will be sent to SWANK.
-            (funcall parser current-op user-point forms indices points))))))
-  (values forms indices points))
-
 (defun slime-beginning-of-string ()
   (let* ((parser-state (slime-current-parser-state))
 	 (inside-string-p  (nth 3 parser-state))
@@ -142,23 +115,9 @@ Examples:
                 (cl-incf level)
                 (forward-char 1)
                 (let ((name (slime-symbol-at-point)))
-                  (cond
-                   (name
-                    (save-restriction
-                      (widen) ; to allow looking-ahead/back in extended parsing.
-                      (multiple-value-bind (new-result new-indices new-points)
-                          (slime-parse-extended-operator-name
-                           initial-point
-                           (cons `(,name) result) ; minimal form spec
-                           (cons arg-index arg-indices)
-                           (cons (point) points))
-                        (setq result new-result)
-                        (setq arg-indices new-indices)
-                        (setq points new-points))))
-                   (t
-                    (push nil result)
-                    (push arg-index arg-indices)
-                    (push (point) points))))
+                  (push (and name `(,name)) result)
+                  (push arg-index arg-indices)
+                  (push (point) points))
                 (backward-up-list 1)))))))
     (cl-values
      (nreverse result)
