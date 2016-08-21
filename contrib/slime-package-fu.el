@@ -174,7 +174,7 @@ places the cursor at the start of the DEFPACKAGE form."
                        do (up-list) (backward-sexp))))))
 
 (defun slime-symbol-exported-p (name symbols)
-  (cl-member name symbols :test 'equalp))
+  (cl-member name symbols :test 'cl-equalp))
 
 (defun slime-frob-defpackage-form (current-package do-what symbols)
   "Adds/removes `symbol' from the DEFPACKAGE form of `current-package'

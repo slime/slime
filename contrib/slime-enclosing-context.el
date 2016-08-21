@@ -201,7 +201,7 @@ Examples:
     (macrolet &bindings &body)))
 
 (defun slime-lookup-binding-op (op &optional binding-type)
-  (cl-labels ((lookup-in (list) (cl-assoc op list :test 'equalp :key 'symbol-name)))
+  (cl-labels ((lookup-in (list) (cl-assoc op list :test 'cl-equalp :key 'symbol-name)))
     (cond ((eq binding-type :variable) (lookup-in slime-variable-binding-ops-alist))
 	  ((eq binding-type :function) (lookup-in slime-function-binding-ops-alist))
 	  (t (or (lookup-in slime-variable-binding-ops-alist)
