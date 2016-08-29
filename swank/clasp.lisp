@@ -556,90 +556,22 @@
                  `(:offset ,start-position ,offset)
                  `(:align t)))
 
+(defun translate-location (location)
+  (make-location (list :file (namestring (ext:source-location-pathname location)))
+                 (list :position (ext:source-location-offset location))
+                 '(:align t)))
+
 (defimplementation find-definitions (name)
-  (let ((annotations (core:get-annotation name 'si::location :all)))
-    (cond (annotations
-           (loop for annotation in annotations
-                 collect (destructuring-bind (dspec file . pos) annotation
-                           `(,dspec ,(make-file-location file pos)))))
-          (t
-           (mapcan #'(lambda (type) (find-definitions-by-type name type))
-                   (classify-definition-name name))))))
-
-(defun classify-definition-name (name)
-  (let ((types '()))
-    (when (fboundp name)
-      (cond ((special-operator-p name)
-             (push :special-operator types))
-            ((macro-function name)
-             (push :macro types))
-            ((typep (fdefinition name) 'generic-function)
-             (push :generic-function types))
-            ((si:mangle-name name t)
-             (push :c-function types))
-            (t
-             (push :lisp-function types))))
-    (when (boundp name)
-      (cond ((constantp name)
-             (push :constant types))
-            (t
-             (push :global-variable types))))
-    types))
-
-(defun find-definitions-by-type (name type)
-  (ecase type
-    (:lisp-function
-     (when-let (loc (source-location (fdefinition name)))
-       (list `((defun ,name) ,loc))))
-    (:c-function
-     (when-let (loc (source-location (fdefinition name)))
-       (list `((c-source ,name) ,loc))))
-    (:generic-function
-     (loop for method in (clos:generic-function-methods (fdefinition name))
-           for specs = (clos:method-specializers method)
-           for loc   = (source-location method)
-           when loc
-             collect `((defmethod ,name ,specs) ,loc)))
-    (:macro
-     (when-let (loc (source-location (macro-function name)))
-       (list `((defmacro ,name) ,loc))))
-    (:constant
-     (when-let (loc (source-location name))
-       (list `((defconstant ,name) ,loc))))
-    (:global-variable
-     (when-let (loc (source-location name))
-       (list `((defvar ,name) ,loc))))
-    (:special-operator)))
-
-;;; FIXME: There ought to be a better way.
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun c-function-name-p (name)
-    (and (symbolp name) (si:mangle-name name t) t))
-  (defun c-function-p (object)
-    (and (functionp object)
-         (let ((fn-name (function-name object)))
-           (and fn-name (c-function-name-p fn-name))))))
-
-(deftype c-function ()
-  `(satisfies c-function-p))
+  (loop for kind in ext:*source-location-kinds*
+        for locations = (ext:source-location name kind)
+        when locations
+        nconc (loop for location in locations
+                    collect (list kind (translate-location location)))))
 
 (defun source-location (object)
-  (converting-errors-to-error-location
-   (typecase object
-     (function
-      (multiple-value-bind (file pos) (ext:compiled-function-file object)
-        (cond ((not file)
-               (return-from source-location nil))
-              ((tmpfile-to-buffer file)
-               (make-buffer-location (tmpfile-to-buffer file) pos))
-              (t
-               (assert (probe-file file))
-               (assert (not (minusp pos)))
-               (make-file-location file pos)))))
-     (method
-      ;; FIXME: This will always return NIL at the moment; CLASP does not
-      ;; store debug information for methods yet.
-      (source-location (clos:method-function object))))))
+  (let ((location (ext:source-location object t)))
+    (when location
+      (translate-location (car location)))))
 
 (defimplementation find-source-location (object)
   (or (source-location object)
