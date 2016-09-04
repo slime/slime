@@ -94,7 +94,7 @@ See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
              (:section
               (browse-url (funcall common-lisp-hyperspec-section-fun what)))
              (:glossary
-              (browse-url (funcall common-lisp-glossary-fun what)))
+              (browse-url (funcall common-lisp-hyperspec-glossary-function what)))
              (:issue
               (browse-url (funcall 'common-lisp-issuex what)))
              (t
