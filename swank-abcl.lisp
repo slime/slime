@@ -492,12 +492,19 @@
 (defmethod source-location ((symbol symbol))
   (when (pathnamep (ext:source-pathname symbol))
     (let ((pos (ext:source-file-position symbol)))
-      `(:location
-        (:file ,(namestring (ext:source-pathname symbol)))
-        ,(if pos
-             (list :position (1+ pos))
-             (list :function-name (string symbol)))
-        (:align t)))))
+      (if (ext:pathname-jar-p (ext:source-pathname symbol))
+          `(:location
+            (:zip ,@(swank/abcl::split-string (subseq (namestring (ext:source-pathname symbol)) 9) "!/"))
+            ,(if nil;pos -- positions seem to be wrong. Just use function name
+                 (list :position (1+ pos))
+                 (list :function-name (string symbol)))
+            (:align t))
+          `(:location
+            (:file ,(namestring (ext:source-pathname symbol)))
+            ,(if pos
+                 (list :position (1+ pos))
+                 (list :function-name (string symbol)))
+            (:align t))))))
 
 (defmethod source-location ((frame sys::java-stack-frame))
   (destructuring-bind (&key class method file line) (sys:frame-to-list frame)
