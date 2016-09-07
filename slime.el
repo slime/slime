@@ -128,8 +128,7 @@ CONTRIBS is a list of contrib packages to load. If `nil', use
 (defun slime--setup-contribs ()
   "Load and initialize contribs."
   (dolist (c slime-contribs)
-    (unless (and (featurep c)
-                 (memq c slime-required-modules))
+    (unless (featurep c)
       (require c)
       (let ((init (intern (format "%s-init" c))))
         (when (fboundp init)
