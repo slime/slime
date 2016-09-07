@@ -493,12 +493,12 @@
   (when (pathnamep (ext:source-pathname symbol))
     (let ((pos (ext:source-file-position symbol)))
       (if (ext:pathname-jar-p (ext:source-pathname symbol))
-          `(:location
-            (:zip ,@(swank/abcl::split-string (subseq (namestring (ext:source-pathname symbol)) 9) "!/"))
-            ,(if nil;pos -- positions seem to be wrong. Just use function name
-                 (list :position (1+ pos))
-                 (list :function-name (string symbol)))
-            (:align t))
+          (destructuring-bind (jar entry) (abcl-asdf::split-string (subseq (namestring (ext:source-pathname symbol)) 9) (char "!" 0))
+            `(:location (:zip ,jar ,(subseq entry 1))
+                        ,(if nil ;pos -- positions seem to be wrong. Just use function name
+                            (list :position (1+ pos))
+                            (list :function-name (string symbol)))
+                        (:align t)))
           `(:location
             (:file ,(namestring (ext:source-pathname symbol)))
             ,(if pos
