@@ -1,19 +1,24 @@
 language: emacs
+
 env:
-  matrix:
-    # we test emacs23 with sbcl32 only
-    - "CHECK_TARGET=check       LISP=sbcl32 EMACS=emacs23"
-    - "CHECK_TARGET=check-fancy LISP=sbcl32 EMACS=emacs23"
-    # for emacs24, use more combinations
-    - "CHECK_TARGET=check       LISP=sbcl32 EMACS=emacs24"
-    - "CHECK_TARGET=check       LISP=cmucl  EMACS=emacs24"
-    - "CHECK_TARGET=check-fancy LISP=sbcl32 EMACS=emacs24"
-    - "CHECK_TARGET=check-fancy LISP=cmucl  EMACS=emacs24"
-  global:
-#    - SOME_TOKEN=some_value
+  # we test emacs23 with sbcl only
+  - "CHECK_TARGET=check       LISP=sbcl EMACS=emacs23"
+  - "CHECK_TARGET=check-fancy LISP=sbcl EMACS=emacs23"
+
+  # for emacs24, use more combinations
+  - "CHECK_TARGET=check       LISP=sbcl  EMACS=emacs24"
+  #- "CHECK_TARGET=check       LISP=cmucl EMACS=emacs24"
+  - "CHECK_TARGET=check       LISP=ccl   EMACS=emacs24"
+  - "CHECK_TARGET=check-fancy LISP=sbcl  EMACS=emacs24"
+  #- "CHECK_TARGET=check-fancy LISP=cmucl EMACS=emacs24"
+  - "CHECK_TARGET=check-fancy LISP=ccl   EMACS=emacs24"
+
+  # also, for emacs24/sbcl test some more contribs in isolation
+  - "CHECK_TARGET=check-repl LISP=sbcl EMACS=emacs24"
+  - "CHECK_TARGET=check-indentation LISP=sbcl EMACS=emacs24"
 
 install:
-  - curl https://raw2.github.com/luismbo/cl-travis/master/install.sh | bash
+  - curl https://raw.githubusercontent.com/luismbo/cl-travis/master/install.sh | bash
   - if [ "$EMACS" = "emacs23" ]; then
         sudo apt-get -qq update &&
         sudo apt-get -qq -f install &&
@@ -25,5 +30,12 @@ install:
         sudo apt-get -qq -f install &&
         sudo apt-get -qq install emacs24-nox;
     fi
+
 script:
-  - LISP_BIN=$LISP EMACS_BIN=$EMACS make $CHECK_TARGET
+  - make LISP=$LISP EMACS=$EMACS $CHECK_TARGET
+
+notifications:
+  email:
+    recipients:
+      - slime-cvs@common-lisp.net
+    # on_success: always # for testing

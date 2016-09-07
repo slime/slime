@@ -8,16 +8,7 @@
 ;;; are disclaimed.
 ;;;
 
-(defpackage #:swank-rpc
-  (:use :cl)
-  (:export 
-   #:read-message
-   #:swank-reader-error
-   #:swank-reader-error.packet
-   #:swank-reader-error.cause
-   #:write-message))
-
-(in-package :swank-rpc)
+(in-package swank/rpc)
 
 
 ;;;;; Input
@@ -38,7 +29,7 @@
 (defun read-packet (stream)
   (let* ((length (parse-header stream))
          (octets (read-chunk stream length)))
-    (handler-case (swank-backend:utf8-to-string octets)
+    (handler-case (swank/backend:utf8-to-string octets)
       (error (c) 
         (error 'swank-reader-error 
                :packet (asciify octets)
@@ -66,9 +57,8 @@
           (t
            (error "Short read: length=~D  count=~D" length count)))))
 
-;; FIXME: no one ever tested this and will probably not work.
 (defparameter *validate-input* nil
-  "Set to true to require input that strictly conforms to the protocol")
+  "Set to true to require input that more strictly conforms to the protocol")
 
 (defun read-form (string package)
   (with-standard-io-syntax
@@ -85,33 +75,31 @@
    "Read a form that conforms to the protocol, otherwise signal an error."
    (let ((c (read-char)))
      (case c
-       (#\" (with-output-to-string (*standard-output*)
-              (loop for c = (read-char) do
-                    (case c
-                      (#\" (return))
-                      (#\\ (write-char (read-char)))
-                      (t (write-char c))))))
        (#\( (loop collect (simple-read)
                   while (ecase (read-char)
                           (#\) nil)
                           (#\space t))))
        (#\' `(quote ,(simple-read)))
-       (t (let ((string (with-output-to-string (*standard-output*)
-                          (loop for ch = c then (read-char nil nil) do
-                                (case ch
-                                  ((nil) (return))
-                                  (#\\ (write-char (read-char)))
-                                  ((#\space #\)) (unread-char ch)(return))
-                                  (t (write-char ch)))))))
-            (cond ((digit-char-p c) (parse-integer string))
-                  ((intern string))))))))
+       (t
+        (cond
+          ((digit-char-p c)
+           (parse-integer
+            (map 'simple-string #'identity
+                 (loop for ch = c then (read-char nil nil)
+                       while (and ch (digit-char-p ch))
+                       collect ch
+                       finally (unread-char ch)))))
+          ((or (member c '(#\: #\")) (alpha-char-p c))
+           (unread-char c)
+           (read-preserving-whitespace))
+          (t (error "Invalid character ~:c" c)))))))
 
 
 ;;;;; Output
 
 (defun write-message (message package stream)
   (let* ((string (prin1-to-string-for-emacs message package))
-         (octets (handler-case (swank-backend:string-to-utf8 string)
+         (octets (handler-case (swank/backend:string-to-utf8 string)
                    (error (c) (encoding-error c string))))
          (length (length octets)))
     (write-header stream length)
@@ -120,7 +108,7 @@
 
 ;; FIXME: for now just tell emacs that we and an encoding problem.
 (defun encoding-error (condition string)
-  (swank-backend:string-to-utf8
+  (swank/backend:string-to-utf8
    (prin1-to-string-for-emacs
     `(:reader-error
       ,(asciify string)
@@ -135,13 +123,26 @@
   (loop for c across (format nil "~6,'0x" length)
         do (write-byte (char-code c) stream)))
 
+(defun switch-to-double-floats (x)
+  (typecase x
+    (double-float x)
+    (float (coerce x 'double-float))
+    (null x)
+    (list (loop for (x . cdr) on x
+                collect (switch-to-double-floats x) into result
+                until (atom cdr)
+                finally (return (append result (switch-to-double-floats cdr)))))
+    (t x)))
+
 (defun prin1-to-string-for-emacs (object package)
   (with-standard-io-syntax
     (let ((*print-case* :downcase)
           (*print-readably* nil)
           (*print-pretty* nil)
-          (*package* package))
-      (prin1-to-string object))))
+          (*package* package)
+          ;; Emacs has only double floats.
+          (*read-default-float-format* 'double-float))
+      (prin1-to-string (switch-to-double-floats object)))))
 
 
 #| TEST/DEMO:

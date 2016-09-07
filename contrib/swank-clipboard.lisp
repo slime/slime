@@ -5,7 +5,7 @@
 
 (defpackage :swank-clipboard
   (:use :cl)
-  (:import-from :swank :defslimefun :with-buffer-syntax :destructure-case)
+  (:import-from :swank :defslimefun :with-buffer-syntax :dcase)
   (:export :add :delete-entry :entries :entry-to-ref :ref))
 
 (in-package :swank-clipboard)
@@ -15,14 +15,14 @@
 (defvar *clipboard* (make-clipboard))
 
 (defslimefun add (datum)
-  (let ((value (destructure-case datum
+  (let ((value (dcase datum
 		 ((:string string package)
 		  (with-buffer-syntax (package)
 		    (eval (read-from-string string))))
 		 ((:inspector part) 
 		  (swank:inspector-nth-part part))
 		 ((:sldb frame var)
-		  (swank-backend:frame-var-value frame var)))))
+		  (swank/backend:frame-var-value frame var)))))
     (clipboard-add value)
     (format nil "Added: ~a"
 	    (entry-to-string (1- (length (clipboard-entries *clipboard*)))))))

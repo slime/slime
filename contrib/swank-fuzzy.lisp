@@ -14,6 +14,13 @@
   (swank-require :swank-util)
   (swank-require :swank-c-p-c))
 
+(defvar *fuzzy-duplicate-symbol-filter* :nearest-package
+  "Specifies how fuzzy-matching handles \"duplicate\" symbols.
+Possible values are :NEAREST-PACKAGE, :HOME-PACKAGE, :ALL, or a custom
+function. See Fuzzy Completion in the manual for details.")
+
+(export '*fuzzy-duplicate-symbol-filter*)
+
 ;;; For nomenclature of the fuzzy completion section, please read
 ;;; through the following docstring.
 
@@ -79,9 +86,11 @@ designator's format. The cases are as follows:
 ;;; A Fuzzy Matching -- Not to be confused with a fuzzy completion
 ;;; object that will be sent back to Emacs, as described above.
 
-(defstruct (fuzzy-matching (:conc-name   fuzzy-matching.)
-                           (:predicate   fuzzy-matching-p)
-                           (:constructor %make-fuzzy-matching))
+(defstruct (fuzzy-matching (:conc-name fuzzy-matching.)
+                           (:predicate fuzzy-matching-p)
+                           (:constructor make-fuzzy-matching
+                               (symbol package-name score package-chunks
+                                symbol-chunks &key (symbol-p t))))
   symbol            ; The symbol that has been found to match.
   symbol-p          ; To deffirentiate between completeing
                     ; package: and package:nil
@@ -92,14 +101,6 @@ designator's format. The cases are as follows:
   score             ; The higher the better SYMBOL is a match.
   package-chunks    ; Chunks pertaining to the package identifier of SYMBOL.
   symbol-chunks)    ; Chunks pertaining to SYMBOL's name.
-
-(defun make-fuzzy-matching (symbol package-name score package-chunks
-                            symbol-chunks &key (symbol-p t))
-  (declare (inline %make-fuzzy-matching))
-  (%make-fuzzy-matching :symbol symbol :package-name package-name :score score
-                        :package-chunks package-chunks
-                        :symbol-chunks symbol-chunks
-                        :symbol-p symbol-p))
 
 (defun %fuzzy-extract-matching-info (fuzzy-matching user-input-string)
   (multiple-value-bind (_ user-package-name __ input-internal-p)
@@ -227,8 +228,12 @@ TIME-LIMIT-IN-MSEC is NIL, an infinite time limit is assumed."
                                           :filter (or filter #'identity)))
            (find-packages (designator time-limit)
              (fuzzy-find-matching-packages designator
-                                           :time-limit-in-msec time-limit)))
-      (let ((time-limit time-limit-in-msec) (symbols) (packages) (results))
+                                           :time-limit-in-msec time-limit))
+           (maybe-find-local-package (name)
+             (or (find-locally-nicknamed-package name *buffer-package*)
+                 (find-package name))))
+      (let ((time-limit time-limit-in-msec) (symbols) (packages) (results)
+            (dedup-table (make-hash-table :test #'equal)))
         (cond ((not parsed-package-name) ; E.g. STRING = "asd"
                ;; We don't know if user is searching for a package or a symbol
                ;; within his current package. So we try to find either.
@@ -254,26 +259,24 @@ TIME-LIMIT-IN-MSEC is NIL, an infinite time limit is assumed."
                        (sort symbol-packages #'fuzzy-matching-greaterp))
                  (loop
                    for package-matching across symbol-packages
-                   for package = (find-package (fuzzy-matching.package-name
-                                                package-matching))
+                   for package = (maybe-find-local-package
+                                  (fuzzy-matching.package-name
+                                   package-matching))
                    while (or (not time-limit) (> rest-time-limit 0)) do
                    (multiple-value-bind (matchings remaining-time)
                        ;; The duplication filter removes all those symbols
                        ;; which are present in more than one package
-                       ;; match. Specifically if such a package match
-                       ;; represents the home package of the symbol, it's the
-                       ;; one kept because this one is deemed to be the best
-                       ;; match.
+                       ;; match. See *FUZZY-DUPLICATE-SYMBOL-FILTER*
                        (find-symbols parsed-symbol-name package rest-time-limit
                                      (%make-duplicate-symbols-filter
-                                      (remove package-matching
-                                              symbol-packages)))
+                                      package-matching symbol-packages dedup-table))
                      (setf matchings (fix-up matchings package-matching))
                      (setf symbols   (concatenate 'vector symbols matchings))
                      (setf rest-time-limit remaining-time)
                      (let ((guessed-sort-duration
                              (%guess-sort-duration (length symbols))))
-                       (when (<= rest-time-limit guessed-sort-duration)
+                       (when (and rest-time-limit
+                                  (<= rest-time-limit guessed-sort-duration))
                          (decf rest-time-limit guessed-sort-duration)
                          (loop-finish))))
                    finally
@@ -297,15 +300,40 @@ TIME-LIMIT-IN-MSEC is NIL, an infinite time limit is assumed."
       (let ((comparasions (* 3.8 (* length (log length 2)))))
         (* 1000 (* comparasions (expt 10 -7)))))) ; msecs
 
-(defun %make-duplicate-symbols-filter (fuzzy-package-matchings)
-  ;; Returns a filter function that takes a symbol, and which returns T
-  ;; if and only if /no/ matching in FUZZY-PACKAGE-MATCHINGS represents
-  ;; the home-package of the symbol passed.
-  (let ((packages (mapcar #'(lambda (m)
-                              (find-package (fuzzy-matching.package-name m)))
-                          (coerce fuzzy-package-matchings 'list))))
-    #'(lambda (symbol)
-        (not (member (symbol-package symbol) packages)))))
+(defun %make-duplicate-symbols-filter (current-package-matching fuzzy-package-matchings dedup-table)
+  ;; Returns a filter function based on *FUZZY-DUPLICATE-SYMBOL-FILTER*.
+  (case *fuzzy-duplicate-symbol-filter*
+    (:home-package
+     ;; Return a filter function that takes a symbol, and which returns T
+     ;; if and only if /no/ matching in FUZZY-PACKAGE-MATCHINGS represents
+     ;; the home-package of the symbol passed.
+     (let ((packages (mapcar #'(lambda (m)
+                                 (find-package (fuzzy-matching.package-name m)))
+                             (remove current-package-matching
+                                     (coerce fuzzy-package-matchings 'list)))))
+       #'(lambda (symbol)
+           (not (member (symbol-package symbol) packages)))))
+    (:nearest-package
+     ;; Keep only the first occurence of the symbol.
+     #'(lambda (symbol)
+         (unless (gethash (symbol-name symbol) dedup-table)
+           (setf (gethash (symbol-name symbol) dedup-table) t))))
+    (:all
+     ;; No filter
+     #'identity)
+    (t
+     (typecase *fuzzy-duplicate-symbol-filter*
+       (function
+        ;; Custom filter
+        (funcall *fuzzy-duplicate-symbol-filter*
+                 (fuzzy-matching.package-name current-package-matching)
+                 (map 'list #'fuzzy-matching.package-name fuzzy-package-matchings)
+                 dedup-table))
+       (t
+        ;; Bad filter value
+        (warn "bad *FUZZY-DUPLICATE-SYMBOL-FILTER* value: ~s"
+              *fuzzy-duplicate-symbol-filter*)
+        #'identity)))))
 
 (defun fuzzy-matching-greaterp (m1 m2)
   "Returns T if fuzzy-matching M1 should be sorted before M2.
@@ -400,37 +428,44 @@ Cf. FUZZY-FIND-MATCHING-SYMBOLS."
     (declare (type boolean time-limit-p))
     (declare (type integer time-limit rtime-at-start))
     (declare (type function converter))
-    (if (and time-limit-p (<= time-limit 0))
-        (values #() time-limit)
-        (loop for package in (list-all-packages) do
-              ;; Find best-matching package-nickname:
-              (loop with max-pkg-name = ""
-                    with max-result   = nil
-                    with max-score    = 0
-                    for package-name in (package-names package)
-                    for converted-name = (funcall converter package-name)
-                    do
-                    (multiple-value-bind (result score)
-                        (compute-highest-scoring-completion name
-                                                            converted-name)
-                      (when (and result (> score max-score))
-                        (setf max-pkg-name package-name)
-                        (setf max-result   result)
-                        (setf max-score    score)))
-                    finally
-                    (when max-result
-                      (vector-push-extend
-                       (make-fuzzy-matching nil max-pkg-name
-                                            max-score max-result '()
-                                            :symbol-p nil)
-                       completions)))
-              finally
-                (return
-                  (values completions
-                          (and time-limit-p
-                               (let ((elapsed-time (- (get-real-time-in-msecs)
-                                                      rtime-at-start)))
-                                 (- time-limit elapsed-time)))))))))
+    (flet ((match-package (names)
+             (loop with max-pkg-name = ""
+                   with max-result   = nil
+                   with max-score    = 0
+                   for package-name in names
+                   for converted-name = (funcall converter package-name)
+                   do
+                   (multiple-value-bind (result score)
+                       (compute-highest-scoring-completion name
+                                                           converted-name)
+                     (when (and result (> score max-score))
+                       (setf max-pkg-name package-name)
+                       (setf max-result   result)
+                       (setf max-score    score)))
+                   finally
+                   (when max-result
+                     (vector-push-extend
+                      (make-fuzzy-matching nil max-pkg-name
+                                           max-score max-result '()
+                                           :symbol-p nil)
+                      completions)))))
+     (cond ((and time-limit-p (<= time-limit 0))
+            (values #() time-limit))
+           (t
+            (loop for (nick) in (package-local-nicknames *buffer-package*)
+                  do
+                  (match-package (list nick)))
+            (loop for package in (list-all-packages)
+                  do
+                  ;; Find best-matching package-nickname:
+                  (match-package (package-names package))
+                  finally
+                  (return
+                    (values completions
+                            (and time-limit-p
+                                 (let ((elapsed-time (- (get-real-time-in-msecs)
+                                                        rtime-at-start)))
+                                   (- time-limit elapsed-time)))))))))))
 
 
 (defslimefun fuzzy-completion-selected (original-string completion)
@@ -460,6 +495,9 @@ Most natural language searches and symbols do not have this
 problem -- this is only here as a safeguard.")
 (declaim (fixnum *fuzzy-recursion-soft-limit*))
 
+(defvar *all-chunks* '())
+(declaim (type list *all-chunks*))
+
 (defun compute-highest-scoring-completion (short full)
   "Finds the highest scoring way to complete the abbreviation
 SHORT onto the string FULL, using CHAR= as a equality function for
@@ -478,7 +516,6 @@ Calls RECURSIVELY-COMPUTE-MOST-COMPLETIONS recursively.  Returns
 a list of (&rest CHUNKS), where each CHUNKS is a description of
 how a completion matches."
   (let ((*all-chunks* nil))
-    (declare (special *all-chunks*))
     (recursively-compute-most-completions short full 0 0 nil nil nil t)
     *all-chunks*))
 
@@ -508,8 +545,7 @@ onto the special variable *ALL-CHUNKS* and the function returns."
   (declare (optimize speed)
            (type fixnum short-index initial-full-index)
            (type list current-chunk)
-           (simple-string short full)
-           (special *all-chunks*))
+           (simple-string short full))
   (flet ((short-cur ()
            "Returns the next letter from the abbreviation, or NIL
             if all have been used."

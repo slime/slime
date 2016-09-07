@@ -1,5 +1,8 @@
-(eval-and-compile
-  (require 'slime))
+(require 'slime)
+(require 'slime-repl)
+(require 'cl-lib)
+(eval-when-compile
+  (require 'cl)) ; lexical-let
 
 (define-slime-contrib slime-clipboard
   "This add a few commands to put objects into a clipboard and to
@@ -72,21 +75,23 @@ debugger to add the object at point to the clipboard."
     (insert (format fstring "Nr" "Id" "Value")
             (format fstring "--" "--" "-----" ))
     (save-excursion
-      (loop for i from 0 for (ref . value) in entries do
-	    (slime-insert-propertized `(slime-clipboard-entry ,i
-					slime-clipboard-ref ,ref)
-				      (format fstring i ref value))))))
+      (cl-loop for i from 0 for (ref . value) in entries do
+               (slime-insert-propertized `(slime-clipboard-entry ,i
+                                           slime-clipboard-ref ,ref)
+                                         (format fstring i ref value))))))
 
 (defun slime-clipboard-redisplay ()
   "Update the clipboard buffer."
   (interactive)
-  (slime-eval-async 
-   `(swank-clipboard:entries) 
-   (lambda (entries) 
-     (let ((inhibit-read-only t))
-       (slime-save-coordinates (point)
-	 (erase-buffer)
-	 (slime-clipboard-insert-entries entries))))))
+  (lexical-let ((saved (point)))
+    (slime-eval-async 
+        `(swank-clipboard:entries) 
+      (lambda (entries) 
+        (let ((inhibit-read-only t))
+          (erase-buffer)
+          (slime-clipboard-insert-entries entries)
+          (when (< saved (point-max))
+            (goto-char saved)))))))
 
 (defun slime-clipboard-entry-at-point ()
   (or (get-text-property (point) 'slime-clipboard-entry)
@@ -119,7 +124,7 @@ debugger to add the object at point to the clipboard."
 ;; remove this property in a modification when a user tries to modify
 ;; he real text.
 (defun slime-clipboard-insert-ref (entry)
-  (destructuring-bind (ref . string) 
+  (cl-destructuring-bind (ref . string) 
       (slime-eval `(swank-clipboard:entry-to-ref ,entry))
     (slime-insert-propertized
      `(display ,(format "#@%d%s" ref string)
@@ -132,7 +137,7 @@ debugger to add the object at point to the clipboard."
     (let ((inhibit-modification-hooks t))
       (save-excursion
 	(goto-char start)
-	(destructuring-bind (dstart dend) (slime-property-bounds 'display)
+	(cl-destructuring-bind (dstart dend) (slime-property-bounds 'display)
 	  (unless (and (= start dstart) (= end dend))
 	    (remove-list-of-text-properties 
 	     dstart dend '(display modification-hooks))))))))

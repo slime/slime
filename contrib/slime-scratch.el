@@ -1,5 +1,7 @@
-(eval-and-compile
-  (require 'slime))
+;;; slime-scratch.el
+
+(require 'slime)
+(require 'cl-lib)
 
 (define-slime-contrib slime-scratch
   "Imitate Emacs' *scratch* buffer"

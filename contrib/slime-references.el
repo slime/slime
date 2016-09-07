@@ -1,5 +1,6 @@
-(eval-and-compile
-  (require 'slime))
+(require 'slime)
+(require 'advice)
+(require 'slime-compiler-notes-tree) ; FIXME: actually only uses the tree bits, so that should be a library.
 
 (define-slime-contrib slime-references
   "Clickable references to documentation (SBCL only)."
@@ -40,22 +41,23 @@
 (defun slime-reference-properties (reference)
   "Return the properties for a reference.
 Only add clickability to properties we actually know how to lookup."
-  (destructuring-bind (where type what) reference
+  (cl-destructuring-bind (where type what) reference
     (if (or (and (eq where :sbcl) (eq type :node))
             (and (eq where :ansi-cl)
                  (memq type '(:function :special-operator :macro
-			      :section :glossary :issue))))
+                                        :type :system-class
+                                        :section :glossary :issue))))
         `(slime-reference ,reference
-          font-lock-face sldb-reference-face
-          follow-link t
-          mouse-face highlight
-          help-echo "mouse-2: visit documentation."
-          keymap ,slime-references-local-keymap))))
+                          font-lock-face sldb-reference-face
+                          follow-link t
+                          mouse-face highlight
+                          help-echo "mouse-2: visit documentation."
+                          keymap ,slime-references-local-keymap))))
 
 (defun slime-insert-reference (reference)
   "Insert documentation reference from a condition.
 See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
-  (destructuring-bind (where type what) reference
+  (cl-destructuring-bind (where type what) reference
     (insert "\n" (slime-format-reference-source where) ", ")
     (slime-insert-propertized (slime-reference-properties reference)
                               (slime-format-reference-node what))
@@ -68,7 +70,7 @@ See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
       (mapc #'slime-insert-reference references))))
 
 (defun slime-format-reference-source (where)
-  (case where
+  (cl-case where
     (:amop    "The Art of the Metaobject Protocol")
     (:ansi-cl "Common Lisp Hyperspec")
     (:sbcl    "SBCL Manual")
@@ -85,27 +87,27 @@ See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
   (let ((refs (get-text-property (point) 'slime-reference)))
     (if (null refs)
         (error "No references at point")
-        (destructuring-bind (where type what) refs
-          (case where
-            (:ansi-cl
-               (case type
-                 (:section
-                    (browse-url (funcall common-lisp-hyperspec-section-fun what)))
-                 (:glossary
-                    (browse-url (funcall common-lisp-glossary-fun what)))
-                 (:issue
-                    (browse-url (funcall 'common-lisp-issuex what)))
-                 (t
-                    (hyperspec-lookup what))))
-            (t
-               (let ((url (format "%s%s.html" slime-sbcl-manual-root
-                                  (subst-char-in-string ?\  ?\- what))))
-                 (browse-url url))))))))
+      (cl-destructuring-bind (where type what) refs
+        (cl-case where
+          (:ansi-cl
+           (cl-case type
+             (:section
+              (browse-url (funcall common-lisp-hyperspec-section-fun what)))
+             (:glossary
+              (browse-url (funcall common-lisp-hyperspec-glossary-function what)))
+             (:issue
+              (browse-url (funcall 'common-lisp-issuex what)))
+             (t
+              (hyperspec-lookup what))))
+          (t
+           (let ((url (format "%s#%s" slime-sbcl-manual-root
+                              (subst-char-in-string ?\  ?\- what))))
+             (browse-url url))))))))
 
 (defun slime-lookup-reference-at-mouse (event)
   "Invoke the action pointed at by the mouse."
   (interactive "e")
-  (destructuring-bind (mouse-1 (w pos . _) . _) event
+  (cl-destructuring-bind (mouse-1 (w pos . _) . _) event
     (save-excursion
       (goto-char pos)
       (slime-lookup-reference-at-point))))
@@ -130,15 +132,17 @@ See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
 (defun slime-tree-print-with-references (tree)
   ;; for SBCL-style references
   (slime-tree-default-printer tree)
-  (when-let (note (plist-get (slime-tree.plist tree) 'note))
-    (when-let (references (slime-note.references note))
-      (terpri (current-buffer))
-      (slime-insert-references references))))
+  (let ((note (plist-get (slime-tree.plist tree) 'note)))
+    (when note
+      (let ((references (slime-note.references note)))
+	(when references
+	  (terpri (current-buffer))
+	  (slime-insert-references references))))))
 
 ;;;;; Hook into SLDB
 
 (defun sldb-maybe-insert-references (extra)
-  (destructure-case extra
+  (slime-dcase extra
     ((:references references) (slime-insert-references references) t)
     (t nil)))
 

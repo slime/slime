@@ -1,5 +1,22 @@
-(eval-and-compile
-  (require 'slime))
+(require 'slime)
+(require 'slime-parse)
+(require 'slime-autodoc)
+(require 'font-lock)
+(require 'cl-lib)
+
+;;; Fontify WITH-FOO, DO-FOO, and DEFINE-FOO like standard macros.
+;;; Fontify CHECK-FOO like CHECK-TYPE.
+(defvar slime-additional-font-lock-keywords
+ '(("(\\(\\(\\s_\\|\\w\\)*:\\(define-\\|do-\\|with-\\|without-\\)\\(\\s_\\|\\w\\)*\\)" 1 font-lock-keyword-face)
+   ("(\\(\\(define-\\|do-\\|with-\\)\\(\\s_\\|\\w\\)*\\)" 1 font-lock-keyword-face)
+   ("(\\(check-\\(\\s_\\|\\w\\)*\\)" 1 font-lock-warning-face)
+   ("(\\(assert-\\(\\s_\\|\\w\\)*\\)" 1 font-lock-warning-face)))
+
+;;;; Specially fontify forms suppressed by a reader conditional.
+(defcustom slime-highlight-suppressed-forms t
+  "Display forms disabled by reader conditionals as comments."
+  :type '(choice (const :tag "Enable" t) (const :tag "Disable" nil))
+  :group 'slime-mode)
 
 (define-slime-contrib slime-fontifying-fu
   "Additional fontification tweaks:
@@ -18,27 +35,8 @@ Fontify CHECK-FOO like CHECK-TYPE."
    (font-lock-remove-keywords
     'lisp-mode slime-additional-font-lock-keywords)))
 
-;;; Fontify WITH-FOO, DO-FOO, and DEFINE-FOO like standard macros.
-;;; Fontify CHECK-FOO like CHECK-TYPE.
-(defvar slime-additional-font-lock-keywords
- '(("(\\(\\(\\s_\\|\\w\\)*:\\(define-\\|do-\\|with-\\|without-\\)\\(\\s_\\|\\w\\)*\\)" 1 font-lock-keyword-face)
-   ("(\\(\\(define-\\|do-\\|with-\\)\\(\\s_\\|\\w\\)*\\)" 1 font-lock-keyword-face)
-   ("(\\(check-\\(\\s_\\|\\w\\)*\\)" 1 font-lock-warning-face)
-   ("(\\(assert-\\(\\s_\\|\\w\\)*\\)" 1 font-lock-warning-face)))
-
-
-;;;; Specially fontify forms suppressed by a reader conditional.
-
-(defcustom slime-highlight-suppressed-forms t
-  "Display forms disabled by reader conditionals as comments."
-  :type '(choice (const :tag "Enable" t) (const :tag "Disable" nil))
-  :group 'slime-mode)
-
 (defface slime-reader-conditional-face
-  (if (slime-face-inheritance-possible-p)
     '((t (:inherit font-lock-comment-face)))
-  '((((background light)) (:foreground "DimGray" :bold t))
-    (((background dark)) (:foreground "LightGray" :bold t))))
   "Face for compiler notes while selected."
   :group 'slime-mode-faces)
 
@@ -64,13 +62,13 @@ Fontify CHECK-FOO like CHECK-TYPE."
                   (forward-sexp) (backward-sexp)
                   ;; Try to suppress as far as possible.
                   (slime-forward-sexp)
-                  (assert (<= (point) limit))
+                  (cl-assert (<= (point) limit))
                   (let ((md (match-data nil slime-search-suppressed-forms-match-data)))
-                    (setf (first md) start)
-                    (setf (second md) (point))
+                    (setf (cl-first md) start)
+                    (setf (cl-second md) (point))
                     (set-match-data md)
                     t))
-                (slime-search-suppressed-forms-internal limit))))))))
+              (slime-search-suppressed-forms-internal limit))))))))
 
 (defun slime-search-suppressed-forms (limit)
   "Find reader conditionalized forms where the test is false."
@@ -110,25 +108,30 @@ position, or nil."
   ;;; no other intervening sexp, and we check that the reader
   ;;; conditional is at the same nesting level.
   (condition-case nil
-      (let* ((orig-pt (point)))
-        (when-let (reader-conditional-pt
-                   (search-backward-regexp slime-reader-conditionals-regexp
-                                           ;; We restrict the search to the
-                                           ;; beginning of the /previous/ defun.
-                                           (save-excursion (beginning-of-defun) (point))
-                                           t))
+      (let* ((orig-pt (point))
+	     (reader-conditional-pt
+	      (search-backward-regexp slime-reader-conditionals-regexp
+				      ;; We restrict the search to the
+				      ;; beginning of the /previous/ defun.
+				      (save-excursion
+					(beginning-of-defun)
+					(point))
+				      t)))
+	(when reader-conditional-pt
           (let* ((parser-state
-                  (parse-partial-sexp (progn (goto-char (+ reader-conditional-pt 2))
-                                             (forward-sexp) ; skip feature expr.
-                                             (point))
-                                      orig-pt))
+                  (parse-partial-sexp
+		   (progn (goto-char (+ reader-conditional-pt 2))
+			  (forward-sexp) ; skip feature expr.
+			  (point))
+		   orig-pt))
                  (paren-depth  (car  parser-state))
-                 (last-sexp-pt (caddr  parser-state)))
-            (if (and paren-depth (not (plusp paren-depth)) ; no opening parenthesis in between?
-                     (not last-sexp-pt))                   ; no complete sexp in between?
+                 (last-sexp-pt (cl-caddr  parser-state)))
+            (if (and paren-depth
+		     (not (cl-plusp paren-depth)) ; no '(' in between?
+                     (not last-sexp-pt)) ; no complete sexp in between?
                 reader-conditional-pt
-                nil))))
-    (scan-error nil)))                                     ; improper feature expression
+              nil))))
+    (scan-error nil)))			; improper feature expression
 
 
 ;;; We'll push this onto `font-lock-extend-region-functions'. In past,
@@ -141,11 +144,14 @@ position, or nil."
 ;;; We make sure that `font-lock-beg' and `font-lock-end' always point
 ;;; to the beginning or end of a toplevel form. So we never miss a
 ;;; reader-conditional, or point in mid of one.
+(defvar font-lock-beg) ; shoosh compiler
+(defvar font-lock-end)
+
 (defun slime-extend-region-for-font-lock ()
   (when slime-highlight-suppressed-forms
     (condition-case c
         (let (changedp)
-          (multiple-value-setq (changedp font-lock-beg font-lock-end)
+          (cl-multiple-value-setq (changedp font-lock-beg font-lock-end)
             (slime-compute-region-for-font-lock font-lock-beg font-lock-end))
           changedp)
       (error
@@ -155,32 +161,16 @@ position, or nil."
                 "Further: font-lock-beg=%d, font-lock-end=%d.")
         c font-lock-beg font-lock-end)))))
 
-(when (fboundp 'syntax-ppss-toplevel-pos)
-  (defun slime-beginning-of-tlf ()
-    (when-let (pos (syntax-ppss-toplevel-pos (slime-current-parser-state)))
-      (goto-char pos))))
-
-(unless (fboundp 'syntax-ppss-toplevel-pos)
-  (defun slime-beginning-of-tlf ()
-    (let* ((state (slime-current-parser-state))
-           (comment-start (nth 8 state)))
-      (when comment-start               ; or string
-        (goto-char comment-start)
-        (setq state (slime-current-parser-state)))
-      (let ((depth (nth 0 state)))
-        (when (plusp depth)
-          (ignore-errors (up-list (- depth)))) ; ignore unbalanced parentheses
-        (when-let (upper-pt (nth 1 state))
-          (goto-char upper-pt)
-          (while (when-let (upper-pt (nth 1 (slime-current-parser-state)))
-                   (goto-char upper-pt))))))))
+(defun slime-beginning-of-tlf ()
+  (let ((pos (syntax-ppss-toplevel-pos (slime-current-parser-state))))
+    (if pos (goto-char pos))))
 
 (defun slime-compute-region-for-font-lock (orig-beg orig-end)
   (let ((beg orig-beg)
         (end orig-end))
     (goto-char beg)
     (inline (slime-beginning-of-tlf))
-    (assert (not (plusp (nth 0 (slime-current-parser-state)))))
+    (cl-assert (not (cl-plusp (nth 0 (slime-current-parser-state)))))
     (setq beg (let ((pt (point)))
                 (cond ((> (- beg pt) 20000) beg)
                       ((slime-search-directly-preceding-reader-conditional))
@@ -190,7 +180,7 @@ position, or nil."
       (setq end (max end (save-excursion
                            (ignore-errors (slime-forward-reader-conditional))
                            (point)))))
-    (values (or (/= beg orig-beg) (/= end orig-end)) beg end)))
+    (cl-values (or (/= beg orig-beg) (/= end orig-end)) beg end)))
 
 
 (defun slime-activate-font-lock-magic ()
@@ -211,147 +201,31 @@ position, or nil."
                               'slime-extend-region-for-font-lock t t)))))
 
 (let ((byte-compile-warnings '()))
-  (mapc #'byte-compile
+  (mapc (lambda (sym)
+          (cond ((fboundp sym)
+                 (unless (byte-code-function-p (symbol-function sym))
+                   (byte-compile sym)))
+                (t (error "%S is not fbound" sym))))
         '(slime-extend-region-for-font-lock
           slime-compute-region-for-font-lock
           slime-search-directly-preceding-reader-conditional
           slime-search-suppressed-forms
           slime-beginning-of-tlf)))
-
-;;; Tests
-(eval-and-compile
-  (require 'slime-tests))
 
-(def-slime-test font-lock-magic (buffer-content)
-    "Some testing for the font-lock-magic. *YES* should be
-    highlighted as a suppressed form, *NO* should not."
-
-    '(("(defun *NO* (x y) (+ x y))")
-      ("(defun *NO*")
-      ("*NO*) #-(and) (*YES*) (*NO* *NO*")
-      ("\(
-\(defun *NO*")
-      ("\)
-\(defun *NO*
-    \(
-\)")
-      ("#+#.foo
-\(defun *NO* (x y) (+ x y))")
-      ("#+#.foo
-\(defun *NO* (x ")
-      ("#+(
-\(defun *NO* (x ")
-      ("#+(test)
-\(defun *NO* (x ")
-
-      ("(eval-when (...)
-\(defun *NO* (x ")
-
-      ("(eval-when (...)
-#+(and)
-\(defun *NO* (x ")
-
-      ("#-(and) (defun *YES* (x y) (+ x y))")
-      ("
-#-(and) (defun *YES* (x y) (+ x y))
-#+(and) (defun *NO* (x y) (+ x y))")
-
-      ("#+(and) (defun *NO* (x y) #-(and) (+ *YES* y))")
-      ("#| #+(or) |# *NO*")
-      ("#| #+(or) x |# *NO*")
-      ("*NO* \"#| *NO* #+(or) x |# *NO*\" *NO*")
-      ("#+#.foo (defun foo (bar))
-#-(and) *YES* *NO* bar
-")
-      ("#+(foo) (defun foo (bar))
-#-(and) *YES* *NO* bar")
-      ("#| #+(or) |# *NO* foo
-#-(and) *YES* *NO*")
-      ("#- (and)
-\(*YES*)
-\(*NO*)
-#-(and)
-\(*YES*)
-\(*NO*)")
-      ("#+nil (foo)
-
-#-(and)
-#+nil (
-       asdf *YES* a
-            fsdfad)
-
-\( asdf *YES*
-
-       )
-\(*NO*)
-
-")
-      ("*NO*
-
-#-(and) \(progn
-   #-(and)
-   (defun *YES* ...)
-
-   #+(and)
-   (defun *YES* ...)
-
-   (defun *YES* ...)
-
-   *YES*
-
-   *YES*
-
-   *YES*
-
-   *YES*
-\)
-
-*NO*")
-      ("#-(not) *YES* *NO*
-
-*NO*
-
-#+(not) *NO* *NO*
-
-*NO*
-
-#+(not a b c) *NO* *NO*
-
-*NO*"))
-  (slime-check-top-level)
-  (with-temp-buffer
-    (insert buffer-content)
-    (slime-initialize-lisp-buffer-for-test-suite
-     :autodoc t :font-lock-magic t)
-    ;; Can't use `font-lock-fontify-buffer' because for the case when
-    ;; `jit-lock-mode' is enabled. Jit-lock-mode fontifies only on
-    ;; actual display.
-    (font-lock-default-fontify-buffer)
-    (when (search-backward "*NO*" nil t)
-      (slime-test-expect "Not suppressed by reader conditional?"
-                         'slime-reader-conditional-face
-                         (get-text-property (point) 'face)
-                         #'(lambda (x y) (not (eq x y)))))
-    (goto-char (point-max))
-    (when (search-backward "*YES*" nil t)
-      (slime-test-expect "Suppressed by reader conditional?"
-                         'slime-reader-conditional-face
-                         (get-text-property (point) 'face)))))
-
-(defun* slime-initialize-lisp-buffer-for-test-suite
+(cl-defun slime-initialize-lisp-buffer-for-test-suite
     (&key (font-lock-magic t) (autodoc t))
   (let ((hook lisp-mode-hook))
     (unwind-protect
-         (progn
-           (set (make-local-variable 'slime-highlight-suppressed-forms)
-                font-lock-magic)
-           (setq lisp-mode-hook nil)
-           (lisp-mode)
-           (slime-mode 1)
-           (when (boundp 'slime-autodoc-mode)
-             (if autodoc
-                 (slime-autodoc-mode 1)
-                 (slime-autodoc-mode -1))))
+        (progn
+          (set (make-local-variable 'slime-highlight-suppressed-forms)
+               font-lock-magic)
+          (setq lisp-mode-hook nil)
+          (lisp-mode)
+          (slime-mode 1)
+          (when (boundp 'slime-autodoc-mode)
+            (if autodoc
+                (slime-autodoc-mode 1)
+              (slime-autodoc-mode -1))))
       (setq lisp-mode-hook hook))))
 
 (provide 'slime-fontifying-fu)

@@ -1,6 +1,5 @@
 (defpackage :swank-trace-dialog
   (:use :cl)
-  (:nicknames :std)
   (:import-from :swank :defslimefun :from-string :to-string)
   (:export #:clear-trace-tree
            #:dialog-toggle-trace
@@ -19,7 +18,9 @@
            #:exited-non-locally
            #:*record-backtrace*
            #:*traces-per-report*
-           #:*dialog-trace-follows-trace*))
+           #:*dialog-trace-follows-trace*
+           #:find-trace-part
+           #:find-trace))
 
 (in-package :swank-trace-dialog)
 
@@ -38,7 +39,7 @@ program.")
 (defvar *traces* (make-array 1000 :fill-pointer 0
                                   :adjustable t))
 
-(defvar *trace-lock* (swank-backend:make-lock :name "swank-trace-dialog lock"))
+(defvar *trace-lock* (swank/backend:make-lock :name "swank-trace-dialog lock"))
 
 (defvar *current-trace-by-thread* (make-hash-table))
 
@@ -61,7 +62,7 @@ program.")
   (declare (ignore initargs))
   (if (parent-of entry)
       (nconc (children-of (parent-of entry)) (list entry)))
-  (swank-backend:call-with-lock-held
+  (swank/backend:call-with-lock-held
    *trace-lock*
    #'(lambda ()
        (setf (slot-value entry 'id) (fill-pointer *traces*))
@@ -77,18 +78,27 @@ program.")
   (when (<= 0 id (1- (length *traces*)))
     (aref *traces* id)))
 
+(defun find-trace-part (id part-id type)
+  (let* ((trace (find-trace id))
+         (l (and trace
+                 (ecase type
+                   (:arg (args-of trace))
+                   (:retval (swank::ensure-list (retlist-of trace)))))))
+    (values (nth part-id l)
+            (< part-id (length l)))))
+
 (defun useful-backtrace ()
-  (swank-backend:call-with-debugging-environment
+  (swank/backend:call-with-debugging-environment
    #'(lambda ()
        (loop for i from 0
-             for frame in (swank-backend:compute-backtrace 0 20)
+             for frame in (swank/backend:compute-backtrace 0 20)
              collect (list i (swank::frame-to-string frame))))))
 
 (defun current-trace ()
-  (gethash (swank-backend:current-thread) *current-trace-by-thread*))
+  (gethash (swank/backend:current-thread) *current-trace-by-thread*))
 
 (defun (setf current-trace) (trace)
-  (setf (gethash (swank-backend:current-thread) *current-trace-by-thread*)
+  (setf (gethash (swank/backend:current-thread) *current-trace-by-thread*)
         trace))
 
 
@@ -114,14 +124,14 @@ program.")
     (when (dialog-traced-p spec)
       (warn "~a is apparently already traced! Untracing and retracing." spec)
       (dialog-untrace spec))
-    (swank-backend:wrap spec 'trace-dialog
+    (swank/backend:wrap spec 'trace-dialog
                         :before #'before-hook
                         :after #'after-hook)
     (pushnew spec *traced-specs*)
     (format nil "~a is now traced for trace dialog" spec)))
 
 (defslimefun dialog-untrace (spec)
-  (swank-backend:unwrap spec 'trace-dialog)
+  (swank/backend:unwrap spec 'trace-dialog)
   (setq *traced-specs* (remove spec *traced-specs* :test #'equal))
   (format nil "~a is now untraced for trace dialog" spec))
 
@@ -232,7 +242,7 @@ program.")
   (setf *current-trace-by-thread* (clrhash *current-trace-by-thread*)
         *visitor-key* nil
         *unfinished-traces* nil)
-  (swank-backend:call-with-lock-held
+  (swank/backend:call-with-lock-held
    *trace-lock*
    #'(lambda () (setf (fill-pointer *traces*) 0)))
   nil)
@@ -245,10 +255,10 @@ program.")
   (swank::reset-inspector))
 
 (defslimefun inspect-trace-part (trace-id part-id type)
-  (let* ((trace (find-trace trace-id))
-         (list (ecase type
-                 (:arg (args-of trace))
-                 (:retval (swank::ensure-list (retlist-of trace))))))
-    (swank::inspect-object (nth part-id list))))
+  (multiple-value-bind (obj found)
+      (find-trace-part trace-id part-id type)
+    (if found
+        (swank::inspect-object obj)
+        (error "No object found with ~a, ~a and ~a" trace-id part-id type))))
 
 (provide :swank-trace-dialog)

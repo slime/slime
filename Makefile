@@ -1,107 +1,113 @@
+### Makefile for SLIME
+#
+# This file is in the public domain.
+
 # Variables
 #
-EMACS_BIN ?= emacs
-LISP_BIN ?= sbcl
-SLIME_VERSION=$(shell grep "Version:" slime.el | grep -E -o "[0-9.]+$$")
-CONTRIBS = $(patsubst contrib/slime-%.el,%,$(wildcard contrib/slime-*.el))
-EMACS_23=$(shell $(EMACS_BIN) --version | grep -E 23)
-EMACS_24=$(shell $(EMACS_BIN) --version | grep -E 24)
+EMACS=emacs
+LISP=sbcl
 
-# emacs 24.4 allows us to add to the end of the load path using `:'
-# which is what we want in these version 24, especially since
-# cl-lib.el might be in the dir to shadow emacs's own.
-#
-ifeq ($(shell $(EMACS_BIN) --version | grep -E 24.\(3.5\|4\)),)
-    COLON =
-else
-    COLON = :
-endif
-LOAD_PATH=-L $(COLON). -L $(COLON)./contrib
+LOAD_PATH=-L .
+
+ELFILES := slime.el slime-autoloads.el slime-tests.el $(wildcard lib/*.el)
+ELCFILES := $(ELFILES:.el=.elc)
+
+default: compile contrib-compile
+
+all: compile
+
+help:
+	@printf "\
+Main targets\n\
+all        -- see compile\n\
+compile    -- compile .el files\n\
+check      -- run tests in batch mode\n\
+clean      -- delete generated files\n\
+doc-help   -- print help about doc targets\n\
+help-vars  -- print info about variables\n\
+help       -- print this message\n"
+
+help-vars:
+	@printf "\
+Main make variables:\n\
+EMACS     -- program to start Emacs ($(EMACS))\n\
+LISP      -- program to start Lisp ($(LISP))\n\
+SELECTOR  -- selector for ERT tests ($(SELECTOR))\n"
 
 # Compilation
 #
+slime.elc: slime.el lib/hyperspec.elc
+
 %.elc: %.el
-	${EMACS_BIN} -Q $(LOAD_PATH) --batch \
-		-f batch-byte-compile $<
-compile:
-	${EMACS_BIN} -Q $(LOAD_PATH) --batch \
-		--eval "(batch-byte-recompile-directory 0)" .
+	$(EMACS) -Q $(LOAD_PATH) --batch -f batch-byte-compile $<
+
+compile: $(ELCFILES)
 
 # Automated tests
 #
-SELECTOR ?= t
-OPTIONS ?=--batch
+SELECTOR=t
 
-$(CONTRIBS:%=check-%): TEST_CONTRIBS=$(patsubst check-%,slime-%,$@)
-$(CONTRIBS:%=check-%) check: compile
-	${EMACS_BIN} -Q $(LOAD_PATH) $(OPTIONS)			\
-		--eval "(require 'slime-tests)"			\
-		--eval "(slime-setup '($(TEST_CONTRIBS)))"		\
-		--eval "(setq inferior-lisp-program \"$(LISP_BIN)\")"	\
-		--eval "(slime-batch-test $(SELECTOR))"		\
+check: compile
+	$(EMACS) -Q --batch $(LOAD_PATH)				\
+		--eval "(require 'slime-tests)"				\
+		--eval "(slime-setup)"					\
+		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
+		--eval '(slime-batch-test (quote $(SELECTOR)))'
 
-
-# ELPA builds for contribs
+# run tests interactively
 #
-$(CONTRIBS:%=elpa-%): CONTRIB=$(@:elpa-%=%)
-$(CONTRIBS:%=elpa-%): CONTRIB_EL=$(CONTRIB:%=contrib/slime-%.el)
-$(CONTRIBS:%=elpa-%): CONTRIB_CL=$(CONTRIB:%=contrib/swank-%.lisp)
-$(CONTRIBS:%=elpa-%): CONTRIB_VERSION=$(shell (			\
-					  grep "Version:" $(CONTRIB_EL) \
-					  || echo $(SLIME_VERSION)	\
-					) | grep -E -o "[0-9.]+$$" )
-$(CONTRIBS:%=elpa-%): PACKAGE=$(CONTRIB:%=slime-%-$(CONTRIB_VERSION))
-$(CONTRIBS:%=elpa-%): PACKAGE_EL=$(CONTRIB:%=slime-%-pkg.el)
-$(CONTRIBS:%=elpa-%):
-	elpa_dir=elpa/$(PACKAGE);					\
-	mkdir -p $$elpa_dir;						\
-	emacs --batch $(CONTRIB_EL)					\
-	--eval "(require 'cl-lib)"					\
-	--eval "(search-forward \"define-slime-contrib\")"		\
-	--eval "(up-list -1)"						\
-	--eval "(pp							\
-		(pcase (read (point-marker))				\
-		  (\`(define-slime-contrib ,name ,docstring . ,rest)    \
-		   \`(define-package ,name \"$(CONTRIB_VERSION)\"	\
-		,docstring						\
-		,(cons '(slime \"$(SLIME_VERSION)\")			\
-		 (cl-loop for form in rest				\
-		     when (eq :slime-dependencies (car form))		\
-		     append (cl-loop for contrib in (cdr form)		\
-				     if (atom contrib)			\
-				     collect				\
-				       \`(,contrib \"$(SLIME_VERSION)\")\
-				     else				\
-				     collect contrib))))))))"	>	\
-	$$elpa_dir/$(PACKAGE_EL);					\
-	cp $(CONTRIB_EL) $$elpa_dir;					\
-	[ -r $(CONTRIB_CL) ] && cp $(CONTRIB_CL) $$elpa_dir;		\
-	ls $$elpa_dir;
-	cd elpa && tar cvf $(PACKAGE).tar $(PACKAGE)
+# FIXME: Not terribly useful until bugs in ert-run-tests-interactively
+# are fixed.
+test: compile
+	$(EMACS) -Q -nw $(LOAD_PATH)					\
+		--eval "(require 'slime-tests)"				\
+		--eval "(slime-setup)"					\
+		--eval "(setq inferior-lisp-program \"$(LISP)\")"	\
+		--eval '(slime-batch-test (quote $(SELECTOR)))'
+
+compile-swank:
+	echo '(load "swank-loader.lisp")' '(swank-loader:init :setup nil)' \
+	| $(LISP)
+
+run-swank:
+	{ echo \
+	'(load "swank-loader.lisp")' \
+	'(swank-loader:init)' \
+	'(swank:create-server)' \
+	&& cat; } \
+	| $(LISP)
 
 elpa-slime:
 	echo "Not implemented yet: elpa-slime target" && exit 255
-elpa-contribs: $(CONTRIBS:%=elpa-%)
-elpa: elpa-slime elpa-contribs
+
+elpa: elpa-slime contrib-elpa
 
 # Cleanup
 #
+FASLREGEX = .*\.\(fasl\|ufasl\|sse2f\|lx32fsl\|abcl\|fas\|lib\|trace\)$$
+
 clean-fasls:
-	find . -iname '*.fasl' -exec rm {} \;
+	find . -regex '$(FASLREGEX)' -exec rm -v {} \;
+	[ ! -d ~/.slime/fasl ] || rm -rf ~/.slime/fasl
+
 clean: clean-fasls
 	find . -iname '*.elc' -exec rm {} \;
 
-# Legacy dists
+
+# Contrib stuff. Should probably also go to contrib/
 #
-dist:
-	mkdir -p dist
-	git archive --prefix=slime-$(SLIME_VERSION)/ HEAD | gzip > dist/slime-$(SLIME_VERSION).tar.gz
+MAKECONTRIB=$(MAKE) -C contrib EMACS="$(EMACS)" LISP="$(LISP)"
+contrib-check-% check-%:
+	$(MAKECONTRIB) $(@:contrib-%=%)
+contrib-elpa:
+	$(MAKECONTRIB) elpa-all
+contrib-compile:
+	$(MAKECONTRIB) compile
 
 # Doc
 #
-doc-%: DOCTARGET=$(@:doc-%=%)
 doc-%:
-	cd doc && $(MAKE) $(DOCTARGET)
-doc: doc-all
+	$(MAKE) -C doc $(@:doc-%=%)
+doc: doc-help
 
 .PHONY: clean elpa compile check doc dist

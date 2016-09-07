@@ -34,15 +34,17 @@
 
 ;;; [1] http://cvs.sourceforge.net/viewcvs.py/clocc/clocc/src/tools/metering/
 
-(in-package :swank-backend)
+(defpackage swank/clisp
+  (:use cl swank/backend))
+
+(in-package swank/clisp)
 
 (eval-when (:compile-toplevel)
   (unless (string< "2.44" (lisp-implementation-version))
     (error "Need at least CLISP version 2.44")))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  ;;(use-package "SOCKET")
-  (use-package "GRAY"))
+(defimplementation gray-package-name ()
+  "GRAY")
 
 ;;;; if this lisp has the complete CLOS then we use it, otherwise we
 ;;;; build up a "fake" swank-mop and then override the methods in the
@@ -56,14 +58,14 @@
                                         :clos))))
     "True in those CLISP images which have a complete MOP implementation."))
 
-#+#.(cl:if swank-backend::*have-mop* '(cl:and) '(cl:or))
+#+#.(cl:if swank/clisp::*have-mop* '(cl:and) '(cl:or))
 (progn
   (import-swank-mop-symbols :clos '(:slot-definition-documentation))
 
   (defun swank-mop:slot-definition-documentation (slot)
     (clos::slot-definition-documentation slot)))
 
-#-#.(cl:if swank-backend::*have-mop* '(and) '(or))
+#-#.(cl:if swank/clisp::*have-mop* '(and) '(or))
 (defclass swank-mop:standard-slot-definition ()
   ()
   (:documentation
@@ -180,14 +182,14 @@
   (let ((streams (mapcar (lambda (s) (list* s :input nil)) streams)))
     (loop
      (cond ((check-slime-interrupts) (return :interrupt))
-           (timeout 
+           (timeout
             (socket:socket-status streams 0 0)
-            (return (loop for (s _ . x) in streams
+            (return (loop for (s nil . x) in streams
                           if x collect s)))
            (t
             (with-simple-restart (socket-status "Return from socket-status.")
               (socket:socket-status streams 0 500000))
-            (let ((ready (loop for (s _ . x) in streams
+            (let ((ready (loop for (s nil . x) in streams
                                if x collect s)))
               (when ready (return ready))))))))
 
@@ -196,7 +198,7 @@
   (assert (member timeout '(nil t)))
   (loop
    (cond ((check-slime-interrupts) (return :interrupt))
-         (t 
+         (t
           (let ((ready (remove-if-not #'input-available-p streams)))
             (when ready (return ready)))
           (when timeout (return nil))
@@ -258,8 +260,18 @@
           (return (ext:arglist fname)))
         :not-available)))
 
-(defimplementation macroexpand-all (form)
+(defimplementation macroexpand-all (form &optional env)
+  (declare (ignore env))
   (ext:expand-form form))
+
+(defimplementation collect-macro-forms (form &optional env)
+  ;; Currently detects only normal macros, not compiler macros.
+  (declare (ignore env))
+  (with-collected-macro-forms (macro-forms)
+      (handler-bind ((warning #'muffle-warning))
+        (ignore-errors
+          (compile nil `(lambda () ,form))))
+    (values macro-forms nil)))
 
 (defimplementation describe-symbol-for-emacs (symbol)
   "Return a plist describing SYMBOL.
@@ -479,9 +491,6 @@ Return NIL if the symbol is unbound."
   (let* ((match (nth-value n (regexp:match pattern string))))
     (if match (regexp:match-string string match))))
 
-(defimplementation format-sldb-condition (condition)
-  (trim-whitespace (princ-to-string condition)))
-
 (defimplementation eval-in-frame (form frame-number)
   (sys::eval-at (nth-frame frame-number) form))
 
@@ -571,26 +580,26 @@ Return two values: NAME and VALUE"
 ;;;; Profiling
 
 (defimplementation profile (fname)
-  (eval `(mon:monitor ,fname)))         ;monitor is a macro
+  (eval `(swank-monitor:monitor ,fname)))         ;monitor is a macro
 
 (defimplementation profiled-functions ()
-  mon:*monitored-functions*)
+  swank-monitor:*monitored-functions*)
 
 (defimplementation unprofile (fname)
-  (eval `(mon:unmonitor ,fname)))       ;unmonitor is a macro
+  (eval `(swank-monitor:unmonitor ,fname)))       ;unmonitor is a macro
 
 (defimplementation unprofile-all ()
-  (mon:unmonitor))
+  (swank-monitor:unmonitor))
 
 (defimplementation profile-report ()
-  (mon:report-monitoring))
+  (swank-monitor:report-monitoring))
 
 (defimplementation profile-reset ()
-  (mon:reset-all-monitoring))
+  (swank-monitor:reset-all-monitoring))
 
 (defimplementation profile-package (package callers-p methods)
   (declare (ignore callers-p methods))
-  (mon:monitor-all package))
+  (swank-monitor:monitor-all package))
 
 ;;;; Handle compiler conditions (find out location of error etc.)
 

@@ -11,7 +11,6 @@
 #
 doc/*.html
 doc/html
-doc/contributors.texi
 doc/*.info
 doc/*.pdf
 doc/*.ps
@@ -32,4 +31,5 @@ doc/*.op
 doc/*.ops
 doc/*.pgs
 doc/*.vrs
+doc/*.tgz
 /dist/

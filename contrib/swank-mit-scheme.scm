@@ -8,14 +8,9 @@
 ;;;; Installation:
 #|
 
-1. You need MIT Scheme 9.0.1
+1. You need MIT Scheme 9.2
 
-2. You also need the `netcat' program to create sockets 
-   (netcat-openbsd on Debian).  MIT Scheme has some socket functions
-   built-in, but I couldn't figure out how to access the locat port
-   number of a server socket.  We shell out to netcat to get us started.
-
-3. The Emacs side needs some fiddling.  I have the following in
+2. The Emacs side needs some fiddling.  I have the following in
    my .emacs:
 
 (setq slime-lisp-implementations
@@ -27,8 +22,8 @@
 	    (load-option 'format)
 	    (load-option 'sos)
 	    (eval 
-	     '(construct-normal-package-from-description
-	       (make-package-description '(swank) '(()) 
+	     '(create-package-from-description
+	       (make-package-description '(swank) (list (list))
 					 (vector) (vector) (vector) false))
 	     (->environment '(package)))
 	    (load ,(expand-file-name 
@@ -81,43 +76,14 @@
 
 ;;;; Networking
 
-#|
-;; ### doesn't work because 1) open-tcp-server-socket doesn't set the
-;; SO_REUSEADDR option and 2) we can't read the port number of the
-;; created socket.
 (define (accept-connections port port-file)
-  (let ((sock (open-tcp-server-socket  port (host-address-loopback))))
+  (let ((sock (open-tcp-server-socket port (host-address-loopback))))
     (format #t "Listening on port: ~s~%" port)
     (if port-file (write-port-file port port-file))
     (dynamic-wind 
 	(lambda () #f)
 	(lambda () (serve (tcp-server-connection-accept sock #t #f)))
 	(lambda () (close-tcp-server-socket sock)))))
-|#
-
-(define (accept-connections port port-file)
-  (let ((nc (netcat port)))
-    (format #t "Listening on port: ~s~%" (cadr nc))
-    (if port-file (write-port-file (cadr nc) port-file))
-    (dynamic-wind 
-	(lambda () #f)
-	(lambda () (serve (netcat-accept (car nc))))
-	(lambda () (close-port (subprocess-input-port (car nc)))))))
-
-(define (netcat port)
-  (let* ((sh (os/shell-file-name))
-	 (cmd (format #f "exec netcat -v -q 0 -l ~a 2>&1" port))
-	 (netcat (start-pipe-subprocess sh 
-					(vector sh "-c" cmd)
-					scheme-subprocess-environment)))
-    (list netcat port)))
-
-(define (netcat-accept nc)
-  (let* ((rx "^Connection from .+ port .+ accepted$")
-	 (line (read-line (subprocess-input-port nc)))
-	 (match (re-string-match rx line)))
-    (cond ((not match) (error "netcat:" line))
-	  (else (subprocess-input-port nc)))))
 
 (define (write-port-file portnumber filename)
   (call-with-output-file filename (lambda (p) (write portnumber p))))
@@ -230,6 +196,13 @@
 	   (package/environment p)))
 	(else (nearest-repl/environment))))
 
+;; quote keywords
+(define (hack-quotes list)
+  (map (lambda (x)
+	 (cond ((symbol? x) `(quote ,x))
+	       (#t x)))
+       list))
+
 (define (emacs-rex socket level sexp package thread id)
   (let ((ok? #f) (result #f) (condition #f))
     (dynamic-wind
@@ -241,7 +214,7 @@
 	   (lambda ()
 	     (fluid-let ((*buffer-package* package))
 	       (set! result 
-		     (eval (cons* (car sexp) socket (cdr sexp))
+		     (eval (cons* (car sexp) socket (hack-quotes (cdr sexp)))
 			   swank-env))
 	       (set! ok? #t)))))
 	(lambda ()
@@ -262,6 +235,7 @@
 		      :prompt ,(write-to-string (package/name p)))
       :lisp-implementation 
       (:type "MIT Scheme" :version ,(get-subsystem-version-string "release"))
+      :encoding (:coding-systems ("iso-8859-1"))
       )))
 
 (define (swank:quit-lisp _)
@@ -270,7 +244,7 @@
 
 ;;;; Evaluation
 
-(define (swank:listener-eval socket string)
+(define (swank-repl:listener-eval socket string)
   ;;(call-with-values (lambda () (eval-region string socket))
   ;;  (lambda values `(:values . ,(map write-to-string values))))
   `(:values ,(write-to-string (eval-region string socket))))
@@ -334,11 +308,9 @@
   (make-port-type `((write-substring ,repl-write-substring)
 		    (write-char ,repl-write-char)) #f))
 
-(define (swank:create-repl socket . _)
-  (let* ((env (user-env *buffer-package*))
-	 (name (format #f "~a" 
-		       (package/name (environment->package 
-				      (user-env *buffer-package*))))))
+(define (swank-repl:create-repl socket . _)
+  (let* ((env (user-env #f))
+	 (name (format #f "~a" (package/name (environment->package env)))))
     (list name name)))
 
 
@@ -376,7 +348,7 @@
   (apply
    (lambda (errors seconds)
      (list ':compilation-result errors 't seconds load? 
-	   (->namestring (pathname-new-type file "com"))))
+	   (->namestring (pathname-name file))))
    (call-compiler
     (lambda () (with-output-to-repl socket (lambda () (compile-file file)))))))
 

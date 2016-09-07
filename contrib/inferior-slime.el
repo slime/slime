@@ -10,6 +10,8 @@
 ;;   (add-to-list 'load-path "<directory-of-this-file>")
 ;;   (add-hook 'slime-load-hook (lambda () (require 'inferior-slime)))
 ;;   (add-hook 'inferior-lisp-mode-hook (lambda () (inferior-slime-mode 1)))
+(require 'slime)
+(require 'cl-lib)
 
 (define-minor-mode inferior-slime-mode
   "\\<slime-mode-map>\
@@ -19,14 +21,12 @@ This mode is intended for use with `inferior-lisp-mode'. It provides a
 subset of the bindings from `slime-mode'.
 
 \\{inferior-slime-mode-map}"
-  nil
-  nil
+  :keymap
   ;; Fake binding to coax `define-minor-mode' to create the keymap
-  '((" " 'undefined)))
+  '((" " 'undefined))
 
-(add-to-list 'minor-mode-alist
-             '(inferior-slime-mode
-               (" Inf-Slime" slime-state-name)))
+  (slime-setup-completion)
+  (setq-local tab-always-indent 'complete))
 
 (defun inferior-slime-return ()
   "Handle the return key in the inferior-lisp buffer.
@@ -84,7 +84,7 @@ A prefix argument disables this behaviour."
       ([return]			'inferior-slime-return)
       ([(control return)]	'inferior-slime-closing-return)
       ([(meta control ?m)]	'inferior-slime-closing-return)
-      ("\t"			'slime-indent-and-complete-symbol)
+      ;;("\t"			'slime-indent-and-complete-symbol)
       (" "			'slime-space))))
 
 (inferior-slime-init-keymap)

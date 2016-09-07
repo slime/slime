@@ -8,7 +8,34 @@
 ;;; are disclaimed.
 ;;;
 
-(in-package :swank-backend)
+(in-package swank/backend)
+
+#.(progn
+    (defvar *gray-stream-symbols*
+    '(fundamental-character-output-stream
+      stream-write-char
+      stream-write-string
+      stream-fresh-line
+      stream-force-output
+      stream-finish-output
+
+      fundamental-character-input-stream
+      stream-read-char
+      stream-peek-char
+      stream-read-line
+      stream-listen
+      stream-unread-char
+      stream-clear-input
+      stream-line-column
+      stream-read-char-no-hang))
+    nil)
+
+(defpackage swank/gray
+  (:use cl swank/backend)
+  (:import-from #.(gray-package-name) . #.*gray-stream-symbols*)
+  (:export . #.*gray-stream-symbols*))
+
+(in-package swank/gray)
 
 (defclass slime-output-stream (fundamental-character-output-stream)
   ((output-fn :initarg :output-fn)
@@ -50,19 +77,16 @@
              (funcall output-fn (subseq string start end))))
       (let ((last-newline (position #\newline string :from-end t
                                     :start start :end end)))
-        (setf column (if last-newline 
+        (setf column (if last-newline
                          (- end last-newline 1)
                          (+ column count))))))
   string)
-              
+
 (defmethod stream-line-column ((stream slime-output-stream))
   (with-slime-output-stream stream column))
 
-(defmethod stream-line-length ((stream slime-output-stream))
-  75)
-
 (defmethod stream-finish-output ((stream slime-output-stream))
-  (with-slime-output-stream stream 
+  (with-slime-output-stream stream
     (unless (zerop fill-pointer)
       (funcall output-fn (subseq buffer 0 fill-pointer))
       (setf fill-pointer 0)))
@@ -120,25 +144,13 @@
   (call-with-lock-held
    (slot-value s 'lock)
    (lambda ()
-     (with-slots (buffer index) s 
-       (setf buffer ""  
+     (with-slots (buffer index) s
+       (setf buffer ""
              index 0))))
   nil)
 
 (defmethod stream-line-column ((s slime-input-stream))
   nil)
-
-(defmethod stream-line-length ((s slime-input-stream))
-  75)
-
-
-;;; CLISP extensions
-
-;; We have to define an additional method for the sake of the C
-;; function listen_char (see src/stream.d), on which SYS::READ-FORM
-;; depends.
-
-;; We could make do with either of the two methods below.
 
 (defmethod stream-read-char-no-hang ((s slime-input-stream))
   (call-with-lock-held
@@ -147,14 +159,6 @@
      (with-slots (buffer index) s
        (when (< index (length buffer))
          (prog1 (aref buffer index) (incf index)))))))
-
-;; This CLISP extension is what listen_char actually calls.  The
-;; default method would call STREAM-READ-CHAR-NO-HANG, so it is a bit
-;; more efficient to define it directly.
-
-(defmethod stream-read-char-will-hang-p ((s slime-input-stream))
-  (with-slots (buffer index) s
-    (= index (length buffer))))
 
 
 ;;;

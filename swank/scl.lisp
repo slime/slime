@@ -6,7 +6,10 @@
 ;;; are disclaimed.
 ;;;
 
-(in-package :swank-backend)
+(defpackage swank/scl
+  (:use cl swank/backend swank/source-path-parser swank/source-file-cache))
+
+(in-package swank/scl)
 
 
 
@@ -106,324 +109,8 @@
 
 ;;;; Stream handling
 
-(defclass slime-input-stream (ext:character-input-stream)
-  ((buffer :initarg :buffer :type string)
-   (index :initarg :index :initform 0 :type fixnum)
-   (position :initarg :position :initform 0 :type integer)
-   (interactive :initarg :interactive :initform nil :type (member nil t))
-   (input-fn :initarg :input-fn :type function)
-   ))
-
-(defun make-slime-input-stream (input-fn)
-  (declare (function input-fn))
-  (make-instance 'slime-input-stream
-                 :in-buffer (make-string 256)
-                 :in-head 0 :in-tail 0
-                 :out-buffer ""
-                 :buffer "" :index 0
-                 :input-fn input-fn))
-
-(defmethod print-object ((s slime-input-stream) stream)
-  (print-unreadable-object (s stream :type t)))
-
-;;; input-stream-p inherits from input-stream.
-;;; output-stream-p inherits nil.
-
-(defmethod ext:stream-listen ((stream slime-input-stream))
-  (let* ((buffer (slot-value stream 'buffer))
-         (index (slot-value stream 'index))
-         (length (length buffer)))
-    (declare (type string buffer)
-             (fixnum index length))
-    (< index length)))
-
-(defmethod close ((stream slime-input-stream) &key ((:abort abort) nil))
-  (declare (ignore abort))
-  (when (ext:stream-open-p stream)
-    (setf (ext:stream-open-p stream) nil)
-    (setf (ext:stream-in-buffer stream) " ")
-    t))
-
-(defmethod ext:stream-clear-input ((stream slime-input-stream))
-  (let* ((input-buffer (slot-value stream 'buffer))
-         (index (slot-value stream 'index))
-         (input-length (length input-buffer))
-         (available (- input-length index))
-         (position (slot-value stream 'position))
-         (new-position (+ position available)))
-    (declare (type kernel:index index available position new-position))
-    (setf (slot-value stream 'position) new-position))
-  (setf (slot-value stream 'buffer) "")
-  (setf (slot-value stream 'index) 0)
-  nil)
-
-;;; No 'stream-finish-output method.
-;;; No 'stream-force-output method.
-;;; No 'stream-clear-output method.
-
-;;; stream-element-type inherits from character-stream.
-
-;;; No 'stream-line-length method.
-;;; No 'stream-line-column method.
-
-;;; Add the remaining input to the current position.
-(defmethod file-length ((stream slime-input-stream))
-  (let* ((input-buffer (slot-value stream 'buffer))
-         (index (slot-value stream 'index))
-         (input-length (length input-buffer))
-         (available (- input-length index))
-         (position (slot-value stream 'position))
-         (file-length (+ position available)))
-    (declare (type kernel:index index available position file-length))
-    file-length))
-
-(defmethod ext:stream-file-position ((stream slime-input-stream)
-                                     &optional position)
-  (let ((current-position (slot-value stream 'position)))
-    (declare (type kernel:index current-position))
-    (cond (position
-           ;; Could make an attempt here, but just give up for now.
-           nil)
-          (t
-           current-position))))
-
-(defmethod interactive-stream-p ((stream slime-input-stream))
-  (slot-value stream 'interactive))
-
-;;; No 'file-string-length method.
-
-(defmethod ext:stream-read-chars ((stream slime-input-stream) buffer
-                                  start requested waitp)
-  (declare (type simple-string buffer)
-	   (type kernel:index start requested))
-  (let* ((input-buffer (slot-value stream 'buffer))
-         (index (slot-value stream 'index))
-         (input-length (length input-buffer))
-         (available (- input-length index))
-	 (copy (min available requested)))
-    (declare (string input-buffer)
-	     (type kernel:index index available copy))
-    (cond ((plusp copy)
-           (dotimes (i copy)
-             (declare (type kernel:index i))
-             (setf (aref buffer (+ start i)) (aref input-buffer (+ index i))))
-           (setf (slot-value stream 'index) (+ index copy))
-           (incf (slot-value stream 'position) copy)
-	   copy)
-	  (waitp
-           (let ((input-fn (slot-value stream 'input-fn)))
-             (declare (type function input-fn))
-             (let ((new-input (funcall input-fn)))
-               (cond ((zerop (length new-input))
-                      -1)
-                     (t
-                      (setf (slot-value stream 'buffer) new-input)
-                      (setf (slot-value stream 'index) 0)
-                      (ext:stream-read-chars stream buffer
-                                             start requested waitp))))))
-          (t
-           0))))
-
-;;; Slime output stream.
-
-(defclass slime-output-stream (ext:character-output-stream)
-  ((output-fn :initarg :output-fn :type function)
-   (output-buffer :initarg :output-buffer :type simple-string)
-   (buffer-tail :initarg :buffer-tail :initform 0 :type kernel:index)
-   (last-write :initarg :last-write)
-   (column :initform 0 :type kernel:index)
-   (interactive :initform nil :type (member nil t))
-   (position :initform 0 :type integer)))
-
-(defun make-slime-output-stream (output-fn)
-  (declare (function output-fn))
-  (make-instance 'slime-output-stream
-		 :in-buffer ""
-		 :out-buffer ""
-		 :output-buffer (make-string 256)
-                 :output-fn output-fn
-                 :last-write (get-internal-real-time)
-                 ))
-  
-(defmethod print-object ((s slime-output-stream) stream)
-  (print-unreadable-object (s stream :type t)))
-
-;;; Use default 'input-stream-p method for 'output-stream which returns 'nil.
-;;; Use default 'output-stream-p method for 'output-stream which returns 't.
-
-;;; No 'stream-listen method.
-
-(defmethod close ((stream slime-output-stream) &key ((:abort abort) nil))
-  (when (ext:stream-open-p stream)
-    (unless abort
-      (finish-output stream))
-    (setf (ext:stream-open-p stream) nil)
-    (setf (slot-value stream 'output-buffer) "")
-    t))
-
-;;; No 'stream-clear-input method.
-
-(defmethod ext:stream-finish-output ((stream slime-output-stream))
-  (let ((buffer-tail (slot-value stream 'buffer-tail)))
-    (declare (type kernel:index buffer-tail))
-    (when (> buffer-tail 0)
-      (let ((output-fn (slot-value stream 'output-fn))
-            (output-buffer (slot-value stream 'output-buffer)))
-        (declare (function output-fn)
-                 (simple-string output-buffer))
-        (funcall output-fn (subseq output-buffer 0 buffer-tail))
-        (setf (slot-value stream 'buffer-tail) 0))
-      (setf (slot-value stream 'last-write) (get-internal-real-time))))
-  nil)
-
-(defmethod ext:stream-force-output ((stream slime-output-stream))
-  (ext:stream-finish-output stream)
-  nil)
-
-(defmethod ext:stream-clear-output ((stream slime-output-stream))
-  (decf (slot-value stream 'position) (slot-value stream 'buffer-tail))
-  (setf (slot-value stream 'buffer-tail) 0)
-  nil)
-
-;;; Use default 'stream-element-type method for 'character-stream which
-;;; returns 'base-char.
-
-(defmethod ext:stream-line-length ((stream slime-output-stream))
-  80)
-
-(defmethod ext:stream-line-column ((stream slime-output-stream))
-  (slot-value stream 'column))
-
-(defmethod file-length ((stream slime-output-stream))
-  (slot-value stream 'position))
-
-(defmethod ext:stream-file-position ((stream slime-output-stream)
-                                     &optional position)
-  (declare (optimize (speed 3)))
-  (cond (position
-	 (let* ((current-position (slot-value stream 'position))
-                (target-position (etypecase position
-                                   ((member :start) 0)
-                                   ((member :end) current-position)
-                                   (kernel:index position))))
-	   (declare (type kernel:index current-position target-position))
-	   (cond ((= target-position current-position)
-                  t)
-                 ((> target-position current-position)
-                  (ext:stream-finish-output stream)
-                  (let ((output-fn (slot-value stream 'output-fn))
-                        (fill-size (- target-position current-position)))
-                    (declare (function output-fn))
-                    (funcall output-fn (make-string fill-size
-                                                    :initial-element #\space))
-                    (setf (slot-value stream 'position) target-position))
-                  (setf (slot-value stream 'last-write) 
-                        (get-internal-real-time))
-                  t)
-                 (t
-                  nil))))
-	(t
-	 (slot-value stream 'position))))
-
-(defmethod interactive-stream-p ((stream slime-output-stream))
-  (slot-value stream 'interactive))
-
-;;; Use the default 'character-output-stream 'file-string-length method.
-
-;;; stream-write-char -- internal
-;;;
-(defmethod ext:stream-write-char ((stream slime-output-stream) character)
-  (declare (type character character)
-	   (optimize (speed 3)))
-  (unless (ext:stream-open-p stream)
-    (error 'kernel:simple-stream-error
-	   :stream stream
-	   :format-control "Stream closed."))
-  ;;
-  ;; Fill the output buffer.
-  (let* ((buffer-tail (slot-value stream 'buffer-tail))
-         (output-buffer (slot-value stream 'output-buffer))
-         (buffer-length (length output-buffer)))
-    (declare (type kernel:index buffer-tail)
-             (simple-string output-buffer))
-    (when (>= buffer-tail buffer-length)
-      ;; Flush the output buffer to make room.
-      (let ((output-fn (slot-value stream 'output-fn)))
-        (declare (function output-fn))
-        (funcall output-fn output-buffer)
-        (setf buffer-tail 0)
-        (setf (slot-value stream 'last-write) (get-internal-real-time))))
-    (setf (aref output-buffer buffer-tail) character)
-    (incf buffer-tail)
-    (setf (slot-value stream 'buffer-tail) buffer-tail)
-    ;;
-    (let ((newline (char= character #\newline)))
-      (when (or newline
-                (let ((last-write (slot-value stream 'last-write)))
-                  (declare (type integer last-write))
-                  (> (get-internal-real-time)
-                     (+ last-write (* 5 internal-time-units-per-second)))))
-        ;; Flush the output buffer.
-        (let ((output-fn (slot-value stream 'output-fn)))
-          (declare (function output-fn))
-          (funcall output-fn (subseq output-buffer 0 buffer-tail))
-          (setf buffer-tail 0)
-          (setf (slot-value stream 'buffer-tail) buffer-tail)
-          (setf (slot-value stream 'last-write) (get-internal-real-time))))
-      ;;
-      (setf (slot-value stream 'column)
-	    (if newline
-		0
-		(let ((line-column (slot-value stream 'column)))
-		  (declare (type kernel:index line-column))
-		  (+ line-column 1))))
-      (incf (slot-value stream 'position))
-      ))
-  character)
-
-;;; stream-write-chars
-;;;
-(defmethod ext:stream-write-chars ((stream slime-output-stream)
-                                   string start end waitp)
-  (declare (simple-string string)
-	   (type kernel:index start end)
-           (ignore waitp))
-  (declare (optimize (speed 3)))
-  (unless (ext:stream-open-p stream)
-    (error 'kernel:simple-stream-error
-	   :stream stream
-	   :format-control "Stream closed."))
-  (let* ((string-length (length string))
-         (start (cond ((< start 0) 0)
-                      ((> start string-length) string-length)
-                      (t start)))
-         (end (cond ((< end start) start)
-                    ((> end string-length) string-length)
-                    (t end)))
-         (length (- end start))
-         (output-fn (slot-value stream 'output-fn)))
-    (declare (type kernel:index start end length)
-             (type function output-fn))
-    (unless (zerop length)
-      (funcall output-fn (subseq string start end))
-      (let ((last-newline (position #\newline string :from-end t
-                                    :start start :end end)))
-        (setf (slot-value stream 'column) 
-              (if last-newline
-                  (- end last-newline 1)
-                  (let ((column (slot-value stream 'column)))
-                    (declare (type kernel:index column))
-                    (+ column (- end start))))))
-      (incf (slot-value stream 'position) length)))
-  (- end start))
-
-;;;
-
-(defimplementation make-output-stream (output-fn)
-  (make-slime-output-stream output-fn))
-
-(defimplementation make-input-stream (input-fn)
-  (make-slime-input-stream input-fn))
+(defimplementation gray-package-name ()
+  '#:ext)
 
 
 ;;;; Compilation Commands
@@ -737,17 +424,11 @@
 ;;; for the location. Once we have the source-path we can pull up the
 ;;; source file and `READ' our way through to the right position. The
 ;;; main source-code groveling work is done in
-;;; `swank-source-path-parser.lisp'.
+;;; `source-path-parser.lisp'.
 
 (defvar *debug-definition-finding* nil
   "When true don't handle errors while looking for definitions.
   This is useful when debugging the definition-finding code.")
-
-(defvar *source-snippet-size* 256
-  "Maximum number of characters in a snippet of source code.
-  Snippets at the beginning of definitions are used to tell Emacs what
-  the definitions looks like, so that it can accurately find them by
-  text search.")
 
 (defmacro safe-definition-finding (&body body)
   "Execute 'body and return the source-location it returns.
@@ -1314,7 +995,8 @@ Signal an error if no constructor can be found."
 
 ;;;; Miscellaneous.
 
-(defimplementation macroexpand-all (form)
+(defimplementation macroexpand-all (form &optional env)
+  (declare (ignore env))
   (macroexpand form))
 
 (defimplementation set-default-directory (directory)
@@ -1340,7 +1022,7 @@ Signal an error if no constructor can be found."
   (ext:quit))
 
 ;;; source-path-{stream,file,string,etc}-position moved into 
-;;; swank-source-path-parser
+;;; source-path-parser
 
 
 ;;;; Debugging

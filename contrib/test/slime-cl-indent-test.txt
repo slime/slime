@@ -4,12 +4,12 @@
 ;;;; common-lisp-run-indentation-tests in slime-cl-ident.el
 ;;;; parses this and runs the specified tests.
 
-;;; Test: 1
+;;; Test: indent-1
 
 (defun foo ()
   t)
 
-;;; Test: 2
+;;; Test: indent-2
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: nil
 ;; lisp-lambda-list-keyword-alignment: nil
@@ -20,7 +20,7 @@
   (list foo opt1 opt2
         rest))
 
-;;; Test: 3
+;;; Test: indent-3
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: t
 ;; lisp-lambda-list-keyword-alignment: nil
@@ -31,7 +31,7 @@
   (list foo opt1 opt2
         rest))
 
-;;; Test: 4
+;;; Test: indent-4
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: nil
 ;; lisp-lambda-list-keyword-alignment: t
@@ -42,7 +42,7 @@
   (list foo opt1 opt2
         rest))
 
-;;; Test: 5
+;;; Test: indent-5
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: t
 ;; lisp-lambda-list-keyword-alignment: t
@@ -53,7 +53,7 @@
   (list foo opt1 opt2
         rest))
 
-;;; Test: 6
+;;; Test: indent-6
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: nil
 ;; lisp-lambda-list-keyword-alignment: nil
@@ -64,7 +64,7 @@
   (list foo opt1 opt2
         rest))
 
-;;; Test: 7
+;;; Test: indent-7
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: t
 ;; lisp-lambda-list-keyword-alignment: nil
@@ -75,7 +75,7 @@
   (list foo opt1 opt2
         rest))
 
-;;; Test: 8
+;;; Test: indent-8
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: nil
 ;; lisp-lambda-list-keyword-alignment: t
@@ -86,7 +86,7 @@
   (list foo opt1 opt2
         rest))
 
-;;; Test: 9
+;;; Test: indent-9
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: t
 ;; lisp-lambda-list-keyword-alignment: t
@@ -97,7 +97,7 @@
   (list foo opt1 opt2
         rest))
 
-;;; Test: 10
+;;; Test: indent-10
 
 (let ((x y)
       (foo #-foo (no-foo)
@@ -109,7 +109,7 @@
   (list foo bar
         x))
 
-;;; Test: 11
+;;; Test: indent-11
 ;;
 ;; lisp-loop-indent-subclauses: t
 
@@ -140,7 +140,7 @@
       when funny-predicate do ;; Here's a comment
                               (body filled to comment))
 
-;;; Test: 12
+;;; Test: indent-12
 
 (defun foo (x)
   (tagbody
@@ -170,7 +170,7 @@
               (lose
                3))))))
 
-;;; Test: 13
+;;; Test: indent-13
 
 (if* (eq t nil)
    then ()
@@ -180,12 +180,12 @@
    else (balbkj)
         (sdf))
 
-;;; Test: 14
+;;; Test: indent-14
 
 (list foo #+foo (foo)
           #-foo (no-foo))
 
-;;; Test: 15
+;;; Test: indent-15
 ;;
 ;; lisp-loop-indent-subclauses: t
 
@@ -193,7 +193,7 @@
       for y in quux1
       )
 
-;;; Test: 16
+;;; Test: indent-16
 ;;
 ;; lisp-loop-indent-subclauses: nil
 
@@ -201,7 +201,7 @@
       for y in quux1
       )
 
-;;; Test: 17
+;;; Test: indent-17
 ;;
 ;; lisp-loop-indent-subclauses: nil
 ;; lisp-loop-indent-forms-like-keywords: t
@@ -216,7 +216,7 @@
       (print y)
       (print 'ok!))
 
-;;; Test: 18
+;;; Test: indent-18
 ;;
 ;; lisp-loop-indent-subclauses: nil
 ;; lisp-loop-indent-forms-like-keywords: nil
@@ -231,7 +231,7 @@
          (print y)
          (print 'ok!))
 
-;;; Test: 19
+;;; Test: indent-19
 ;;
 ;; lisp-loop-indent-subclauses: t
 ;; lisp-loop-indent-forms-like-keywords: nil
@@ -246,7 +246,7 @@
          (print y)
          (print 'ok!))
 
-;;; Test: 20
+;;; Test: indent-20
 ;;
 ;; lisp-loop-indent-subclauses: nil
 ;; lisp-loop-indent-forms-like-keywords: nil
@@ -257,7 +257,7 @@
       do (foo) (bar)
          (quux))
 
-;;; Test: 21
+;;; Test: indent-21
 ;;
 ;; lisp-loop-indent-subclauses: t
 
@@ -267,18 +267,18 @@
       do (foo) (bar)
          (quux))
 
-;;; Test: 22
+;;; Test: indent-22
 
 (defsetf foo bar
   "the doc string")
 
-;;; Test: 23
+;;; Test: indent-23
 
 (defsetf foo
     bar
   "the doc string")
 
-;;; Test: 24
+;;; Test: indent-24
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: t
 
@@ -287,21 +287,21 @@
     (a b c)
   stuff)
 
-;;; Test: 25
+;;; Test: indent-25
 ;;
 ;; lisp-align-keywords-in-calls: t
 
 (make-instance 'foo :bar t :quux t
                     :zot t)
 
-;;; Test: 26
+;;; Test: indent-26
 ;;
 ;; lisp-align-keywords-in-calls: nil
 
 (make-instance 'foo :bar t :quux t
                :zot t)
 
-;;; Test: 27
+;;; Test: indent-27
 ;;
 ;; lisp-lambda-list-indentation: nil
 
@@ -312,7 +312,7 @@
                 k3 k4)
   'hello)
 
-;;; Test: 28
+;;; Test: indent-28
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: t
 ;; lisp-lambda-list-keyword-alignment: t
@@ -324,7 +324,7 @@
     foo
   body)
 
-;;; Test: 29
+;;; Test: indent-29
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: t
 ;; lisp-lambda-list-keyword-alignment: t
@@ -335,19 +335,19 @@
        &rest more)
   body)
 
-;;; Test: 30
+;;; Test: indent-30
 
 (foo fii
      (or x
          y) t
      bar)
 
-;;; Test: 31
+;;; Test: indent-31
 
 (foo
  (bar))
 
-;;; Test: 32
+;;; Test: indent-32
 ;;
 ;; comment-indent-function: (lambda () nil)
 ;; comment-column: nil
@@ -362,7 +362,7 @@
          (
           quux))
 
-;;; Test: 33
+;;; Test: indent-33
 
 (complex-indent.1 ((x z
                     f
@@ -378,7 +378,7 @@
   (bodyform)
   (another))
 
-;;; Test: 34
+;;; Test: indent-34
 
 (complex-indent.2 (bar quux
                        zot)
@@ -387,7 +387,7 @@
   (form1)
   (form2))
 
-;;; Test: 35
+;;; Test: indent-35
 
 (complex-indent.3 (:wait fii
                          (this is
@@ -395,7 +395,7 @@
   (bodyform)
   (another))
 
-;;; Test: 36
+;;; Test: indent-36
 
 (defmacro foo (body)
   `(let (,@(stuff)
@@ -404,14 +404,14 @@
          (foo foo))
      ,@bofy))
 
-;;; Test: 37
+;;; Test: indent-37
 
 (defun foo ()
   `(list foo bar
          ,@(quux fo
                  foo)))
 
-;;; Test: 38
+;;; Test: indent-38
 
 (defmacro foofoo (body)
   `(foo
@@ -421,7 +421,7 @@
            (foo foo))
        ,@bofy)))
 
-;;; Test: 39
+;;; Test: indent-39
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: t
 ;; lisp-lambda-list-keyword-alignment: t
@@ -435,7 +435,7 @@
   zot
   fii)
 
-;;; Test: 40
+;;; Test: indent-40
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: t
 ;; lisp-lambda-list-keyword-alignment: t
@@ -444,7 +444,7 @@
                                  y)
   (list zot))
 
-;;; Test: 41
+;;; Test: indent-41
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: t
 ;; lisp-lambda-list-keyword-alignment: t
@@ -454,7 +454,7 @@
                                    y)
     (list fii)))
 
-;;; Test: 42
+;;; Test: indent-42
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: t
 ;; lisp-lambda-list-keyword-alignment: t
@@ -466,7 +466,7 @@
                                     y)
       (list a b x y))))
 
-;;; Test: 43
+;;; Test: indent-43
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: t
 ;; lisp-lambda-list-keyword-alignment: t
@@ -476,7 +476,7 @@
                           b)
     (list x y a b)))
 
-;;; Test: 44
+;;; Test: indent-44
 
 (let (definer
       foo
@@ -484,7 +484,7 @@
       quux)
   ...)
 
-;;; Test: 45
+;;; Test: indent-45
 
 (let (definition
       foo
@@ -492,20 +492,20 @@
       quux)
   ...)
 
-;;; Test: 46
+;;; Test: indent-46
 
 (let (foo bar
       quux)
   ...)
 
-;;; Test: 47
+;;; Test: indent-47
 
-(with-compilation-unit 
+(with-compilation-unit
     (:foo t
      :quux nil)
   ...)
 
-;;; Test: 48
+;;; Test: indent-48
 
 (cond
   ((> x y) (foo)
@@ -521,7 +521,7 @@
   (t (foo)
      (bar)))
 
-;;; Test: 49
+;;; Test: indent-49
 
 (cond ((> x y) (foo)
        ;; This isn't ideal -- I at least would align with (FOO here.
@@ -533,7 +533,7 @@
       (t (foo)
          (bar)))
 
-;;; Test: 50
+;;; Test: indent-50
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: nil
 ;; lisp-lambda-list-keyword-alignment: nil
@@ -545,7 +545,7 @@
   (list opt1 opt2
         rest))
 
-;;; Test: 51
+;;; Test: indent-51
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: t
 ;; lisp-lambda-list-keyword-alignment: nil
@@ -557,7 +557,7 @@
   (list opt1 opt2
         rest))
 
-;;; Test: 52
+;;; Test: indent-52
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: nil
 ;; lisp-lambda-list-keyword-alignment: t
@@ -569,7 +569,7 @@
   (list opt1 opt2
         rest))
 
-;;; Test: 53
+;;; Test: indent-53
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: t
 ;; lisp-lambda-list-keyword-alignment: t
@@ -581,7 +581,7 @@
   (list opt1 opt2
         rest))
 
-;;; Test: 54
+;;; Test: indent-54
 ;;
 
 (loop (foo)
@@ -589,14 +589,14 @@
       (bar)
       (quux))
 
-;;; Test: 55
+;;; Test: indent-55
 ;;
 
 (loop ;; comment
       (foo)
       (bar))
 
-;;; Test: 56
+;;; Test: indent-56
 ;;
 
 (loop
@@ -605,7 +605,7 @@
   (bar))
 
 
-;;; Test: 57
+;;; Test: indent-57
 ;;
 
 (loop
@@ -613,7 +613,7 @@
   (foo)
   (bar))
 
-;;; Test: 58
+;;; Test: indent-58
 ;;
 ;; lisp-loop-indent-subclauses: t
 
@@ -622,7 +622,7 @@
       do (foo foo)
          (foo))
 
-;;; Test: 59
+;;; Test: indent-59
 ;;
 ;; lisp-loop-indent-subclauses: nil
 
@@ -631,7 +631,7 @@
       do (foo foo)
          (foo))
 
-;;; Test: 60
+;;; Test: indent-60
 ;;
 ;; lisp-loop-indent-subclauses: t
 
@@ -640,7 +640,7 @@
   with foo = t
   do (foo foo))
 
-;;; Test: 61
+;;; Test: indent-61
 ;;
 ;; lisp-loop-indent-subclauses: nil
 
@@ -650,7 +650,7 @@
   do (foo foo)
      (foo))
 
-;;; Test: 62
+;;; Test: indent-62
 ;;
 ;; lisp-loop-indent-subclauses: t
 
@@ -659,7 +659,7 @@
          ;; comment inside clause
          (bar))
 
-;;; Test: 63
+;;; Test: indent-63
 ;;
 ;; lisp-loop-indent-subclauses: nil
 
@@ -669,7 +669,7 @@
          (bar))
 
 
-;;; Test: 64
+;;; Test: indent-64
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: t
 ;; lisp-lambda-list-keyword-alignment: t
@@ -678,7 +678,7 @@
                                         y)
   (list zot))
 
-;;; Test: 65
+;;; Test: indent-65
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: t
 ;; lisp-lambda-list-keyword-alignment: t
@@ -687,7 +687,7 @@
     :around (zot &key x y)
   (list zot))
 
-;;; Test: 66
+;;; Test: indent-66
 ;;
 
 (define-condition
@@ -697,7 +697,7 @@
   ()
   (:report "foo"))
 
-;;; Test: 67
+;;; Test: indent-67
 ;;
 
 (defclass
@@ -708,7 +708,7 @@
   (:metaclass foo-class))
 
 
-;;; Test: 68
+;;; Test: indent-68
 ;;
 ;; lisp-loop-indent-subclauses: nil
 
@@ -722,7 +722,7 @@
                    ;; is a beginning
         do (foo)))
 
-;;; Test: 69
+;;; Test: indent-69
 ;;
 ;; lisp-loop-indent-subclauses: t
 
@@ -736,7 +736,7 @@
                    ;; is a beginning
         do (foo)))
 
-;;; Test: 70
+;;; Test: indent-70
 ;;
 ;; lisp-loop-indent-subclauses: nil
 
@@ -750,7 +750,7 @@
                      ;; is a beginning
         :do (foo)))
 
-;;; Test: 71
+;;; Test: indent-71
 ;;
 ;; lisp-loop-indent-subclauses: t
 
@@ -764,7 +764,7 @@
                     ;; is a beginning
         #:do (foo)))
 
-;;; Test: 72
+;;; Test: indent-72
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: nil
 ;; lisp-lambda-list-keyword-alignment: nil
@@ -776,7 +776,7 @@
                rest)))
   ...)
 
-;;; Test: 73
+;;; Test: indent-73
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: t
 ;; lisp-lambda-list-keyword-alignment: nil
@@ -788,7 +788,7 @@
                rest)))
   ...)
 
-;;; Test: 74
+;;; Test: indent-74
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: nil
 ;; lisp-lambda-list-keyword-alignment: t
@@ -800,7 +800,7 @@
                rest)))
   ...)
 
-;;; Test: 75
+;;; Test: indent-75
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: t
 ;; lisp-lambda-list-keyword-alignment: t
@@ -812,7 +812,7 @@
                rest)))
   ...)
 
-;;; Test: 76
+;;; Test: indent-76
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: t
 ;; lisp-lambda-list-keyword-alignment: t
@@ -828,7 +828,7 @@
                    rest)))
   ...)
 
-;;; Test: 77
+;;; Test: indent-77
 ;;
 ;; lisp-align-keywords-in-calls: t
 
@@ -838,7 +838,7 @@
            #-quux nil
      :zot t)
 
-;;; Test: 78
+;;; Test: indent-78
 ;;
 ;; lisp-align-keywords-in-calls: t
 
@@ -848,12 +848,12 @@
                  #+zot nil
            :zot t)
 
-;;; Test: 79
+;;; Test: indent-79
 
 (foo #+quux :quux #+quux t
      #-quux :zoo #-quux t)
 
-;;; Test: 80
+;;; Test: indent-80
 ;;
 ;; lisp-align-keywords-in-calls: t
 
@@ -862,7 +862,7 @@
            #+quux :quux #+quux t
            :zot t)
 
-;;; Test: 81
+;;; Test: indent-81
 ;;
 ;; lisp-align-keywords-in-calls: t
 
@@ -871,7 +871,7 @@
            #+quux #+quux :quux t
            :zot t)
 
-;;; Test: 82
+;;; Test: indent-82
 ;;
 ;; lisp-align-keywords-in-calls: t
 
@@ -881,7 +881,7 @@
            :quux #+quux t
            :zot t)
 
-;;; Test: 83
+;;; Test: indent-83
 ;;
 ;; lisp-align-keywords-in-calls: t
 
@@ -891,27 +891,27 @@
            :quux t
            :zot t)
 
-;;; Test: 84
+;;; Test: indent-84
 
 (and ;; Foo
      (something)
      ;; Quux
      (more))
 
-;;; Test: 85
+;;; Test: indent-85
 
 (and      ;; Foo
      (something)
      ;; Quux
      (more))
 
-;;; Test: 86
+;;; Test: indent-86
 
 (foo (
       bar quux
       zor))
 
-;;; Test: 87
+;;; Test: indent-87
 ;;
 ;; lisp-lambda-list-keyword-parameter-alignment: t
 ;; lisp-lambda-list-keyword-alignment: t
@@ -927,7 +927,7 @@
   (list foo opt1 opt2
         rest))
 
-;;; Test: 88
+;;; Test: indent-88
 
 (defstruct (foo
             (:constructor make-foo
@@ -936,19 +936,19 @@
   bar
   quux)
 
-;;; Test: 89
+;;; Test: indent-89
 
 (define-tentative-thing foo
     (bar)
   quux)
 
-;;; Test: 90
+;;; Test: indent-90
 
 (define-tentative-thing foo
   bar
   quux)
 
-;;; Test: 91
+;;; Test: indent-91
 ;;
 ;; lisp-loop-indent-body-forms-relative-to-loop-start: t
 
@@ -958,7 +958,7 @@
           bar
           baz))
 
-;;; Test: 92
+;;; Test: indent-92
 ;;
 ;; lisp-loop-indent-body-forms-relative-to-loop-start: t
 ;; lisp-loop-clauses-indentation: 4
@@ -970,7 +970,7 @@
           bar
           baz))
 
-;;; Test: 93
+;;; Test: indent-93
 ;;
 ;; lisp-loop-clauses-indentation: 4
 
@@ -981,7 +981,7 @@
               bar
               baz))
 
-;;; Test: 94
+;;; Test: indent-94
 ;;
 ;; lisp-loop-clauses-indentation: 4
 ;; lisp-loop-body-forms-indentation: 1
@@ -993,7 +993,7 @@
            bar
            baz))
 
-;;; Test: 95
+;;; Test: indent-95
 ;;
 ;; lisp-loop-body-forms-indentation: 1
 ;; lisp-loop-indent-body-forms-relative-to-loop-start: t

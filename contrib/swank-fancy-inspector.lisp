@@ -102,7 +102,13 @@
                 (:defined
                  (or (sb-int:info :type :expander symbol) t))
                 (:primitive
-                 (or (sb-int:info :type :translator symbol) t)))))
+                 (or #.(if (swank/sbcl::sbcl-version>= 1 3 1)
+                           '(let ((x (sb-int:info :type :expander symbol)))
+                             (if (consp x)
+                                 (car x)
+                                 x))
+                           '(sb-int:info :type :translator symbol))
+                     t)))))
     (when fun
       (append
        (list
@@ -111,19 +117,21 @@
         '(:newline))
        (docstring-ispec "Type-specifier documentation" symbol 'type)
        (unless (eq t fun)
-         (append
-          `("Type-specifier lambda-list: "
-            ,(inspector-princ
-              (if (eq :primitive kind)
-                  (arglist fun)
-                  (sb-int:info :type :lambda-list symbol)))
-            (:newline))
-          (multiple-value-bind (expansion ok)
-              (handler-case (sb-ext:typexpand-1 symbol)
-                (error () (values nil nil)))
-            (when ok
-              (list "Type-specifier expansion: "
-                    (princ-to-string expansion))))))))))
+         (let ((arglist (arglist fun)))
+           (append
+            `("Type-specifier lambda-list: "
+              ;; Could use ~:s, but inspector-princ does a bit more,
+              ;; and not all NILs in the arglist should be printed that way.
+              ,(if arglist
+                   (inspector-princ arglist)
+                   "()")
+              (:newline))
+            (multiple-value-bind (expansion ok)
+                (handler-case (sb-ext:typexpand-1 symbol)
+                  (error () (values nil nil)))
+              (when ok
+                (list "Type-specifier expansion: "
+                      (princ-to-string expansion)))))))))))
 
 (defun docstring-ispec (label object kind)
   "Return a inspector spec if OBJECT has a docstring of kind KIND."
@@ -157,7 +165,19 @@
             (typecase spec
               (swank-mop:eql-specializer
                `(eql ,(swank-mop:eql-specializer-object spec)))
-              (t (swank-mop:class-name spec))))
+              #-sbcl
+              (t
+               (swank-mop:class-name spec))
+              #+sbcl
+              (t
+               ;; SBCL has extended specializers
+               (let ((gf (sb-mop:method-generic-function method)))
+                 (cond (gf
+                        (sb-pcl:unparse-specializer-using-class gf spec))
+                       ((typep spec 'class)
+                        (class-name spec))
+                       (t
+                        spec))))))
           (swank-mop:method-specializers method)))
 
 (defun method-for-inspect-value (method)
@@ -186,7 +206,7 @@ See `methods-by-applicability'.")
   (let ((s1 specializer1) (s2 specializer2) )
     (cond ((typep s1 'swank-mop:eql-specializer)
            (not (typep s2 'swank-mop:eql-specializer)))
-          (t
+          ((typep s1 'class)
            (flet ((cpl (class)
                     (and (swank-mop:class-finalized-p class)
                          (swank-mop:class-precedence-list class))))
@@ -848,23 +868,24 @@ SPECIAL-OPERATOR groups."
           (label-value-line "Truename" (truename pathname)))))
 
 (defmethod emacs-inspect ((pathname logical-pathname))
-          (append
-           (label-value-line*
-            ("Namestring" (namestring pathname))
-            ("Physical pathname: " (translate-logical-pathname pathname)))
-           `("Host: "
-             ,(pathname-host pathname)
-             " (" (:value ,(logical-pathname-translations
-                            (pathname-host pathname)))
-             "other translations)"
-             (:newline))
-           (label-value-line*
-            ("Directory" (pathname-directory pathname))
-            ("Name" (pathname-name pathname))
-            ("Type" (pathname-type pathname))
-            ("Version" (pathname-version pathname))
-            ("Truename" (if (not (wild-pathname-p pathname))
-                            (probe-file pathname))))))
+  (append
+   (label-value-line*
+    ("Namestring" (namestring pathname))
+    ("Physical pathname: " (translate-logical-pathname pathname)))
+   `("Host: "
+     (:value ,(pathname-host pathname))
+     " ("
+     (:value ,(logical-pathname-translations
+               (pathname-host pathname)))
+     " other translations)"
+     (:newline))
+   (label-value-line*
+    ("Directory" (pathname-directory pathname))
+    ("Name" (pathname-name pathname))
+    ("Type" (pathname-type pathname))
+    ("Version" (pathname-version pathname))
+    ("Truename" (if (not (wild-pathname-p pathname))
+                    (probe-file pathname))))))
 
 (defmethod emacs-inspect ((n number))
   `("Value: " ,(princ-to-string n)))
@@ -892,46 +913,46 @@ SPECIAL-OPERATOR groups."
                                                               zone))))))
 
 (defmethod emacs-inspect ((i integer))
-          (append
-           `(,(format nil "Value: ~D = #x~8,'0X = #o~O = #b~,,' ,8:B~@[ = ~E~]"
-                      i i i i (ignore-errors (coerce i 'float)))
-              (:newline))
-           (when (< -1 i char-code-limit)
-             (label-value-line "Code-char" (code-char i)))
-           (label-value-line "Integer-length" (integer-length i))
-           (ignore-errors
-             (label-value-line "Universal-time" (format-iso8601-time i t)))))
+  (append
+   `(,(format nil "Value: ~D = #x~8,'0X = #o~O = #b~,,' ,8:B~@[ = ~E~]"
+	      i i i i (ignore-errors (coerce i 'float)))
+     (:newline))
+   (when (< -1 i char-code-limit)
+     (label-value-line "Code-char" (code-char i)))
+   (label-value-line "Integer-length" (integer-length i))
+   (ignore-errors
+    (label-value-line "Universal-time" (format-iso8601-time i t)))))
 
 (defmethod emacs-inspect ((c complex))
-          (label-value-line*
-           ("Real part" (realpart c))
-           ("Imaginary part" (imagpart c))))
+  (label-value-line*
+   ("Real part" (realpart c))
+   ("Imaginary part" (imagpart c))))
 
 (defmethod emacs-inspect ((r ratio))
-          (label-value-line*
-           ("Numerator" (numerator r))
-           ("Denominator" (denominator r))
-           ("As float" (float r))))
+  (label-value-line*
+   ("Numerator" (numerator r))
+   ("Denominator" (denominator r))
+   ("As float" (float r))))
 
 (defmethod emacs-inspect ((f float))
-          (cond
-            ((> f most-positive-long-float)
-             (list "Positive infinity."))
-            ((< f most-negative-long-float)
-             (list "Negative infinity."))
-            ((not (= f f))
-             (list "Not a Number."))
-            (t
-             (multiple-value-bind (significand exponent sign) (decode-float f)
-               (append
-                `("Scientific: " ,(format nil "~E" f) (:newline)
-                                 "Decoded: "
-                                 (:value ,sign) " * "
-                                 (:value ,significand) " * "
-                                 (:value ,(float-radix f)) "^"
-                                 (:value ,exponent) (:newline))
-                (label-value-line "Digits" (float-digits f))
-                (label-value-line "Precision" (float-precision f)))))))
+  (cond
+    ((> f most-positive-long-float)
+     (list "Positive infinity."))
+    ((< f most-negative-long-float)
+     (list "Negative infinity."))
+    ((not (= f f))
+     (list "Not a Number."))
+    (t
+     (multiple-value-bind (significand exponent sign) (decode-float f)
+       (append
+	`("Scientific: " ,(format nil "~E" f) (:newline)
+			 "Decoded: "
+			 (:value ,sign) " * "
+			 (:value ,significand) " * "
+			 (:value ,(float-radix f)) "^"
+			 (:value ,exponent) (:newline))
+	(label-value-line "Digits" (float-digits f))
+	(label-value-line "Precision" (float-precision f)))))))
 
 (defun make-pathname-ispec (pathname position)
   `("Pathname: "

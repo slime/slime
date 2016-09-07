@@ -8,9 +8,10 @@
 
 ;;; Administrivia
 
-(in-package :swank-backend)
+(defpackage swank/ecl
+  (:use cl swank/backend))
 
-
+(in-package swank/ecl)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun ecl-version ()
@@ -43,7 +44,6 @@
 ;;; Swank-mop
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (import-from :gray *gray-stream-symbols* :swank-backend)
   (import-swank-mop-symbols
    :clos
    (and (< (ecl-version) 121201)
@@ -53,6 +53,9 @@
           :specializer-direct-methods
           ,@(unless (fboundp 'clos:compute-applicable-methods-using-classes)
               '(:compute-applicable-methods-using-classes))))))
+
+(defimplementation gray-package-name ()
+  "GRAY")
 
 
 ;;;; TCP Server
@@ -325,7 +328,17 @@
     (function (si:compiled-function-name f))))
 
 ;; FIXME
-;; (defimplementation macroexpand-all (form))
+;; (defimplementation macroexpand-all (form &optional env)
+;; (declare (ignore env))
+
+(defimplementation collect-macro-forms (form &optional env)
+  ;; Currently detects only normal macros, not compiler macros.
+  (declare (ignore env))
+  (with-collected-macro-forms (macro-forms)
+    (handler-bind ((warning #'muffle-warning))
+      (ignore-errors
+        (compile nil `(lambda () ,form))))
+    (values macro-forms nil)))
 
 (defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))
@@ -400,7 +413,7 @@
 ;;    (symbolp x)
 ;;    (member (symbol-package x)
 ;;            (list #.(find-package :swank)
-;;                  #.(find-package :swank-backend)
+;;                  #.(find-package :swank/backend)
 ;;                  #.(ignore-errors (find-package :swank-mop))
 ;;                  #.(ignore-errors (find-package :swank-loader))))
 ;;    t))
@@ -448,16 +461,15 @@
       (funcall debugger-loop-fn))))
 
 (defimplementation compute-backtrace (start end)
-  (when (numberp end)
-    (setf end (min end (length *backtrace*))))
-  (loop for f in (subseq *backtrace* start end)
-        collect f))
+  (subseq *backtrace* start
+          (and (numberp end)
+               (min end (length *backtrace*)))))
 
 (defun frame-name (frame)
   (let ((x (first frame)))
     (if (symbolp x)
-      x
-      (function-name x))))
+        x
+        (function-name x))))
 
 (defun function-position (fun)
   (multiple-value-bind (file position)

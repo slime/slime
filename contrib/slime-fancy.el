@@ -1,5 +1,4 @@
-(eval-and-compile
-  (require 'slime))
+(require 'slime)
 
 (define-slime-contrib slime-fancy
   "Make SLIME fancy."
@@ -13,6 +12,8 @@
                        slime-fancy-inspector
                        slime-fancy-trace
                        slime-fuzzy
+                       slime-mdot-fu
+                       slime-macrostep
                        slime-presentations
                        slime-scratch
                        slime-references

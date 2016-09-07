@@ -1,5 +1,5 @@
-(eval-and-compile
-  (require 'slime))
+(require 'slime)
+(require 'cl-lib)
 
 (defvar slime-c-p-c-init-undo-stack nil)
 
@@ -13,9 +13,10 @@
   (:slime-dependencies slime-parse slime-editing-commands slime-autodoc)
   (:swank-dependencies swank-c-p-c)
   (:on-load
-   (push 
+   (push
     `(progn
-       (setq slime-complete-symbol-function ',slime-complete-symbol-function)
+       (remove-hook 'slime-completion-at-point-functions
+		    #'slime-c-p-c-completion-at-point)
        (remove-hook 'slime-connected-hook 'slime-c-p-c-on-connect)
        ,@(when (featurep 'slime-repl)
                `((define-key slime-mode-map "\C-c\C-s"
@@ -23,7 +24,8 @@
                  (define-key slime-repl-mode-map "\C-c\C-s"
                    ',(lookup-key slime-repl-mode-map "\C-c\C-s")))))
     slime-c-p-c-init-undo-stack)
-   (setq slime-complete-symbol-function 'slime-complete-symbol*)
+   (add-hook 'slime-completion-at-point-functions
+	     #'slime-c-p-c-completion-at-point)
    (define-key slime-mode-map "\C-c\C-s" 'slime-complete-form)
    (when (featurep 'slime-repl)
      (define-key slime-repl-mode-map "\C-c\C-s" 'slime-complete-form)))
@@ -42,6 +44,128 @@ If false, move point to the end of the inserted text."
   :group 'slime-mode
   :type 'boolean)
 
+
+;; FIXME: this is the old code to display completions.  Remove it once
+;; `slime-complete-symbol*' and `slime-fuzzy-complete-symbol' can be
+;; used together with `completion-at-point'.
+
+(defvar slime-completions-buffer-name "*Completions*")
+
+;; FIXME: can probably use quit-window instead
+(make-variable-buffer-local
+ (defvar slime-complete-saved-window-configuration nil
+   "Window configuration before we show the *Completions* buffer.
+This is buffer local in the buffer where the completion is
+performed."))
+
+(make-variable-buffer-local
+ (defvar slime-completions-window nil
+   "The window displaying *Completions* after saving window configuration.
+If this window is no longer active or displaying the completions
+buffer then we can ignore `slime-complete-saved-window-configuration'."))
+
+(defun slime-complete-maybe-save-window-configuration ()
+  "Maybe save the current window configuration.
+Return true if the configuration was saved."
+  (unless (or slime-complete-saved-window-configuration
+              (get-buffer-window slime-completions-buffer-name))
+    (setq slime-complete-saved-window-configuration
+          (current-window-configuration))
+    t))
+
+(defun slime-complete-delay-restoration ()
+  (add-hook 'pre-command-hook
+            'slime-complete-maybe-restore-window-configuration
+            'append
+            'local))
+
+(defun slime-complete-forget-window-configuration ()
+  (setq slime-complete-saved-window-configuration nil)
+  (setq slime-completions-window nil))
+
+(defun slime-complete-restore-window-configuration ()
+  "Restore the window config if available."
+  (remove-hook 'pre-command-hook
+               'slime-complete-maybe-restore-window-configuration)
+  (when (and slime-complete-saved-window-configuration
+             (slime-completion-window-active-p))
+    (save-excursion (set-window-configuration
+                     slime-complete-saved-window-configuration))
+    (setq slime-complete-saved-window-configuration nil)
+    (when (buffer-live-p slime-completions-buffer-name)
+      (kill-buffer slime-completions-buffer-name))))
+
+(defun slime-complete-maybe-restore-window-configuration ()
+  "Restore the window configuration, if the following command
+terminates a current completion."
+  (remove-hook 'pre-command-hook
+               'slime-complete-maybe-restore-window-configuration)
+  (condition-case err
+      (cond ((cl-find last-command-event "()\"'`,# \r\n:")
+             (slime-complete-restore-window-configuration))
+            ((not (slime-completion-window-active-p))
+             (slime-complete-forget-window-configuration))
+            (t
+             (slime-complete-delay-restoration)))
+    (error
+     ;; Because this is called on the pre-command-hook, we mustn't let
+     ;; errors propagate.
+     (message "Error in slime-complete-restore-window-configuration: %S"
+              err))))
+
+(defun slime-completion-window-active-p ()
+  "Is the completion window currently active?"
+  (and (window-live-p slime-completions-window)
+       (equal (buffer-name (window-buffer slime-completions-window))
+              slime-completions-buffer-name)))
+
+(defun slime-display-completion-list (completions base)
+  (let ((savedp (slime-complete-maybe-save-window-configuration)))
+    (with-output-to-temp-buffer slime-completions-buffer-name
+      (display-completion-list completions)
+      (let ((offset (- (point) 1 (length base))))
+        (with-current-buffer standard-output
+          (setq completion-base-position offset)
+          (set-syntax-table lisp-mode-syntax-table))))
+    (when savedp
+      (setq slime-completions-window
+            (get-buffer-window slime-completions-buffer-name)))))
+
+(defun slime-display-or-scroll-completions (completions base)
+  (cond ((and (eq last-command this-command)
+              (slime-completion-window-active-p))
+         (slime-scroll-completions))
+        (t
+         (slime-display-completion-list completions base)))
+  (slime-complete-delay-restoration))
+
+(defun slime-scroll-completions ()
+  (let ((window slime-completions-window))
+    (with-current-buffer (window-buffer window)
+      (if (pos-visible-in-window-p (point-max) window)
+          (set-window-start window (point-min))
+        (save-selected-window
+          (select-window window)
+          (scroll-up))))))
+
+(defun slime-minibuffer-respecting-message (format &rest format-args)
+  "Display TEXT as a message, without hiding any minibuffer contents."
+  (let ((text (format " [%s]" (apply #'format format format-args))))
+    (if (minibuffer-window-active-p (minibuffer-window))
+        (minibuffer-message text)
+      (message "%s" text))))
+
+(defun slime-maybe-complete-as-filename ()
+   "If point is at a string starting with \", complete it as filename.
+ Return nil if point is not at filename."
+   (when (save-excursion (re-search-backward "\"[^ \t\n]+\\="
+                                            (max (point-min)
+                                                 (- (point) 1000)) t))
+     (let ((comint-completion-addsuffix '("/" . "\"")))
+      (comint-replace-by-expanded-filename)
+      t)))
+
+
 (defun slime-complete-symbol* ()
   "Expand abbreviations and complete the symbol at point."
   ;; NB: It is only the name part of the symbol that we actually want
@@ -49,14 +173,17 @@ If false, move point to the end of the inserted text."
   (or (slime-maybe-complete-as-filename)
       (slime-expand-abbreviations-and-complete)))
 
+(defun slime-c-p-c-completion-at-point ()
+  #'slime-complete-symbol*)
+
 ;; FIXME: factorize
 (defun slime-expand-abbreviations-and-complete ()
   (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
          (beg (move-marker (make-marker) (slime-symbol-start-pos)))
          (prefix (buffer-substring-no-properties beg end))
          (completion-result (slime-contextual-completions beg end))
-         (completion-set (first completion-result))
-         (completed-prefix (second completion-result)))
+         (completion-set (cl-first completion-result))
+         (completed-prefix (cl-second completion-result)))
     (if (null completion-set)
         (progn (slime-minibuffer-respecting-message
                 "Can't find completion for \"%s\"" prefix)
@@ -82,9 +209,9 @@ If false, move point to the end of the inserted text."
                 "Complete but not unique"))
 	     (when slime-c-p-c-unambiguous-prefix-p
 	       (let ((unambiguous-completion-length
-		      (loop for c in completion-set
-			    minimizing (or (mismatch completed-prefix c)
-					   (length completed-prefix)))))
+		      (cl-loop for c in completion-set
+			       minimizing (or (cl-mismatch completed-prefix c)
+                                              (length completed-prefix)))))
 		 (goto-char (+ beg unambiguous-completion-length))))
              (slime-display-or-scroll-completions completion-set 
                                                   completed-prefix))))))
@@ -110,7 +237,7 @@ If false, move point to the end of the inserted text."
                          (not (minibuffer-window-active-p (minibuffer-window))))
                 (slime-echo-arglist))))))))
 
-(defun* slime-contextual-completions (beg end) 
+(cl-defun slime-contextual-completions (beg end)
   "Return a list of completions of the token from BEG to END in the
 current buffer."
   (let ((token (buffer-substring-no-properties beg end)))
@@ -123,15 +250,15 @@ current buffer."
                                             (save-excursion 
                                               (goto-char beg)
                                               (slime-parse-form-upto-point)))))
-        (when (first completions)
-          (return-from slime-contextual-completions completions))
+        (when (cl-first completions)
+          (cl-return-from slime-contextual-completions completions))
         ;; If no matching keyword was found, do regular symbol
         ;; completion.
         ))
      ((and (>= (length token) 2)
-           (string= (subseq token 0 2) "#\\"))
+           (string= (cl-subseq token 0 2) "#\\"))
       ;; Character name completion
-      (return-from slime-contextual-completions
+      (cl-return-from slime-contextual-completions
         (slime-completions-for-character token))))
     ;; Regular symbol completion
     (slime-completions token)))
@@ -143,11 +270,11 @@ current buffer."
   (slime-eval `(swank:completions-for-keyword ,prefix ',buffer-form)))
 
 (defun slime-completions-for-character (prefix)
-  (flet ((append-char-syntax (string) (concat "#\\" string)))
+  (cl-labels ((append-char-syntax (string) (concat "#\\" string)))
     (let ((result (slime-eval `(swank:completions-for-character
-                                ,(subseq prefix 2)))))
+                                ,(cl-subseq prefix 2)))))
       (when (car result)
-        (list (mapcar 'append-char-syntax (car result))
+        (list (mapcar #'append-char-syntax (car result))
               (append-char-syntax (cadr result)))))))
 
 
@@ -173,68 +300,6 @@ This is a superset of the functionality of `slime-insert-arglist'."
             (save-excursion
               (backward-up-list 1)
               (indent-sexp)))))))
-
-;;; Tests
-
-(def-slime-test complete-symbol*
-    (prefix expected-completions)
-    "Find the completions of a symbol-name prefix."
-    '(("cl:compile" (("cl:compile" "cl:compile-file" "cl:compile-file-pathname"
-                      "cl:compiled-function" "cl:compiled-function-p" 
-                      "cl:compiler-macro" "cl:compiler-macro-function")
-                     "cl:compile"))
-      ("cl:foobar" nil)
-      ("swank::compile-file" (("swank::compile-file" 
-                               "swank::compile-file-for-emacs"
-                               "swank::compile-file-if-needed"
-                               "swank::compile-file-output"
-                               "swank::compile-file-pathname")
-                              "swank::compile-file"))
-      ("cl:m-v-l" (("cl:multiple-value-list" "cl:multiple-values-limit") "cl:multiple-value"))
-      ("common-lisp" (("common-lisp-user:" "common-lisp:") "common-lisp")))
-  (let ((completions (slime-completions prefix)))
-    (slime-test-expect "Completion set" expected-completions completions)))
-
-(def-slime-test complete-form
-    (buffer-sexpr wished-completion &optional skip-trailing-test-p)
-    ""
-    '(("(defmethod arglist-dispatch *HERE*"
-       "(defmethod arglist-dispatch (operator arguments) body...)")
-      ("(with-struct *HERE*"
-       "(with-struct (conc-name names...) obj body...)")
-      ("(with-struct *HERE*"
-       "(with-struct (conc-name names...) obj body...)")
-      ("(with-struct (*HERE*"
-       "(with-struct (conc-name names...)" t)
-      ("(with-struct (foo. bar baz *HERE*"
-       "(with-struct (foo. bar baz names...)" t))
-  (slime-check-top-level)
-  (with-temp-buffer
-    (lisp-mode)
-    (setq slime-buffer-package "SWANK")
-    (insert buffer-sexpr)
-    (search-backward "*HERE*")
-    (delete-region (match-beginning 0) (match-end 0))
-    (slime-complete-form)
-    (slime-check-completed-form buffer-sexpr wished-completion)
-
-    ;; Now the same but with trailing `)' for paredit users...
-    (unless skip-trailing-test-p
-      (erase-buffer)
-      (insert buffer-sexpr)
-      (search-backward "*HERE*")
-      (delete-region (match-beginning 0) (match-end 0))
-      (insert ")") (backward-char)
-      (slime-complete-form)
-      (slime-check-completed-form (concat buffer-sexpr ")") wished-completion))
-    ))
-
-(defun slime-check-completed-form (buffer-sexpr wished-completion)
-  (slime-test-expect (format "Completed form for `%s' is as expected"
-                              buffer-sexpr)
-                     wished-completion
-                     (buffer-string)
-                     'equal))
 
 (provide 'slime-c-p-c)
 

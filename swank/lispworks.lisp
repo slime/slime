@@ -1,6 +1,6 @@
 ;;; -*- indent-tabs-mode: nil -*-
 ;;;
-;;; swank-lispworks.lisp --- LispWorks specific code for SLIME. 
+;;; swank-lispworks.lisp --- LispWorks specific code for SLIME.
 ;;;
 ;;; Created 2003, Helmut Eller
 ;;;
@@ -8,11 +8,16 @@
 ;;; are disclaimed.
 ;;;
 
-(in-package :swank-backend)
+(defpackage swank/lispworks
+  (:use cl swank/backend))
+
+(in-package swank/lispworks)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (require "comm")
-  (import-from :stream *gray-stream-symbols* :swank-backend))
+  (require "comm"))
+
+(defimplementation gray-package-name ()
+  "STREAM")
 
 (import-swank-mop-symbols :clos '(:slot-definition-documentation
                                   :slot-boundp-using-class
@@ -230,7 +235,8 @@
 (defimplementation function-name (function)
   (nth-value 2 (function-lambda-expression function)))
 
-(defimplementation macroexpand-all (form)
+(defimplementation macroexpand-all (form &optional env)
+  (declare (ignore env))
   (walker:walk-form form))
 
 (defun generic-function-p (object)
@@ -315,15 +321,13 @@ Return NIL if the symbol is unbound."
 (defmethod env-internals:environment-display-notifier 
     ((env slime-env) &key restarts condition)
   (declare (ignore restarts condition))
-  (funcall (swank-sym :swank-debugger-hook) condition *debugger-hook*)
-  ;;  nil
-  )
+  (swank:swank-debugger-hook condition *debugger-hook*))
 
 (defmethod env-internals:environment-display-debugger ((env slime-env))
   *debug-io*)
 
 (defmethod env-internals:confirm-p ((e slime-env) &optional msg &rest args)
-  (apply (swank-sym :y-or-n-p-in-emacs) msg args))
+  (apply #'swank:y-or-n-p-in-emacs msg args))
 
 (defimplementation call-with-debugger-hook (hook fun)
   (let ((*debugger-hook* hook))
@@ -371,7 +375,7 @@ Return NIL if the symbol is unbound."
                              name)))
                 (nth-next-frame frame 1)))))
     (or (find-named-frame 'invoke-debugger)
-        (find-named-frame (swank-sym :safe-backtrace))
+        (find-named-frame 'swank::safe-backtrace)
         ;; if we can't find a likely top frame, take any old frame
         ;; at the top
         (dbg::debugger-stack-current-frame dbg::*debugger-stack*))))
@@ -1004,10 +1008,6 @@ function names like \(SETF GET)."
   (list :priority (mp:process-priority thread)
         :idle (mp:process-idle-time thread)))
 
-;;; Some intergration with the lispworks environment
-
-(defun swank-sym (name) (find-symbol (string name) :swank))
-      
 
 ;;;; Weak hashtables
 

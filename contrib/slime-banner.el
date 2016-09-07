@@ -1,5 +1,5 @@
-(eval-and-compile
-  (require 'slime))
+(require 'slime)
+(require 'slime-repl)
 
 (define-slime-contrib slime-banner
   "Persistent header line and startup animation."
@@ -27,8 +27,7 @@
                   (slime-connection-port (slime-connection))
                   (slime-pid))))
   (when (zerop (buffer-size))
-    (let ((welcome (concat "; SLIME " (or (slime-changelog-date) 
-                                          "- ChangeLog file not found"))))
+    (let ((welcome (concat "; SLIME " slime-version)))
       (if slime-startup-animation
           (animate-string welcome 0 0) 
         (insert welcome)))))

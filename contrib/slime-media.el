@@ -10,14 +10,23 @@
   (:on-load
    (add-hook 'slime-event-hooks 'slime-dispatch-media-event)))
 
+(defun slime-media-decode-image (image)
+  (mapcar (lambda (image)
+	    (if (plist-get image :data)
+		(plist-put image :data (base64-decode-string (plist-get image :data)))
+	      image))
+	  image))
+
 (defun slime-dispatch-media-event (event)
-  (destructure-case event
+  (slime-dcase event
     ((:write-image image string)
-     (let ((image (find-image image)))
-       (slime-media-insert-image image string))
+     (let ((img (or (find-image (slime-media-decode-image image))
+                    (create-image image))))
+       (slime-media-insert-image img string))
      t)
     ((:popup-buffer bufname string mode)
-     (slime-with-popup-buffer (bufname :mode mode :connection t :package t)
+     (slime-with-popup-buffer (bufname :connection t :package t)
+       (when mode (funcall mode))
        (princ string)
        (goto-char (point-min)))
      t)

@@ -64,7 +64,7 @@
 ;;; * More sophisticated communication styles than NIL
 ;;;
 
-(in-package :swank-backend)
+(in-package :swank/backend)
 
 ;;; Pull in various needed bits
 (require :composite-streams)
@@ -265,7 +265,8 @@
 (defimplementation default-directory ()
   (directory-namestring (ccl:current-directory)))
 
-(defimplementation macroexpand-all (form)
+(defimplementation macroexpand-all (form &optional env)
+  (declare (ignore env))
   (ccl:macroexpand-all form))
 
 ;;; Documentation

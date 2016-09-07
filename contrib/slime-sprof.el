@@ -1,5 +1,6 @@
-(eval-and-compile
-  (require 'slime))
+(require 'slime)
+(require 'cl-lib)
+(eval-when-compile (require 'cl)) ; lexical-let*
 
 (define-slime-contrib slime-sprof
   "Integration with SBCL's sb-sprof."
@@ -39,7 +40,7 @@
 
 ;; Start / stop profiling
 
-(defun* slime-sprof-start (&optional (mode :cpu))
+(cl-defun slime-sprof-start (&optional (mode :cpu))
   (interactive)
   (slime-eval `(swank:swank-sprof-start :mode ,mode)))
 
@@ -69,12 +70,12 @@
                       "Total%"))
       (dolist (data graph)
         (slime-sprof-browser-insert-line data 54))))
-  (goto-line 2))
+  (forward-line 2))
 
-(defun* slime-sprof-update (&optional (exclude-swank slime-sprof-exclude-swank))
+(cl-defun slime-sprof-update (&optional (exclude-swank slime-sprof-exclude-swank))
   (slime-eval-async `(swank:swank-sprof-get-call-graph
                       :exclude-swank ,exclude-swank)
-                    'slime-sprof-format))
+    'slime-sprof-format))
 
 (defalias 'slime-sprof-browser 'slime-sprof-report)
 
@@ -93,11 +94,11 @@
   (slime-sprof-update))
 
 (defun slime-sprof-browser-insert-line (data name-length)
-  (destructuring-bind (index name self cumul total)
+  (cl-destructuring-bind (index name self cumul total)
       data
     (if index
         (insert (format "%-4d " index))
-        (insert "     "))
+      (insert "     "))
     (slime-insert-propertized
      (slime-sprof-browser-name-properties)
      (format (format "%%-%ds " name-length)
@@ -113,8 +114,7 @@
     (insert "\n")))
 
 (defun slime-sprof-abbreviate-name (name max-length)
-  (lexical-let ((length (min (length name) max-length)))
-    (subseq name 0 length)))
+  (cl-subseq name 0 (min (length name) max-length)))
 
 ;; Expanding / collapsing
 
@@ -131,12 +131,12 @@
   (let ((inhibit-read-only t))
     (slime-sprof-browser-add-line-text-properties '(expanded nil))
     (forward-line)
-    (loop until (or (eobp)
-                    (get-text-property (point) 'profile-index))
-          do
-          (delete-region (point-at-bol) (point-at-eol))
-          (unless (eobp)
-            (delete-char 1)))))
+    (cl-loop until (or (eobp)
+                       (get-text-property (point) 'profile-index))
+             do
+             (delete-region (point-at-bol) (point-at-eol))
+             (unless (eobp)
+               (delete-char 1)))))
 
 (defun slime-sprof-browser-expand ()
   (lexical-let* ((buffer (current-buffer))
@@ -162,7 +162,7 @@
       (end-of-line)
       (insert (format "\n     %s" type))
       (dolist (node data)
-        (destructuring-bind (index name cumul) node
+        (cl-destructuring-bind (index name cumul) node
           (insert (format (format "\n%%%ds" (+ 7 (* 2 nesting))) ""))
           (slime-insert-propertized
            (slime-sprof-browser-name-properties)
@@ -214,7 +214,7 @@
       (slime-eval-async
        `(swank:swank-sprof-source-location ,index)
        (lambda (source-location)
-         (destructure-case source-location
+         (slime-dcase source-location
            ((:error message)
             (message "%s" message)
             (ding))

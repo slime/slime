@@ -23,24 +23,6 @@ from the running Common Lisp system.
 maintained by their respective authors. Consult contrib/README for
 more information.
 
-## ChangeLog
-
-For each change we make an entry in the `ChangeLog` file. This is
-typically done using the command `add-change-log-entry-other-window`
-(`C-x 4 a`).
-
-ChangeLog diffs are automatically sent to the slime-devel mailing list
-each day as a sort of digest summary of the slime-cvs list.
-
-There are good tips on writing ChangeLog entries in the
-[GNU Coding Standards](http://www.gnu.org/prep/standards/html_node/Style-of-Change-Logs.html#Style-of-Change-Logs).
-
-For information about Emacs's ChangeLog support see the `Change Log'
-and `Change Logs and VC' nodes of the Emacs manual:
-
-* http://www.gnu.org/software/emacs/manual/html_node/emacs/Change-Log.html#Change-Log
-* http://www.gnu.org/software/emacs/manual/html_node/emacs/Change-Logs-and-VC.html#Change-Logs-and-VC
-
 ## Test Suite
 
 The Makefile includes a `check` target to run the ERT-based test
@@ -136,6 +118,15 @@ We use Emacs conventions for docstrings: the first line should be a
 complete sentence to make the output of `apropos` look good.  We also
 use imperative verbs.
 
+Now that XEmacs support is gone, rewrites using packages in GNU
+Emacs's core get extra karma.
+
+Customization variables complicate testing and therefore we only add
+new ones after careful consideration.  Adding new customization
+variables is bad for karma.
+
+We generally neither use nor recommend eval-after-load.
+
 The biggest problem with SLIME's code base is feature creep.  Keep in
 mind that the Right Thing isn't always the Smart Thing.  If you can't
 find an elegant solution to a problem then you're probably solving the
@@ -146,18 +137,17 @@ _Remember that to rewrite a program better is the sincerest form of
 code appreciation. When you can see a way to rewrite a part of SLIME
 better, please do so!_
 
-**Now that XEmacs support is gone, rewrites using packages in GNU Emacs's
-core get extra karma**
 
 
 ## Pull requests
 
 * Read [how to properly contribute to open source projects on Github][1].
 * Use a topic branch to easily amend a pull request later, if necessary.
-* Write [good commit messages][2].
-* Open a [pull request][3] that relates to *only* one subject with a clear title
-  and description in grammatically correct, complete sentences.
+* Open a [pull request][2] that relates to *only* one subject with a
+  clear title and description in grammatically correct, complete
+  sentences.
+* Write [good commit messages][3].
 
 [1]: http://gun.io/blog/how-to-github-fork-branch-and-pull-request
-[2]: http://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html
-[3]: https://help.github.com/articles/using-pull-requests
+[2]: https://help.github.com/articles/using-pull-requests
+[3]: http://chris.beams.io/posts/git-commit/

@@ -163,7 +163,7 @@ Otherwise NIL is returned."
 		   finally
                    (return (values initial main final)))))
 	 (generate-main-clause (clause arglist)
-	   (destructure-case clause
+	   (dcase clause
              ((&provided (&optional arg) . body)
               (let ((gensym (gensym "PROVIDED-ARG+")))
 		`(dolist (,gensym (arglist.provided-args ,arglist))
@@ -228,93 +228,96 @@ Otherwise NIL is returned."
       (prin1-to-string x)))
 
 (defun print-decoded-arglist (arglist &key operator provided-args highlight)
-  (macrolet ((space ()
-               ;; Kludge: When OPERATOR is not given, we don't want to
-               ;; print a space for the first argument.
-               `(if (not operator)
-                    (setq operator t)
-                    (progn (write-char #\space)
-                           (pprint-newline :fill))))
-             (with-highlighting ((&key index) &body body)
-               `(if (eql ,index (car highlight))
-                    (progn (princ "===> ") ,@body (princ " <==="))
-                    (progn ,@body)))
-             (print-arglist-recursively (argl &key index)
-               `(if (eql ,index (car highlight))
-                    (print-decoded-arglist ,argl :highlight (cdr highlight))
-                    (print-decoded-arglist ,argl))))
-    (let ((index 0))
-      (pprint-logical-block (nil nil :prefix "(" :suffix ")")
-        (when operator
-          (print-arg operator)
-          (pprint-indent :current 1))   ; 1 due to possibly added space
-        (do-decoded-arglist (remove-given-args arglist provided-args)
-          (&provided (arg)
-             (space)
-             (print-arg arg :literal-strings t)
-             (incf index))
-          (&required (arg)
-             (space)
-             (if (arglist-p arg)
-                 (print-arglist-recursively arg :index index)
-                 (with-highlighting (:index index)
-                   (print-arg arg)))
-             (incf index))
-          (&optional :initially
-             (when (arglist.optional-args arglist)
-               (space)
-               (princ '&optional)))
-          (&optional (arg init-value)
-             (space)
-             (if (arglist-p arg)
-                 (print-arglist-recursively arg :index index)
-                 (with-highlighting (:index index)
-                   (if (null init-value)
-                       (print-arg arg)
-                       (format t "~:@<~A ~A~@:>"
-                               (undummy arg) (undummy init-value)))))
-             (incf index))
-          (&key :initially
-             (when (arglist.key-p arglist)
-               (space)
-               (princ '&key)))
-          (&key (keyword arg init)
-             (space)
-             (if (arglist-p arg)
-                 (pprint-logical-block (nil nil :prefix "(" :suffix ")")
-                   (prin1 keyword) (space)
-                   (print-arglist-recursively arg :index keyword))
-                 (with-highlighting (:index keyword)
-                   (cond ((and init (keywordp keyword))
-                          (format t "~:@<~A ~A~@:>" keyword (undummy init)))
-                         (init
-                          (format t "~:@<(~A ..) ~A~@:>"
-                                  (undummy keyword) (undummy init)))
-                         ((not (keywordp keyword))
-                          (format t "~:@<(~S ..)~@:>" keyword))
-                         (t
-                          (princ keyword))))))
-          (&key :finally
-             (when (arglist.allow-other-keys-p arglist)
-               (space)
-               (princ '&allow-other-keys)))
-          (&any :initially
-             (when (arglist.any-p arglist)
-               (space)
-               (princ '&any)))
-          (&any (arg)
-             (space)
-             (print-arg arg))
-          (&rest (args bodyp)
-             (space)
-             (princ (if bodyp '&body '&rest))
-             (space)
-             (if (arglist-p args)
-                 (print-arglist-recursively args :index index)
-                 (with-highlighting (:index index)
-                   (print-arg args))))
-          ;; FIXME: add &UNKNOWN-JUNK?
-          )))))
+  (let ((first-space-after-operator (and operator t)))
+    (macrolet ((space ()
+                 ;; Kludge: When OPERATOR is not given, we don't want to
+                 ;; print a space for the first argument.
+                 `(if (not operator)
+                      (setq operator t)
+                      (progn (write-char #\space)
+                             (if first-space-after-operator
+                                 (setq first-space-after-operator nil)
+                                 (pprint-newline :fill)))))
+               (with-highlighting ((&key index) &body body)
+                 `(if (eql ,index (car highlight))
+                      (progn (princ "===> ") ,@body (princ " <==="))
+                      (progn ,@body)))
+               (print-arglist-recursively (argl &key index)
+                 `(if (eql ,index (car highlight))
+                      (print-decoded-arglist ,argl :highlight (cdr highlight))
+                      (print-decoded-arglist ,argl))))
+      (let ((index 0))
+        (pprint-logical-block (nil nil :prefix "(" :suffix ")")
+          (when operator
+            (print-arg operator)
+            (pprint-indent :current 1)) ; 1 due to possibly added space
+          (do-decoded-arglist (remove-given-args arglist provided-args)
+            (&provided (arg)
+                       (space)
+                       (print-arg arg :literal-strings t)
+                       (incf index))
+            (&required (arg)
+                       (space)
+                       (if (arglist-p arg)
+                           (print-arglist-recursively arg :index index)
+                           (with-highlighting (:index index)
+                             (print-arg arg)))
+                       (incf index))
+            (&optional :initially
+                       (when (arglist.optional-args arglist)
+                         (space)
+                         (princ '&optional)))
+            (&optional (arg init-value)
+                       (space)
+                       (if (arglist-p arg)
+                           (print-arglist-recursively arg :index index)
+                           (with-highlighting (:index index)
+                             (if (null init-value)
+                                 (print-arg arg)
+                                 (format t "~:@<~A ~A~@:>"
+                                         (undummy arg) (undummy init-value)))))
+                       (incf index))
+            (&key :initially
+                  (when (arglist.key-p arglist)
+                    (space)
+                    (princ '&key)))
+            (&key (keyword arg init)
+                  (space)
+                  (if (arglist-p arg)
+                      (pprint-logical-block (nil nil :prefix "(" :suffix ")")
+                        (prin1 keyword) (space)
+                        (print-arglist-recursively arg :index keyword))
+                      (with-highlighting (:index keyword)
+                        (cond ((and init (keywordp keyword))
+                               (format t "~:@<~A ~A~@:>" keyword (undummy init)))
+                              (init
+                               (format t "~:@<(~A ..) ~A~@:>"
+                                       (undummy keyword) (undummy init)))
+                              ((not (keywordp keyword))
+                               (format t "~:@<(~S ..)~@:>" keyword))
+                              (t
+                               (princ keyword))))))
+            (&key :finally
+                  (when (arglist.allow-other-keys-p arglist)
+                    (space)
+                    (princ '&allow-other-keys)))
+            (&any :initially
+                  (when (arglist.any-p arglist)
+                    (space)
+                    (princ '&any)))
+            (&any (arg)
+                  (space)
+                  (print-arg arg))
+            (&rest (args bodyp)
+                   (space)
+                   (princ (if bodyp '&body '&rest))
+                   (space)
+                   (if (arglist-p args)
+                       (print-arglist-recursively args :index index)
+                       (with-highlighting (:index index)
+                         (print-arg args))))
+            ;; FIXME: add &UNKNOWN-JUNK?
+            ))))))
 
 (defun print-arg (arg &key literal-strings)
   (let ((arg (if (arglist-dummy-p arg)
@@ -419,10 +422,20 @@ Otherwise NIL is returned."
 
 (defstruct (keyword-arg
             (:conc-name keyword-arg.)
-            (:constructor make-keyword-arg (keyword arg-name default-arg)))
+            (:constructor %make-keyword-arg))
   keyword
   arg-name
   default-arg)
+
+(defun canonicalize-default-arg (form)
+  (if (equalp ''nil form)
+      nil
+      form))
+
+(defun make-keyword-arg (keyword arg-name default-arg)
+  (%make-keyword-arg :keyword keyword
+                     :arg-name arg-name
+                     :default-arg (canonicalize-default-arg default-arg)))
 
 (defun decode-keyword-arg (arg)
   "Decode a keyword item of formal argument list.
@@ -484,9 +497,13 @@ Return three values: keyword, argument name, default arg."
 ;;; FIXME suppliedp?
 (defstruct (optional-arg
             (:conc-name optional-arg.)
-            (:constructor make-optional-arg (arg-name default-arg)))
+            (:constructor %make-optional-arg))
   arg-name
   default-arg)
+
+(defun make-optional-arg (arg-name default-arg)
+  (%make-optional-arg :arg-name arg-name
+                      :default-arg (canonicalize-default-arg default-arg)))
 
 (defun decode-optional-arg (arg)
   "Decode an optional item of a formal argument list.
@@ -735,9 +752,7 @@ forward keywords to OPERATOR."
                  (not (swank-mop:class-finalized-p class)))
         ;; Try to finalize the class, which can fail if
         ;; superclasses are not defined yet
-        (handler-case (swank-mop:finalize-inheritance class)
-          (program-error (c)
-            (declare (ignore c)))))
+        (ignore-errors (swank-mop:finalize-inheritance class)))
       class)))
 
 (defun extra-keywords/slots (class)
@@ -1552,17 +1567,22 @@ datum for subsequent logics to rely on."
 	  (make-arglist-dummy string)))))
 
 (defun test-print-arglist ()
-  (flet ((test (arglist string)
+  (flet ((test (arglist &rest strings)
            (let* ((*package* (find-package :swank))
                   (actual (decoded-arglist-to-string
                            (decode-arglist arglist)
                            :print-right-margin 1000)))
-             (unless (string= actual string)
-               (warn "Test failed: ~S => ~S~%  Expected: ~S"
-                     arglist actual string)))))
+             (unless (loop for string in strings
+                           thereis (string= actual string))
+               (warn "Test failed: ~S => ~S~%  Expected: ~A"
+                     arglist actual
+                     (if (cdr strings)
+                         (format nil "One of: ~{~S~^, ~}" strings)
+                         (format nil "~S" (first strings))))))))
     (test '(function cons) "(function cons)")
     (test '(quote cons) "(quote cons)")
-    (test '(&key (function #'+)) "(&key (function #'+))")
+    (test '(&key (function #'+))
+          "(&key (function #'+))" "(&key (function (function +)))")
     (test '(&whole x y z) "(y z)")
     (test '(x &aux y z) "(x)")
     (test '(x &environment env y) "(x y)")

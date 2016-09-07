@@ -2,19 +2,23 @@
 ;;
 ;; Author: Alan Ruttenberg  <alanr-l@mumble.net>
 
-;; I guess that only Alan Ruttenberg knows how to use this code.  It
-;; was in swank.lisp for a long time, so here it is. -- Helmut Eller
+;; Provides *slime-repl-eval-hooks* special variable which
+;; can be used for easy interception of SLIME REPL form evaluation
+;; for purposes such as integration with application event loop.
 
 (in-package :swank)
 
-(defvar *slime-repl-advance-history* nil 
-  "In the dynamic scope of a single form typed at the repl, is set to nil to 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (swank-require :swank-repl))
+
+(defvar *slime-repl-advance-history* nil
+  "In the dynamic scope of a single form typed at the repl, is set to nil to
    prevent the repl from advancing the history - * ** *** etc.")
 
 (defvar *slime-repl-suppress-output* nil
   "In the dynamic scope of a single form typed at the repl, is set to nil to
    prevent the repl from printing the result of the evalation.")
-  
+
 (defvar *slime-repl-eval-hook-pass* (gensym "PASS")
   "Token to indicate that a repl hook declines to evaluate the form")
 
@@ -23,6 +27,8 @@
    these hooks. The first hook which returns a value which is not *slime-repl-eval-hook-pass*
    is considered a replacement for calling eval. If there are no hooks, or all
    pass, then eval is used.")
+
+(export '*slime-repl-eval-hooks*)
 
 (defslimefun repl-eval-hook-pass ()
   "call when repl hook declines to evaluate the form"
@@ -34,7 +40,7 @@
   (setq *slime-repl-suppress-output* t))
 
 (defslimefun repl-suppress-advance-history ()
-  "In the dynamic scope of a single form typed at the repl, call to 
+  "In the dynamic scope of a single form typed at the repl, call to
    prevent the repl from advancing the history - * ** *** etc."
   (setq *slime-repl-advance-history* nil))
 
@@ -48,17 +54,17 @@
 	   (finish-output)
 	   (return (values values -)))
 	 (setq - form)
-	 (if *slime-repl-eval-hooks* 
+	 (if *slime-repl-eval-hooks*
 	     (setq values (run-repl-eval-hooks form))
 	     (setq values (multiple-value-list (eval form))))
 	 (finish-output))))))
 
 (defun run-repl-eval-hooks (form)
-  (loop for hook in *slime-repl-eval-hooks* 
-	for res =  (catch *slime-repl-eval-hook-pass* 
+  (loop for hook in *slime-repl-eval-hooks*
+	for res =  (catch *slime-repl-eval-hook-pass*
 		     (multiple-value-list (funcall hook form)))
 	until (not (eq res *slime-repl-eval-hook-pass*))
-	finally (return 
+	finally (return
 		  (if (eq res *slime-repl-eval-hook-pass*)
 		      (multiple-value-list (eval form))
 		      res))))
@@ -66,7 +72,7 @@
 (defun %listener-eval (string)
   (clear-user-input)
   (with-buffer-syntax ()
-    (track-package 
+    (swank-repl::track-package
      (lambda ()
        (let ((*slime-repl-suppress-output* :unset)
 	     (*slime-repl-advance-history* :unset))
@@ -77,9 +83,9 @@
 		   /// //  // /  / values))
 	   (setq +++ ++  ++ +  + last-form)
 	   (unless (eq *slime-repl-suppress-output* t)
-	     (funcall *send-repl-results-function* values)))))))
+	     (funcall swank-repl::*send-repl-results-function* values)))))))
   nil)
 
-(setq *listener-eval-function* '%listener-eval)
+(setq swank-repl::*listener-eval-function* '%listener-eval)
 
 (provide :swank-listener-hooks)

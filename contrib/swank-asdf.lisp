@@ -53,12 +53,12 @@ install a recent release of ASDF and in your ~~/.swank.lisp specify:
 ;; NB: this version check is duplicated in swank-loader.lisp so that we don't
 ;; try to load this contrib when ASDF is too old since that will abort the SLIME
 ;; connection.
+#-asdf3
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (unless (or #+asdf3 t #+asdf2
               (asdf:version-satisfies (asdf:asdf-version) "2.14.6"))
     (error "Your ASDF is too old. ~
             The oldest version supported by swank-asdf is 2.014.6.")))
-
 ;;; Import functionality from ASDF that isn't available in all ASDF versions.
 ;;; Please do NOT depend on any of the below as reference:
 ;;; they are sometimes stripped down versions, for compatibility only.
@@ -353,7 +353,7 @@ install a recent release of ASDF and in your ~~/.swank.lisp specify:
           for asd-file = (asdf:system-definition-pathname dependency)
           when asd-file
           collect (list dependency
-                        (swank-backend::make-location
+                        (swank/backend:make-location
                          `(:file ,(namestring asd-file))
                          `(:position 1)
                          `(:snippet ,(format nil "(defsystem :~A" dependency)
@@ -394,9 +394,11 @@ AND in its source-registry. (legacy name)"
             when defaults
             do (collect-asds-in-directory defaults #'c))
       (asdf:ensure-source-registry)
-      (if (or #+asdf3 t (asdf:version-satisfies (asdf:asdf-version) "2.15"))
+      (if (or #+asdf3 t
+	      #-asdf3 (asdf:version-satisfies (asdf:asdf-version) "2.15"))
           (loop :for k :being :the :hash-keys :of asdf::*source-registry*
-                :do (c k))
+		:do (c k))
+	  #-asdf3
           (dolist (entry (asdf::flatten-source-registry))
             (destructuring-bind (directory &key recurse exclude) entry
               (register-asd-directory

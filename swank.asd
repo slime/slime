@@ -10,8 +10,7 @@
 ;; Usage:
 ;;
 ;;   (require :swank)
-;;   (swank-loader:init)
-;;   (swank:create-server PORT) => ACTUAL-PORT
+;;   (swank:create-swank-server PORT) => ACTUAL-PORT
 ;;
 ;; (PORT can be zero to mean "any available port".)
 ;; Then the Swank server is running on localhost:ACTUAL-PORT. You can
@@ -20,7 +19,21 @@
 ;; This code has been placed in the Public Domain.  All warranties
 ;; are disclaimed.
 
-;; See https://github.com/slime/slime/pull/76 and related issues for details on
-;; this defsystem.
+(defpackage :swank-loader
+  (:use :cl))
+
+(in-package :swank-loader)
+
+(defclass swank-loader-file (asdf:cl-source-file) ())
+
+;;;; after loading run init
+
+(defmethod asdf:perform ((o asdf:load-op) (f swank-loader-file))
+  (load (asdf::component-pathname f))
+  (funcall (read-from-string "swank-loader::init")
+           :reload (asdf::operation-forced o)
+           :delete (asdf::operation-forced o)))
+
 (asdf:defsystem :swank
+  :default-component-class swank-loader-file
   :components ((:file "swank-loader")))

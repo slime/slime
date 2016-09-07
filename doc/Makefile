@@ -38,18 +38,18 @@ slime.info: $(TEXI)
 	makeinfo $<
 
 slime.html: $(TEXI)
-	texi2html $<
+	texi2html --css-include=slime.css $<
 
 html/index.html: $(TEXI)
-	makeinfo -o html --html $<
+	makeinfo -o html --css-include=slime.css --html $<
 
 html.tgz: html/index.html
 	tar -czf $@ html
 
 DOCDIR=/project/slime/public_html/doc
 # invoke this like: make CLUSER=heller publish
-publish: html.tgz
-	scp html.tgz $(CLUSER)@common-lisp.net:$(DOCDIR)
+publish: slime.pdf html.tgz
+	scp slime.pdf html.tgz $(CLUSER)@common-lisp.net:$(DOCDIR)
 	ssh $(CLUSER)@common-lisp.net "cd $(DOCDIR); tar -zxf html.tgz"
 
 slime.pdf: $(TEXI)
@@ -62,32 +62,26 @@ uninstall: uninstall-info
 # Create contributors.texi, a texinfo table listing all known
 # contributors of code.
 #
-# Explicitly includes Eric Marsden (pre-ChangeLog hacker)
-#
 # The gist of this horror show is that the contributor list is piped
 # into texinfo-tabulate.awk with one name per line, sorted
-# alphabetically.
-#
-# Some special-case TeX-escaping of international characters.
-contributors.texi: ../ChangeLog Makefile texinfo-tabulate.awk
-	cat ../ChangeLog | \
+# by number of contributions.
+LAST_CHANGELOG_COMMIT=ab6d1bd5c9d3c5b4a6299b8c864ce4acfd25cbcc
+contributors.texi: ../slime.el Makefile texinfo-tabulate.awk
+	git show $(LAST_CHANGELOG_COMMIT):ChangeLog \
+	         $(LAST_CHANGELOG_COMMIT):contrib/ChangeLog | \
 	sed -ne '/^[0-9]/{s/^[^ ]* *//; s/ *<.*//; p;}' | \
+	(cat; git log $(LAST_CHANGELOG_COMMIT).. --format='%aN') | \
 	sort | \
 	uniq -c | \
-	sort -nr| \
-	sed -e 's/^[^A-Z]*//' | \
-	awk -f texinfo-tabulate.awk | \
-	sed -e "s/\o341/@'a/g" | \
-        sed -e "s/\o355/@'{@dotless{i}}/g" | \
-	sed -e "s/\o351/@'e/g" | \
-	sed -e "s/\o361/@~n/g" | \
-	sed -e 's/\o370/@o{}/g' \
+	sort -nr | \
+	sed -e 's/^[^A-Z]*//; /^$$/d' | \
+	LC_ALL=C awk -f texinfo-tabulate.awk \
 	> $@
 
 #.INTERMEDIATE: contributors.texi
 
 # Debian's install-info wants a --section argument.
-section := $(shell grep INFO-DIR-SECTION $(infofiles) | sed 's/INFO-DIR-SECTION //')
+install-info: section=$(shell grep INFO-DIR-SECTION $(infofiles) | sed 's/INFO-DIR-SECTION //')
 install-info: slime.info
 	mkdir -p $(infodir)
 	$(INSTALL_CMD) $(infofiles) $(infodir)/$(infofiles)
