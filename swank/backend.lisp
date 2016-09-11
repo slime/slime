@@ -719,7 +719,7 @@ return the results and T.  Otherwise, return the original form and
 NIL."
   (let ((fun (and (consp form)
                   (valid-function-name-p (car form))
-                  (compiler-macro-function (car form)))))
+                  (compiler-macro-function (car form) env))))
     (if fun
 	(let ((result (funcall *macroexpand-hook* fun form env)))
           (values result (not (eq result form))))
