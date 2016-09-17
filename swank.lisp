@@ -692,6 +692,8 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
   "Default value of :dont-close argument to start-server and
   create-server.")
 
+(defparameter *loopback-interface* "127.0.0.1")
+
 (defun start-server (port-file &key (style *communication-style*)
                                     (dont-close *dont-close*))
   "Start the server and write the listen port number to PORT-FILE.
@@ -703,18 +705,22 @@ This is the entry point for Emacs."
 (defun create-server (&key (port default-server-port)
                         (style *communication-style*)
                         (dont-close *dont-close*)
+                        interface
                         backlog)
   "Start a SWANK server on PORT running in STYLE.
 If DONT-CLOSE is true then the listen socket will accept multiple
-connections, otherwise it will be closed after the first."
-  (setup-server port #'simple-announce-function
-                style dont-close backlog))
+connections, otherwise it will be closed after the first.
+
+Optionally, an INTERFACE could be specified and swank will bind
+the PORT on this interface. By default, interface is 127.0.0.1."
+  (let ((*loopback-interface* (or interface
+                                  *loopback-interface*)))
+    (setup-server port #'simple-announce-function
+                  style dont-close backlog)))
 
 (defun find-external-format-or-lose (coding-system)
   (or (find-external-format coding-system)
       (error "Unsupported coding system: ~s" coding-system)))
-
-(defparameter *loopback-interface* "127.0.0.1")
 
 (defmacro restart-loop (form &body clauses)
   "Executes FORM, with restart-case CLAUSES which have a chance to modify FORM's
