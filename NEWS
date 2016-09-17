@@ -1,4 +1,8 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
+* 2.19 (Unreleased)
+** SBCL backend
+*** Now swank can be bound to IPv6 interface and can work on IPv6-only machines.
+
 * 2.18 (May 2016)
 *** Mostly bug fixes and compatibility with newer implementations
 

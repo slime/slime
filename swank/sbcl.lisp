@@ -98,16 +98,30 @@
     ((member :win32 *features*) nil)
     (t :fd-handler)))
 
-(defun resolve-hostname (name)
-  (car (sb-bsd-sockets:host-ent-addresses
-        (sb-bsd-sockets:get-host-by-name name))))
+
+(defun resolve-hostname (host)
+  "Returns valid IPv4 or IPv6 address for the host."
+  ;; get all IPv4 and IPv6 addresses as a list
+  (let* ((host-ents (multiple-value-list (sb-bsd-sockets:get-host-by-name host)))
+         ;; remove protocols for which we don't have an address
+         (addresses (remove-if-not #'sb-bsd-sockets:host-ent-address host-ents)))
+    ;; Return the first one or nil,
+    ;; but actually, it shouln't return nil, because
+    ;; get-host-by-name will signal NAME-SERVICE-ERROR condition
+    ;; if there isn't any address for the host.
+    (first addresses)))
+
 
 (defimplementation create-socket (host port &key backlog)
-  (let ((socket (make-instance 'sb-bsd-sockets:inet-socket
-                               :type :stream
-                               :protocol :tcp)))
+  (let* ((host-ent (resolve-hostname host))
+         (socket (make-instance (ecase (sb-bsd-sockets:host-ent-address-type host-ent)
+                                  (2 'sb-bsd-sockets:inet-socket)
+                                  (10 'sb-bsd-sockets:inet6-socket))
+                                :type :stream
+                                :protocol :tcp)))
     (setf (sb-bsd-sockets:sockopt-reuse-address socket) t)
-    (sb-bsd-sockets:socket-bind socket (resolve-hostname host) port)
+    (sb-bsd-sockets:socket-bind socket (sb-bsd-sockets:host-ent-address host-ent) port)
+
     (sb-bsd-sockets:socket-listen socket (or backlog 5))
     socket))
 
