@@ -1197,12 +1197,16 @@ See `slime-start'."
   (with-current-buffer (process-buffer process)
     slime-inferior-lisp-args))
 
+;; List of all hooks that are to be executed by Common Lisp image when it is
+;; called by SLIME.
+(defvar slime-init-command-hooks '())
+
 ;; XXX load-server & start-server used to be separated. maybe that was  better.
 (defun slime-init-command (port-filename _coding-system)
   "Return a string to initialize Lisp."
   (let ((loader (if (file-name-absolute-p slime-backend)
                     slime-backend
-                  (concat slime-path slime-backend))))
+                    (concat slime-path slime-backend))))
     ;; Return a single form to avoid problems with buffered input.
     (format "%S\n\n"
             `(progn
@@ -1210,7 +1214,8 @@ See `slime-start'."
                      :verbose t)
                (funcall (read-from-string "swank-loader:init"))
                (funcall (read-from-string "swank:start-server")
-                        ,(slime-to-lisp-filename port-filename))))))
+                        ,(slime-to-lisp-filename port-filename))
+               ,@slime-init-command-hooks))))
 
 (defun slime-swank-port-file ()
   "Filename where the SWANK server writes its TCP port number."
