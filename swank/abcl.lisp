@@ -550,7 +550,7 @@
                         (:align t)))
           `(:location
             (:file ,(namestring (ext:source-pathname symbol)))
-            ,(if pos
+            ,(if nil;pos
                  (list :position (1+ pos))
                  (list :function-name (string symbol)))
             (:align t))))))
