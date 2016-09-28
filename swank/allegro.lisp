@@ -522,12 +522,32 @@ to do this, this factors in the length of the inserted header itself."
       (write-string padding-string stream)
       (write-char #\newline stream))))
 
+(defun contextualized-code (string file)
+  `(let ((*compile-file-pathname* (or (eval-when (:compile-toplevel)
+                                        ,(parse-namestring file))
+                                      nil))
+         (*compile-file-truename* (or (eval-when (:compile-toplevel)
+                                        ,(truename (parse-namestring file)))
+                                      nil))
+         (*load-pathname* (or (eval-when (:load-toplevel)
+                                ,(parse-namestring file))
+                              nil))
+         (*load-truename* (or (eval-when (:load-toplevel)
+                                ,(truename (parse-namestring file)))
+                              nil)))
+     ,(read-from-string string)))
+
+
+
 (defun compile-from-temp-file (string buffer offset file)
   (call-with-temp-file
    (lambda (stream filename)
      (when (and file offset (probe-file file))
        (write-tracking-preamble stream file offset))
-     (write-string string stream)
+     (write
+      (contextualized-code string file)
+      :readably t
+      :stream stream)
      (finish-output stream)
      (multiple-value-bind (binary-filename warnings? failure?)
          (let ((sys:*source-file-types* '(nil)) ; suppress .lisp extension
