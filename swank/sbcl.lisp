@@ -744,7 +744,9 @@ QUALITIES is an alist with (quality . value)"
                    (compile-file *buffer-tmpfile* :external-format :utf-8)))))
       (with-open-file (s *buffer-tmpfile* :direction :output :if-exists :error
                          :external-format :utf-8)
-        (write-string string s))
+        (write (contextualized-code string filename)
+               :readably t
+               :stream s))
       (unwind-protect
            (multiple-value-bind (output-file warningsp failurep)
                (with-compilation-hooks () (cf))
