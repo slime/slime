@@ -212,7 +212,9 @@
            (progn
              (with-open-file (s temp-file-name :direction :output
                                 :if-exists :error :external-format :utf-8)
-               (write-string string s))
+               (write (contextualized-code string filename)
+                      :readably t
+                      :stream s))
              (let ((binary-filename (compile-temp-file
                                      temp-file-name filename buffer position)))
                (delete-file binary-filename)))

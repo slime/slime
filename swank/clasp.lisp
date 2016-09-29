@@ -298,7 +298,9 @@
         (unwind-protect
              (with-open-file (tmp-stream tmp-file :direction :output
                                                   :if-exists :supersede)
-               (write-string string tmp-stream)
+               (write (contextualized-code string filename)
+               :readably t
+               :stream tmp-stream)
                (finish-output tmp-stream)
                (multiple-value-setq (fasl-file warnings-p failure-p)
                  (let ((truename (or filename (note-buffer-tmpfile tmp-file buffer))))
