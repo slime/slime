@@ -54,6 +54,9 @@
            sldb-break-on-return
            buffer-first-change
 
+           ;; helper for compilation
+           contextualized-code
+
            profiled-functions
            unprofile-all
            profile-report
