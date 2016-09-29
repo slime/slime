@@ -77,8 +77,8 @@
 
 (defimplementation create-socket (host port &key backlog)
   (let ((socket (make-instance 'sb-bsd-sockets:inet-socket
-			       :type :stream
-			       :protocol :tcp)))
+                               :type :stream
+                               :protocol :tcp)))
     (setf (sb-bsd-sockets:sockopt-reuse-address socket) t)
     (sb-bsd-sockets:socket-bind socket (resolve-hostname host) port)
     (sb-bsd-sockets:socket-listen socket (or backlog 5))
@@ -574,15 +574,15 @@
     (setf frame (si::decode-ihs-env (second frame)))
     (dolist (record (remove-if-not #'consp frame))
       (let* ((record0 (car record))
-	     (record1 (cdr record)))
-	(cond ((or (symbolp record0) (stringp record0))
-	       (setq variables (acons record0 record1 variables)))
-	      ((not (si::fixnump record0))
-	       (push record1 functions))
-	      ((symbolp record1)
-	       (push record1 blocks))
-	      (t
-	       ))))
+             (record1 (cdr record)))
+        (cond ((or (symbolp record0) (stringp record0))
+               (setq variables (acons record0 record1 variables)))
+              ((not (si::fixnump record0))
+               (push record1 functions))
+              ((symbolp record1)
+               (push record1 blocks))
+              (t
+               ))))
     (values functions blocks variables)))
 
 (defimplementation print-frame (frame stream)
