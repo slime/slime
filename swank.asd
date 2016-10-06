@@ -30,9 +30,7 @@
 
 (defmethod asdf:perform ((o asdf:load-op) (f swank-loader-file))
   (load (asdf::component-pathname f))
-  (funcall (read-from-string "swank-loader::init")
-           :reload nil
-           :delete nil))
+  (funcall (read-from-string "swank-loader::init") :reload t))
 
 (asdf:defsystem :swank
   :default-component-class swank-loader-file
