@@ -412,6 +412,7 @@ Otherwise NIL is returned."
   "ARG can be a symbol or a destructuring pattern."
   (etypecase arg
     (symbol        arg)
+    (number        arg)
     (arglist-dummy arg)
     (list          (decode-arglist arg))))
 
