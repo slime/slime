@@ -162,7 +162,7 @@
   (si:getpid))
 
 (defimplementation set-default-directory (directory)
-  (ext:chdir (namestring directory))  ; adapts *DEFAULT-PATHNAME-DEFAULTS*.
+  (ext:chdir (pathname directory))  ; adapts *DEFAULT-PATHNAME-DEFAULTS*.
   (default-directory))
 
 (defimplementation default-directory ()
