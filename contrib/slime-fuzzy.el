@@ -3,6 +3,8 @@
 (require 'slime-c-p-c)
 (require 'cl-lib)
 
+(defvar slime-fuzzy-init-undo-stack nil)
+
 (define-slime-contrib slime-fuzzy
   "Fuzzy symbol completion."
   (:authors "Brian Downing <bdowning@lavos.net>"
@@ -11,10 +13,20 @@
   (:license "GPL")
   (:swank-dependencies swank-fuzzy)
   (:on-load
+   ;; Install as the default completion in slime
+   (push
+    `(when (eq slime-complete-symbol-function 'slime-fuzzy-complete-symbol)
+       (setq slime-complete-symbol-function ',slime-complete-symbol-function))
+    slime-fuzzy-init-undo-stack)
+   (setq slime-complete-symbol-function 'slime-fuzzy-complete-symbol)
+   ;; Also install on C-c M-i
    (define-key slime-mode-map "\C-c\M-i" 'slime-fuzzy-complete-symbol)
-   (when (featurep 'slime-repl)
+   (when (featurep 'slime-repl) ; FIXME this is load-order dependent
      (define-key slime-repl-mode-map "\C-c\M-i"
-       'slime-fuzzy-complete-symbol))))
+       'slime-fuzzy-complete-symbol)))
+  (:on-unload
+   (while slime-fuzzy-init-undo-stack
+     (eval (pop slime-fuzzy-init-undo-stack)))))
 
 (defcustom slime-fuzzy-completion-in-place t
   "When non-NIL the fuzzy symbol completion is done in place as
