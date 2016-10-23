@@ -1,5 +1,6 @@
 *.x86f
 *.fasl
+*.abcl
 *.dfsl
 *.lx64fsl
 *.elc
