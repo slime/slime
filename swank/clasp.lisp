@@ -722,3 +722,9 @@
                                             0.2)))))
 
   ) ; #+threads (progn ...
+
+
+(defmethod emacs-inspect ((object core:cxx-object))
+  (let ((encoded (core:encode object)))
+    (loop for (key . value) in encoded
+       append (list (string key) ": " (list :value value) (list :newline)))))
