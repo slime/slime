@@ -547,7 +547,7 @@
       (if (ext:pathname-jar-p path)
           `(:location
             ;; strip off "jar:file:" = 9 characters
-            (:zip ,@(split-string path "!/"))
+            (:zip ,@(split-string (subseq path 9) "!/"))
             ;; pos never seems right. Use function name.
             (:function-name ,(string symbol))
             (:align t))
