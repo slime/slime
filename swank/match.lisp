@@ -158,9 +158,9 @@
         ((consp pattern)
          (append
           `((consp ,key))
-          (compile-select-tests (!cs-car key) (car
+          (compile-select-tests (cs-car key) (car
                                                pattern))
-          (compile-select-tests (!cs-cdr key) (cdr
+          (compile-select-tests (cs-cdr key) (cdr
                                                pattern))))
         (t (error "Illegal select pattern: ~S" pattern))))
 
@@ -168,7 +168,7 @@
 (defun compile-select-bindings (key pattern action)
   (cond ((constantp pattern) '())
         ((symbolp pattern)
-         (if (select!-in-tree pattern action)
+         (if (select-in-tree pattern action)
              `((,pattern ,key))
              '()))
         ((select-double-match? pattern)
@@ -179,16 +179,16 @@
          (compile-select-bindings key (second pattern) action))
         ((consp pattern)
          (append
-          (compile-select-bindings (!cs-car key) (car pattern)
+          (compile-select-bindings (cs-car key) (car pattern)
                                    action)
-          (compile-select-bindings (!cs-cdr key) (cdr pattern)
+          (compile-select-bindings (cs-cdr key) (cdr pattern)
                                    action)))))
 
-(defun select!-in-tree (atom tree)
+(defun select-in-tree (atom tree)
   (or (eq atom tree)
       (if (consp tree)
-          (or (select!-in-tree atom (car tree))
-              (select!-in-tree atom (cdr tree))))))
+          (or (select-in-tree atom (car tree))
+              (select-in-tree atom (cdr tree))))))
 
 (defun select-double-match? (pattern)
   ;;  (<pattern> = <pattern>)
@@ -206,23 +206,23 @@
        (null (cddr (first pattern)))
        (eq (caar pattern) 'function)))
 
-(defun !cs-car (exp)
-  (!cs-car/cdr 'car exp
+(defun cs-car (exp)
+  (cs-car/cdr 'car exp
                '((car . caar)     (cdr . cadr)    (caar . caaar) (cadr . caadr)
                  (cdar . cadar)   (cddr . caddr)
                  (caaar . caaaar) (caadr . caaadr) (cadar . caadar)
                  (caddr . caaddr) (cdaar . cadaar) (cdadr . cadadr)
                  (cddar . caddar) (cdddr . cadddr))))
 
-(defun !cs-cdr (exp)
-  (!cs-car/cdr 'cdr exp
+(defun cs-cdr (exp)
+  (cs-car/cdr 'cdr exp
                '((car . cdar)    (cdr . cddr)    (caar . cdaar)  (cadr . cdadr)
                  (cdar . cddar)  (cddr . cdddr)
                  (caaar . cdaaar)    (caadr . cdaadr)    (cadar . cdadar)
                  (caddr . cdaddr)    (cdaar . cddaar)    (cdadr . cddadr)
                  (cddar . cdddar)    (cdddr . cddddr))))
 
-(defun !cs-car/cdr (op exp table)
+(defun cs-car/cdr (op exp table)
   (if (and (consp exp) (= (length exp) 2))
       (let ((replacement  (assoc (car exp) table)))
         (if replacement
