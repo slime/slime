@@ -9,6 +9,15 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (swank-require :swank-util))
 
+(defun symbol-info (symbol)
+  (list (and (constantp symbol) (symbol-value symbol))
+	  (and (fboundp symbol) (symbol-function symbol))
+	  (and (boundp symbol) (symbol-value symbol))
+	  (and (find-class symbol nil) (find-class symbol))
+	  (find-package symbol)
+	  #+armedbear (get symbol 'sys::structure-definition)))
+
+    
 (defmethod emacs-inspect ((symbol symbol))
   (let ((package (symbol-package symbol)))
     (multiple-value-bind (_symbol status)
@@ -89,7 +98,40 @@
         ;; More package
         (if (find-package symbol)
             (label-value-line "It names the package" (find-package symbol)))
+
+	;; Same string
+	(lines-for-symbol-in-other-packages symbol)
+       
         (inspect-type-specifier symbol)))))
+
+(defun lines-for-symbol-in-other-packages (symbol)
+  (let ((others
+	  (loop for p in (LIST-ALL-PACKAGES) 
+		for candidate = (find-symbol (string symbol) p) 
+		for found = (and (not (null candidate)) 
+				 (eq (symbol-package candidate) p)
+				 (not (eq (symbol-package symbol) (symbol-package candidate)))
+				      
+				 candidate)
+		for (constant function value class package structure) = (and found (symbol-info found))
+		for specs  = (and found (append (if value `((:value ,value
+								    ,(if constant "constant" "bound") ", ")))
+						(if function `((:value ,function "fbound" ", ")))
+						(if package `((:value ,package "package" ", ")))
+						(if class `((:value ,class "class") ", "))
+						(if structure `((:value ,structure "structure") ", "))))
+		when found
+		  collect
+		  (let ((specs (butlast specs)))
+		    (list* (list :value found (let ((*package* (find-package :keyword))) (format nil "~s" found)))
+			   (if specs ": " "")
+			   (append specs '((:newline))))))))
+
+	 (if others
+	     `("In other packages: " 
+	       (:newline)  
+	       ,@(apply 'append others)
+	       ))))
 
 #-sbcl
 (defun inspect-type-specifier (symbol)
