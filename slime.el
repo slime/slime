@@ -3176,6 +3176,8 @@ you should check twice before modifying.")
        (set-buffer buffer)
        (goto-char (point-min))))))
 
+(defvar optional-package-regex "\\([[:word:]]+:\\{1,2\\}\\)\\{0,1\\}")
+
 (defun slime-goto-location-position (position)
   (slime-dcase position
     ((:position pos)
@@ -3195,10 +3197,10 @@ you should check twice before modifying.")
        (goto-char (point-min))
        (when (or
               (re-search-forward
-               (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +(*%s\\S_"
-                       (regexp-quote name)) nil t)
+               (format "\\s *(%sdef\\(\\s_\\|\\sw\\)*\\s +(*%s%s\\S_"
+                       optional-package-regex optional-package-regex (regexp-quote name)) nil t)
               (re-search-forward
-               (format "[( \t]%s\\>\\(\\s \\|$\\)" name) nil t))
+               (format "[( \t]%s%s\\>\\(\\s \\|$\\)" optional-package-regex name) nil t))
          (goto-char (match-beginning 0)))))
     ((:method name specializers &rest qualifiers)
      (slime-search-method-location name specializers qualifiers))
@@ -3230,27 +3232,33 @@ you should check twice before modifying.")
   ;; qualifers specializers don't look for "T" since it isn't requires
   ;; (arg without t) as class is taken as such.
   (let* ((case-fold-search t)
-         (name (regexp-quote name))
+         (name  (regexp-quote name))
          (qualifiers (mapconcat (lambda (el) (concat ".+?\\<" el "\\>"))
                                 qualifiers ""))
-         (specializers (mapconcat
-                        (lambda (el)
-                          (if (eql (aref el 0) ?\()
-                              (let ((spec (read el)))
-                                (if (eq (car spec) 'EQL)
-                                    (concat
-                                     ".*?\\n\\{0,1\\}.*?(EQL.*?'\\{0,1\\}"
-                                     (format "%s" (cl-second spec)) ")")
-                                  (error "don't understand specializer: %s,%s"
-                                         el (car spec))))
-                            (concat ".+?\n\\{0,1\\}.+?\\<" el "\\>")))
-                        (remove "T" specializers) ""))
-         (regexp (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\s +%s%s" name
-                         qualifiers specializers)))
-    (or (and (re-search-forward regexp  nil t)
-             (goto-char (match-beginning 0)))
-        ;;	(slime-goto-location-position `(:function-name ,name))
-        )))
+	 (specializers (mapconcat
+			(lambda (el)
+			  (if (eql (aref el 0) ?\()
+			      (let ((spec (read el)))
+				(if (eq (car spec) 'EQL)
+				    (concat
+				     ".*?\\n\\{0,1\\}.*?(EQL.*?'\\{0,1\\}"
+				     (format "%s" (cl-second spec)) ")")
+				    (error "don't understand specializer: %s,%s"
+					   el (car spec))))
+			      (concat ".*?\\n\\{0,1\\}.*?\\<" el "\\>")))
+			(subst "[[:word:]]+" "t" specializers :test 'equalp) ""))
+	 (regexp (format "\\s *(%sdef\\(\\s_\\|\\sw\\)*\\s +%s%s\\s +%s%s" 
+			 optional-package-regex 
+			 optional-package-regex name
+			 qualifiers specializers)))
+    (or (and 
+	 (re-search-forward regexp  nil t)
+	 (goto-char (match-beginning 0)))
+	(and 
+	 (re-search-backward regexp  nil t)
+	 (goto-char (match-beginning 0)))
+	;;	(slime-goto-location-position `(:function-name ,name))
+	)))
 
 (defun slime-search-call-site (fname)
   "Move to the place where FNAME called.
