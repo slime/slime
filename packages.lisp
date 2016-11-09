@@ -41,6 +41,7 @@
            label-value-line*
            boolean-to-feature-expression
            with-symbol
+           choose-symbol
            ;; package helper for backend
            import-to-swank-mop
            import-swank-mop-symbols

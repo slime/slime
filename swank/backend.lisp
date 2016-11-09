@@ -161,6 +161,13 @@ form suitable for testing with #+."
    (and (find-package package)
         (find-symbol (string name) package))))
 
+(defun choose-symbol (package name alt-package alt-name)
+  "If symbol package:name exists return that symbol, otherwise alt-package:alt-name.
+  Suitable for use with #."
+  (or (and (find-package package)
+           (find-symbol (string name) package))
+      (find-symbol (string alt-name) alt-package)))
+
 
 ;;;; UFT8
 
