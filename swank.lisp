@@ -2779,8 +2779,13 @@ that symbols accessible in the current package go first."
       (describe object))))
 
 (defslimefun describe-symbol (symbol-name)
-  (with-buffer-syntax ()
-    (describe-to-string (parse-symbol-or-lose symbol-name))))
+  "Return description of a `symbol'. If SYMBOL-NAME
+   contains #\: then describe as a package."
+  (if (find #\: symbol-name)
+      (with-buffer-syntax ()
+        (describe-to-string (parse-package (string-right-trim ":" symbol-name))))
+      (with-buffer-syntax ()
+        (describe-to-string (parse-symbol-or-lose symbol-name)))))
 
 (defslimefun describe-function (name)
   (with-buffer-syntax ()
