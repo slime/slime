@@ -48,9 +48,9 @@
         ;; Function
         (if (fboundp symbol)
             (append (if (macro-function symbol)
-                        `("It a macro with macro-function: "
+                        `((:label "It a macro with macro-function: ")
                           (:value ,(macro-function symbol)))
-                        `("It is a function: "
+                        `((:label "It is a function: ")
                           (:value ,(symbol-function symbol))))
                     `(" " (:action "[unbind]"
                                    ,(lambda () (fmakunbound symbol))))
@@ -70,8 +70,8 @@
         ;;
         ;; Package
         (if package
-            `("It is " ,(string-downcase (string status))
-                       " to the package: "
+            `((:label "It is ") (:label ,(string-downcase (string status)))
+	      (:label " to the package: ")
                        (:value ,package ,(package-name package))
                        ,@(if (eq :internal status)
                              `(" "
@@ -181,9 +181,9 @@
     (cond ((not docstring) nil)
           ((< (+ (length label) (length docstring))
               75)
-           (list label ": " docstring '(:newline)))
+           (list `(:label ,label) ": " docstring '(:newline)))
           (t
-           (list label ":" '(:newline) "  " docstring '(:newline))))))
+           (list `(:label ,label) ":" '(:newline) "  " docstring '(:newline))))))
 
 (unless (find-method #'emacs-inspect '() (list (find-class 'function)) nil)
   (defmethod emacs-inspect ((f function))
@@ -191,13 +191,14 @@
 
 (defun inspect-function (f)
   (append
-   (label-value-line "Name" (function-name f))
-   `("Its argument list is: "
+   (list '(:label "Name:") (function-name f) '(:newline))
+   `((:label "Argument list: ")
      ,(inspector-princ (arglist f)) (:newline))
    (docstring-ispec "Documentation" f t)
    (if (function-lambda-expression f)
-       (label-value-line "Lambda Expression"
-                         (function-lambda-expression f)))))
+       (list `(:label "Lambda Expression") 
+	     `(:value 
+	       ,(function-lambda-expression f)  ,(print1-to-string (function-lambda-expression f)))))))
 
 (defun method-specializers-for-inspect (method)
   "Return a \"pretty\" list of the method's specializers. Normal
@@ -383,7 +384,7 @@ See `methods-by-applicability'.")
       ,@ (case (ref grouping-kind)
            (:all
             `((:newline)
-              "All Slots:"
+              (:label "All Slots:")
               (:newline)
               ,@(make-slot-listing checklist object class
                                    effective-slots direct-slots
@@ -493,7 +494,7 @@ See `methods-by-applicability'.")
 
 
 (defmethod emacs-inspect ((gf standard-generic-function))
-  (flet ((lv (label value) (label-value-line label value)))
+  (flet ((lv (label value) `((:label ,label)": " (:value  ,value ,(princ-to-string value)) (:newline))))
     (append
       (lv "Name" (swank-mop:generic-function-name gf))
       (lv "Arguments" (swank-mop:generic-function-lambda-list gf))
@@ -501,7 +502,7 @@ See `methods-by-applicability'.")
       (lv "Method class" (swank-mop:generic-function-method-class gf))
       (lv "Method combination"
           (swank-mop:generic-function-method-combination gf))
-      `("Methods: " (:newline))
+      `((:label "Methods: ") (:newline))
       (loop for method in (funcall *gf-method-getter* gf) append
             `((:value ,method ,(inspector-princ
                                ;; drop the name of the GF
@@ -517,7 +518,7 @@ See `methods-by-applicability'.")
 
 (defmethod emacs-inspect ((method standard-method))
   `(,@(if (swank-mop:method-generic-function method)
-          `("Method defined on the generic function "
+          `((:label "Method defined on the generic function ")
             (:value ,(swank-mop:method-generic-function method)
                     ,(inspector-princ
                       (swank-mop:generic-function-name
@@ -525,15 +526,15 @@ See `methods-by-applicability'.")
           '("Method without a generic function"))
       (:newline)
       ,@(docstring-ispec "Documentation" method t)
-      "Lambda List: " (:value ,(swank-mop:method-lambda-list method))
+      (:label "Lambda List: ") (:value ,(swank-mop:method-lambda-list method))
       (:newline)
-      "Specializers: " (:value ,(swank-mop:method-specializers method)
+      (:label "Specializers: ") (:value ,(swank-mop:method-specializers method)
                                ,(inspector-princ
                                  (method-specializers-for-inspect method)))
       (:newline)
-      "Qualifiers: " (:value ,(swank-mop:method-qualifiers method))
+      (:label "Qualifiers: ") (:value ,(swank-mop:method-qualifiers method))
       (:newline)
-      "Method function: " (:value ,(swank-mop:method-function method))
+      (:label "Method function: ") (:value ,(swank-mop:method-function method))
       (:newline)
       ,@(all-slots-for-inspector method)))
 
@@ -550,22 +551,22 @@ See `methods-by-applicability'.")
                  (second name)))))))
 
 (defmethod emacs-inspect ((class standard-class))
-  `("Name: "
+  `((:label "Name: ")
     (:value ,(class-name class))
     (:newline)
-    "Super classes: "
-    ,@(common-seperated-spec (swank-mop:class-direct-superclasses class))
+    (:label "Super classes: ")
+    ,@(common-separated-spec (swank-mop:class-direct-superclasses class))
     (:newline)
-    "Direct Slots: "
-    ,@(common-seperated-spec
+    (:label "Direct Slots: ")
+    ,@(common-separated-spec
        (swank-mop:class-direct-slots class)
        (lambda (slot)
          `(:value ,slot ,(inspector-princ
                           (swank-mop:slot-definition-name slot)))))
     (:newline)
-    "Effective Slots: "
+    (:label "Effective Slots: ")
     ,@(if (swank-mop:class-finalized-p class)
-          (common-seperated-spec
+          (common-separated-spec
            (swank-mop:class-slots class)
            (lambda (slot)
              `(:value ,slot ,(inspector-princ
@@ -576,16 +577,16 @@ See `methods-by-applicability'.")
     (:newline)
     ,@(let ((doc (documentation class t)))
         (when doc
-          `("Documentation:" (:newline) ,(inspector-princ doc) (:newline))))
+          `((:label "Documentation:") (:newline) ,(inspector-princ doc) (:newline))))
     "Sub classes: "
-    ,@(common-seperated-spec (swank-mop:class-direct-subclasses class)
+    ,@(common-separated-spec (swank-mop:class-direct-subclasses class)
                              (lambda (sub)
                                `(:value ,sub
                                         ,(inspector-princ (class-name sub)))))
     (:newline)
-    "Precedence List: "
+    (:label "Precedence List: ")
     ,@(if (swank-mop:class-finalized-p class)
-          (common-seperated-spec
+          (common-separated-spec
            (swank-mop:class-precedence-list class)
            (lambda (class)
              `(:value ,class ,(inspector-princ (class-name class)))))
@@ -596,16 +597,16 @@ See `methods-by-applicability'.")
           (:newline)
           ,@(loop
               for method in (specializer-direct-methods class)
+	      for method-spec = (method-for-inspect-value method)
               collect "  "
-              collect `(:value ,method
-                               ,(inspector-princ
-                                 (method-for-inspect-value method)))
+	      collect `(:value ,method ,(inspector-princ (car method-spec)))
+              collect `(:value ,method ,(format nil " (~{~a~^ ~})" (cdr method-spec)))
               collect '(:newline)
               if (documentation method t)
               collect "    Documentation: " and
               collect (abbrev-doc (documentation method t)) and
               collect '(:newline))))
-    "Prototype: " ,(if (swank-mop:class-finalized-p class)
+    (:label "Prototype: ") ,(if (swank-mop:class-finalized-p class)
                        `(:value ,(swank-mop:class-prototype class))
                        '"#<N/A (class not finalized)>")
     (:newline)
@@ -616,19 +617,19 @@ See `methods-by-applicability'.")
     (:value ,(swank-mop:slot-definition-name slot))
     (:newline)
     ,@(when (swank-mop:slot-definition-documentation slot)
-        `("Documentation:" (:newline)
+        `((:label "Documentation:") (:newline)
                            (:value ,(swank-mop:slot-definition-documentation
                                      slot))
                            (:newline)))
-    "Init args: "
+    (:label "Init args: ")
     (:value ,(swank-mop:slot-definition-initargs slot))
     (:newline)
-    "Init form: "
+    (:label "Init form: ")
     ,(if (swank-mop:slot-definition-initfunction slot)
          `(:value ,(swank-mop:slot-definition-initform slot))
          "#<unspecified>")
     (:newline)
-    "Init function: "
+    (:label "Init function: ")
     (:value ,(swank-mop:slot-definition-initfunction slot))
     (:newline)
     ,@(all-slots-for-inspector slot)))
@@ -803,21 +804,21 @@ SPECIAL-OPERATOR groups."
           external-symbols     (sort external-symbols #'string<)
           inherited-symbols    (sort inherited-symbols #'string<))
     `("" ;; dummy to preserve indentation.
-      "Name: " (:value ,package-name) (:newline)
+      (:label "Name: ") (:value ,package-name) (:newline)
 
-      "Nick names: " ,@(common-seperated-spec package-nicknames) (:newline)
+      (:label "Nick names: ") ,@(common-separated-spec package-nicknames) (:newline)
 
       ,@(when (documentation package t)
-          `("Documentation:" (:newline)
+          `((:label "Documentation:") (:newline)
                              ,(documentation package t) (:newline)))
 
-      "Use list: " ,@(common-seperated-spec
+      "Uses packages: " ,@(common-separated-spec
                       package-use-list
                       (lambda (package)
                         `(:value ,package ,(package-name package))))
       (:newline)
 
-      "Used by list: " ,@(common-seperated-spec
+      (:label "Used by packages: ") ,@(common-separated-spec
                           package-used-by-list
                           (lambda (package)
                             `(:value ,package ,(package-name package))))
@@ -1028,7 +1029,7 @@ SPECIAL-OPERATOR groups."
                 (make-file-stream-ispec stream))
               content))))
 
-(defun common-seperated-spec (list &optional (callback (lambda (v)
+(defun common-separated-spec (list &optional (callback (lambda (v)
                                                          `(:value ,v))))
   (butlast
    (loop
