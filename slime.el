@@ -6236,6 +6236,11 @@ was called originally."
   "Face for labels in the inspector."
   :group 'slime-inspector)
 
+(defface slime-inspector-strong-face
+  '((t (:inherit slime-inspector-label-face)))
+  "Face for parts of values that are emphasized in the inspector."
+  :group 'slime-inspector)
+
 (defface slime-inspector-value-face
     '((t (:inherit font-lock-builtin-face)))
   "Face for things which can themselves be inspected."
@@ -6293,13 +6298,14 @@ KILL-BUFFER hooks for the inspector buffer."
     (let ((inhibit-read-only t))
       (erase-buffer)
       (pop-to-buffer (current-buffer))
+      (font-lock-mode -1)
       (cl-destructuring-bind (&key id title content) inspected-parts
         (cl-macrolet ((fontify (face string)
                                `(slime-inspector-fontify ,face ,string)))
           (slime-propertize-region
               (list 'slime-part-number id
                     'mouse-face 'highlight
-                    'face 'slime-inspector-value-face)
+                    'face 'slime-inspector-topline-face)
             (insert title))
           (while (eq (char-before) ?\n)
             (backward-delete-char 1))
@@ -6336,11 +6342,17 @@ If PREV resp. NEXT are true insert more-buttons as needed."
   (if (stringp ispec)
       (insert ispec)
     (slime-dcase ispec
-      ((:value string id)
+      ((:value string id )
        (slime-propertize-region
            (list 'slime-part-number id
                  'mouse-face 'highlight
                  'face 'slime-inspector-value-face)
+         (insert string)))
+      ((:strong-value string id )
+       (slime-propertize-region
+           (list 'slime-part-number id
+                 'mouse-face 'highlight
+                 'face 'slime-inspector-strong-face)
          (insert string)))
       ((:label string)
        (insert (slime-inspector-fontify label string)))
