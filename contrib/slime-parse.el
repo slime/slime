@@ -79,7 +79,13 @@ that the character is not escaped."
     ;; Don't parse more than 500 lines before point, so we don't spend
     ;; too much time. NB. Make sure to go to beginning of line, and
     ;; not possibly anywhere inside comments or strings.
-    (narrow-to-region (line-beginning-position -500) (point-max))
+    
+    (narrow-to-region 
+     (if (and (eq major-mode 'slime-repl-mode) ;; no point looking before the input start
+	      (boundp 'slime-repl-input-start-mark))
+	 (max (line-beginning-position -500) (marker-position slime-repl-input-start-mark))
+       (line-beginning-position -500))
+     (point-max))
     (save-excursion
       (let ((suffix (list slime-cursor-marker)))
         (cond ((slime-compare-char-syntax #'char-after "(" t)
