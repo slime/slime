@@ -120,6 +120,9 @@ Backend code should treat the connection structure as opaque.")
 (defvar *after-init-hook* '()
   "Hook run after user init files are loaded.")
 
+(defvar *find-definitions-all-packages* nil
+  "If t then find-definitions will be called even if there is no symbol in the current package")
+
 
 ;;;; Connections
 ;;;
@@ -2974,8 +2977,10 @@ If non-nil, called with two arguments SPEC and TRACED-P." )
 DSPEC is a string and LOCATION a source location. NAME is a string."
   (multiple-value-bind (symbol found)
       (find-definitions-find-symbol-or-package name)
-    (when found
-      (mapcar #'xref>elisp (find-definitions symbol)))))
+    (if *find-definitions-all-packages*
+        (mapcar #'xref>elisp (find-definitions (or symbol name)))
+        (when found 
+          (mapcar #'xref>elisp (find-definitions (or symbol name)))))))
 
 ;;; Generic function so contribs can extend it.
 (defgeneric xref-doit (type thing)
