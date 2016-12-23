@@ -3890,6 +3890,7 @@ WHAT can be:
   A filename (string),
   A list (:filename FILENAME &key LINE COLUMN POSITION),
   A function name (:function-name STRING)
+  A string (:string STRING)
   nil.
 
 This is for use in the implementation of COMMON-LISP:ED."
@@ -3908,7 +3909,15 @@ This is for use in the implementation of COMMON-LISP:ED."
                         (byte-to-position position)
                       position))))
       ((:function-name name)
-       (slime-edit-definition name)))))
+       (slime-edit-definition name))
+      ((:string string)
+       (with-output-to-temp-buffer "*edit-string*"
+         (switch-to-buffer "*edit-string*")
+         (princ string)
+         (fundamental-mode)
+         (setq buffer-read-only nil)
+         ))
+      )))
 
 (defun slime-goto-line (line-number)
   "Move to line LINE-NUMBER (1-based).
