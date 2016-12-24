@@ -81,15 +81,19 @@ Backends implement these functions using DEFIMPLEMENTATION."
 (defmacro defimplementation (name args &body body)
   (assert (every #'symbolp args) ()
           "Complex lambda-list not supported: ~S ~S" name args)
+  (let ((implementation-name (intern (string name) *package*)))
   `(progn
+     ;; make this a defun, with symbol in the implementing package.
+     ;; That means it gets compiled (it wasn't before, in ABCL), and
+     ;; that source-location works for it.
+     (defun ,implementation-name ,args ,@body)
      (setf (get ',name 'implementation)
-           ;; For implicit BLOCK. FLET because of interplay w/ decls.
-           (flet ((,name ,args ,@body)) #',name))
+           #',implementation-name)
      (if (member ',name *interface-functions*)
          (setq *unimplemented-interfaces*
                (remove ',name *unimplemented-interfaces*))
          (warn "DEFIMPLEMENTATION of undefined interface (~S)" ',name))
-     ',name))
+     ',name)))
 
 (defun warn-unimplemented-interfaces ()
   "Warn the user about unimplemented backend features.
