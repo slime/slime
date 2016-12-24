@@ -196,9 +196,8 @@
      ,(inspector-princ (arglist f)) (:newline))
    (docstring-ispec "Documentation" f t)
    (if (function-lambda-expression f)
-       (list `(:label "Lambda Expression") 
-	     `(:value 
-	       ,(function-lambda-expression f)  ,(print1-to-string (function-lambda-expression f)))))))
+       (label-value-line "Lambda Expression"
+			 (function-lambda-expression f)))))
 
 (defun method-specializers-for-inspect (method)
   "Return a \"pretty\" list of the method's specializers. Normal
