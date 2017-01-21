@@ -103,7 +103,7 @@ form, instead of the keyword position."
 
 (defcustom lisp-loop-body-forms-indentation 3
   "Indentation of loop body clauses."
-  :type 'boolean
+  :type 'integer
   :group 'lisp-indent)
 
 (defcustom lisp-loop-indent-forms-like-keywords nil
