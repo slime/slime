@@ -23,6 +23,9 @@
 (autoload 'slime-connect "slime"
   "Connect to a running Swank server." t)
 
+(autoload 'slime-selector "slime"
+  "Select a new by type, indicated by a single character." t)
+
 (autoload 'hyperspec-lookup "lib/hyperspec" nil t)
 
 (autoload 'slime-lisp-mode-hook "slime")
