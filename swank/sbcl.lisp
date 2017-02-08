@@ -1419,22 +1419,23 @@ stack."
     (when vars
       (let ((locals
               (loop for v across vars
-                    do (when (eq (sb-di:debug-var-symbol v) more-name)
-                         (incf more-id))
-                       (case (debug-var-info v)
-                         (:more-context
-                          (setf more-context (debug-var-value v frame loc)))
-                         (:more-count
-                          (setf more-count (debug-var-value v frame loc))))
+                    unless 
+                    (case (debug-var-info v)
+                      (:more-context
+                       (setf more-context (debug-var-value v frame loc))
+                       t)
+                      (:more-count
+                       (setf more-count (debug-var-value v frame loc))
+                       t))
                     collect
-                       (list :name (sb-di:debug-var-symbol v)
-                             :id (sb-di:debug-var-id v)
-                             :value (debug-var-value v frame loc)))))
+                    (list :name (sb-di:debug-var-symbol v)
+                          :id (sb-di:debug-var-id v)
+                          :value (debug-var-value v frame loc)))))
         (when (and more-context more-count)
           (setf locals (append locals
                                (list
                                 (list :name more-name
-                                      :id more-id
+                                      :id 0
                                       :value (multiple-value-list
                                               (sb-c:%more-arg-values
                                                more-context
