@@ -1412,8 +1412,7 @@ stack."
          ;; specially.
          (more-name (or (find-symbol "MORE" :sb-debug) 'more))
          (more-context nil)
-         (more-count nil)
-         (more-id 0))
+         (more-count nil))
     (when vars
       (let ((locals
               (loop for v across vars
