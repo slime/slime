@@ -712,13 +712,11 @@ QUALITIES is an alist with (quality . value)"
 (sb-alien:define-alien-routine (#-win32 "tempnam" #+win32 "_tempnam" tempnam)
     sb-alien:c-string
   (dir sb-alien:c-string)
-  (prefix sb-alien:c-string))
-
-)
+  (prefix sb-alien:c-string)))
 
 (defun temp-file-name ()
   "Return a temporary file name to compile strings into."
-  (tempnam nil nil))
+  (tempnam nil "slime"))
 
 (defvar *trap-load-time-warnings* t)
 
