@@ -330,8 +330,7 @@
     (default-directory)))
 
 (defun make-socket-io-stream (socket external-format buffering)
-  (let ((args `(,@()
-                :output t
+  (let ((args `(:output t
                 :input t
                 :element-type ,(if external-format
                                    'character
