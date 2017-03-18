@@ -51,10 +51,11 @@
 ;;;; TCP Server
 
 (defimplementation preferred-communication-style ()
-  ;; CLASP does not provide threads yet.
+  ;; As of March 2017 CLASP provides threads.
+  ;; But it's experimental.
   ;; ECLs swank implementation says that CLOS is not thread safe and
   ;; I use ECLs CLOS implementation - this is a worry for the future.
-  nil
+  :spawn ;; nil or  :spawn
   )
 
 (defun resolve-hostname (name)
