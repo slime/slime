@@ -55,7 +55,9 @@
   ;; But it's experimental.
   ;; ECLs swank implementation says that CLOS is not thread safe and
   ;; I use ECLs CLOS implementation - this is a worry for the future.
-  :spawn ;; nil or  :spawn
+  ;; nil or  :spawn
+  #+threads :spawn
+  #-threads nil
   )
 
 (defun resolve-hostname (name)
