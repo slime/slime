@@ -437,6 +437,13 @@ corresponding values in the CDR of VALUE."
 (defmacro without-slime-interrupts (&body body)
   `(with-interrupts-enabled% nil ,body))
 
+(defun queue-thread-interrupt (thread function)
+  (interrupt-thread thread
+                    (lambda ()
+                      ;; safely interrupt THREAD
+                      (when (invoke-or-queue-interrupt function)
+                        (wake-thread thread)))))
+
 (defun invoke-or-queue-interrupt (function)
   (log-event "invoke-or-queue-interrupt: ~a~%" function)
   (cond ((not (boundp '*slime-interrupts-enabled*))
@@ -457,7 +464,8 @@ corresponding values in the CDR of VALUE."
                (t
                 (log-event "queue-interrupt: ~a~%" function)
                 (when *interrupt-queued-handler*
-                  (funcall *interrupt-queued-handler*)))))))
+                  (funcall *interrupt-queued-handler*))
+                t)))))
 
 
 ;;; FIXME: poor name?
@@ -982,10 +990,7 @@ The processing is done in the extent of the toplevel restart."
     (if thread
         (etypecase connection
           (multithreaded-connection
-           (interrupt-thread thread
-                             (lambda ()
-                               ;; safely interrupt THREAD
-                               (invoke-or-queue-interrupt #'simple-break))))
+           (queue-thread-interrupt thread #'simple-break))
           (singlethreaded-connection
            (simple-break)))
         (encode-message (list :debug-condition (current-thread-id)
@@ -3464,12 +3469,11 @@ Example:
 
 (defslimefun debug-nth-thread (index)
   (let ((connection *emacs-connection*))
-    (interrupt-thread (nth-thread index)
-                      (lambda ()
-                        (invoke-or-queue-interrupt
-                         (lambda ()
-                           (with-connection (connection)
-                             (simple-break))))))))
+    (queue-thread-interrupt
+     (nth-thread index)
+     (lambda ()
+       (with-connection (connection)
+         (simple-break))))))
 
 (defslimefun kill-nth-thread (index)
   (kill-thread (nth-thread index)))

@@ -1317,6 +1317,14 @@ Don't execute unwind-protected sections, don't raise conditions.
 (definterface receive-if (predicate &optional timeout)
   "Return the first message satisfiying PREDICATE.")
 
+(definterface wake-thread (thread)
+  "Trigger a call to CHECK-SLIME-INTERRUPTS in THREAD without using
+asynchronous interrupts."
+  (declare (ignore thread))
+  ;; Doesn't have to implement this if RECEIVE-IF periodically calls
+  ;; CHECK-SLIME-INTERRUPTS, but that's energy inefficient
+  nil)
+
 (definterface register-thread (name thread)
   "Associate the thread THREAD with the symbol NAME.
 The thread can then be retrieved with `find-registered'.

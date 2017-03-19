@@ -696,6 +696,12 @@
             (push mb *mailboxes*)
             mb))))
 
+  (defimplementation wake-thread (thread)
+    (let* ((mbox (mailbox thread))
+           (mutex (mailbox.mutex mbox)))
+      (mp:with-lock (mutex)
+        (mp:condition-variable-broadcast (mailbox.cvar mbox)))))
+  
   (defimplementation send (thread message)
     (let* ((mbox (mailbox thread))
            (mutex (mailbox.mutex mbox)))
@@ -709,17 +715,15 @@
            (mutex (mailbox.mutex mbox)))
       (assert (or (not timeout) (eq timeout t)))
       (loop
-         (check-slime-interrupts)
-         (mp:with-lock (mutex)
-           (let* ((q (mailbox.queue mbox))
-                  (tail (member-if test q)))
-             (when tail
-               (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
-               (return (car tail))))
-           (when (eq timeout t) (return (values nil t)))
-           (mp:condition-variable-timedwait (mailbox.cvar mbox)
-                                            mutex
-                                            0.2)))))
+       (check-slime-interrupts)
+       (mp:with-lock (mutex)
+         (let* ((q (mailbox.queue mbox))
+                (tail (member-if test q)))
+           (when tail
+             (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
+             (return (car tail))))
+         (when (eq timeout t) (return (values nil t)))
+         (mp:condition-variable-wait (mailbox.cvar mbox) mutex)))))
 
   ) ; #+threads (progn ...
 
