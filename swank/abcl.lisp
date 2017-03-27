@@ -309,7 +309,9 @@
         (t :not-available)))
 
 (defimplementation function-name (function)
-  (sys::any-function-name function))
+  (if (fboundp 'sys::any-function-name) ;; abcl-1.5.0
+      (sys::any-function-name function)
+      (nth-value 2 (function-lambda-expression function))))
 
 (defimplementation macroexpand-all (form &optional env)
   (ext:macroexpand-all form env))
@@ -605,14 +607,13 @@
                                (:snippet ,(format nil "class ~a" local))))
                   ;; if not, look for the class file, and hope that
                   ;; emacs is configured to disassemble class entries in jars.
-                  ;; I use jdc.el(copy here: https://github.com/m0smith/dotfiles/blob/master/.emacs.d/site-lisp/jdc.el)
-                  ;; with jad (https://github.com/moparisthebest/jad)
+                  ;; I use jdc.el <https://github.com/m0smith/dotfiles/blob/master/.emacs.d/site-lisp/jdc.el>
+                  ;; with jad <https://github.com/moparisthebest/jad>
                   ;; Also (setq sys::*disassembler* "jad -a -p")
                   (let ((class-in-source-path 
                           (find-file-in-path (concatenate 'string partial-path ".class") *source-path*)))
                     ;; no snippet, since internal class is in its own file
-                    (if class-in-source-path `(:primitive (:location ,class-in-source-path (:line 0) nil)))
-                    ))))))))))
+                    (if class-in-source-path `(:primitive (:location ,class-in-source-path (:line 0) nil)))))))))))))
 
 (defun get-declared-field (class fieldname)
   (find fieldname (jcall "getDeclaredFields" class) :key 'jfield-name :test 'equal))
@@ -661,8 +662,9 @@
       (and (pathnamep (ext:source-pathname symbol))
            (let ((pos (ext:source-file-position symbol))
                  (path (namestring (ext:source-pathname symbol))))
-             ; boot.lisp gets recorded wrong
-             (if (equal path "boot.lisp") (setq path (second (find-file-in-path "org/armedbear/lisp/boot.lisp" *source-path*))))
+             ;; boot.lisp gets recorded wrong
+             (if (equal path "boot.lisp")
+                 (setq path (second (find-file-in-path "org/armedbear/lisp/boot.lisp" *source-path*))))
              (cond ((ext:pathname-jar-p path)
                     `(:location
                       ;; strip off "jar:file:" = 9 characters
@@ -750,14 +752,15 @@
   (remove nil 
           (append (search-path-property "user.dir")
                   (jdk-source-path)
-                  ;; include lib jar files. contrib has lisp code. Would be good to build abcl.jar with source code as well
+                  ;; include lib jar files. contrib has lisp
+                  ;; code. Would be good to build abcl.jar with source
+                  ;; code as well
                   (list (sys::find-system-jar)
-                        (sys::find-contrib-jar))
+                        (sys::find-contrib-jar))))
                   ;; you should tell slime where the abcl sources are. In .swank.lisp I have:
                   ;; (push (probe-file "/Users/alanr/repos/abcl/src/") *SOURCE-PATH*)
-                  ;;(list (truename "/scratch/abcl/src"))
-                  ))
-  "List of directories to search for source files.")
+
+"List of directories to search for source files.")
 
 (defun zipfile-contains-p (zipfile-name entry-name)
   (let ((zipfile (jnew (jconstructor "java.util.zip.ZipFile"
@@ -766,9 +769,6 @@
     (jcall
      (jmethod "java.util.zip.ZipFile" "getEntry" "java.lang.String")
      zipfile entry-name)))
-
-;; (find-file-in-path "java/lang/String.java" *source-path*)
-;; (find-file-in-path "Lisp.java" *source-path*)
 
 ;; Try to find FILENAME in PATH.  If found, return a file spec as
 ;; needed by Emacs.  We also look in zip files.
@@ -869,37 +869,44 @@
 
 (defun slime-location-from-source-annotation (sym it)
   (destructuring-bind (what path pos) it
-    (let* (              ;; all of these are (defxxx forms, which is what :function locations look for in slime
-          (isfunction  (and (consp what) (member (car what) '(:function :generic-function :macro :class :compiler-macro :type :constant :variable :package :structure :condition))))
-          (ismethod (and (consp what) (eq (car what) :method)))
-          (<position> (cond (isfunction (list :function-name (princ-to-string (second what))))
-                                             (ismethod (stringify-method-specs what))
-                                             (t (list :position (1+ (or pos 0))))))
+    ;; all of these are (defxxx forms, which is what :function locations look for in slime
+    (let* ((isfunction  (and (consp what)
+                             (member (car what)
+                                     '(:function :generic-function :macro :class
+                                       :compiler-macro :type :constant :variable
+                                       :package :structure :condition))))
+           (ismethod (and (consp what) (eq (car what) :method)))
+           (<position> (cond (isfunction
+                              (list :function-name (princ-to-string (second what))))
+                             (ismethod
+                              (stringify-method-specs what))
+                             (t
+                              (list :position (1+ (or pos 0))))))
           (path2 (if (eq path :top-level)
-                     "emacs-buffer:*slime-repl lsw*"
+                     "emacs-buffer:*slime-repl*"
                      (maybe-redirect-to-jar path))))
-      (when (atom what) (setq what (list what sym)))
+      (when (atom what)
+        (setq what (list what sym)))
       (list (definition-specifier what)
             (if (ext:pathname-jar-p path2)
                 `(:location
-                  ;; strip off "jar:file:" = 9 characters
-                  (:zip ,@(split-string (subseq path2 9) "!/"))
+                  ;; jar-pathname stores JAR path as first of DEVICE
+                  (:zip ,@(pathname-device path2))
                   ;; pos never seems right. Use function name.
                   ,<position>
-                  (:align t)
-                  )
-                ;; conspire with swank-compile-string to keep the buffer name in a pathname whose device is "emacs-buffer".
-                (if (eql 0 (search "emacs-buffer:" path2))
-                    `(:location
-                      (:buffer ,(subseq path2  (load-time-value (length "emacs-buffer:"))))
-                      ,<position>
-                      (:align t)
-                      )
-                    `(:location
-                      (:file ,path2)
-                      ,<position>
-                      (:align t)))
-                )))))
+                  (:align t))
+                ;; conspire with swank-compile-string to keep the
+                ;; buffer name in a pathname whose device is
+                ;; "emacs-buffer".
+                  (if (eql 0 (search "emacs-buffer:" path2))
+                      `(:location
+                        (:buffer ,(subseq path2  (load-time-value (length "emacs-buffer:"))))
+                        ,<position>
+                        (:align t))
+                      `(:location
+                        (:file ,path2)
+                        ,<position>
+                        (:align t))))))))
 
 (defimplementation list-callers (thing)
   (loop for caller in (sys::callers thing)
@@ -947,7 +954,10 @@
               `((:label "Java type: ") (:value ,jclass) (:newline)))
         ,@(if parts
               (loop :for (label . value) :in parts
-                    :appending (list (list :label (string-capitalize label)) ": " (list :value value (princ-to-string value)) '(:newline)))
+                 :appending (list
+                             (list :label (string-capitalize label))
+                             ": "
+                             (list :value value (princ-to-string value)) '(:newline)))
               (list '(:label "No inspectable parts, dumping output of CL:DESCRIBE:")
                     '(:newline)
                     (with-output-to-string (desc) (describe o desc))))))))
@@ -994,8 +1004,7 @@
                       '(:newline)
                       (let ((w (jnew "java.io.StringWriter"))) 
                         (jcall "printStackTrace" (java:java-exception-cause o) (jnew "java.io.PrintWriter" w))
-                        (jcall "toString" w)))
-          ))
+                        (jcall "toString" w)))))
 
 (defmethod emacs-inspect ((slot mop::slot-definition))
   `("Name: "
@@ -1015,45 +1024,50 @@
 
 (defmethod emacs-inspect ((f function))
   `(,@(when (function-name f)
-            `((:label "Name: ")
-              ,(princ-to-string (sys::any-function-name f)) (:newline)))
+        `((:label "Name: ")
+          ,(princ-to-string (sys::any-function-name f)) (:newline)))
       ,@(multiple-value-bind (args present) (sys::arglist f)
           (when present
             `((:label "Argument list: ")
               ,(princ-to-string args)
               (:newline))))
       ,@(when (documentation f t)
-                   `("Documentation:" (:newline)
-                                      ,(documentation f t) (:newline)))
+          `("Documentation:" (:newline)
+                             ,(documentation f t) (:newline)))
       ,@(when (function-lambda-expression f)
-              `((:label "Lambda expression:")
-                (:newline) ,(princ-to-string
-                             (function-lambda-expression f)) (:newline)))
+          `((:label "Lambda expression:")
+            (:newline) ,(princ-to-string
+                         (function-lambda-expression f)) (:newline)))
       (:label "Function java class: ") (:value ,(jcall "getClass" f)) (:newline)
       ,@(when (jcall "isInstance"  (java::jclass "org.armedbear.lisp.CompiledClosure") f)
           `((:label "Closed over: ")
-            ,@(loop for el in (sys::compiled-closure-context f)
-                    collect `(:value ,el)
-                    collect " ")
+            ,@(loop
+                 for el in (sys::compiled-closure-context f)
+                 collect `(:value ,el)
+                 collect " ")
             (:newline)))
       ,@(when (sys::get-loaded-from f)
-          (list `(:label "Defined in: ") `(:value ,(sys::get-loaded-from f) ,(namestring (sys::get-loaded-from f))) '(:newline))
-          )
+          (list `(:label "Defined in: ")
+                `(:value ,(sys::get-loaded-from f) ,(namestring (sys::get-loaded-from f)))
+                '(:newline)))
       ,@(let ((fields (jcall "getDeclaredFields" (jcall "getClass" f))))
           (when (plusp (length fields))
             (list* '(:label "Internal fields: ") '(:newline)
                    (loop for field across fields
-                         do (jcall "setAccessible" field t)
-                         append
-                         (let ((value (jcall "get" field f)))
-                           (list "  " `(:label ,(jcall "getName" field)) ": " `(:value ,value ,(princ-to-string value)) '(:newline)))))))
-      ,@(when (and (function-name f) (symbolp (function-name f)) (eq (symbol-package (function-name f)) (find-package :cl)))
+                      do (jcall "setAccessible" field t) ;;; not a great idea esp. wrt. Java9
+                      append
+                        (let ((value (jcall "get" field f)))
+                          (list "  "
+                                `(:label ,(jcall "getName" field))
+                                ": "
+                                `(:value ,value ,(princ-to-string value))
+                                '(:newline)))))))
+      ,@(when (and (function-name f) (symbolp (function-name f))
+                   (eq (symbol-package (function-name f)) (find-package :cl)))
           (list '(:newline) (list :action "Lookup in hyperspec"
-                      (lambda () (hyperspec-do (symbol-name (function-name f))))
-                      :refreshp nil
-                      )
-                '(:newline)))
-      ))
+                                  (lambda () (hyperspec-do (symbol-name (function-name f))))
+                                  :refreshp nil)
+                '(:newline)))))
 
 (defmethod emacs-inspect ((o java:java-object))
   (if (jinstance-of-p o (jclass "java.lang.Class"))
@@ -1072,8 +1086,7 @@
              (label-value-line "toString()" (gethash o *to-string-hashtable*))
              `((:action "[compute toString()]" ,to-string) (:newline)))
          (loop :for (label . value) :in (sys:inspected-parts o)
-               :appending (label-value-line label value))
-         ))))
+               :appending (label-value-line label value))))))
 
 (defmethod emacs-inspect ((slot mop::slot-definition))
   `("Name: "
