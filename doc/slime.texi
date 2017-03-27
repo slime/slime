@@ -1104,7 +1104,7 @@ Show definition at point in the other window and close Xref buffer.
 @kbditem{C-c C-c, slime-recompile-xref}
 Recompile definition at point.
 
-@kbditem{C-c C-c, slime-recompile-all-xrefs}
+@kbditem{C-c C-k, slime-recompile-all-xrefs}
 Recompile all definitions.
 
 @end table
