@@ -191,4 +191,5 @@
            #:parse-string
            #:from-string
            #:to-string
-           #:*swank-debugger-condition*))
+           #:*swank-debugger-condition*
+           #:*argument-stream*))

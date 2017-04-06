@@ -53,6 +53,18 @@
 The list has the form ((VAR . VALUE) ...).  Each variable VAR will be
 bound to the corresponding VALUE.")
 
+(defvar *argument-stream* nil
+  "This variable is bound while evaluating expressions from slime,
+to the string-stream where the expression is read from.
+This allows the expression to further read from this stream,
+to take additional arguments.
+
+EXAMPLE:  Type in *slime-repl*:
+              (* 2 (read swank:*argument-stream*))  21  RET
+          --> 42
+")
+
+
 (defun call-with-bindings (alist fun)
   "Call FUN with variables bound according to ALIST.
 ALIST is a list of the form ((VAR . VAL) ...)."
@@ -1751,13 +1763,13 @@ Errors are trapped and invoke our debugger."
 
 (defun eval-region (string)
   "Evaluate STRING.
-Return the results of the last form as a list and as secondary value the 
+Return the results of the last form as a list and as secondary value the
 last form."
-  (with-input-from-string (stream string)
+  (with-input-from-string (*argument-stream* string)
     (let (- values)
       (loop
-       (let ((form (read stream nil stream)))
-         (when (eq form stream)
+       (let ((form (read *argument-stream* nil *argument-stream*)))
+         (when (eq form *argument-stream*)
            (finish-output)
            (return (values values -)))
          (setq - form)
