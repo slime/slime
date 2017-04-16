@@ -19,18 +19,18 @@
    (setq slime-tree-printer 'slime-tree-default-printer)
    (remove-hook 'sldb-extras-hooks 'sldb-maybe-insert-references)))
 
-(defcustom slime-sbcl-manual-root "http://www.sbcl.org/manual/"
+(defcustom slime-sbcl-manual-root "http://www.sbcl.org/manual"
   "*The base URL of the SBCL manual, for documentation lookup."
   :type 'string
   :group 'slime-mode)
 
-(defface sldb-reference-face 
+(defface sldb-reference-face
   (list (list t '(:underline t)))
   "Face for references."
   :group 'slime-debugger)
 
 
-;;;;; SBCL-style references 
+;;;;; SBCL-style references
 
 (defvar slime-references-local-keymap
   (let ((map (make-sparse-keymap "local keymap for slime references")))
@@ -120,10 +120,10 @@ See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
 ;;; FIXME: `compilation-mode' will swallow the `mouse-face'
 ;;; etc. properties.
 (defadvice slime-note.message (after slime-note.message+references)
-  (setq ad-return-value 
+  (setq ad-return-value
         (concat ad-return-value
                 (with-temp-buffer
-                  (slime-insert-references 
+                  (slime-insert-references
                    (slime-note.references (ad-get-arg 0)))
                   (buffer-string)))))
 
