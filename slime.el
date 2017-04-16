@@ -1314,8 +1314,7 @@ The default condition handler for timer functions (see
     "Hack and be merry!"
     "Your hacking starts... NOW!"
     "May the source be with you!"
-    "Take this REPL, brother, and may it serve you well."
-    "Lemonodor-fame is but a hack away!"
+    "Take this REPL, friend, and may it serve you well."
     ,(format "%s, this could be the start of a beautiful program."
              (slime-user-first-name)))
   "Scientifically-proven optimal words of hackerish encouragement.")
