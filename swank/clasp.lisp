@@ -13,9 +13,12 @@
 
 (in-package swank/clasp)
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (setq swank::*log-output* (open "/tmp/slime.log" :direction :output))
+  (setq swank:*log-events* t))
 
-(defmacro cslime-log (fmt &rest fmt-args)
-  `(format t ,fmt ,@fmt-args))
+(defmacro slime-dbg (fmt &rest args)
+  `(swank::log-event "slime-dbg ~a ~a~%" mp:*current-process* (apply #'format nil ,fmt ,args)))
 
 ;; Hard dependencies.
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -333,6 +336,33 @@
 (defimplementation macroexpand-all (form &optional env)
   (declare (ignore env))
   (macroexpand form))
+
+;;; modified from sbcl.lisp
+(defimplementation collect-macro-forms (form &optional environment)
+  (let ((macro-forms '())
+        (compiler-macro-forms '())
+        (function-quoted-forms '()))
+    (format t "In collect-macro-forms~%")
+    (cmp:code-walk
+     form environment
+     :code-walker-function
+     (lambda (form environment)
+       (when (and (consp form)
+                  (symbolp (car form)))
+         (cond ((eq (car form) 'function)
+                (push (cadr form) function-quoted-forms))
+               ((member form function-quoted-forms)
+                nil)
+               ((macro-function (car form) environment)
+                (push form macro-forms))
+               ((not (eq form (core:compiler-macroexpand-1 form environment)))
+                (push form compiler-macro-forms))))
+       form))
+    (values macro-forms compiler-macro-forms)))
+
+
+
+
 
 (defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))
