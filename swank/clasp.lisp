@@ -56,8 +56,10 @@
   ;; ECLs swank implementation says that CLOS is not thread safe and
   ;; I use ECLs CLOS implementation - this is a worry for the future.
   ;; nil or  :spawn
-  #+threads :spawn
+  :spawn
+#|  #+threads :spawn
   #-threads nil
+|#
   )
 
 (defun resolve-hostname (name)
@@ -702,31 +704,48 @@
   (defimplementation wake-thread (thread)
     (let* ((mbox (mailbox thread))
            (mutex (mailbox.mutex mbox)))
+      (format t "About to with-lock in wake-thread~%")
       (mp:with-lock (mutex)
+        (format t "In wake-thread~%")
         (mp:condition-variable-broadcast (mailbox.cvar mbox)))))
   
   (defimplementation send (thread message)
     (let* ((mbox (mailbox thread))
            (mutex (mailbox.mutex mbox)))
+      (swank::log-event "clasp.lisp: send message ~a    mutex: ~a~%" message mutex)
+      (swank::log-event "clasp.lisp:    (lock-owner mutex) -> ~a~%" (mp:lock-owner mutex))
+      (swank::log-event "clasp.lisp:    (lock-count mutex) -> ~a~%" (mp:lock-count mutex))
       (mp:with-lock (mutex)
+        (swank::log-event "clasp.lisp:  in with-lock   (lock-owner mutex) -> ~a~%" (mp:lock-owner mutex))
+        (swank::log-event "clasp.lisp:  in with-lock   (lock-count mutex) -> ~a~%" (mp:lock-count mutex))
         (setf (mailbox.queue mbox)
               (nconc (mailbox.queue mbox) (list message)))
+        (swank::log-event "clasp.lisp: send about to broadcast~%")
         (mp:condition-variable-broadcast (mailbox.cvar mbox)))))
 
+  
   (defimplementation receive-if (test &optional timeout)
+    (slime-dbg "Entered receive-if")
     (let* ((mbox (mailbox (current-thread)))
            (mutex (mailbox.mutex mbox)))
+      (slime-dbg "receive-if assert")
       (assert (or (not timeout) (eq timeout t)))
       (loop
-       (check-slime-interrupts)
-       (mp:with-lock (mutex)
-         (let* ((q (mailbox.queue mbox))
-                (tail (member-if test q)))
-           (when tail
-             (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
-             (return (car tail))))
-         (when (eq timeout t) (return (values nil t)))
-         (mp:condition-variable-wait (mailbox.cvar mbox) mutex)))))
+         (slime-dbg "receive-if check-slime-interrupts")
+         (check-slime-interrupts)
+         (slime-dbg "receive-if with-lock")
+         (mp:with-lock (mutex)
+           (let* ((q (mailbox.queue mbox))
+                  (tail (member-if test q)))
+             (when tail
+               (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
+               (return (car tail))))
+           (slime-dbg "receive-if when (eq")
+           (when (eq timeout t) (return (values nil t))) 
+           (slime-dbg "receive-if condition-variable-timedwait")
+           (mp:condition-variable-wait (mailbox.cvar mbox) mutex) ; timedwait 0.2
+           (slime-dbg "came out of condition-variable-timedwait")
+           (core:check-pending-interrupts)))))
 
   ) ; #+threads (progn ...
 
