@@ -1581,22 +1581,21 @@ stack."
                             append (label-value-line i value))))))))
 
 (defmethod emacs-inspect ((o function))
-  (let ((header (sb-kernel:widetag-of o)))
-    (cond ((= header sb-vm:simple-fun-header-widetag)
+    (cond ((sb-kernel:simple-fun-p o)
                    (label-value-line*
                     (:name (sb-kernel:%simple-fun-name o))
                     (:arglist (sb-kernel:%simple-fun-arglist o))
                     (:next (sb-kernel:%simple-fun-next o))
                     (:type (sb-kernel:%simple-fun-type o))
                     (:code (sb-kernel:fun-code-header o))))
-          ((= header sb-vm:closure-header-widetag)
+          ((sb-kernel:closurep o)
                    (append
                     (label-value-line :function (sb-kernel:%closure-fun o))
                     `("Closed over values:" (:newline))
                     (loop for i below (1- (sb-kernel:get-closure-length o))
                           append (label-value-line
                                   i (sb-kernel:%closure-index-ref o i)))))
-          (t (call-next-method o)))))
+          (t (call-next-method o))))
 
 (defmethod emacs-inspect ((o sb-kernel:code-component))
   (append
