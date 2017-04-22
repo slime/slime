@@ -172,8 +172,7 @@ If it's not in the cache, the cache will be updated asynchronously."
   "Toggle echo area display of Lisp objects at point."
   :keymap (let ((prefix (slime-autodoc--doc-map-prefix)))
 	    `((,(concat prefix "A") . slime-autodoc-manually)
-	      (,(concat prefix (kbd "C-A")) . slime-autodoc-manually)
-	      (,(kbd "SPC") . slime-autodoc-space)))
+	      (,(concat prefix (kbd "C-A")) . slime-autodoc-manually)))
   (set (make-local-variable 'eldoc-documentation-function) 'slime-autodoc)
   (set (make-local-variable 'eldoc-minor-mode-string) " adoc")
   (setq slime-autodoc-mode (eldoc-mode arg))
