@@ -809,6 +809,12 @@
          (l (values-to-list (eval form env))))
     (apply cat (map pprint-to-string l))))
 
+(defslimefun eval-and-grab-output (env string)
+  (let ((form (read (open-input-string string))))
+    (let-values ((values (eval form env)))
+      (list ""
+            (format #f "~{~S~^~%~}" values)))))
+
 (df call-with-abort (f)
   (try-catch (f) (ex <throwable> (exception-message ex))))
 
