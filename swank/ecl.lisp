@@ -58,16 +58,13 @@
   "GRAY")
 
 
-;;;; TCP Server
+;;;; UTF8
 
-(defimplementation preferred-communication-style ()
-  ;; While ECL does provide threads, some parts of it are not
-  ;; thread-safe (2010-02-23), including the compiler and CLOS.
-  nil
-  ;; ECL on Windows does not provide condition-variables
-  ;; (or #+(and threads (not windows)) :spawn
-  ;;     nil)
-  )
+;;; string-to-utf8
+;;; utf8-to-string
+
+
+;;;; TCP Server
 
 (defun resolve-hostname (name)
   (car (sb-bsd-sockets:host-ent-addresses
@@ -88,6 +85,12 @@
 (defimplementation close-socket (socket)
   (sb-bsd-sockets:socket-close socket))
 
+(defun accept (socket)
+  "Like socket-accept, but retry on EAGAIN."
+  (loop (handler-case
+            (return (sb-bsd-sockets:socket-accept socket))
+          (sb-bsd-sockets:interrupted-error ()))))
+
 (defimplementation accept-connection (socket
                                       &key external-format
                                       buffering timeout)
@@ -103,40 +106,14 @@
                                                        'character 
                                                        '(unsigned-byte 8))
                                      :external-format external-format))
-(defun accept (socket)
-  "Like socket-accept, but retry on EAGAIN."
-  (loop (handler-case
-            (return (sb-bsd-sockets:socket-accept socket))
-          (sb-bsd-sockets:interrupted-error ()))))
 
-(defimplementation socket-fd (socket)
-  (etypecase socket
-    (fixnum socket)
-    (two-way-stream (socket-fd (two-way-stream-input-stream socket)))
-    (sb-bsd-sockets:socket (sb-bsd-sockets:socket-file-descriptor socket))
-    (file-stream (si:file-stream-fd socket))))
 
-(defvar *external-format-to-coding-system*
-  '((:latin-1
-     "latin-1" "latin-1-unix" "iso-latin-1-unix" 
-     "iso-8859-1" "iso-8859-1-unix")
-    (:utf-8 "utf-8" "utf-8-unix")))
 
-(defun external-format (coding-system)
-  (or (car (rassoc-if (lambda (x) (member coding-system x :test #'equal))
-                      *external-format-to-coding-system*))
-      (find coding-system (ext:all-encodings) :test #'string-equal)))
 
-(defimplementation find-external-format (coding-system)
-  #+unicode (external-format coding-system)
-  ;; Without unicode support, ECL uses the one-byte encoding of the
-  ;; underlying OS, and will barf on anything except :DEFAULT.  We
-  ;; return NIL here for known multibyte encodings, so
-  ;; SWANK:CREATE-SERVER will barf.
-  #-unicode (let ((xf (external-format coding-system)))
-              (if (member xf '(:utf-8))
-                  nil
-                  :default)))
+(defimplementation preferred-communication-style ()
+  #.(if (>= ext:+ecl-version-number+ 160104)
+        :spawn
+        nil))
 
 
 ;;;; Unix Integration
@@ -147,6 +124,18 @@
 ;;; current choice of NIL as communication-style in so far as ECL's
 ;;; main-thread is also the Slime's REPL thread.
 
+(defun make-interrupt-handler (real-handler)
+  #+threads
+  (let ((main-thread (find 'si:top-level (mp:all-processes)
+                           :key #'mp:process-name)))
+    #'(lambda (&rest args)
+        (declare (ignore args))
+        (mp:interrupt-process main-thread real-handler)))
+  #-threads
+  #'(lambda (&rest args)
+      (declare (ignore args))
+      (funcall real-handler)))
+
 (defimplementation call-with-user-break-handler (real-handler function)
   (let ((old-handler #'si:terminal-interrupt))
     (setf (symbol-function 'si:terminal-interrupt)
@@ -154,75 +143,30 @@
     (unwind-protect (funcall function)
       (setf (symbol-function 'si:terminal-interrupt) old-handler))))
 
-#+threads
-(defun make-interrupt-handler (real-handler)
-  (let ((main-thread (find 'si:top-level (mp:all-processes)
-                           :key #'mp:process-name)))
-    #'(lambda (&rest args)
-        (declare (ignore args))
-        (mp:interrupt-process main-thread real-handler))))
+(defimplementation quit-lisp ()
+  (ext:quit))
 
-#-threads
-(defun make-interrupt-handler (real-handler)
-  #'(lambda (&rest args)
-      (declare (ignore args))
-      (funcall real-handler)))
+(defimplementation socket-fd (socket)
+  (etypecase socket
+    (fixnum socket)
+    (two-way-stream (socket-fd (two-way-stream-input-stream socket)))
+    (sb-bsd-sockets:socket (sb-bsd-sockets:socket-file-descriptor socket))
+    (file-stream (si:file-stream-fd socket))))
 
+(defimplementation command-line-args ()
+  (ext:command-args))
 
-(defimplementation getpid ()
-  (si:getpid))
-
-(defimplementation set-default-directory (directory)
-  (ext:chdir (namestring directory))  ; adapts *DEFAULT-PATHNAME-DEFAULTS*.
-  (default-directory))
 
 (defimplementation default-directory ()
   (namestring (ext:getcwd)))
 
-(defimplementation quit-lisp ()
-  (ext:quit))
+(defimplementation set-default-directory (directory)
+  (ext:chdir (namestring directory)) ; adapts *DEFAULT-PATHNAME-DEFAULTS*.
+  (default-directory))
 
 
 
-;;; Instead of busy waiting with communication-style NIL, use select()
-;;; on the sockets' streams.
-#+serve-event
-(progn
-  (defun poll-streams (streams timeout)
-    (let* ((serve-event::*descriptor-handlers*
-            (copy-list serve-event::*descriptor-handlers*))
-           (active-fds '())
-           (fd-stream-alist
-            (loop for s in streams
-                  for fd = (socket-fd s)
-                  collect (cons fd s)
-                  do (serve-event:add-fd-handler fd :input
-                                                 #'(lambda (fd)
-                                                     (push fd active-fds))))))
-      (serve-event:serve-event timeout)
-      (loop for fd in active-fds collect (cdr (assoc fd fd-stream-alist)))))
 
-  (defimplementation wait-for-input (streams &optional timeout)
-    (assert (member timeout '(nil t)))
-    (loop
-      (cond ((check-slime-interrupts) (return :interrupt))
-            (timeout (return (poll-streams streams 0)))
-            (t
-             (when-let (ready (poll-streams streams 0.2))
-               (return ready))))))  
-
-) ; #+serve-event (progn ...
-
-#-serve-event
-(defimplementation wait-for-input (streams &optional timeout)
-  (assert (member timeout '(nil t)))
-  (loop
-   (cond ((check-slime-interrupts) (return :interrupt))
-         (timeout (return (remove-if-not #'listen streams)))
-         (t
-          (let ((ready (remove-if-not #'listen streams)))
-            (if ready (return ready))
-            (sleep 0.1))))))
 
 
 ;;;; Compilation
@@ -268,15 +212,6 @@
   (handler-bind ((c:compiler-message #'handle-compiler-message))
     (funcall function)))
 
-(defimplementation swank-compile-file (input-file output-file
-                                       load-p external-format
-                                       &key policy)
-  (declare (ignore policy))
-  (with-compilation-hooks ()
-    (compile-file input-file :output-file output-file
-                  :load load-p
-                  :external-format external-format)))
-
 (defvar *tmpfile-map* (make-hash-table :test #'equal))
 
 (defun note-buffer-tmpfile (tmp-file buffer-name)
@@ -288,8 +223,8 @@
 (defun tmpfile-to-buffer (tmp-file)
   (gethash tmp-file *tmpfile-map*))
 
-(defimplementation swank-compile-string (string &key buffer position filename
-                                                policy)
+(defimplementation swank-compile-string
+    (string &key buffer position filename policy)
   (declare (ignore policy))
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)        ; for compilation hooks
@@ -300,20 +235,52 @@
             (failure-p))
         (unwind-protect
              (with-open-file (tmp-stream tmp-file :direction :output
-                                                  :if-exists :supersede)
+                                         :if-exists :supersede)
                (write-string string tmp-stream)
                (finish-output tmp-stream)
                (multiple-value-setq (fasl-file warnings-p failure-p)
                  (compile-file tmp-file
-                   :load t
-                   :source-truename (or filename
-                                        (note-buffer-tmpfile tmp-file buffer))
-                   :source-offset (1- position))))
+                               :load t
+                               :source-truename (or filename
+                                                    (note-buffer-tmpfile tmp-file buffer))
+                               :source-offset (1- position))))
           (when (probe-file tmp-file)
             (delete-file tmp-file))
           (when fasl-file
             (delete-file fasl-file)))
         (not failure-p)))))
+
+(defimplementation swank-compile-file (input-file output-file
+                                       load-p external-format
+                                       &key policy)
+  (declare (ignore policy))
+  (with-compilation-hooks ()
+    (compile-file input-file :output-file output-file
+                  :load load-p
+                  :external-format external-format)))
+
+(defvar *external-format-to-coding-system*
+  '((:latin-1
+     "latin-1" "latin-1-unix" "iso-latin-1-unix"
+     "iso-8859-1" "iso-8859-1-unix")
+    (:utf-8 "utf-8" "utf-8-unix")))
+
+(defun external-format (coding-system)
+  (or (car (rassoc-if (lambda (x) (member coding-system x :test #'equal))
+                      *external-format-to-coding-system*))
+      (find coding-system (ext:all-encodings) :test #'string-equal)))
+
+(defimplementation find-external-format (coding-system)
+  #+unicode (external-format coding-system)
+  ;; Without unicode support, ECL uses the one-byte encoding of the
+  ;; underlying OS, and will barf on anything except :DEFAULT.  We
+  ;; return NIL here for known multibyte encodings, so
+  ;; SWANK:CREATE-SERVER will barf.
+  #-unicode (let ((xf (external-format coding-system)))
+              (if (member xf '(:utf-8))
+                  nil
+                  :default)))
+
 
 ;;;; Documentation
 
@@ -321,6 +288,10 @@
   (multiple-value-bind (arglist foundp)
       (ext:function-lambda-list name)
     (if foundp arglist :not-available)))
+
+(defimplementation type-specifier-p (symbol)
+  (or (subtypep nil symbol)
+      (not (eq (type-specifier-arglist symbol) :not-available))))
 
 (defimplementation function-name (f)
   (typecase f
@@ -357,10 +328,6 @@
     (:function (documentation name 'function))
     (:class (documentation name 'class))
     (t nil)))
-
-(defimplementation type-specifier-p (symbol)
-  (or (subtypep nil symbol)
-      (not (eq (type-specifier-arglist symbol) :not-available))))
 
 
 ;;; Debugging
@@ -540,17 +507,9 @@
   #+linux '("handle SIGPWR  noprint nostop"
             "handle SIGXCPU noprint nostop"))
 
-(defimplementation command-line-args ()
-  (loop for n from 0 below (si:argc) collect (si:argv n)))
 
 
-;;;; Inspector
-
-;;; FIXME: Would be nice if it was possible to inspect objects
-;;; implemented in C.
-
-
-;;;; Definitions
+;;;; Definition finding
 
 (defvar +TAGS+ (namestring
                 (merge-pathnames "TAGS" (translate-logical-pathname "SYS:"))))
@@ -730,7 +689,18 @@
 ) ; #+profile (progn ...
 
 
-;;;; Threads
+;;;; Inspector
+
+;;; FIXME: Would be nice if it was possible to inspect objects
+;;; implemented in C.
+
+;;; eval-context
+;;; describe-primitive-type
+
+
+;;; Multithreading
+
+;;; initialize-multiprocessing
 
 #+threads
 (progn
@@ -777,12 +747,7 @@
         "RUNNING"
         "STOPPED"))
 
-  (defimplementation make-lock (&key name)
-    (mp:make-lock :name name :recursive t))
-
-  (defimplementation call-with-lock-held (lock function)
-    (declare (type function function))
-    (mp:with-lock (lock) (funcall function)))
+  ;; thread-attributes
 
   (defimplementation current-thread ()
     mp:*current-process*)
@@ -790,14 +755,14 @@
   (defimplementation all-threads ()
     (mp:all-processes))
 
+  (defimplementation thread-alive-p (thread)
+    (mp:process-active-p thread))
+
   (defimplementation interrupt-thread (thread fn)
     (mp:interrupt-process thread fn))
 
   (defimplementation kill-thread (thread)
     (mp:process-kill thread))
-
-  (defimplementation thread-alive-p (thread)
-    (mp:process-active-p thread))
 
   (defvar *mailbox-lock* (mp:make-lock :name "mailbox lock"))
   (defvar *mailboxes* (list))
@@ -825,6 +790,8 @@
               (nconc (mailbox.queue mbox) (list message)))
         (mp:condition-variable-broadcast (mailbox.cvar mbox)))))
 
+  ;; receive
+
   (defimplementation receive-if (test &optional timeout)
     (let* ((mbox (mailbox (current-thread)))
            (mutex (mailbox.mutex mbox)))
@@ -842,4 +809,55 @@
                                             mutex
                                             0.2)))))
 
-  ) ; #+threads (progn ...
+  ;; wake-thread
+  ;; register-thread
+  ;; find-registered
+  ;; set-default-initial-binding
+  ) ; #+threads
+
+;;; Instead of busy waiting with communication-style NIL, use select()
+;;; on the sockets' streams.
+#+serve-event
+(defimplementation wait-for-input (streams &optional timeout)
+  (assert (member timeout '(nil t)))
+  (flet ((poll-streams (streams timeout)
+           (let* ((serve-event::*descriptor-handlers*
+                   (copy-list serve-event::*descriptor-handlers*))
+                  (active-fds '())
+                  (fd-stream-alist
+                   (loop for s in streams
+                      for fd = (socket-fd s)
+                      collect (cons fd s)
+                      do (serve-event:add-fd-handler fd :input
+                                                     #'(lambda (fd)
+                                                         (push fd active-fds))))))
+             (serve-event:serve-event timeout)
+             (loop for fd in active-fds collect (cdr (assoc fd fd-stream-alist))))))
+    (loop
+       (cond ((check-slime-interrupts) (return :interrupt))
+             (timeout (return (poll-streams streams 0)))
+             (t
+              (when-let (ready (poll-streams streams 0.2))
+                (return ready)))))))
+
+#-serve-event
+(defimplementation wait-for-input (streams &optional timeout)
+  (assert (member timeout '(nil t)))
+  (loop
+   (cond ((check-slime-interrupts) (return :interrupt))
+         (timeout (return (remove-if-not #'listen streams)))
+         (t
+          (let ((ready (remove-if-not #'listen streams)))
+            (if ready (return ready))
+            (sleep 0.1))))))
+
+
+;;; Locks
+
+(defimplementation make-lock (&key name)
+  (mp:make-lock :name name :recursive t))
+
+(defimplementation call-with-lock-held (lock function)
+  (declare (type function function))
+  (mp:with-lock (lock) (funcall function)))
+
