@@ -996,6 +996,25 @@
   ;;
   ;;   wake-thread (thread)
 
+  ;; Copied from sbcl.lisp and adjusted to ECL.
+  (let ((alist '())
+        (mutex (mp:make-lock :name "register-thread")))
+
+    (defimplementation register-thread (name thread)
+      (declare (type symbol name))
+      (mp:with-lock (mutex)
+        (etypecase thread
+          (null
+           (setf alist (delete name alist :key #'car)))
+          (mp:process
+           (let ((probe (assoc name alist)))
+             (cond (probe (setf (cdr probe) thread))
+                   (t (setf alist (acons name thread alist))))))))
+      nil)
+
+    (defimplementation find-registered (name)
+      (mp:with-lock (mutex)
+        (cdr (assoc name alist)))))
 
   ;; Not needed in ECL (?).
   ;;
