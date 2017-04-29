@@ -861,3 +861,17 @@
   (declare (type function function))
   (mp:with-lock (lock) (funcall function)))
 
+
+;;; Weak datastructures
+
+#+ecl-weak-hash
+(progn
+  (defimplementation make-weak-key-hash-table (&rest args)
+    (apply #'make-hash-table :weakness :key args))
+
+  (defimplementation make-weak-value-hash-table (&rest args)
+    (apply #'make-hash-table :weakness :value args))
+
+  (defimplementation hash-table-weakness (hashtable)
+    (ext:hash-table-weakness hashtable)))
+
