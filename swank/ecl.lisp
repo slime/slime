@@ -60,8 +60,13 @@
 
 ;;;; UTF8
 
-;;; string-to-utf8
-;;; utf8-to-string
+;;; Convert the string STRING to a (simple-array (unsigned-byte 8)).
+;;;
+;;;   string-to-utf8 (string)
+
+;;; Convert the (simple-array (unsigned-byte 8)) OCTETS to a string.
+;;;
+;;;   utf8-to-string (octets)
 
 
 ;;;; TCP Server
@@ -107,19 +112,54 @@
                                                        '(unsigned-byte 8))
                                      :external-format external-format))
 
+;;; Call FN whenever SOCKET is readable.
+;;;
+;;;   add-sigio-handler (socket fn)
 
+;;; Remove all sigio handlers for SOCKET.
+;;;
+;;;   remove-sigio-handlers (socket)
 
+;;; Call FN when Lisp is waiting for input and SOCKET is readable.
+;;;
+;;;   add-fd-handler (socket fn)
+
+;;; Remove all fd-handlers for SOCKET.
+;;;
+;;;   remove-fd-handlers (socket)
 
 (defimplementation preferred-communication-style ()
   #.(if (>= ext:+ecl-version-number+ 160104)
         :spawn
         nil))
 
+;;; Set the 'stream 'timeout.  The timeout is either the real number
+;;; specifying the timeout in seconds or 'nil for no timeout.
+;;;
+;;;   set-stream-timeout (stream timeout)
+
+
+;;; Hook called when the first connection from Emacs is established.
+;;; Called from the INIT-FN of the socket server that accepts the
+;;; connection.
+;;;
+;;; This is intended for setting up extra context, e.g. to discover
+;;; that the calling thread is the one that interacts with Emacs.
+;;;
+;;;   emacs-connected ()
+
 
 ;;;; Unix Integration
 
 (defimplementation getpid ()
   (si:getpid))
+
+;;; Call FUNCTION on SIGINT (instead of invoking the debugger).
+;;; Return old signal handler.
+;;;
+;;;   install-sigint-handler (function)
+
+;;; XXX!
 ;;; If ECL is built with thread support, it'll spawn a helper thread
 ;;; executing the SIGINT handler. We do not want to BREAK into that
 ;;; helper but into the main thread, though. This is coupled with the
@@ -148,6 +188,11 @@
 (defimplementation quit-lisp ()
   (ext:quit))
 
+;;; Default implementation is fine.
+;;;
+;;;   lisp-implementation-type-name
+;;;   lisp-implementation-program
+
 (defimplementation socket-fd (socket)
   (etypecase socket
     (fixnum socket)
@@ -155,9 +200,37 @@
     (sb-bsd-sockets:socket (sb-bsd-sockets:socket-file-descriptor socket))
     (file-stream (si:file-stream-fd socket))))
 
+;;; Create a character stream for the file descriptor FD. This
+;;; interface implementation requires either `ffi:c-inline' or has to
+;;; wait for the exported interface.
+;;;
+;;;   make-fd-stream (socket-stream)
+
+;;; Duplicate a file descriptor. If the syscall fails, signal a
+;;; condition. See dup(2). This interface requiers `ffi:c-inline' or
+;;; has to wait for the exported interface.
+;;;
+;;;   dup (fd)
+
+;;; Does not apply to ECL which doesn't dump images.
+;;;
+;;;   exec-image (image-file args)
+
 (defimplementation command-line-args ()
   (ext:command-args))
 
+
+;;;; pathnames
+
+;;; Return a pathname for FILENAME.
+;;; A filename in Emacs may for example contain asterisks which should not
+;;; be translated to wildcards.
+;;;
+;;;   filename-to-pathname (filename)
+
+;;; Return the filename for PATHNAME.
+;;;
+;;;   pathname-to-filename (pathname)
 
 (defimplementation default-directory ()
   (namestring (ext:getcwd)))
@@ -167,8 +240,28 @@
   (default-directory))
 
 
+;;; Call FN with hooks to handle special syntax. Can we use it for
+;;; `ffi:c-inline' to be handled as C/C++ code?
+;;;
+;;;   call-with-syntax-hooks
 
+;;; Return a suitable initial value for SWANK:*READTABLE-ALIST*.
+;;;
+;;;   default-readtable-alist
 
+
+;;;; Packages
+
+;;; Returns an alist of (local-nickname . actual-package) describing the
+;;; nicknames local to the designated package.
+;;;
+;;;   package-local-nicknames (package)
+
+;;; Return the package whose local nickname in BASE-PACKAGE matches NAME.
+;;; Return NIL if local nicknames are not implemented or if there is no
+;;; such package.
+;;;
+;;;  find-locally-nicknamed-package (name base-package)
 
 
 ;;;; Compilation
@@ -283,6 +376,19 @@
                   nil
                   :default)))
 
+
+;;; Default implementation is fine
+;;;
+;;;   guess-external-format
+
+
+;;;; Streams
+
+;;; Implemented in `gray'
+;;;
+;;;   make-output-stream
+;;;   make-input-stream
+
 
 ;;;; Documentation
 
@@ -300,9 +406,19 @@
     (generic-function (clos:generic-function-name f))
     (function (si:compiled-function-name f))))
 
-;; FIXME
-;; (defimplementation macroexpand-all (form &optional env)
-;; (declare (ignore env))
+;;; Default implementation is fine (CL).
+;;; 
+;;; valid-function-name-p (form)
+
+;;; Recursively expand all macros in FORM.
+;;; Return the resulting form.
+;;;
+;;;   macroexpand-all (form &optional env)
+
+;;; Default implementation is fine.
+;;;
+;;;   compiler-macroexpand-1
+;;;   compiler-macroexpand
 
 (defimplementation collect-macro-forms (form &optional env)
   ;; Currently detects only normal macros, not compiler macros.
@@ -312,6 +428,11 @@
       (ignore-errors
         (compile nil `(lambda () ,form))))
     (values macro-forms nil)))
+
+;;; Expand the format string CONTROL-STRING.
+;;; Default implementation is fine.
+;;;
+;;;   format-string-expand
 
 (defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))
@@ -332,7 +453,7 @@
     (t nil)))
 
 
-;;; Debugging
+;;;; Debugging
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (import
@@ -423,6 +544,7 @@
                         (name (si::frs-tag f)))
                    (unless (si::fixnump name)
                      (push name (third x)))))))
+    ;; (setf *backtrace* (remove-if #'is-ignorable-fun-p (nreverse *backtrace*)))
     (setf *backtrace* (nreverse *backtrace*))
     (set-break-env)
     (set-current-ihs)
@@ -477,6 +599,11 @@
 (defimplementation print-frame (frame stream)
   (format stream "~A" (first frame)))
 
+;;; Is the frame FRAME restartable?.
+;;; Return T if `restart-frame' can safely be called on the frame.
+;;;
+;;; frame-restartable-p (frame)
+
 (defimplementation frame-source-location (frame-number)
   (nth-value 1 (frame-function (elt *backtrace* frame-number))))
 
@@ -504,11 +631,25 @@
   (let ((env (second (elt *backtrace* frame-number))))
     (si:eval-with-env form env)))
 
+;;; frame-package
+;;; frame-call
+;;; return-from-frame
+;;; restart-frame
+;;; print-condition
+;;; condition-extras
+
 (defimplementation gdb-initial-commands ()
   ;; These signals are used by the GC.
   #+linux '("handle SIGPWR  noprint nostop"
             "handle SIGXCPU noprint nostop"))
 
+;;; active-stepping
+;;; sldb-break-on-return
+;;; sldb-break-at-start
+;;; sldb-stepper-condition-p
+;;; sldb-setp-into
+;;; sldb-step-next
+;;; sldb-step-out
 
 
 ;;;; Definition finding
@@ -659,8 +800,25 @@
   (or (source-location object)
       (make-error-location "Source definition of ~S not found." object)))
 
+;;; buffer-first-change
+
+
+;;;; XREF
+
+;;; who-calls
+;;; calls-who
+;;; who-references
+;;; who-binds
+;;; who-sets
+;;; who-macroexpands
+;;; who-specializes
+;;; list-callers
+;;; list-callees
+
 
 ;;;; Profiling
+
+;;; XXX: use monitor.lisp (ccl,clisp)
 
 #+profile
 (progn
@@ -691,18 +849,37 @@
 ) ; #+profile (progn ...
 
 
+;;;; Trace
+
+;;; Toggle tracing of the function(s) given with SPEC.
+;;; SPEC can be:
+;;;  (setf NAME)                            ; a setf function
+;;;  (:defmethod NAME QUALIFIER... (SPECIALIZER...)) ; a specific method
+;;;  (:defgeneric NAME)                     ; a generic function with all methods
+;;;  (:call CALLER CALLEE)                  ; trace calls from CALLER to CALLEE.
+;;;  (:labels TOPLEVEL LOCAL)
+;;;  (:flet TOPLEVEL LOCAL) 
+;;;
+;;;   toggle-trace (spec)
+
+
 ;;;; Inspector
 
 ;;; FIXME: Would be nice if it was possible to inspect objects
 ;;; implemented in C.
 
-;;; eval-context
-;;; describe-primitive-type
+;;; Return a list of bindings corresponding to OBJECT's slots.
+;;;   eval-context (object)
+
+;;; Return a string describing the primitive type of object.
+;;;   describe-primitive-type (object)
 
 
-;;; Multithreading
+;;;; Multithreading
 
-;;; initialize-multiprocessing
+;;; Not needed in ECL
+;;;
+;;;   initialize-multiprocessing
 
 #+threads
 (progn
@@ -811,10 +988,19 @@
                                             mutex
                                             0.2)))))
 
-  ;; wake-thread
-  ;; register-thread
-  ;; find-registered
-  ;; set-default-initial-binding
+  ;; Trigger a call to CHECK-SLIME-INTERRUPTS in THREAD without using
+  ;; asynchronous interrupts.
+  ;;
+  ;; Doesn't have to implement this if RECEIVE-IF periodically calls
+  ;; CHECK-SLIME-INTERRUPTS, but that's energy inefficient.
+  ;;
+  ;;   wake-thread (thread)
+
+
+  ;; Not needed in ECL (?).
+  ;;
+  ;;   set-default-initial-binding (var form)
+
   ) ; #+threads
 
 ;;; Instead of busy waiting with communication-style NIL, use select()
@@ -854,7 +1040,7 @@
             (sleep 0.1))))))
 
 
-;;; Locks
+;;;; Locks
 
 (defimplementation make-lock (&key name)
   (mp:make-lock :name name :recursive t))
@@ -864,7 +1050,7 @@
   (mp:with-lock (lock) (funcall function)))
 
 
-;;; Weak datastructures
+;;;; Weak datastructures
 
 #+ecl-weak-hash
 (progn
@@ -877,3 +1063,27 @@
   (defimplementation hash-table-weakness (hashtable)
     (ext:hash-table-weakness hashtable)))
 
+
+;;;; Character names
+
+;;; Default implementation is fine.
+;;;
+;;;   character-completion-set (prefix matchp)
+
+
+;;;; Heap dumps
+
+;;; Doesn't apply to ECL.
+;;;
+;;;   save-image (filename &optional restart-function)
+;;;   background-save-image (filename &key restart-function completion-function)
+
+
+;;;; Wrapping
+
+;;; Intercept future calls to SPEC and surround them in callbacks.
+;;; Very much similar to so-called advices for normal functions.
+;;;
+;;;   wrap (spec indicator &key before after replace)
+;;;   unwrap (spec indicator)
+;;;   wrapped-p (spec indicator)
