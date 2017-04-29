@@ -118,6 +118,8 @@
 
 ;;;; Unix Integration
 
+(defimplementation getpid ()
+  (si:getpid))
 ;;; If ECL is built with thread support, it'll spawn a helper thread
 ;;; executing the SIGINT handler. We do not want to BREAK into that
 ;;; helper but into the main thread, though. This is coupled with the
