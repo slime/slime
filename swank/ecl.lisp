@@ -129,9 +129,10 @@
 ;;;   remove-fd-handlers (socket)
 
 (defimplementation preferred-communication-style ()
-  #.(if (>= ext:+ecl-version-number+ 160104)
-        :spawn
-        nil))
+  (cond
+    ((member :threads *features*) :spawn)
+    ((member :windows *features*) nil)
+    (t #|:fd-handler|# nil)))
 
 ;;; Set the 'stream 'timeout.  The timeout is either the real number
 ;;; specifying the timeout in seconds or 'nil for no timeout.
@@ -978,9 +979,7 @@
                (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
                (return (car tail))))
            (when (eq timeout t) (return (values nil t)))
-           (mp:condition-variable-timedwait (mailbox.cvar mbox)
-                                            mutex
-                                            0.2)))))
+           (mp:condition-variable-wait (mailbox.cvar mbox) mutex)))))
 
   ;; Trigger a call to CHECK-SLIME-INTERRUPTS in THREAD without using
   ;; asynchronous interrupts.
