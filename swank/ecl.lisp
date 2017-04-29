@@ -493,37 +493,32 @@
 
 (defvar *backtrace* '())
 
-;;; Commented out; it's not clear this is a good way of doing it. In
-;;; particular because it makes errors stemming from this file harder
-;;; to debug, and given the "young" age of ECL's swank backend, that's
-;;; a bad idea.
+(defun in-swank-package-p (x)
+  (and
+   (symbolp x)
+   (member (symbol-package x)
+           (list #.(find-package :swank)
+                 #.(find-package :swank/backend)
+                 #.(ignore-errors (find-package :swank-mop))
+                 #.(ignore-errors (find-package :swank-loader))))
+   t))
 
-;; (defun in-swank-package-p (x)
-;;   (and
-;;    (symbolp x)
-;;    (member (symbol-package x)
-;;            (list #.(find-package :swank)
-;;                  #.(find-package :swank/backend)
-;;                  #.(ignore-errors (find-package :swank-mop))
-;;                  #.(ignore-errors (find-package :swank-loader))))
-;;    t))
+(defun is-swank-source-p (name)
+  (setf name (pathname name))
+  (pathname-match-p
+   name
+   (make-pathname :defaults swank-loader::*source-directory*
+                  :name (pathname-name name)
+                  :type (pathname-type name)
+                  :version (pathname-version name))))
 
-;; (defun is-swank-source-p (name)
-;;   (setf name (pathname name))
-;;   (pathname-match-p
-;;    name
-;;    (make-pathname :defaults swank-loader::*source-directory*
-;;                   :name (pathname-name name)
-;;                   :type (pathname-type name)
-;;                   :version (pathname-version name))))
-
-;; (defun is-ignorable-fun-p (x)
-;;   (or
-;;    (in-swank-package-p (frame-name x))
-;;    (multiple-value-bind (file position)
-;;        (ignore-errors (si::bc-file (car x)))
-;;      (declare (ignore position))
-;;      (if file (is-swank-source-p file)))))
+(defun is-ignorable-fun-p (x)
+  (or
+   (in-swank-package-p (frame-name x))
+   (multiple-value-bind (file position)
+       (ignore-errors (si::bc-file (car x)))
+     (declare (ignore position))
+     (if file (is-swank-source-p file)))))
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
@@ -544,8 +539,7 @@
                         (name (si::frs-tag f)))
                    (unless (si::fixnump name)
                      (push name (third x)))))))
-    ;; (setf *backtrace* (remove-if #'is-ignorable-fun-p (nreverse *backtrace*)))
-    (setf *backtrace* (nreverse *backtrace*))
+    (setf *backtrace* (remove-if #'is-ignorable-fun-p (nreverse *backtrace*)))
     (set-break-env)
     (set-current-ihs)
     (let ((*ihs-base* *ihs-top*))
