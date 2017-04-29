@@ -411,10 +411,9 @@
 ;;; 
 ;;; valid-function-name-p (form)
 
-;;; Recursively expand all macros in FORM.
-;;; Return the resulting form.
-;;;
-;;;   macroexpand-all (form &optional env)
+#+walker
+(defimplementation macroexpand-all (form &optional env)
+  (walker:macroexpand-all form env))
 
 ;;; Default implementation is fine.
 ;;;
