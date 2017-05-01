@@ -618,7 +618,7 @@ Return nil if the file contains no special markers."
       (loop while (and (< p end)
                        (member (aref str p) '(#\space #\tab)))
             do (incf p))
-      (let ((end (position-if (lambda (c) (find c '(#\space #\tab #\newline)))
+      (let ((end (position-if (lambda (c) (find c '(#\space #\tab #\newline #\;)))
                               str :start p)))
         (find-external-format (subseq str p end))))))
 
