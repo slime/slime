@@ -253,16 +253,9 @@
 
 ;;;; Packages
 
-;;; Returns an alist of (local-nickname . actual-package) describing the
-;;; nicknames local to the designated package.
-;;;
-;;;   package-local-nicknames (package)
-
-;;; Return the package whose local nickname in BASE-PACKAGE matches NAME.
-;;; Return NIL if local nicknames are not implemented or if there is no
-;;; such package.
-;;;
-;;;  find-locally-nicknamed-package (name base-package)
+#+package-local-nicknames
+(defimplementation package-local-nicknames (package)
+  (ext:package-local-nicknames package))
 
 
 ;;;; Compilation
