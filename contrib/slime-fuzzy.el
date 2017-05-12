@@ -467,23 +467,24 @@ the completion that point is on in the completions buffer."
 
 (defun slime-fuzzy-next ()
   "Moves point directly to the next completion in the completions
-buffer."
+buffer. Wraps around the end."
   (interactive)
   (with-current-buffer (slime-get-fuzzy-buffer)
-    (let ((point (next-single-char-property-change
-                  (point) 'completion nil slime-fuzzy-last)))
+    (let* ((next-point (next-single-char-property-change
+                        (point) 'completion nil slime-fuzzy-last))
+           (point (if (= next-point (point)) slime-fuzzy-first next-point)))
       (set-window-point (get-buffer-window (current-buffer)) point)
       (goto-char point))
     (slime-fuzzy-highlight-current-completion)))
 
 (defun slime-fuzzy-prev ()
   "Moves point directly to the previous completion in the
-completions buffer."
+completions buffer. Wraps around the beginning."
   (interactive)
   (with-current-buffer (slime-get-fuzzy-buffer)
-    (let ((point (previous-single-char-property-change
-                  (point)
-                  'completion nil slime-fuzzy-first)))
+    (let* ((prev-point (previous-single-char-property-change
+                        (point) 'completion nil slime-fuzzy-first))
+           (point (if (= prev-point (point)) slime-fuzzy-last prev-point)))
       (set-window-point (get-buffer-window (current-buffer)) point)
       (goto-char point))
     (slime-fuzzy-highlight-current-completion)))
