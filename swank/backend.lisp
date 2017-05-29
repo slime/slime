@@ -1183,6 +1183,63 @@ SPEC can be:
 
 ;;;; Inspector
 
+(defmacro with-struct* ((conc-name get obj) &body body)
+  (let ((var (gensym)))
+    `(let ((,var ,obj))
+       (macrolet ((,get (slot)
+                    (let ((getter (intern (concatenate 'string
+                                                       ',(string conc-name)
+                                                       (string slot))
+                                          (symbol-package ',conc-name))))
+                      `(,getter ,',var))))
+         ,@body))))
+
+;;;;; Lazy lists (moved from swank.lisp)
+
+(defstruct (lcons (:constructor %lcons (car %cdr))
+                  (:predicate lcons?))
+  car
+  (%cdr nil :type (or null lcons function))
+  (forced? nil))
+
+(defmacro lcons (car cdr)
+  `(%lcons ,car (lambda () ,cdr)))
+
+(defmacro lcons* (car cdr &rest more)
+  (cond ((null more) `(lcons ,car ,cdr))
+        (t `(lcons ,car (lcons* ,cdr ,@more)))))
+
+(defun lcons-cdr (lcons)
+  (with-struct* (lcons- @ lcons)
+    (cond ((@ forced?)
+           (@ %cdr))
+          (t
+           (let ((value (funcall (@ %cdr))))
+             (setf (@ forced?) t
+                   (@ %cdr) value))))))
+
+(defun llist-range (llist start end)
+  (llist-take (llist-skip llist start) (- end start)))
+
+(defun llist-skip (lcons index)
+  (do ((i 0 (1+ i))
+       (l lcons (lcons-cdr l)))
+      ((or (= i index) (null l))
+       l)))
+
+(defun llist-take (lcons count)
+  (let ((result '()))
+    (do ((i 0 (1+ i))
+         (l lcons (lcons-cdr l)))
+        ((or (= i count)
+             (null l)))
+      (push (lcons-car l) result))
+    (nreverse result)))
+
+(defun iline (label value)
+  `(:line ,label ,value))
+
+
 (defgeneric emacs-inspect (object)
   (:documentation
    "Explain to Emacs how to inspect OBJECT.
@@ -1225,7 +1282,7 @@ output of CL:DESCRIBE."
 (defun label-value-line (label value &key (newline t))
   "Create a control list which prints \"LABEL: VALUE\" in the inspector.
 If NEWLINE is non-NIL a `(:newline)' is added to the result."
-  (list* (princ-to-string label) ": " `(:value ,value)
+  (list* (list :label (princ-to-string label)) ": " `(:value ,value)
          (if newline '((:newline)) nil)))
 
 (defmacro label-value-line* (&rest label-values)

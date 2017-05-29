@@ -43,7 +43,7 @@
   #+lispworks '((swank lispworks) (swank gray))
   #+allegro '((swank allegro) (swank gray))
   #+clisp '(xref metering (swank clisp) (swank gray))
-  #+armedbear '((swank abcl))
+  #+armedbear '((swank abcl) xref)
   #+cormanlisp '((swank corman) (swank gray))
   #+ecl '((swank ecl) (swank gray))
   #+clasp '((swank clasp) (swank gray))
@@ -240,7 +240,7 @@ If LOAD is true, load the fasl file."
 
 (defvar *swank-files*
   `(packages
-    (swank backend) ,@*sysdep-files* (swank match) (swank rpc)
+    (swank backend)  (swank match) (swank rpc) ,@*sysdep-files*
     swank))
 
 (defvar *contribs*
