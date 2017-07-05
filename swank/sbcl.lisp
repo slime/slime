@@ -330,8 +330,7 @@
     (default-directory)))
 
 (defun make-socket-io-stream (socket external-format buffering)
-  (let ((args `(,@()
-                :output t
+  (let ((args `(:output t
                 :input t
                 :element-type ,(if external-format
                                    'character
@@ -1581,23 +1580,21 @@ stack."
                             append (label-value-line i value))))))))
 
 (defmethod emacs-inspect ((o function))
-  (let ((header (sb-kernel:widetag-of o)))
-    (cond ((= header sb-vm:simple-fun-header-widetag)
+    (cond ((sb-kernel:simple-fun-p o)
                    (label-value-line*
                     (:name (sb-kernel:%simple-fun-name o))
                     (:arglist (sb-kernel:%simple-fun-arglist o))
-                    (:self (sb-kernel:%simple-fun-self o))
                     (:next (sb-kernel:%simple-fun-next o))
                     (:type (sb-kernel:%simple-fun-type o))
                     (:code (sb-kernel:fun-code-header o))))
-          ((= header sb-vm:closure-header-widetag)
+          ((sb-kernel:closurep o)
                    (append
                     (label-value-line :function (sb-kernel:%closure-fun o))
                     `("Closed over values:" (:newline))
                     (loop for i below (1- (sb-kernel:get-closure-length o))
                           append (label-value-line
                                   i (sb-kernel:%closure-index-ref o i)))))
-          (t (call-next-method o)))))
+          (t (call-next-method o))))
 
 (defmethod emacs-inspect ((o sb-kernel:code-component))
   (append
@@ -1748,6 +1745,12 @@ stack."
             (push mb *mailboxes*)
             mb))))
 
+  (defimplementation wake-thread (thread)
+    (let* ((mbox (mailbox thread))
+           (mutex (mailbox.mutex mbox)))
+      (sb-thread:with-mutex (mutex)
+        (sb-thread:condition-broadcast (mailbox.waitqueue mbox)))))
+
   (defimplementation send (thread message)
     (let* ((mbox (mailbox thread))
            (mutex (mailbox.mutex mbox)))
@@ -1755,22 +1758,7 @@ stack."
         (setf (mailbox.queue mbox)
               (nconc (mailbox.queue mbox) (list message)))
         (sb-thread:condition-broadcast (mailbox.waitqueue mbox)))))
-
-
-  (defun condition-timed-wait (waitqueue mutex timeout)
-    (macrolet ((foo ()
-                 (cond ((member :sb-lutex *features*) ; Darwin
-                        '(sb-thread:condition-wait waitqueue mutex))
-                       (t
-                        '(handler-case
-                          (let ((*break-on-signals* nil))
-                            (sb-sys:with-deadline (:seconds timeout
-                                                            :override t)
-                              (sb-thread:condition-wait waitqueue mutex) t))
-                          (sb-ext:timeout ()
-                           nil))))))
-      (foo)))
-
+  
   (defimplementation receive-if (test &optional timeout)
     (let* ((mbox (mailbox (current-thread)))
            (mutex (mailbox.mutex mbox))
@@ -1785,7 +1773,7 @@ stack."
              (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
              (return (car tail))))
          (when (eq timeout t) (return (values nil t)))
-         (condition-timed-wait waitq mutex 0.2)))))
+         (sb-thread:condition-wait waitq mutex)))))
 
   (let ((alist '())
         (mutex (sb-thread:make-mutex :name "register-thread")))

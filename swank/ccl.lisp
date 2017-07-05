@@ -800,6 +800,12 @@
             (nconc (mailbox.queue mbox) (list message)))
       (ccl:signal-semaphore (mailbox.semaphore mbox)))))
 
+(defimplementation wake-thread (thread)
+  (let* ((mbox (mailbox thread))
+         (mutex (mailbox.mutex mbox)))
+    (ccl:with-lock-grabbed (mutex)
+      (ccl:signal-semaphore (mailbox.semaphore mbox)))))
+
 (defimplementation receive-if (test &optional timeout)
   (let* ((mbox (mailbox ccl:*current-process*))
          (mutex (mailbox.mutex mbox)))
@@ -814,7 +820,7 @@
                  (nconc (ldiff q tail) (cdr tail)))
            (return (car tail)))))
      (when (eq timeout t) (return (values nil t)))
-     (ccl:timed-wait-on-semaphore (mailbox.semaphore mbox) 1))))
+     (ccl:wait-on-semaphore (mailbox.semaphore mbox)))))
 
 (let ((alist '())
       (lock (ccl:make-lock "register-thread")))
