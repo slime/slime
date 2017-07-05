@@ -994,26 +994,16 @@ returns.")
 
 ;;;; Definition finding
 
-(defun make-location (buffer position &optional hints)
-  ;; Possible content for BUFFER:
-  ;;   (:file name)
-  ;;   (:buffer name)
-  ;;   (:etags-file filename)
-  ;; Possible content for POSITION:
-  ;;   (:position pos)
-  ;;   (:tag tag1 tag2)
+(defstruct (location (:type list)
+                      (:constructor make-location
+                          (buffer position &optional hints)))
+  (type :location)
+  buffer position
   ;; Hints is a property list optionally containing:
   ;;   :snippet SOURCE-TEXT
   ;;     This is a snippet of the actual source text at the start of
   ;;     the definition, which could be used in a text search.
-  `(:location ,buffer ,position ,hints))
-
-(defun location-buffer (location)
-  (nth 1 location))
-(defun location-position (location)
-  (nth 2 location))
-(defun location-hints (location)
-  (nth 3 location))
+  hints)
 
 (defmacro converting-errors-to-error-location (&body body)
   "Catches errors during BODY and converts them to an error location."

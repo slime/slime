@@ -2368,8 +2368,8 @@ and no continue restart available.")))))
 
 ;;;; Compilation Commands.
 
-(defstruct (:compilation-result
-             (:type list) :named)
+(defstruct (compilation-result (:type list))
+  (type :compilation-result)
   notes
   (successp nil :type boolean)
   (duration 0.0 :type float)
