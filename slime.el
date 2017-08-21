@@ -1360,6 +1360,15 @@ first line of the file."
     (file-error nil)))
 
 ;;; Interface
+
+(defun slime-send-secret (proc)
+  (let ((secret (slime-secret)))
+    (when secret
+      (let* ((payload (encode-coding-string secret 'utf-8-unix))
+             (string (concat (slime-net-encode-length (length payload))
+                             payload)))
+        (process-send-string proc string)))))
+
 (defun slime-net-connect (host port)
   "Establish a connection with a CL."
   (let* ((inhibit-quit nil)
@@ -1372,9 +1381,7 @@ first line of the file."
     (slime-set-query-on-exit-flag proc)
     (when (fboundp 'set-process-coding-system)
       (set-process-coding-system proc 'binary 'binary))
-    (let ((secret (slime-secret)))
-      (when secret
-        (slime-net-send secret proc)))
+    (slime-send-secret proc)
     proc))
 
 (defun slime-make-net-buffer (name)
