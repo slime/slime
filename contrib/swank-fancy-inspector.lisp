@@ -936,12 +936,14 @@ SPECIAL-OPERATOR groups."
 
 (defmethod emacs-inspect ((f float))
   (cond
+    ((or #+sbcl
+         (sb-ext:float-nan-p f)
+         (not (= f f)))
+     (list "Not a Number."))
     ((> f most-positive-long-float)
      (list "Positive infinity."))
     ((< f most-negative-long-float)
      (list "Negative infinity."))
-    ((not (= f f))
-     (list "Not a Number."))
     (t
      (multiple-value-bind (significand exponent sign) (decode-float f)
        (append
