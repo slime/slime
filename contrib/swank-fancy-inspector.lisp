@@ -936,15 +936,11 @@ SPECIAL-OPERATOR groups."
 
 (defmethod emacs-inspect ((f float))
   (cond
-    ((or #+sbcl
-         (sb-ext:float-nan-p f)
-         (not (= f f)))
+    ((float-nan-p f)
+     ;; try NaN first because the next tests may perform operations
+     ;; that are undefined for NaNs.
      (list "Not a Number."))
-    ((> f most-positive-long-float)
-     (list "Positive infinity."))
-    ((< f most-negative-long-float)
-     (list "Negative infinity."))
-    (t
+    ((not (float-infinity-p f))
      (multiple-value-bind (significand exponent sign) (decode-float f)
        (append
 	`("Scientific: " ,(format nil "~E" f) (:newline)
@@ -954,7 +950,11 @@ SPECIAL-OPERATOR groups."
 			 (:value ,(float-radix f)) "^"
 			 (:value ,exponent) (:newline))
 	(label-value-line "Digits" (float-digits f))
-	(label-value-line "Precision" (float-precision f)))))))
+	(label-value-line "Precision" (float-precision f)))))
+    ((> f 0)
+     (list "Positive infinity."))
+    ((< f 0)
+     (list "Negative infinity."))))
 
 (defun make-pathname-ispec (pathname position)
   `("Pathname: "

@@ -1403,6 +1403,22 @@ but that thread may hold it more than once."
   nil)
 
 
+;;;; Floating point
+
+(definterface float-nan-p (float)
+  "Return true if FLOAT is a NaN value (Not a Number)."
+  ;; When the float type implements IEEE-754 floats, two NaN values
+  ;; are never equal; when the implementation does not support NaN,
+  ;; the predicate should return false.
+  (not (= float float)))
+
+(definterface float-infinity-p (float)
+  "Return true if FLOAT is positive or negative infinity."
+  (not (< most-negative-long-float
+          float
+          most-positive-long-float)))
+
+
 ;;;; Character names
 
 (definterface character-completion-set (prefix matchp)
