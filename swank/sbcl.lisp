@@ -1889,6 +1889,14 @@ stack."
   #+#.(swank/sbcl::sbcl-with-weak-hash-tables)
   (sb-ext:hash-table-weakness hashtable))
 
+;;; Floating point
+
+(defimplementation float-nan-p (float)
+  (sb-ext:float-nan-p float))
+
+(defimplementation float-infinity-p (float)
+  (sb-ext:float-infinity-p float))
+
 #-win32
 (defimplementation save-image (filename &optional restart-function)
   (flet ((restart-sbcl ()
