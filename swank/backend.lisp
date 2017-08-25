@@ -1409,8 +1409,13 @@ but that thread may hold it more than once."
   "Return true if FLOAT is a NaN value (Not a Number)."
   ;; When the float type implements IEEE-754 floats, two NaN values
   ;; are never equal; when the implementation does not support NaN,
-  ;; the predicate should return false.
-  (not (= float float)))
+  ;; the predicate should return false. An implementation can
+  ;; implement comparison with "unordered-signaling predicates", which
+  ;; emit floating point exceptions.
+  (handler-case (not (= float float))
+    ;; Comparisons never signal an exception other than the invalid
+    ;; operation exception (5.11 Details of comparison predicates).
+    (floating-point-invalid-operation () t)))
 
 (definterface float-infinity-p (float)
   "Return true if FLOAT is positive or negative infinity."
