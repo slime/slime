@@ -784,13 +784,11 @@ first."
   (create-server :port port :style style :dont-close dont-close))
 
 (defun accept-connections (socket style dont-close)
-  (let ((client (unwind-protect 
-                     (accept-connection socket :external-format nil
-                                               :buffering t)
-                  (unless dont-close
-                    (close-socket socket)))))
-    (authenticate-client client)
-    (serve-requests (make-connection socket client style))
+  (unwind-protect
+       (let ((client (accept-connection socket :external-format nil
+                                               :buffering t)))
+         (authenticate-client client)
+         (serve-requests (make-connection socket client style)))
     (unless dont-close
       (send-to-sentinel `(:stop-server :socket ,socket)))))
 
