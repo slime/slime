@@ -12,8 +12,8 @@
 @end direntry
 @c %**end of header
 
-@set EDITION 2.19
-@set SLIMEVER 2.19
+@set EDITION 2.20
+@set SLIMEVER 2.20
 @set UPDATED @today{}
 @set TITLE SLIME User Manual
 @settitle @value{TITLE}, version @value{EDITION}

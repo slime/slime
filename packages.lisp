@@ -75,6 +75,7 @@
   (:use :cl)
   (:export
    read-message
+   read-packet
    swank-reader-error
    swank-reader-error.packet
    swank-reader-error.cause

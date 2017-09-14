@@ -1,4 +1,12 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
+* 2.20 (August 2017)
+** Core
+*** More secure handling of ~/.slime-secret
+** SBCL backend
+*** Compatiblity with the latest SBCL and older SBCL.
+** ECL backend
+*** Numerous enhancements
+
 * 2.19 (February 2017)
 ** Core
 *** Function `create-server` now accepts optional `interface` argument.

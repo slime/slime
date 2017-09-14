@@ -114,9 +114,11 @@
 
 (defimplementation create-socket (host port &key backlog)
   (let* ((host-ent (resolve-hostname host))
-         (socket (make-instance (ecase (sb-bsd-sockets:host-ent-address-type host-ent)
-                                  (2 'sb-bsd-sockets:inet-socket)
-                                  (10 'sb-bsd-sockets:inet6-socket))
+         (socket (make-instance (cond #+#.(swank/backend:with-symbol 'inet6-socket 'sb-bsd-sockets)
+                                      ((eql (sb-bsd-sockets:host-ent-address-type host-ent) 10)
+                                       'sb-bsd-sockets:inet6-socket)
+                                      (t
+                                       'sb-bsd-sockets:inet-socket))
                                 :type :stream
                                 :protocol :tcp)))
     (setf (sb-bsd-sockets:sockopt-reuse-address socket) t)
@@ -1886,6 +1888,14 @@ stack."
 (defimplementation hash-table-weakness (hashtable)
   #+#.(swank/sbcl::sbcl-with-weak-hash-tables)
   (sb-ext:hash-table-weakness hashtable))
+
+;;; Floating point
+
+(defimplementation float-nan-p (float)
+  (sb-ext:float-nan-p float))
+
+(defimplementation float-infinity-p (float)
+  (sb-ext:float-infinity-p float))
 
 #-win32
 (defimplementation save-image (filename &optional restart-function)

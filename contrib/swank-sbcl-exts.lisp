@@ -37,6 +37,9 @@
                      (symbol
                       (string-downcase instruction))))
                  (instr-fn
+                   #+#.(swank/backend:with-symbol 'op-encoder-name 'sb-assem)
+                   (or (sb-assem::op-encoder-name instr-name)
+                       (sb-assem::op-encoder-name (string-upcase instr-name)))
                    #+#.(swank/backend:with-symbol 'inst-emitter-symbol 'sb-assem)
                    (sb-assem::inst-emitter-symbol instr-name)
                    #+(and

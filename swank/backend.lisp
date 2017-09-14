@@ -994,26 +994,16 @@ returns.")
 
 ;;;; Definition finding
 
-(defstruct (:location (:type list) :named
+(defstruct (location (:type list)
                       (:constructor make-location
-                                    (buffer position &optional hints)))
+                          (buffer position &optional hints)))
+  (type :location)
   buffer position
   ;; Hints is a property list optionally containing:
   ;;   :snippet SOURCE-TEXT
   ;;     This is a snippet of the actual source text at the start of
   ;;     the definition, which could be used in a text search.
   hints)
-
-(defstruct (:error (:type list) :named (:constructor)) message)
-
-;;; Valid content for BUFFER slot
-(defstruct (:file       (:type list) :named (:constructor)) name)
-(defstruct (:buffer     (:type list) :named (:constructor)) name)
-(defstruct (:etags-file (:type list) :named (:constructor)) filename)
-
-;;; Valid content for POSITION slot
-(defstruct (:position (:type list) :named (:constructor)) pos)
-(defstruct (:tag      (:type list) :named (:constructor)) tag1 tag2)
 
 (defmacro converting-errors-to-error-location (&body body)
   "Catches errors during BODY and converts them to an error location."
@@ -1468,6 +1458,27 @@ but that thread may hold it more than once."
   "Return nil or one of :key :value :key-or-value :key-and-value"
   (declare (ignore hashtable))
   nil)
+
+
+;;;; Floating point
+
+(definterface float-nan-p (float)
+  "Return true if FLOAT is a NaN value (Not a Number)."
+  ;; When the float type implements IEEE-754 floats, two NaN values
+  ;; are never equal; when the implementation does not support NaN,
+  ;; the predicate should return false. An implementation can
+  ;; implement comparison with "unordered-signaling predicates", which
+  ;; emit floating point exceptions.
+  (handler-case (not (= float float))
+    ;; Comparisons never signal an exception other than the invalid
+    ;; operation exception (5.11 Details of comparison predicates).
+    (floating-point-invalid-operation () t)))
+
+(definterface float-infinity-p (float)
+  "Return true if FLOAT is positive or negative infinity."
+  (not (< most-negative-long-float
+          float
+          most-positive-long-float)))
 
 
 ;;;; Character names
