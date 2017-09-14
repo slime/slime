@@ -42,7 +42,7 @@
   "Like autodoc informtion forcing multiline display."
   (interactive)
   (let ((doc (slime-autodoc t)))
-    (cond (doc (eldoc-message "%s" doc))
+    (cond (doc (eldoc-message doc))
 	  (t (eldoc-message nil)))))
 
 ;; Must call eldoc-add-command otherwise (eldoc-display-message-p)
@@ -55,7 +55,7 @@
   (self-insert-command n)
   (let ((doc (slime-autodoc)))
     (when doc
-      (eldoc-message "%s" doc))))
+      (eldoc-message doc))))
 
 (eldoc-add-command 'slime-autodoc-space)
 
@@ -157,7 +157,7 @@ If it's not in the cache, the cache will be updated asynchronously."
       ;; Now that we've got our information,
       ;; get it to the user ASAP.
       (when (eldoc-display-message-p)
-	(eldoc-message "%s" (slime-autodoc--format doc multilinep))))))
+	(eldoc-message (slime-autodoc--format doc multilinep))))))
 
 
 ;;; Minor mode definition
