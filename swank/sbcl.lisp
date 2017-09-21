@@ -1750,7 +1750,7 @@ stack."
   (defimplementation wake-thread (thread)
     (let* ((mbox (mailbox thread))
            (mutex (mailbox.mutex mbox)))
-      (sb-thread:with-mutex (mutex)
+      (sb-thread:with-recursive-lock (mutex)
         (sb-thread:condition-broadcast (mailbox.waitqueue mbox)))))
 
   (defimplementation send (thread message)
