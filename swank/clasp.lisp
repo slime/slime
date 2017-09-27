@@ -40,11 +40,12 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (import-swank-mop-symbols
    :clos
-   `(:eql-specializer
-     :eql-specializer-object
-     :generic-function-declarations
-     :specializer-direct-methods
-     ,@(unless (fboundp 'clos:compute-applicable-methods-using-classes)
+   nil
+   #+(or)`(:eql-specializer
+           :eql-specializer-object
+           :generic-function-declarations
+           :specializer-direct-methods
+           ,@(unless (fboundp 'clos:compute-applicable-methods-using-classes)
                '(:compute-applicable-methods-using-classes)))))
 
 (defimplementation gray-package-name ()
@@ -59,6 +60,7 @@
   ;; ECLs swank implementation says that CLOS is not thread safe and
   ;; I use ECLs CLOS implementation - this is a worry for the future.
   ;; nil or  :spawn
+;;  nil
   :spawn
 #|  #+threads :spawn
   #-threads nil
@@ -463,17 +465,12 @@
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
-  (let* ((*ihs-top* (or #+#.(swank/backend:with-symbol '*stack-top-hint* 'core)
-                        core:*stack-top-hint*
-                        (ihs-top)))
+  (let* ((*ihs-top* 0)
          (*ihs-current* *ihs-top*)
 #+frs         (*frs-base* (or (sch-frs-base *frs-top* *ihs-base*) (1+ (frs-top))))
 #+frs         (*frs-top* (frs-top))
          (*tpl-level* (1+ *tpl-level*))
-         (*backtrace* (loop for ihs from 0 below *ihs-top*
-                            collect (list (si::ihs-fun ihs)
-                                          (si::ihs-env ihs)
-                                          ihs))))
+         (*backtrace* (core::common-lisp-backtrace-frames)))
     (declare (special *ihs-current*))
 #+frs    (loop for f from *frs-base* until *frs-top*
           do (let ((i (- (si::frs-ihs f) *ihs-base* 1)))
@@ -482,7 +479,6 @@
                         (name (si::frs-tag f)))
                    (unless (si::fixnump name)
                      (push name (third x)))))))
-    (setf *backtrace* (nreverse *backtrace*))
     (set-break-env)
     (set-current-ihs)
     (let ((*ihs-base* *ihs-top*))
@@ -494,13 +490,13 @@
                (min end (length *backtrace*)))))
 
 (defun frame-name (frame)
-  (let ((x (first frame)))
+  (let ((x (core::backtrace-frame-function-name frame)))
     (if (symbolp x)
       x
       (function-name x))))
 
 (defun frame-function (frame-number)
-  (let ((x (first (elt *backtrace* frame-number))))
+  (let ((x (core::backtrace-frame-function-name (elt *backtrace* frame-number))))
     (etypecase x
       (symbol
        (and (fboundp x)
@@ -509,11 +505,10 @@
        x))))
 
 (defimplementation print-frame (frame stream)
-  (format stream "(~s~{ ~s~})" (function-name (first frame))
-          #+#.(swank/backend:with-symbol 'ihs-arguments 'core)
-          (coerce (core:ihs-arguments (third frame)) 'list)
-          #-#.(swank/backend:with-symbol 'ihs-arguments 'core)
-          nil))
+  (if (core::backtrace-frame-arguments frame)
+      (format stream "(~a~{ ~s~})" (core::backtrace-frame-print-name frame)
+              (coerce (core::backtrace-frame-arguments frame) 'list))
+      (format stream "~a" (core::backtrace-frame-print-name frame))))
 
 (defimplementation frame-source-location (frame-number)
   (source-location (frame-function frame-number)))
@@ -527,14 +522,14 @@
 
 (defimplementation frame-locals (frame-number)
   (let* ((frame (elt *backtrace* frame-number))
-         (env (second frame))
+         (env nil) ; no env yet
          (locals (loop for x = env then (core:get-parent-environment x)
                        while x
                        nconc (loop for name across (core:environment-debug-names x)
                                    for value across (core:environment-debug-values x)
                                    collect (list :name name :id 0 :value value)))))
     (nconc
-     (loop for arg across (core:ihs-arguments (third frame))
+     (loop for arg across (core::backtrace-frame-arguments frame)
            for i from 0
            collect (list :name (intern (format nil "ARG~d" i) #.*package*)
                          :id 0
@@ -543,19 +538,18 @@
 
 (defimplementation frame-var-value (frame-number var-number)
   (let* ((frame (elt *backtrace* frame-number))
-         (env (second frame))
-         (args (core:ihs-arguments (third frame))))
+         (env nil)
+         (args (core::backtrace-frame-arguments frame)))
     (if (< var-number (length args))
         (svref args var-number)
         (elt (frame-locals frame-number) var-number))))
 
-#+clasp-working
 (defimplementation disassemble-frame (frame-number)
   (let ((fun (frame-function frame-number)))
     (disassemble fun)))
 
 (defimplementation eval-in-frame (form frame-number)
-  (let ((env (second (elt *backtrace* frame-number))))
+  (let ((env nil)) ; (second (elt *backtrace* frame-number))))
     (core:compile-form-and-eval-with-env form env)))
 
 #+clasp-working
