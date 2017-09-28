@@ -700,7 +700,7 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
   "Default value of :dont-close argument to start-server and
   create-server.")
 
-(defparameter *loopback-interface* "127.0.0.1")
+(defparameter *loopback-interface* "localhost")
 
 (defun start-server (port-file &key (style *communication-style*)
                                     (dont-close *dont-close*))
@@ -720,7 +720,7 @@ If DONT-CLOSE is true then the listen socket will accept multiple
 connections, otherwise it will be closed after the first.
 
 Optionally, an INTERFACE could be specified and swank will bind
-the PORT on this interface. By default, interface is 127.0.0.1."
+the PORT on this interface. By default, interface is \"localhost\"."
   (let ((*loopback-interface* (or interface
                                   *loopback-interface*)))
     (setup-server port #'simple-announce-function

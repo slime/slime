@@ -2016,7 +2016,7 @@ So the more complete example will be
 On the emacs side you will use something like
 @example
 (setq slime-net-coding-system 'utf-8-unix)
-(slime-connect "127.0.0.1" 4005))
+(slime-connect "localhost" 4005))
 @end example
 to connect to this lisp image from the same machine.
 
@@ -2028,7 +2028,7 @@ Now we need to create the tunnel between the local machine and the
 remote machine.
 
 @example
-ssh -L4005:127.0.0.1:4005 username@@remote.example.com
+ssh -L4005:localhost:4005 username@@remote.example.com
 @end example
 
 That ssh invocation creates an ssh tunnel between the port 4005 on our
@@ -2044,9 +2044,9 @@ M-x slime-connect RET RET
 @end example
 
 The @kbd{RET RET} sequence just means that we want to use the default
-host (@code{127.0.0.1}) and the default port (@code{4005}). Even
+host (@code{localhost}) and the default port (@code{4005}). Even
 though we're connecting to a remote machine the ssh tunnel fools Emacs
-into thinking it's actually @code{127.0.0.1}.
+into thinking it's actually @code{localhost}.
 
 @c -----------------------
 @node Setting up pathname translations
