@@ -3995,7 +3995,6 @@ inserted in the current buffer."
   "Slime description mode."
   (setq font-lock-defaults '(slime-description-highlights)))
 
-
 (defun slime-eval-describe (form)
   "Evaluate FORM in Lisp and display the result in a new buffer."
   (slime-eval-async form (slime-rcurry #'slime-show-description
