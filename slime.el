@@ -3989,7 +3989,8 @@ inserted in the current buffer."
           (message "Evaluation finished; pushed result to kill ring."))))))
 
 (defvar slime-description-highlights
-      `(("^  [^\\[ ]\\([^:]*\\):" . font-lock-doc-face)))
+  `(("^  \\b[^:]+:" . font-lock-doc-face)
+    ("^\\b[^ ]+" . font-lock-function-name-face)))
 
 (define-derived-mode slime-description-mode fundamental-mode "Slime description"
   "Slime description mode."
