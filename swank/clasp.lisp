@@ -61,7 +61,7 @@
   ;; I use ECLs CLOS implementation - this is a worry for the future.
   ;; nil or  :spawn
 ;;  nil
-  :spawn
+ :spawn
 #|  #+threads :spawn
   #-threads nil
 |#
@@ -467,18 +467,22 @@
   (declare (type function debugger-loop-fn))
   (let* ((*ihs-top* 0)
          (*ihs-current* *ihs-top*)
-#+frs         (*frs-base* (or (sch-frs-base *frs-top* *ihs-base*) (1+ (frs-top))))
-#+frs         (*frs-top* (frs-top))
+         #+frs         (*frs-base* (or (sch-frs-base *frs-top* *ihs-base*) (1+ (frs-top))))
+         #+frs         (*frs-top* (frs-top))
          (*tpl-level* (1+ *tpl-level*))
-         (*backtrace* (core::common-lisp-backtrace-frames)))
+         (*backtrace* (core::common-lisp-backtrace-frames
+                       :gather-start-trigger
+                       (lambda (frame) (string= (core::backtrace-frame-print-name frame)
+                                                "UNIVERSAL-ERROR-HANDLER"))
+                       :gather-all-frames t)))
     (declare (special *ihs-current*))
-#+frs    (loop for f from *frs-base* until *frs-top*
-          do (let ((i (- (si::frs-ihs f) *ihs-base* 1)))
-               (when (plusp i)
-                 (let* ((x (elt *backtrace* i))
-                        (name (si::frs-tag f)))
-                   (unless (si::fixnump name)
-                     (push name (third x)))))))
+    #+frs    (loop for f from *frs-base* until *frs-top*
+                   do (let ((i (- (si::frs-ihs f) *ihs-base* 1)))
+                        (when (plusp i)
+                          (let* ((x (elt *backtrace* i))
+                                 (name (si::frs-tag f)))
+                            (unless (si::fixnump name)
+                              (push name (third x)))))))
     (set-break-env)
     (set-current-ihs)
     (let ((*ihs-base* *ihs-top*))
