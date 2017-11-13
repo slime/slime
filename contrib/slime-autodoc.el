@@ -21,6 +21,12 @@
   :type 'integer
   :group 'slime-ui)
 
+;;;###autoload
+(defcustom slime-autodoc-mode-string (purecopy " adoc")
+  "String to display in mode line when Autodoc Mode is enabled; nil for none."
+  :type '(choice string (const :tag "None" nil))
+  :group 'slime-ui)
+
 
 
 (defun slime-arglist (name)
@@ -170,12 +176,13 @@ If it's not in the cache, the cache will be updated asynchronously."
 
 (define-minor-mode slime-autodoc-mode
   "Toggle echo area display of Lisp objects at point."
+  :lighter slime-autodoc-mode-string
   :keymap (let ((prefix (slime-autodoc--doc-map-prefix)))
 	    `((,(concat prefix "A") . slime-autodoc-manually)
 	      (,(concat prefix (kbd "C-A")) . slime-autodoc-manually)
 	      (,(kbd "SPC") . slime-autodoc-space)))
   (set (make-local-variable 'eldoc-documentation-function) 'slime-autodoc)
-  (set (make-local-variable 'eldoc-minor-mode-string) " adoc")
+  (set (make-local-variable 'eldoc-minor-mode-string) nil)
   (setq slime-autodoc-mode (eldoc-mode arg))
   (when (called-interactively-p 'interactive)
     (message "Slime autodoc mode %s."
