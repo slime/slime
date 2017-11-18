@@ -120,13 +120,26 @@
 ;;;
 ;;;   remove-sigio-handlers (socket)
 
-;;; Call FN when Lisp is waiting for input and SOCKET is readable.
-;;;
-;;;   add-fd-handler (socket fn)
+#+serve-event
+(progn
+  (defvar *fd-handlers* nil)
 
-;;; Remove all fd-handlers for SOCKET.
-;;;
-;;;   remove-fd-handlers (socket)
+  (defimplementation add-fd-handler (socket fn)
+    (let ((fd (socket-fd socket)))
+      (let ((handler
+             (serve-event:add-fd-handler fd :input (lambda (descr)
+                                                     (declare (ignore descr))
+                                                     (funcall fn)))))
+        (push (cons fd handler) *fd-handlers*))))
+
+  (defimplementation remove-fd-handlers (socket)
+    (setf *fd-handlers*
+          (loop for pair in *fd-handlers*
+             when (= (car pair) (socket-fd socket))
+             do (serve-event:remove-fd-handler (cdr pair))
+             else collect pair)))
+
+  ) ; #+serve-event
 
 (defimplementation preferred-communication-style ()
   (cond
@@ -1013,8 +1026,7 @@
 (defimplementation wait-for-input (streams &optional timeout)
   (assert (member timeout '(nil t)))
   (flet ((poll-streams (streams timeout)
-           (let* ((serve-event::*descriptor-handlers*
-                   (copy-list serve-event::*descriptor-handlers*))
+           (let* ((serve-event::*descriptor-handlers* nil)   ; Avoid re-entrant calls
                   (active-fds '())
                   (fd-stream-alist
                    (loop for s in streams
