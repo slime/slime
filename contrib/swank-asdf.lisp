@@ -431,7 +431,7 @@ already knows."
                (typecase x
                  (asdf:source-file
                   (map () #'c
-                       (asdf:output-files (make-instance 'asdf:compile-op) x)))
+                       (asdf:output-files (asdf:make-operation 'asdf:compile-op) x)))
                  (asdf:module (map () #'f (asdf:module-components x))))))
       (f component))))
 
@@ -516,11 +516,11 @@ already knows."
   (let ((component (pathname-component pathname)))
     (when component
       ;;(format t "~&Compiling ASDF component ~S~%" component)
-      (let ((op (make-instance 'asdf:compile-op)))
+      (let ((op (asdf:make-operation 'asdf:compile-op)))
         (with-compilation-hooks ()
           (asdf:perform op component))
         (when load-p
-          (asdf:perform (make-instance 'asdf:load-op) component))
+          (asdf:perform (asdf:make-operation 'asdf:load-op) component))
         (values t t nil (first (asdf:output-files op component)))))))
 
 (defun try-compile-asd-file (pathname load-p &rest options)
