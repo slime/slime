@@ -2655,6 +2655,11 @@ pressing SPC.
 If @code{slime-autodoc-use-multiline-p} is set to non-nil,
 allow long autodoc messages to resize echo area display.
 
+@vindex slime-autodoc-mode-string
+@code{slime-autodoc-mode-string} is a string that will be displayed in
+the mode line when autodoc-mode is enabled, or nil, if you prefer no
+indication. You can customize this variable.
+
 @node ASDF
 @section ASDF
 
