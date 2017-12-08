@@ -3988,6 +3988,14 @@ inserted in the current buffer."
           (kill-new string)
           (message "Evaluation finished; pushed result to kill ring."))))))
 
+(defvar slime-description-highlights
+  `(("^  \\b[^:]+:" . font-lock-doc-face)
+    ("^\\b[^ ]+" . font-lock-function-name-face)))
+
+(define-derived-mode slime-description-mode fundamental-mode "Slime description"
+  "Slime description mode."
+  (setq font-lock-defaults '(slime-description-highlights)))
+
 (defun slime-eval-describe (form)
   "Evaluate FORM in Lisp and display the result in a new buffer."
   (slime-eval-async form (slime-rcurry #'slime-show-description
@@ -4004,6 +4012,7 @@ inserted in the current buffer."
     (slime-with-popup-buffer (bufname :package package
                                       :connection t
                                       :select slime-description-autofocus)
+      (slime-description-mode)
       (princ string)
       (goto-char (point-min)))))
 
@@ -7194,7 +7203,7 @@ keys."
   (let ((start (cl-position-if-not (lambda (x)
                                      (memq x '(?\t ?\n ?\s ?\r)))
                                    str))
-        
+
         (end (cl-position-if-not (lambda (x)
                                    (memq x '(?\t ?\n ?\s ?\r)))
                                  str
