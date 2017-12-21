@@ -1956,6 +1956,39 @@ fixnum a specific thread."))
    "The Lisp package associated with the current buffer.
 This is set only in buffers bound to specific packages."))
 
+(defun budden-slime-current-readtable ()
+  "Finds readtable specification in a current buffer. It must be a form like
+ (in-readtable :name)
+ (in-readtable \"name\")
+ (package:in-readtable :name) 
+ starting from the beginning of line.
+ Returns name of a readtable or nil. Also can return \"nil\" or \"Nil\",
+ if it finds form like (in-readtable nil).
+ Comment marks are ignored when searching. 
+ Made similar to slime-current-package and common-lisp-guess-current-package.
+ "
+  (let (pkg)
+    ; in slime-current-package value of package seem
+    ; to be cached in slime-buffer-package variable.
+    ; I didn't learn how the cache is filled.
+    ; For simplicity, I never cache, always find.
+    ; This will slow down execution at every SWANK call
+    (save-restriction
+      (widen)   
+      (save-excursion
+        (ignore-errors
+          (beginning-of-buffer)
+          (when (let ((case-fold-search t))
+                  (re-search-forward "^(\\([[:alpha:]\\.-]+\\:\\)*in-readtable "))
+            (re-search-forward "[ :\"]+")
+            (let ((start (point)))
+              (re-search-forward "[\":)]")
+              (setf pkg (upcase (buffer-substring-no-properties
+                                 start (1- (point))))))
+            ))))
+    (message pkg)
+    pkg))
+
 ;;; `slime-rex' is the RPC primitive which is used to implement both
 ;;; `slime-eval' and `slime-eval-async'. You can use it directly if
 ;;; you need to, but the others are usually more convenient.
@@ -1963,9 +1996,10 @@ This is set only in buffers bound to specific packages."))
 (cl-defmacro slime-rex ((&rest saved-vars)
                         (sexp &optional
                               (package '(slime-current-package))
+                              (readtable '(budden-slime-current-readtable))
                               (thread 'slime-current-thread))
                         &rest continuations)
-  "(slime-rex (VAR ...) (SEXP &optional PACKAGE THREAD) CLAUSES ...)
+  "(slime-rex (VAR ...) (SEXP &optional PACKAGE READTABLE THREAD) CLAUSES ...)
 
 Remote EXecute SEXP.
 
@@ -1992,7 +2026,7 @@ versions cannot deal with that."
                                       (symbol (list var var))
                                       (cons var)))
        (slime-dispatch-event
-        (list :emacs-rex ,sexp ,package ,thread
+        (list :emacs-rex-rt ,sexp ,package ,readtable ,thread
               (lambda (,result)
                 (slime-dcase ,result
                   ,@continuations)))))))
@@ -2045,9 +2079,10 @@ or nil if nothing suitable can be found.")
 (defvar slime-stack-eval-tags nil
   "List of stack-tags of continuations waiting on the stack.")
 
-(defun slime-eval (sexp &optional package)
+(defun slime-eval (sexp &optional package readtable)
   "Evaluate EXPR on the superior Lisp and return the result."
   (when (null package) (setq package (slime-current-package)))
+  (when (null readtable) (setq readtable (budden-slime-current-readtable)))
   (let* ((tag (cl-gensym (format "slime-result-%d-"
                                  (1+ (slime-continuation-counter)))))
 	 (slime-stack-eval-tags (cons tag slime-stack-eval-tags)))
@@ -2055,7 +2090,7 @@ or nil if nothing suitable can be found.")
      #'funcall
      (catch tag
        (slime-rex (tag sexp)
-           (sexp package)
+           (sexp package readtable)
          ((:ok value)
           (unless (member tag slime-stack-eval-tags)
             (error "Reply to canceled synchronous eval request tag=%S sexp=%S"
@@ -2071,11 +2106,12 @@ or nil if nothing suitable can be found.")
              (error "Lisp connection closed unexpectedly"))
            (accept-process-output nil 0.01)))))))
 
-(defun slime-eval-async (sexp &optional cont package)
+(defun slime-eval-async (sexp &optional cont package readtable)
   "Evaluate EXPR on the superior Lisp and call CONT with the result."
   (declare (indent 1))
   (slime-rex (cont (buffer (current-buffer)))
-      (sexp (or package (slime-current-package)))
+      (sexp (or package (slime-current-package))
+            (or readtable (budden-slime-current-readtable)))
     ((:ok result)
      (when cont
        (set-buffer buffer)
@@ -2153,11 +2189,11 @@ Debugged requests are ignored."
   (let ((slime-dispatching-connection (or process (slime-connection))))
     (or (run-hook-with-args-until-success 'slime-event-hooks event)
         (slime-dcase event
-          ((:emacs-rex form package thread continuation)
+          ((:emacs-rex-rt form package readtable thread continuation)
            (when (and (slime-use-sigint-for-interrupt) (slime-busy-p))
              (slime-display-oneliner "; pipelined request... %S" form))
            (let ((id (cl-incf (slime-continuation-counter))))
-             (slime-send `(:emacs-rex ,form ,package ,thread ,id))
+             (slime-send `(:emacs-rex-rt ,form ,package ,readtable ,thread ,id))
              (push (cons id continuation) (slime-rex-continuations))
              (slime--recompute-modelines)))
           ((:return value id)
@@ -5226,7 +5262,7 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
 (defun sldb-reinitialize (thread level)
   (slime-rex (thread level)
       ('(swank:debugger-info-for-emacs 0 10)
-       nil thread)
+       nil nil thread)
     ((:ok result)
      (apply #'sldb-setup thread level result))))
 
@@ -5846,7 +5882,7 @@ restart to invoke, otherwise use the restart at point."
   (slime-rex ()
       ((list 'swank:sldb-break-with-default-debugger
              (not (not dont-unwind)))
-       nil slime-current-thread)
+       nil nil slime-current-thread)
     ((:abort _))))
 
 (defun sldb-break-with-system-debugger (&optional lightweight)
@@ -7502,3 +7538,7 @@ The returned bounds are either nil or non-empty."
 ;; coding: latin-1-unix
 ;; End:
 ;;; slime.el ends here
+
+
+
+
