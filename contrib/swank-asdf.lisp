@@ -425,13 +425,19 @@ already knows."
                  (asdf:module (map () #'f (asdf:module-components x))))))
       (f component))))
 
+(defun make-operation (x)
+  #+#.(swank/backend:with-symbol 'make-operation 'asdf)
+  (asdf:make-operation x)
+  #-#.(swank/backend:with-symbol 'make-operation 'asdf)
+  (make-instance x))
+
 (defun asdf-component-output-files (component)
   (while-collecting (c)
     (labels ((f (x)
                (typecase x
                  (asdf:source-file
                   (map () #'c
-                       (asdf:output-files (asdf:make-operation 'asdf:compile-op) x)))
+                       (asdf:output-files (make-operation 'asdf:compile-op) x)))
                  (asdf:module (map () #'f (asdf:module-components x))))))
       (f component))))
 
@@ -516,11 +522,11 @@ already knows."
   (let ((component (pathname-component pathname)))
     (when component
       ;;(format t "~&Compiling ASDF component ~S~%" component)
-      (let ((op (asdf:make-operation 'asdf:compile-op)))
+      (let ((op (make-operation 'asdf:compile-op)))
         (with-compilation-hooks ()
           (asdf:perform op component))
         (when load-p
-          (asdf:perform (asdf:make-operation 'asdf:load-op) component))
+          (asdf:perform (make-operation 'asdf:load-op) component))
         (values t t nil (first (asdf:output-files op component)))))))
 
 (defun try-compile-asd-file (pathname load-p &rest options)
