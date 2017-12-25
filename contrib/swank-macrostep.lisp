@@ -1,6 +1,6 @@
 ;;; swank-macrostep.lisp -- fancy macro-expansion via macrostep.el
 ;;
-;; Authors: Luís Oliveira <luismbo@gmail.com>
+;; Authors: Luis Oliveira <luismbo@gmail.com>
 ;;          Jon Oddie <j.j.oddie@gmail.com>
 ;;
 ;; License: Public Domain
