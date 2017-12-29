@@ -6519,7 +6519,7 @@ If ARG is negative, move forwards."
 
 (defun slime-inspector-eval (string)
   "Eval an expression in the context of the inspected object.
-The \"*\" variable will be bound to the inspected object."
+The `*' variable will be bound to the inspected object."
   (interactive (list (slime-read-from-minibuffer "Inspector eval: ")))
   (slime-eval-with-transcript `(swank:inspector-eval ,string)))
 
