@@ -1220,7 +1220,7 @@ Describe the slot at point.
 
 @kbditem{e, slime-inspector-eval}
 Evaluate an expression in the context of the inspected object.  The
-variable @t{*} will be bound to the inspected object.
+variable @code{*} will be bound to the inspected object.
 
 @kbditem{v, slime-inspector-toggle-verbose}
 Toggle between verbose and terse mode. Default is determined by
