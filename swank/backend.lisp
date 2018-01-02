@@ -85,7 +85,7 @@ Backends implement these functions using DEFIMPLEMENTATION."
      (setf (get ',name 'implementation)
            ;; For implicit BLOCK. FLET because of interplay w/ decls.
            (flet ((,name ,args ,@body)) #',name))
-     (defparameter ,name "ANCHOR FOR THE IMPLEMENTATION OF THE SWANK INTERFACE")
+     (deftype ,name () '(member "ANCHOR FOR THE IMPLEMENTATION OF THE SWANK INTERFACE"))
      (if (member ',name *interface-functions*)
          (setq *unimplemented-interfaces*
                (remove ',name *unimplemented-interfaces*))
