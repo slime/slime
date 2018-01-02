@@ -26,9 +26,9 @@
   "Restore a memory image stored in file FILENAME."
   (interactive (list (read-file-name "Image file: ")))
   ;; bypass event dispatcher because we don't expect a reply. FIXME.
-  (slime-net-send `(:emacs-rex (swank-snapshot:restore-snapshot 
+  (slime-net-send `(:emacs-rex-rt (swank-snapshot:restore-snapshot 
 				,(expand-file-name filename))
-			       nil t nil)
+			       nil nil t nil)
 		  (slime-connection)))
 
 (provide 'slime-snapshot)
