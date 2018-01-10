@@ -1251,8 +1251,7 @@ Fetch all inspector contents and go to the end.
 Store the value under point in the variable `*'.  This can
 then be used to access the object in the REPL.
 
-@kbditempair{TAB, S-TAB, slime-inspector-next-inspectable-object,
-slime-inspector-previous-inspectable-object}
+@kbditempair{TAB, S-TAB, slime-inspector-next-inspectable-object, slime-inspector-previous-inspectable-object}
 
 Jump to the next and previous inspectable object respectively.
 
@@ -2324,8 +2323,7 @@ Bash.
 
 @table @kbd
 
-@kbditempair{C-<up>, C-<down>,
-             slime-repl-forward-input, slime-repl-backward-input}
+@kbditempair{C-<up>, C-<down>, slime-repl-forward-input, slime-repl-backward-input}
 Go to the next/previous history item.
 
 @kbditempair{M-n, M-p, slime-repl-next-input, slime-repl-previous-input}
@@ -2334,16 +2332,14 @@ input as search pattern.  If @kbd{M-n}/@kbd{M-n} is typed two times in
 a row, the second invocation uses the same search pattern (even if the
 current input has changed).
 
-@kbditempair{M-s, M-r,
-slime-repl-next-matching-input, slime-repl-previous-matching-input}
+@kbditempair{M-s, M-r, slime-repl-next-matching-input, slime-repl-previous-matching-input}
 Search forward/reverse through command history with regex
 
 @c @code{slime-repl-@{next,previous@}-input}@*
 @c @code{slime-repl-@{next,previous@}-matching-input}@*
 @c @code{comint}-style input history commands.
 
-@kbditempair{C-c C-n, C-c C-p,
-slime-repl-next-prompt, slime-repl-previous-prompt}
+@kbditempair{C-c C-n, C-c C-p, slime-repl-next-prompt, slime-repl-previous-prompt}
 Move between the current and previous prompts in the @REPL{} buffer.
 Pressing RET on a line with old input copies that line to the newest
 prompt.
