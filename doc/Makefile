@@ -76,7 +76,7 @@ contributors.texi: ../slime.el Makefile texinfo-tabulate.awk
 	(cat; git log $(LAST_CHANGELOG_COMMIT).. --format='%aN') | \
 	sort | \
 	uniq -c | \
-	sort -nr | \
+	LC_ALL=C sort -nr | \
 	sed -e 's/^[^A-Z]*//; /^$$/d' | \
 	LC_ALL=C awk -f texinfo-tabulate.awk \
 	> $@
