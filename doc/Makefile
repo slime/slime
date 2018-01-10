@@ -55,6 +55,9 @@ publish: slime.pdf html.tgz
 slime.pdf: $(TEXI)
 	texi2pdf $<
 
+slime-refcard.pdf: slime-refcard.tex
+	texi2pdf $<
+
 install: install-info
 
 uninstall: uninstall-info
@@ -109,4 +112,5 @@ clean:
 	rm -f slime.kys slime.log slime.pg slime.tmp slime.toc slime.tp
 	rm -f slime.vr slime.vrs
 	rm -f slime.info slime.pdf slime.dvi slime.ps slime.html
+	rm -f slime-refcard.pdf slime-refcard.log slime-refcard.aux
 	rm -rf html html.tgz
