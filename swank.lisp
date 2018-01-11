@@ -957,7 +957,7 @@ The processing is done in the extent of the toplevel restart."
     (with-panic-handler (connection)
       (loop (dispatch-event connection (receive))))))
 
-(defvar *auto-flush-interval* 0.2)
+(defvar *auto-flush-interval* 0.08)
 
 (defun auto-flush-loop (stream)
   (loop
@@ -965,6 +965,8 @@ The processing is done in the extent of the toplevel restart."
                    (output-stream-p stream)))
      (return nil))
    (force-output stream)
+   (setf (swank/gray::flush-scheduled stream) nil)
+   (receive-if #'identity)
    (sleep *auto-flush-interval*)))
 
 (defgeneric thread-for-evaluation (connection id)

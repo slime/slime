@@ -110,9 +110,11 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
                                                       :repl-result)))
     (typecase connection
       (multithreaded-connection
-       (setf (mconn.auto-flush-thread connection)
-	     (spawn (lambda () (auto-flush-loop out))
-		    :name "auto-flush-thread"))))
+       (setf
+        (swank/gray::flush-thread out)
+        (setf (mconn.auto-flush-thread connection)
+              (spawn (lambda () (auto-flush-loop out))
+                     :name "auto-flush-thread")))))
     (values dedicated-output in out io repl-results)))
 
 (defun make-output-function (connection)
