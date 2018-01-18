@@ -585,3 +585,96 @@
   (label-value-line*
    (:name (sys.int::function-reference-name o))
    (:function (sys.int::function-reference-function o))))
+
+(defmethod emacs-inspect ((object structure-object))
+  (let ((class (class-of object)))
+    `("Class: " (:value ,class) (:newline)
+                ,@(swank::all-slots-for-inspector object))))
+
+(in-package :swank)
+
+(defmethod all-slots-for-inspector ((object structure-object))
+  (let* ((class           (class-of object))
+         (direct-slots    (swank-mop:class-direct-slots class))
+         (effective-slots (swank-mop:class-slots class))
+         (longest-slot-name-length
+          (loop for slot :in effective-slots
+                maximize (length (symbol-name
+                                  (swank-mop:slot-definition-name slot)))))
+         (checklist
+          (reinitialize-checklist
+           (ensure-istate-metadata object :checklist
+                                   (make-checklist (length effective-slots)))))
+         (grouping-kind
+          ;; We box the value so we can re-set it.
+          (ensure-istate-metadata object :grouping-kind
+                                  (box *inspector-slots-default-grouping*)))
+         (sort-order
+          (ensure-istate-metadata object :sort-order
+                                  (box *inspector-slots-default-order*)))
+         (sort-predicate (ecase (ref sort-order)
+                           (:alphabetically #'string<)
+                           (:unsorted (constantly nil))))
+         (sorted-slots (sort (copy-seq effective-slots)
+                             sort-predicate
+                             :key #'swank-mop:slot-definition-name))
+         (effective-slots
+          (ecase (ref grouping-kind)
+            (:all sorted-slots)
+            (:inheritance (stable-sort-by-inheritance sorted-slots
+                                                      class sort-predicate)))))
+    `("--------------------"
+      (:newline)
+      " Group slots by inheritance "
+      (:action ,(ecase (ref grouping-kind)
+                       (:all "[ ]")
+                       (:inheritance "[X]"))
+               ,(lambda ()
+                        ;; We have to do this as the order of slots will
+                        ;; be sorted differently.
+                        (fill (checklist.buttons checklist) nil)
+                        (setf (ref grouping-kind)
+                              (ecase (ref grouping-kind)
+                                (:all :inheritance)
+                                (:inheritance :all))))
+               :refreshp t)
+      (:newline)
+      " Sort slots alphabetically  "
+      (:action ,(ecase (ref sort-order)
+                       (:unsorted "[ ]")
+                       (:alphabetically "[X]"))
+               ,(lambda ()
+                        (fill (checklist.buttons checklist) nil)
+                        (setf (ref sort-order)
+                              (ecase (ref sort-order)
+                                (:unsorted :alphabetically)
+                                (:alphabetically :unsorted))))
+               :refreshp t)
+      (:newline)
+      ,@ (case (ref grouping-kind)
+           (:all
+            `((:newline)
+              "All Slots:"
+              (:newline)
+              ,@(make-slot-listing checklist object class
+                                   effective-slots direct-slots
+                                   longest-slot-name-length)))
+           (:inheritance
+            (list-all-slots-by-inheritance checklist object class
+                                           effective-slots direct-slots
+                                           longest-slot-name-length)))
+      (:newline)
+      (:action "[set value]"
+               ,(lambda ()
+                        (do-checklist (idx checklist)
+                          (query-and-set-slot class object
+                                              (nth idx effective-slots))))
+               :refreshp t)
+      "  "
+      (:action "[make unbound]"
+               ,(lambda ()
+                        (do-checklist (idx checklist)
+                          (swank-mop:slot-makunbound-using-class
+                           class object (nth idx effective-slots))))
+               :refreshp t)
+      (:newline))))
