@@ -182,63 +182,23 @@
     (function-location fn)))
 
 (defimplementation frame-locals (frame-number)
-  (let* ((frame (nth frame-number *current-backtrace*))
-         (fn (sys.int::function-from-frame frame))
-         (info (sys.int::function-debug-info fn))
-         (result '())
-         (var-id 0))
-    (loop
-       for (name stack-slot) in (sys.int::debug-info-local-variable-locations info)
-       do
-         (push (list :name name
-                     :id var-id
-                     :value (sys.int::read-frame-slot frame stack-slot))
-               result)
-         (incf var-id))
-    (multiple-value-bind (env-slot env-layout)
-        (sys.int::debug-info-closure-layout info)
-      (when env-slot
-        (let ((env-object (sys.int::read-frame-slot frame env-slot)))
-          (dolist (level env-layout)
-            (loop
-               for i from 1
-               for name in level
-               when name do
-                 (push (list :name name
-                             :id var-id
-                             :value (svref env-object i))
-                       result)
-                 (incf var-id))
-            (setf env-object (svref env-object 0))))))
-    (reverse result)))
+  (loop
+     with frame = (nth frame-number *current-backtrace*)
+     for (name id location repr) in (sys.int::frame-locals frame)
+     collect (list :name name
+                   :id id
+                   :value (sys.int::read-frame-slot frame location repr))))
 
 (defimplementation frame-var-value (frame-number var-id)
   (let* ((frame (nth frame-number *current-backtrace*))
-         (fn (sys.int::function-from-frame frame))
-         (info (sys.int::function-debug-info fn))
-         (current-var-id 0))
-    (loop
-       for (name stack-slot) in (sys.int::debug-info-local-variable-locations info)
-       do
-         (when (eql current-var-id var-id)
-           (return-from frame-var-value
-             (sys.int::read-frame-slot frame stack-slot)))
-         (incf current-var-id))
-    (multiple-value-bind (env-slot env-layout)
-        (sys.int::debug-info-closure-layout info)
-      (when env-slot
-        (let ((env-object (sys.int::read-frame-slot frame env-slot)))
-          (dolist (level env-layout)
-            (loop
-               for i from 1
-               for name in level
-               when name do
-                 (when (eql current-var-id var-id)
-                   (return-from frame-var-value
-                     (svref env-object i)))
-                 (incf current-var-id))
-            (setf env-object (svref env-object 0))))))
-    (error "Invalid variable id ~D for frame number ~D." var-id frame-number)))
+         (locals (sys.int::frame-locals frame))
+         (info (nth var-id locals)))
+    (if info
+        (destructuring-bind (name id location repr)
+            info
+          (declare (ignore id))
+          (values (sys.int::read-frame-slot frame location repr) name))
+        (error "Invalid variable id ~D for frame number ~D." var-id frame-number))))
 
 ;;;; Definition finding
 
