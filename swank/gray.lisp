@@ -51,7 +51,8 @@
                     :accessor flush-scheduled)))
 
 (defun maybe-schedule-flush (stream)
-  (unless (flush-scheduled stream)
+  (when (and (flush-thread stream)
+             (not (flush-scheduled stream)))
     (setf (flush-scheduled stream) t)
     (send (flush-thread stream) t)))
 
