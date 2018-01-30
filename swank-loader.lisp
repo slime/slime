@@ -141,11 +141,12 @@ operating system, and hardware architecture."
 Return nil if nothing appropriate is available."
   (with-open-file (s (merge-pathnames "slime.el" *source-directory*)
                      :if-does-not-exist nil)
-    (loop with prefix = ";; Version: "
-          for line = (read-line s nil :eof)
-          until (eq line :eof)
-          when (string-starts-with line prefix)
-            return (subseq line (length prefix)))))
+    (when s
+      (loop with prefix = ";; Version: "
+            for line = (read-line s nil :eof)
+            until (eq line :eof)
+            when (string-starts-with line prefix)
+              return (subseq line (length prefix))))))
 
 (defun default-fasl-dir ()
   (merge-pathnames
