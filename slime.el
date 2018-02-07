@@ -6405,7 +6405,7 @@ that value.
         (slime-range-button
          (slime-inspector-fetch-more value))
         (slime-action-number
-         (slime-eval-async `(swank::inspector-call-nth-action ,value)
+         (slime-eval-async `(swank:inspector-call-nth-action ,value)
            opener))
         (t (error "No object at point"))))))
 
