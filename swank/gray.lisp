@@ -103,7 +103,8 @@
   (with-slime-output-stream stream
     (unless (zerop fill-pointer)
       (funcall output-fn (subseq buffer 0 fill-pointer))
-      (setf fill-pointer 0)))
+      (setf fill-pointer 0))
+    (setf (flush-scheduled stream) nil))
   nil)
 
 #+(and sbcl sb-thread)
@@ -190,6 +191,14 @@
 
 
 ;;;
+
+(defimplementation make-auto-flush-thread (stream)
+  (if (typep stream 'slime-output-stream)
+      (setf (flush-thread stream)
+            (spawn (lambda () (auto-flush-loop stream 0.08 t))
+                   :name "auto-flush-thread"))
+      (spawn (lambda () (auto-flush-loop stream *auto-flush-interval*))
+             :name "auto-flush-thread")))
 
 (defimplementation make-output-stream (write-string)
   (make-instance 'slime-output-stream :output-fn write-string))

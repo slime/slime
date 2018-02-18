@@ -633,6 +633,23 @@ The stream calls WRITE-STRING when output is ready.")
   "Return a new character input stream.
 The stream calls READ-STRING when input is needed.")
 
+(defvar *auto-flush-interval* 0.2)
+
+(defun auto-flush-loop (stream interval &optional receive)
+  (loop
+   (when (not (and (open-stream-p stream)
+                   (output-stream-p stream)))
+     (return nil))
+   (force-output stream)
+   (when receive
+     (receive-if #'identity))
+   (sleep interval)))
+
+(definterface make-auto-flush-thread (stream)
+  "Make an auto-flush thread"
+  (spawn (lambda () (auto-flush-loop stream *auto-flush-interval* nil))
+         :name "auto-flush-thread"))
+
 
 ;;;; Documentation
 
