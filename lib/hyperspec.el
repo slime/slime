@@ -1237,8 +1237,8 @@ If you copy the HyperSpec to another location, customize the variable
 	char-at-point
       (completing-read
        "Look up format control character in Common Lisp HyperSpec: "
-       common-lisp-hyperspec--format-characters nil #'boundp
-       nil nil 'common-lisp-hyperspec-format-history))))
+       common-lisp-hyperspec--format-characters nil t nil
+       'common-lisp-hyperspec-format-history))))
 
 (defun common-lisp-hyperspec-format (character-name)
   (interactive (list (common-lisp-hyperspec--read-format-character)))
