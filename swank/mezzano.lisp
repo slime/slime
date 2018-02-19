@@ -448,7 +448,7 @@
   (mezzano.supervisor:terminate-thread thread))
 
 (defvar *mailbox-lock* (mezzano.supervisor:make-mutex "mailbox lock"))
-(defvar *mailboxes* (make-hash-table)) ; should also be weak.
+(defvar *mailboxes* (list))
 
 (defstruct (mailbox (:conc-name mailbox.))
   thread
@@ -457,12 +457,21 @@
 
 (defun mailbox (thread)
   "Return THREAD's mailbox."
+  ;; Use weak pointers to avoid holding on to dead threads forever.
   (mezzano.supervisor:with-mutex (*mailbox-lock*)
-    (let ((mbox (gethash thread *mailboxes*)))
-      (when (not mbox)
-        (setf mbox (make-mailbox :thread thread)
-              (gethash thread *mailboxes*) mbox))
-      mbox)))
+    ;; Flush forgotten threads.
+    (setf *mailboxes* (remove-if-not #'sys.int::weak-pointer-value *mailboxes*))
+    (loop
+       for entry in *mailboxes*
+       do
+         (multiple-value-bind (key value livep)
+             (sys.int::weak-pointer-pair entry)
+           (when (eql key thread)
+             (return value)))
+       finally
+         (let ((mb (make-mailbox :thread thread)))
+           (push (sys.int::make-weak-pointer thread mb) *mailboxes*)
+           (return mb)))))
 
 (defimplementation send (thread message)
   (let* ((mbox (mailbox thread))
@@ -581,6 +590,7 @@
 
 (defmethod emacs-inspect ((o sys.int::weak-pointer))
   (label-value-line*
+   (:key (sys.int::weak-pointer-key o))
    (:value (sys.int::weak-pointer-value o))))
 
 (defmethod emacs-inspect ((o sys.int::function-reference))
