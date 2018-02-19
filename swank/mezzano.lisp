@@ -86,7 +86,7 @@
          (return value)))
      ;; Poke standard-input every now and then to keep the console alive.
      (listen)
-     (sleep 0.5)))
+     (sleep 0.05)))
 
 (defimplementation preferred-communication-style ()
   :spawn)
@@ -471,6 +471,8 @@
       (setf (mailbox.queue mbox)
             (nconc (mailbox.queue mbox) (list message))))))
 
+(defvar *receive-if-sleep-time* 0.02)
+
 (defimplementation receive-if (test &optional timeout)
   (let* ((mbox (mailbox (current-thread)))
          (mutex (mailbox.mutex mbox)))
@@ -484,7 +486,7 @@
              (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
              (return (car tail))))
          (when (eq timeout t) (return (values nil t))))
-       (sleep 0.2))))
+       (sleep *receive-if-sleep-time*))))
 
 (defvar *registered-threads* (make-hash-table))
 (defvar *registered-threads-lock* (mezzano.supervisor:make-mutex "registered threads lock"))
