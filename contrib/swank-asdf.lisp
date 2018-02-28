@@ -458,7 +458,7 @@ already knows."
   (component-loaded-p name))
 
 (defslimefun asdf-system-directory (name)
-  (namestring (asdf:system-source-directory name)))
+  (namestring (translate-logical-pathname (asdf:system-source-directory name))))
 
 (defun pathname-system (pathname)
   (let ((component (pathname-component pathname)))
