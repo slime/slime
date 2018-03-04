@@ -52,7 +52,7 @@
 	 (stream (make-fd-stream fd nil))
 	 (connection (make-connection nil stream style)))
     (let ((*emacs-connection* connection))
-      (when repl (swank::create-repl nil))
+      (when repl (swank-repl:create-repl nil))
       (background-message "~A" "Lisp image restored"))
     (serve-requests connection)
     (simple-repl)))
