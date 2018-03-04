@@ -16,7 +16,17 @@ infofiles=slime.info
 
 TEXI = slime.texi contributors.texi
 
-all: slime.ps slime.info slime.html slime.pdf
+help:
+	@echo -e "\
+Most important targets:\n\
+all               generate info, pdf, and html documents\n\
+slime.info        generate the slime.info file\n\
+slime.html        generate a single html file\n\
+html/index.html   generate on html file per node in html/ directory\n\
+html.tgz          create a tarball of all html files\n\
+clean             remove generated files"
+
+all: slime.info slime.pdf html/index.html
 
 slime.dvi: $(TEXI)
 	texi2dvi slime.texi
@@ -28,9 +38,24 @@ slime.info: $(TEXI)
 	makeinfo $<
 
 slime.html: $(TEXI)
-	texi2html $<
+	texi2html --css-include=slime.css $<
+
+html/index.html: $(TEXI)
+	makeinfo -o html --css-include=slime.css --html $<
+
+html.tgz: html/index.html
+	tar -czf $@ html
+
+DOCDIR=/project/slime/public_html/doc
+# invoke this like: make CLUSER=heller publish
+publish: slime.pdf html.tgz
+	scp slime.pdf html.tgz $(CLUSER)@common-lisp.net:$(DOCDIR)
+	ssh $(CLUSER)@common-lisp.net "cd $(DOCDIR); tar -zxf html.tgz"
 
 slime.pdf: $(TEXI)
+	texi2pdf $<
+
+slime-refcard.pdf: slime-refcard.tex
 	texi2pdf $<
 
 install: install-info
@@ -40,32 +65,26 @@ uninstall: uninstall-info
 # Create contributors.texi, a texinfo table listing all known
 # contributors of code.
 #
-# Explicitly includes Eric Marsden (pre-ChangeLog hacker)
-#
 # The gist of this horror show is that the contributor list is piped
 # into texinfo-tabulate.awk with one name per line, sorted
-# alphabetically.
-#
-# Some special-case TeX-escaping of international characters.
-contributors.texi: ../ChangeLog Makefile texinfo-tabulate.awk
-	cat ../ChangeLog | \
+# by number of contributions.
+LAST_CHANGELOG_COMMIT=ab6d1bd5c9d3c5b4a6299b8c864ce4acfd25cbcc
+contributors.texi: ../slime.el Makefile texinfo-tabulate.awk
+	git show $(LAST_CHANGELOG_COMMIT):ChangeLog \
+	         $(LAST_CHANGELOG_COMMIT):contrib/ChangeLog | \
 	sed -ne '/^[0-9]/{s/^[^ ]* *//; s/ *<.*//; p;}' | \
+	(cat; git log $(LAST_CHANGELOG_COMMIT).. --format='%aN') | \
 	sort | \
 	uniq -c | \
-	sort -nr| \
-	sed -e 's/^[^A-Z]*//' | \
-	awk -f texinfo-tabulate.awk | \
-	sed -e "s/\o341/@'a/g" | \
-        sed -e "s/\o355/@'{@dotless{i}}/g" | \
-	sed -e "s/\o351/@'e/g" | \
-	sed -e "s/\o361/@~n/g" | \
-	sed -e 's/\o370/@o{}/g' \
+	LC_ALL=C sort -nr | \
+	sed -e 's/^[^A-Z]*//; /^$$/d' | \
+	LC_ALL=C awk -f texinfo-tabulate.awk \
 	> $@
 
 #.INTERMEDIATE: contributors.texi
 
 # Debian's install-info wants a --section argument.
-section := $(shell grep INFO-DIR-SECTION $(infofiles) | sed 's/INFO-DIR-SECTION //')
+install-info: section=$(shell grep INFO-DIR-SECTION $(infofiles) | sed 's/INFO-DIR-SECTION //')
 install-info: slime.info
 	mkdir -p $(infodir)
 	$(INSTALL_CMD) $(infofiles) $(infodir)/$(infofiles)
@@ -89,20 +108,9 @@ uninstall-info:
 
 clean:
 	rm -f contributors.texi
-	rm -f slime.aux
-	rm -f slime.cp
-	rm -f slime.dvi
-	rm -f slime.fn
-	rm -f slime.ky
-	rm -f slime.log
-	rm -f slime.pg
-	rm -f slime.tmp
-	rm -f slime.toc
-	rm -f slime.tp
-	rm -f slime.vr
-
-really_clean: clean
-	rm -f slime.info
-	rm -f slime.pdf
-	rm -f slime.ps
-	rm -f slime.html
+	rm -f slime.aux slime.cp slime.cps slime.fn slime.fns slime.ky
+	rm -f slime.kys slime.log slime.pg slime.tmp slime.toc slime.tp
+	rm -f slime.vr slime.vrs
+	rm -f slime.info slime.pdf slime.dvi slime.ps slime.html
+	rm -f slime-refcard.pdf slime-refcard.log slime-refcard.aux
+	rm -rf html html.tgz

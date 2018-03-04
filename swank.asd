@@ -19,10 +19,19 @@
 ;; This code has been placed in the Public Domain.  All warranties
 ;; are disclaimed.
 
+(defpackage :swank-loader
+  (:use :cl))
+
+(in-package :swank-loader)
+
+(defclass swank-loader-file (asdf:cl-source-file) ())
+
+;;;; after loading run init
+
+(defmethod asdf:perform ((o asdf:load-op) (f swank-loader-file))
+  (load (asdf::component-pathname f))
+  (funcall (read-from-string "swank-loader::init") :reload t))
+
 (asdf:defsystem :swank
-    :components ((:file "swank-loader")))
-
-(defpackage :swank-loader)
-(defparameter swank-loader::*source-directory*
-  (asdf:component-pathname (asdf:find-system :swank)))
-
+  :default-component-class swank-loader-file
+  :components ((:file "swank-loader")))

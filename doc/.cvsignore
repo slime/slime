@@ -3,8 +3,10 @@ slime.aux
 slime.cp
 slime.dvi
 slime.fn
+slime.fns
 slime.info
 slime.ky
+slime.kys
 slime.log
 slime.pdf
 slime.pg
@@ -13,3 +15,7 @@ slime.tmp
 slime.toc
 slime.tp
 slime.vr
+slime.vrs
+slime.html
+html
+html.tgz
