@@ -2556,6 +2556,17 @@ the filename of the module (or nil if the file doesn't exist).")
     (some (lambda (dir) (some #'probe-file (module-candidates name dir)))
           *load-path*)))
 
+#+asdf
+(defun find-module-asdf (module)
+  (flet ((swank-fasl-pathname ()
+           (uiop:pathname-directory-pathname
+            (asdf:apply-output-translations
+             (asdf:system-definition-pathname :swank)))))
+    (or (let ((*load-path*
+                (list (uiop:subpathname (swank-fasl-pathname) "contrib/")
+                      (uiop:subpathname swank-loader:*source-directory* "contrib/"))))
+          (find-module module))
+        (find-module module))))
 
 ;;;; Macroexpansion
 
