@@ -322,6 +322,10 @@
     callers))
 
 (defun get-all-frefs-in-function (function)
+  (when (sys.int::funcallable-std-instance-p function)
+    (setf function (sys.int::funcallable-std-instance-function function)))
+  (when (sys.int::closure-p function)
+    (setf function (sys.int::%closure-function function)))
   (loop
      for i below (sys.int::function-pool-size function)
      for entry = (sys.int::function-pool-object function i)
