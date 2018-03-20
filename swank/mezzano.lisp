@@ -29,7 +29,7 @@
   '())
 
 (defimplementation gray-package-name ()
-  "SYS.GRAY")
+  "MEZZANO.GRAY")
 
 ;;;; TCP server
 
