@@ -108,13 +108,13 @@
 
 (defimplementation call-with-compilation-hooks (func)
   (handler-bind
-      ((sys.int::error
+      ((error
         (lambda (c)
           (signal-compiler-condition c :error)))
        (warning
         (lambda (c)
           (signal-compiler-condition c :warning)))
-       (sys.int::style-warning
+       (style-warning
         (lambda (c)
           (signal-compiler-condition c :style-warning))))
     (funcall func)))
