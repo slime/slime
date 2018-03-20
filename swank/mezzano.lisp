@@ -226,6 +226,18 @@
           (t
            (top-level-form-position pathname tlf)))))
 
+(defun method-definition-name (name method)
+  `(defmethod ,name
+       ,@(mezzano.clos:method-qualifiers method)
+     ,(mapcar (lambda (x)
+                (typecase x
+                  (mezzano.clos:class
+                   (mezzano.clos:class-name x))
+                  (mezzano.clos:eql-specializer
+                   `(eql ,(mezzano.clos:eql-specializer-object x)))
+                  (t x)))
+              (mezzano.clos:method-specializers method))))
+
 (defimplementation find-definitions (name)
   (let ((result '()))
     (labels ((frob-fn (dspec fn)
@@ -241,10 +253,7 @@
                    (let ((fn (fdefinition name)))
                      (cond ((typep fn 'mezzano.clos:standard-generic-function)
                             (dolist (m (mezzano.clos:generic-function-methods fn))
-                              (frob-fn `(defmethod ,name
-                                            ,@(mezzano.clos:method-qualifiers m)
-                                          ,(mapcar #'mezzano.clos:class-name
-                                                   (mezzano.clos:method-specializers m)))
+                              (frob-fn (method-definition-name name m)
                                        (mezzano.clos:method-function m))))
                            (t
                             (frob-fn `(defun ,name) fn)))))
