@@ -326,6 +326,54 @@ Works like `completion-at-point-functions'.
   "Face for notes from the compiler."
   :group 'slime-mode-faces)
 
+(defface slime-early-deprecation-warning-face
+  `((((type graphic) (class color) (background light))
+     (:strike-through "brown"))
+    (((type graphic) (class color) (background dark))
+     (:strike-through "gold"))
+    (((type graphic))
+     (:strike-through t))
+    (((class color) (background light))
+     (:underline "brown"))
+    (((class color) (background dark))
+     (:underline "gold"))
+    (t
+     (:underline t)))
+  "Face for early deprecation warnings from the compiler."
+  :group 'slime-mode-faces)
+
+(defface slime-late-deprecation-warning-face
+  `((((type graphic) (class color) (background light))
+     (:strike-through "orange"))
+    (((type graphic) (class color) (background dark))
+     (:strike-through "coral"))
+    (((type graphic))
+     (:strike-through t))
+    (((class color) (background light))
+     (:underline "orange"))
+    (((class color) (background dark))
+     (:underline "coral"))
+    (t
+     (:underline t)))
+  "Face for late deprecation warnings from the compiler."
+  :group 'slime-mode-faces)
+
+(defface slime-final-deprecation-warning-face
+  `((((type graphic) (class color) (background light))
+     (:strike-through "red"))
+    (((type graphic) (class color) (background dark))
+     (:strike-through "red"))
+    (((type graphic))
+     (:strike-through t))
+    (((class color) (background light))
+     (:underline "red"))
+    (((class color) (background dark))
+     (:underline "red"))
+    (t
+     (:strike-through t)))
+  "Face for final deprecation warnings from the compiler."
+  :group 'slime-mode-faces)
+
 (defface slime-highlight-face
     '((t (:inherit highlight :underline nil)))
   "Face for compiler notes while selected."
@@ -496,8 +544,8 @@ information."
     ("\M-,"      slime-pop-find-definition-stack)
     ("\M-_"      slime-edit-uses)    ; for German layout
     ("\M-?"      slime-edit-uses)    ; for USian layout
-    ("\C-x4." 	 slime-edit-definition-other-window)
-    ("\C-x5." 	 slime-edit-definition-other-frame)
+    ("\C-x4."    slime-edit-definition-other-window)
+    ("\C-x5."    slime-edit-definition-other-frame)
     ("\C-x\C-e"  slime-eval-last-expression)
     ("\C-\M-x"   slime-eval-defun)
     ;; Include PREFIX keys...
@@ -2969,12 +3017,15 @@ Return nil if there's no useful source location."
                   (<= (max pos1 pos2) (line-end-position))))
 
 (defvar slime-severity-face-plist
-  '(:error         slime-error-face
-                   :read-error    slime-error-face
-                   :warning       slime-warning-face
-                   :redefinition  slime-style-warning-face
-                   :style-warning slime-style-warning-face
-                   :note          slime-note-face))
+  '(:error                     slime-error-face
+    :read-error                slime-error-face
+    :warning                   slime-warning-face
+    :redefinition              slime-style-warning-face
+    :style-warning             slime-style-warning-face
+    :early-deprecation-warning slime-early-deprecation-warning-face
+    :late-deprecation-warning  slime-late-deprecation-warning-face
+    :final-deprecation-warning slime-final-deprecation-warning-face
+    :note                      slime-note-face))
 
 (defun slime-severity-face (severity)
   "Return the name of the font-lock face representing SEVERITY."
@@ -2982,7 +3033,10 @@ Return nil if there's no useful source location."
       (error "No face for: %S" severity)))
 
 (defvar slime-severity-order
-  '(:note :style-warning :redefinition :warning :error :read-error))
+  '(:note
+    :early-deprecation-warning :style-warning :redefinition
+    :late-deprecation-warning :final-deprecation-warning
+    :warning :error :read-error))
 
 (defun slime-severity< (sev1 sev2)
   "Return true if SEV1 is less severe than SEV2."
@@ -7195,7 +7249,7 @@ keys."
   (let ((start (cl-position-if-not (lambda (x)
                                      (memq x '(?\t ?\n ?\s ?\r)))
                                    str))
-        
+
         (end (cl-position-if-not (lambda (x)
                                    (memq x '(?\t ?\n ?\s ?\r)))
                                  str
