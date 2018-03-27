@@ -2493,6 +2493,9 @@ incompatibly-more-like-defclass+emphasize-read-only" "iss102.htm")
 			common-lisp-hyperspec--issuex-symbols)))
     (concat common-lisp-hyperspec-root "Issues/" entry)))
 
+(defun common-lisp-special-operator (name)
+  (format "%sBody/s_%s.htm" common-lisp-hyperspec-root name))
+
 ;;; Added the following just to provide a common entry point according
 ;;; to the various 'hyperspec' implementations.
 ;;;
