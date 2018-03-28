@@ -46,18 +46,21 @@
                               :port port
                               :connections connections
                               :callback (lambda (conn)
-                                          (when (not (mezzano.supervisor:fifo-push
-                                                      (make-instance 'mezzano.network.tcp::tcp-stream :connection conn)
-                                                      connections
-                                                      nil))
-                                            ;; Drop connections when they can't be handled.
-                                            (close conn)))))
+                                          (do-connection conn connections))))
          (listen-fn (slot-value sock '%callback)))
     (when (find port mezzano.network.tcp::*server-alist*
                 :key #'first)
       (error "Server already listening on port ~D" port))
     (push (list port listen-fn) mezzano.network.tcp::*server-alist*)
     sock))
+
+(defun do-connection (conn connections)
+  (when (not (mezzano.supervisor:fifo-push
+              (make-instance 'mezzano.network.tcp::tcp-stream :connection conn)
+              connections
+              nil))
+    ;; Drop connections when they can't be handled.
+    (close conn)))
 
 (defimplementation local-port (socket)
   (slot-value socket '%port))
@@ -198,7 +201,8 @@
             info
           (declare (ignore id))
           (values (sys.int::read-frame-slot frame location repr) name))
-        (error "Invalid variable id ~D for frame number ~D." var-id frame-number))))
+        (error "Invalid variable id ~D for frame number ~D."
+               var-id frame-number))))
 
 ;;;; Definition finding
 
@@ -211,8 +215,9 @@
               (let ((*read-suppress* t)
                     (*read-eval* nil))
                 (read s nil))))
-      (make-location `(:file ,(enough-namestring s (make-pathname :host (pathname-host s))))
-                     `(:position ,(1+ (file-position s)))))))
+      (let ((default (make-pathname :host (pathname-host s))))
+        (make-location `(:file ,(enough-namestring s default))
+                       `(:position ,(1+ (file-position s))))))))
 
 (defun function-location (function)
   "Return a location object for FUNCTION."
@@ -221,8 +226,9 @@
          (tlf (sys.int::debug-info-source-top-level-form-number info)))
     (cond ((and (consp tlf)
                 (eql (first tlf) :position))
-           (make-location `(:file ,(enough-namestring pathname (make-pathname :host (pathname-host pathname))))
-                          `(:position ,(second tlf))))
+           (let ((default (make-pathname :host (pathname-host pathname))))
+             (make-location `(:file ,(enough-namestring pathname default))
+                            `(:position ,(second tlf)))))
           (t
            (top-level-form-position pathname tlf)))))
 
@@ -240,26 +246,27 @@
 
 (defimplementation find-definitions (name)
   (let ((result '()))
-    (labels ((frob-fn (dspec fn)
-               (let ((loc (function-location fn)))
-                 (when loc
-                   (push (list dspec loc) result))))
-             (try-fn (name)
-               (when (valid-function-name-p name)
-                 (when (and (fboundp name)
-                            (not (and (symbolp name)
-                                      (or (special-operator-p name)
-                                          (macro-function name)))))
-                   (let ((fn (fdefinition name)))
-                     (cond ((typep fn 'mezzano.clos:standard-generic-function)
-                            (dolist (m (mezzano.clos:generic-function-methods fn))
-                              (frob-fn (method-definition-name name m)
-                                       (mezzano.clos:method-function m))))
-                           (t
-                            (frob-fn `(defun ,name) fn)))))
-                 (when (compiler-macro-function name)
-                   (frob-fn `(define-compiler-macro ,name)
-                            (compiler-macro-function name))))))
+    (labels
+        ((frob-fn (dspec fn)
+           (let ((loc (function-location fn)))
+             (when loc
+               (push (list dspec loc) result))))
+         (try-fn (name)
+           (when (valid-function-name-p name)
+             (when (and (fboundp name)
+                        (not (and (symbolp name)
+                                  (or (special-operator-p name)
+                                      (macro-function name)))))
+               (let ((fn (fdefinition name)))
+                 (cond ((typep fn 'mezzano.clos:standard-generic-function)
+                        (dolist (m (mezzano.clos:generic-function-methods fn))
+                          (frob-fn (method-definition-name name m)
+                                   (mezzano.clos:method-function m))))
+                       (t
+                        (frob-fn `(defun ,name) fn)))))
+             (when (compiler-macro-function name)
+               (frob-fn `(define-compiler-macro ,name)
+                        (compiler-macro-function name))))))
       (try-fn name)
       (try-fn `(setf name))
       (try-fn `(sys.int::cas name))
@@ -305,21 +312,24 @@
        do
          (cond ((typep fn 'standard-generic-function)
                 (dolist (m (mezzano.clos:generic-function-methods fn))
-                  (when (member fref-for-fn
-                                (get-all-frefs-in-function (mezzano.clos:method-function m)))
-                    (push `((defmethod ,name
-                                ,@(mezzano.clos:method-qualifiers m)
-                              ,(mapcar (lambda (specializer)
-                                         (if (typep specializer 'standard-class)
-                                             (mezzano.clos:class-name specializer)
-                                             specializer))
-                                       (mezzano.clos:method-specializers m)))
-                            ,(function-location (mezzano.clos:method-function m)))
-                          callers))))
+                  (let* ((mf (mezzano.clos:method-function m))
+                         (mf-frefs (get-all-frefs-in-function mf)))
+                    (when (member fref-for-fn mf-frefs)
+                      (push `((defmethod ,name
+                                  ,@(mezzano.clos:method-qualifiers m)
+                                ,(mapcar #'specializer-name
+                                         (mezzano.clos:method-specializers m)))
+                              ,(function-location mf))
+                            callers)))))
                ((member fref-for-fn
                         (get-all-frefs-in-function fn))
                 (push `((defun ,name) ,(function-location fn)) callers))))
     callers))
+
+(defun specializer-name (specializer)
+  (if (typep specializer 'standard-class)
+      (mezzano.clos:class-name specializer)
+      specializer))
 
 (defun get-all-frefs-in-function (function)
   (when (sys.int::funcallable-std-instance-p function)
@@ -336,9 +346,11 @@
 
 (defimplementation list-callees (function-name)
   (let* ((fn (fdefinition function-name))
-         ;; Grovel around in the function's constant pool looking for function-references.
-         ;; These may be for #', but they're probably going to be for normal calls.
-         ;; TODO: This doesn't work well on interpreted functions or funcallable instances.
+         ;; Grovel around in the function's constant pool looking for
+         ;; function-references.  These may be for #', but they're
+         ;; probably going to be for normal calls.
+         ;; TODO: This doesn't work well on interpreted functions or
+         ;; funcallable instances.
          (callees (remove-duplicates (get-all-frefs-in-function fn))))
     (loop
        for fref in callees
@@ -363,8 +375,12 @@
          ((typep fn 'mezzano.clos:standard-generic-function)
           (mezzano.clos:generic-function-lambda-list fn))
          (t
-          (sys.int::debug-info-lambda-list (sys.int::function-debug-info fn)))))
+          (function-lambda-list fn))))
       (t :not-available))))
+
+(defun function-lambda-list (function)
+  (sys.int::debug-info-lambda-list
+   (sys.int::function-debug-info function)))
 
 (defimplementation type-specifier-p (symbol)
   (cond
@@ -394,9 +410,11 @@
       (setf (getf result :variable) nil))
     (when (and (fboundp symbol)
                (not (macro-function symbol)))
-      (setf (getf result :function) (sys.int::debug-info-docstring (sys.int::function-debug-info (fdefinition symbol)))))
+      (setf (getf result :function)
+            (function-docstring symbol)))
     (when (fboundp `(setf ,symbol))
-      (setf (getf result :setf) (sys.int::debug-info-docstring (sys.int::function-debug-info (fdefinition `(setf ,symbol))))))
+      (setf (getf result :setf)
+            (function-docstring `(setf ,symbol))))
     (when (get symbol 'sys.int::setf-expander)
       (setf (getf result :setf) nil))
     (when (special-operator-p symbol)
@@ -410,6 +428,11 @@
     (when (find-class symbol nil)
       (setf (getf result :class) nil))
     result))
+
+(defun function-docstring (function-name)
+  (let* ((definition (fdefinition function-name))
+         (debug-info (sys.int::function-debug-info definition)))
+    (sys.int::debug-info-docstring debug-info)))
 
 ;;;; Multithreading
 
@@ -454,8 +477,8 @@
   (mezzano.supervisor:establish-thread-foothold thread fn))
 
 (defimplementation kill-thread (thread)
-  ;; Documentation says not to execute unwind-protected sections, but there's no
-  ;; way to do that.
+  ;; Documentation says not to execute unwind-protected sections, but there's
+  ;; no way to do that.
   ;; And killing threads at arbitrary points without unwinding them is a good
   ;; way to hose the system.
   (mezzano.supervisor:terminate-thread thread))
@@ -473,7 +496,8 @@
   ;; Use weak pointers to avoid holding on to dead threads forever.
   (mezzano.supervisor:with-mutex (*mailbox-lock*)
     ;; Flush forgotten threads.
-    (setf *mailboxes* (remove-if-not #'sys.int::weak-pointer-value *mailboxes*))
+    (setf *mailboxes*
+          (remove-if-not #'sys.int::weak-pointer-value *mailboxes*))
     (loop
        for entry in *mailboxes*
        do
@@ -511,7 +535,8 @@
        (sleep *receive-if-sleep-time*))))
 
 (defvar *registered-threads* (make-hash-table))
-(defvar *registered-threads-lock* (mezzano.supervisor:make-mutex "registered threads lock"))
+(defvar *registered-threads-lock*
+  (mezzano.supervisor:make-mutex "registered threads lock"))
 
 (defimplementation register-thread (name thread)
   (declare (type symbol name))
