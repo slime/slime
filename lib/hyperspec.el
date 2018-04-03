@@ -2501,6 +2501,7 @@ incompatibly-more-like-defclass+emphasize-read-only" "iss102.htm")
 ;;;
 ;;; 19990820 Marco Antoniotti
 
+;;;###autoload
 (defalias 'hyperspec-lookup 'common-lisp-hyperspec)
 (defalias 'hyperspec-lookup-reader-macro
   'common-lisp-hyperspec-lookup-reader-macro)

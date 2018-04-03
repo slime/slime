@@ -14,6 +14,7 @@
 (eval-and-compile
   (require 'slime))
 
+;;;###autoload
 (defun slime-scheme-mode-hook ()
   (slime-mode 1))
 
