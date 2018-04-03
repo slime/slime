@@ -1367,7 +1367,6 @@ Reconnect afterwards."
   "Test the README.md's autoload recipe."
   (slime-test-recipe-test-for
    :preflight `((add-to-list 'load-path ,slime-path)
-                (require 'slime-autoloads)
                 (setq inferior-lisp-program ,inferior-lisp-program)
                 (setq slime-contribs '(slime-fancy)))
    :takeoff `((call-interactively 'slime))
@@ -1402,8 +1401,7 @@ Reconnect afterwards."
 (define-slime-ert-test readme-recipe-autoload-on-lisp-visit ()
   "Test more autoload bits in README.md's installation recipe."
   (slime-test-recipe-test-for
-   :preflight `((add-to-list 'load-path ,slime-path)
-                (require 'slime-autoloads))
+   :preflight `((add-to-list 'load-path ,slime-path))
    :takeoff `((if (featurep 'slime)
                   (die "Didn't expect SLIME to be loaded so early!"))
               (find-file ,(make-temp-file "slime-lisp-source-file" nil

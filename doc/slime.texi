@@ -415,12 +415,13 @@ to add a few extra lines in your @file{.emacs}:
 @vindex inferior-lisp-program
 @vindex load-path
 @example
-;; @emph{Setup load-path, autoloads and your lisp system}
+;; @emph{Setup load-path and your lisp system}
 ;; @emph{Not needed if you install SLIME via MELPA}
 (add-to-list 'load-path "~/dir/to/cloned/slime")
-(require 'slime-autoloads)
 (setq inferior-lisp-program "/opt/sbcl/bin/sbcl")
 @end example
+
+You can generate autoloads via @code{update-directory-autoloads}.
 
 You may optionally byte-compile @SLIME{} using @code{make compile
 contrib-compile}.
@@ -463,12 +464,13 @@ Once you have the basic no-frills setup working, you can enhance your
 @SLIME{} installation with bundled extensions:
 
 @example
-;; @emph{Setup load-path, autoloads and your lisp system}
+;; @emph{Setup load-path and your lisp system}
 (add-to-list 'load-path "~/dir/to/cloned/slime")
-(require 'slime-autoloads)
 ;; @emph{Also setup the slime-fancy contrib}
 (add-to-list 'slime-contribs 'slime-fancy)
 @end example
+
+You can generate autoloads via @code{update-directory-autoloads}.
 
 See @pxref{Loading Contribs} for more information on @SLIME{}'s
 contrib system.
@@ -2169,9 +2171,10 @@ to load the @code{slime-scratch} and @code{slime-editing-commands}
 packages looks like:
 
 @example
-;; @emph{Setup load-path and autoloads}
+;; @emph{Setup load-path}
 (add-to-list 'load-path "~/dir/to/cloned/slime")
-(require 'slime-autoloads)
+
+You can generate autoloads via @code{update-directory-autoloads}.
 
 ;; @emph{Set your lisp system and some contribs}
 (setq inferior-lisp-program "/opt/sbcl/bin/sbcl")
