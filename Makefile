@@ -9,7 +9,7 @@ LISP=sbcl
 
 LOAD_PATH=-L .
 
-ELFILES := slime.el slime-autoloads.el slime-tests.el $(wildcard lib/*.el)
+ELFILES := slime.el slime-tests.el $(wildcard lib/*.el)
 ELCFILES := $(ELFILES:.el=.elc)
 
 default: compile contrib-compile
