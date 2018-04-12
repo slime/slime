@@ -13,6 +13,7 @@
 
 (in-package swank/clasp)
 
+#+(or)
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (setq swank::*log-output* (open "/tmp/slime.log" :direction :output))
   (setq swank:*log-events* t))
@@ -60,8 +61,8 @@
   ;; ECLs swank implementation says that CLOS is not thread safe and
   ;; I use ECLs CLOS implementation - this is a worry for the future.
   ;; nil or  :spawn
-;;  nil
- :spawn
+  ;; nil
+  :spawn
 #|  #+threads :spawn
   #-threads nil
 |#
@@ -535,7 +536,7 @@
     (nconc
      (loop for arg across (core::backtrace-frame-arguments frame)
            for i from 0
-           collect (list :name (intern (format nil "ARG~d" i) #.*package*)
+           collect (list :name (intern (format nil "ARG~d" i) :cl-user)
                          :id 0
                          :value arg))
      locals)))
@@ -553,8 +554,19 @@
     (disassemble fun)))
 
 (defimplementation eval-in-frame (form frame-number)
-  (let ((env nil)) ; (second (elt *backtrace* frame-number))))
-    (core:compile-form-and-eval-with-env form env)))
+  (let* ((frame (elt *backtrace* frame-number))
+         (raw-arg-values (coerce (core::backtrace-frame-arguments frame) 'list)))
+    (if (and (= (length raw-arg-values) 2) (core:vaslistp (car raw-arg-values)))
+        (let* ((arg-values (core:list-from-va-list (car raw-arg-values)))
+               (bindings (append (loop for i from 0 for value in arg-values collect `(,(intern (core:bformat nil "ARG%d" i) :cl-user) ',value))
+                                 (list (list (intern "NEXT-METHODS" :cl-user) (cadr raw-arg-values))))))
+          (eval
+           `(let (,@bindings) ,form)))
+        (let* ((arg-values raw-arg-values)
+               (bindings (loop for i from 0 for value in arg-values collect `(,(intern (core:bformat nil "ARG%d" i) :cl-user) ',value))))
+          (eval
+           `(let (,@bindings) ,form))))))
+
 
 #+clasp-working
 (defimplementation gdb-initial-commands ()
