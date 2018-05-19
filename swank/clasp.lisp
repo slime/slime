@@ -473,17 +473,22 @@
          (*tpl-level* (1+ *tpl-level*))
          (*backtrace* (core::common-lisp-backtrace-frames
                        :gather-start-trigger
-                       (lambda (frame) (string= (core::backtrace-frame-print-name frame)
-                                                "UNIVERSAL-ERROR-HANDLER"))
-                       :gather-all-frames t)))
+                       (lambda (frame)
+                         (let ((print-name (core::backtrace-frame-print-name frame)))
+                           (and (symbolp print-name)
+                                (eq print-name 'core::universal-error-handler))))
+                       :gather-all-frames nil)))
     (declare (special *ihs-current*))
-    #+frs    (loop for f from *frs-base* until *frs-top*
-                   do (let ((i (- (si::frs-ihs f) *ihs-base* 1)))
-                        (when (plusp i)
-                          (let* ((x (elt *backtrace* i))
-                                 (name (si::frs-tag f)))
-                            (unless (si::fixnump name)
-                              (push name (third x)))))))
+    ;;#+(or)
+    (progn
+      (format ext:+process-standard-output+ "--------------- call-with-debugging-environment -----------~%")
+      (format ext:+process-standard-output+ "(length *backtrace*) -> ~a ~%" (length *backtrace*))
+      (format ext:+process-standard-output+ "Raw backtrace length: ~a ~%" (length (core:clib-backtrace-as-list)))
+      (format ext:+process-standard-output+ "Common Lisp backtrace frames length: ~a ~%" (length (core::common-lisp-backtrace-frames)))
+      (loop for f in (core::common-lisp-backtrace-frames)
+            for id from 0
+            do (progn
+                 (format ext:+process-standard-output+ "Frame ~a:   (~a ~a)~%" id (core::backtrace-frame-print-name f) (core::backtrace-frame-arguments f)))))
     (set-break-env)
     (set-current-ihs)
     (let ((*ihs-base* *ihs-top*))
@@ -506,6 +511,10 @@
       (symbol
        (and (fboundp x)
             (fdefinition x)))
+      (cons
+       (if (eq (car x) 'cl:setf)
+           (fdefinition x)
+           nil))
       (function
        x))))
 
