@@ -434,11 +434,7 @@ OPTIONS are:
                                 ,@(cdr (assoc :eval options))))
                           ,documentation))
 
-(define-common-lisp-style "basic"
-  "This style merely gives all identation variables their default values,
-   making it easy to create new styles that are proof against user
-   customizations. It also adjusts comment indentation from default.
-   All other predefined modes inherit from basic."
+(define-common-lisp-style "basic-common"
   (:variables
    (lisp-indent-maximum-backtracking 6)
    (lisp-tag-indentation 1)
@@ -453,12 +449,39 @@ OPTIONS are:
    (lisp-lambda-list-keyword-parameter-indentation 2)
    (lisp-lambda-list-keyword-parameter-alignment nil)
    (lisp-indent-defun-method (4 &lambda &body))
-   ;; Without these (;;foo would get a space inserted between
-   ;; ( and ; by indent-sexp.
-   (comment-indent-function (lambda () nil))
    (lisp-loop-clauses-indentation 2)
    (lisp-loop-indent-body-forms-relative-to-loop-start nil)
    (lisp-loop-body-forms-indentation 3)))
+
+(define-common-lisp-style "basic-emacs25"
+  "This style adds a workaround needed for Emacs 25"
+  (:inherit "basic-common")
+  (:variables
+   ;; Without these (;;foo would get a space inserted between
+   ;; ( and ; by indent-sexp.
+   (comment-indent-function (lambda () nil))))
+
+(define-common-lisp-style "basic-emacs26"
+  "This style is the same as basic-common. It doesn't need or
+   want the workaround used in Emacs 25. In Emacs 26, that
+   workaround introduces a weird behavior where a single
+   semicolon breaks the mode and causes the cursor to move to the
+   start of the line after every character inserted."
+  (:inherit "basic-common"))
+
+(if (>= emacs-major-version 26)
+    (define-common-lisp-style "basic"
+      "This style merely gives all identation variables their default values,
+       making it easy to create new styles that are proof against user
+       customizations. It also adjusts comment indentation from default.
+       All other predefined modes inherit from basic."
+      (:inherit "basic-emacs26"))
+    (define-common-lisp-style "basic"
+      "This style merely gives all identation variables their default values,
+       making it easy to create new styles that are proof against user
+       customizations. It also adjusts comment indentation from default.
+       All other predefined modes inherit from basic."
+      (:inherit "basic-emacs25")))
 
 (define-common-lisp-style "classic"
   "This style of indentation emulates the most striking features of 1995
