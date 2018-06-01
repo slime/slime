@@ -1,4 +1,8 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
+* 2.21 (June 2018)
+*** Improved compatiblity with Emacs 26
+*** Mezzano support
+
 * 2.20 (August 2017)
 ** Core
 *** More secure handling of ~/.slime-secret
