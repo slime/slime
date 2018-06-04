@@ -72,13 +72,13 @@ use `slime-export-symbol-representation-function'.")
 
 (defun slime-find-possible-package-file (buffer-file-name)
   (cl-labels ((file-name-subdirectory (dirname)
-                                      (expand-file-name
-                                       (concat (file-name-as-directory (slime-to-lisp-filename dirname))
-                                               (file-name-as-directory ".."))))
+                                      (slime-from-lisp-filename
+                                       (expand-file-name
+                                        (concat (file-name-as-directory (slime-to-lisp-filename dirname))
+                                                (file-name-as-directory "..")))))
               (try (dirname)
                    (cl-dolist (package-file-name slime-package-file-candidates)
-                     (let ((f (slime-to-lisp-filename
-                               (concat dirname package-file-name))))
+                     (let ((f (concat dirname package-file-name)))
                        (when (file-readable-p f)
                          (cl-return f))))))
     (when buffer-file-name
