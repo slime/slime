@@ -288,7 +288,7 @@ symbol in the Lisp image if possible."
     (unless symbol (error "No symbol at point."))
     (cond (current-prefix-arg
            (if (cl-plusp (slime-frob-defpackage-form package :unexport symbol))
-               (message "Symbol `%s' no longer exported form `%s'"
+               (message "Symbol `%s' no longer exported from `%s'"
                         symbol package)
              (message "Symbol `%s' is not exported from `%s'"
                       symbol package))
