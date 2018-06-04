@@ -49,8 +49,9 @@ use `slime-export-symbol-representation-function'.")
         (while (re-search-forward slime-defpackage-regexp nil t)
           (when (slime-package-equal package (slime-sexp-at-point))
             (backward-sexp)
-            (cl-return (make-slime-file-location (buffer-file-name)
-                                                 (1- (point))))))))))
+            (cl-return (make-slime-file-location
+                        (slime-to-lisp-filename (buffer-file-name)) 
+                        (1- (point))))))))))
 
 (defun slime-package-equal (designator1 designator2)
   ;; First try to be lucky and compare the strings themselves (for the
