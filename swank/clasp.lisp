@@ -314,7 +314,7 @@
                (multiple-value-setq (fasl-file warnings-p failure-p)
                  (let ((truename (or filename (note-buffer-tmpfile tmp-file buffer))))
                    (compile-file tmp-file
-                                 :source-debug-namestring truename
+                                 :source-debug-file-name truename
                                  :source-debug-offset (1- position)))))
           (when fasl-file (load fasl-file))
           (when (probe-file tmp-file)
@@ -479,7 +479,7 @@
                                 (eq print-name 'core::universal-error-handler))))
                        :gather-all-frames nil)))
     (declare (special *ihs-current*))
-    ;;#+(or)
+    #+(or)
     (progn
       (format ext:+process-standard-output+ "--------------- call-with-debugging-environment -----------~%")
       (format ext:+process-standard-output+ "(length *backtrace*) -> ~a ~%" (length *backtrace*))
