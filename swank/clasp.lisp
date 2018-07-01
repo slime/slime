@@ -314,7 +314,7 @@
                (multiple-value-setq (fasl-file warnings-p failure-p)
                  (let ((truename (or filename (note-buffer-tmpfile tmp-file buffer))))
                    (compile-file tmp-file
-                                 :source-debug-file-name truename
+                                 :source-debug-pathname (pathname truename)
                                  :source-debug-offset (1- position)))))
           (when fasl-file (load fasl-file))
           (when (probe-file tmp-file)
