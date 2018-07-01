@@ -452,7 +452,8 @@ joined together."))
   ("\C-c\C-n" 'slime-repl-next-prompt)
   ("\C-c\C-p" 'slime-repl-previous-prompt)
   ("\C-c\C-z" 'slime-nop)
-  ("\C-cI" 'slime-repl-inspect))
+  ("\C-cI" 'slime-repl-inspect)
+  ("\C-x\C-e" 'slime-eval-last-expression))
 
 (slime-define-keys slime-inspector-mode-map
   ((kbd "M-RET") 'slime-inspector-copy-down-to-repl))
