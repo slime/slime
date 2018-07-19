@@ -3,7 +3,7 @@
 ;; URL: https://github.com/slime/slime
 ;; Package-Requires: ((cl-lib "0.5") (macrostep "0.9"))
 ;; Keywords: languages, lisp, slime
-;; Version: 2.21
+;; Version: 2.22
 
 ;;;; License and Commentary
 
