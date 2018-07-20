@@ -464,6 +464,7 @@
 ;;      (declare (ignore position))
 ;;      (if file (is-swank-source-p file)))))
 
+(defparameter *saved-backtrace* nil)
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
   (let* ((*ihs-top* 0)
@@ -471,14 +472,19 @@
          #+frs         (*frs-base* (or (sch-frs-base *frs-top* *ihs-base*) (1+ (frs-top))))
          #+frs         (*frs-top* (frs-top))
          (*tpl-level* (1+ *tpl-level*))
-         (*backtrace* (core::common-lisp-backtrace-frames
-                       :gather-start-trigger
-                       (lambda (frame)
-                         (let ((print-name (core::backtrace-frame-print-name frame)))
-                           (and (symbolp print-name)
-                                (eq print-name 'core::universal-error-handler))))
-                       :gather-all-frames nil)))
+         (*backtrace* (let ((backtrace (core::common-lisp-backtrace-frames
+                                        :gather-start-trigger
+                                        (lambda (frame)
+                                          (let ((function-name (core::backtrace-frame-function-name frame)))
+                                            (and (symbolp function-name)
+                                                 (eq function-name 'core::universal-error-handler))))
+                                        :gather-all-frames nil)))
+                        (unless backtrace
+                          (setq backtrace (core::common-lisp-backtrace-frames
+                                           :gather-all-frames nil)))
+                        backtrace)))
     (declare (special *ihs-current*))
+    (setq *saved-backtrace* *backtrace*)
     #+(or)
     (progn
       (format ext:+process-standard-output+ "--------------- call-with-debugging-environment -----------~%")
