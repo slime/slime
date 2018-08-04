@@ -31,7 +31,7 @@
         (cl-decf depth)
         (push (nreverse cursexp) (car sexps)))
        ;; Start of a new sexp?
-       ((looking-at "\\s'*\\s(")
+       ((looking-at "\\s'*@*\\s(")
         (let ((subpt (match-end 0)))
           (ignore-errors
             (forward-sexp)
