@@ -156,7 +156,7 @@ If it's not in the cache, the cache will be updated asynchronously."
     (slime-curry #'slime-autodoc--async% context multilinep)))
 
 (defun slime-autodoc--async% (context multilinep doc)
-  (cl-destructuring-bind (doc cache-p) doc
+  (cl-destructuring-bind (doc &optional cache-p) doc
     (unless (eq doc :not-available)
       (when cache-p
 	(slime-autodoc--cache-put context doc))
