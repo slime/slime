@@ -2963,7 +2963,16 @@ If non-nil, called with two arguments SPEC and TRACED-P." )
     (do-find (string-left-trim *find-definitions-left-trim* name))
     (do-find (string-left-trim *find-definitions-left-trim*
                                (string-right-trim
-                                *find-definitions-right-trim* name)))))
+                                *find-definitions-right-trim* name)))
+    ;; Not exactly robust
+    (when (and (eql (search "(setf " name :test #'char-equal) 0)
+               (char= (char name (1- (length name))) #\)))
+      (multiple-value-bind (symbol found)
+          (with-buffer-syntax ()
+            (parse-symbol (subseq name (length "(setf ")
+                                  (1- (length name)))))
+        (when found
+          (values `(setf ,symbol) t))))))
 
 (defslimefun find-definitions-for-emacs (name)
   "Return a list ((DSPEC LOCATION) ...) of definitions for NAME.
