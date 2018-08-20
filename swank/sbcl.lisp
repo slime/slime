@@ -520,11 +520,11 @@ information."
                       (reader-error         :read-error)
                       (error                :error)
                       #+#.(swank/backend:with-symbol early-deprecation-warning sb-ext)
-                      (sb-ext:early-deprecation-warning :early-deprecation-warning)
+                      (sb-ext::early-deprecation-warning :early-deprecation-warning)
                       #+#.(swank/backend:with-symbol late-deprecation-warning sb-ext)
-                      (sb-ext:late-deprecation-warning :late-deprecation-warning)
+                      (sb-ext::late-deprecation-warning :late-deprecation-warning)
                       #+#.(swank/backend:with-symbol final-deprecation-warning sb-ext)
-                      (sb-ext:final-deprecation-warning :final-deprecation-warning)
+                      (sb-ext::final-deprecation-warning :final-deprecation-warning)
                       #+#.(swank/backend:with-symbol redefinition-warning
                             sb-kernel)
                       (sb-kernel:redefinition-warning
