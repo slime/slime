@@ -6714,9 +6714,13 @@ See `def-slime-selector-method' for defining new methods."
   (message "Select [%s]: "
            (apply #'string (mapcar #'car slime-selector-methods)))
   (let* ((slime-selector-other-window other-window)
-         (ch (save-window-excursion
-               (select-window (minibuffer-window))
-               (read-char)))
+         (sequence (save-window-excursion
+                    (select-window (minibuffer-window))
+                    (key-description (read-key-sequence nil))))
+         (ch (cond ((= (length sequence) 1)
+                    (elt sequence 0))
+                   ((= (length sequence) 3)
+                    (elt sequence 2))))
          (method (cl-find ch slime-selector-methods :key #'car)))
     (cond (method
            (funcall (cl-third method)))
