@@ -6717,7 +6717,11 @@ See `def-slime-selector-method' for defining new methods."
          (sequence (save-window-excursion
                     (select-window (minibuffer-window))
                     (key-description (read-key-sequence nil))))
-         (ch (cond ((= (length sequence) 1)
+         (ch (cond ((equal sequence "C-g")
+                    (keyboard-quit))
+                   ((equal sequence "TAB")
+                    ?i)
+                   ((= (length sequence) 1)
                     (elt sequence 0))
                    ((= (length sequence) 3)
                     (elt sequence 2))))
