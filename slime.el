@@ -509,6 +509,9 @@ information."
                 " "
                 ;; ignore errors for closed connections
                 (ignore-errors (slime-connection-name conn))
+                (let ((tag (slime-connection-tag conn)))
+                  (if (and tag (not (string= tag "")))
+                      (concat " [" tag "]") ""))
                 (slime-modeline-state-string conn)
                 (if local "}" "]"))))))
 
@@ -1024,7 +1027,16 @@ The rules for selecting the arguments are rather complicated:
                                                (list (symbol-name (car x))))
                                              table)
                        nil t)))
-             (slime-lookup-lisp-implementation table (intern key))))
+             (slime-lookup-lisp-implementation table (intern key) "")))
+          ((eq current-prefix-arg '-2)
+           (let ((key (completing-read
+                       "Lisp name: " (mapcar (lambda (x)
+                                               (list (symbol-name (car x))))
+                                             table)
+                       nil t))
+                 (tag (read-from-minibuffer
+                       "Tag: " "")))
+             (slime-lookup-lisp-implementation table (intern key) tag)))
           (t
            (cl-destructuring-bind (program &rest program-args)
                (split-string-and-unquote
@@ -1048,7 +1060,7 @@ The rules for selecting the arguments are rather complicated:
                  (split-string inferior-lisp-program)
                (list :program program :program-args args))))))
 
-(defun slime-lookup-lisp-implementation (table name)
+(defun slime-lookup-lisp-implementation (table name &optional tag)
   (let ((arguments (cl-rest (assoc name table))))
     (unless arguments
       (error "Could not find lisp implementation with the name '%S'" name))
@@ -1056,7 +1068,7 @@ The rules for selecting the arguments are rather complicated:
                (functionp (cl-first arguments)))
       (setf arguments (funcall (cl-first arguments))))
     (cl-destructuring-bind ((prog &rest args) &rest keys) arguments
-      (cl-list* :name name :program prog :program-args args keys))))
+      (cl-list* :name name :program prog :program-args args :tag tag keys))))
 
 (cl-defun slime-start (&key (program inferior-lisp-program) program-args
                             directory
@@ -1065,7 +1077,8 @@ The rules for selecting the arguments are rather complicated:
                             name
                             (buffer "*inferior-lisp*")
                             init-function
-                            env)
+                            env
+                            (tag slime-connection-default-tag))
   "Start a Lisp process and connect to it.
 This function is intended for programmatic use if `slime' is not
 flexible enough.
@@ -1082,6 +1095,7 @@ INIT-FUNCTION function to call right after the connection is established.
 BUFFER the name of the buffer to use for the subprocess.
 NAME a symbol to describe the Lisp implementation
 DIRECTORY change to this directory before starting the process.
+TAG tag Lisp connection.
 "
   (let ((args (list :program program :program-args program-args :buffer buffer
                     :coding-system coding-system :init init :name name
@@ -1091,13 +1105,13 @@ DIRECTORY change to this directory before starting the process.
       (slime-urge-bytecode-recompile))
     (let ((proc (slime-maybe-start-lisp program program-args env
                                         directory buffer)))
-      (slime-inferior-connect proc args)
+      (slime-inferior-connect proc args :tag tag)
       (pop-to-buffer (process-buffer proc)))))
 
 (defun slime-start* (options)
   (apply #'slime-start options))
 
-(defun slime-connect (host port &optional _coding-system interactive-p)
+(defun slime-connect (host port &key tag &optional _coding-system interactive-p)
   "Connect to a running Swank server. Return the connection."
   (interactive (list (read-from-minibuffer
                       "Host: " (cl-first slime-connect-host-history)
@@ -1115,7 +1129,7 @@ DIRECTORY change to this directory before starting the process.
   (message "Connecting to Swank on port %S.." port)
   (let* ((process (slime-net-connect host port))
          (slime-dispatching-connection process))
-    (slime-setup-connection process)))
+    (slime-setup-connection process :tag tag)))
 
 ;; FIXME: seems redundant
 (defun slime-start-and-init (options fun)
@@ -1218,11 +1232,11 @@ Return the created process."
       (run-hooks 'slime-inferior-process-start-hook)
       proc)))
 
-(defun slime-inferior-connect (process args)
+(defun slime-inferior-connect (process args &key tag)
   "Start a Swank server in the inferior Lisp and connect."
   (slime-delete-swank-port-file 'quiet)
   (slime-start-swank-server process args)
-  (slime-read-port-and-connect process))
+  (slime-read-port-and-connect process :tag tag))
 
 (defvar slime-inferior-lisp-args nil
   "A buffer local variable in the inferior proccess.
@@ -1279,10 +1293,10 @@ See `slime-start'."
        (message (message "Unable to delete swank port file %S"
                          (slime-swank-port-file)))))))
 
-(defun slime-read-port-and-connect (inferior-process)
-  (slime-attempt-connection inferior-process nil 1))
+(defun slime-read-port-and-connect (inferior-process &key tag)
+   (slime-attempt-connection inferior-process nil 1 :tag tag))
 
-(defun slime-attempt-connection (process retries attempt)
+(defun slime-attempt-connection (process retries attempt &key tag)
   ;; A small one-state machine to attempt a connection with
   ;; timer-based retries.
   (slime-cancel-connect-retry-timer)
@@ -1296,6 +1310,7 @@ See `slime-start'."
                  (args (slime-inferior-lisp-args process)))
              (slime-delete-swank-port-file 'message)
              (let ((c (slime-connect slime-lisp-host port
+                                     :tag tag
                                      (plist-get args :coding-system))))
                (slime-set-inferior-process c process))))
           ((and retries (zerop retries))
@@ -1314,7 +1329,8 @@ See `slime-start'."
                   0.3 nil
                   #'slime-timer-call #'slime-attempt-connection
                   process (and retries (1- retries))
-                  (1+ attempt)))))))
+                  (1+ attempt)
+                  :tag tag))))))
 
 (defun slime-timer-call (fun &rest args)
   "Call function FUN with ARGS, reporting all errors.
@@ -1391,6 +1407,9 @@ The default condition handler for timer functions (see
 
 (defvar slime-net-processes nil
   "List of processes (sockets) connected to Lisps.")
+
+(defvar slime-connection-default-tag ""
+  "Default tag applied to Lisp connections.")
 
 (defvar slime-net-process-close-hooks '()
   "List of functions called when a slime network connection closes.
@@ -1729,9 +1748,12 @@ This doesn't mean it will connect right after Slime is loaded."
          (next (car tail)))
     (slime-select-connection next)
     (run-hooks 'slime-cycle-connections-hook)
-    (message "Lisp: %s %s"
+    (message "Lisp: %s %s %s"
              (slime-connection-name next)
-             (process-contact next))))
+             (process-contact next)
+             (let ((tag (slime-connection-tag next)))
+               (if (and tag (not (string= tag "")))
+                   (concat "[" tag "]") "")))))
 
 (defun slime-next-connection ()
   "Change current slime connection, cycling through all connections."
@@ -1813,6 +1835,9 @@ This is automatically synchronized from Lisp.")
 (slime-def-connection-var slime-connection-name nil
   "The short name for connection.")
 
+(slime-def-connection-var slime-connection-tag ""
+  "The optional tag to distinguish between connections.")
+
 (slime-def-connection-var slime-inferior-process nil
   "The inferior process for the connection if any.")
 
@@ -1831,11 +1856,13 @@ This is automatically synchronized from Lisp.")
   "The number of SLIME connections made. For generating serial numbers.")
 
 ;;; Interface
-(defun slime-setup-connection (process)
+(defun slime-setup-connection (process &tag tag)
   "Make a connection out of PROCESS."
   (let ((slime-dispatching-connection process))
     (slime-init-connection-state process)
     (slime-select-connection process)
+    (run-with-timer 1 nil 
+                    #'slime-connection-change-tag process tag)
     process))
 
 (defun slime-init-connection-state (proc)
@@ -6215,7 +6242,8 @@ was called originally."
   ("d"         'slime-connection-list-make-default)
   ("g"         'slime-update-connection-list)
   ((kbd "C-k") 'slime-quit-connection-at-point)
-  ("R"         'slime-restart-connection-at-point))
+  ("R"         'slime-restart-connection-at-point)
+  ("t"         'slime-connection-list-change-tag))
 
 (defun slime-connection-at-point ()
   (or (get-text-property (point) 'slime-connection)
@@ -6244,6 +6272,32 @@ was called originally."
   (slime-select-connection (slime-connection-at-point))
   (slime-update-connection-list))
 
+(defun slime-repl-buffer-name (&optional connection)
+  "Generate a name string for the REPL buffer."
+  (format "*slime-repl %s%s*"
+	  (slime-connection-name connection)
+	  (let ((tag (slime-connection-tag connection)))
+	    (if (and tag (not (string= tag "")))
+		(concat " [" tag "]") ""))))
+
+(defun slime-connection-list-change-tag ()
+  "When in the *slime-connections* buffer, change tag of the
+   process at point."
+  (interactive)
+  (let* ((connection (slime-connection-at-point))
+         (tag (read-from-minibuffer
+               "Tag: " (slime-connection-tag connection) nil nil nil nil)))
+    (slime-connection-change-tag connection tag)
+    (slime-update-connection-list)))
+
+(defun slime-connection-change-tag (connection tag)
+  "Attach TAG to CONNECTION."
+  (let ((repl-buffer (slime-connection-output-buffer connection)))
+    (setf (slime-connection-tag connection) tag)
+    (with-current-buffer (buffer-name repl-buffer)
+      (rename-buffer (slime-repl-buffer-name connection)))
+    ))
+
 (defvar slime-connections-buffer-name (slime-buffer-name :connections))
 
 (defun slime-list-connections ()
@@ -6265,9 +6319,9 @@ was called originally."
 (defun slime-draw-connection-list ()
   (let ((default-pos nil)
         (default slime-default-connection)
-        (fstring "%s%2s  %-10s  %-17s  %-7s %-s\n"))
-    (insert (format fstring " " "Nr" "Name" "Port" "Pid" "Type")
-            (format fstring " " "--" "----" "----" "---" "----"))
+        (fstring "%s%2s  %-10s  %-10s  %-17s  %-7s %-s\n"))
+    (insert (format fstring " " "Nr" "Name" "Tag" "Port" "Pid" "Type")
+            (format fstring " " "--" "----" "---" "----" "---" "----"))
     (dolist (p (reverse slime-net-processes))
       (when (eq default p) (setf default-pos (point)))
       (slime-insert-propertized
@@ -6276,6 +6330,7 @@ was called originally."
                (if (eq default p) "*" " ")
                (slime-connection-number p)
                (slime-connection-name p)
+               (slime-connection-tag p)
                (or (process-id p) (process-contact p))
                (slime-pid p)
                (slime-lisp-implementation-type p))))
@@ -6814,6 +6869,7 @@ switch-to-buffer."
   (slime-next-connection)
   (concat "*slime-repl "
           (slime-connection-name (slime-current-connection))
+          " [" (slime-connection-tag (slime-current-connection)) "]"
           "*"))
 
 (def-slime-selector-method ?p
@@ -6821,6 +6877,7 @@ switch-to-buffer."
   (slime-prev-connection)
   (concat "*slime-repl "
           (slime-connection-name (slime-current-connection))
+          " [" (slime-connection-tag (slime-current-connection)) "]"
           "*"))
 
 (def-slime-selector-method ?t
