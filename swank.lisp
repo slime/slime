@@ -1011,14 +1011,14 @@ The processing is done in the extent of the toplevel restart."
   "Handle an event triggered either by Emacs or within Lisp."
   (log-event "dispatch-event: ~s~%" event)
   (dcase event
-    ((:emacs-rex form package thread-id id)
+    ((:emacs-rex form package thread-id continuation-id)
      (let ((thread (thread-for-evaluation connection thread-id)))
        (cond (thread
               (add-active-thread connection thread)
-              (send-event thread `(:emacs-rex ,form ,package ,id)))
+              (send-event thread `(:emacs-rex ,form ,package ,continuation-id)))
              (t
-              (encode-message 
-               (list :invalid-rpc id
+              (encode-message
+               (list :invalid-rpc continuation-id
                      (format nil "Thread not found: ~s" thread-id))
                (current-socket-io))))))
     ((:return thread &rest args)

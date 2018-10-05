@@ -2211,9 +2211,10 @@ Debugged requests are ignored."
           ((:emacs-rex form package thread continuation)
            (when (and (slime-use-sigint-for-interrupt) (slime-busy-p))
              (slime-display-oneliner "; pipelined request... %S" form))
-           (let ((id (cl-incf (slime-continuation-counter))))
-             (slime-send `(:emacs-rex ,form ,package ,thread ,id))
-             (push (cons id continuation) (slime-rex-continuations))
+           (let ((continuation-id (cl-incf (slime-continuation-counter))))
+             (slime-send `(:emacs-rex ,form ,package ,thread ,continuation-id))
+             (push (cons continuation-id continuation)
+                   (slime-rex-continuations))
              (slime--recompute-modelines)))
           ((:return value id)
            (let ((rec (assq id (slime-rex-continuations))))
@@ -3710,7 +3711,8 @@ If there's no name at point, or a prefix argument is given, then the
 function name is prompted."
   (interactive (list (or (and (not current-prefix-arg)
                               (slime-symbol-at-point))
-                         (slime-read-symbol-name "Edit Definition of: "))))
+                         (slime-read-symbol-name (format "Edit definition of (in %s): "
+                                                         (slime-current-package))))))
   ;; The hooks might search for a name in a different manner, so don't
   ;; ask the user if it's missing before the hooks are run
   (or (run-hook-with-args-until-success 'slime-edit-definition-hooks
@@ -4129,7 +4131,8 @@ Edit the value of a setf'able form in a new buffer.
 The value is inserted into a temporary buffer for editing and then set
 in Lisp when committed with \\[slime-edit-value-commit]."
   (interactive
-   (list (slime-read-from-minibuffer "Edit value (evaluated): "
+   (list (slime-read-from-minibuffer (format "Edit value (evaluated in %s): "
+                                             (slime-current-package))
 				     (slime-sexp-at-point))))
   (slime-eval-async `(swank:value-for-editing ,form-string)
     (lexical-let ((form-string form-string)
@@ -5802,7 +5805,8 @@ VAR should be a plist with the keys :name, :id, and :value."
 (defun sldb-inspect-in-frame (string)
   "Prompt for an expression and inspect it in the selected frame."
   (interactive (list (slime-read-from-minibuffer
-                      "Inspect in frame (evaluated): "
+                      (format "Inspect in frame (evaluated in %s): "
+                              (slime-current-package))
                       (slime-sexp-at-point))))
   (let ((number (sldb-frame-number-at-point)))
     (slime-eval-async `(swank:inspect-in-frame ,string ,number)
@@ -6901,7 +6905,8 @@ is setup, unless the user already set one explicitly."
       ;; in the attempt to load modules concurrently which may not be
       ;; supported by the host Lisp.
       (setf (slime-lisp-modules)
-            (slime-eval `(swank:swank-require ',needed))))))
+            (slime-eval `(cl:with-simple-restart (cl:continue "Skip loading Swank module ~S" ',needed)
+                           (swank:swank-require ',needed)))))))
 
 (cl-defstruct slime-contrib
   name
