@@ -119,24 +119,23 @@ terminates a current completion."
        (equal (buffer-name (window-buffer slime-completions-window))
               slime-completions-buffer-name)))
 
-(defun slime-display-completion-list (completions base)
+(defun slime-display-completion-list (completions start end)
   (let ((savedp (slime-complete-maybe-save-window-configuration)))
     (with-output-to-temp-buffer slime-completions-buffer-name
       (display-completion-list completions)
-      (let ((offset (- (point) 1 (length base))))
-        (with-current-buffer standard-output
-          (setq completion-base-position offset)
-          (set-syntax-table lisp-mode-syntax-table))))
+      (with-current-buffer standard-output
+        (setq completion-base-position (list start end))
+        (set-syntax-table lisp-mode-syntax-table)))
     (when savedp
       (setq slime-completions-window
             (get-buffer-window slime-completions-buffer-name)))))
 
-(defun slime-display-or-scroll-completions (completions base)
+(defun slime-display-or-scroll-completions (completions start end)
   (cond ((and (eq last-command this-command)
               (slime-completion-window-active-p))
          (slime-scroll-completions))
         (t
-         (slime-display-completion-list completions base)))
+         (slime-display-completion-list completions start end)))
   (slime-complete-delay-restoration))
 
 (defun slime-scroll-completions ()
@@ -213,8 +212,9 @@ terminates a current completion."
 			       minimizing (or (cl-mismatch completed-prefix c)
                                               (length completed-prefix)))))
 		 (goto-char (+ beg unambiguous-completion-length))))
-             (slime-display-or-scroll-completions completion-set 
-                                                  completed-prefix))))))
+             (slime-display-or-scroll-completions completion-set
+                                                  beg
+                                                  (max (point) end)))))))
 
 (defun slime-complete-symbol*-fancy-bit ()
   "Do fancy tricks after completing a symbol.
