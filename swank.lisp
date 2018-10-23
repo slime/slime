@@ -1367,13 +1367,13 @@ entered nothing, returns NIL when user pressed C-g."
                                            ,prompt ,initial-value))
     (third (wait-for-event `(:emacs-return ,tag result)))))
 
-(defstruct (unredable-result
-            (:constructor make-unredable-result (string))
+(defstruct (unreadable-result
+            (:constructor make-unreadable-result (string))
             (:copier nil)
             (:print-object
              (lambda (object stream)
                (print-unreadable-object (object stream :type t)
-                 (princ (unredable-result-string object) stream)))))
+                 (princ (unreadable-result-string object) stream)))))
   string)
 
 (defun process-form-for-emacs (form)
@@ -1410,7 +1410,7 @@ converted to lower case."
 				  ,(process-form-for-emacs form)))
 	   (let ((value (caddr (wait-for-event `(:emacs-return ,tag result)))))
 	     (dcase value
-               ((:unreadable value) (make-unredable-result value))
+               ((:unreadable value) (make-unreadable-result value))
 	       ((:ok value) value)
                ((:error kind . data) (error "~a: ~{~a~}" kind data))
 	       ((:abort) (abort))))))))

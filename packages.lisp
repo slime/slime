@@ -188,9 +188,9 @@
            #:*find-definitions-right-trim*
            #:*find-definitions-left-trim*
            #:*after-toggle-trace-hook*
-           #:unredable-result
-           #:unredable-result-p
-           #:unredable-result-string
+           #:unreadable-result
+           #:unreadable-result-p
+           #:unreadable-result-string
            #:parse-string
            #:from-string
            #:to-string
