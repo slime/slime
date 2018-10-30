@@ -418,7 +418,7 @@
                  (let ((start (if (consp pos) ; 8.2 and newer
                                   (car pos)
                                   pos)))
-                   (values file (1+ start))))))))))
+                   (values file start)))))))))
 
 (defun compiler-warning-location (condition)
   (multiple-value-bind (pathname position)
@@ -427,12 +427,15 @@
            (make-location
             (list :buffer *buffer-name*)
             (if position
-                (list :position position)
+                (list :offset 1 (1- position))
                 (list :offset *buffer-start-position* 0))))
           (pathname
            (make-location
             (list :file (namestring (truename pathname)))
-            (list :position position)))
+            #+(version>= 10 1)
+            (list :offset 1 position)
+            #-(version>= 10 1)
+            (list :position (1+ position))))
           (t
            (make-error-location "No error location available.")))))
 
@@ -595,7 +598,7 @@ to do this, this factors in the length of the inserted header itself."
          (start (and part
                      (scm::source-part-start part)))
          (pos (if start
-                  (list :position (1+ start))
+                  (list :offset 1 start)
                   (list :function-name (string (fspec-primary-name fspec))))))
     (make-location (list :file (namestring (truename file)))
                    pos)))
