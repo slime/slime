@@ -5228,6 +5228,21 @@ The chosen buffer the default connection's it if exists."
                     (and (eq slime-buffer-connection connection)
                          sldb-continuations))))
 
+(defun sldb--display-buffer-reuse-last-window (buffer _alist)
+  (let ((window
+         (get-window-with-predicate (lambda (w)
+                                      (window-parameter w 'sldb-last-window)))))
+    (when (and window
+               (not (with-current-buffer (window-buffer window)
+                      (derived-mode-p 'sldb-mode))))
+      (display-buffer-record-window 'reuse window buffer)
+      (set-window-buffer window buffer)
+      window)))
+
+(defun sldb-display-buffer (buffer)
+  "Pop to BUFFER reusing the last SLDB window, if any."
+  (pop-to-buffer buffer '(sldb--display-buffer-reuse-last-window)))
+
 (defun sldb-setup (thread level condition restarts frames conts)
   "Setup a new SLDB buffer.
 CONDITION is a string describing the condition to debug.
@@ -5264,7 +5279,7 @@ CONTS is a list of pending Emacs continuations."
       (set-syntax-table lisp-mode-syntax-table))
     ;; FIXME: remove when dropping Emacs23 support
     (let ((saved (selected-window)))
-      (pop-to-buffer (current-buffer))
+      (sldb-display-buffer (current-buffer))
       (set-window-parameter (selected-window) 'sldb-restore saved))
     (unless noninteractive ; needed for tests in batch-mode
       (slime--display-region (point-min) (point)))
@@ -5293,6 +5308,12 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
     ((:ok result)
      (apply #'sldb-setup thread level result))))
 
+(defun sldb--mark-last-window (window)
+  (dolist (window (window-list))
+    (when (window-parameter window 'sldb-last-window)
+      (set-window-parameter window 'sldb-last-window nil)))
+  (set-window-parameter (selected-window) 'sldb-last-window t))
+
 (defun sldb-exit (thread _level &optional stepping)
   "Exit from the debug level LEVEL."
   (let ((sldb (sldb-find-buffer thread)))
@@ -5306,6 +5327,7 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
                ;; non-interactive exit, we just kill the sldb buffer.
                (kill-buffer))
               (t
+               (sldb--mark-last-window (selected-window))
                ;; An interactive exit should restore configuration per
                ;; `quit-window's protocol. FIXME: remove
                ;; `previous-window' hack when dropping Emacs23 support
