@@ -298,10 +298,10 @@ says that I am starting to print an object with this id. The second says I am fi
       (when (eq (fdefinition 'sb-impl::%print-unreadable-object)
 		*saved-%print-unreadable-object*)
 	(setf (fdefinition 'sb-impl::%print-unreadable-object)
-	      (lambda (object stream type identity &optional body)
+	      (lambda (object stream &rest args)
 		(presenting-object object stream
-		  (funcall *saved-%print-unreadable-object*
-			   object stream type identity body)))))
+                  (apply *saved-%print-unreadable-object*
+                         object stream args)))))
       (defmethod print-object :around ((object pathname) stream)
 	(presenting-object object stream
 	  (call-next-method))))))
