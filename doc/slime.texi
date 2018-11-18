@@ -2197,7 +2197,7 @@ If you like what you see try this:
 
 We recommend that you setup contribs @emph{before} starting @SLIME{} via
 @kbd{M-x slime}, but if you want to enable more contribs @emph{after}
-you that, you can set the @code{slime-contribs} variable to another
+you do that, you can set the @code{slime-contribs} variable to another
 value and call @code{M-x slime-setup}. Note this though:
 
 @itemize @bullet
