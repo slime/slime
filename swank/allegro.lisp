@@ -406,9 +406,12 @@
     (cond (location-available
            (values (excl::source-context-pathname context)
                    (when-let (start-char (excl::source-context-start-char context))
-                     (1+ (if (listp start-char) ; HACK
-                             (first start-char)
-                             start-char)))))
+                     (let ((position (if (listp start-char) ; HACK
+                                         (first start-char)
+                                         start-char)))
+                       (if (typep condition 'excl::compiler-free-reference-warning)
+                           position
+                           (1+ position))))))
           ((typep condition 'reader-error)
            (let ((pos  (car (last (slot-value condition 'excl::format-arguments))))
                  (file (pathname (stream-error-stream condition))))
