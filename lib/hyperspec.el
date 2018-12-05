@@ -1237,8 +1237,8 @@ If you copy the HyperSpec to another location, customize the variable
 	char-at-point
       (completing-read
        "Look up format control character in Common Lisp HyperSpec: "
-       common-lisp-hyperspec--format-characters nil #'boundp
-       nil nil 'common-lisp-hyperspec-format-history))))
+       common-lisp-hyperspec--format-characters nil t nil
+       'common-lisp-hyperspec-format-history))))
 
 (defun common-lisp-hyperspec-format (character-name)
   (interactive (list (common-lisp-hyperspec--read-format-character)))
@@ -2492,6 +2492,9 @@ incompatibly-more-like-defclass+emphasize-read-only" "iss102.htm")
   (let ((entry (gethash (downcase issue-name)
 			common-lisp-hyperspec--issuex-symbols)))
     (concat common-lisp-hyperspec-root "Issues/" entry)))
+
+(defun common-lisp-special-operator (name)
+  (format "%sBody/s_%s.htm" common-lisp-hyperspec-root name))
 
 ;;; Added the following just to provide a common entry point according
 ;;; to the various 'hyperspec' implementations.

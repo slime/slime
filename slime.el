@@ -3,7 +3,7 @@
 ;; URL: https://github.com/slime/slime
 ;; Package-Requires: ((cl-lib "0.5") (macrostep "0.9"))
 ;; Keywords: languages, lisp, slime
-;; Version: 2.20
+;; Version: 2.22
 
 ;;;; License and Commentary
 
@@ -197,7 +197,7 @@ The default is nil, as this feature can be a security risk."
   :type '(boolean)
   :group 'slime-lisp)
 
-(defcustom slime-lisp-host "127.0.0.1"
+(defcustom slime-lisp-host "localhost"
   "The default hostname (or IP address) to connect to."
   :type 'string
   :group 'slime-lisp)
@@ -324,6 +324,54 @@ Works like `completion-at-point-functions'.
      (:underline "light goldenrod"))
     (t (:underline t)))
   "Face for notes from the compiler."
+  :group 'slime-mode-faces)
+
+(defface slime-early-deprecation-warning-face
+  `((((type graphic) (class color) (background light))
+     (:strike-through "brown"))
+    (((type graphic) (class color) (background dark))
+     (:strike-through "gold"))
+    (((type graphic))
+     (:strike-through t))
+    (((class color) (background light))
+     (:underline "brown"))
+    (((class color) (background dark))
+     (:underline "gold"))
+    (t
+     (:underline t)))
+  "Face for early deprecation warnings from the compiler."
+  :group 'slime-mode-faces)
+
+(defface slime-late-deprecation-warning-face
+  `((((type graphic) (class color) (background light))
+     (:strike-through "orange"))
+    (((type graphic) (class color) (background dark))
+     (:strike-through "coral"))
+    (((type graphic))
+     (:strike-through t))
+    (((class color) (background light))
+     (:underline "orange"))
+    (((class color) (background dark))
+     (:underline "coral"))
+    (t
+     (:underline t)))
+  "Face for late deprecation warnings from the compiler."
+  :group 'slime-mode-faces)
+
+(defface slime-final-deprecation-warning-face
+  `((((type graphic) (class color) (background light))
+     (:strike-through "red"))
+    (((type graphic) (class color) (background dark))
+     (:strike-through "red"))
+    (((type graphic))
+     (:strike-through t))
+    (((class color) (background light))
+     (:underline "red"))
+    (((class color) (background dark))
+     (:underline "red"))
+    (t
+     (:strike-through t)))
+  "Face for final deprecation warnings from the compiler."
   :group 'slime-mode-faces)
 
 (defface slime-highlight-face
@@ -496,8 +544,8 @@ information."
     ("\M-,"      slime-pop-find-definition-stack)
     ("\M-_"      slime-edit-uses)    ; for German layout
     ("\M-?"      slime-edit-uses)    ; for USian layout
-    ("\C-x4." 	 slime-edit-definition-other-window)
-    ("\C-x5." 	 slime-edit-definition-other-frame)
+    ("\C-x4."    slime-edit-definition-other-window)
+    ("\C-x5."    slime-edit-definition-other-frame)
     ("\C-x\C-e"  slime-eval-last-expression)
     ("\C-\M-x"   slime-eval-defun)
     ;; Include PREFIX keys...
@@ -2969,12 +3017,15 @@ Return nil if there's no useful source location."
                   (<= (max pos1 pos2) (line-end-position))))
 
 (defvar slime-severity-face-plist
-  '(:error         slime-error-face
-                   :read-error    slime-error-face
-                   :warning       slime-warning-face
-                   :redefinition  slime-style-warning-face
-                   :style-warning slime-style-warning-face
-                   :note          slime-note-face))
+  '(:error                     slime-error-face
+    :read-error                slime-error-face
+    :warning                   slime-warning-face
+    :redefinition              slime-style-warning-face
+    :style-warning             slime-style-warning-face
+    :early-deprecation-warning slime-early-deprecation-warning-face
+    :late-deprecation-warning  slime-late-deprecation-warning-face
+    :final-deprecation-warning slime-final-deprecation-warning-face
+    :note                      slime-note-face))
 
 (defun slime-severity-face (severity)
   "Return the name of the font-lock face representing SEVERITY."
@@ -2982,7 +3033,10 @@ Return nil if there's no useful source location."
       (error "No face for: %S" severity)))
 
 (defvar slime-severity-order
-  '(:note :style-warning :redefinition :warning :error :read-error))
+  '(:note
+    :early-deprecation-warning :style-warning :redefinition
+    :late-deprecation-warning :final-deprecation-warning
+    :warning :error :read-error))
 
 (defun slime-severity< (sev1 sev2)
   "Return true if SEV1 is less severe than SEV2."
@@ -3739,10 +3793,12 @@ FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
 
 (defun slime-pop-to-location (location &optional where)
   (slime-goto-source-location location)
-  (cl-ecase where
-    ((nil)     (switch-to-buffer (current-buffer)))
-    (window    (pop-to-buffer (current-buffer) t))
-    (frame     (let ((pop-up-frames t)) (pop-to-buffer (current-buffer) t)))))
+  (let ((point (point)))
+    (cl-ecase where
+      ((nil)  (switch-to-buffer (current-buffer)))
+      (window (pop-to-buffer (current-buffer) t))
+      (frame  (let ((pop-up-frames t)) (pop-to-buffer (current-buffer) t))))
+    (goto-char point)))
 
 (defun slime-postprocess-xref (original-xref)
   "Process (for normalization purposes) an Xref comming directly
@@ -5187,6 +5243,21 @@ The chosen buffer the default connection's it if exists."
                     (and (eq slime-buffer-connection connection)
                          sldb-continuations))))
 
+(defun sldb--display-buffer-reuse-last-window (buffer _alist)
+  (let ((window
+         (get-window-with-predicate (lambda (w)
+                                      (window-parameter w 'sldb-last-window)))))
+    (when (and window
+               (not (with-current-buffer (window-buffer window)
+                      (derived-mode-p 'sldb-mode))))
+      (display-buffer-record-window 'reuse window buffer)
+      (set-window-buffer window buffer)
+      window)))
+
+(defun sldb-display-buffer (buffer)
+  "Pop to BUFFER reusing the last SLDB window, if any."
+  (pop-to-buffer buffer '(sldb--display-buffer-reuse-last-window)))
+
 (defun sldb-setup (thread level condition restarts frames conts)
   "Setup a new SLDB buffer.
 CONDITION is a string describing the condition to debug.
@@ -5223,7 +5294,7 @@ CONTS is a list of pending Emacs continuations."
       (set-syntax-table lisp-mode-syntax-table))
     ;; FIXME: remove when dropping Emacs23 support
     (let ((saved (selected-window)))
-      (pop-to-buffer (current-buffer))
+      (sldb-display-buffer (current-buffer))
       (set-window-parameter (selected-window) 'sldb-restore saved))
     (unless noninteractive ; needed for tests in batch-mode
       (slime--display-region (point-min) (point)))
@@ -5252,6 +5323,12 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
     ((:ok result)
      (apply #'sldb-setup thread level result))))
 
+(defun sldb--mark-last-window (window)
+  (dolist (window (window-list))
+    (when (window-parameter window 'sldb-last-window)
+      (set-window-parameter window 'sldb-last-window nil)))
+  (set-window-parameter (selected-window) 'sldb-last-window t))
+
 (defun sldb-exit (thread _level &optional stepping)
   "Exit from the debug level LEVEL."
   (let ((sldb (sldb-find-buffer thread)))
@@ -5265,6 +5342,7 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
                ;; non-interactive exit, we just kill the sldb buffer.
                (kill-buffer))
               (t
+               (sldb--mark-last-window (selected-window))
                ;; An interactive exit should restore configuration per
                ;; `quit-window's protocol. FIXME: remove
                ;; `previous-window' hack when dropping Emacs23 support
@@ -6432,7 +6510,7 @@ that value.
         (slime-range-button
          (slime-inspector-fetch-more value))
         (slime-action-number
-         (slime-eval-async `(swank::inspector-call-nth-action ,value)
+         (slime-eval-async `(swank:inspector-call-nth-action ,value)
            opener))
         (t (error "No object at point"))))))
 
@@ -6545,7 +6623,8 @@ If ARG is negative, move forwards."
   (slime-eval-describe `(swank:pprint-inspector-part ,part)))
 
 (defun slime-inspector-eval (string)
-  "Eval an expression in the context of the inspected object."
+  "Eval an expression in the context of the inspected object.
+The `*' variable will be bound to the inspected object."
   (interactive (list (slime-read-from-minibuffer "Inspector eval: ")))
   (slime-eval-with-transcript `(swank:inspector-eval ,string)))
 
@@ -6684,9 +6763,17 @@ See `def-slime-selector-method' for defining new methods."
   (message "Select [%s]: "
            (apply #'string (mapcar #'car slime-selector-methods)))
   (let* ((slime-selector-other-window other-window)
-         (ch (save-window-excursion
-               (select-window (minibuffer-window))
-               (read-char)))
+         (sequence (save-window-excursion
+                    (select-window (minibuffer-window))
+                    (key-description (read-key-sequence nil))))
+         (ch (cond ((equal sequence "C-g")
+                    (keyboard-quit))
+                   ((equal sequence "TAB")
+                    ?i)
+                   ((= (length sequence) 1)
+                    (elt sequence 0))
+                   ((= (length sequence) 3)
+                    (elt sequence 2))))
          (method (cl-find ch slime-selector-methods :key #'car)))
     (cond (method
            (funcall (cl-third method)))
@@ -7221,7 +7308,7 @@ keys."
   (let ((start (cl-position-if-not (lambda (x)
                                      (memq x '(?\t ?\n ?\s ?\r)))
                                    str))
-        
+
         (end (cl-position-if-not (lambda (x)
                                    (memq x '(?\t ?\n ?\s ?\r)))
                                  str

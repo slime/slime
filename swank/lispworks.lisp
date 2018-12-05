@@ -830,8 +830,10 @@ function names like \(SETF GET)."
   (defxref who-sets       hcl:who-sets))
 
 (defimplementation who-specializes (classname)
-  (let ((methods (clos:class-direct-methods (find-class classname))))
-    (xref-results (mapcar #'dspec:object-dspec methods))))
+  (let ((class (find-class classname nil)))
+    (when class
+      (let ((methods (clos:class-direct-methods class)))
+        (xref-results (mapcar #'dspec:object-dspec methods))))))
 
 (defun xref-results (dspecs)
   (flet ((frob-locs (dspec locs)

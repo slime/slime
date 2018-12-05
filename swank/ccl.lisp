@@ -418,7 +418,8 @@
     ((cons (eql ccl::traced)) (function-name-package (second name)))
     ((cons (eql setf)) (symbol-package (second name)))
     ((cons (eql :internal)) (function-name-package (car (last name))))
-    ((cons (and symbol (not keyword)) (cons list null))
+    ((cons (and symbol (not keyword)) (or (cons list null)
+                                          (cons keyword (cons list null))))
      (symbol-package (car name)))
     (standard-method (function-name-package (ccl:method-name name)))))
 

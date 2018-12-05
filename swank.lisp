@@ -692,7 +692,7 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
   "Default value of :dont-close argument to start-server and
   create-server.")
 
-(defparameter *loopback-interface* "127.0.0.1")
+(defparameter *loopback-interface* "localhost")
 
 (defun start-server (port-file &key (style *communication-style*)
                                     (dont-close *dont-close*))
@@ -712,7 +712,7 @@ If DONT-CLOSE is true then the listen socket will accept multiple
 connections, otherwise it will be closed after the first.
 
 Optionally, an INTERFACE could be specified and swank will bind
-the PORT on this interface. By default, interface is 127.0.0.1."
+the PORT on this interface. By default, interface is \"localhost\"."
   (let ((*loopback-interface* (or interface
                                   *loopback-interface*)))
     (setup-server port #'simple-announce-function
@@ -776,13 +776,11 @@ first."
   (create-server :port port :style style :dont-close dont-close))
 
 (defun accept-connections (socket style dont-close)
-  (let ((client (unwind-protect 
-                     (accept-connection socket :external-format nil
-                                               :buffering t)
-                  (unless dont-close
-                    (close-socket socket)))))
-    (authenticate-client client)
-    (serve-requests (make-connection socket client style))
+  (unwind-protect
+       (let ((client (accept-connection socket :external-format nil
+                                               :buffering t)))
+         (authenticate-client client)
+         (serve-requests (make-connection socket client style)))
     (unless dont-close
       (send-to-sentinel `(:stop-server :socket ,socket)))))
 
@@ -950,16 +948,6 @@ The processing is done in the extent of the toplevel restart."
   (let ((*emacs-connection* connection))
     (with-panic-handler (connection)
       (loop (dispatch-event connection (receive))))))
-
-(defvar *auto-flush-interval* 0.2)
-
-(defun auto-flush-loop (stream)
-  (loop
-   (when (not (and (open-stream-p stream)
-                   (output-stream-p stream)))
-     (return nil))
-   (force-output stream)
-   (sleep *auto-flush-interval*)))
 
 (defgeneric thread-for-evaluation (connection id)
   (:documentation "Find or create a thread to evaluate the next request.")
@@ -1371,13 +1359,13 @@ entered nothing, returns NIL when user pressed C-g."
                                            ,prompt ,initial-value))
     (third (wait-for-event `(:emacs-return ,tag result)))))
 
-(defstruct (unredable-result
-            (:constructor make-unredable-result (string))
+(defstruct (unreadable-result
+            (:constructor make-unreadable-result (string))
             (:copier nil)
             (:print-object
              (lambda (object stream)
                (print-unreadable-object (object stream :type t)
-                 (princ (unredable-result-string object) stream)))))
+                 (princ (unreadable-result-string object) stream)))))
   string)
 
 (defun process-form-for-emacs (form)
@@ -1414,7 +1402,7 @@ converted to lower case."
 				  ,(process-form-for-emacs form)))
 	   (let ((value (caddr (wait-for-event `(:emacs-return ,tag result)))))
 	     (dcase value
-               ((:unreadable value) (make-unredable-result value))
+               ((:unreadable value) (make-unreadable-result value))
 	       ((:ok value) value)
                ((:error kind . data) (error "~a: ~{~a~}" kind data))
 	       ((:abort) (abort))))))))
@@ -2970,7 +2958,16 @@ If non-nil, called with two arguments SPEC and TRACED-P." )
     (do-find (string-left-trim *find-definitions-left-trim* name))
     (do-find (string-left-trim *find-definitions-left-trim*
                                (string-right-trim
-                                *find-definitions-right-trim* name)))))
+                                *find-definitions-right-trim* name)))
+    ;; Not exactly robust
+    (when (and (eql (search "(setf " name :test #'char-equal) 0)
+               (char= (char name (1- (length name))) #\)))
+      (multiple-value-bind (symbol found)
+          (with-buffer-syntax ()
+            (parse-symbol (subseq name (length "(setf ")
+                                  (1- (length name)))))
+        (when found
+          (values `(setf ,symbol) t))))))
 
 (defslimefun find-definitions-for-emacs (name)
   "Return a list ((DSPEC LOCATION) ...) of definitions for NAME.
@@ -3340,7 +3337,7 @@ Return NIL if LIST is circular."
    (let ((content (hash-table-to-alist ht)))
      (cond ((every (lambda (x) (typep (first x) '(or string symbol))) content)
             (setf content (sort content 'string< :key #'first)))
-           ((every (lambda (x) (typep (first x) 'number)) content)
+           ((every (lambda (x) (typep (first x) 'real)) content)
             (setf content (sort content '< :key #'first))))
      (loop for (key . value) in content appending
            `((:value ,key) " = " (:value ,value)

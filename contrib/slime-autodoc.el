@@ -21,6 +21,12 @@
   :type 'integer
   :group 'slime-ui)
 
+;;;###autoload
+(defcustom slime-autodoc-mode-string (purecopy " adoc")
+  "String to display in mode line when Autodoc Mode is enabled; nil for none."
+  :type '(choice string (const :tag "None" nil))
+  :group 'slime-ui)
+
 
 
 (defun slime-arglist (name)
@@ -42,7 +48,7 @@
   "Like autodoc informtion forcing multiline display."
   (interactive)
   (let ((doc (slime-autodoc t)))
-    (cond (doc (eldoc-message "%s" doc))
+    (cond (doc (eldoc-message doc))
 	  (t (eldoc-message nil)))))
 
 ;; Must call eldoc-add-command otherwise (eldoc-display-message-p)
@@ -55,7 +61,7 @@
   (self-insert-command n)
   (let ((doc (slime-autodoc)))
     (when doc
-      (eldoc-message "%s" doc))))
+      (eldoc-message doc))))
 
 (eldoc-add-command 'slime-autodoc-space)
 
@@ -150,14 +156,14 @@ If it's not in the cache, the cache will be updated asynchronously."
     (slime-curry #'slime-autodoc--async% context multilinep)))
 
 (defun slime-autodoc--async% (context multilinep doc)
-  (cl-destructuring-bind (doc cache-p) doc
+  (cl-destructuring-bind (doc &optional cache-p) doc
     (unless (eq doc :not-available)
       (when cache-p
 	(slime-autodoc--cache-put context doc))
       ;; Now that we've got our information,
       ;; get it to the user ASAP.
       (when (eldoc-display-message-p)
-	(eldoc-message "%s" (slime-autodoc--format doc multilinep))))))
+	(eldoc-message (slime-autodoc--format doc multilinep))))))
 
 
 ;;; Minor mode definition
@@ -170,12 +176,13 @@ If it's not in the cache, the cache will be updated asynchronously."
 
 (define-minor-mode slime-autodoc-mode
   "Toggle echo area display of Lisp objects at point."
+  :lighter slime-autodoc-mode-string
   :keymap (let ((prefix (slime-autodoc--doc-map-prefix)))
 	    `((,(concat prefix "A") . slime-autodoc-manually)
 	      (,(concat prefix (kbd "C-A")) . slime-autodoc-manually)
 	      (,(kbd "SPC") . slime-autodoc-space)))
   (set (make-local-variable 'eldoc-documentation-function) 'slime-autodoc)
-  (set (make-local-variable 'eldoc-minor-mode-string) " adoc")
+  (set (make-local-variable 'eldoc-minor-mode-string) nil)
   (setq slime-autodoc-mode (eldoc-mode arg))
   (when (called-interactively-p 'interactive)
     (message "Slime autodoc mode %s."

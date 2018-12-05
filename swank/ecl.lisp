@@ -1057,7 +1057,9 @@
 
 ;;;; Weak datastructures
 
-#+ecl-weak-hash
+;;; XXX: this should work but causes SLIME REPL hang at some point of time. May
+;;; be ECL or SLIME bug - disabling for now.
+#+(and ecl-weak-hash (or))
 (progn
   (defimplementation make-weak-key-hash-table (&rest args)
     (apply #'make-hash-table :weakness :key args))

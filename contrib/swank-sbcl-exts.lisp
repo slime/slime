@@ -46,20 +46,20 @@
                       (not #.(swank/backend:with-symbol 'inst-emitter-symbol 'sb-assem))
                       #.(swank/backend:with-symbol '*assem-instructions* 'sb-assem))
                    (gethash instr-name sb-assem:*assem-instructions*)))
-            (cond ((not instr-fn)
-                   (call-next-method))
-                  ((functionp instr-fn)
+            (cond ((functionp instr-fn)
                    (with-available-arglist (arglist) (arglist instr-fn)
                      (decode-instruction-arglist instr-name arglist)))
-                  (t
-                   (assert (symbolp instr-fn))
+                  ((fboundp instr-fn)
                    (with-available-arglist (arglist) (arglist instr-fn)
                      ;; SB-ASSEM:INST invokes a symbolic INSTR-FN with
                      ;; current segment and current vop implicitly.
                      (decode-instruction-arglist instr-name
-                                                 (if (get instr-fn :macro)
+                                                 (if (or (get instr-fn :macro)
+                                                         (macro-function instr-fn))
                                                      arglist
-                                                     (cddr arglist)))))))))))
+                                                     (cddr arglist)))))
+                  (t
+                   (call-next-method))))))))
 
 
 ) ; PROGN

@@ -519,6 +519,12 @@ information."
                       (sb-c:compiler-error  :error)
                       (reader-error         :read-error)
                       (error                :error)
+                      #+#.(swank/backend:with-symbol early-deprecation-warning sb-ext)
+                      (sb-ext::early-deprecation-warning :early-deprecation-warning)
+                      #+#.(swank/backend:with-symbol late-deprecation-warning sb-ext)
+                      (sb-ext::late-deprecation-warning :late-deprecation-warning)
+                      #+#.(swank/backend:with-symbol final-deprecation-warning sb-ext)
+                      (sb-ext::final-deprecation-warning :final-deprecation-warning)
                       #+#.(swank/backend:with-symbol redefinition-warning
                             sb-kernel)
                       (sb-kernel:redefinition-warning
@@ -1233,7 +1239,9 @@ stack."
           while f collect f)))
 
 (defimplementation print-frame (frame stream)
-  (sb-debug::print-frame-call frame stream))
+  (sb-debug::print-frame-call frame stream
+                              :allow-other-keys t
+                              :emergency-best-effort t))
 
 (defimplementation frame-restartable-p (frame)
   #+#.(swank/sbcl::sbcl-with-restart-frame)
@@ -1612,19 +1620,8 @@ stack."
             o)
          append (label-value-line i (sb-kernel:code-header-ref o i)))
    `("Code:" (:newline)
-             , (with-output-to-string (s)
-                 (cond ((sb-kernel:%code-debug-info o)
-                        (sb-disassem:disassemble-code-component o :stream s))
-                       (t
-                        (sb-disassem:disassemble-memory
-                         (sb-disassem::align
-                          (+ (logandc2 (sb-kernel:get-lisp-obj-address o)
-                                       sb-vm:lowtag-mask)
-                             (* sb-vm:code-constants-offset
-                                sb-vm:n-word-bytes))
-                          (ash 1 sb-vm:n-lowtag-bits))
-                         (ash (sb-kernel:%code-code-size o) sb-vm:word-shift)
-                         :stream s)))))))
+             ,(with-output-to-string (s)
+                (sb-disassem:disassemble-code-component o :stream s)))))
 
 (defmethod emacs-inspect ((o sb-ext:weak-pointer))
           (label-value-line*
@@ -1750,7 +1747,7 @@ stack."
   (defimplementation wake-thread (thread)
     (let* ((mbox (mailbox thread))
            (mutex (mailbox.mutex mbox)))
-      (sb-thread:with-mutex (mutex)
+      (sb-thread:with-recursive-lock (mutex)
         (sb-thread:condition-broadcast (mailbox.waitqueue mbox)))))
 
   (defimplementation send (thread message)
@@ -1794,33 +1791,7 @@ stack."
 
     (defimplementation find-registered (name)
       (sb-thread:with-mutex (mutex)
-        (cdr (assoc name alist)))))
-
-  ;; Workaround for deadlocks between the world-lock and auto-flush-thread
-  ;; buffer write lock.
-  ;;
-  ;; Another alternative would be to grab the world-lock here, but that's less
-  ;; future-proof, and could introduce other lock-ordering issues in the
-  ;; future.
-  ;;
-  ;; In an ideal world we would just have an :AROUND method on
-  ;; SLIME-OUTPUT-STREAM, and be done, but that class doesn't exist when this
-  ;; file is loaded -- so first we need a dummy definition that will be
-  ;; overridden by swank-gray.lisp.
-  #.(unless (find-package 'swank/gray) (make-package 'swank/gray) nil)
-  (eval-when (:load-toplevel :execute)
-    (unless (find-package 'swank/gray) (make-package 'swank/gray) nil))
-  (defclass swank/gray::slime-output-stream
-      (sb-gray:fundamental-character-output-stream)
-    ())
-  (defmethod sb-gray:stream-force-output
-      :around ((stream swank/gray::slime-output-stream))
-    (handler-case
-        (sb-sys:with-deadline (:seconds 0.1)
-          (call-next-method))
-      (sb-sys:deadline-timeout ()
-        nil)))
-  )
+        (cdr (assoc name alist))))))
 
 (defimplementation quit-lisp ()
   #+#.(swank/backend:with-symbol 'exit 'sb-ext)
