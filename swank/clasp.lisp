@@ -464,41 +464,33 @@
 ;;      (declare (ignore position))
 ;;      (if file (is-swank-source-p file)))))
 
-(defparameter *saved-backtrace* nil)
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
   (let* ((*ihs-top* 0)
          (*ihs-current* *ihs-top*)
          #+frs         (*frs-base* (or (sch-frs-base *frs-top* *ihs-base*) (1+ (frs-top))))
          #+frs         (*frs-top* (frs-top))
-         (*tpl-level* (1+ *tpl-level*))
-         (*backtrace* (let ((backtrace (core::common-lisp-backtrace-frames
-                                        :gather-start-trigger
-                                        (lambda (frame)
-                                          (let ((function-name (core::backtrace-frame-function-name frame)))
-                                            (and (symbolp function-name)
-                                                 (eq function-name 'core::universal-error-handler))))
-                                        :gather-all-frames nil)))
-                        (unless backtrace
-                          (setq backtrace (core::common-lisp-backtrace-frames
-                                           :gather-all-frames nil)))
-                        backtrace)))
-    (declare (special *ihs-current*))
-    (setq *saved-backtrace* *backtrace*)
-    #+(or)
-    (progn
-      (format ext:+process-standard-output+ "--------------- call-with-debugging-environment -----------~%")
-      (format ext:+process-standard-output+ "(length *backtrace*) -> ~a ~%" (length *backtrace*))
-      (format ext:+process-standard-output+ "Raw backtrace length: ~a ~%" (length (core:clib-backtrace-as-list)))
-      (format ext:+process-standard-output+ "Common Lisp backtrace frames length: ~a ~%" (length (core::common-lisp-backtrace-frames)))
-      (loop for f in (core::common-lisp-backtrace-frames)
-            for id from 0
-            do (progn
-                 (format ext:+process-standard-output+ "Frame ~a:   (~a ~a)~%" id (core::backtrace-frame-print-name f) (core::backtrace-frame-arguments f)))))
-    (set-break-env)
-    (set-current-ihs)
-    (let ((*ihs-base* *ihs-top*))
-      (funcall debugger-loop-fn))))
+         (*tpl-level* (1+ *tpl-level*)))
+    (core:call-with-backtrace
+     (lambda (raw-backtrace)
+       (let ((*backtrace*
+               (let ((backtrace (core::common-lisp-backtrace-frames
+                                 raw-backtrace
+                                 :gather-start-trigger
+                                 (lambda (frame)
+                                   (let ((function-name (core::backtrace-frame-function-name frame)))
+                                     (and (symbolp function-name)
+                                          (eq function-name 'core::universal-error-handler))))
+                                 :gather-all-frames nil)))
+                 (unless backtrace
+                   (setq backtrace (core::common-lisp-backtrace-frames
+                                    :gather-all-frames nil)))
+                 backtrace)))
+         (declare (special *ihs-current*))
+         (set-break-env)
+         (set-current-ihs)
+         (let ((*ihs-base* *ihs-top*))
+           (funcall debugger-loop-fn)))))))
 
 (defimplementation compute-backtrace (start end)
   (subseq *backtrace* start
