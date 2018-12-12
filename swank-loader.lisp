@@ -23,9 +23,12 @@
            :dump-image
            :list-fasls
            :*source-directory*
-           :*fasl-directory*))
+           :*fasl-directory*
+           :*started-from-emacs*))
 
 (cl:in-package :swank-loader)
+
+(defvar *started-from-emacs* nil)
 
 (defvar *source-directory*
   (make-pathname :name nil :type nil
@@ -331,13 +334,16 @@ If LOAD is true, load the fasl file."
         (delete-package package)))))
 
 (defun init (&key delete reload load-contribs (setup t)
-                  (quiet (not *load-verbose*)))
+                  (quiet (not *load-verbose*))
+                  from-emacs)
   "Load SWANK and initialize some global variables.
 If DELETE is true, delete any existing SWANK packages.
 If RELOAD is true, reload SWANK, even if the SWANK package already exists.
 If LOAD-CONTRIBS is true, load all contribs
 If SETUP is true, load user init files and initialize some
 global variabes in SWANK."
+  (when from-emacs
+    (setf *started-from-emacs* t))
   (when (and delete (find-package :swank))
     (delete-packages (list-swank-packages)))
   (cond ((or (not (find-package :swank)) reload)

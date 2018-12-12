@@ -1256,7 +1256,8 @@ See `slime-start'."
             `(progn
                (load ,(slime-to-lisp-filename (expand-file-name loader))
                      :verbose t)
-               (funcall (read-from-string "swank-loader:init"))
+               (funcall (read-from-string "swank-loader:init")
+                        :from-emacs t)
                (funcall (read-from-string "swank:start-server")
                         ,(slime-to-lisp-filename port-filename))))))
 

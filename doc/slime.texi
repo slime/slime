@@ -1845,9 +1845,14 @@ is enabled by default.
 
 @vindex SWANK:*GLOBALLY-REDIRECT-IO*
 @item SWANK:*GLOBALLY-REDIRECT-IO*
-When true this causes the standard streams (@code{*standard-output*},
-etc) to be globally redirected to the @REPL{} in Emacs. When
-@code{NIL} (the default) these streams are only temporarily redirected
+When T this causes the standard streams (@code{*standard-output*},
+etc) to be globally redirected to the @REPL{} in Emacs.
+
+When @code{:STARTED-FROM-EMACS} (default) redirects the output when
+the lisp is launched from emacs (i.e. @kbd{M-x slime}), but not
+from @kbd{M-x slime-connect}.
+
+When @code{NIL} these streams are only temporarily redirected
 to Emacs using dynamic bindings while handling requests. Note that
 @code{*standard-input*} is currently never globally redirected into
 Emacs, because it can interact badly with the Lisp's native @REPL{} by
@@ -2082,11 +2087,12 @@ contrib to setup the proper translations by simply doing:
 @node Global IO Redirection
 @section Globally redirecting all IO to the REPL
 
-By default @SLIME{} does not change @code{*standard-output*} and
-friends outside of the @REPL{}. If you have any other threads which
-call @code{format}, @code{write-string}, etc. that output will be seen
-only in the @code{*inferior-lisp*} buffer or on the terminal, more
-often than not this is inconvenient. So, if you want code such as this:
+When connecting via @kbd{M-x slime-connect} @SLIME{} does
+not change @code{*standard-output*} and friends outside of the
+@REPL{}. If you have any other threads which call @code{format},
+@code{write-string}, etc. that output will be seen only in
+the @code{*inferior-lisp*} buffer or on the terminal, more often than
+not this is inconvenient. So, if you want code such as this:
 
 @example
 (run-in-new-thread
@@ -2095,13 +2101,11 @@ often than not this is inconvenient. So, if you want code such as this:
 @end example
 
 to send its output to @SLIME{}'s repl buffer, as opposed to
-@code{*inferior-lisp*}, set @code{swank:*globally-redirect-io*} to T.
+@code{*inferior-lisp*}, set @code{swank:*globally-redirect-io*} to T
+in @file{~/.swank.lisp}
 
-Note that the value of this variable is only checked when swank
-accepts the connection so you should set it via
-@file{~/.swank.lisp}. Otherwise you will need to call
-@code{swank::globally-redirect-io-to-connection} yourself, but you
-shouldn't do that unless you know what you're doing.
+But when started using @kbd{M-x slime} the streams are redirected by
+default.
 
 @c -----------------------
 @node Auto-SLIME
