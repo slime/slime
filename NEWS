@@ -1,4 +1,8 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
+* 2.23 (December 2018)
+*** Improved compatiblity with different versions of Emacs, SBCL, Clasp, Allegro.
+*** Bug fixes
+
 * 2.22 (July 2018)
 *** Improved compatiblity with Emacs 26
 
