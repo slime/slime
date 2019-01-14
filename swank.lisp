@@ -583,7 +583,7 @@ recently established one."
              (when (and thread 
                         (thread-alive-p thread)
                         (not (eq thread (current-thread))))
-               (kill-thread thread))))
+               (ignore-errors (kill-thread thread)))))
           (t
            (warn "No server for ~s: ~s" key value)))))
 
@@ -1177,7 +1177,7 @@ event was found."
       (when (and thread
                  (thread-alive-p thread)
                  (not (equal (current-thread) thread)))
-        (kill-thread thread)))))
+        (ignore-errors (kill-thread thread))))))
 
 ;;;;;; Signal driven IO
 
