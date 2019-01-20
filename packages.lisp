@@ -194,4 +194,5 @@
            #:parse-string
            #:from-string
            #:to-string
-           #:*swank-debugger-condition*))
+           #:*swank-debugger-condition*
+           #:run-hook-with-args-until-success))
