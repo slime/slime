@@ -104,6 +104,12 @@ include some arbitrary initial value like NIL."
   (dolist (function functions)
     (apply function arguments)))
 
+(defun run-hook-until-success (functions &rest arguments)
+  "Call each of FUNCTIONS with ARGUMENTS, stop if any function returns
+a truthy value"
+  (loop for hook in functions
+          thereis (apply hook arguments)))
+
 (defvar *new-connection-hook* '()
   "This hook is run each time a connection is established.
 The connection structure is given as the argument.
@@ -1007,44 +1013,47 @@ The processing is done in the extent of the toplevel restart."
            (delete thread (mconn.active-threads connection) :count 1)))
     (singlethreaded-connection)))
 
+(defparameter *event-hook* nil)
+
 (defun dispatch-event (connection event)
   "Handle an event triggered either by Emacs or within Lisp."
   (log-event "dispatch-event: ~s~%" event)
-  (dcase event
-    ((:emacs-rex form package thread-id id)
-     (let ((thread (thread-for-evaluation connection thread-id)))
-       (cond (thread
-              (add-active-thread connection thread)
-              (send-event thread `(:emacs-rex ,form ,package ,id)))
-             (t
-              (encode-message 
-               (list :invalid-rpc id
-                     (format nil "Thread not found: ~s" thread-id))
-               (current-socket-io))))))
-    ((:return thread &rest args)
-     (remove-active-thread connection thread)
-     (encode-message `(:return ,@args) (current-socket-io)))
-    ((:emacs-interrupt thread-id)
-     (interrupt-worker-thread connection thread-id))
-    (((:write-string 
-       :debug :debug-condition :debug-activate :debug-return :channel-send
-       :presentation-start :presentation-end
-       :new-package :new-features :ed :indentation-update
-       :eval :eval-no-wait :background-message :inspect :ping
-       :y-or-n-p :read-from-minibuffer :read-string :read-aborted :test-delay
-       :write-image)
-      &rest _)
-     (declare (ignore _))
-     (encode-message event (current-socket-io)))
-    (((:emacs-pong :emacs-return :emacs-return-string) thread-id &rest args)
-     (send-event (find-thread thread-id) (cons (car event) args)))
-    ((:emacs-channel-send channel-id msg)
-     (let ((ch (find-channel channel-id)))
-       (send-event (channel-thread ch) `(:emacs-channel-send ,ch ,msg))))
-    ((:reader-error packet condition)
-     (encode-message `(:reader-error ,packet 
-                                     ,(safe-condition-message condition))
-                     (current-socket-io)))))
+  (or (run-hook-until-success *event-hook* connection event)
+      (dcase event
+        ((:emacs-rex form package thread-id id)
+         (let ((thread (thread-for-evaluation connection thread-id)))
+           (cond (thread
+                  (add-active-thread connection thread)
+                  (send-event thread `(:emacs-rex ,form ,package ,id)))
+                 (t
+                  (encode-message 
+                   (list :invalid-rpc id
+                         (format nil "Thread not found: ~s" thread-id))
+                   (current-socket-io))))))
+        ((:return thread &rest args)
+         (remove-active-thread connection thread)
+         (encode-message `(:return ,@args) (current-socket-io)))
+        ((:emacs-interrupt thread-id)
+         (interrupt-worker-thread connection thread-id))
+        (((:write-string 
+           :debug :debug-condition :debug-activate :debug-return :channel-send
+           :presentation-start :presentation-end
+           :new-package :new-features :ed :indentation-update
+           :eval :eval-no-wait :background-message :inspect :ping
+           :y-or-n-p :read-from-minibuffer :read-string :read-aborted :test-delay
+           :write-image)
+          &rest _)
+         (declare (ignore _))
+         (encode-message event (current-socket-io)))
+        (((:emacs-pong :emacs-return :emacs-return-string) thread-id &rest args)
+         (send-event (find-thread thread-id) (cons (car event) args)))
+        ((:emacs-channel-send channel-id msg)
+         (let ((ch (find-channel channel-id)))
+           (send-event (channel-thread ch) `(:emacs-channel-send ,ch ,msg))))
+        ((:reader-error packet condition)
+         (encode-message `(:reader-error ,packet 
+                                         ,(safe-condition-message condition))
+                         (current-socket-io))))))
 
 
 (defun send-event (thread event)
