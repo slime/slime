@@ -104,7 +104,7 @@ include some arbitrary initial value like NIL."
   (dolist (function functions)
     (apply function arguments)))
 
-(defun run-hook-with-args-until-success (functions &rest arguments)
+(defun run-hook-until-success (functions &rest arguments)
   "Call each of FUNCTIONS with ARGUMENTS, stop if any function returns
 a truthy value"
   (loop for hook in functions
@@ -1018,7 +1018,7 @@ The processing is done in the extent of the toplevel restart."
 (defun dispatch-event (connection event)
   "Handle an event triggered either by Emacs or within Lisp."
   (log-event "dispatch-event: ~s~%" event)
-  (or (run-hook-with-args-until-success *event-hook* event)
+  (or (run-hook-until-success *event-hook* connection event)
       (dcase event
         ((:emacs-rex form package thread-id id)
          (let ((thread (thread-for-evaluation connection thread-id)))
