@@ -1,4 +1,4 @@
-;;; swank-output-streams.lisp --- Streams that output to a buffer
+;;; swank-buffer-streams.lisp --- Streams that output to a buffer
 ;;;
 ;;; Authors: Ed Langley  <el-github@elangley.org>
 ;;;
@@ -7,7 +7,7 @@
 
 (in-package :swank)
 
-(defpackage :swank-output-streams
+(defpackage :swank-buffer-streams
   (:use :cl)
   (:import-from :swank
                 defslimefun
@@ -26,7 +26,7 @@
   (:export initialize-output-stream-hooks
            make-buffer-output-stream))
 
-(in-package :swank-output-streams)
+(in-package :swank-buffer-streams)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (swank:swank-require :swank-repl))
@@ -35,7 +35,7 @@
   (add-hook *event-hook* 'handle-events)
   nil)
 
-(defun handle-events (_ &optional (event _))
+(defun handle-events (_ event)
   (declare (ignore _))
   (dcase event
     ((:make-target &rest _) (declare (ignore _))
@@ -58,4 +58,4 @@
   (values (swank-repl::make-output-stream-for-target *emacs-connection* target-identifier)
           target-identifier))
 
-(provide :swank-output-streams)
+(provide :swank-buffer-streams)
