@@ -38,10 +38,10 @@
 (defun handle-events (_ event)
   (declare (ignore _))
   (dcase event
-    ((:make-target &rest _) (declare (ignore _))
+    ((:make-stream-target &rest _) (declare (ignore _))
      (encode-message event (current-socket-io))
      t)
-    (((:target-created) thread-id &rest _)
+    (((:stream-target-created) thread-id &rest _)
      (declare (ignore _))
      (send-event (find-thread thread-id) event)
      t)
@@ -52,9 +52,9 @@
           :keyword))
 
 (defun make-buffer-output-stream (&optional (target-identifier (get-temporary-identifier)))
-  (send-to-emacs `(:make-target ,(current-thread-id)
-                                ,target-identifier))
-  (wait-for-event `(:target-created ,(current-thread-id) ,target-identifier))
+  (send-to-emacs `(:make-stream-target ,(current-thread-id)
+                                       ,target-identifier))
+  (wait-for-event `(:stream-target-created ,(current-thread-id) ,target-identifier))
   (values (swank-repl::make-output-stream-for-target *emacs-connection* target-identifier)
           target-identifier))
 

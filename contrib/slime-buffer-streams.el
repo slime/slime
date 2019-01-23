@@ -24,12 +24,12 @@
 
 (defun slime-buffer-streams-event-hook-function (event)
   (slime-dcase event
-    ((:make-target thread name)
+    ((:make-stream-target thread name)
      (message "making target %s" name)
      (slime-buffer-streams--get-target-marker name)
-     (slime-send `(:target-created ,thread ,name))
+     (slime-send `(:stream-target-created ,thread ,name))
      t)
-    ((:target-created &rest _) t)
+    ((:stream-target-created &rest _) t)
     (t
      nil)))
 
