@@ -422,7 +422,12 @@
              (when loc
                (destructuring-bind (file . pos) loc
                  (let ((start (if (consp pos) ; 8.2 and newer
-                                  (car pos)
+                                  #+(version>= 10 1)
+                                  (if (typep condition 'excl::compiler-inconsistent-name-usage-warning)
+                                      (second pos)
+                                      (first pos))
+                                  #-(version>= 10 1)
+                                  (first pos)
                                   pos)))
                    (values file start)))))))))
 
@@ -463,6 +468,9 @@
                :message (format nil "Undefined function referenced: ~S"
                                 fname)
                :location (make-location (list :file file)
+                                        #+(version>= 9 0)
+                                        (list :offset 1 pos)
+                                        #-(version>= 9 0)
                                         (list :position (1+ pos)))))))))
 
 (defimplementation call-with-compilation-hooks (function)
