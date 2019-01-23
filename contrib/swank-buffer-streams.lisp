@@ -23,7 +23,7 @@
 
                 *emacs-connection*
                 *event-hook*)
-  (:export initialize-output-stream-hooks
+  (:export initialize-buffer-stream-hooks
            make-buffer-output-stream))
 
 (in-package :swank-buffer-streams)
@@ -31,7 +31,7 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (swank:swank-require :swank-repl))
 
-(defslimefun initialize-output-stream-hooks ()
+(defslimefun initialize-buffer-stream-hooks ()
   (add-hook *event-hook* 'handle-events)
   nil)
 

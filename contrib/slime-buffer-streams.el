@@ -9,7 +9,7 @@
    (slime-buffer-streams-add-hooks))
   (:on-unload
    (slime-buffer-streams-remove-hooks))
-  (:swank-dependencies swank-output-streams))
+  (:swank-dependencies swank-buffer-streams))
 
 (defun slime-buffer-streams-add-hooks ()
   (add-hook 'slime-event-hooks 'slime-buffer-streams-event-hook-function)
@@ -20,7 +20,7 @@
   (remove-hook 'slime-connected-hook 'slime-buffer-streams-connected-hook-function))
 
 (defun slime-buffer-streams-connected-hook-function ()
-  (slime-eval '(swank-output-streams:initialize-output-stream-hooks)))
+  (slime-eval '(swank-buffer-streams:initialize-buffer-stream-hooks)))
 
 (defun slime-buffer-streams-event-hook-function (event)
   (slime-dcase event
