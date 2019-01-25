@@ -3711,6 +3711,22 @@ Collisions are caused because package information is ignored."
 #-clasp
 (add-hook *pre-reply-hook* 'sync-indentation-to-emacs)
 
+(defun make-output-function-for-target (connection target)
+  "Create a function to send user output to a specific TARGET in Emacs."
+  (format t "~&connection is: ~s~%" connection)
+  (lambda (string)
+    (declare (optimize (debug 3)))
+    (format t "~&connection is: ~s~%" connection)
+    (break)
+    (swank::with-connection (connection)
+      (with-simple-restart
+          (abort "Abort sending output to Emacs.")
+        (swank::send-to-emacs `(:write-string ,string ,target))))))
+
+(defun make-output-stream-for-target (connection target)
+  "Create a stream that sends output to a specific TARGET in Emacs."
+  (make-output-stream (make-output-function-for-target connection target)))
+
 
 ;;;; Testing 
 
