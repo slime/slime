@@ -110,8 +110,8 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
          (out (or dedicated-output
                   (make-output-stream (make-output-function connection))))
          (io (make-two-way-stream in out))
-         (repl-results (make-output-stream-for-target connection
-                                                      :repl-result)))
+         (repl-results (swank:make-output-stream-for-target connection
+                                                            :repl-result)))
     (typecase connection
       (multithreaded-connection
        (setf (mconn.auto-flush-thread connection)
@@ -123,18 +123,6 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
   (lambda (string)
     (with-connection (connection)
       (send-to-emacs `(:write-string ,string)))))
-
-(defun make-output-function-for-target (connection target)
-  "Create a function to send user output to a specific TARGET in Emacs."
-  (lambda (string)
-    (with-connection (connection)
-      (with-simple-restart
-          (abort "Abort sending output to Emacs.")
-        (send-to-emacs `(:write-string ,string ,target))))))
-
-(defun make-output-stream-for-target (connection target)
-  "Create a stream that sends output to a specific TARGET in Emacs."
-  (make-output-stream (make-output-function-for-target connection target)))
 
 (defun open-dedicated-output-stream (connection coding-system)
   "Open a dedicated output connection to the Emacs on SOCKET-IO.
@@ -301,7 +289,7 @@ LISTENER-EVAL directly, so that spacial variables *, etc are set."
 
 (defslimefun redirect-trace-output (target)
   (setf (connection.trace-output *emacs-connection*)
-        (make-output-stream-for-target *emacs-connection* target))
+        (swank:make-output-stream-for-target *emacs-connection* target))
   nil)
 
 

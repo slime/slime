@@ -7548,6 +7548,33 @@ The returned bounds are either nil or non-empty."
              `((,regexp (1 font-lock-keyword-face)
                         (2 font-lock-variable-name-face)))))
 
+;;;; target manipulation (used by slime-presentations, slime-media,
+;;;;                      slime-repl and slime-buffer-streams, at
+;;;;                      least)
+
+(defvar slime-output-target-to-marker
+  (make-hash-table)
+  "Map from TARGET ids to Emacs markers.
+The markers indicate where output should be inserted.")
+
+(defun slime-output-target-marker (target)
+  "Return the marker where output for TARGET should be inserted."
+  (gethash target slime-output-target-to-marker))
+
+(defun slime-emit-to-target (string target)
+  "Insert STRING at target TARGET.
+See `slime-output-target-to-marker'."
+  (let* ((marker (slime-output-target-marker target))
+         (buffer (and marker (marker-buffer marker))))
+    (when buffer
+      (with-current-buffer buffer
+        (save-excursion
+          ;; Insert STRING at MARKER, then move MARKER behind
+          ;; the insertion.
+          (goto-char marker)
+          (insert-before-markers string)
+          (set-marker marker (point)))))))
+
 ;;;; Finishing up
 
 (eval-when-compile

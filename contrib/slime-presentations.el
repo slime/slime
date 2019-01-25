@@ -68,7 +68,7 @@ TARGET can be nil (regular process output) or :repl-result."
   (setf (gethash id slime-presentation-start-to-point)
         ;; We use markers because text can also be inserted before this presentation.
         ;; (Output arrives while we are writing presentations within REPL results.)
-        (copy-marker (slime-output-target-marker target) nil)))
+        (copy-marker (slime-repl-output-target-marker target) nil)))
 
 (defun slime-mark-presentation-start-handler (process string)
   (if (and string (string-match "<\\([-0-9]+\\)" string))
@@ -82,7 +82,7 @@ TARGET can be nil (regular process output) or :repl-result."
   (let ((start (gethash id slime-presentation-start-to-point)))
     (remhash id slime-presentation-start-to-point)
     (when start
-      (let* ((marker (slime-output-target-marker target))
+      (let* ((marker (slime-repl-output-target-marker target))
              (buffer (and marker (marker-buffer marker))))
         (with-current-buffer buffer
           (let ((end (marker-position marker)))
@@ -777,7 +777,7 @@ output; otherwise the new input is appended."
 
 (defun slime-presentation-write-result (string)
   (with-current-buffer (slime-output-buffer)
-    (let ((marker (slime-output-target-marker :repl-result))
+    (let ((marker (slime-repl-output-target-marker :repl-result))
           (saved-point (point-marker)))
       (goto-char marker)
       (slime-propertize-region `(face slime-repl-result-face
@@ -799,7 +799,7 @@ output; otherwise the new input is appended."
      (slime-repl-emit string))
     (:repl-result
      (slime-presentation-write-result string))
-    (t (slime-emit-to-target string target))))
+    (t (slime-repl-emit-to-target string target))))
 
 (defun slime-presentation-current-input (&optional until-point-p)
   "Return the current input as string.

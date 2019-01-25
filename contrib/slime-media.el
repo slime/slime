@@ -34,7 +34,7 @@
 
 (defun slime-media-insert-image (image string &optional bol)
   (with-current-buffer (slime-output-buffer)
-    (let ((marker (slime-output-target-marker :repl-result)))
+    (let ((marker (slime-repl-output-target-marker :repl-result)))
       (goto-char marker)
       (slime-propertize-region `(face slime-repl-result-face
                                       rear-nonsticky (face))
