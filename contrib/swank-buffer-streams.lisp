@@ -28,9 +28,6 @@
 
 (in-package :swank-buffer-streams)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (swank:swank-require :swank-repl))
-
 (defslimefun initialize-buffer-stream-hooks ()
   (add-hook *event-hook* 'handle-events)
   nil)
@@ -55,7 +52,7 @@
   (send-to-emacs `(:make-stream-target ,(current-thread-id)
                                        ,target-identifier))
   (wait-for-event `(:stream-target-created ,(current-thread-id) ,target-identifier))
-  (values (swank-repl::make-output-stream-for-target *emacs-connection* target-identifier)
+  (values (swank:make-output-stream-for-target *emacs-connection* target-identifier)
           target-identifier))
 
 (provide :swank-buffer-streams)
