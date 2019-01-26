@@ -3713,11 +3713,7 @@ Collisions are caused because package information is ignored."
 
 (defun make-output-function-for-target (connection target)
   "Create a function to send user output to a specific TARGET in Emacs."
-  (format t "~&connection is: ~s~%" connection)
   (lambda (string)
-    (declare (optimize (debug 3)))
-    (format t "~&connection is: ~s~%" connection)
-    (break)
     (swank::with-connection (connection)
       (with-simple-restart
           (abort "Abort sending output to Emacs.")
