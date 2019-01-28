@@ -152,7 +152,8 @@ Return nil if nothing appropriate is available."
             for line = (read-line s nil :eof)
             until (eq line :eof)
             when (string-starts-with line prefix)
-              return (subseq line (length prefix))))))
+              return (string-right-trim '(#\return)
+                                        (subseq line (length prefix)))))))
 
 (defun default-fasl-dir ()
   (merge-pathnames
