@@ -36,8 +36,7 @@
 (defun slime-buffer-streams--get-target-name (target)
   (format "*slime-target %s*" target))
 
-(make-variable-buffer-local
- (defvar slime-buffer-stream-target nil))
+(defvar-local slime-buffer-stream-target nil)
 
 ;; TODO: tell backend that the buffer has been closed, so it can close
 ;;       the stream
