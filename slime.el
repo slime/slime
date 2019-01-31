@@ -2258,6 +2258,12 @@ Debugged requests are ignored."
           ((:eval thread tag form-string)
            (slime-check-eval-in-emacs-enabled)
            (slime-eval-for-lisp thread tag form-string))
+          ((:ed-rpc-no-wait fn-name &rest args)
+           (let ((fn (intern-soft fn-name)))
+             (slime-check-rpc-allowed fn)
+             (apply fn args)))
+          ((:ed-rpc thread tag fn-name &rest args)
+           (slime-rpc-from-lisp thread tag (intern-soft fn-name) args))
           ((:emacs-return thread tag value)
            (slime-send `(:emacs-return ,thread ,tag ,value)))
           ((:ed what)
@@ -3908,16 +3914,14 @@ The result is a (possibly empty) list of definitions."
                (setq l (cdr l)))
              (slime-lisp-readable-p l)))))
 
-(defun slime-eval-for-lisp (thread tag form-string)
+(defun slime--funcall-and-dispatch-result (thread tag fn &rest args)
   (let ((ok nil)
         (value nil)
-        (error nil)
-        (c (slime-connection)))
+        (error nil))
     (unwind-protect
         (condition-case err
             (progn
-              (slime-check-eval-in-emacs-enabled)
-              (setq value (eval (read form-string)))
+              (setq value (apply fn args))
               (setq ok t))
           ((debug error)
            (setq error err)))
@@ -3929,13 +3933,42 @@ The result is a (possibly empty) list of definitions."
                                           . ,(mapcar #'slime-prin1-to-string
                                                      (cdr error))))
                           (t `(:abort)))))
-        (slime-dispatch-event `(:emacs-return ,thread ,tag ,result) c)))))
+        (slime-dispatch-event `(:emacs-return ,thread ,tag ,result))))))
+
+(defun slime-eval-for-lisp (thread tag form-string)
+  (slime--funcall-and-dispatch-result thread tag
+                                      (lambda (s) (eval (read s)))
+                                      form-string))
 
 (defun slime-check-eval-in-emacs-enabled ()
   "Raise an error if `slime-enable-evaluate-in-emacs' isn't true."
   (unless slime-enable-evaluate-in-emacs
     (error (concat "slime-eval-in-emacs disabled for security. "
                    "Set `slime-enable-evaluate-in-emacs' true to enable it."))))
+
+
+;;;; RPC from Lisp
+
+(defmacro defslimefun (name arglist &rest body)
+  "Define a function via `cl-defun' that can be invoked from SWANK."
+  `(progn
+     (put ',name 'slime-rpc t)
+     (cl-defun ,name ,arglist ,@body)))
+
+(defun slime-rpc-allowed-p (fn)
+  (get fn 'slime-rpc))
+
+(defun slime-check-rpc-allowed (fn)
+  "Raise an error if FN does not denote a function defined via
+`defslimefun'."
+  (unless (slime-rpc-allowed-p fn)
+    (error "Lisp tried to RPC `%s', but it wasn't defined via `defslimefun'."
+           fn)))
+
+(defun slime-rpc-from-lisp (thread tag fn args)
+  (if (not (slime-rpc-allowed-p fn))
+      (slime-dispatch-event '(:ed-rpc-forbidden ,thread ,tag ,fn))
+    (apply #'slime--funcall-and-dispatch-result thread tag fn args)))
 
 
 ;;;; `ED'
