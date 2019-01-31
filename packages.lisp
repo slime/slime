@@ -184,6 +184,8 @@
            #:quit-lisp
            #:eval-for-emacs
            #:eval-in-emacs
+           #:ed-rpc
+           #:ed-rpc-no-wait
            #:y-or-n-p-in-emacs
            #:*find-definitions-right-trim*
            #:*find-definitions-left-trim*

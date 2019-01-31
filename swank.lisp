@@ -1026,7 +1026,7 @@ The processing is done in the extent of the toplevel restart."
                   (add-active-thread connection thread)
                   (send-event thread `(:emacs-rex ,form ,package ,id)))
                  (t
-                  (encode-message 
+                  (encode-message
                    (list :invalid-rpc id
                          (format nil "Thread not found: ~s" thread-id))
                    (current-socket-io))))))
@@ -1035,23 +1035,24 @@ The processing is done in the extent of the toplevel restart."
          (encode-message `(:return ,@args) (current-socket-io)))
         ((:emacs-interrupt thread-id)
          (interrupt-worker-thread connection thread-id))
-        (((:write-string 
+        (((:write-string
            :debug :debug-condition :debug-activate :debug-return :channel-send
            :presentation-start :presentation-end
            :new-package :new-features :ed :indentation-update
            :eval :eval-no-wait :background-message :inspect :ping
            :y-or-n-p :read-from-minibuffer :read-string :read-aborted :test-delay
-           :write-image)
+           :write-image :ed-rpc :ed-rpc-no-wait)
           &rest _)
          (declare (ignore _))
          (encode-message event (current-socket-io)))
-        (((:emacs-pong :emacs-return :emacs-return-string) thread-id &rest args)
+        (((:emacs-pong :emacs-return :emacs-return-string :ed-rpc-forbidden)
+          thread-id &rest args)
          (send-event (find-thread thread-id) (cons (car event) args)))
         ((:emacs-channel-send channel-id msg)
          (let ((ch (find-channel channel-id)))
            (send-event (channel-thread ch) `(:emacs-channel-send ,ch ,msg))))
         ((:reader-error packet condition)
-         (encode-message `(:reader-error ,packet 
+         (encode-message `(:reader-error ,packet
                                          ,(safe-condition-message condition))
                          (current-socket-io))))))
 
@@ -1385,6 +1386,13 @@ entered nothing, returns NIL when user pressed C-g."
                  (princ (unreadable-result-string object) stream)))))
   string)
 
+(defun symbol-name-for-emacs (symbol)
+  (check-type symbol symbol)
+  (let ((name (string-downcase (symbol-name symbol))))
+    (if (keywordp symbol)
+        (concatenate 'string ":" name)
+        name)))
+
 (defun process-form-for-emacs (form)
   "Returns a string which emacs will read as equivalent to
 FORM. FORM can contain lists, strings, characters, symbols and
@@ -1400,29 +1408,45 @@ converted to lower case."
                   (process-form-for-emacs (car form))
                   (process-form-for-emacs (cdr form))))
     (character (format nil "?~C" form))
-    (symbol (concatenate 'string (when (eq (symbol-package form)
-                                           #.(find-package "KEYWORD"))
-                                   ":")
-                         (string-downcase (symbol-name form))))
+    (symbol (symbol-name-for-emacs form))
     (number (let ((*print-base* 10))
               (princ-to-string form)))))
+
+(defun wait-for-emacs-return (tag)
+  (let ((event (caddr (wait-for-event `(:emacs-return ,tag result)))))
+    (dcase event
+      ((:unreadable value) (make-unreadable-result value))
+      ((:ok value) value)
+      ((:error kind . data) (error "~a: ~{~a~}" kind data))
+      ((:abort) (abort))
+      ;; only in reply to :ed-rpc{-no-wait} events.
+      ((:ed-rpc-forbidden fn) (error "ED-RPC forbidden for ~a" fn)))))
 
 (defun eval-in-emacs (form &optional nowait)
   "Eval FORM in Emacs.
 `slime-enable-evaluate-in-emacs' should be set to T on the Emacs side."
-  (cond (nowait 
+  (cond (nowait
          (send-to-emacs `(:eval-no-wait ,(process-form-for-emacs form))))
         (t
          (force-output)
          (let ((tag (make-tag)))
-	   (send-to-emacs `(:eval ,(current-thread-id) ,tag 
-				  ,(process-form-for-emacs form)))
-	   (let ((value (caddr (wait-for-event `(:emacs-return ,tag result)))))
-	     (dcase value
-               ((:unreadable value) (make-unreadable-result value))
-	       ((:ok value) value)
-               ((:error kind . data) (error "~a: ~{~a~}" kind data))
-	       ((:abort) (abort))))))))
+           (send-to-emacs `(:eval ,(current-thread-id) ,tag
+                                  ,(process-form-for-emacs form)))
+           (wait-for-emacs-return tag)))))
+
+(defun ed-rpc-no-wait (fn &rest args)
+  "Invoke FN in Emacs (or some lesser editor) and don't wait for the result."
+  (send-to-emacs `(:ed-rpc-no-wait ,(symbol-name-for-emacs fn) ,@args))
+  (values))
+
+(defun ed-rpc (fn &rest args)
+  "Invoke FN in Emacs (or some lesser editor). FN should be defined in
+Emacs Lisp via `defslimefun' or otherwise marked as RPCallable."
+  (let ((tag (make-tag)))
+    (send-to-emacs `(:ed-rpc ,(current-thread-id) ,tag
+                             ,(symbol-name-for-emacs fn)
+                             ,@args))
+    (wait-for-emacs-return tag)))
 
 (defvar *swank-wire-protocol-version* nil
   "The version of the swank/slime communication protocol.")
