@@ -23,35 +23,16 @@
 
                 *emacs-connection*
                 *event-hook*)
-  (:export initialize-buffer-stream-hooks
-           make-buffer-output-stream))
+  (:export make-buffer-output-stream))
 
 (in-package :swank-buffer-streams)
-
-(defslimefun initialize-buffer-stream-hooks ()
-  (add-hook *event-hook* 'handle-events)
-  nil)
-
-(defun handle-events (_ event)
-  (declare (ignore _))
-  (dcase event
-    ((:make-stream-target &rest _) (declare (ignore _))
-     (encode-message event (current-socket-io))
-     t)
-    (((:stream-target-created) thread-id &rest _)
-     (declare (ignore _))
-     (send-event (find-thread thread-id) event)
-     t)
-    (t nil)))
 
 (defun get-temporary-identifier ()
   (intern (symbol-name (gensym "BUFFER"))
           :keyword))
 
 (defun make-buffer-output-stream (&optional (target-identifier (get-temporary-identifier)))
-  (send-to-emacs `(:make-stream-target ,(current-thread-id)
-                                       ,target-identifier))
-  (wait-for-event `(:stream-target-created ,(current-thread-id) ,target-identifier))
+  (swank:ed-rpc '#:slime-make-buffer-stream-target (current-thread-id) target-identifier)
   (values (swank:make-output-stream-for-target *emacs-connection* target-identifier)
           target-identifier))
 
