@@ -933,16 +933,6 @@ used with a prefix argument (C-u), doesn't switch back afterwards."
   :type 'boolean
   :group 'slime-repl)
 
-(defcustom slime-repl-history-remove-duplicates nil
-  "*When T all duplicates are removed except the last one."
-  :type 'boolean
-  :group 'slime-repl)
-
-(defcustom slime-repl-history-trim-whitespaces nil
-  "*When T strip all whitespaces from the beginning and end."
-  :type 'boolean
-  :group 'slime-repl)
-
 (make-variable-buffer-local
  (defvar slime-repl-input-history '()
    "History list of strings read from the REPL buffer."))
@@ -950,12 +940,10 @@ used with a prefix argument (C-u), doesn't switch back afterwards."
 (defun slime-repl-add-to-input-history (string)
   "Add STRING to the input history.
 Empty strings and duplicates are ignored."
-  (when slime-repl-history-trim-whitespaces
-    (setq string (slime-trim-whitespace string)))
+  (setq string (slime-trim-whitespace string))
   (unless (equal string "")
-    (when slime-repl-history-remove-duplicates
-      (setq slime-repl-input-history
-            (remove string slime-repl-input-history)))
+    (setq slime-repl-input-history
+          (remove string slime-repl-input-history))
     (unless (equal string (car slime-repl-input-history))
       (push string slime-repl-input-history))))
 
