@@ -1415,8 +1415,7 @@ expansion will be added to the REPL's history.)"
   (:handler (lambda ()
               (interactive)
               (insert (car slime-repl-input-history))
-              (insert "\n")
-              (slime-repl-send-input)))
+              (slime-repl-send-input t)))
   (:one-liner "Resend the last form."))
 
 (defslime-repl-shortcut slime-repl-disconnect ("disconnect")
