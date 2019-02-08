@@ -6144,10 +6144,10 @@ was called originally."
            (old-column (current-column)))
       (erase-buffer)
       (slime-insert-threads threads)
-      (let ((new-line (cl-position old-thread-id (cdr threads)
-                                   :key #'car :test #'equal)))
+      (let ((new-position (cl-position old-thread-id (cdr threads)
+                                       :key #'car :test #'equal)))
         (goto-char (point-min))
-        (forward-line (or new-line old-line))
+        (forward-line (or new-position (1- old-line)))
         (move-to-column old-column)
         (slime-move-point (point))))))
 
