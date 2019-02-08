@@ -6140,14 +6140,19 @@ was called originally."
   (with-current-buffer slime-threads-buffer-name
     (let* ((inhibit-read-only t)
            (old-thread-id (get-text-property (point) 'thread-id))
+           (old-next-thread-id (save-excursion
+                                 (forward-line)
+                                 (get-text-property (point) 'thread-id)))
            (old-line (line-number-at-pos))
            (old-column (current-column)))
       (erase-buffer)
       (slime-insert-threads threads)
       (let ((new-line (cl-position old-thread-id (cdr threads)
-                                   :key #'car :test #'equal)))
+                                   :key #'car :test #'equal))
+            (new-fallback-line (cl-position old-next-thread-id (cdr threads)
+                                            :key #'car :test #'equal)))
         (goto-char (point-min))
-        (forward-line (or new-line old-line))
+        (forward-line (or new-line new-fallback-line old-line))
         (move-to-column old-column)
         (slime-move-point (point))))))
 
