@@ -592,7 +592,9 @@
 ;;; frame-restartable-p (frame)
 
 (defimplementation frame-source-location (frame-number)
-  (nth-value 1 (frame-function (elt *backtrace* frame-number))))
+  (let ((frame (elt *backtrace* frame-number)))
+    (or (nth-value 1 (frame-function frame))
+        (make-error-location "Unknown source location for ~A." (car frame)))))
 
 (defimplementation frame-catch-tags (frame-number)
   (third (elt *backtrace* frame-number)))
