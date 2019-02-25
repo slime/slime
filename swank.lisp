@@ -3044,7 +3044,7 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
 
 (defun xref>elisp (xref)
   (destructuring-bind (name loc) xref
-    (list (to-string name) loc)))
+    (list (if (stringp name) name (to-string name) ) loc)))
 
 
 ;;;; Inspecting
