@@ -60,6 +60,15 @@
            profile-reset
            profile-package
 
+           with-struct*
+           lcons
+           lcons*
+           lcons-cdr
+           llist-range
+           llist-skip
+           llist-take
+           iline
+
            with-collected-macro-forms
            auto-flush-loop
            *auto-flush-interval*))
