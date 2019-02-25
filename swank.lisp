@@ -3144,6 +3144,8 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
               ((:newline) (list newline))
               ((:value obj &optional str) 
                (list (value-part obj str (istate.parts istate))))
+              ((:strong-value obj &optional str) 
+               (list (value-part obj str (istate.parts istate) t)))
               ((:label &rest strs)
                (list (list :label (apply #'cat (mapcar #'string strs)))))
               ((:action label lambda &key (refreshp t)) 
@@ -3154,10 +3156,10 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
                      (value-part value nil (istate.parts istate))
                      newline)))))))
 
-(defun value-part (object string parts)
-  (list :value 
-        (or string (print-part-to-string object))
-        (assign-index object parts)))
+(defun value-part (object string parts &optional strong?)
+  (list (if strong? :strong-value  :value)
+            (or string (print-part-to-string object))
+            (assign-index object parts)))
 
 (defun action-part (label lambda refreshp actions)
   (list :action label (assign-index (list lambda refreshp) actions)))
