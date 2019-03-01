@@ -1958,14 +1958,17 @@ N.B. this is not an actual package name or nickname."
 
 WHAT can be:
   A pathname or a string,
+  A literal string (:string STRING)
   A list (PATHNAME-OR-STRING &key LINE COLUMN POSITION),
   A function name (symbol or cons),
   NIL. "
   (flet ((canonicalize-filename (filename)
            (pathname-to-filename (or (probe-file filename) filename))))
     (let ((target 
-           (etypecase what
-             (null nil)
+            (etypecase what
+              (null nil)
+              ((cons (eql :string) (cons string))
+               what)
              ((or string pathname) 
               `(:filename ,(canonicalize-filename what)))
              ((cons (or string pathname) *)
@@ -3135,6 +3138,8 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
   (let ((newline '#.(string #\newline)))
     (etypecase part
       (string (list part))
+      ((cons (eql :multiple))
+       (mapcan (lambda(p) (prepare-part p istate)) (cdr part)))
       (cons (dcase part
               ((:newline) (list newline))
               ((:value obj &optional str) 
@@ -3147,7 +3152,7 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
                (list (action-part label lambda refreshp
                                   (istate.actions istate))))
               ((:line label value)
-               (list (princ-to-string label) ": "
+               (list `(:label ,(princ-to-string label)) ": "
                      (value-part value nil (istate.parts istate))
                      newline)))))))
 
@@ -3379,7 +3384,7 @@ Return NIL if LIST is circular."
    (iline "Adjustable" (adjustable-array-p array))
    (iline "Fill pointer" (if (array-has-fill-pointer-p array)
                              (fill-pointer array)))
-   "Contents:" '(:newline)
+   `(:label "Contents:") '(:newline)
    (labels ((k (i max)
               (cond ((= i max) '())
                     (t (lcons (iline i (row-major-aref array i))
