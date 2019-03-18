@@ -55,8 +55,7 @@ install a recent release of ASDF and in your ~~/.swank.lisp specify:
 ;; connection.
 #-asdf3
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (unless (or #+asdf3 t #+asdf2
-              (asdf:version-satisfies (asdf:asdf-version) "2.14.6"))
+  (unless (and #+asdf2 (asdf:version-satisfies (asdf:asdf-version) "2.14.6"))
     (error "Your ASDF is too old. ~
             The oldest version supported by swank-asdf is 2.014.6.")))
 ;;; Import functionality from ASDF that isn't available in all ASDF versions.
