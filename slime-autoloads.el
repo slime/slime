@@ -14,6 +14,9 @@
 
 ;;; Code:
 
+(add-to-list 'load-path (directory-file-name
+                         (or (file-name-directory #$) (car load-path))))
+
 (autoload 'slime "slime"
   "Start a Lisp subprocess and connect to its Swank server." t)
 
