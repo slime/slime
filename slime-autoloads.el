@@ -1,4 +1,4 @@
-;;; slime-autoloads.el --- autoload definitions for SLIME
+;;; slime-autoloads.el --- autoload definitions for SLIME -*- no-byte-compile: t -*-
 
 ;; Copyright (C) 2007  Helmut Eller
 
@@ -49,6 +49,3 @@
 (provide 'slime-autoloads)
 
 ;;; slime-autoloads.el ends here
-;; Local Variables:
-;; no-byte-compile: t
-;; End:
