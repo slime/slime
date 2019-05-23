@@ -523,7 +523,13 @@
       (format stream "~a" (core::backtrace-frame-print-name frame))))
 
 (defimplementation frame-source-location (frame-number)
-  (source-location (frame-function frame-number)))
+  (let* ((address (core::backtrace-frame-return-address (elt *backtrace* frame-number)))
+         (code-source-location (ext::code-source-position address)))
+    (format t "code-source-location ~s~%" code-source-location)
+    ;; (core::source-info-backtrace *backtrace*)
+    (make-location (list :file (namestring (ext::code-source-line-source-pathname code-source-location)))
+                   (list :line (ext::code-source-line-line-number code-source-location))
+                   '(:align t))))
 
 #+clasp-working
 (defimplementation frame-catch-tags (frame-number)
