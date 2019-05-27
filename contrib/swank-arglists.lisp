@@ -1002,6 +1002,12 @@ If the arglist is not available, return :NOT-AVAILABLE."))
   (:method (operator arguments)
     (unless (and (symbolp operator) (valid-operator-symbol-p operator))
       (return-from arglist-dispatch :not-available))
+    (when (equalp (package-name (symbol-package operator)) "closer-mop")
+      (let ((standard-symbol (or (find-symbol (symbol-name operator) :cl)
+                                 (find-symbol (symbol-name operator) :swank-mop))))
+        (when standard-symbol
+          (return-from arglist-dispatch
+            (arglist-dispatch standard-symbol arguments)))))
 
     (multiple-value-bind (decoded-arglist determining-args)
         (compute-enriched-decoded-arglist operator arguments)
