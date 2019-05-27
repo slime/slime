@@ -1382,7 +1382,14 @@ which are ready (or have reached end-of-file) without waiting.
 If TIMEOUT is a number and no streams is ready after TIMEOUT seconds,
 return nil.
 
-Return :interrupt if an interrupt occurs while waiting.")
+Return :interrupt if an interrupt occurs while waiting."
+  (declare (ignore streams timeout))
+  ;; Invoking the slime debugger will just endlessly loop.
+  (call-with-debugger-hook
+   nil
+   (lambda ()
+     (error "~s not implemented. Check if ~s = ~s is supported by the implementation."
+            'wait-for-input 'swank:*communication-style* swank:*communication-style*))))
 
 
 ;;;;  Locks
