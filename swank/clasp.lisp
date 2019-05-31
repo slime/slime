@@ -39,15 +39,7 @@
 ;;; Swank-mop
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (import-swank-mop-symbols
-   :clos
-   nil
-   #+(or)`(:eql-specializer
-           :eql-specializer-object
-           :generic-function-declarations
-           :specializer-direct-methods
-           ,@(unless (fboundp 'clos:compute-applicable-methods-using-classes)
-               '(:compute-applicable-methods-using-classes)))))
+  (import-swank-mop-symbols :clos nil))
 
 (defimplementation gray-package-name ()
   "GRAY")
@@ -56,12 +48,6 @@
 ;;;; TCP Server
 
 (defimplementation preferred-communication-style ()
-  ;; As of March 2017 CLASP provides threads.
-  ;; But it's experimental.
-  ;; ECLs swank implementation says that CLOS is not thread safe and
-  ;; I use ECLs CLOS implementation - this is a worry for the future.
-  ;; nil or  :spawn
-  ;; nil
   :spawn
 #|  #+threads :spawn
   #-threads nil
@@ -230,44 +216,46 @@
 (defvar *buffer-name* nil)
 (defvar *buffer-start-position*)
 
-(defun signal-compiler-condition (&rest args)
-  (apply #'signal 'compiler-condition args))
+(defun condition-severity (condition)
+  (etypecase condition
+    (cmp:redefined-function-warning :redefinition)
+    (style-warning                  :style-warning)
+    (warning                        :warning)
+    (reader-error                   :read-error)
+    (error                          :error)))
 
-#-clasp-bytecmp
-(defun handle-compiler-message (condition)
-  ;; CLASP emits lots of noise in compiler-notes, like "Invoking
-  ;; external command".
-  (unless (typep condition 'c::compiler-note)
-    (signal-compiler-condition
-     :original-condition condition
-     :message (princ-to-string condition)
-     :severity (etypecase condition
-                 (cmp:compiler-fatal-error :error)
-                 (cmp:compiler-error       :error)
-                 (error                  :error)
-                 (style-warning          :style-warning)
-                 (warning                :warning))
-     :location (condition-location condition))))
-
-#-clasp-bytecmp
-(defun condition-location (condition)
-  (let ((file     (cmp:compiler-message-file condition))
-        (position (cmp:compiler-message-file-position condition)))
-    (if (and position (not (minusp position)))
+(defun condition-location (origin)
+  (if (null origin)
+      (make-error-location "No error location available")
+      (let ((location (core:source-pos-info-filepos origin)))
         (if *buffer-name*
             (make-buffer-location *buffer-name*
                                   *buffer-start-position*
-                                  position)
-            (make-file-location file position))
-        (make-error-location "No location found."))))
+                                  location)
+            (make-file-location
+             (core:source-file-info-pathname
+              (core:source-file-info origin))
+             location)))))
+
+(defun signal-compiler-condition (condition origin)
+  (signal 'compiler-condition
+          :original-condition condition
+          :severity (condition-severity condition)
+          :message (princ-to-string condition)
+          :location (condition-location origin)))
+
+(defun handle-compiler-condition (condition)
+  ;; First resignal warnings, so that outer handlers - which may choose to
+  ;; muffle this - get a chance to run.
+  (when (typep condition 'warning)
+    (signal condition))
+  (signal-compiler-condition (cmp:deencapsulate-compiler-condition condition)
+                             (cmp:compiler-condition-origin condition)))
 
 (defimplementation call-with-compilation-hooks (function)
-  (funcall function))
-#||  #-clasp-bytecmp
-  (handler-bind ((c:compiler-message #'handle-compiler-message))
+  (handler-bind
+      (((or error warning) #'handle-compiler-condition))
     (funcall function)))
-||#
-
 
 (defimplementation swank-compile-file (input-file output-file
                                        load-p external-format
