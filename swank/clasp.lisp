@@ -233,8 +233,8 @@
                                   *buffer-start-position*
                                   location)
             (make-file-location
-             (core:source-file-info-pathname
-              (core:source-file-info origin))
+             (core:file-scope-pathname
+              (core:file-scope origin))
              location)))))
 
 (defun signal-compiler-condition (condition origin)
