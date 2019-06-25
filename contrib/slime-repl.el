@@ -129,6 +129,23 @@ current repl's (as per slime-output-buffer) window."
 (defvar slime-repl-input-start-mark)
 (defvar slime-repl-prompt-start-mark)
 
+(defvar slime-repl-history-use-mark nil
+  "A non-nil value means that history will be replaced from the mark.
+
+Instead of replacing form input-start, look up history and replace input
+from the mark. Calling 'slime-repl-previous-input',
+ 'slime-repl-previous-matching-input' or their -next counterparts with a prefix
+ argument sets this variable for the duration of one history lookup.")
+
+(defun slime-repl-history-yank-start ()
+  "The position which 'slime-repl-previous-input' will replace from.
+
+When 'slime-repl-history-use-mark' is non-nil, and (mark) is after the current
+input start, return it.  Otherwise, return 'slime-repl-input-start-mark'."
+  (if (and slime-repl-history-use-mark (mark))
+      (max (mark) slime-repl-input-start-mark)
+      slime-repl-input-start-mark))
+
 (defun slime-output-buffer (&optional noprompt)
   "Return the output buffer, create it if necessary."
   (let ((buffer (slime-connection-output-buffer)))
@@ -614,7 +631,7 @@ The input is the region from after the last prompt to the end of
 buffer."
   (or (run-hook-with-args-until-success 'slime-repl-current-input-hooks
                                         until-point-p)
-      (buffer-substring-no-properties slime-repl-input-start-mark
+      (buffer-substring-no-properties (slime-repl-history-yank-start)
                                       (if until-point-p
                                           (point)
                                         (point-max)))))
@@ -811,7 +828,7 @@ earlier in the buffer."
 (defun slime-repl-delete-current-input ()
   "Delete all text from the prompt."
   (interactive)
-  (delete-region slime-repl-input-start-mark (point-max)))
+  (delete-region (slime-repl-history-yank-start) (point-max)))
 
 (defun slime-eval-last-expression-in-repl (prefix)
   "Evaluates last expression in the Slime REPL.
@@ -1017,15 +1034,23 @@ If EXCLUDE-STRING is specified then it's excluded from the search."
   "Cycle backwards through input history.
 If the `last-command' was a history navigation command use the
 same search pattern for this command.
-Otherwise use the current input as search pattern."
+Otherwise use the current input as search pattern.
+
+With a prefix-arg, do replacement from the mark."
   (interactive)
-  (slime-repl-history-replace 'backward (slime-repl-history-pattern t)))
+  (let ((slime-repl-history-use-mark (or slime-repl-history-use-mark
+                                         current-prefix-arg)))
+    (slime-repl-history-replace 'backward (slime-repl-history-pattern t))))
 
 (defun slime-repl-next-input ()
   "Cycle forwards through input history.
-See `slime-repl-previous-input'."
+See `slime-repl-previous-input'.
+
+With a prefix-arg, do replacement from the mark."
   (interactive)
-  (slime-repl-history-replace 'forward (slime-repl-history-pattern t)))
+  (let ((slime-repl-history-use-mark (or slime-repl-history-use-mark
+                                         current-prefix-arg)))
+    (slime-repl-history-replace 'forward (slime-repl-history-pattern t))))
 
 (defun slime-repl-forward-input ()
   "Cycle forwards through input history."
@@ -1038,23 +1063,33 @@ See `slime-repl-previous-input'."
   (slime-repl-history-replace 'backward (slime-repl-history-pattern)))
 
 (defun slime-repl-previous-matching-input (regexp)
+  "Insert the previous matching input.
+
+With a prefix-arg, do the insertion at the mark."
   (interactive (list (slime-read-from-minibuffer
 		      "Previous element matching (regexp): ")))
   (slime-repl-terminate-history-search)
-  (slime-repl-history-replace 'backward regexp))
+  (let ((slime-repl-history-use-mark (or slime-repl-history-use-mark
+                                         current-prefix-arg)))
+    (slime-repl-history-replace 'backward regexp)))
 
 (defun slime-repl-next-matching-input (regexp)
+  "Insert the next matching input.
+
+With a prefix-arg, do the insertion at the mark."
   (interactive (list (slime-read-from-minibuffer
 		      "Next element matching (regexp): ")))
   (slime-repl-terminate-history-search)
-  (slime-repl-history-replace 'forward regexp))
+  (let ((slime-repl-history-use-mark (or slime-repl-history-use-mark
+                                         current-prefix-arg)))
+   (slime-repl-history-replace 'forward regexp)))
 
 (defun slime-repl-history-pattern (&optional use-current-input)
   "Return the regexp for the navigation commands."
   (cond ((slime-repl-history-search-in-progress-p)
          slime-repl-history-pattern)
         (use-current-input
-         (goto-char (max slime-repl-input-start-mark (point)))
+         (goto-char (max (slime-repl-history-yank-start) (point)))
          (let ((str (slime-repl-current-input t)))
            (cond ((string-match "^[ \t\n]*$" str) nil)
                  (t (concat "^" (regexp-quote str))))))
