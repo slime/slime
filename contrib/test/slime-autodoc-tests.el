@@ -139,11 +139,11 @@
   ;; Test &KEY and nested arglists
   ("(swank::with-retry-restart (:msg *HERE*"
    "(with-retry-restart (&key ===> (msg \"Retry.\") <===) &body body)"
-   :fails-for ("allegro" "ccl"))
+   :fails-for ("allegro"))
   ("(swank::with-retry-restart (:msg *HERE*(foo"
    "(with-retry-restart (&key ===> (msg \"Retry.\") <===) &body body)"
    :skip-trailing-test-p t
-   :fails-for ("allegro" "ccl"))
+   :fails-for ("allegro"))
   ("(swank::start-server \"/tmp/foo\" :dont-close *HERE*"
    "(start-server port-file &key (style swank:*communication-style*)\
  ===> (dont-close swank:*dont-close*) <===)"
