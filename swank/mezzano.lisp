@@ -34,62 +34,32 @@
 ;;;; TCP server
 
 (defclass listen-socket ()
-  ((%host :initarg :host)
-   (%port :initarg :port)
-   (%connection-fifo :initarg :connections)
-   (%callback :initarg :callback)))
+  ((%listener :initarg :listener)))
 
 (defimplementation create-socket (host port &key backlog)
-  (let* ((connections (mezzano.supervisor:make-fifo (or backlog 10)))
-         (sock (make-instance 'listen-socket
-                              :host host
-                              :port port
-                              :connections connections
-                              :callback (lambda (conn)
-                                          (do-connection conn connections))))
-         (listen-fn (slot-value sock '%callback)))
-    (when (find port mezzano.network.tcp::*server-alist*
-                :key #'first)
-      (error "Server already listening on port ~D" port))
-    (push (list port listen-fn) mezzano.network.tcp::*server-alist*)
-    sock))
-
-(defun do-connection (conn connections)
-  (when (not (mezzano.supervisor:fifo-push
-              (make-instance 'mezzano.network.tcp::tcp-stream :connection conn)
-              connections
-              nil))
-    ;; Drop connections when they can't be handled.
-    (close conn)))
+  (make-instance 'listen-socket
+                 :listener (mezzano.network.tcp:tcp-listen
+                            (mezzano.network.ip:make-ipv4-address "0.0.0.0")
+                            port
+                            :backlog (or backlog 10))))
 
 (defimplementation local-port (socket)
-  (slot-value socket '%port))
+  (mezzano.network.tcp::tcp-listener-local-port (slot-value socket '%listener)))
 
 (defimplementation close-socket (socket)
-  (setf mezzano.network.tcp::*server-alist*
-        (remove (slot-value socket '%callback)
-                mezzano.network.tcp::*server-alist*
-                :key #'second))
-  (let ((fifo (slot-value socket '%connection-fifo)))
-    (loop
-       (let ((conn (mezzano.supervisor:fifo-pop fifo nil)))
-         (when (not conn)
-           (return))
-         (close conn))))
-  (setf (slot-value socket '%connection-fifo) nil))
+  (mezzano.network.tcp:close-tcp-listener (slot-value socket '%listener)))
 
 (defimplementation accept-connection (socket &key external-format
                                              buffering timeout)
   (declare (ignore external-format buffering timeout))
   (loop
-     (let ((value (mezzano.supervisor:fifo-pop
-                   (slot-value socket '%connection-fifo)
-                   nil)))
-       (when value
-         (return value)))
-     ;; Poke standard-input every now and then to keep the console alive.
-     (listen)
-     (sleep 0.05)))
+    (let ((value (mezzano.network.tcp:tcp-accept (slot-value socket '%listener)
+                                                 :wait-p nil)))
+      (if value
+          (return value)
+          ;; Poke standard-input every now and then to keep the console alive.
+          (progn (listen)
+                 (sleep 0.05))))))
 
 (defimplementation preferred-communication-style ()
   :spawn)
