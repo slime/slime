@@ -4613,6 +4613,8 @@ This is used by `slime-goto-next-xref'")
   (interactive (list (slime-read-symbol-name "Who calls: " t)))
   (slime-xref :calls symbol))
 
+(defalias slime-bell-tolls-for-whom #'slime-who-calls)
+
 (defun slime-calls-who (symbol)
   "Show all known functions called by the function SYMBOL."
   (interactive (list (slime-read-symbol-name "Who calls: " t)))
