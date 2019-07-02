@@ -47,7 +47,7 @@
   (mezzano.network.tcp:tcp-listener-local-port (slot-value socket '%listener)))
 
 (defimplementation close-socket (socket)
-  (close (slot-value socket '%listener)))
+  (mezzano.network.tcp:close-tcp-listener (slot-value socket '%listener)))
 
 (defimplementation accept-connection (socket &key external-format
                                              buffering timeout)
