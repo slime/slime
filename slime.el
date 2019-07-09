@@ -1097,7 +1097,7 @@ DIRECTORY change to this directory before starting the process.
 (defun slime-start* (options)
   (apply #'slime-start options))
 
-(defun slime-connect (host port &optional _coding-system interactive-p)
+(defun slime-connect (host port &optional _coding-system interactive-p &rest parameters)
   "Connect to a running Swank server. Return the connection."
   (interactive (list (read-from-minibuffer
                       "Host: " (cl-first slime-connect-host-history)
@@ -1113,7 +1113,7 @@ DIRECTORY change to this directory before starting the process.
              (y-or-n-p "Close old connections first? "))
     (slime-disconnect-all))
   (message "Connecting to Swank on port %S.." port)
-  (let* ((process (slime-net-connect host port))
+  (let* ((process (apply 'slime-net-connect host port parameters))
          (slime-dispatching-connection process))
     (slime-setup-connection process)))
 
@@ -1418,10 +1418,10 @@ first line of the file."
                              payload)))
         (process-send-string proc string)))))
 
-(defun slime-net-connect (host port)
+(defun slime-net-connect (host port &rest parameters)
   "Establish a connection with a CL."
   (let* ((inhibit-quit nil)
-         (proc (open-network-stream "SLIME Lisp" nil host port))
+         (proc (apply 'open-network-stream "SLIME Lisp" nil host port parameters))
          (buffer (slime-make-net-buffer " *cl-connection*")))
     (push proc slime-net-processes)
     (set-process-buffer proc buffer)
