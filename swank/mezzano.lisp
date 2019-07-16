@@ -39,7 +39,7 @@
 (defimplementation create-socket (host port &key backlog)
   (make-instance 'listen-socket
                  :listener (mezzano.network.tcp:tcp-listen
-                            (mezzano.network.ip:make-ipv4-address "0.0.0.0")
+                            host
                             port
                             :backlog (or backlog 10))))
 
