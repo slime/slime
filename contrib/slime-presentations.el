@@ -46,7 +46,7 @@
 
 (defface slime-repl-inputed-output-face
   '((((class color) (background light)) (:foreground "Red"))
-    (((class color) (background dark)) (:foreground "Red"))
+    (((class color) (background dark)) (:foreground "light salmon"))
     (t (:slant italic)))
   "Face for the result of an evaluation in the SLIME REPL."
   :group 'slime-repl)
