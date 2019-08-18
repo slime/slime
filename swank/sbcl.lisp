@@ -558,8 +558,13 @@ information."
             (sb-c::compiler-error-context-original-source context)))
           ((typep condition 'reader-error)
            (let* ((stream (stream-error-stream condition))
-                  (file   (pathname stream)))
-             (unless (open-stream-p stream)
+                  ;; If STREAM is, for example, a STRING-INPUT-STREAM,
+                  ;; an error will be signaled since PATHNAME only
+                  ;; accepts a "stream associated with a file" which
+                  ;; is a complicated predicate and hard to test
+                  ;; portably.
+                  (file   (ignore-errors (pathname stream))))
+             (unless (and file (open-stream-p stream))
                (bailout))
              (if (compiling-from-buffer-p file)
                  ;; The stream position for e.g. "comma not inside
