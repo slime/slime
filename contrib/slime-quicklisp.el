@@ -21,12 +21,13 @@
   "History list for Quicklisp system names.")
 
 
-
 (defun slime-read-quicklisp-system-name (&optional prompt default-value)
   "Read a Quick system name from the minibuffer, prompting with PROMPT."
   (let* ((completion-ignore-case nil)
          (prompt (or prompt "Quicklisp system"))
-         (quicklisp-system-names (slime-eval `(swank:list-quicklisp-systems)))
+         (quicklisp-system-names
+          (append (slime-eval `(swank:list-quicklisp-local-systems))
+                  (slime-eval `(swank:list-quicklisp-systems))))
          (prompt (concat prompt (if default-value
                                     (format " (default `%s'): " default-value)
                                   ": "))))
