@@ -20,18 +20,26 @@
 (defvar slime-quicklisp-system-history nil
   "History list for Quicklisp system names.")
 
+(defcustom slime-quicklisp-local-systems t
+  "If this is non-NIL, then local systems also appear in the
+  completion list when SLIME-QUICKLISP-QUICKLOAD function is
+  called."
+  :type 'boolean)
+
 
 (defun slime-read-quicklisp-system-name (&optional prompt default-value)
   "Read a Quick system name from the minibuffer, prompting with PROMPT."
   (let* ((completion-ignore-case nil)
          (prompt (or prompt "Quicklisp system"))
          (quicklisp-system-names
-          (append (slime-eval `(swank:list-quicklisp-local-systems))
-                  (slime-eval `(swank:list-quicklisp-systems))))
+          (slime-eval `(swank:list-quicklisp-systems
+                        ,slime-quicklisp-local-systems)))
          (prompt (concat prompt (if default-value
                                     (format " (default `%s'): " default-value)
                                   ": "))))
-    (completing-read prompt (slime-bogus-completion-alist quicklisp-system-names)
+    (completing-read prompt
+                     (slime-bogus-completion-alist
+                      quicklisp-system-names)
                      nil nil nil
                      'slime-quicklisp-system-history default-value)))
 
