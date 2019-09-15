@@ -187,7 +187,7 @@
           for i from 0
           do (java:jstatic (java:jmethod "java.lang.reflect.Array"  "setByte"
                             "java.lang.Object" "int" "byte")
-                           "java.lang.relect.Array"
+                           "java.lang.reflect.Array"
                            bytes i byte))
     bytes))
 
