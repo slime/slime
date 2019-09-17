@@ -515,9 +515,11 @@
          (code-source-location (ext::code-source-position address)))
     (format t "code-source-location ~s~%" code-source-location)
     ;; (core::source-info-backtrace *backtrace*)
-    (make-location (list :file (namestring (ext::code-source-line-source-pathname code-source-location)))
-                   (list :line (ext::code-source-line-line-number code-source-location))
-                   '(:align t))))
+    (if (ext::code-source-line-source-pathname code-source-location)
+        (make-location (list :file (namestring (ext::code-source-line-source-pathname code-source-location)))
+                       (list :line (ext::code-source-line-line-number code-source-location))
+                       '(:align t))
+        `(:error ,(format nil "No source for frame: ~a" frame-number)))))
 
 #+clasp-working
 (defimplementation frame-catch-tags (frame-number)
