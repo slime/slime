@@ -313,8 +313,8 @@
   (gethash tmp-file *tmpfile-map*))
 
 (defimplementation swank-compile-string
-    (string &key buffer position filename policy)
-  (declare (ignore policy))
+    (string &key buffer position filename line column policy)
+  (declare (ignore line column policy))
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)        ; for compilation hooks
           (*buffer-start-position* position))
