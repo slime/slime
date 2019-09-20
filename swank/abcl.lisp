@@ -498,8 +498,8 @@
                        (not (load fn)))))))))
 
 (defimplementation swank-compile-string (string &key buffer position filename
-                                                policy)
-  (declare (ignore filename policy))
+                                                line column policy)
+  (declare (ignore filename line column policy))
   (let ((jvm::*resignal-compiler-warnings* t)
         (*abcl-signaled-conditions* nil))
     (handler-bind ((warning #'handle-compiler-warning))

@@ -733,7 +733,8 @@ QUALITIES is an alist with (quality . value)"
 (defvar *trap-load-time-warnings* t)
 
 (defimplementation swank-compile-string (string &key buffer position filename
-                                         policy)
+                                                line column policy)
+  (declare (ignore line column))
   (let ((*buffer-name* buffer)
         (*buffer-offset* position)
         (*buffer-substring* string)

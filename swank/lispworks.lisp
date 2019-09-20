@@ -762,8 +762,8 @@ function names like \(SETF GET)."
 	   htab))
 
 (defimplementation swank-compile-string (string &key buffer position filename
-                                         policy)
-  (declare (ignore filename policy))
+                                                line column policy)
+  (declare (ignore filename line column policy))
   (assert buffer)
   (assert position)
   (let* ((location (list :emacs-buffer buffer position))

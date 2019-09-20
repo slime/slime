@@ -2495,7 +2495,10 @@ Record compiler notes signalled as `compiler-condition's."
 (defslimefun compile-string-for-emacs (string buffer position filename policy)
   "Compile STRING (exerpted from BUFFER at POSITION).
 Record compiler notes signalled as `compiler-condition's."
-  (let ((offset (cadr (assoc :position position))))
+  (let* ((offset (cadr (assoc :position position)))
+         (line-column (assoc :line position))
+         (line (cadr line-column))
+         (column (caddr line-column)))
     (with-buffer-syntax ()
       (collect-notes
        (lambda () 
@@ -2504,6 +2507,8 @@ Record compiler notes signalled as `compiler-condition's."
                                  :buffer buffer
                                  :position offset 
                                  :filename filename
+                                 :line line
+                                 :column column
                                  :policy policy)))))))
 
 (defslimefun compile-multiple-strings-for-emacs (strings policy)

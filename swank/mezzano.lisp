@@ -93,8 +93,8 @@
     (funcall func)))
 
 (defimplementation swank-compile-string (string &key buffer position filename
-                                                policy)
-  (declare (ignore buffer policy))
+                                                line column policy)
+  (declare (ignore buffer line column policy))
   (let* ((*load-pathname* (ignore-errors (pathname filename)))
          (*load-truename* (when *load-pathname*
                             (ignore-errors (truename *load-pathname*))))
