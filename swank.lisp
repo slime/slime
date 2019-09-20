@@ -2496,9 +2496,9 @@ Record compiler notes signalled as `compiler-condition's."
   "Compile STRING (exerpted from BUFFER at POSITION).
 Record compiler notes signalled as `compiler-condition's."
   (let* ((offset (cadr (assoc :position position)))
-         (line-column (assoc :line position))
-         (line (cadr line-column))
-         (column (caddr line-column)))
+         (line-column (cdr (assoc :line position)))
+         (line (first line-column))
+         (column (second line-column)))
     (with-buffer-syntax ()
       (collect-notes
        (lambda () 
