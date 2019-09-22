@@ -285,8 +285,8 @@
 (defun tmpfile-to-buffer (tmp-file)
   (gethash tmp-file *tmpfile-map*))
 
-(defimplementation swank-compile-string (string &key buffer position filename policy)
-  (declare (ignore policy))
+(defimplementation swank-compile-string (string &key buffer position filename line column policy)
+  (declare (ignore line column policy)) ;; We will use line and column in the future
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)        ; for compilation hooks
           (*buffer-start-position* position))
@@ -515,9 +515,11 @@
          (code-source-location (ext::code-source-position address)))
     (format t "code-source-location ~s~%" code-source-location)
     ;; (core::source-info-backtrace *backtrace*)
-    (make-location (list :file (namestring (ext::code-source-line-source-pathname code-source-location)))
-                   (list :line (ext::code-source-line-line-number code-source-location))
-                   '(:align t))))
+    (if (ext::code-source-line-source-pathname code-source-location)
+        (make-location (list :file (namestring (ext::code-source-line-source-pathname code-source-location)))
+                       (list :line (ext::code-source-line-line-number code-source-location))
+                       '(:align t))
+        `(:error ,(format nil "No source for frame: ~a" frame-number)))))
 
 #+clasp-working
 (defimplementation frame-catch-tags (frame-number)

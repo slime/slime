@@ -510,7 +510,7 @@ such package."
   `(call-with-compilation-hooks (lambda () (progn ,@body))))
 
 (definterface swank-compile-string (string &key buffer position filename
-                                           policy)
+                                           line column policy)
   "Compile source from STRING.
 During compilation, compiler conditions must be trapped and
 resignalled as COMPILER-CONDITIONs.
@@ -527,6 +527,10 @@ source information.
 If POLICY is supplied, and non-NIL, it may be used by certain
 implementations to compile with optimization qualities of its
 value.
+
+If LINE and COLUMN are supplied, and non-NIL, they may be used
+by certain implementations as the line and column of the start of
+the string in FILENAME. Both LINE and COLUMN are 1-based.
 
 Should return T on successful compilation, NIL otherwise.
 ")
