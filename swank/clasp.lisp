@@ -286,7 +286,7 @@
   (gethash tmp-file *tmpfile-map*))
 
 (defimplementation swank-compile-string (string &key buffer position filename line column policy)
-  (declare (ignore line column policy)) ;; We will use line and column in the future
+  (declare (ignore column policy)) ;; We may use column in the future
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)        ; for compilation hooks
           (*buffer-start-position* position))
@@ -303,6 +303,9 @@
                  (let ((truename (or filename (note-buffer-tmpfile tmp-file buffer))))
                    (compile-file tmp-file
                                  :source-debug-pathname (pathname truename)
+                                 ;; emacs numbers are 1-based instead of 0-based,
+                                 ;; so we have to subtract
+                                 :source-debug-lineno (1- line)
                                  :source-debug-offset (1- position)))))
           (when fasl-file (load fasl-file))
           (when (probe-file tmp-file)
@@ -797,3 +800,6 @@
   (let ((encoded (core:encode object)))
     (loop for (key . value) in encoded
        append (list (string key) ": " (list :value value) (list :newline)))))
+
+(defmethod emacs-inspect ((object core:va-list))
+  (emacs-inspect (core:list-from-va-list object)))
