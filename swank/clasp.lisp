@@ -227,15 +227,14 @@
 (defun condition-location (origin)
   (if (null origin)
       (make-error-location "No error location available")
-      (let ((location (core:source-pos-info-filepos origin)))
-        (if *buffer-name*
-            (make-buffer-location *buffer-name*
-                                  *buffer-start-position*
-                                  location)
-            (make-file-location
-             (core:file-scope-pathname
-              (core:file-scope origin))
-             location)))))
+      ;; NOTE: If we're compiling in a buffer, the origin
+      ;; will already be set up with the offset correctly
+      ;; due to the :source-debug parameters from
+      ;; swank-compile-string (below).
+      (make-file-location
+       (core:file-scope-pathname
+        (core:file-scope origin))
+       (core:source-pos-info-filepos origin))))
 
 (defun signal-compiler-condition (condition origin)
   (signal 'compiler-condition
