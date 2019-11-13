@@ -19,10 +19,10 @@
 ;; This code has been placed in the Public Domain.  All warranties
 ;; are disclaimed.
 
-(defpackage :swank-loader
+(defpackage :swank-loader-asdf
   (:use :cl))
 
-(in-package :swank-loader)
+(in-package :swank-loader-asdf)
 
 (defclass swank-loader-file (asdf:cl-source-file) ())
 
