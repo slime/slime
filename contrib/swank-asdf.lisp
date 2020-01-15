@@ -506,14 +506,6 @@ already knows."
   (let ((*recompile-system* (asdf:find-system name)))
     (operate-on-system-for-emacs name 'asdf:load-op)))
 
-;; Doing list-all-systems-in-central-registry might be quite slow
-;; since it accesses a file-system, so run it once at the background
-;; to initialize caches.
-(when (eql *communication-style* :spawn)
-  (spawn (lambda ()
-           (ignore-errors (list-all-systems-in-central-registry)))
-         :name "init-asdf-fs-caches"))
-
 ;;; Hook for compile-file-for-emacs
 
 (defun try-compile-file-with-asdf (pathname load-p &rest options)
