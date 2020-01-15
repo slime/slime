@@ -510,9 +510,12 @@ already knows."
 ;; since it accesses a file-system, so run it once at the background
 ;; to initialize caches.
 (when (eql *communication-style* :spawn)
-  (spawn (lambda ()
-           (ignore-errors (list-all-systems-in-central-registry)))
-         :name "init-asdf-fs-caches"))
+  ;; in LispWorks, multiprocessing might not be ready at the time
+  ;; swank is loading, so we just ignore any errors with spawning.
+  (ignore-errors
+   (spawn (lambda ()
+            (ignore-errors (list-all-systems-in-central-registry)))
+          :name "init-asdf-fs-caches")))
 
 ;;; Hook for compile-file-for-emacs
 
