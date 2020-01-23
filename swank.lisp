@@ -927,7 +927,7 @@ The processing is done in the extent of the toplevel restart."
     (stop-serving-requests c)
     (close (connection.socket-io c))
     (when (connection.dedicated-output c)
-      (close (connection.dedicated-output c)))
+      (ignore-errors (close (connection.dedicated-output c))))
     (setf *connections* (remove c *connections*))
     (run-hook *connection-closed-hook* c)
     (when (and condition (not (typep condition 'end-of-file)))
