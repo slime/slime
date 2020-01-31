@@ -8,7 +8,7 @@
 ;;; are disclaimed.
 ;;;
 
-(in-package swank/rpc)
+(in-package :swank/rpc)
 
 
 ;;;;; Input
