@@ -106,7 +106,7 @@
     (write-sequence octets stream)
     (finish-output stream)))
 
-;; FIXME: for now just tell emacs that we and an encoding problem.
+;; FIXME: for now just tell emacs that we had an encoding problem.
 (defun encoding-error (condition string)
   (swank/backend:string-to-utf8
    (prin1-to-string-for-emacs
