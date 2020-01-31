@@ -1103,7 +1103,7 @@ The processing is done in the extent of the toplevel restart."
 
 (defun wait-for-event (pattern &optional timeout)
   "Scan the event queue for PATTERN and return the event.
-If TIMEOUT is 'nil wait until a matching event is enqued.
+If TIMEOUT is 'nil wait until a matching event is enqueued.
 If TIMEOUT is 't only scan the queue without waiting.
 The second return value is t if the timeout expired before a matching
 event was found."
@@ -2101,7 +2101,7 @@ after Emacs causes a restart to be invoked."
   "The initial number of backtrace frames to send to Emacs.")
 
 (defvar *sldb-restarts* nil
-  "The list of currenlty active restarts.")
+  "The list of currently active restarts.")
 
 (defvar *sldb-stepping-p* nil
   "True during execution of a step command.")
@@ -2243,7 +2243,7 @@ where
   restart     ::= (name description)
   stack-frame ::= (number description [plist])
   extra       ::= (:references and other random things)
-  cont        ::= continutation
+  cont        ::= continuation
   plist       ::= (:restartable {nil | t | :unknown})
 
 condition---a pair of strings: message, and type.  If show-source is
@@ -2254,7 +2254,7 @@ restart---a pair of strings: restart name, and description.
 stack-frame---a number from zero (the top), and a printed
 representation of the frame's call.
 
-continutation---the id of a pending Emacs continuation.
+continuation---the id of a pending Emacs continuation.
 
 Below is an example return value. In this case the condition was a
 division by zero (multi-line description), and only one frame is being
