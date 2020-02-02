@@ -755,7 +755,7 @@
              (cond ((ext:pathname-jar-p path)
                     `(:location
                       ;; strip off "jar:file:" = 9 characters
-                      (:zip ,@(split-string (subseq path 9) "!/"))
+                      (:zip ,@(split-string (subseq path (length "jar:file:")) "!/"))
                       ;; pos never seems right. Use function name.
                       (:function-name ,(string symbol))
                       (:align t)))
@@ -1004,8 +1004,7 @@
       (list (definition-specifier what)
             (if (ext:pathname-jar-p path2)
                 `(:location
-                  ;; JAR-PATHNAME stores the PATHNAME of the jar file as first element of a list DEVICE
-                  (:zip ,@(pathname-device path2))
+                  (:zip ,@(split-string (subseq path2 (length "jar:file:")) "!/"))
                   ;; pos never seems right. Use function name.
                   ,<position>
                   (:align t))
