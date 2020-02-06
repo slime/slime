@@ -112,9 +112,6 @@ subexpressions of the object to stream positions."
   (let* ((source-map (make-hash-table :test #'eq))
          (*readtable* (make-source-recording-readtable *readtable* source-map))
 	 (*read-suppress* nil)
-         #+sbcl
-         (*features* (append *features*
-                             (symbol-value (find-symbol "+INTERNAL-FEATURES+" 'sb-impl))))
 	 (start (file-position stream))
 	 (form (ignore-errors (read stream)))
 	 (end (file-position stream)))
@@ -182,8 +179,11 @@ subexpressions of the object to stream positions."
   "Read the Nth toplevel form number with source location recording.
 Return the form and the source-map."
   (multiple-value-bind (*readtable* *package*) (guess-reader-state stream)
-    (skip-toplevel-forms n stream)
-    (read-and-record-source-map stream)))
+    (let (#+sbcl
+          (*features* (append *features*
+                              (symbol-value (find-symbol "+INTERNAL-FEATURES+" 'sb-impl)))))
+      (skip-toplevel-forms n stream)
+      (read-and-record-source-map stream))))
 
 (defun source-path-stream-position (path stream)
   "Search the source-path PATH in STREAM and return its position."
