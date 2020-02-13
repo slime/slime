@@ -804,17 +804,6 @@ QUALITIES is an alist with (quality . value)"
          name
          (sb-introspect::definition-source-description source-location)))
 
-(defun categorize-definition-source (definition-source)
-  (with-definition-source (pathname form-path character-offset plist)
-    definition-source
-    (let ((file-p (and pathname (probe-file pathname)
-                       (or form-path character-offset))))
-      (cond ((and (getf plist :emacs-buffer) file-p) :buffer-and-file)
-            ((getf plist :emacs-buffer) :buffer)
-            (file-p :file)
-            (pathname :file-without-position)
-            (t :invalid)))))
-
 (defimplementation find-definitions (name)
   (loop for type in *definition-types* by #'cddr
         for defsrcs = (remove :invalid
@@ -872,6 +861,17 @@ QUALITIES is an alist with (quality . value)"
                        (cons `(,(first name) (,(reader (second name)) ,tmp)))
                        (t (error "Malformed syntax in WITH-STRUCT: ~A" name))))
             ,@body)))))
+
+(defun categorize-definition-source (definition-source)
+  (with-definition-source (pathname form-path character-offset plist)
+                          definition-source
+    (let ((file-p (and pathname (probe-file pathname)
+                       (or form-path character-offset))))
+      (cond ((and (getf plist :emacs-buffer) file-p) :buffer-and-file)
+            ((getf plist :emacs-buffer) :buffer)
+            (file-p :file)
+            (pathname :file-without-position)
+            (t :invalid)))))
 
 #+#.(swank/backend:with-symbol 'definition-source-form-number 'sb-introspect)
 (defun form-number-position (definition-source stream)
