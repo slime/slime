@@ -806,10 +806,12 @@ QUALITIES is an alist with (quality . value)"
 
 (defimplementation find-definitions (name)
   (loop for type in *definition-types* by #'cddr
-        for defsrcs = (remove :invalid
-                              (sb-introspect:find-definition-sources-by-name name type)
-                              :key #'categorize-definition-source)
-        append (loop for defsrc in defsrcs collect
+        for defsrcs = (sb-introspect:find-definition-sources-by-name name type)
+        for filtered-defsrcs = (if (eq type :generic-function)
+                                   (remove :invalid defsrcs
+                                           :key #'categorize-definition-source)
+                                   defsrcs)
+        append (loop for defsrc in filtered-defsrcs collect
                      (list (make-dspec type name defsrc)
                            (converting-errors-to-error-location
                              (definition-source-for-emacs defsrc
