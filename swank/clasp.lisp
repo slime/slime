@@ -515,7 +515,7 @@
 (defimplementation frame-source-location (frame-number)
   (let* ((address (core::backtrace-frame-return-address (elt *backtrace* frame-number)))
          (code-source-location (ext::code-source-position address)))
-    (format t "code-source-location ~s~%" code-source-location)
+    (format t "address: ~a   code-source-location ~s~%" address code-source-location)
     ;; (core::source-info-backtrace *backtrace*)
     (if (ext::code-source-line-source-pathname code-source-location)
         (make-location (list :file (namestring (ext::code-source-line-source-pathname code-source-location)))
