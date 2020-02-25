@@ -337,8 +337,6 @@
         (function-quoted-forms '()))
     (format t "In collect-macro-forms~%")
     (cmp:code-walk
-     form environment
-     :code-walker-function
      (lambda (form environment)
        (when (and (consp form)
                   (symbolp (car form)))
@@ -350,7 +348,8 @@
                 (push form macro-forms))
                ((not (eq form (core:compiler-macroexpand-1 form environment)))
                 (push form compiler-macro-forms))))
-       form))
+       form)
+     form environment)
     (values macro-forms compiler-macro-forms)))
 
 
