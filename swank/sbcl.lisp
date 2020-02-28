@@ -1403,14 +1403,28 @@ stack."
 
 (defun frame-debug-vars (frame)
   "Return a vector of debug-variables in frame."
-  (let ((all-vars (sb-di::debug-fun-debug-vars (sb-di:frame-debug-fun frame))))
-    (cond (*keep-non-valid-locals* all-vars)
-          (t (let ((loc (sb-di:frame-code-location frame)))
-               (remove-if (lambda (var)
-                            (ecase (sb-di:debug-var-validity var loc)
-                              (:valid nil)
-                              ((:invalid :unknown) t)))
-                          all-vars))))))
+  (let* ((all-vars (sb-di::debug-fun-debug-vars (sb-di:frame-debug-fun frame)))
+         (loc (sb-di:frame-code-location frame))
+         (vars (if *keep-non-valid-locals*
+                   all-vars
+                   (remove-if (lambda (var)
+                                (ecase (sb-di:debug-var-validity var loc)
+                                  (:valid nil)
+                                  ((:invalid :unknown) t)))
+                              all-vars)))
+         more-context
+         more-count)
+    (values (loop for v across vars
+                  unless 
+                  (case (debug-var-info v)
+                    (:more-context
+                     (setf more-context (debug-var-value v frame loc))
+                     t)
+                    (:more-count
+                     (setf more-count (debug-var-value v frame loc))
+                     t))
+                  collect v)
+            more-context more-count)))
 
 (defun debug-var-value (var frame location)
   (ecase (sb-di:debug-var-validity var location)
@@ -1425,59 +1439,43 @@ stack."
 
 (defimplementation frame-locals (index)
   (let* ((frame (nth-frame index))
-         (loc (sb-di:frame-code-location frame))
-         (vars (frame-debug-vars frame))
-         ;; Since SBCL 1.0.49.76 PREPROCESS-FOR-EVAL understands SB-DEBUG::MORE
-         ;; specially.
-         (more-name (or (find-symbol "MORE" :sb-debug) 'more))
-         (more-context nil)
-         (more-count nil))
-    (when vars
+         (loc (sb-di:frame-code-location frame)))
+    (multiple-value-bind (vars more-context more-count)
+        (frame-debug-vars frame)
       (let ((locals
-              (loop for v across vars
-                    unless 
-                    (case (debug-var-info v)
-                      (:more-context
-                       (setf more-context (debug-var-value v frame loc))
-                       t)
-                      (:more-count
-                       (setf more-count (debug-var-value v frame loc))
-                       t))
+              (loop for v in vars
                     collect
                     (list :name (sb-di:debug-var-symbol v)
                           :id (sb-di:debug-var-id v)
                           :value (debug-var-value v frame loc)))))
-        (when (and more-context more-count)
-          (setf locals (append locals
-                               (list
-                                (list :name more-name
-                                      :id 0
-                                      :value (multiple-value-list
-                                              (sb-c:%more-arg-values
-                                               more-context
-                                               0 more-count)))))))
-        locals))))
+        (if (and more-context more-count)
+            (append locals
+                    (list
+                     (list :name
+                           ;; Since SBCL 1.0.49.76 PREPROCESS-FOR-EVAL understands SB-DEBUG::MORE
+                           ;; specially.
+                           (or (find-symbol "MORE" :sb-debug) 'more)
+                           :id 0
+                           :value (multiple-value-list
+                                   (sb-c:%more-arg-values
+                                    more-context
+                                    0 more-count)))))
+            locals)))))
 
 (defimplementation frame-var-value (frame var)
-  (let* ((frame (nth-frame frame))
-         (vars (frame-debug-vars frame))
-         (loc (sb-di:frame-code-location frame))
-         (dvar (if (= var (length vars))
-                   ;; If VAR is out of bounds, it must be the fake var
-                   ;; we made up for &MORE.
-                   (let* ((context-var (find :more-context vars
-                                             :key #'debug-var-info))
-                          (more-context (debug-var-value context-var frame
-                                                         loc))
-                          (count-var (find :more-count vars
-                                           :key #'debug-var-info))
-                          (more-count (debug-var-value count-var frame loc)))
-                     (return-from frame-var-value
-                       (multiple-value-list (sb-c:%more-arg-values
-                                             more-context
-                                             0 more-count))))
-                   (aref vars var))))
-    (debug-var-value dvar frame loc)))
+  (let ((frame (nth-frame frame)))
+    (multiple-value-bind (vars more-context more-count)
+        (frame-debug-vars frame)
+      (let* ((loc (sb-di:frame-code-location frame))
+             (dvar (if (= var (length vars))
+                       ;; If VAR is out of bounds, it must be the fake var
+                       ;; we made up for &MORE.
+                       (return-from frame-var-value
+                         (multiple-value-list (sb-c:%more-arg-values
+                                               more-context
+                                               0 more-count)))
+                       (nth var vars))))
+        (debug-var-value dvar frame loc)))))
 
 (defimplementation frame-catch-tags (index)
   (mapcar #'car (sb-di:frame-catches (nth-frame index))))
