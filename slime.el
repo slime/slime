@@ -581,9 +581,7 @@ information."
 edit s-exprs, e.g. for source buffers and the REPL.")
 
 (defvar slime-editing-keys
-  `(;; Arglist display & completion
-    (" "          slime-space)
-    ;; Evaluating
+  `(;; Evaluating
     ;;("\C-x\M-e" slime-eval-last-expression-display-output :inferior t)
     ("\C-c\C-p"   slime-pprint-eval-last-expression)
     ;; Macroexpand
