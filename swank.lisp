@@ -1751,14 +1751,52 @@ Errors are trapped and invoke our debugger."
         (finish-output)
         (format-values-for-echo-area values)))))
 
-(defslimefun eval-and-grab-output (string)
+(defslimefun eval-and-grab-output
+    (string &optional (targets-to-capture '(*standard-output* values)
+                                          targets-provided-p))
+  "Evaluate contents of STRING, return alist of results including various output streams. Possible keys in the returned alist should be listed in the value of `slime-output-targets' variable in `slime.el'."
   (with-buffer-syntax ()
     (with-retry-restart (:msg "Retry SLIME evaluation request.")
-      (let* ((s (make-string-output-stream))
-             (*standard-output* s)
-             (values (multiple-value-list (eval (from-string string)))))
-        (list (get-output-stream-string s) 
-              (format nil "~{~S~^~%~}" values))))))
+      (macrolet ((maybe-value-string (form)
+                   `(if (member 'values targets-to-capture)
+                        ,form
+                        ""))
+                 (maybe-output-stream-string (stream-symbol)
+                   `(if (member ',stream-symbol targets-to-capture)
+                        (get-output-stream-string ,stream-symbol)
+                        ""))
+                 (maybe-make-string-output-stream (stream-symbol)
+                   `(if (member ',stream-symbol targets-to-capture)
+                        (make-string-output-stream)
+                        ,stream-symbol)))
+        (let* ((*trace-output*
+                 (maybe-make-string-output-stream *trace-output*))
+               (*error-output*
+                 (maybe-make-string-output-stream *error-output*))
+               (*standard-output*
+                 (maybe-make-string-output-stream *standard-output*))
+               (values (multiple-value-list (eval (from-string string)))))
+          (if targets-provided-p
+              ;; It is not clear what would be the most natural order here.
+              ;; We picked the reversed binding order.
+              (list
+               (cons 'values
+                     (maybe-value-string (format nil "~{~S~^~%~}" values)))
+               (cons '*standard-output*
+                     (maybe-output-stream-string *standard-output*))
+               (cons '*error-output*
+                     (maybe-output-stream-string *error-output*))
+               (cons '*trace-output*
+                     (maybe-output-stream-string *trace-output*)))
+              ;; targets are not provided by callers
+              ;; who presume older interface (slime 2.28 or earlier)
+              ;; to eval-and-grab-output
+              ;; This check (and targets-provided-p argument itself)
+              ;; - can be dropped when Emacs 28 becomes unsupported
+              ;; - can very likely be dropped when Org 9.5 becomes unsupported
+              (list (maybe-output-stream-string *standard-output*)
+                    (maybe-value-string
+                     (format nil "~{~S~^~%~}" values)))))))))
 
 (defun eval-region (string)
   "Evaluate STRING.
