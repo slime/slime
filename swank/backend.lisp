@@ -185,18 +185,15 @@ form suitable for testing with #+."
                          (cond ((= (ldb (byte 2 6) byte) #b10)
                                 (+ (ash code 6) (ldb (byte 6 0) byte)))
                                (t
-                                (error "Invalid encoding"))))))
+                                #xFFFD))))) ;; Replacement_Character
           ((= i n)
            (values (cond ((<= code #xff) (code-char code))
                          ((<= #xd800 code #xdfff)
-                          (error "Invalid Unicode code point: #x~x" code))
+                          (code-char #xFFFD)) ;; Replacement_Character
                          ((and (< code char-code-limit)
                                (code-char code)))
                          (t
-                          (error
-                           "Can't represent code point: #x~x ~
-                            (char-code-limit is #x~x)"
-                           code char-code-limit)))
+                          (code-char #xFFFD))) ;; Replacement_Character
                    (+ index n))))))
 
 ;; Decode one character in BUFFER starting at INDEX.
@@ -286,7 +283,8 @@ form suitable for testing with #+."
                (t start)))
         ((<= code #x7ff) (utf8-encode-aux code buffer start end 2))
         ((<= #xd800 code #xdfff)
-         (error "Invalid Unicode code point (surrogate): #x~x" code))
+         (%utf8-encode (code-char #xFFFD) ;; Replacement_Character
+                       buffer start end))
         ((<= code #xffff) (utf8-encode-aux code buffer start end 3))
         ((<= code #x1fffff) (utf8-encode-aux code buffer start end 4))
         ((<= code #x3ffffff) (utf8-encode-aux code buffer start end 5))

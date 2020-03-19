@@ -83,10 +83,14 @@
 ;;; UTF8
 
 (defimplementation string-to-utf8 (string)
-  (sb-ext:string-to-octets string :external-format :utf8))
+  (sb-ext:string-to-octets string :external-format '(:utf8 :replacement
+                                                     #+sb-unicode #\Replacement_Character
+                                                     #-sb-unicode #\? )))
 
 (defimplementation utf8-to-string (octets)
-  (sb-ext:octets-to-string octets :external-format :utf8))
+  (sb-ext:octets-to-string octets :external-format '(:utf8 :replacement
+                                                     #+sb-unicode #\Replacement_Character
+                                                     #-sb-unicode #\? )))
 
 ;;; TCP Server
 
