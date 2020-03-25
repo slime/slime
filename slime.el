@@ -107,19 +107,19 @@ the Emacs Lisp package.")
                  :test #'string-equal))))
 
 (defvar slime-lisp-modes '(lisp-mode))
-(defvar slime-contribs nil
+(defvar slime-contribs '(slime-fancy)
   "A list of contrib packages to load with SLIME.")
 (define-obsolete-variable-alias 'slime-setup-contribs
 'slime-contribs "2.3.2")
 
-(defun slime-setup (&optional contribs)
+(cl-defun slime-setup (&optional (contribs nil contribs-p))
   "Setup Emacs so that lisp-mode buffers always use SLIME.
 CONTRIBS is a list of contrib packages to load. If `nil', use
 `slime-contribs'. "
   (interactive)
   (when (member 'lisp-mode slime-lisp-modes)
     (add-hook 'lisp-mode-hook 'slime-lisp-mode-hook))
-  (when contribs
+  (when contribs-p
     (setq slime-contribs contribs))
   (slime--setup-contribs))
 
@@ -7649,7 +7649,8 @@ See `slime-output-target-to-marker'."
 (run-hooks 'slime-load-hook)
 (provide 'slime)
 
-(slime-setup)
+(when (member 'lisp-mode slime-lisp-modes)
+  (add-hook 'lisp-mode-hook 'slime-lisp-mode-hook))
 
 ;; Local Variables:
 ;; outline-regexp: ";;;;+"

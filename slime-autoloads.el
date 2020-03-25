@@ -35,7 +35,7 @@
 
 (autoload 'slime-scheme-mode-hook "slime")
 
-(defvar slime-contribs nil
+(defvar slime-contribs '(slime-fancy)
   "A list of contrib packages to load with SLIME.")
 
 (autoload 'slime-setup "slime"
