@@ -610,12 +610,18 @@
                  (list :position (ext:source-location-offset location))
                  '(:align t)))
 
+(defun make-dspec (name location)
+  (list* (ext:source-location-definer location)
+         name
+         (ext:source-location-description location)))
+
 (defimplementation find-definitions (name)
   (loop for kind in ext:*source-location-kinds*
         for locations = (ext:source-location name kind)
         when locations
-        nconc (loop for location in locations
-                    collect (list kind (translate-location location)))))
+          nconc (loop for location in locations
+                      collect (list (make-dspec name location)
+                                    (translate-location location)))))
 
 (defun source-location (object)
   (let ((location (ext:source-location object t)))
