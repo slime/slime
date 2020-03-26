@@ -465,8 +465,6 @@ Once you have the basic no-frills setup working, you can enhance your
 ;; @emph{Setup load-path, autoloads and your lisp system}
 (add-to-list 'load-path "~/dir/to/cloned/slime")
 (require 'slime-autoloads)
-;; @emph{Also setup the slime-fancy contrib}
-(add-to-list 'slime-contribs 'slime-fancy)
 @end example
 
 See @pxref{Loading Contribs} for more information on @SLIME{}'s
@@ -2163,9 +2161,10 @@ particular packages do.
 Contrib packages aren't loaded by default.  You have to modify your
 setup a bit so that Emacs knows where to find them and which of them
 to load.  Generally, you set the variable @code{slime-contribs} with
-the list of package-names that you want to use.  For example, a setup
-to load the @code{slime-scratch} and @code{slime-editing-commands}
-packages looks like:
+the list of package-names that you want to use. Its default value
+is @code{slime-fancy} which loads almost everything.  For example, a
+setup to load the @code{slime-scratch}
+and @code{slime-editing-commands} packages looks like:
 
 @example
 ;; @emph{Setup load-path and autoloads}
@@ -2179,22 +2178,6 @@ packages looks like:
 
 After starting @SLIME{}, the commands of both packages should be
 available.
-
-The REPL and @code{slime-fancy} modules deserve special mention.  Many
-users consider the REPL (@pxref{REPL}) essential
-while @code{slime-fancy} (@pxref{slime-fancy}) loads the REPL and
-almost all of the popular contribs.  So, if you aren't sure what to
-choose start with:
-
-@example
-(setq slime-contribs '(slime-repl)) ; repl only
-@end example
-
-If you like what you see try this:
-
-@example
-(setq slime-contribs '(slime-fancy)) ; almost everything
-@end example
 
 @subsection Loading and unloading ``on the fly''
 
@@ -3048,15 +3031,6 @@ Trace Dialog collects and stores them in your lisp environment until,
 on user's request, they are fetched into Emacs and displayed in a
 dialog-like interactive view.
 
-To use this contrib, add it to @code{slime-contribs} in your
-@code{~/.emacs}, either directly by setting up @code{slime-fancy}
-(@pxref{slime-fancy}).
-
-@example
-;; setting up 'slime-fancy would also have worked
-(add-to-list 'slime-contribs 'slime-trace-dialog)
-@end example
-
 After starting up @SLIME{}, @SLIME{}'s Trace Dialog installs
 a @emph{Trace} menu in the menu-bar of any @code{slime-mode} buffer and
 adds two new commands, with respective key-bindings:
@@ -3185,7 +3159,8 @@ declared with @code{flet} and @code{labels}, via
 @section Meta package: @code{slime-fancy}
 
 @code{slime-fancy} is a meta package which loads a combination of the
-most popular packages.
+most popular packages. It is the default value of
+@code{slime-contribs}, thus it is loaded by default.
 
 @node Quicklisp
 @section Quicklisp

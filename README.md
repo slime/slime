@@ -20,13 +20,11 @@ Quick setup instructions
   1. [Set up the MELPA repository][2], if you haven't already, and install
      SLIME using `M-x package-install RET slime RET`.
 
-  2. Add the following lines to your `~/.emacs` file, filling in in
-     the appropriate filenames:
+  2. In your `~/.emacs` file, point the `inferior-lisp-program`
+     variable to your favourite Common Lisp implementation:
 
      ```el
-     ;; Set your lisp system and, optionally, some contribs
-     (setq inferior-lisp-program "/opt/sbcl/bin/sbcl")
-     (setq slime-contribs '(slime-fancy))
+     (setq inferior-lisp-program "sbcl")
      ```
 
   3. Use `M-x slime` to fire up and connect to an inferior Lisp. SLIME will
