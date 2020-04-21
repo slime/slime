@@ -280,13 +280,14 @@ This is set to nil after displaying the buffer.")
       (slime-save-marker slime-output-start
         (slime-propertize-region '(face slime-repl-output-face
                                         slime-repl-output t
-                                        rear-nonsticky (face))
+                                        read-only t
+                                        rear-nonsticky t)
           (let ((inhibit-read-only t))
-	    (insert-before-markers string)
-	    (when (and (= (point) slime-repl-prompt-start-mark)
-		       (not (bolp)))
-	      (insert-before-markers "\n")
-	      (set-marker slime-output-end (1- (point))))))))
+	          (insert-before-markers string)
+	          (when (and (= (point) slime-repl-prompt-start-mark)
+		                   (not (bolp)))
+	            (insert-before-markers "\n")
+	            (set-marker slime-output-end (1- (point))))))))
     (when slime-repl-popup-on-output
       (setq slime-repl-popup-on-output nil)
       (display-buffer (current-buffer)))
