@@ -580,8 +580,10 @@ joined together."))
       (slime-save-marker slime-output-start
         (slime-save-marker slime-output-end
           (goto-char slime-output-end)
-          (insert-before-markers (format "; Evaluation aborted on %s.\n"
-                                         condition))
+          (let ((here (point)))
+            (insert-before-markers (format "%s\n"
+                                           condition))
+            (comment-region here (point)))
           (slime-repl-insert-prompt))))
     (slime-repl-show-maximum-output)))
 
