@@ -351,7 +351,7 @@ Estimated total monitoring overhead: 0.88 seconds
 ;;; Warn people using the wrong Lisp
 ;;; ********************************
 
-#-(or clisp openmcl)
+#-(or clisp openmcl clasp)
 (warn "metering.lisp does not support your Lisp implementation!")
 
 ;;; ********************************
@@ -395,14 +395,14 @@ Estimated total monitoring overhead: 0.88 seconds
 ;;; the beginning of time. time-units-per-second allows us to convert units
 ;;; to seconds.
 
-#-(or clisp openmcl)
+#-(or clasp clisp openmcl)
 (eval-when (compile eval)
   (warn
    "You may want to supply implementation-specific get-time functions."))
 
 (defconstant time-units-per-second internal-time-units-per-second)
 
-#+openmcl
+#+(or clasp openmcl)
 (progn
  (deftype time-type () 'unsigned-byte)
  (deftype consing-type () 'unsigned-byte))
@@ -449,7 +449,11 @@ Estimated total monitoring overhead: 0.88 seconds
 #+openmcl
 (defmacro get-cons () `(the consing-type (ccl::total-bytes-allocated)))
 
-#-(or clisp openmcl)
+#+clasp
+(defmacro get-cons ()
+  `(the consing-type (gctools::bytes-allocated)))
+
+#-(or clasp clisp openmcl)
 (progn
   (eval-when (compile eval)
     (warn "No consing will be reported unless a get-cons function is ~
@@ -550,7 +554,25 @@ Estimated total monitoring overhead: 0.88 seconds
         (values req-num (or (/= 0 opt-num) rest-p key-p keywords allow-p))
         (values 0 t))))
 
-#-(or clisp openmcl)
+#+clasp
+(defun required-arguments (name)
+  (multiple-value-bind (arglist foundp)
+      (core:function-lambda-list name)
+    (if foundp
+        (let ((position-and 
+               (position-if #'(lambda (x)
+                                (and (symbolp x)
+                                     (let ((name (symbol-name x)))
+                                       (and (>= (length name) 1)
+                                            (char= (schar name 0)
+                                                   #\&)))))
+                            arglist)))
+          (if position-and
+              (values position-and t)
+              (values (length arglist) nil)))
+        (values 0 t))))
+
+#-(or clasp clisp openmcl)
 (progn
  (eval-when (compile eval)
    (warn

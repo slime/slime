@@ -49,7 +49,7 @@
   #+armedbear '((swank abcl))
   #+cormanlisp '((swank corman) (swank gray))
   #+ecl '((swank ecl) (swank gray))
-  #+clasp '((swank clasp) (swank gray))
+  #+clasp '(metering (swank clasp) (swank gray))
   #+mkcl '((swank mkcl) (swank gray))
   #+mezzano '((swank mezzano) (swank gray))
   )
