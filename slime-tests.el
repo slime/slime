@@ -553,8 +553,7 @@ confronted with nasty #.-fu."
         (slime-check "Definition now at point." (looking-at snippet))))))
 
 (def-slime-test (find-definition.3
-                 (:fails-for "abcl" "allegro" "clisp" "lispworks" "sbcl"
-                             "ecl"))
+                 (:fails-for "abcl" "allegro" "clisp" "lispworks" "ecl"))
     (name source regexp)
     "Extra tests for defstruct."
     '(("swank::foo-struct"
