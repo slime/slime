@@ -1,41 +1,26 @@
-language: emacs
+sudo: required
+dist: trusty
+language: generic
 
 env:
-  # we test emacs23 with sbcl only
-  - "CHECK_TARGET=check       LISP=sbcl EMACS=emacs23"
-  - "CHECK_TARGET=check-fancy LISP=sbcl EMACS=emacs23"
-
-  # for emacs24, use more combinations
-  - "CHECK_TARGET=check       LISP=sbcl  EMACS=emacs24"
-  #- "CHECK_TARGET=check       LISP=cmucl EMACS=emacs24"
-  - "CHECK_TARGET=check       LISP=ccl   EMACS=emacs24"
-  - "CHECK_TARGET=check-fancy LISP=sbcl  EMACS=emacs24"
-  #- "CHECK_TARGET=check-fancy LISP=cmucl EMACS=emacs24"
-  - "CHECK_TARGET=check-fancy LISP=ccl   EMACS=emacs24"
-
-  # also, for emacs24/sbcl test some more contribs in isolation
-  - "CHECK_TARGET=check-repl LISP=sbcl EMACS=emacs24"
-  - "CHECK_TARGET=check-indentation LISP=sbcl EMACS=emacs24"
+  global:
+    - ROSWELL_INSTALL_DIR=$HOME/.roswell
+    - PATH=~/.roswell/bin:$PATH
+  matrix:
+    - LISP=ccl-bin  EMACS=26.3
+    - LISP=sbcl-bin EMACS=24.5
+    - LISP=sbcl-bin EMACS=25.3
+    - LISP=sbcl-bin EMACS=26.3
 
 install:
-  - curl https://raw.githubusercontent.com/luismbo/cl-travis/master/install.sh | bash
-  - if [ "$EMACS" = "emacs23" ]; then
-        sudo apt-get -qq update &&
-        sudo apt-get -qq -f install &&
-        sudo apt-get -qq install emacs23-nox;
-    fi
-  - if [ "$EMACS" = "emacs24" ]; then
-        sudo add-apt-repository -y ppa:cassou/emacs &&
-        sudo apt-get -qq update &&
-        sudo apt-get -qq -f install &&
-        sudo apt-get -qq install emacs24-nox;
-    fi
+  - wget https://raw.githubusercontent.com/flycheck/emacs-travis/master/emacs-travis.mk
+  - make EMACS_VERSION=$EMACS -f emacs-travis.mk install_emacs
+  - curl -L https://raw.githubusercontent.com/snmsts/roswell/release/scripts/install-for-ci.sh | sh
 
 script:
-  - make LISP=$LISP EMACS=$EMACS $CHECK_TARGET
+  - make LISP="ros run -L $LISP" EMACS=$HOME/emacs/$EMACS/src/emacs check
 
-notifications:
-  email:
-    recipients:
-      - slime-cvs@common-lisp.net
-    # on_success: always # for testing
+cache:
+  directories:
+    - "$HOME/emacs/"
+    - "$HOME/.roswell/"
