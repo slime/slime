@@ -95,7 +95,10 @@
   (format stream ">")
   nil)
 
-(wrap 'sys::%print-unreadable-object :more-informative :replace '%print-unreadable-object-java-too)
+;;; TODO: move such invocations out of toplevel?  
+(eval-when (:load-toplevel)
+  (unless (get 'sys::%print-unreadable-object 'swank/backend::slime-wrap) 
+    (wrap 'sys::%print-unreadable-object :more-informative :replace '%print-unreadable-object-java-too)))
 
 (defimplementation call-with-compilation-hooks (function)
   (funcall function))
