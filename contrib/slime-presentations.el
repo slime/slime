@@ -195,9 +195,12 @@ strings to line up below the current point."
 
 (defun slime-presentations-around-point (point &optional object)
   (let ((object (or object (current-buffer))))
-    (loop for (key value . rest) on (text-properties-at point object) by 'cddr
-          when (slime-presentation-p key)
-          collect key)))
+    (with-current-buffer object
+      (save-restriction
+        (widen)
+        (loop for (key value . rest) on (text-properties-at point object) by 'cddr
+              when (slime-presentation-p key)
+              collect key)))))
 
 (defun slime-presentation-start-p (tag)
   (memq tag '(:start :start-and-end)))
