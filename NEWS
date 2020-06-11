@@ -1,4 +1,13 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
+* 2.25 (June 2020)
+
+** ABCL backend
+Numerous additions, including
+*** Better able to inspect call arguments
+*** Dramatic improvements in inspecting Java objects
+*** Enable goto source location to find definitions in JAR archives
+*** FIND-DEFINITIONS include symbols and specials defined in Java
+
 * 2.24 (May 2019)
 *** Minor improvements.
 
