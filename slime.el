@@ -6766,7 +6766,7 @@ which to choose a new buffer. The `?' character describes the
 available methods.
 
 See `def-slime-selector-method' for defining new methods."
-  (interactive)
+  (interactive "P")
   (message "Select [%s]: "
            (apply #'string (mapcar #'car slime-selector-methods)))
   (let* ((slime-selector-other-window other-window)

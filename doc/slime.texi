@@ -1512,11 +1512,15 @@ Attach debugger (e.g. gdb) to the current lisp process.
 The @code{slime-selector} command is for quickly switching to
 important buffers: the @REPL{}, @SLDB{}, the Lisp source you were just
 hacking, etc. Once invoked the command prompts for a single letter to
-specify which buffer it should display. Here are some of the options:
+specify which buffer it should display. If a prefix argument is
+specified then the buffer is shown in the other window. Here are some
+of the main options:
 
 @table @kbd
 @item ?
 A help buffer listing all @code{slime-selectors}'s available buffers.
+This includes some options of lesser importance, e.g. intended for
+debugging @SLIME{}, which are not included in this list.
 @item r
 The @REPL{} buffer for the current @SLIME{} connection.
 @item d
@@ -1531,6 +1535,11 @@ SLIME connections buffer (@pxref{Multiple connections}).
 Cycle to the next Lisp connection (@pxref{Multiple connections}).
 @item t
 SLIME threads buffer (@pxref{Multiple connections}).
+@item i
+The @code{*inferior-lisp*} buffer for the current connection.
+@item 4
+Show buffer in other window. Equivalent to supplying a prefix
+argument. Prompts again for which buffer to select.
 @end table
 
 @code{slime-selector} doesn't have a key binding by default but we
