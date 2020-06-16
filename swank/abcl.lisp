@@ -1351,20 +1351,21 @@
              fields)))))
 
 (defmethod emacs-inspect ((object sys::structure-object))
-  (let ((structure-def (get (type-of object) 'system::structure-definition )))
-    `((:label "Type: ") (:value ,(type-of object)) (:newline)
-      (:label "Class: ") (:value ,(class-of object)) (:newline)
-      ,@(inspector-structure-slot-names-and-values object))))
+  `((:label "Type: ") (:value ,(type-of object)) (:newline)
+    (:label "Class: ") (:value ,(class-of object)) (:newline)
+    ,@(inspector-structure-slot-names-and-values object)))
 
 (defun inspector-structure-slot-names-and-values (structure)
   (let ((structure-def (get (type-of structure) 'system::structure-definition)))
-    `((:label "Slots: ") (:newline)
-      ,@(loop for slotdef in (sys::dd-slots structure-def)
-              for name = (sys::dsd-name slotdef)
-              for reader = (sys::dsd-reader slotdef)
-              for value = (eval `(,reader ,structure))
-              append
-              `("  " (:label ,(string-downcase (string name))) ": " (:value ,value) (:newline))))))
+    (if structure-def
+        `((:label "Slots: ") (:newline)
+          ,@(loop for slotdef in (sys::dd-slots structure-def)
+                  for name = (sys::dsd-name slotdef)
+                  for reader = (sys::dsd-reader slotdef)
+                  for value = (eval `(,reader ,structure))
+                  append
+                  `("  " (:label ,(string-downcase (string name))) ": " (:value ,value) (:newline))))
+        `("No slots available for inspection."))))
 
 (defmethod emacs-inspect ((object sys::structure-class))
   (let* ((name (jss::get-java-field object "name" t))
