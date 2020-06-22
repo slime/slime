@@ -1,12 +1,30 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
 * 2.25 (June 2020)
-
+** Core
+*** slime-connect takes additional arguments for open-network-stream
+** slime-asdf
+*** Removed code problematic for non-SMP Lispworks
+** slime-fancy
+*** Now loaded by default
+*** Include slime-indentation
+** slime-repl
+*** New option: slime-repl-history-use-mark
+*** Tweaked slime-repl-inputed-output-face for dark backgrounds
+** slime-selector
+*** Add prefix argument for opening window in another window
+** slime-package-fu
+*** Handle UIOP:DEFINE-PACKAGE
 ** ABCL backend
 Numerous additions, including
 *** Better able to inspect call arguments
 *** Dramatic improvements in inspecting Java objects
 *** Enable goto source location to find definitions in JAR archives
 *** FIND-DEFINITIONS include symbols and specials defined in Java
+** Clasp backend
+*** Improved source locations
+*** Implemented profiling via metering.lisp
+** SBCL backend
+*** Discard auto-generated DEFGENERICs from find-definitions
 
 * 2.24 (May 2019)
 *** Minor improvements.
