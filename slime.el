@@ -440,7 +440,6 @@ This is a hack so that we can reinitilize the real slime-mode-map
 more easily. See `slime-init-keymaps'.")
 
 (defvar slime-buffer-connection)
-(defvar slime-dispatching-connection)
 (defvar slime-current-thread)
 
 (defun slime--on ()
@@ -1113,9 +1112,7 @@ DIRECTORY change to this directory before starting the process.
              (y-or-n-p "Close old connections first? "))
     (slime-disconnect-all))
   (message "Connecting to Swank on port %S.." port)
-  (let* ((process (apply 'slime-net-connect host port parameters))
-         (slime-dispatching-connection process))
-    (slime-setup-connection process)))
+  (slime-setup-connection (apply 'slime-net-connect host port parameters)))
 
 ;; FIXME: seems redundant
 (defun slime-start-and-init (options fun)
