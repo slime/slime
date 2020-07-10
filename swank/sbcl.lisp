@@ -1032,7 +1032,7 @@ Return NIL if the symbol is unbound."
                (t :function))
          (doc 'function)))
       (maybe-push
-       :setf (and (setf-expander symbol) 
+       :setf (and (setf-expander symbol)
                   (doc 'setf)))
       (maybe-push
        :type (if (sb-int:info :type :kind symbol)
@@ -1418,16 +1418,17 @@ stack."
                               all-vars)))
          more-context
          more-count)
-    (values (loop for v across vars
-                  unless 
-                  (case (debug-var-info v)
-                    (:more-context
-                     (setf more-context (debug-var-value v frame loc))
-                     t)
-                    (:more-count
-                     (setf more-count (debug-var-value v frame loc))
-                     t))
-                  collect v)
+    (values (when vars
+              (loop for v across vars
+                    unless
+                    (case (debug-var-info v)
+                      (:more-context
+                       (setf more-context (debug-var-value v frame loc))
+                       t)
+                      (:more-count
+                       (setf more-count (debug-var-value v frame loc))
+                       t))
+                    collect v))
             more-context more-count)))
 
 (defun debug-var-value (var frame location)
@@ -1767,7 +1768,7 @@ stack."
         (setf (mailbox.queue mbox)
               (nconc (mailbox.queue mbox) (list message)))
         (sb-thread:condition-broadcast (mailbox.waitqueue mbox)))))
-  
+
   (defimplementation receive-if (test &optional timeout)
     (let* ((mbox (mailbox (current-thread)))
            (mutex (mailbox.mutex mbox))
