@@ -1020,14 +1020,15 @@ If the arglist is not available, return :NOT-AVAILABLE."))
     (('defmethod (#'function-exists-p gf-name) . rest)
      (let ((gf (fdefinition gf-name)))
        (when (typep gf 'generic-function)
-         (with-available-arglist (arglist) (decode-arglist (arglist gf))
-           (let ((qualifiers (loop for x in rest
-                                   until (or (listp x) (empty-arg-p x))
-                                   collect x)))
-             (return-from arglist-dispatch
-               (make-arglist :provided-args (cons gf-name qualifiers)
-                             :required-args (list arglist)
-                             :rest "body" :body-p t)))))))
+         (let ((lambda-list (swank-mop:generic-function-lambda-list gf)))
+           (with-available-arglist (arglist) (decode-arglist lambda-list)
+             (let ((qualifiers (loop for x in rest
+                                     until (or (listp x) (empty-arg-p x))
+                                     collect x)))
+               (return-from arglist-dispatch
+                 (make-arglist :provided-args (cons gf-name qualifiers)
+                               :required-args (list arglist)
+                               :rest "body" :body-p t))))))))
     (_)) ; Fall through
   (call-next-method))
 
