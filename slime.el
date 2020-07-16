@@ -7520,7 +7520,21 @@ The returned bounds are either nil or non-empty."
            (save-restriction
              (narrow-to-region (point) (point-max))
              (bounds-of-thing-at-point 'sexp)))
-      (bounds-of-thing-at-point 'sexp)))
+      (bounds-of-thing-at-point 'sexp)
+      ;; `forward-sexp' errors when the point is after the last sexp
+      ;; of a list. This is what `bounds-of-thing-at-point' would do
+      ;; if it didn't choke on that error.
+      (ignore-errors
+        (save-excursion
+          (let* ((orig (point))
+                 (end (progn
+                        (forward-sexp -1)
+                        (forward-sexp 1)
+                        (point)))
+                 (real-beg (progn (forward-sexp -1)
+                                  (point))))
+            (if (and (<= real-beg orig) (<= orig end) (< real-beg end))
+		(cons real-beg end)))))))
 
 (defun slime-sexp-at-point ()
   "Return the sexp at point as a string, otherwise nil."
