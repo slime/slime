@@ -1,6 +1,7 @@
 (require 'slime)
 (require 'slime-c-p-c)
 (require 'slime-parse)
+(eval-when-compile (require 'subr-x))
 
 (defvar slime-package-fu-init-undo-stack nil)
 
@@ -118,10 +119,10 @@ Place the cursor at the start of the DEFPACKAGE form."
 
 (defun slime-determine-symbol-style (symbols)
   (cl-flet ((most (pred)
-                  (plusp (cl-reduce (lambda (acc x)
-                                      (+ acc (if (funcall pred x) 1 -1)))
-                                    symbols
-                                    :initial-value 0))))
+                  (cl-plusp (cl-reduce (lambda (acc x)
+                                         (+ acc (if (funcall pred x) 1 -1)))
+                                       symbols
+                                       :initial-value 0))))
     (cond ((null symbols)
            slime-export-symbol-representation-function)
           ((most (lambda (x)
@@ -155,8 +156,8 @@ Place the cursor at the start of the DEFPACKAGE form."
     `(if-let (,loc (save-excursion
                      (cl-block nil
                        (cl-macrolet ((go-here () `(cl-return (point))))
-           (while ,goto-next
-             ,@body))
+                         (while ,goto-next
+                           ,@body))
                        nil)))
          (goto-char ,loc))))
 
