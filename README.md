@@ -1,3 +1,4 @@
+[![Build Status](https://github.com/slime/slime/workflows/CI/badge.svg)](https://github.com/slime/slime/actions)
 [![Build Status](https://img.shields.io/travis/slime/slime/master.svg)](https://travis-ci.org/slime/slime) [![MELPA](http://melpa.org/packages/slime-badge.svg?)](http://melpa.org/#/slime) [![MELPA Stable](http://stable.melpa.org/packages/slime-badge.svg?)](http://stable.melpa.org/#/slime)
 
 Overview
