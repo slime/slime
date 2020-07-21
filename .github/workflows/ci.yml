@@ -14,6 +14,7 @@ jobs:
         lisp: [ccl, sbcl]
         os: [ubuntu-latest, macos-latest]
         emacs_version: [24-5, 25-3, 26-3, snapshot]
+      fail-fast: false
     steps:
 
     - uses: cachix/install-nix-action@v8
