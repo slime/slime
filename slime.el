@@ -2083,7 +2083,7 @@ or nil if nothing suitable can be found.")
 
 (defun slime-search-buffer-package ()
   (let ((case-fold-search t)
-        (regexp (concat "^(\\(cl:\\|common-lisp:\\)?in-package\\>[ \t']*"
+        (regexp (concat "^[ \t]*(\\(cl:\\|common-lisp:\\)?in-package\\>[ \t']*"
                         "\\([^)]+\\)[ \t]*)")))
     (save-excursion
       (when (or (re-search-backward regexp nil t)
