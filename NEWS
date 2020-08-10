@@ -1,4 +1,7 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
+* 2.26 (August 2020)
+** Fix copying presentations
+
 * 2.25 (June 2020)
 ** Core
 *** slime-connect takes additional arguments for open-network-stream
