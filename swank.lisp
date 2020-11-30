@@ -167,6 +167,10 @@ Backend code should treat the connection structure as opaque.")
   (indentation-cache-packages '())
   ;; The communication style used.
   (communication-style nil :type (member nil :spawn :sigio :fd-handler))
+  ;; A function to interpret packets coming in
+  (form-decoder nil :type (or null function))
+  ;; A function to format outgoing packets
+  (form-encoder nil :type (or null function))
   )
 
 (defun print-connection (conn stream depth)
@@ -227,6 +231,13 @@ Backend code should treat the connection structure as opaque.")
 (defslimefun ping (tag)
   tag)
 
+(defun set-data-protocol (encoder decoder)
+  (setf (connection.form-encoder *emacs-connection*)
+        encoder
+        (connection.form-decoder *emacs-connection*)
+        decoder)
+  T)
+
 (defun safe-backtrace ()
   (ignore-errors 
     (call-with-debugging-environment 
@@ -248,7 +259,7 @@ to T unless you want to debug swank internals.")
 
 (defmacro with-swank-error-handler ((connection) &body body)
   "Close the connection on internal `swank-error's."
-  (let ((conn (gensym)))
+  (let ((conn '*emacs-connection* #+(or) (gensym)))
   `(let ((,conn ,connection))
      (handler-case 
          (handler-bind ((swank-error 
@@ -712,7 +723,8 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
                                     (dont-close *dont-close*))
   "Start the server and write the listen port number to PORT-FILE.
 This is the entry point for Emacs."
-  (setup-server 0
+  (setup-server (or (ignore-errors (parse-integer (sb-posix:getenv "JS_SWANK_PORT")))
+                    0)
                 (lambda (port) (announce-server-port port-file port))
                 style dont-close nil))
 
@@ -852,22 +864,33 @@ if the file doesn't exist; otherwise the first line of the file."
 
 ;;;;; Event Decoding/Encoding
 
-(defun decode-message (stream)
-  "Read an S-expression from STREAM using the SLIME protocol."
-  (log-event "decode-message~%")
+
+(defun decode-message (stream) ;; =PM
+  "Read an expression from STREAM."
+  #+(or)
+  (format *trace-output* "conn ~a, dec ~a ~%"
+          *emacs-connection*
+          (connection.form-decoder *emacs-connection*))
   (without-slime-interrupts
     (handler-bind ((error #'signal-swank-error))
-      (handler-case (read-message stream *swank-io-package*)
+      (handler-case (read-message stream 
+                                  *swank-io-package*
+                                  (lambda ()
+                                    (connection.form-decoder *emacs-connection*)))
+        ; =PM 
         (swank-reader-error (c) 
           `(:reader-error ,(swank-reader-error.packet c)
                           ,(swank-reader-error.cause c)))))))
 
 (defun encode-message (message stream)
-  "Write an S-expression to STREAM using the SLIME protocol."
+  "Write an S-expression to STREAM."
   (log-event "encode-message~%")
   (without-slime-interrupts
     (handler-bind ((error #'signal-swank-error))
-      (write-message message *swank-io-package* stream))))
+      (write-message message 
+                     *swank-io-package* 
+                     stream
+                     (connection.form-encoder *emacs-connection*)))))
 
 
 ;;;;; Event Processing
@@ -956,6 +979,10 @@ The processing is done in the extent of the toplevel restart."
   (let ((input-stream (connection.socket-io connection))
         (control-thread (mconn.control-thread connection)))
     (with-swank-error-handler (connection)
+	  ;; PM
+      ;; Auto-guess communication protocol (S-expr or JSON)
+      ;; (let ((ch (peek-char input-stream nil nil)))
+      ;;   (when (eql ch #\[)))
       (loop (send control-thread (decode-message input-stream))))))
 
 (defun dispatch-loop (connection)

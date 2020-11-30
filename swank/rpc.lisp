@@ -19,12 +19,24 @@
    (cause :type reader-error :initarg :cause 
           :reader swank-reader-error.cause)))
 
-(defun read-message (stream package)
+(defun read-message (stream package &optional decoder-fn)
   (let ((packet (read-packet stream)))
-    (handler-case (values (read-form packet package))
+    ;; READ-MESSAGE / DECODE-MESSAGE are run in an asynchronous thread that won't know about the FORM-DECODER slot change when the loop is restarted
+    (handler-case (values (funcall 
+                            (if (eql (aref packet 0) #\[)
+                                (find-symbol "RECOVER-SYMBOLS" (find-package :vlime))
+                                #'read-form)
+                            #+(or) (or (if decoder-fn 
+                                    (funcall decoder-fn))
+                                #'read-form)
+                               #+(or)
+                            (or (and (eql (aref packet 0) #\[)
+                                     (funcall decoder-fn))
+                                #'read-form)
+                            packet package))
       (reader-error (c)
-        (error 'swank-reader-error 
-               :packet packet :cause c)))))
+                    (error 'swank-reader-error 
+                           :packet packet :cause c)))))
 
 (defun read-packet (stream)
   (let* ((length (parse-header stream))
@@ -40,6 +52,7 @@
     (loop for code across (etypecase packet 
                             (string (map 'vector #'char-code packet))
                             (vector packet))
+          ; =PM TODO ignore § ?
           do (cond ((<= code #x7f) (write-char (code-char code)))
                    (t (format t "\\x~x" code))))))
 
@@ -97,8 +110,10 @@
 
 ;;;;; Output
 
-(defun write-message (message package stream)
-  (let* ((string (prin1-to-string-for-emacs message package))
+(defun write-message (message package stream &optional encoder)
+  (let* ((string (funcall (or encoder
+                              #'prin1-to-string-for-emacs)
+                          message package))
          (octets (handler-case (swank/backend:string-to-utf8 string)
                    (error (c) (encoding-error c string))))
          (length (length octets)))
