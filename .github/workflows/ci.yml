@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
     steps:
 
-    - uses: cachix/install-nix-action@v8
+    - uses: cachix/install-nix-action@v12
     - uses: purcell/setup-emacs@master
       with:
         version: ${{ matrix.emacs_version }}
