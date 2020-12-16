@@ -138,7 +138,7 @@
          (debug-info (sb-sprof::node-debug-info node)))
     (or (when (typep debug-info 'sb-di::compiled-debug-fun)
           (let* ((component (sb-di::compiled-debug-fun-component debug-info))
-                 (function #+#.(swank/backend:with-symbol '%code-entry-points 'sb-kernel)
+                 (function #-#.(swank/backend:with-symbol '%code-entry-point 'sb-kernel)
                            (sb-kernel::%code-entry-points component)
                            #+#.(swank/backend:with-symbol '%code-entry-point 'sb-kernel)
                            (sb-kernel:%code-entry-point component 0)))
