@@ -2011,14 +2011,11 @@ Boolean indicating if the server will continue to accept connections
 after the first one (default: @code{NIL}). For ``long-running'' lisp processes
 to which you want to be able to connect from time to time,
 specify @code{:dont-close t}
-@item :CODING-SYSTEM
-String designating the encoding to be used to communicate between the
-Emacs and Lisp.
 @end table
 
 So the more complete example will be
 @example
-(swank:create-server :port 4005  :dont-close t :coding-system "utf-8-unix")
+(swank:create-server :port 4005  :dont-close t)
 @end example
 On the emacs side you will use something like
 @example
