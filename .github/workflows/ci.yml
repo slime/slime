@@ -13,11 +13,13 @@ jobs:
       matrix:
         lisp: [ccl, sbcl]
         os: [ubuntu-latest]
-        emacs_version: [24-5, 25-3, 26-3, snapshot]
+        emacs_version: [24-5, 25-3, 26-3, 27-1, snapshot]
       fail-fast: false
     steps:
 
     - uses: cachix/install-nix-action@v12
+      with:
+        nix_path: nixpkgs=channel:nixos-unstable
     - uses: purcell/setup-emacs@master
       with:
         version: ${{ matrix.emacs_version }}
