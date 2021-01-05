@@ -1316,7 +1316,7 @@ If you copy the HyperSpec to another location, customize the variable
   "Function that creates a URL for a glossary term.")
 
 (define-obsolete-variable-alias 'common-lisp-glossary-fun
-  'common-lisp-hyperspec-glossary-function)
+  'common-lisp-hyperspec-glossary-function "2015-12-29")
 
 (defvar common-lisp-hyperspec--glossary-terms (make-hash-table :test #'equal)
   "Collection of glossary terms and relative URLs.")
