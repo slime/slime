@@ -589,6 +589,12 @@
     (method (ccl:name-of object))
     (t (list (ccl:definition-type-name type) (ccl:name-of object)))))
 
+;;; Packages
+
+#+package-local-nicknames
+(defimplementation package-local-nicknames (package)
+  (ccl:package-local-nicknames package))
+
 ;;; Utilities
 
 (defimplementation describe-symbol-for-emacs (symbol)

@@ -1084,3 +1084,9 @@ to do this, this factors in the length of the inserted header itself."
 
 (defimplementation wrapped-p (spec indicator)
   (getf (excl:fwrap-order (process-fspec-for-allegro spec)) indicator))
+
+;;;; Packages
+
+#+package-local-nicknames
+(defimplementation package-local-nicknames (package)
+  (excl:package-local-nicknames package))

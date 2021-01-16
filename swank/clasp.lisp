@@ -710,3 +710,9 @@
 
 (defmethod emacs-inspect ((object core:va-list))
   (emacs-inspect (core:list-from-va-list object)))
+
+;;; Packages
+
+#+package-local-nicknames
+(defimplementation package-local-nicknames (package)
+  (ext:package-local-nicknames package))
