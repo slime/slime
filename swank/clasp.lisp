@@ -231,13 +231,16 @@
       ;; will already be set up with the offset correctly
       ;; due to the :source-debug parameters from
       ;; swank-compile-string (below).
-      (progn
-        (when (consp origin)
-          (setq origin (car origin)))
+
+      ;; sometime origin is a cons, although it shoudn't
+      (let ((safe-origin 
+              (if (consp origin)
+                  (car origin)
+                  origin)))
         (make-file-location
          (core:file-scope-pathname
-          (core:file-scope origin))
-         (core:source-pos-info-filepos origin)))))
+          (core:file-scope safe-origin))
+         (core:source-pos-info-filepos safe-origin)))))
 
 (defun signal-compiler-condition (condition origin)
   (signal 'compiler-condition
