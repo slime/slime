@@ -104,8 +104,8 @@ Also don't error if `ert.el' is missing."
     (if (not (featurep 'ert))
         (warn "No ert.el found: not defining test %s"
               name)
-      (let* ((docstring (and (stringp (second args))
-                             (second args)))
+      (let* ((docstring (and (stringp (cl-second args))
+                             (cl-second args)))
              (args (if docstring
                        (cddr args)
                      (cdr args)))
@@ -114,7 +114,7 @@ Also don't error if `ert.el' is missing."
            :tags ',tags
            ,@args))))
 
-  (defun slime-test-ert-test-for (name input i doc body fails-for style fname)
+  (defun slime-test-ert-test-for (name input i doc _body fails-for style fname)
     `(define-slime-ert-test
        ,(intern (format "%s-%d" name i)) ()
        ,(format "For input %s, %s" (truncate-string-to-width
@@ -202,7 +202,7 @@ conditions (assertions)."
     (while (not (funcall predicate))
       (let ((now (current-time)))
         (message "waiting for condition: %s [%s.%06d]" name
-                 (format-time-string "%H:%M:%S" now) (third now)))
+                 (format-time-string "%H:%M:%S" now) (cl-third now)))
       (cond ((time-less-p end (current-time))
              (error "Timeout waiting for condition: %S" name))
             (t
@@ -270,7 +270,7 @@ conditions (assertions)."
 
 (def-slime-test symbol-at-point.3 (sym)
   "fancy symbol-name with leading ,"
-  (remove-if (lambda (s) (eq (aref (car s) 0) ?@)) slime-test-symbols)
+  (cl-remove-if (lambda (s) (eq (aref (car s) 0) ?@)) slime-test-symbols)
   (slime-check-symbol-at-point "," sym ""))
 
 (def-slime-test symbol-at-point.4 (sym)
@@ -739,7 +739,7 @@ Confirm that SUBFORM is correctly located."
                   ;;(encode-coding-string (string #x304a #x306f #x3088 #x3046)
                   ;;                      'utf-8)
                   (string (decode-coding-string bytes 'utf-8-unix)))
-            (assert (equal bytes (encode-coding-string string 'utf-8-unix)))
+            (cl-assert (equal bytes (encode-coding-string string 'utf-8-unix)))
             (list (concat "(defun cl-user::foo () \"" string "\")")
                   string)))
   (slime-eval `(cl:eval (cl:read-from-string ,input)))
@@ -815,7 +815,7 @@ Confirm that SUBFORM is correctly located."
            (lambda ()
              (with-current-buffer (sldb-get-default-buffer)
                (setq max-depth (max sldb-level max-depth))
-               (ecase state
+               (cl-ecase state
                  (enter
                   (cond ((= sldb-level level2)
                          (setq state 'leave)
@@ -1277,11 +1277,11 @@ Reconnect afterwards."
     (with-current-buffer (process-buffer p)
       (erase-buffer))
     (delete-process c)
-    (assert (equal (process-status c) 'closed) nil "Connection not closed")
+    (cl-assert (equal (process-status c) 'closed) nil "Connection not closed")
     (accept-process-output nil 0.1)
-    (assert (equal (process-status p) 'run) nil "Subprocess not running")
+    (cl-assert (equal (process-status p) 'run) nil "Subprocess not running")
     (with-current-buffer (process-buffer p)
-      (assert (< (buffer-size) 500) nil "Unusual output"))
+      (cl-assert (< (buffer-size) 500) nil "Unusual output"))
     (slime-inferior-connect p (slime-inferior-lisp-args p))
     (let ((hook nil) (p p))
       (setq hook (lambda ()
@@ -1409,7 +1409,7 @@ Reconnect afterwards."
                 (die "Expected SLIME to be fully loaded by now")))))
 
 (defun slime-test-eval-now (string)
-  (second (slime-eval `(swank:eval-and-grab-output ,string))))
+  (cl-second (slime-eval `(swank:eval-and-grab-output ,string))))
 
 (def-slime-test (slime-recompile-all-xrefs (:fails-for "cmucl")) ()
   "Test recompilation of all references within an xref buffer."
