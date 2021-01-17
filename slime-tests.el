@@ -1304,7 +1304,7 @@ Reconnect afterwards."
         (test-file (make-temp-file "slime-recipe-" nil ".el"))
         (test-forms
          `((require 'cl-lib)
-           (labels
+           (cl-labels
                ((die
                  (reason &optional more)
                  (princ reason)
@@ -1369,7 +1369,7 @@ Reconnect afterwards."
                 (setq slime-contribs '(slime-fancy)))
    :takeoff `((call-interactively 'slime))
    :landing `((unless (and (featurep 'slime-repl)
-                           (find 'swank-repl slime-required-modules))
+                           (cl-find 'swank-repl slime-required-modules))
                 (die "slime-repl not loaded properly"))
               (with-current-buffer (slime-repl-buffer)
                 (unless (and (string-match "^; +SLIME" (buffer-string))
@@ -1387,7 +1387,7 @@ Reconnect afterwards."
                 (slime-setup '(slime-fancy)))
    :takeoff `((call-interactively 'slime))
    :landing `((unless (and (featurep 'slime-repl)
-                           (find 'swank-repl slime-required-modules))
+                           (cl-find 'swank-repl slime-required-modules))
                 (die "slime-repl not loaded properly"))
               (with-current-buffer (slime-repl-buffer)
                 (unless (and (string-match "^; +SLIME" (buffer-string))
