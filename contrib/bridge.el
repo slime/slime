@@ -65,9 +65,6 @@
 ;;;
 ;;; ls | devgnu *scratch*
 
-(eval-when-compile
-  (require 'cl))
-
 ;;;%Parameters
 (defvar bridge-hook nil
   "Hook called when a bridge is installed by install-hook.")
@@ -290,7 +287,7 @@ encountered before the bridge-end-regexp, the bridge will be cancelled."
     ;; equivalent sections have the same numbers here;
     ;; we fold them together in this code.
 
-    (block bridge-filter
+    (cl-block bridge-filter
       (unwind-protect
 	  (while (< end (length output))
 
@@ -349,7 +346,7 @@ encountered before the bridge-end-regexp, the bridge will be cancelled."
 		  (bridge-insert pass-on))))
 
 	    (if (and b-start-end (not b-end)) 
-		(return-from bridge-filter t) ; when last bit has prematurely ending message, exit  early.
+		(cl-return-from bridge-filter t) ; when last bit has prematurely ending message, exit  early.
 	      (progn
 		;;3 find handler (in b-start, b-end) if none current
 		(if (and b-start (not bridge-in-progress))

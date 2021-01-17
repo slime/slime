@@ -1,6 +1,7 @@
+;;;; -*- lexical-binding: t -*-
+
 (require 'slime)
 (require 'cl-lib)
-(eval-when-compile (require 'cl)) ; lexical-let*
 
 (define-slime-contrib slime-sprof
   "Integration with SBCL's sb-sprof."
@@ -139,14 +140,14 @@
                (delete-char 1)))))
 
 (defun slime-sprof-browser-expand ()
-  (lexical-let* ((buffer (current-buffer))
-                 (point (point))
-                 (index (get-text-property point 'profile-index)))
+  (let* ((buffer (current-buffer))
+         (point (point))
+         (index (get-text-property point 'profile-index)))
     (slime-eval-async `(swank:swank-sprof-expand-node ,index)
                       (lambda (data)
                         (with-current-buffer buffer
-                          (save-excursion 
-                            (destructuring-bind (&key callers calls)
+                          (save-excursion
+                            (cl-destructuring-bind (&key callers calls)
                                 data
                               (slime-sprof-browser-add-expansion callers
                                                                    "Callers"

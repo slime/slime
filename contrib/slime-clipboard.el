@@ -1,8 +1,8 @@
+;;;; -*- lexical-binding: t -*-
+
 (require 'slime)
 (require 'slime-repl)
 (require 'cl-lib)
-(eval-when-compile
-  (require 'cl)) ; lexical-let
 
 (define-slime-contrib slime-clipboard
   "This add a few commands to put objects into a clipboard and to
@@ -83,10 +83,10 @@ debugger to add the object at point to the clipboard."
 (defun slime-clipboard-redisplay ()
   "Update the clipboard buffer."
   (interactive)
-  (lexical-let ((saved (point)))
-    (slime-eval-async 
-        `(swank-clipboard:entries) 
-      (lambda (entries) 
+  (let ((saved (point)))
+    (slime-eval-async
+        `(swank-clipboard:entries)
+      (lambda (entries)
         (let ((inhibit-read-only t))
           (erase-buffer)
           (slime-clipboard-insert-entries entries)

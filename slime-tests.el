@@ -1,4 +1,4 @@
-;;; slime-tests.el --- Automated tests for slime.el
+;;; slime-tests.el --- Automated tests for slime.el  -*- lexical-binding: t -*-
 ;;
 ;;;; License
 ;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
@@ -30,8 +30,6 @@
 (require 'ert "lib/ert" t) ;; look for bundled version for Emacs 23
 (require 'cl-lib)
 (require 'bytecomp) ; byte-compile-current-file
-(eval-when-compile
-  (require 'cl)) ; lexical-let
 
 (defun slime-shuffle-list (list)
   (let* ((len (length list))
@@ -54,7 +52,7 @@ Exits Emacs when finished. The exit code is the number of failed tests."
         (slime-background-message-function #'ignore))
     (slime)
     ;; Block until we are up and running.
-    (lexical-let (timed-out)
+    (let (timed-out)
       (run-with-timer timeout nil
                       (lambda () (setq timed-out t)))
       (while (not (slime-connected-p))
@@ -785,8 +783,8 @@ Confirm that SUBFORM is correctly located."
 (def-slime-test async-eval-debugging (depth)
   "Test recursive debugging of asynchronous evaluation requests."
   '((1) (2) (3))
-  (lexical-let ((depth depth)
-                (debug-hook-max-depth 0))
+  (let ((depth depth)
+        (debug-hook-max-depth 0))
     (let ((debug-hook
            (lambda ()
              (with-current-buffer (sldb-get-default-buffer)
@@ -809,10 +807,10 @@ Confirm that SUBFORM is correctly located."
   "Test recursive debugging and returning to lower SLDB levels."
   '((2 1) (4 2))
   (slime-check-top-level)
-  (lexical-let ((level2 level2)
-                (level1 level1)
-                (state 'enter)
-                (max-depth 0))
+  (let ((level2 level2)
+        (level1 level1)
+        (state 'enter)
+        (max-depth 0))
     (let ((debug-hook
            (lambda ()
              (with-current-buffer (sldb-get-default-buffer)
@@ -887,7 +885,7 @@ Confirm that SUBFORM is correctly located."
     "Test interactive eval and continuing from the debugger."
     '(())
   (slime-check-top-level)
-  (lexical-let ((done nil))
+  (let ((done nil))
     (let ((sldb-hook (lambda () (sldb-continue) (setq done t))))
       (slime-interactive-eval
        "(progn\
@@ -910,7 +908,7 @@ Confirm that SUBFORM is correctly located."
       ("~a" "(let ((x (cons (make-string 100000 :initial-element #\\X) nil)))\
                 (setf (cdr x) x))"))
   (slime-check-top-level)
-  (lexical-let ((done nil))
+  (let ((done nil))
     (let ((sldb-hook (lambda () (sldb-continue) (setq done t))))
       (slime-interactive-eval
        (format "(with-standard-io-syntax (cerror \"foo\" \"%s\" %s) (+ 1 2))"
@@ -1285,7 +1283,7 @@ Reconnect afterwards."
     (with-current-buffer (process-buffer p)
       (assert (< (buffer-size) 500) nil "Unusual output"))
     (slime-inferior-connect p (slime-inferior-lisp-args p))
-    (lexical-let ((hook nil) (p p))
+    (let ((hook nil) (p p))
       (setq hook (lambda ()
                    (slime-test-expect
                     "We are connected again" p (slime-inferior-process))
@@ -1305,7 +1303,7 @@ Reconnect afterwards."
   (let ((success nil)
         (test-file (make-temp-file "slime-recipe-" nil ".el"))
         (test-forms
-         `((require 'cl)
+         `((require 'cl-lib)
            (labels
                ((die
                  (reason &optional more)

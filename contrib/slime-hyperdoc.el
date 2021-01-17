@@ -1,9 +1,10 @@
+;;;; -*- lexical-binding: t -*-
+
 (require 'slime)
 (require 'url-http)
 (require 'browse-url)
-(eval-when-compile (require 'cl)) ; lexical-let
 
-(defvar slime-old-documentation-lookup-function 
+(defvar slime-old-documentation-lookup-function
   slime-documentation-lookup-function)
 
 (define-slime-contrib slime-hyperdoc
@@ -21,7 +22,7 @@
 
 (defun slime-hyperdoc-lookup-rpc (symbol-name)
   (slime-eval-async `(swank:hyperdoc ,symbol-name)
-    (lexical-let ((symbol-name symbol-name))
+    (let ((symbol-name symbol-name))
       #'(lambda (result)
           (slime-log-event result)
           (cl-loop with foundp = nil

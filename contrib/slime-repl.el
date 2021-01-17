@@ -17,8 +17,6 @@
 (require 'slime)
 (require 'slime-parse)
 (require 'cl-lib)
-(eval-when-compile (require 'cl)) ; slime-def-connection-var, which
-                                  ; expands to defsetf not in cl-lib
 
 (define-slime-contrib slime-repl
   "Read-Eval-Print Loop written in Emacs Lisp.
@@ -193,7 +191,7 @@ input start, return it.  Otherwise, return 'slime-repl-input-start-mark'."
 
 (defun slime-output-filter (process string)
   (with-current-buffer (process-buffer process)
-    (when (and (plusp (length string))
+    (when (and (cl-plusp (length string))
                (eq (process-status slime-buffer-connection) 'open))
       (slime-write-string string))))
 
@@ -254,7 +252,7 @@ hashtable `slime-output-target-to-marker'; output is inserted at this marker."
   (funcall slime-write-string-function string target))
 
 (defun slime-repl-write-string (string &optional target)
-  (case target
+  (cl-case target
     ((nil) (slime-repl-emit string))
     (:repl-result (slime-repl-emit-result string t))
     (t (slime-repl-emit-to-target string target))))
@@ -325,7 +323,7 @@ See `slime-output-target-to-marker'."
           (set-marker marker (point)))))))
 
 (defun slime-repl-output-target-marker (target)
-  (case target
+  (cl-case target
     ((nil)
      (with-current-buffer (slime-output-buffer)
        slime-output-end))
@@ -772,7 +770,7 @@ If NEWLINE is true then add a newline at the end of the input."
       (add-text-properties slime-repl-input-start-mark
                            (point)
                            `(slime-repl-old-input
-                             ,(incf slime-repl-old-input-counter))))
+                             ,(cl-incf slime-repl-old-input-counter))))
     (let ((overlay (make-overlay slime-repl-input-start-mark end)))
       ;; These properties are on an overlay so that they won't be taken
       ;; by kill/yank.
@@ -788,7 +786,7 @@ If NEWLINE is true then add a newline at the end of the input."
 If replace is non-nil the current input is replaced with the old
 input; otherwise the new input is appended.  The old input has the
 text property `slime-repl-old-input'."
-  (multiple-value-bind (beg end) (slime-property-bounds 'slime-repl-old-input)
+  (cl-multiple-value-bind (beg end) (slime-property-bounds 'slime-repl-old-input)
     (let ((old-input (buffer-substring beg end)) ;;preserve
           ;;properties, they will be removed later
           (offset (- (point) beg)))
@@ -932,14 +930,14 @@ used with a prefix argument (C-u), doesn't switch back afterwards."
   (with-current-buffer (slime-output-buffer)
     (let ((previouse-point (- (point) slime-repl-input-start-mark))
           (previous-prompt (slime-lisp-package-prompt-string)))
-      (destructuring-bind (name prompt-string)
+      (cl-destructuring-bind (name prompt-string)
           (slime-repl-shortcut-eval `(swank:set-package ,package))
         (setf (slime-lisp-package) name)
         (setf slime-buffer-package name)
         (unless (equal previous-prompt prompt-string)
           (setf (slime-lisp-package-prompt-string) prompt-string)
           (slime-repl-insert-prompt))
-        (when (plusp previouse-point)
+        (when (cl-plusp previouse-point)
           (goto-char (+ previouse-point slime-repl-input-start-mark)))))))
 
 
@@ -1017,18 +1015,18 @@ If REGEXP is non-nil, only lines matching REGEXP are considered."
 Return -1 resp. the length of the history if no item matches.
 If EXCLUDE-STRING is specified then it's excluded from the search."
   ;; Loop through the history list looking for a matching line
-  (let* ((step (ecase direction
+  (let* ((step (cl-ecase direction
                  (forward -1)
                  (backward 1)))
          (history slime-repl-input-history)
          (len (length history)))
-    (loop for pos = (+ start-pos step) then (+ pos step)
-          if (< pos 0) return -1
-          if (<= len pos) return len
-          for history-item = (nth pos history)
-          if (and (string-match regexp history-item)
-                  (not (equal history-item exclude-string)))
-          return pos)))
+    (cl-loop for pos = (+ start-pos step) then (+ pos step)
+             if (< pos 0) return -1
+             if (<= len pos) return len
+             for history-item = (nth pos history)
+             if (and (string-match regexp history-item)
+                     (not (equal history-item exclude-string)))
+             return pos)))
 
 (defun slime-repl-previous-input ()
   "Cycle backwards through input history.
@@ -1291,8 +1289,8 @@ The handler will use qeuery to ask the use if the error should be ingored."
           (call-interactively handler))))))
 
 (defun slime-list-all-repl-shortcuts ()
-  (loop for shortcut in slime-repl-shortcut-table
-        append (slime-repl-shortcut.names shortcut)))
+  (cl-loop for shortcut in slime-repl-shortcut-table
+           append (slime-repl-shortcut.names shortcut)))
 
 (defun slime-lookup-shortcut (name)
   (cl-find-if (lambda (s) (member name (slime-repl-shortcut.names s)))
@@ -1311,7 +1309,7 @@ of the shortcut \(`:handler'\), and a help text \(`:one-liner'\)."
      ,(when elisp-name
         `(defun ,elisp-name ()
            (interactive)
-           (call-interactively ,(second (assoc :handler options)))))
+           (call-interactively ,(cl-second (assoc :handler options)))))
      (let ((new-shortcut (make-slime-repl-shortcut
                           :symbol ',elisp-name
                           :names (list ,@names)
@@ -1517,7 +1515,7 @@ expansion will be added to the REPL's history.)"
   (let ((buffer (get-buffer-create (slime-buffer-name :trace))))
     (with-current-buffer buffer
       (let ((marker (copy-marker (buffer-size)))
-            (target (incf slime-last-output-target-id)))
+            (target (cl-incf slime-last-output-target-id)))
         (puthash target marker slime-output-target-to-marker)
         (slime-eval `(swank-repl:redirect-trace-output ,target))))
     ;; Note: We would like the entries in
@@ -1717,7 +1715,7 @@ expansion will be added to the REPL's history.)"
 	(error "Can't find suitable coding-system"))))
 
 (defun slime-repl-connected-hook-function ()
-  (destructuring-bind (package prompt)
+  (cl-destructuring-bind (package prompt)
       (let ((slime-current-thread t)
 	    (cs (slime-repl-choose-coding-system)))
 	(slime-eval `(swank-repl:create-repl nil :coding-system ,cs)))
@@ -1732,7 +1730,7 @@ expansion will be added to the REPL's history.)"
      (slime-write-string output target)
      t)
     ((:read-string thread tag)
-     (assert thread)
+     (cl-assert thread)
      (slime-repl-read-string thread tag)
      t)
     ((:read-aborted thread tag)

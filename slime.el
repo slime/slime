@@ -63,8 +63,6 @@
   ;; For emacs 23, look for bundled version
   (require 'cl-lib "lib/cl-lib"))
 
-(eval-when-compile (require 'cl)) ; defsetf, lexical-let
-
 (eval-and-compile
   (if (< emacs-major-version 23)
       (error "Slime requires an Emacs version of 23, or above")))
@@ -78,6 +76,7 @@
 (require 'arc-mode)
 (require 'etags)
 (require 'compile)
+(require 'gv)
 
 (eval-when-compile
   (require 'apropos)
@@ -859,8 +858,7 @@ PROP is the name of a text property."
     (list (previous-single-char-property-change end prop) end)))
 
 (defun slime-curry (fun &rest args)
-  "Partially apply FUN to ARGS.  The result is a new function.
-This idiom is preferred over `lexical-let'."
+  "Partially apply FUN to ARGS.  The result is a new function."
   `(lambda (&rest more) (apply ',fun (append ',args more))))
 
 (defun slime-rcurry (fun &rest args)
@@ -1777,7 +1775,7 @@ the binding for `slime-connection'."
        (defun ,varname (&optional process)
          (slime-with-connection-buffer (process) ,real-var))
        ;; Setf
-       (defsetf ,varname (&optional process) (store)
+       (gv-define-setter ,varname (store &optional process)
          `(slime-with-connection-buffer (,process)
             (setq (\, (quote (\, real-var))) (\, store))))
        '(\, varname))))
@@ -2040,10 +2038,10 @@ Note: don't use backquote syntax for SEXP, because various Emacs
 versions cannot deal with that."
   (declare (indent 2))
   (let ((result (cl-gensym)))
-    `(lexical-let ,(cl-loop for var in saved-vars
-                            collect (cl-etypecase var
-                                      (symbol (list var var))
-                                      (cons var)))
+    `(let ,(cl-loop for var in saved-vars
+                    collect (cl-etypecase var
+                              (symbol (list var var))
+                              (cons var)))
        (slime-dispatch-event
         (list :emacs-rex ,sexp ,package ,thread
               (lambda (,result)
@@ -3636,8 +3634,8 @@ for the most recently enclosed macro or function."
   "History list of expressions read from the minibuffer.")
 
 (defun slime-minibuffer-setup-hook ()
-  (cons (lexical-let ((package (slime-current-package))
-                      (connection (slime-connection)))
+  (cons (let ((package (slime-current-package))
+              (connection (slime-connection)))
           (lambda ()
             (setq slime-buffer-package package)
             (setq slime-buffer-connection connection)
@@ -4161,10 +4159,10 @@ The value is inserted into a temporary buffer for editing and then set
 in Lisp when committed with \\[slime-edit-value-commit]."
   (interactive
    (list (slime-read-from-minibuffer "Edit value (evaluated): "
-				     (slime-sexp-at-point))))
+                                     (slime-sexp-at-point))))
   (slime-eval-async `(swank:value-for-editing ,form-string)
-    (lexical-let ((form-string form-string)
-                  (package (slime-current-package)))
+    (let ((form-string form-string)
+          (package (slime-current-package)))
       (lambda (result)
         (slime-edit-value-callback form-string result
                                    package)))))
@@ -4202,7 +4200,7 @@ in Lisp when committed with \\[slime-edit-value-commit]."
   (if (null slime-edit-form-string)
       (error "Not editing a value.")
     (let ((value (buffer-substring-no-properties (point-min) (point-max))))
-      (lexical-let ((buffer (current-buffer)))
+      (let ((buffer (current-buffer)))
         (slime-eval-async `(swank:commit-edited-value ,slime-edit-form-string
                                                       ,value)
           (lambda (_)
@@ -4931,11 +4929,10 @@ NB: Does not affect slime-eval-macroexpand-expression"
   (interactive)
   (let* ((bounds (or (slime-bounds-of-sexp-at-point)
                      (user-error "No sexp at point"))))
-    (lexical-let* ((start (copy-marker (car bounds)))
-                   (end (copy-marker (cdr bounds)))
-                   (point (point))
-                   (package (slime-current-package))
-                   (buffer (current-buffer)))
+    (let* ((start (copy-marker (car bounds)))
+           (end (copy-marker (cdr bounds)))
+           (point (point))
+           (buffer (current-buffer)))
       (slime-eval-async
           `(,expander ,(buffer-substring-no-properties start end))
         (lambda (expansion)
@@ -5343,7 +5340,7 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
   (dolist (window (window-list))
     (when (window-parameter window 'sldb-last-window)
       (set-window-parameter window 'sldb-last-window nil)))
-  (set-window-parameter (selected-window) 'sldb-last-window t))
+  (set-window-parameter window 'sldb-last-window t))
 
 (defun sldb-exit (thread _level &optional stepping)
   "Exit from the debug level LEVEL."
@@ -6074,7 +6071,7 @@ was called originally."
   (interactive "P")
   (slime-eval-async
       `(swank:frame-source-location ,(sldb-frame-number-at-point))
-    (lexical-let ((policy (slime-compute-policy raw-prefix-arg)))
+    (let ((policy (slime-compute-policy raw-prefix-arg)))
       (lambda (source-location)
         (slime-dcase source-location
           ((:error message)
@@ -6497,7 +6494,7 @@ that value.
 2. If point is on an action then call that action.
 3. If point is on a range-button fetch and insert the range."
   (interactive)
-  (let ((opener (lexical-let ((point (slime-inspector-position)))
+  (let ((opener (let ((point (slime-inspector-position)))
                   (lambda (parts)
                     (when parts
                       (slime-open-inspector parts point)))))
@@ -6647,14 +6644,14 @@ The `*' variable will be bound to the inspected object."
 (defun slime-inspector-reinspect ()
   (interactive)
   (slime-eval-async `(swank:inspector-reinspect)
-    (lexical-let ((point (slime-inspector-position)))
+    (let ((point (slime-inspector-position)))
       (lambda (parts)
         (slime-open-inspector parts point)))))
 
 (defun slime-inspector-toggle-verbose ()
   (interactive)
   (slime-eval-async `(swank:inspector-toggle-verbose)
-    (lexical-let ((point (slime-inspector-position)))
+    (let ((point (slime-inspector-position)))
       (lambda (parts)
         (slime-open-inspector parts point)))))
 
@@ -7442,7 +7439,7 @@ and skips comments."
                       (:and #'cl-every)
                       (:or #'cl-some)
                       (:not
-                       (lexical-let ((feature-expression e))
+                       (let ((feature-expression e))
                          (lambda (f l)
                            (cond
                             ((slime-length= l 0) t)

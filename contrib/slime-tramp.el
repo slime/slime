@@ -1,6 +1,7 @@
+;;;; -*- lexical-binding: t -*-
+
 (require 'slime)
 (require 'tramp)
-(eval-when-compile (require 'cl)) ; lexical-let
 
 (define-slime-contrib slime-tramp
   "Filename translations for tramp"
@@ -96,8 +97,8 @@ just the IP) of the remote machine. USERNAME is the username we
 should login with.
 The functions created here expect your tramp-default-method or
  tramp-default-method-alist to be setup correctly."
-  (lexical-let ((remote-host (or remote-host machine-instance))
-                (username (or username (user-login-name))))
+  (let ((remote-host (or remote-host machine-instance))
+        (username (or username (user-login-name))))
     (list (concat "^" machine-instance "$")
           (lambda (emacs-filename)
             (tramp-file-name-localname
@@ -110,12 +111,12 @@ The functions created here expect your tramp-default-method or
 
 (defun slime-tramp-to-lisp-filename (filename)
   (funcall (if (slime-connected-p)
-               (first (slime-find-filename-translators (slime-machine-instance)))
+               (cl-first (slime-find-filename-translators (slime-machine-instance)))
                'identity)
            (expand-file-name filename)))
 
 (defun slime-tramp-from-lisp-filename (filename)
-  (funcall (second (slime-find-filename-translators (slime-machine-instance)))
+  (funcall (cl-second (slime-find-filename-translators (slime-machine-instance)))
            filename))
 
 (provide 'slime-tramp)
