@@ -99,6 +99,8 @@
                                       (list #+unix (lw:get-unix-error errno))
                                       errno))))))
 
+(defimplementation local-addr (socket)
+  (nth-value 0 (comm:get-socket-address (socket-fd socket))))
 (defimplementation local-port (socket)
   (nth-value 1 (comm:get-socket-address (socket-fd socket))))
 

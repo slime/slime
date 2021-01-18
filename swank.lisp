@@ -769,8 +769,9 @@ e.g.: (restart-loop (http-request url) (use-value (new) (setq url new)))"
 (defun setup-server (port announce-fn style dont-close backlog)
   (init-log-output)
   (let* ((socket (socket-quest port backlog))
+         (addr (local-addr socket))
          (port (local-port socket)))
-    (funcall announce-fn port)
+    (funcall announce-fn addr port)
     (labels ((serve () (accept-connections socket style dont-close))
              (note () (send-to-sentinel `(:add-server ,socket ,port
                                                       ,(current-thread))))
@@ -848,17 +849,17 @@ if the file doesn't exist; otherwise the first line of the file."
        (:sigio (deinstall-sigio-handler connection))
        (:fd-handler (deinstall-fd-handler connection))))))
 
-(defun announce-server-port (file port)
+(defun announce-server-port (file address port)
   (with-open-file (s file
                      :direction :output
                      :if-exists :error
                      :if-does-not-exist :create)
-    (format s "~S~%" port))
-  (simple-announce-function port))
+    (format s "~S ~S~%" address port))
+  (simple-announce-function address port))
 
-(defun simple-announce-function (port)
+(defun simple-announce-function (address port)
   (when *swank-debug-p*
-    (format *log-output* "~&;; Swank started at port: ~D.~%" port)
+    (format *log-output* "~&;; Swank started at ~a, port: ~D.~%" address port)
     (force-output *log-output*)))
 
 

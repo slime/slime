@@ -342,6 +342,9 @@ form suitable for testing with #+."
   "Create a listening TCP socket on interface HOST and port PORT.
 BACKLOG queue length for incoming connections.")
 
+(definterface local-addr (socket)
+  "Return the local address used by SOCKET.")
+
 (definterface local-port (socket)
   "Return the local port number of SOCKET.")
 

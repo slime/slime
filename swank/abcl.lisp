@@ -218,6 +218,9 @@
 (defimplementation create-socket (host port &key backlog)
   (ext:make-server-socket port))
 
+(defimplementation local-address (socket)
+  (jcall (jmethod "java.net.ServerSocket" "getLocalAddress") socket)) ;; ??
+
 (defimplementation local-port (socket)
   (jcall (jmethod "java.net.ServerSocket" "getLocalPort") socket))
 

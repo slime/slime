@@ -63,6 +63,8 @@
     (sb-bsd-sockets:socket-listen socket (or backlog 5))
     socket))
 
+(defimplementation local-addr (socket)
+  (nth-value 0 (sb-bsd-sockets:socket-name socket)))
 (defimplementation local-port (socket)
   (nth-value 1 (sb-bsd-sockets:socket-name socket)))
 

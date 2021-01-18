@@ -34,6 +34,8 @@
     (ext:create-inet-listener port :stream :host addr :reuse-address t
                               :backlog (or backlog 5))))
 
+(defimplementation local-addr (socket)
+  (nth-value 0 (ext::get-socket-host-and-port (socket-fd socket))))
 (defimplementation local-port (socket)
   (nth-value 1 (ext::get-socket-host-and-port (socket-fd socket))))
 
