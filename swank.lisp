@@ -723,8 +723,7 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
                                     (dont-close *dont-close*))
   "Start the server and write the listen address and port number to PORT-FILE.
 This is the entry point for Emacs."
-  (setup-server (or (ignore-errors (parse-integer (sb-posix:getenv "JS_SWANK_PORT")))
-                    0)
+  (setup-server 0
                 (lambda (addr port) (announce-server-port port-file addr port))
                 style dont-close nil))
 
