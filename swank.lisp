@@ -721,11 +721,11 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
 
 (defun start-server (port-file &key (style *communication-style*)
                                     (dont-close *dont-close*))
-  "Start the server and write the listen port number to PORT-FILE.
+  "Start the server and write the listen address and port number to PORT-FILE.
 This is the entry point for Emacs."
   (setup-server (or (ignore-errors (parse-integer (sb-posix:getenv "JS_SWANK_PORT")))
                     0)
-                (lambda (port) (announce-server-port port-file port))
+                (lambda (addr port) (announce-server-port port-file addr port))
                 style dont-close nil))
 
 (defun create-server (&key (port default-server-port)
@@ -766,10 +766,15 @@ e.g.: (restart-loop (http-request url) (use-value (new) (setq url new)))"
         (ignore-errors (list (parse-integer (read-line *query-io*)))))
       (setq port new-port))))
 
+(defun octets-to-ip-string (addr)
+  (ecase (length addr)
+    (4 (format nil "~{~d~^.~}" (coerce addr 'list)))
+    (16 (format nil "~{~2,'0x~2,'0x~^:~}" (coerce addr 'list)))))
+
 (defun setup-server (port announce-fn style dont-close backlog)
   (init-log-output)
   (let* ((socket (socket-quest port backlog))
-         (addr (local-addr socket))
+         (addr (octets-to-ip-string (local-addr socket)))
          (port (local-port socket)))
     (funcall announce-fn addr port)
     (labels ((serve () (accept-connections socket style dont-close))
