@@ -3641,7 +3641,7 @@ belonging to PACKAGE."
   (let ((alist '()))
     (flet ((consider (symbol)
              (let ((indent (symbol-indentation symbol)))
-               (when indent
+               (when (or indent (gethash symbol cache))
                  (unless (equal (gethash symbol cache) indent)
                    (setf (gethash symbol cache) indent)
                    (let ((pkgs (mapcar #'package-name 

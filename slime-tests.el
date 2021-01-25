@@ -1080,6 +1080,38 @@ the buffer's undo-list."
                        buffer-content
                        (substring-no-properties (buffer-string)))))
 
+(def-slime-test indentation.2 (buffer-content point-markers)
+        "Check indentation update to work correctly."
+    '(("
+\(in-package :swank)
+
+\(defmacro lolipop (&body body)
+  `(progn ,@body))
+
+\(defmacro lolipop (&rest body)
+  `(progn ,@body))
+
+\(lolipop 1
+         2
+         23)
+"
+       ("23")))
+  (with-temp-buffer
+    (lisp-mode)
+    (slime-lisp-mode-hook)
+    (insert buffer-content)
+    (slime-compile-region (point-min) (point-max))
+    (slime-sync-to-top-level 3)
+    (slime-update-indentation)
+    (slime-sync-to-top-level 3)
+    (dolist (marker point-markers)
+      (search-backward marker)
+      (beginning-of-defun)
+      (indent-sexp))
+    (slime-test-expect "Correct buffer content"
+                       buffer-content
+                       (substring-no-properties (buffer-string)))))
+
 (def-slime-test break
     (times exp)
     "Test whether BREAK invokes SLDB."
