@@ -7615,7 +7615,8 @@ See `slime-output-target-to-marker'."
 (defun slime--compile-hotspots ()
   (mapc (lambda (sym)
           (cond ((fboundp sym)
-                 (unless (byte-code-function-p (symbol-function sym))
+                 (unless (or (byte-code-function-p (symbol-function sym))
+                             (subrp (symbol-function sym)))
                    (slime--byte-compile sym)))
                 (t (error "%S is not fbound" sym))))
         '(slime-alistify
