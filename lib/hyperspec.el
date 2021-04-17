@@ -137,7 +137,8 @@ If you copy the HyperSpec to another location, customize the variable
     (forward-line)))
 
 (defun common-lisp-hyperspec--parse-map-file (file)
-  (with-current-buffer (find-file-noselect file)
+  (with-temp-buffer
+    (insert-file-contents file)
     (goto-char (point-min))
     (let ((result '()))
       (while (< (point) (point-max))
