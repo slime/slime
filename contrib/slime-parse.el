@@ -59,7 +59,7 @@
         (cl-decf depth))
       (nreverse (car sexps)))))
 
-(defun slime-compare-char-syntax (get-char-fn syntax &optional (unescaped nil))
+(defun slime-compare-char-syntax (get-char-fn syntax &optional unescaped)
   "Returns t if the character that `get-char-fn' yields has
 characer syntax of `syntax'. If `unescaped' is true, it's ensured
 that the character is not escaped."
@@ -112,7 +112,8 @@ that the character is not escaped."
 
 (mapc (lambda (sym)
         (cond ((fboundp sym)
-               (unless (byte-code-function-p (symbol-function sym))
+               (unless (or (byte-code-function-p (symbol-function sym))
+                           (subrp (symbol-function sym)))
                  (byte-compile sym)))
               (t (error "%S is not fbound" sym))))
       '(slime-parse-form-upto-point
