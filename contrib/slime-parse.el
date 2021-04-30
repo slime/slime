@@ -59,7 +59,7 @@
         (cl-decf depth))
       (nreverse (car sexps)))))
 
-(defun slime-compare-char-syntax (get-char-fn syntax &optional unescaped)
+(defun slime-compare-char-syntax (get-char-fn syntax &optional (unescaped nil))
   "Returns t if the character that `get-char-fn' yields has
 characer syntax of `syntax'. If `unescaped' is true, it's ensured
 that the character is not escaped."

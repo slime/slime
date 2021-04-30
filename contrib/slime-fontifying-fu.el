@@ -150,7 +150,7 @@ position, or nil."
 (defun slime-extend-region-for-font-lock ()
   (when slime-highlight-suppressed-forms
     (condition-case c
-        (let (changedp)
+        (progn
           (cl-multiple-value-setq (changedp font-lock-beg font-lock-end)
             (slime-compute-region-for-font-lock font-lock-beg font-lock-end))
           changedp)
@@ -203,7 +203,8 @@ position, or nil."
 (let ((byte-compile-warnings '()))
   (mapc (lambda (sym)
           (cond ((fboundp sym)
-                 (unless (byte-code-function-p (symbol-function sym))
+                 (unless (or (byte-code-function-p (symbol-function sym))
+                             (subrp (symbol-function sym)))
                    (byte-compile sym)))
                 (t (error "%S is not fbound" sym))))
         '(slime-extend-region-for-font-lock
