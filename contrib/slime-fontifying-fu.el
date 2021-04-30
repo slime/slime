@@ -150,7 +150,7 @@ position, or nil."
 (defun slime-extend-region-for-font-lock ()
   (when slime-highlight-suppressed-forms
     (condition-case c
-        (progn
+        (let (changedp)
           (cl-multiple-value-setq (changedp font-lock-beg font-lock-end)
             (slime-compute-region-for-font-lock font-lock-beg font-lock-end))
           changedp)
@@ -182,7 +182,7 @@ position, or nil."
                            (point)))))
     (cl-values (or (/= beg orig-beg) (/= end orig-end)) beg end)))
 
-
+
 (defun slime-activate-font-lock-magic ()
   (if (featurep 'xemacs)
       (let ((pattern `((slime-search-suppressed-forms
