@@ -74,7 +74,7 @@ the top-level sexp before point."
         ;; count sexps until either '(' or comment is found at first column
         (while (and (not (looking-at "^[(;]"))
 		    (ignore-errors (backward-up-list 1) t))
-          (incf sexp-level))))
+          (cl-incf sexp-level))))
     (when (> sexp-level 0)
       ;; insert correct number of right parens
       (goto-char point)
@@ -112,8 +112,8 @@ expressions out is enclosed in a set of balanced comments."
           (replace-match ""))))
     (while (> arg 0)
       (backward-char 1)
-      (cond ((looking-at ")") (incf arg))
-            ((looking-at "(") (decf arg))))
+      (cond ((looking-at ")") (cl-incf arg))
+            ((looking-at "(") (cl-decf arg))))
     (insert "#|")
     (forward-sexp)
     (insert "|#")))
