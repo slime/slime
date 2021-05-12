@@ -27,7 +27,9 @@
       stream-unread-char
       stream-clear-input
       stream-line-column
-      stream-read-char-no-hang))
+      stream-read-char-no-hang
+
+      stream-file-position))
     nil)
 
 (defpackage swank/gray
@@ -129,6 +131,10 @@
     (cond ((zerop column) nil)
           (t (terpri stream) t))))
 
+(defmethod stream-file-position ((stream slime-output-stream) &optional position)
+  (declare (ignore position))
+  nil)
+
 (defclass slime-input-stream (fundamental-character-input-stream)
   ((input-fn :initarg :input-fn)
    (buffer :initform "") (index :initform 0)
@@ -188,6 +194,10 @@
      (with-slots (buffer index) s
        (when (< index (length buffer))
          (prog1 (aref buffer index) (incf index)))))))
+
+(defmethod stream-file-position ((stream slime-input-stream) &optional position)
+  (declare (ignore position))
+  nil)
 
 
 ;;;
