@@ -29,7 +29,7 @@
       stream-line-column
       stream-read-char-no-hang
 
-      stream-file-position))
+      #+sbcl stream-file-position))
     nil)
 
 (defpackage swank/gray
@@ -131,6 +131,7 @@
     (cond ((zerop column) nil)
           (t (terpri stream) t))))
 
+#+sbcl
 (defmethod stream-file-position ((stream slime-output-stream) &optional position)
   (declare (ignore position))
   nil)
@@ -195,6 +196,7 @@
        (when (< index (length buffer))
          (prog1 (aref buffer index) (incf index)))))))
 
+#+sbcl
 (defmethod stream-file-position ((stream slime-input-stream) &optional position)
   (declare (ignore position))
   nil)
