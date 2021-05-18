@@ -192,4 +192,4 @@
            #:from-string
            #:to-string
            #:*swank-debugger-condition*
-           #:*argument-stream*))
+           #:*eval-region-stream*))
