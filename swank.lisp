@@ -1459,7 +1459,6 @@ Emacs Lisp via `defslimefun' or otherwise marked as RPCallable."
                              ,(symbol-name-for-emacs fn)
                              ,@args))
     (wait-for-emacs-return tag)))
->>>>>>> bdda756a5667a537497a35f5a0fc5b7c28bf3bd3
 
 (defvar *swank-wire-protocol-version* nil
   "The version of the swank/slime communication protocol.")
