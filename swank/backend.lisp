@@ -185,18 +185,15 @@ form suitable for testing with #+."
                          (cond ((= (ldb (byte 2 6) byte) #b10)
                                 (+ (ash code 6) (ldb (byte 6 0) byte)))
                                (t
-                                (error "Invalid encoding"))))))
+                                #xFFFD))))) ;; Replacement_Character
           ((= i n)
            (values (cond ((<= code #xff) (code-char code))
                          ((<= #xd800 code #xdfff)
-                          (error "Invalid Unicode code point: #x~x" code))
+                          (code-char #xFFFD)) ;; Replacement_Character
                          ((and (< code char-code-limit)
                                (code-char code)))
                          (t
-                          (error
-                           "Can't represent code point: #x~x ~
-                            (char-code-limit is #x~x)"
-                           code char-code-limit)))
+                          (code-char #xFFFD))) ;; Replacement_Character
                    (+ index n))))))
 
 ;; Decode one character in BUFFER starting at INDEX.
@@ -286,7 +283,8 @@ form suitable for testing with #+."
                (t start)))
         ((<= code #x7ff) (utf8-encode-aux code buffer start end 2))
         ((<= #xd800 code #xdfff)
-         (error "Invalid Unicode code point (surrogate): #x~x" code))
+         (%utf8-encode (code-char #xFFFD) ;; Replacement_Character
+                       buffer start end))
         ((<= code #xffff) (utf8-encode-aux code buffer start end 3))
         ((<= code #x1fffff) (utf8-encode-aux code buffer start end 4))
         ((<= code #x3ffffff) (utf8-encode-aux code buffer start end 5))
@@ -510,7 +508,7 @@ such package."
   `(call-with-compilation-hooks (lambda () (progn ,@body))))
 
 (definterface swank-compile-string (string &key buffer position filename
-                                           policy)
+                                           line column policy)
   "Compile source from STRING.
 During compilation, compiler conditions must be trapped and
 resignalled as COMPILER-CONDITIONs.
@@ -527,6 +525,10 @@ source information.
 If POLICY is supplied, and non-NIL, it may be used by certain
 implementations to compile with optimization qualities of its
 value.
+
+If LINE and COLUMN are supplied, and non-NIL, they may be used
+by certain implementations as the line and column of the start of
+the string in FILENAME. Both LINE and COLUMN are 1-based.
 
 Should return T on successful compilation, NIL otherwise.
 ")
@@ -618,7 +620,7 @@ Return nil if the file contains no special markers."
       (loop while (and (< p end)
                        (member (aref str p) '(#\space #\tab)))
             do (incf p))
-      (let ((end (position-if (lambda (c) (find c '(#\space #\tab #\newline)))
+      (let ((end (position-if (lambda (c) (find c '(#\space #\tab #\newline #\;)))
                               str :start p)))
         (find-external-format (subseq str p end))))))
 
@@ -632,6 +634,23 @@ The stream calls WRITE-STRING when output is ready.")
 (definterface make-input-stream (read-string)
   "Return a new character input stream.
 The stream calls READ-STRING when input is needed.")
+
+(defvar *auto-flush-interval* 0.2)
+
+(defun auto-flush-loop (stream interval &optional receive)
+  (loop
+   (when (not (and (open-stream-p stream)
+                   (output-stream-p stream)))
+     (return nil))
+   (force-output stream)
+   (when receive
+     (receive-if #'identity))
+   (sleep interval)))
+
+(definterface make-auto-flush-thread (stream)
+  "Make an auto-flush thread"
+  (spawn (lambda () (auto-flush-loop stream *auto-flush-interval* nil))
+         :name "auto-flush-thread"))
 
 
 ;;;; Documentation
@@ -994,26 +1013,16 @@ returns.")
 
 ;;;; Definition finding
 
-(defstruct (:location (:type list) :named
+(defstruct (location (:type list)
                       (:constructor make-location
-                                    (buffer position &optional hints)))
+                          (buffer position &optional hints)))
+  (type :location)
   buffer position
   ;; Hints is a property list optionally containing:
   ;;   :snippet SOURCE-TEXT
   ;;     This is a snippet of the actual source text at the start of
   ;;     the definition, which could be used in a text search.
   hints)
-
-(defstruct (:error (:type list) :named (:constructor)) message)
-
-;;; Valid content for BUFFER slot
-(defstruct (:file       (:type list) :named (:constructor)) name)
-(defstruct (:buffer     (:type list) :named (:constructor)) name)
-(defstruct (:etags-file (:type list) :named (:constructor)) filename)
-
-;;; Valid content for POSITION slot
-(defstruct (:position (:type list) :named (:constructor)) pos)
-(defstruct (:tag      (:type list) :named (:constructor)) tag1 tag2)
 
 (defmacro converting-errors-to-error-location (&body body)
   "Catches errors during BODY and converts them to an error location."
@@ -1375,7 +1384,14 @@ which are ready (or have reached end-of-file) without waiting.
 If TIMEOUT is a number and no streams is ready after TIMEOUT seconds,
 return nil.
 
-Return :interrupt if an interrupt occurs while waiting.")
+Return :interrupt if an interrupt occurs while waiting."
+  (declare (ignore streams timeout))
+  ;; Invoking the slime debugger will just endlessly loop.
+  (call-with-debugger-hook
+   nil
+   (lambda ()
+     (error "~s not implemented. Check if ~s = ~s is supported by the implementation."
+            'wait-for-input 'swank:*communication-style* swank:*communication-style*))))
 
 
 ;;;;  Locks
@@ -1411,6 +1427,27 @@ but that thread may hold it more than once."
   "Return nil or one of :key :value :key-or-value :key-and-value"
   (declare (ignore hashtable))
   nil)
+
+
+;;;; Floating point
+
+(definterface float-nan-p (float)
+  "Return true if FLOAT is a NaN value (Not a Number)."
+  ;; When the float type implements IEEE-754 floats, two NaN values
+  ;; are never equal; when the implementation does not support NaN,
+  ;; the predicate should return false. An implementation can
+  ;; implement comparison with "unordered-signaling predicates", which
+  ;; emit floating point exceptions.
+  (handler-case (not (= float float))
+    ;; Comparisons never signal an exception other than the invalid
+    ;; operation exception (5.11 Details of comparison predicates).
+    (floating-point-invalid-operation () t)))
+
+(definterface float-infinity-p (float)
+  "Return true if FLOAT is positive or negative infinity."
+  (not (< most-negative-long-float
+          float
+          most-positive-long-float)))
 
 
 ;;;; Character names

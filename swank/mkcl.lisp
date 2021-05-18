@@ -265,8 +265,8 @@
                    (or failure-p
                        (and load-p (not (load output-truename))))))))))
 
-(defimplementation swank-compile-string (string &key buffer position filename policy)
-  (declare (ignore filename policy))
+(defimplementation swank-compile-string (string &key buffer position filename line column policy)
+  (declare (ignore filename line column policy))
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)
           (*buffer-start-position* position)

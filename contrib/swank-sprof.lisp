@@ -138,7 +138,10 @@
          (debug-info (sb-sprof::node-debug-info node)))
     (or (when (typep debug-info 'sb-di::compiled-debug-fun)
           (let* ((component (sb-di::compiled-debug-fun-component debug-info))
-                 (function (sb-kernel::%code-entry-points component)))
+                 (function #-#.(swank/backend:with-symbol '%code-entry-point 'sb-kernel)
+                           (sb-kernel::%code-entry-points component)
+                           #+#.(swank/backend:with-symbol '%code-entry-point 'sb-kernel)
+                           (sb-kernel:%code-entry-point component 0)))
             (when function
               (find-source-location function))))
         `(:error "No source location available"))))

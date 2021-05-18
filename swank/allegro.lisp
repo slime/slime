@@ -262,7 +262,10 @@
          (start (loop for i from (excl::ldb-code-index code) downto 0
                       for bpt = (aref debug-info i)
                       for start = (excl::ldb-code-start-char bpt)
-                      when start return start))
+                      when start
+                        return (if (listp start)
+                                   (first start)
+                                   start)))
          (src-file (excl:source-file func)))
     (cond (start
            (buffer-or-file-location src-file start))
@@ -403,9 +406,12 @@
     (cond (location-available
            (values (excl::source-context-pathname context)
                    (when-let (start-char (excl::source-context-start-char context))
-                     (1+ (if (listp start-char) ; HACK
-                             (first start-char)
-                             start-char)))))
+                     (let ((position (if (listp start-char) ; HACK
+                                         (first start-char)
+                                         start-char)))
+                       (if (typep condition 'excl::compiler-free-reference-warning)
+                           position
+                           (1+ position))))))
           ((typep condition 'reader-error)
            (let ((pos  (car (last (slot-value condition 'excl::format-arguments))))
                  (file (pathname (stream-error-stream condition))))
@@ -416,9 +422,14 @@
              (when loc
                (destructuring-bind (file . pos) loc
                  (let ((start (if (consp pos) ; 8.2 and newer
-                                  (car pos)
+                                  #+(version>= 10 1)
+                                  (if (typep condition 'excl::compiler-inconsistent-name-usage-warning)
+                                      (second pos)
+                                      (first pos))
+                                  #-(version>= 10 1)
+                                  (first pos)
                                   pos)))
-                   (values file (1+ start))))))))))
+                   (values file start)))))))))
 
 (defun compiler-warning-location (condition)
   (multiple-value-bind (pathname position)
@@ -427,12 +438,15 @@
            (make-location
             (list :buffer *buffer-name*)
             (if position
-                (list :position position)
+                (list :offset 1 (1- position))
                 (list :offset *buffer-start-position* 0))))
           (pathname
            (make-location
             (list :file (namestring (truename pathname)))
-            (list :position position)))
+            #+(version>= 10 1)
+            (list :offset 1 position)
+            #-(version>= 10 1)
+            (list :position (1+ position))))
           (t
            (make-error-location "No error location available.")))))
 
@@ -454,6 +468,9 @@
                :message (format nil "Undefined function referenced: ~S"
                                 fname)
                :location (make-location (list :file file)
+                                        #+(version>= 9 0)
+                                        (list :offset 1 pos)
+                                        #-(version>= 9 0)
                                         (list :position (1+ pos)))))))))
 
 (defimplementation call-with-compilation-hooks (function)
@@ -550,8 +567,8 @@ to do this, this factors in the length of the inserted header itself."
        (not failure?)))))
 
 (defimplementation swank-compile-string (string &key buffer position filename
-                                         policy)
-  (declare (ignore policy))
+                                                line column policy)
+  (declare (ignore line column policy))
   (handler-case
       (with-compilation-hooks ()
         (let ((*buffer-name* buffer)
@@ -595,7 +612,7 @@ to do this, this factors in the length of the inserted header itself."
          (start (and part
                      (scm::source-part-start part)))
          (pos (if start
-                  (list :position (1+ start))
+                  (list :offset 1 start)
                   (list :function-name (string (fspec-primary-name fspec))))))
     (make-location (list :file (namestring (truename file)))
                    pos)))
@@ -896,21 +913,37 @@ to do this, this factors in the length of the inserted header itself."
             (nconc (mailbox.queue mbox) (list message)))
       (mp:open-gate (mailbox.gate mbox)))))
 
+(defimplementation wake-thread (thread)
+  (let* ((mbox (mailbox thread)))
+    (mp:open-gate (mailbox.gate mbox))))
+
 (defimplementation receive-if (test &optional timeout)
   (let ((mbox (mailbox mp:*current-process*)))
-    (assert (or (not timeout) (eq timeout t)))
-    (loop
-     (check-slime-interrupts)
-     (mp:with-process-lock ((mailbox.lock mbox))
-       (let* ((q (mailbox.queue mbox))
-              (tail (member-if test q)))
-         (when tail
-           (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
-           (return (car tail)))
-         (mp:close-gate (mailbox.gate mbox))))
-     (when (eq timeout t) (return (values nil t)))
-     (mp:process-wait-with-timeout "receive-if" 0.5
-                                   #'mp:gate-open-p (mailbox.gate mbox)))))
+    (flet ((open-mailbox ()
+             ;; this opens the mailbox and returns if has the message
+             ;; we are expecting.  But first, check for interrupts.
+             (check-slime-interrupts)
+             (mp:with-process-lock ((mailbox.lock mbox))
+               (let* ((q (mailbox.queue mbox))
+                      (tail (member-if test q)))
+                 (when tail
+                   (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
+                   (return-from receive-if (car tail)))
+                 ;; ...if it doesn't, we close the gate (even if it
+                 ;; was already closed)
+                 (mp:close-gate (mailbox.gate mbox))))))
+      (cond (timeout
+             ;; open the mailbox and return asap
+             (open-mailbox)
+             (return-from receive-if (values nil t)))
+            (t
+             ;; wait until gate open, then open mailbox.  If there's
+             ;; no message there, repeat forever.
+             (loop
+               (mp:process-wait
+                "receive-if (waiting on gate)"
+                #'mp:gate-open-p (mailbox.gate mbox))
+               (open-mailbox)))))))
 
 (let ((alist '())
       (lock (mp:make-process-lock :name "register-thread")))
@@ -1051,3 +1084,9 @@ to do this, this factors in the length of the inserted header itself."
 
 (defimplementation wrapped-p (spec indicator)
   (getf (excl:fwrap-order (process-fspec-for-allegro spec)) indicator))
+
+;;;; Packages
+
+#+package-local-nicknames
+(defimplementation package-local-nicknames (package)
+  (excl:package-local-nicknames package))

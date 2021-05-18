@@ -68,9 +68,7 @@
    ;; do that whithout breaking init files?
    *use-dedicated-output-stream*
    *dedicated-output-stream-port*
-   *globally-redirect-io*
-
-   ))
+   *globally-redirect-io*))
 
 (in-package swank-repl)
 
@@ -86,18 +84,24 @@ which is used just to send output.")
   "The buffering scheme that should be used for the output stream.
 Valid values are nil, t, :line")
 
-(defvar *globally-redirect-io* nil
-  "When non-nil globally redirect all standard streams to Emacs.")
+(defvar *globally-redirect-io* :started-from-emacs
+  "When T globally redirect all standard streams to Emacs.
+When :STARTED-FROM-EMACS redirect when launched by M-x slime")
+
+(defun globally-redirect-io-p ()
+  (case *globally-redirect-io*
+    ((t) t)
+    (:started-from-emacs swank-loader:*started-from-emacs*)))
 
 (defun open-streams (connection properties)
   "Return the 5 streams for IO redirection:
 DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
   (let* ((input-fn
-          (lambda ()
-            (with-connection (connection)
-              (with-simple-restart (abort-read
-                                    "Abort reading input from Emacs.")
-                (read-user-input-from-emacs)))))
+           (lambda ()
+             (with-connection (connection)
+               (with-simple-restart (abort-read
+                                     "Abort reading input from Emacs.")
+                 (read-user-input-from-emacs)))))
          (dedicated-output (if *use-dedicated-output-stream*
                                (open-dedicated-output-stream
                                 connection
@@ -106,13 +110,12 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
          (out (or dedicated-output
                   (make-output-stream (make-output-function connection))))
          (io (make-two-way-stream in out))
-         (repl-results (make-output-stream-for-target connection
-                                                      :repl-result)))
+         (repl-results (swank:make-output-stream-for-target connection
+                                                            :repl-result)))
     (typecase connection
       (multithreaded-connection
        (setf (mconn.auto-flush-thread connection)
-	     (spawn (lambda () (auto-flush-loop out))
-		    :name "auto-flush-thread"))))
+             (make-auto-flush-thread out))))
     (values dedicated-output in out io repl-results)))
 
 (defun make-output-function (connection)
@@ -120,18 +123,6 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
   (lambda (string)
     (with-connection (connection)
       (send-to-emacs `(:write-string ,string)))))
-
-(defun make-output-function-for-target (connection target)
-  "Create a function to send user output to a specific TARGET in Emacs."
-  (lambda (string)
-    (with-connection (connection)
-      (with-simple-restart
-          (abort "Abort sending output to Emacs.")
-        (send-to-emacs `(:write-string ,string ,target))))))
-
-(defun make-output-stream-for-target (connection target)
-  "Create a stream that sends output to a specific TARGET in Emacs."
-  (make-output-stream (make-output-function-for-target connection target)))
 
 (defun open-dedicated-output-stream (connection coding-system)
   "Open a dedicated output connection to the Emacs on SOCKET-IO.
@@ -198,7 +189,7 @@ This is an optimized way for Lisp to deliver output to Emacs."
     (with-struct* (connection. @ conn)
       (setf (@ env)
 	    `((*standard-input*  . ,(@ user-input))
-	      ,@(unless *globally-redirect-io*
+	      ,@(unless (globally-redirect-io-p)
 		  `((*standard-output* . ,(@ user-output))
 		    (*trace-output*    . ,(or (@ trace-output) (@ user-output)))
 		    (*error-output*    . ,(@ user-output))
@@ -298,7 +289,7 @@ LISTENER-EVAL directly, so that spacial variables *, etc are set."
 
 (defslimefun redirect-trace-output (target)
   (setf (connection.trace-output *emacs-connection*)
-        (make-output-stream-for-target *emacs-connection* target))
+        (swank:make-output-stream-for-target *emacs-connection* target))
   nil)
 
 
@@ -381,7 +372,7 @@ dynamic binding."
   "The symbols naming standard io streams.")
 
 (defun init-global-stream-redirection ()
-  (when *globally-redirect-io*
+  (when (globally-redirect-io-p)
     (cond (*saved-global-streams*
            (warn "Streams already redirected."))
           (t
@@ -429,7 +420,7 @@ NIL if streams are not globally redirected.")
 
 (defun maybe-redirect-global-io (connection)
   "Consider globally redirecting to CONNECTION."
-  (when (and *globally-redirect-io* (null *global-stdio-connection*)
+  (when (and (globally-redirect-io-p) (null *global-stdio-connection*)
              (connection.user-io connection))
     (unless *saved-global-streams*
       (init-global-stream-redirection))
@@ -440,7 +431,7 @@ NIL if streams are not globally redirected.")
   "Update redirection after a connection closes."
   (check-type closed-connection connection)
   (when (eq *global-stdio-connection* closed-connection)
-    (if (and (default-connection) *globally-redirect-io*)
+    (if (and (default-connection) (globally-redirect-io-p))
         ;; Redirect to another connection.
         (globally-redirect-io-to-connection (default-connection))
         ;; No more connections, revert to the real streams.

@@ -182,7 +182,7 @@ position, or nil."
                            (point)))))
     (cl-values (or (/= beg orig-beg) (/= end orig-end)) beg end)))
 
-
+
 (defun slime-activate-font-lock-magic ()
   (if (featurep 'xemacs)
       (let ((pattern `((slime-search-suppressed-forms
@@ -203,7 +203,8 @@ position, or nil."
 (let ((byte-compile-warnings '()))
   (mapc (lambda (sym)
           (cond ((fboundp sym)
-                 (unless (byte-code-function-p (symbol-function sym))
+                 (unless (or (byte-code-function-p (symbol-function sym))
+                             (subrp (symbol-function sym)))
                    (byte-compile sym)))
                 (t (error "%S is not fbound" sym))))
         '(slime-extend-region-for-font-lock

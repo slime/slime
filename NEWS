@@ -1,4 +1,59 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
+* 2.26.1 (December 2020)
+** SBCL compatibility
+
+* 2.26 (August 2020)
+** Fix copying presentations
+
+* 2.25 (June 2020)
+** Core
+*** slime-connect takes additional arguments for open-network-stream
+** slime-asdf
+*** Removed code problematic for non-SMP Lispworks
+** slime-fancy
+*** Now loaded by default
+*** Include slime-indentation
+** slime-repl
+*** New option: slime-repl-history-use-mark
+*** Tweaked slime-repl-inputed-output-face for dark backgrounds
+** slime-selector
+*** Add prefix argument for opening window in another window
+** slime-package-fu
+*** Handle UIOP:DEFINE-PACKAGE
+** ABCL backend
+Numerous additions, including
+*** Better able to inspect call arguments
+*** Dramatic improvements in inspecting Java objects
+*** Enable goto source location to find definitions in JAR archives
+*** FIND-DEFINITIONS include symbols and specials defined in Java
+** Clasp backend
+*** Improved source locations
+*** Implemented profiling via metering.lisp
+** SBCL backend
+*** Discard auto-generated DEFGENERICs from find-definitions
+
+* 2.24 (May 2019)
+*** Minor improvements.
+
+* 2.23 (December 2018)
+*** Improved compatiblity with different versions of Emacs, SBCL, Clasp, Allegro.
+*** Bug fixes
+
+* 2.22 (July 2018)
+*** Improved compatiblity with Emacs 26
+
+* 2.21 (June 2018)
+*** Improved compatiblity with Emacs 26
+*** Mezzano support
+
+* 2.20 (August 2017)
+** Core
+*** More secure handling of ~/.slime-secret
+** SBCL backend
+*** Compatiblity with the latest SBCL and older SBCL.
+** ECL backend
+*** Numerous enhancements
+
 * 2.19 (February 2017)
 ** Core
 *** Function `create-server` now accepts optional `interface` argument.

@@ -19,17 +19,16 @@
 ;; This code has been placed in the Public Domain.  All warranties
 ;; are disclaimed.
 
-(defpackage :swank-loader
-  (:use :cl))
-
-(in-package :swank-loader)
-
 (defclass swank-loader-file (asdf:cl-source-file) ())
 
 ;;;; after loading run init
 
 (defmethod asdf:perform ((o asdf:load-op) (f swank-loader-file))
+  ;; swank-loader computes its own source/fasl relation based on the
+  ;; TRUENAME of the loader file, so we need a "manual" CL:LOAD
+  ;; invocation here.
   (load (asdf::component-pathname f))
+  ;; After loading, run the swank-loader init routines.
   (funcall (read-from-string "swank-loader::init") :reload t))
 
 (asdf:defsystem :swank

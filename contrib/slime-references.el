@@ -21,16 +21,17 @@
 
 (defcustom slime-sbcl-manual-root "http://www.sbcl.org/manual/"
   "*The base URL of the SBCL manual, for documentation lookup."
-  :type 'string
+  :type '(choice (string :tag "HTML Documentation")
+                 (const :tag "Info Documentation" :info))
   :group 'slime-mode)
 
-(defface sldb-reference-face 
+(defface sldb-reference-face
   (list (list t '(:underline t)))
   "Face for references."
   :group 'slime-debugger)
 
 
-;;;;; SBCL-style references 
+;;;;; SBCL-style references
 
 (defvar slime-references-local-keymap
   (let ((map (make-sparse-keymap "local keymap for slime references")))
@@ -96,13 +97,19 @@ See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
              (:glossary
               (browse-url (funcall common-lisp-hyperspec-glossary-function what)))
              (:issue
-              (browse-url (funcall 'common-lisp-issuex what)))
+              (browse-url (common-lisp-issuex what)))
+             (:special-operator
+              (browse-url (common-lisp-special-operator (downcase name))))
              (t
               (hyperspec-lookup what))))
           (t
-           (let ((url (format "%s#%s" slime-sbcl-manual-root
-                              (subst-char-in-string ?\  ?\- what))))
-             (browse-url url))))))))
+           (case slime-sbcl-manual-root
+             (:info
+              (info (format "(sbcl)%s" what)))
+             (t
+              (browse-url
+               (format "%s#%s" slime-sbcl-manual-root
+                       (subst-char-in-string ?\  ?\- what)))))))))))
 
 (defun slime-lookup-reference-at-mouse (event)
   "Invoke the action pointed at by the mouse."
@@ -120,10 +127,10 @@ See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
 ;;; FIXME: `compilation-mode' will swallow the `mouse-face'
 ;;; etc. properties.
 (defadvice slime-note.message (after slime-note.message+references)
-  (setq ad-return-value 
+  (setq ad-return-value
         (concat ad-return-value
                 (with-temp-buffer
-                  (slime-insert-references 
+                  (slime-insert-references
                    (slime-note.references (ad-get-arg 0)))
                   (buffer-string)))))
 
@@ -135,9 +142,9 @@ See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
   (let ((note (plist-get (slime-tree.plist tree) 'note)))
     (when note
       (let ((references (slime-note.references note)))
-	(when references
-	  (terpri (current-buffer))
-	  (slime-insert-references references))))))
+        (when references
+          (terpri (current-buffer))
+          (slime-insert-references references))))))
 
 ;;;;; Hook into SLDB
 

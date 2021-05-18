@@ -727,6 +727,7 @@ SPECIAL-OPERATOR groups."
 (defmethod emacs-inspect ((package package))
   (let ((package-name         (package-name package))
         (package-nicknames    (package-nicknames package))
+        (local-nicknames      (package-local-nicknames package))
         (package-use-list     (package-use-list package))
         (package-used-by-list (package-used-by-list package))
         (shadowed-symbols     (package-shadowing-symbols package))
@@ -763,7 +764,10 @@ SPECIAL-OPERATOR groups."
     `("" ;; dummy to preserve indentation.
       "Name: " (:value ,package-name) (:newline)
 
-      "Nick names: " ,@(common-seperated-spec package-nicknames) (:newline)
+      "Nicknames: " ,@(common-seperated-spec package-nicknames) (:newline)
+
+      ,@(when local-nicknames
+          `("Package-local nicknames: " (:value ,local-nicknames) (:newline)))
 
       ,@(when (documentation package t)
           `("Documentation:" (:newline)
@@ -936,13 +940,11 @@ SPECIAL-OPERATOR groups."
 
 (defmethod emacs-inspect ((f float))
   (cond
-    ((> f most-positive-long-float)
-     (list "Positive infinity."))
-    ((< f most-negative-long-float)
-     (list "Negative infinity."))
-    ((not (= f f))
+    ((float-nan-p f)
+     ;; try NaN first because the next tests may perform operations
+     ;; that are undefined for NaNs.
      (list "Not a Number."))
-    (t
+    ((not (float-infinity-p f))
      (multiple-value-bind (significand exponent sign) (decode-float f)
        (append
 	`("Scientific: " ,(format nil "~E" f) (:newline)
@@ -952,7 +954,11 @@ SPECIAL-OPERATOR groups."
 			 (:value ,(float-radix f)) "^"
 			 (:value ,exponent) (:newline))
 	(label-value-line "Digits" (float-digits f))
-	(label-value-line "Precision" (float-precision f)))))))
+	(label-value-line "Precision" (float-precision f)))))
+    ((> f 0)
+     (list "Positive infinity."))
+    ((< f 0)
+     (list "Negative infinity."))))
 
 (defun make-pathname-ispec (pathname position)
   `("Pathname: "

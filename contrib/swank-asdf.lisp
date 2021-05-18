@@ -55,8 +55,7 @@ install a recent release of ASDF and in your ~~/.swank.lisp specify:
 ;; connection.
 #-asdf3
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (unless (or #+asdf3 t #+asdf2
-              (asdf:version-satisfies (asdf:asdf-version) "2.14.6"))
+  (unless (and #+asdf2 (asdf:version-satisfies (asdf:asdf-version) "2.14.6"))
     (error "Your ASDF is too old. ~
             The oldest version supported by swank-asdf is 2.014.6.")))
 ;;; Import functionality from ASDF that isn't available in all ASDF versions.
@@ -425,13 +424,19 @@ already knows."
                  (asdf:module (map () #'f (asdf:module-components x))))))
       (f component))))
 
+(defun make-operation (x)
+  #+#.(swank/backend:with-symbol 'make-operation 'asdf)
+  (asdf:make-operation x)
+  #-#.(swank/backend:with-symbol 'make-operation 'asdf)
+  (make-instance x))
+
 (defun asdf-component-output-files (component)
   (while-collecting (c)
     (labels ((f (x)
                (typecase x
                  (asdf:source-file
                   (map () #'c
-                       (asdf:output-files (make-instance 'asdf:compile-op) x)))
+                       (asdf:output-files (make-operation 'asdf:compile-op) x)))
                  (asdf:module (map () #'f (asdf:module-components x))))))
       (f component))))
 
@@ -452,7 +457,7 @@ already knows."
   (component-loaded-p name))
 
 (defslimefun asdf-system-directory (name)
-  (namestring (asdf:system-source-directory name)))
+  (namestring (translate-logical-pathname (asdf:system-source-directory name))))
 
 (defun pathname-system (pathname)
   (let ((component (pathname-component pathname)))
@@ -501,14 +506,6 @@ already knows."
   (let ((*recompile-system* (asdf:find-system name)))
     (operate-on-system-for-emacs name 'asdf:load-op)))
 
-;; Doing list-all-systems-in-central-registry might be quite slow
-;; since it accesses a file-system, so run it once at the background
-;; to initialize caches.
-(when (eql *communication-style* :spawn)
-  (spawn (lambda ()
-           (ignore-errors (list-all-systems-in-central-registry)))
-         :name "init-asdf-fs-caches"))
-
 ;;; Hook for compile-file-for-emacs
 
 (defun try-compile-file-with-asdf (pathname load-p &rest options)
@@ -516,11 +513,11 @@ already knows."
   (let ((component (pathname-component pathname)))
     (when component
       ;;(format t "~&Compiling ASDF component ~S~%" component)
-      (let ((op (make-instance 'asdf:compile-op)))
+      (let ((op (make-operation 'asdf:compile-op)))
         (with-compilation-hooks ()
           (asdf:perform op component))
         (when load-p
-          (asdf:perform (make-instance 'asdf:load-op) component))
+          (asdf:perform (make-operation 'asdf:load-op) component))
         (values t t nil (first (asdf:output-files op component)))))))
 
 (defun try-compile-asd-file (pathname load-p &rest options)

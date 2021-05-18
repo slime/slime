@@ -12,8 +12,7 @@
 @end direntry
 @c %**end of header
 
-@set EDITION 2.19
-@set SLIMEVER 2.19
+@set EDITION 2.24
 @set UPDATED @today{}
 @set TITLE SLIME User Manual
 @settitle @value{TITLE}, version @value{EDITION}
@@ -104,7 +103,7 @@ This file has been placed in the public domain.
 @top SLIME
 
 @SLIME{} is the ``Superior Lisp Interaction Mode for Emacs''. This is
-the manual for version @value{SLIMEVER}. (Last updated @value{UPDATED})
+the manual for version @value{EDITION}. (Last updated @value{UPDATED})
 
 @insertcopying
 @end ifnottex
@@ -466,8 +465,6 @@ Once you have the basic no-frills setup working, you can enhance your
 ;; @emph{Setup load-path, autoloads and your lisp system}
 (add-to-list 'load-path "~/dir/to/cloned/slime")
 (require 'slime-autoloads)
-;; @emph{Also setup the slime-fancy contrib}
-(add-to-list 'slime-contribs 'slime-fancy)
 @end example
 
 See @pxref{Loading Contribs} for more information on @SLIME{}'s
@@ -838,10 +835,6 @@ Edit the value of a setf-able form in a new buffer @file{*Edit <form>*}.
 The value is inserted into a temporary buffer for editing and then set
 in Lisp when committed with @kbd{C-c C-c}.
 
-@kbditem{C-x M-e, slime-eval-last-expression-display-output}
-Display the output buffer and evaluate the expression preceding point.
-This is useful if the expression writes something to the output stream.
-
 @kbditem{C-c C-u, slime-undefine-function}
 Undefine the function, with @code{fmakunbound}, for the symbol at
 point.
@@ -1104,7 +1097,7 @@ Show definition at point in the other window and close Xref buffer.
 @kbditem{C-c C-c, slime-recompile-xref}
 Recompile definition at point.
 
-@kbditem{C-c C-c, slime-recompile-all-xrefs}
+@kbditem{C-c C-k, slime-recompile-all-xrefs}
 Recompile all definitions.
 
 @end table
@@ -1133,7 +1126,7 @@ Fully macroexpand the expression starting at point.
 Display the compiler-macro expansion of sexp starting at point.
 
 @cmditem{slime-compiler-macroexpand}
-Repeatedy expand compiler macros of sexp starting at point.
+Repeatedly expand compiler macros of sexp starting at point.
 
 @end table
 
@@ -1219,7 +1212,8 @@ value. If point is on an action then call that action.
 Describe the slot at point.
 
 @kbditem{e, slime-inspector-eval}
-Evaluate an expression in the context of the inspected object.
+Evaluate an expression in the context of the inspected object.  The
+variable @code{*} will be bound to the inspected object.
 
 @kbditem{v, slime-inspector-toggle-verbose}
 Toggle between verbose and terse mode. Default is determined by
@@ -1250,8 +1244,7 @@ Fetch all inspector contents and go to the end.
 Store the value under point in the variable `*'.  This can
 then be used to access the object in the REPL.
 
-@kbditempair{TAB, S-TAB, slime-inspector-next-inspectable-object,
-slime-inspector-previous-inspectable-object}
+@kbditempair{TAB, S-TAB, slime-inspector-next-inspectable-object, slime-inspector-previous-inspectable-object}
 
 Jump to the next and previous inspectable object respectively.
 
@@ -1519,11 +1512,15 @@ Attach debugger (e.g. gdb) to the current lisp process.
 The @code{slime-selector} command is for quickly switching to
 important buffers: the @REPL{}, @SLDB{}, the Lisp source you were just
 hacking, etc. Once invoked the command prompts for a single letter to
-specify which buffer it should display. Here are some of the options:
+specify which buffer it should display. If a prefix argument is
+specified then the buffer is shown in the other window. Here are some
+of the main options:
 
 @table @kbd
 @item ?
 A help buffer listing all @code{slime-selectors}'s available buffers.
+This includes some options of lesser importance, e.g. intended for
+debugging @SLIME{}, which are not included in this list.
 @item r
 The @REPL{} buffer for the current @SLIME{} connection.
 @item d
@@ -1538,6 +1535,11 @@ SLIME connections buffer (@pxref{Multiple connections}).
 Cycle to the next Lisp connection (@pxref{Multiple connections}).
 @item t
 SLIME threads buffer (@pxref{Multiple connections}).
+@item i
+The @code{*inferior-lisp*} buffer for the current connection.
+@item 4
+Show buffer in other window. Equivalent to supplying a prefix
+argument. Prompts again for which buffer to select.
 @end table
 
 @code{slime-selector} doesn't have a key binding by default but we
@@ -1849,9 +1851,14 @@ is enabled by default.
 
 @vindex SWANK:*GLOBALLY-REDIRECT-IO*
 @item SWANK:*GLOBALLY-REDIRECT-IO*
-When true this causes the standard streams (@code{*standard-output*},
-etc) to be globally redirected to the @REPL{} in Emacs. When
-@code{NIL} (the default) these streams are only temporarily redirected
+When T this causes the standard streams (@code{*standard-output*},
+etc) to be globally redirected to the @REPL{} in Emacs.
+
+When @code{:STARTED-FROM-EMACS} (default) redirects the output when
+the lisp is launched from emacs (i.e. @kbd{M-x slime}), but not
+from @kbd{M-x slime-connect}.
+
+When @code{NIL} these streams are only temporarily redirected
 to Emacs using dynamic bindings while handling requests. Note that
 @code{*standard-input*} is currently never globally redirected into
 Emacs, because it can interact badly with the Lisp's native @REPL{} by
@@ -2004,19 +2011,16 @@ Boolean indicating if the server will continue to accept connections
 after the first one (default: @code{NIL}). For ``long-running'' lisp processes
 to which you want to be able to connect from time to time,
 specify @code{:dont-close t}
-@item :CODING-SYSTEM
-String designating the encoding to be used to communicate between the
-Emacs and Lisp.
 @end table
 
 So the more complete example will be
 @example
-(swank:create-server :port 4005  :dont-close t :coding-system "utf-8-unix")
+(swank:create-server :port 4005  :dont-close t)
 @end example
 On the emacs side you will use something like
 @example
 (setq slime-net-coding-system 'utf-8-unix)
-(slime-connect "127.0.0.1" 4005))
+(slime-connect "localhost" 4005))
 @end example
 to connect to this lisp image from the same machine.
 
@@ -2028,7 +2032,7 @@ Now we need to create the tunnel between the local machine and the
 remote machine.
 
 @example
-ssh -L4005:127.0.0.1:4005 username@@remote.example.com
+ssh -L4005:localhost:4005 username@@remote.example.com
 @end example
 
 That ssh invocation creates an ssh tunnel between the port 4005 on our
@@ -2044,9 +2048,9 @@ M-x slime-connect RET RET
 @end example
 
 The @kbd{RET RET} sequence just means that we want to use the default
-host (@code{127.0.0.1}) and the default port (@code{4005}). Even
+host (@code{localhost}) and the default port (@code{4005}). Even
 though we're connecting to a remote machine the ssh tunnel fools Emacs
-into thinking it's actually @code{127.0.0.1}.
+into thinking it's actually @code{localhost}.
 
 @c -----------------------
 @node Setting up pathname translations
@@ -2086,11 +2090,12 @@ contrib to setup the proper translations by simply doing:
 @node Global IO Redirection
 @section Globally redirecting all IO to the REPL
 
-By default @SLIME{} does not change @code{*standard-output*} and
-friends outside of the @REPL{}. If you have any other threads which
-call @code{format}, @code{write-string}, etc. that output will be seen
-only in the @code{*inferior-lisp*} buffer or on the terminal, more
-often than not this is inconvenient. So, if you want code such as this:
+When connecting via @kbd{M-x slime-connect} @SLIME{} does
+not change @code{*standard-output*} and friends outside of the
+@REPL{}. If you have any other threads which call @code{format},
+@code{write-string}, etc. that output will be seen only in
+the @code{*inferior-lisp*} buffer or on the terminal, more often than
+not this is inconvenient. So, if you want code such as this:
 
 @example
 (run-in-new-thread
@@ -2099,13 +2104,11 @@ often than not this is inconvenient. So, if you want code such as this:
 @end example
 
 to send its output to @SLIME{}'s repl buffer, as opposed to
-@code{*inferior-lisp*}, set @code{swank:*globally-redirect-io*} to T.
+@code{*inferior-lisp*}, set @code{swank:*globally-redirect-io*} to T
+in @file{~/.swank.lisp}
 
-Note that the value of this variable is only checked when swank
-accepts the connection so you should set it via
-@file{~/.swank.lisp}. Otherwise you will need to call
-@code{swank::globally-redirect-io-to-connection} yourself, but you
-shouldn't do that unless you know what you're doing.
+But when started using @kbd{M-x slime} the streams are redirected by
+default.
 
 @c -----------------------
 @node Auto-SLIME
@@ -2164,9 +2167,10 @@ particular packages do.
 Contrib packages aren't loaded by default.  You have to modify your
 setup a bit so that Emacs knows where to find them and which of them
 to load.  Generally, you set the variable @code{slime-contribs} with
-the list of package-names that you want to use.  For example, a setup
-to load the @code{slime-scratch} and @code{slime-editing-commands}
-packages looks like:
+the list of package-names that you want to use. Its default value
+is @code{slime-fancy} which loads almost everything.  For example, a
+setup to load the @code{slime-scratch}
+and @code{slime-editing-commands} packages looks like:
 
 @example
 ;; @emph{Setup load-path and autoloads}
@@ -2181,27 +2185,11 @@ packages looks like:
 After starting @SLIME{}, the commands of both packages should be
 available.
 
-The REPL and @code{slime-fancy} modules deserve special mention.  Many
-users consider the REPL (@pxref{REPL}) essential
-while @code{slime-fancy} (@pxref{slime-fancy}) loads the REPL and
-almost all of the popular contribs.  So, if you aren't sure what to
-choose start with:
-
-@example
-(setq slime-contribs '(slime-repl)) ; repl only
-@end example
-
-If you like what you see try this:
-
-@example
-(setq slime-contribs '(slime-fancy)) ; almost everything
-@end example
-
 @subsection Loading and unloading ``on the fly''
 
 We recommend that you setup contribs @emph{before} starting @SLIME{} via
 @kbd{M-x slime}, but if you want to enable more contribs @emph{after}
-you that, you can set the @code{slime-contribs} variable to another
+you do that, you can set the @code{slime-contribs} variable to another
 value and call @code{M-x slime-setup}. Note this though:
 
 @itemize @bullet
@@ -2257,7 +2245,7 @@ Insert a call to the function defined around point into the REPL.
 
 @kbditem{C-c C-j, slime-eval-last-expression-in-repl}
 Inserts the last expression to the REPL and evaluates it there.
-Switches to the current packae of the source buffer for the duration.
+Switches to the current package of the source buffer for the duration.
 If used with a prefix argument, doesn't switch back afterwards.
 
 @end table
@@ -2323,8 +2311,7 @@ Bash.
 
 @table @kbd
 
-@kbditempair{C-<up>, C-<down>,
-             slime-repl-forward-input, slime-repl-backward-input}
+@kbditempair{C-<up>, C-<down>, slime-repl-forward-input, slime-repl-backward-input}
 Go to the next/previous history item.
 
 @kbditempair{M-n, M-p, slime-repl-next-input, slime-repl-previous-input}
@@ -2333,16 +2320,14 @@ input as search pattern.  If @kbd{M-n}/@kbd{M-n} is typed two times in
 a row, the second invocation uses the same search pattern (even if the
 current input has changed).
 
-@kbditempair{M-s, M-r,
-slime-repl-next-matching-input, slime-repl-previous-matching-input}
+@kbditempair{M-s, M-r, slime-repl-next-matching-input, slime-repl-previous-matching-input}
 Search forward/reverse through command history with regex
 
 @c @code{slime-repl-@{next,previous@}-input}@*
 @c @code{slime-repl-@{next,previous@}-matching-input}@*
 @c @code{comint}-style input history commands.
 
-@kbditempair{C-c C-n, C-c C-p,
-slime-repl-next-prompt, slime-repl-previous-prompt}
+@kbditempair{C-c C-n, C-c C-p, slime-repl-next-prompt, slime-repl-previous-prompt}
 Move between the current and previous prompts in the @REPL{} buffer.
 Pressing RET on a line with old input copies that line to the newest
 prompt.
@@ -2654,6 +2639,11 @@ pressing SPC.
 @vindex slime-autodoc-use-multiline-p
 If @code{slime-autodoc-use-multiline-p} is set to non-nil,
 allow long autodoc messages to resize echo area display.
+
+@vindex slime-autodoc-mode-string
+@code{slime-autodoc-mode-string} is a string that will be displayed in
+the mode line when autodoc-mode is enabled, or nil, if you prefer no
+indication. You can customize this variable.
 
 @node ASDF
 @section ASDF
@@ -3047,15 +3037,6 @@ Trace Dialog collects and stores them in your lisp environment until,
 on user's request, they are fetched into Emacs and displayed in a
 dialog-like interactive view.
 
-To use this contrib, add it to @code{slime-contribs} in your
-@code{~/.emacs}, either directly by setting up @code{slime-fancy}
-(@pxref{slime-fancy}).
-
-@example
-;; setting up 'slime-fancy would also have worked
-(add-to-list 'slime-contribs 'slime-trace-dialog)
-@end example
-
 After starting up @SLIME{}, @SLIME{}'s Trace Dialog installs
 a @emph{Trace} menu in the menu-bar of any @code{slime-mode} buffer and
 adds two new commands, with respective key-bindings:
@@ -3184,7 +3165,8 @@ declared with @code{flet} and @code{labels}, via
 @section Meta package: @code{slime-fancy}
 
 @code{slime-fancy} is a meta package which loads a combination of the
-most popular packages.
+most popular packages. It is the default value of
+@code{slime-contribs}, thus it is loaded by default.
 
 @node Quicklisp
 @section Quicklisp
@@ -3389,7 +3371,6 @@ keybinding (if there is one) refer to the function description.
 @c @fcnindex{slime-eval-buffer}
 @fcnindex{slime-eval-defun}
 @fcnindex{slime-eval-last-expression}
-@fcnindex{slime-eval-last-expression-display-output}
 @c @fcnindex{slime-eval-print-last-expression}
 @fcnindex{slime-eval-region}
 @fcnindex{slime-fuzzy-abort}

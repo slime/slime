@@ -532,78 +532,76 @@ Return an OPTIONAL-ARG structure."
 
 (defun decode-arglist (arglist)
   "Parse the list ARGLIST and return an ARGLIST structure."
-  (etypecase arglist
-    ((eql :not-available) (return-from decode-arglist
-                            :not-available))
-    (list))
-  (loop
-    with mode = nil
-    with result = (make-arglist)
-    for arg = (if (consp arglist)
-                  (pop arglist)
-                  (progn
-                    (prog1 arglist
-                      (setf mode '&rest
-                            arglist nil))))
-    do (cond
-         ((eql mode '&unknown-junk)
-          ;; don't leave this mode -- we don't know how the arglist
-          ;; after unknown lambda-list keywords is interpreted
-          (push arg (arglist.unknown-junk result)))
-         ((eql arg '&allow-other-keys)
-          (setf (arglist.allow-other-keys-p result) t))
-         ((eql arg '&key)
-          (setf (arglist.key-p result) t
-                mode arg))
-         ((memq arg '(&optional &rest &body &aux))
-          (setq mode arg))
-         ((memq arg '(&whole &environment))
-          (setq mode arg)
-          (push arg (arglist.known-junk result)))
-         ((and (symbolp arg)
-               (string= (symbol-name arg) (string '#:&any))) ; may be interned
-          (setf (arglist.any-p result) t) ;  in any *package*.
-          (setq mode '&any))
-         ((memq arg lambda-list-keywords)
-          (setq mode '&unknown-junk)
-          (push arg (arglist.unknown-junk result)))
-         (t
-          (ecase mode
-            (&key
-               (push (decode-keyword-arg arg)
-                     (arglist.keyword-args result)))
-            (&optional
-               (push (decode-optional-arg arg)
-                     (arglist.optional-args result)))
-            (&body
-               (setf (arglist.body-p result) t
-                     (arglist.rest result) arg))
-            (&rest
-               (setf (arglist.rest result) arg))
-            (&aux
-               (push (decode-optional-arg arg)
-                     (arglist.aux-args result)))
-            ((nil)
-               (push (decode-required-arg arg)
-                     (arglist.required-args result)))
-            ((&whole &environment)
-               (setf mode nil)
-               (push arg (arglist.known-junk result)))
-            (&any
-               (push arg (arglist.any-args result))))))
+  (if (eq arglist :not-available)
+      :not-available
+      (loop
+        with mode = nil
+        with result = (make-arglist)
+        for arg = (if (consp arglist)
+                      (pop arglist)
+                      (progn
+                        (prog1 arglist
+                          (setf mode '&rest
+                                arglist nil))))
+        do (cond
+             ((eql mode '&unknown-junk)
+              ;; don't leave this mode -- we don't know how the arglist
+              ;; after unknown lambda-list keywords is interpreted
+              (push arg (arglist.unknown-junk result)))
+             ((eql arg '&allow-other-keys)
+              (setf (arglist.allow-other-keys-p result) t))
+             ((eql arg '&key)
+              (setf (arglist.key-p result) t
+                    mode arg))
+             ((memq arg '(&optional &rest &body &aux))
+              (setq mode arg))
+             ((memq arg '(&whole &environment))
+              (setq mode arg)
+              (push arg (arglist.known-junk result)))
+             ((and (symbolp arg)
+                   (string= (symbol-name arg) (string '#:&any))) ; may be interned
+              (setf (arglist.any-p result) t) ;  in any *package*.
+              (setq mode '&any))
+             ((memq arg lambda-list-keywords)
+              (setq mode '&unknown-junk)
+              (push arg (arglist.unknown-junk result)))
+             (t
+              (ecase mode
+                (&key
+                 (push (decode-keyword-arg arg)
+                       (arglist.keyword-args result)))
+                (&optional
+                 (push (decode-optional-arg arg)
+                       (arglist.optional-args result)))
+                (&body
+                 (setf (arglist.body-p result) t
+                       (arglist.rest result) arg))
+                (&rest
+                 (setf (arglist.rest result) arg))
+                (&aux
+                 (push (decode-optional-arg arg)
+                       (arglist.aux-args result)))
+                ((nil)
+                 (push (decode-required-arg arg)
+                       (arglist.required-args result)))
+                ((&whole &environment)
+                 (setf mode nil)
+                 (push arg (arglist.known-junk result)))
+                (&any
+                 (push arg (arglist.any-args result))))))
         until (null arglist)
-    finally (nreversef (arglist.required-args result))
-    finally (nreversef (arglist.optional-args result))
-    finally (nreversef (arglist.keyword-args result))
-    finally (nreversef (arglist.aux-args result))
-    finally (nreversef (arglist.any-args result))
-    finally (nreversef (arglist.known-junk result))
-    finally (nreversef (arglist.unknown-junk result))
-    finally (assert (or (and (not (arglist.key-p result))
-                             (not (arglist.any-p result)))
-                        (exactly-one-p (arglist.key-p result)
-                                       (arglist.any-p result))))
-    finally (return result)))
+        finally (nreversef (arglist.required-args result))
+        finally (nreversef (arglist.optional-args result))
+        finally (nreversef (arglist.keyword-args result))
+        finally (nreversef (arglist.aux-args result))
+        finally (nreversef (arglist.any-args result))
+        finally (nreversef (arglist.known-junk result))
+        finally (nreversef (arglist.unknown-junk result))
+        finally (assert (or (and (not (arglist.key-p result))
+                                 (not (arglist.any-p result)))
+                            (exactly-one-p (arglist.key-p result)
+                                           (arglist.any-p result))))
+        finally (return result))))
 
 (defun encode-arglist (decoded-arglist)
   (append (mapcar #'encode-required-arg
@@ -673,7 +671,7 @@ whether &allow-other-keys appears somewhere."
          amuc
          (compute-applicable-methods generic-function arguments)))))
 
-(defgeneric extra-keywords (operator &rest args)
+(defgeneric extra-keywords (operator args)
    (:documentation "Return a list of extra keywords of OPERATOR (a
 symbol) when applied to the (unevaluated) ARGS.
 As a secondary value, return whether other keys are allowed.
@@ -693,7 +691,7 @@ to determine the extra keywords."))
 ;;; obfuscating the arglist of MAKE-INSTANCE.
 ;;;
 
-(defmethod extra-keywords :around (op &rest args)
+(defmethod extra-keywords :around (op args)
   (declare (ignorable op args))
   (multiple-value-bind (keywords aok enrichments) (call-next-method)
     (values (sort-extra-keywords keywords) aok enrichments)))
@@ -734,7 +732,7 @@ forward keywords to OPERATOR."
     (values (arglist.keyword-args arglist)
             (arglist.allow-other-keys-p arglist))))
 
-(defmethod extra-keywords (operator &rest args)
+(defmethod extra-keywords (operator args)
   ;; default method
   (declare (ignore args))
   (let ((symbol-function (symbol-function operator)))
@@ -771,7 +769,7 @@ forward keywords to OPERATOR."
                           (swank-mop:slot-definition-initargs slot)))))
       (values slot-init-keywords allow-other-keys-p))))
 
-(defun extra-keywords/make-instance (operator &rest args)
+(defun extra-keywords/make-instance (operator args)
   (declare (ignore operator))
   (unless (null args)
     (let* ((class-name-form (car args))
@@ -799,7 +797,7 @@ forward keywords to OPERATOR."
                         (or class-aokp ai-aokp ii-aokp si-aokp)
                         (list class-name-form))))))))))
 
-(defun extra-keywords/change-class (operator &rest args)
+(defun extra-keywords/change-class (operator args)
   (declare (ignore operator))
   (unless (null args)
     (let* ((class-name-form (car args))
@@ -824,44 +822,43 @@ forward keywords to OPERATOR."
                     (list class-name-form))))))))
 
 (defmethod extra-keywords ((operator (eql 'make-instance))
-                           &rest args)
-  (multiple-value-or (apply #'extra-keywords/make-instance operator args)
+                           args)
+  (multiple-value-or (extra-keywords/make-instance operator args)
                      (call-next-method)))
 
 (defmethod extra-keywords ((operator (eql 'make-condition))
-                           &rest args)
-  (multiple-value-or (apply #'extra-keywords/make-instance operator args)
+                           args)
+  (multiple-value-or (extra-keywords/make-instance operator args)
                      (call-next-method)))
 
 (defmethod extra-keywords ((operator (eql 'error))
-                           &rest args)
-  (multiple-value-or (apply #'extra-keywords/make-instance operator args)
+                           args)
+  (multiple-value-or (extra-keywords/make-instance operator args)
                      (call-next-method)))
 
 (defmethod extra-keywords ((operator (eql 'signal))
-                           &rest args)
-  (multiple-value-or (apply #'extra-keywords/make-instance operator args)
+                           args)
+  (multiple-value-or (extra-keywords/make-instance operator args)
                      (call-next-method)))
 
 (defmethod extra-keywords ((operator (eql 'warn))
-                           &rest args)
-  (multiple-value-or (apply #'extra-keywords/make-instance operator args)
+                           args)
+  (multiple-value-or (extra-keywords/make-instance operator args)
                      (call-next-method)))
 
 (defmethod extra-keywords ((operator (eql 'cerror))
-                           &rest args)
+                           args)
   (multiple-value-bind (keywords aok determiners)
-      (apply #'extra-keywords/make-instance operator
-             (cdr args))
+      (extra-keywords/make-instance operator (cdr args))
     (if keywords
         (values keywords aok
                 (cons (car args) determiners))
         (call-next-method))))
 
 (defmethod extra-keywords ((operator (eql 'change-class))
-                           &rest args)
+                           args)
   (multiple-value-bind (keywords aok determiners)
-      (apply #'extra-keywords/change-class operator (cdr args))
+      (extra-keywords/change-class operator (cdr args))
     (if keywords
         (values keywords aok
                 (cons (car args) determiners))
@@ -888,7 +885,7 @@ the initial sublist of ARGS that was needed to determine the extra
 keywords.  As a tertiary return value, return whether any enrichment
 was done."
   (multiple-value-bind (extra-keywords extra-aok determining-args)
-      (apply #'extra-keywords form)
+      (extra-keywords (car form) (cdr form))
     ;; enrich the list of keywords with the extra keywords
     (enrich-decoded-arglist-with-keywords decoded-arglist
                                           extra-keywords extra-aok)
@@ -1003,6 +1000,12 @@ If the arglist is not available, return :NOT-AVAILABLE."))
   (:method (operator arguments)
     (unless (and (symbolp operator) (valid-operator-symbol-p operator))
       (return-from arglist-dispatch :not-available))
+    (when (equalp (package-name (symbol-package operator)) "closer-mop")
+      (let ((standard-symbol (or (find-symbol (symbol-name operator) :cl)
+                                 (find-symbol (symbol-name operator) :swank-mop))))
+        (when standard-symbol
+          (return-from arglist-dispatch
+            (arglist-dispatch standard-symbol arguments)))))
 
     (multiple-value-bind (decoded-arglist determining-args)
         (compute-enriched-decoded-arglist operator arguments)
@@ -1017,14 +1020,15 @@ If the arglist is not available, return :NOT-AVAILABLE."))
     (('defmethod (#'function-exists-p gf-name) . rest)
      (let ((gf (fdefinition gf-name)))
        (when (typep gf 'generic-function)
-         (with-available-arglist (arglist) (decode-arglist (arglist gf))
-           (let ((qualifiers (loop for x in rest
-                                   until (or (listp x) (empty-arg-p x))
-                                   collect x)))
-             (return-from arglist-dispatch
-               (make-arglist :provided-args (cons gf-name qualifiers)
-                             :required-args (list arglist)
-                             :rest "body" :body-p t)))))))
+         (let ((lambda-list (swank-mop:generic-function-lambda-list gf)))
+           (with-available-arglist (arglist) (decode-arglist lambda-list)
+             (let ((qualifiers (loop for x in rest
+                                     until (or (listp x) (empty-arg-p x))
+                                     collect x)))
+               (return-from arglist-dispatch
+                 (make-arglist :provided-args (cons gf-name qualifiers)
+                               :required-args (list arglist)
+                               :rest "body" :body-p t))))))))
     (_)) ; Fall through
   (call-next-method))
 

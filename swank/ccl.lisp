@@ -203,8 +203,8 @@
 ;; Use a temp file rather than in-core compilation in order to handle
 ;; eval-when's as compile-time.
 (defimplementation swank-compile-string (string &key buffer position filename
-                                         policy)
-  (declare (ignore policy))
+                                                line column policy)
+  (declare (ignore line column policy))
   (with-compilation-hooks ()
     (let ((temp-file-name (ccl:temp-pathname))
           (ccl:*save-source-locations* t))
@@ -418,7 +418,8 @@
     ((cons (eql ccl::traced)) (function-name-package (second name)))
     ((cons (eql setf)) (symbol-package (second name)))
     ((cons (eql :internal)) (function-name-package (car (last name))))
-    ((cons (and symbol (not keyword)) (cons list null))
+    ((cons (and symbol (not keyword)) (or (cons list null)
+                                          (cons keyword (cons list null))))
      (symbol-package (car name)))
     (standard-method (function-name-package (ccl:method-name name)))))
 
@@ -587,6 +588,12 @@
   (case (ccl:definition-type-name type)
     (method (ccl:name-of object))
     (t (list (ccl:definition-type-name type) (ccl:name-of object)))))
+
+;;; Packages
+
+#+package-local-nicknames
+(defimplementation package-local-nicknames (package)
+  (ccl:package-local-nicknames package))
 
 ;;; Utilities
 

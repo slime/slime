@@ -35,7 +35,7 @@ use `slime-export-symbol-representation-function'.")
   "Save the package file after each automatic modification")
 
 (defvar slime-defpackage-regexp
-  "^(\\(cl:\\|common-lisp:\\)?defpackage\\>[ \t']*")
+  "^(\\(cl:\\|common-lisp:\\|uiop:\\|uiop/package:\\)?\\(defpackage\\|define-package\\)\\>[ \t']*")
 
 (defun slime-find-package-definition-rpc (package)
   (slime-eval `(swank:find-definition-for-thing

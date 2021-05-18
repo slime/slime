@@ -137,7 +137,8 @@ If you copy the HyperSpec to another location, customize the variable
     (forward-line)))
 
 (defun common-lisp-hyperspec--parse-map-file (file)
-  (with-current-buffer (find-file-noselect file)
+  (with-temp-buffer
+    (insert-file-contents file)
     (goto-char (point-min))
     (let ((result '()))
       (while (< (point) (point-max))
@@ -1237,8 +1238,8 @@ If you copy the HyperSpec to another location, customize the variable
 	char-at-point
       (completing-read
        "Look up format control character in Common Lisp HyperSpec: "
-       common-lisp-hyperspec--format-characters nil #'boundp
-       nil nil 'common-lisp-hyperspec-format-history))))
+       common-lisp-hyperspec--format-characters nil t nil
+       'common-lisp-hyperspec-format-history))))
 
 (defun common-lisp-hyperspec-format (character-name)
   (interactive (list (common-lisp-hyperspec--read-format-character)))
@@ -1316,7 +1317,7 @@ If you copy the HyperSpec to another location, customize the variable
   "Function that creates a URL for a glossary term.")
 
 (define-obsolete-variable-alias 'common-lisp-glossary-fun
-  'common-lisp-hyperspec-glossary-function)
+  'common-lisp-hyperspec-glossary-function "2015-12-29")
 
 (defvar common-lisp-hyperspec--glossary-terms (make-hash-table :test #'equal)
   "Collection of glossary terms and relative URLs.")
@@ -2492,6 +2493,9 @@ incompatibly-more-like-defclass+emphasize-read-only" "iss102.htm")
   (let ((entry (gethash (downcase issue-name)
 			common-lisp-hyperspec--issuex-symbols)))
     (concat common-lisp-hyperspec-root "Issues/" entry)))
+
+(defun common-lisp-special-operator (name)
+  (format "%sBody/s_%s.htm" common-lisp-hyperspec-root name))
 
 ;;; Added the following just to provide a common entry point according
 ;;; to the various 'hyperspec' implementations.

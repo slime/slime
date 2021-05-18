@@ -23,9 +23,12 @@
            :dump-image
            :list-fasls
            :*source-directory*
-           :*fasl-directory*))
+           :*fasl-directory*
+           :*started-from-emacs*))
 
 (cl:in-package :swank-loader)
+
+(defvar *started-from-emacs* nil)
 
 (defvar *source-directory*
   (make-pathname :name nil :type nil
@@ -46,21 +49,22 @@
   #+armedbear '((swank abcl))
   #+cormanlisp '((swank corman) (swank gray))
   #+ecl '((swank ecl) (swank gray))
-  #+clasp '((swank clasp) (swank gray))
+  #+clasp '(metering (swank clasp) (swank gray))
   #+mkcl '((swank mkcl) (swank gray))
+  #+mezzano '((swank mezzano) (swank gray))
   )
 
 (defparameter *implementation-features*
   '(:allegro :lispworks :sbcl :clozure :cmu :clisp :ccl :corman :cormanlisp
-    :armedbear :gcl :ecl :scl :mkcl :clasp))
+    :armedbear :gcl :ecl :scl :mkcl :clasp :mezzano))
 
 (defparameter *os-features*
   '(:macosx :linux :windows :mswindows :win32 :solaris :darwin :sunos :hpux
-    :unix))
+    :unix :mezzano))
 
 (defparameter *architecture-features*
-  '(:powerpc :ppc :x86 :x86-64 :x86_64 :amd64 :i686 :i586 :i486 :pc386 :iapx386
-    :sparc64 :sparc :hppa64 :hppa :arm :armv5l :armv6l :armv7l :arm64
+  '(:powerpc :ppc :ppc64 :x86 :x86-64 :x86_64 :amd64 :i686 :i586 :i486 :pc386 :iapx386
+    :sparc64 :sparc :hppa64 :hppa :arm :armv5l :armv6l :armv7l :arm64 :aarch64
     :pentium3 :pentium4
     :mips :mipsel
     :java-1.4 :java-1.5 :java-1.6 :java-1.7))
@@ -93,7 +97,7 @@
   #+lispworks (lisp-implementation-version)
   #+allegro   (format nil "~@{~a~}"
                       excl::*common-lisp-version-number*
-                      (if (eq 'h 'H) "A" "M")     ; ANSI vs MoDeRn
+                      (if (string= 'lisp "LISP") "A" "M")     ; ANSI vs MoDeRn
                       (if (member :smp *features*) "s" "")
                       (if (member :64bit *features*) "-64bit" "")
                       (excl:ics-target-case
@@ -103,7 +107,9 @@
                 (subseq s 0 (position #\space s)))
   #+armedbear (lisp-implementation-version)
   #+ecl (ecl-version-string)
-  #+clasp (clasp-version-string))
+  #+clasp (clasp-version-string)
+  #+mezzano (let ((s (lisp-implementation-version)))
+              (subseq s 0 (position #\space s))))
 
 (defun unique-dir-name ()
   "Return a name that can be used as a directory name that is
@@ -141,11 +147,12 @@ operating system, and hardware architecture."
 Return nil if nothing appropriate is available."
   (with-open-file (s (merge-pathnames "slime.el" *source-directory*)
                      :if-does-not-exist nil)
-    (loop with prefix = ";; Version: "
-          for line = (read-line s nil :eof)
-          until (eq line :eof)
-          when (string-starts-with line prefix)
-            return (subseq line (length prefix)))))
+    (when s
+      (loop with prefix = ";; Version: "
+            for line = (read-line s nil :eof)
+            until (eq line :eof)
+            when (string-starts-with line prefix)
+              return (subseq line (length prefix))))))
 
 (defun default-fasl-dir ()
   (merge-pathnames
@@ -327,13 +334,16 @@ If LOAD is true, load the fasl file."
         (delete-package package)))))
 
 (defun init (&key delete reload load-contribs (setup t)
-                  (quiet (not *load-verbose*)))
+                  (quiet (not *load-verbose*))
+                  from-emacs)
   "Load SWANK and initialize some global variables.
 If DELETE is true, delete any existing SWANK packages.
 If RELOAD is true, reload SWANK, even if the SWANK package already exists.
 If LOAD-CONTRIBS is true, load all contribs
 If SETUP is true, load user init files and initialize some
 global variabes in SWANK."
+  (when from-emacs
+    (setf *started-from-emacs* t))
   (when (and delete (find-package :swank))
     (delete-packages (list-swank-packages)))
   (cond ((or (not (find-package :swank)) reload)

@@ -762,8 +762,8 @@ function names like \(SETF GET)."
 	   htab))
 
 (defimplementation swank-compile-string (string &key buffer position filename
-                                         policy)
-  (declare (ignore filename policy))
+                                                line column policy)
+  (declare (ignore filename line column policy))
   (assert buffer)
   (assert position)
   (let* ((location (list :emacs-buffer buffer position))
@@ -830,8 +830,10 @@ function names like \(SETF GET)."
   (defxref who-sets       hcl:who-sets))
 
 (defimplementation who-specializes (classname)
-  (let ((methods (clos:class-direct-methods (find-class classname))))
-    (xref-results (mapcar #'dspec:object-dspec methods))))
+  (let ((class (find-class classname nil)))
+    (when class
+      (let ((methods (clos:class-direct-methods class)))
+        (xref-results (mapcar #'dspec:object-dspec methods))))))
 
 (defun xref-results (dspecs)
   (flet ((frob-locs (dspec locs)
@@ -1016,3 +1018,9 @@ function names like \(SETF GET)."
 
 (defimplementation make-weak-value-hash-table (&rest args)
   (apply #'make-hash-table :weak-kind :value args))
+
+;;;; Packages
+
+#+package-local-nicknames
+(defimplementation package-local-nicknames (package)
+  (hcl:package-local-nicknames package))

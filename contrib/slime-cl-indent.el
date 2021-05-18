@@ -43,7 +43,6 @@
 
 (require 'slime) ; only for its cl-lib loading smartness
 (require 'cl-lib)
-(eval-when-compile (require 'cl))
 
 (defgroup lisp-indent nil
   "Indentation in Lisp."
@@ -229,12 +228,12 @@ is set to `defun'.")
 ;;;; explicitly, however, and offers name completion, etc.
 
 ;;; Convenience accessors
-(defun common-lisp-style-name (style) (first style))
-(defun common-lisp-style-inherits (style) (second style))
-(defun common-lisp-style-variables (style) (third style))
-(defun common-lisp-style-indentation (style) (fourth style))
-(defun common-lisp-style-hook (style) (fifth style))
-(defun common-lisp-style-docstring (style) (sixth style))
+(defun common-lisp-style-name (style) (cl-first style))
+(defun common-lisp-style-inherits (style) (cl-second style))
+(defun common-lisp-style-variables (style) (cl-third style))
+(defun common-lisp-style-indentation (style) (cl-fourth style))
+(defun common-lisp-style-hook (style) (cl-fifth style))
+(defun common-lisp-style-docstring (style) (cl-sixth style))
 
 (defun common-lisp-make-style (stylename inherits variables indentation hook
                                documentation)
@@ -306,8 +305,8 @@ Ie. styles that will not evaluate arbitrary code on activation."
                (push (list name (common-lisp-style-docstring style)) all))
              common-lisp-styles)
     (dolist (info (sort all (lambda (a b) (string< (car a) (car b)))))
-      (let ((style-name (first info))
-            (style-doc (second info)))
+      (let ((style-name (cl-first info))
+            (style-doc (cl-second info)))
         (if style-doc
             (setq doc (concat doc
                               "\n " style-name "\n"
@@ -327,10 +326,10 @@ Ie. styles that will not evaluate arbitrary code on activation."
       (common-lisp-activate-style basename methods))
     ;; Copy methods
     (dolist (spec (common-lisp-style-indentation style))
-      (puthash (first spec) (second spec) methods))
+      (puthash (cl-first spec) (cl-second spec) methods))
     ;; Bind variables.
     (dolist (var (common-lisp-style-variables style))
-      (set (make-local-variable (first var)) (second var)))
+      (set (make-local-variable (cl-first var)) (cl-second var)))
     ;; Run hook.
     (let ((hook (common-lisp-style-hook style)))
       (when hook
@@ -434,11 +433,7 @@ OPTIONS are:
                                 ,@(cdr (assoc :eval options))))
                           ,documentation))
 
-(define-common-lisp-style "basic"
-  "This style merely gives all identation variables their default values,
-   making it easy to create new styles that are proof against user
-   customizations. It also adjusts comment indentation from default.
-   All other predefined modes inherit from basic."
+(define-common-lisp-style "basic-common"
   (:variables
    (lisp-indent-maximum-backtracking 6)
    (lisp-tag-indentation 1)
@@ -453,12 +448,39 @@ OPTIONS are:
    (lisp-lambda-list-keyword-parameter-indentation 2)
    (lisp-lambda-list-keyword-parameter-alignment nil)
    (lisp-indent-defun-method (4 &lambda &body))
-   ;; Without these (;;foo would get a space inserted between
-   ;; ( and ; by indent-sexp.
-   (comment-indent-function (lambda () nil))
    (lisp-loop-clauses-indentation 2)
    (lisp-loop-indent-body-forms-relative-to-loop-start nil)
    (lisp-loop-body-forms-indentation 3)))
+
+(define-common-lisp-style "basic-emacs25"
+  "This style adds a workaround needed for Emacs 25"
+  (:inherit "basic-common")
+  (:variables
+   ;; Without these (;;foo would get a space inserted between
+   ;; ( and ; by indent-sexp.
+   (comment-indent-function (lambda () nil))))
+
+(define-common-lisp-style "basic-emacs26"
+  "This style is the same as basic-common. It doesn't need or
+   want the workaround used in Emacs 25. In Emacs 26, that
+   workaround introduces a weird behavior where a single
+   semicolon breaks the mode and causes the cursor to move to the
+   start of the line after every character inserted."
+  (:inherit "basic-common"))
+
+(if (>= emacs-major-version 26)
+    (define-common-lisp-style "basic"
+      "This style merely gives all identation variables their default values,
+       making it easy to create new styles that are proof against user
+       customizations. It also adjusts comment indentation from default.
+       All other predefined modes inherit from basic."
+      (:inherit "basic-emacs26"))
+    (define-common-lisp-style "basic"
+      "This style merely gives all identation variables their default values,
+       making it easy to create new styles that are proof against user
+       customizations. It also adjusts comment indentation from default.
+       All other predefined modes inherit from basic."
+      (:inherit "basic-emacs25")))
 
 (define-common-lisp-style "classic"
   "This style of indentation emulates the most striking features of 1995
@@ -595,12 +617,12 @@ given point. Defaults to `common-lisp-guess-current-package'.")
               (let ((guess nil)
                     (guess-n 0)
                     (package (common-lisp-symbol-package full)))
-                (dolist (info system-info guess)
+                (cl-dolist (info system-info guess)
                   (let* ((pkgs (cdr info))
                          (n (length pkgs)))
                     (cond ((member package pkgs)
                            ;; This is it.
-                           (return (car info)))
+                           (cl-return (car info)))
                           ((> n guess-n)
                            ;; If we can't find the real thing, go with the one
                            ;; accessible in most packages.
@@ -736,9 +758,9 @@ For example, the function `case' has an indent property
 ;;; boot, and sufficient for our needs.
 (defun common-lisp-looking-back (string)
   (let ((len (length string)))
-    (dotimes (i len t)
+    (cl-dotimes (i len t)
       (unless (eql (elt string (- len i 1)) (char-before (- (point) i)))
-        (return nil)))))
+        (cl-return nil)))))
 
 (defvar common-lisp-feature-expr-regexp "#!?\\(+\\|-\\)")
 
@@ -1314,14 +1336,14 @@ environment\\|more\
              (backward-sexp)
              (looking-at "nil\\|("))))
      (+ sexp-column
-        (case (car path)
+        (cl-case (car path)
           ((1 3) 4)
           (2 4)
           (t 2))))
     ;; Short form.
     (t
      (+ sexp-column
-        (case (car path)
+        (cl-case (car path)
           (1 4)
           (2 4)
           (t 2)))))
@@ -1353,7 +1375,7 @@ environment\\|more\
            (when (setq nskip (lisp-beginning-of-defmethod-qualifiers))
              (skip-chars-forward " \t\n")
              (while (looking-at "\\sw\\|\\s_")
-               (incf nskip)
+               (cl-incf nskip)
                (forward-sexp)
                (skip-chars-forward " \t\n"))
              t))
@@ -1680,9 +1702,8 @@ Cause subsequent clauses to be indented.")
 
 (defun common-lisp-indent-if*-advance-past-keyword-on-line ()
   (forward-word 1)
-  (block move-forward
-    (while (and (looking-at "\\s-") (not (eolp)))
-      (forward-char 1)))
+  (while (and (looking-at "\\s-") (not (eolp)))
+    (forward-char 1))
   (if (eolp)
       nil
     (current-column)))

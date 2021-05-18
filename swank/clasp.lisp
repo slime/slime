@@ -13,9 +13,13 @@
 
 (in-package swank/clasp)
 
+#+(or)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (setq swank::*log-output* (open "/tmp/slime.log" :direction :output))
+  (setq swank:*log-events* t))
 
-(defmacro cslime-log (fmt &rest fmt-args)
-  `(format t ,fmt ,@fmt-args))
+(defmacro slime-dbg (fmt &rest args)
+  `(swank::log-event "slime-dbg ~a ~a~%" mp:*current-process* (apply #'format nil ,fmt ,args)))
 
 ;; Hard dependencies.
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -35,14 +39,7 @@
 ;;; Swank-mop
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (import-swank-mop-symbols
-   :clos
-   `(:eql-specializer
-     :eql-specializer-object
-     :generic-function-declarations
-     :specializer-direct-methods
-     ,@(unless (fboundp 'clos:compute-applicable-methods-using-classes)
-               '(:compute-applicable-methods-using-classes)))))
+  (import-swank-mop-symbols :clos nil))
 
 (defimplementation gray-package-name ()
   "GRAY")
@@ -51,10 +48,10 @@
 ;;;; TCP Server
 
 (defimplementation preferred-communication-style ()
-  ;; CLASP does not provide threads yet.
-  ;; ECLs swank implementation says that CLOS is not thread safe and
-  ;; I use ECLs CLOS implementation - this is a worry for the future.
-  nil
+  :spawn
+#|  #+threads :spawn
+  #-threads nil
+|#
   )
 
 (defun resolve-hostname (name)
@@ -219,44 +216,45 @@
 (defvar *buffer-name* nil)
 (defvar *buffer-start-position*)
 
-(defun signal-compiler-condition (&rest args)
-  (apply #'signal 'compiler-condition args))
+(defun condition-severity (condition)
+  (etypecase condition
+    (cmp:redefined-function-warning :redefinition)
+    (style-warning                  :style-warning)
+    (warning                        :warning)
+    (reader-error                   :read-error)
+    (error                          :error)))
 
-#-clasp-bytecmp
-(defun handle-compiler-message (condition)
-  ;; CLASP emits lots of noise in compiler-notes, like "Invoking
-  ;; external command".
-  (unless (typep condition 'c::compiler-note)
-    (signal-compiler-condition
-     :original-condition condition
-     :message (princ-to-string condition)
-     :severity (etypecase condition
-                 (cmp:compiler-fatal-error :error)
-                 (cmp:compiler-error       :error)
-                 (error                  :error)
-                 (style-warning          :style-warning)
-                 (warning                :warning))
-     :location (condition-location condition))))
+(defun condition-location (origin)
+  (if (null origin)
+      (make-error-location "No error location available")
+      ;; NOTE: If we're compiling in a buffer, the origin
+      ;; will already be set up with the offset correctly
+      ;; due to the :source-debug parameters from
+      ;; swank-compile-string (below).
+      (make-file-location
+       (core:file-scope-pathname
+        (core:file-scope origin))
+       (core:source-pos-info-filepos origin))))
 
-#-clasp-bytecmp
-(defun condition-location (condition)
-  (let ((file     (cmp:compiler-message-file condition))
-        (position (cmp:compiler-message-file-position condition)))
-    (if (and position (not (minusp position)))
-        (if *buffer-name*
-            (make-buffer-location *buffer-name*
-                                  *buffer-start-position*
-                                  position)
-            (make-file-location file position))
-        (make-error-location "No location found."))))
+(defun signal-compiler-condition (condition origin)
+  (signal 'compiler-condition
+          :original-condition condition
+          :severity (condition-severity condition)
+          :message (princ-to-string condition)
+          :location (condition-location origin)))
+
+(defun handle-compiler-condition (condition)
+  ;; First resignal warnings, so that outer handlers - which may choose to
+  ;; muffle this - get a chance to run.
+  (when (typep condition 'warning)
+    (signal condition))
+  (signal-compiler-condition (cmp:deencapsulate-compiler-condition condition)
+                             (cmp:compiler-condition-origin condition)))
 
 (defimplementation call-with-compilation-hooks (function)
-  (funcall function))
-#||  #-clasp-bytecmp
-  (handler-bind ((c:compiler-message #'handle-compiler-message))
+  (handler-bind
+      (((or error warning) #'handle-compiler-condition))
     (funcall function)))
-||#
-
 
 (defimplementation swank-compile-file (input-file output-file
                                        load-p external-format
@@ -286,8 +284,8 @@
 (defun tmpfile-to-buffer (tmp-file)
   (gethash tmp-file *tmpfile-map*))
 
-(defimplementation swank-compile-string (string &key buffer position filename policy)
-  (declare (ignore policy))
+(defimplementation swank-compile-string (string &key buffer position filename line column policy)
+  (declare (ignore column policy)) ;; We may use column in the future
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)        ; for compilation hooks
           (*buffer-start-position* position))
@@ -303,7 +301,10 @@
                (multiple-value-setq (fasl-file warnings-p failure-p)
                  (let ((truename (or filename (note-buffer-tmpfile tmp-file buffer))))
                    (compile-file tmp-file
-                                 :source-debug-namestring truename
+                                 :source-debug-pathname (pathname truename)
+                                 ;; emacs numbers are 1-based instead of 0-based,
+                                 ;; so we have to subtract
+                                 :source-debug-lineno (1- line)
                                  :source-debug-offset (1- position)))))
           (when fasl-file (load fasl-file))
           (when (probe-file tmp-file)
@@ -328,6 +329,32 @@
 (defimplementation macroexpand-all (form &optional env)
   (declare (ignore env))
   (macroexpand form))
+
+;;; modified from sbcl.lisp
+(defimplementation collect-macro-forms (form &optional environment)
+  (let ((macro-forms '())
+        (compiler-macro-forms '())
+        (function-quoted-forms '()))
+    (format t "In collect-macro-forms~%")
+    (cmp:code-walk
+     (lambda (form environment)
+       (when (and (consp form)
+                  (symbolp (car form)))
+         (cond ((eq (car form) 'function)
+                (push (cadr form) function-quoted-forms))
+               ((member form function-quoted-forms)
+                nil)
+               ((macro-function (car form) environment)
+                (push form macro-forms))
+               ((not (eq form (core:compiler-macroexpand-1 form environment)))
+                (push form compiler-macro-forms))))
+       form)
+     form environment)
+    (values macro-forms compiler-macro-forms)))
+
+
+
+
 
 (defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))
@@ -354,25 +381,6 @@
 
 ;;; Debugging
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (import
-   '(si::*break-env*
-     si::*ihs-top*
-     si::*ihs-current*
-     si::*ihs-base*
-#+frs     si::*frs-base*
-#+frs     si::*frs-top*
-     si::*tpl-commands*
-     si::*tpl-level*
-#+frs     si::frs-top
-     si::ihs-top
-     si::ihs-fun
-     si::ihs-env
-#+frs     si::sch-frs-base
-     si::set-break-env
-     si::set-current-ihs
-     si::tpl-commands)))
-
 (defun make-invoke-debugger-hook (hook)
   (when hook
     #'(lambda (condition old-hook)
@@ -383,14 +391,12 @@
 
 (defimplementation install-debugger-globally (function)
   (setq *debugger-hook* function)
-  (setq ext:*invoke-debugger-hook* (make-invoke-debugger-hook function))
-  )
+  (setq ext:*invoke-debugger-hook* (make-invoke-debugger-hook function)))
 
 (defimplementation call-with-debugger-hook (hook fun)
   (let ((*debugger-hook* hook)
         (ext:*invoke-debugger-hook* (make-invoke-debugger-hook hook)))
-    (funcall fun))
-  )
+    (funcall fun)))
 
 (defvar *backtrace* '())
 
@@ -428,29 +434,8 @@
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
-  (let* ((*ihs-top* (or #+#.(swank/backend:with-symbol '*stack-top-hint* 'core)
-                        core:*stack-top-hint*
-                        (ihs-top)))
-         (*ihs-current* *ihs-top*)
-#+frs         (*frs-base* (or (sch-frs-base *frs-top* *ihs-base*) (1+ (frs-top))))
-#+frs         (*frs-top* (frs-top))
-         (*tpl-level* (1+ *tpl-level*))
-         (*backtrace* (loop for ihs from 0 below *ihs-top*
-                            collect (list (si::ihs-fun ihs)
-                                          (si::ihs-env ihs)
-                                          ihs))))
-    (declare (special *ihs-current*))
-#+frs    (loop for f from *frs-base* until *frs-top*
-          do (let ((i (- (si::frs-ihs f) *ihs-base* 1)))
-               (when (plusp i)
-                 (let* ((x (elt *backtrace* i))
-                        (name (si::frs-tag f)))
-                   (unless (si::fixnump name)
-                     (push name (third x)))))))
-    (setf *backtrace* (nreverse *backtrace*))
-    (set-break-env)
-    (set-current-ihs)
-    (let ((*ihs-base* *ihs-top*))
+  (clasp-debug:with-stack (stack)
+    (let ((*backtrace* (clasp-debug:list-stack stack)))
       (funcall debugger-loop-fn))))
 
 (defimplementation compute-backtrace (start end)
@@ -458,70 +443,41 @@
           (and (numberp end)
                (min end (length *backtrace*)))))
 
-(defun frame-name (frame)
-  (let ((x (first frame)))
-    (if (symbolp x)
-      x
-      (function-name x))))
-
-(defun frame-function (frame-number)
-  (let ((x (first (elt *backtrace* frame-number))))
-    (etypecase x
-      (symbol
-       (and (fboundp x)
-            (fdefinition x)))
-      (function
-       x))))
+(defun frame-from-number (frame-number)
+  (elt *backtrace* frame-number))
 
 (defimplementation print-frame (frame stream)
-  (format stream "(~s~{ ~s~})" (function-name (first frame))
-          #+#.(swank/backend:with-symbol 'ihs-arguments 'core)
-          (coerce (core:ihs-arguments (third frame)) 'list)
-          #-#.(swank/backend:with-symbol 'ihs-arguments 'core)
-          nil))
+  (clasp-debug:prin1-frame-call frame stream))
 
 (defimplementation frame-source-location (frame-number)
-  (source-location (frame-function frame-number)))
-
-#+clasp-working
-(defimplementation frame-catch-tags (frame-number)
-  (third (elt *backtrace* frame-number)))
-
-(defun ihs-frame-id (frame-number)
-  (- (core:ihs-top) frame-number))
+  (let ((csl (clasp-debug:frame-source-position (frame-from-number frame-number))))
+    (if (clasp-debug:code-source-line-pathname csl)
+        (make-location (list :file (namestring (clasp-debug:code-source-line-pathname csl)))
+                       (list :line (clasp-debug:code-source-line-line-number csl))
+                       '(:align t))
+        `(:error ,(format nil "No source for frame: ~a" frame-number)))))
 
 (defimplementation frame-locals (frame-number)
-  (let* ((frame (elt *backtrace* frame-number))
-         (env (second frame))
-         (locals (loop for x = env then (core:get-parent-environment x)
-                       while x
-                       nconc (loop for name across (core:environment-debug-names x)
-                                   for value across (core:environment-debug-values x)
-                                   collect (list :name name :id 0 :value value)))))
-    (nconc
-     (loop for arg across (core:ihs-arguments (third frame))
-           for i from 0
-           collect (list :name (intern (format nil "ARG~d" i) #.*package*)
-                         :id 0
-                         :value arg))
-     locals)))
+  (loop for (var . value)
+          in (clasp-debug:frame-locals (frame-from-number frame-number))
+        for i from 0
+        collect (list :name var :id i :value value)))
 
 (defimplementation frame-var-value (frame-number var-number)
-  (let* ((frame (elt *backtrace* frame-number))
-         (env (second frame))
-         (args (core:ihs-arguments (third frame))))
-    (if (< var-number (length args))
-        (svref args var-number)
-        (elt (frame-locals frame-number) var-number))))
+  (let* ((frame (frame-from-number frame-number))
+         (locals (clasp-debug:frame-locals frame)))
+    (cdr (nth var-number locals))))
 
-#+clasp-working
 (defimplementation disassemble-frame (frame-number)
-  (let ((fun (frame-function frame-number)))
-    (disassemble fun)))
+  (clasp-debug:disassemble-frame (frame-from-number frame-number)))
 
 (defimplementation eval-in-frame (form frame-number)
-  (let ((env (second (elt *backtrace* frame-number))))
-    (core:compile-form-and-eval-with-env form env)))
+  (let* ((frame (frame-from-number frame-number)))
+    (eval
+     `(let (,@(loop for (var . value)
+                      in (clasp-debug:frame-locals frame)
+                    collect `(,var ',value)))
+        (progn ,form)))))
 
 #+clasp-working
 (defimplementation gdb-initial-commands ()
@@ -561,12 +517,18 @@
                  (list :position (ext:source-location-offset location))
                  '(:align t)))
 
+(defun make-dspec (name location)
+  (list* (ext:source-location-definer location)
+         name
+         (ext:source-location-description location)))
+
 (defimplementation find-definitions (name)
   (loop for kind in ext:*source-location-kinds*
         for locations = (ext:source-location name kind)
         when locations
-        nconc (loop for location in locations
-                    collect (list kind (translate-location location)))))
+          nconc (loop for location in locations
+                      collect (list (make-dspec name location)
+                                    (translate-location location)))))
 
 (defun source-location (object)
   (let ((location (ext:source-location object t)))
@@ -580,33 +542,29 @@
 
 ;;;; Profiling
 
-#+profile
-(progn
+;;;; as clisp and ccl
 
 (defimplementation profile (fname)
-  (when fname (eval `(profile:profile ,fname))))
-
-(defimplementation unprofile (fname)
-  (when fname (eval `(profile:unprofile ,fname))))
-
-(defimplementation unprofile-all ()
-  (profile:unprofile-all)
-  "All functions unprofiled.")
-
-(defimplementation profile-report ()
-  (profile:report))
-
-(defimplementation profile-reset ()
-  (profile:reset)
-  "Reset profiling counters.")
+  (eval `(swank-monitor:monitor ,fname)))         ;monitor is a macro
 
 (defimplementation profiled-functions ()
-  (profile:profile))
+  swank-monitor:*monitored-functions*)
 
-(defimplementation profile-package (package callers methods)
-  (declare (ignore callers methods))
-  (eval `(profile:profile ,(package-name (find-package package)))))
-) ; #+profile (progn ...
+(defimplementation unprofile (fname)
+  (eval `(swank-monitor:unmonitor ,fname)))       ;unmonitor is a macro
+
+(defimplementation unprofile-all ()
+  (swank-monitor:unmonitor))
+
+(defimplementation profile-report ()
+  (swank-monitor:report-monitoring))
+
+(defimplementation profile-reset ()
+  (swank-monitor:reset-all-monitoring))
+
+(defimplementation profile-package (package callers-p methods)
+  (declare (ignore callers-p methods))
+  (swank-monitor:monitor-all package))
 
 
 ;;;; Threads
@@ -657,7 +615,7 @@
         "STOPPED"))
 
   (defimplementation make-lock (&key name)
-    (mp:make-lock :name name :recursive t))
+    (mp:make-recursive-mutex name))
 
   (defimplementation call-with-lock-held (lock function)
     (declare (type function function))
@@ -684,7 +642,7 @@
 
   (defstruct (mailbox (:conc-name mailbox.))
     thread
-    (mutex (mp:make-lock))
+    (mutex (mp:make-lock :name "SLIMELCK"))
     (cvar  (mp:make-condition-variable))
     (queue '() :type list))
 
@@ -699,31 +657,48 @@
   (defimplementation wake-thread (thread)
     (let* ((mbox (mailbox thread))
            (mutex (mailbox.mutex mbox)))
+      (format t "About to with-lock in wake-thread~%")
       (mp:with-lock (mutex)
+        (format t "In wake-thread~%")
         (mp:condition-variable-broadcast (mailbox.cvar mbox)))))
   
   (defimplementation send (thread message)
     (let* ((mbox (mailbox thread))
            (mutex (mailbox.mutex mbox)))
+      (swank::log-event "clasp.lisp: send message ~a    mutex: ~a~%" message mutex)
+      (swank::log-event "clasp.lisp:    (lock-owner mutex) -> ~a~%" (mp:lock-owner mutex))
+      (swank::log-event "clasp.lisp:    (lock-count mutex) -> ~a~%" (mp:lock-count mutex))
       (mp:with-lock (mutex)
+        (swank::log-event "clasp.lisp:  in with-lock   (lock-owner mutex) -> ~a~%" (mp:lock-owner mutex))
+        (swank::log-event "clasp.lisp:  in with-lock   (lock-count mutex) -> ~a~%" (mp:lock-count mutex))
         (setf (mailbox.queue mbox)
               (nconc (mailbox.queue mbox) (list message)))
+        (swank::log-event "clasp.lisp: send about to broadcast~%")
         (mp:condition-variable-broadcast (mailbox.cvar mbox)))))
 
+  
   (defimplementation receive-if (test &optional timeout)
+    (slime-dbg "Entered receive-if")
     (let* ((mbox (mailbox (current-thread)))
            (mutex (mailbox.mutex mbox)))
+      (slime-dbg "receive-if assert")
       (assert (or (not timeout) (eq timeout t)))
       (loop
-       (check-slime-interrupts)
-       (mp:with-lock (mutex)
-         (let* ((q (mailbox.queue mbox))
-                (tail (member-if test q)))
-           (when tail
-             (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
-             (return (car tail))))
-         (when (eq timeout t) (return (values nil t)))
-         (mp:condition-variable-wait (mailbox.cvar mbox) mutex)))))
+         (slime-dbg "receive-if check-slime-interrupts")
+         (check-slime-interrupts)
+         (slime-dbg "receive-if with-lock")
+         (mp:with-lock (mutex)
+           (let* ((q (mailbox.queue mbox))
+                  (tail (member-if test q)))
+             (when tail
+               (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
+               (return (car tail))))
+           (slime-dbg "receive-if when (eq")
+           (when (eq timeout t) (return (values nil t))) 
+           (slime-dbg "receive-if condition-variable-timedwait")
+           (mp:condition-variable-wait (mailbox.cvar mbox) mutex) ; timedwait 0.2
+           (slime-dbg "came out of condition-variable-timedwait")
+           (core:check-pending-interrupts)))))
 
   ) ; #+threads (progn ...
 
@@ -732,3 +707,12 @@
   (let ((encoded (core:encode object)))
     (loop for (key . value) in encoded
        append (list (string key) ": " (list :value value) (list :newline)))))
+
+(defmethod emacs-inspect ((object core:va-list))
+  (emacs-inspect (core:list-from-va-list object)))
+
+;;; Packages
+
+#+package-local-nicknames
+(defimplementation package-local-nicknames (package)
+  (ext:package-local-nicknames package))
