@@ -126,6 +126,12 @@ CONTRIBS is a list of contrib packages to load. If `nil', use
 
 (defun slime--setup-contribs ()
   "Load and initialize contribs."
+  (when slime-contribs
+    (let ((this-file (or
+                      load-file-name
+                      (and (boundp 'byte-compile-current-file) byte-compile-current-file)
+                      (buffer-file-name))))
+      (add-to-list 'load-path (expand-file-name "contrib" this-file))))
   (dolist (c slime-contribs)
     (unless (featurep c)
       (require c)
