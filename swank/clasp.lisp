@@ -63,7 +63,11 @@
 			       :type :stream
 			       :protocol :tcp)))
     (setf (sb-bsd-sockets:sockopt-reuse-address socket) t)
-    (sb-bsd-sockets:socket-bind socket (resolve-hostname host) port)
+    (handler-bind
+        ((SB-BSD-SOCKETS:ADDRESS-IN-USE-ERROR (lambda (err)
+                                                (declare (ignore err))
+                                               (invoke-restart 'use-value))))
+      (sb-bsd-sockets:socket-bind socket (resolve-hostname host) port))
     (sb-bsd-sockets:socket-listen socket (or backlog 5))
     socket))
 
