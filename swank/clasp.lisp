@@ -228,17 +228,21 @@
     (reader-error                   :read-error)
     (error                          :error)))
 
+(defun %condition-location (origin)
+  ;; NOTE: If we're compiling in a buffer, the origin
+  ;; will already be set up with the offset correctly
+  ;; due to the :source-debug parameters from
+  ;; swank-compile-string (below).
+  (make-file-location
+   (core:file-scope-pathname
+    (core:file-scope origin))
+   (core:source-pos-info-filepos origin)))
+
 (defun condition-location (origin)
-  (if (null origin)
-      (make-error-location "No error location available")
-      ;; NOTE: If we're compiling in a buffer, the origin
-      ;; will already be set up with the offset correctly
-      ;; due to the :source-debug parameters from
-      ;; swank-compile-string (below).
-      (make-file-location
-       (core:file-scope-pathname
-        (core:file-scope origin))
-       (core:source-pos-info-filepos origin))))
+  (typecase origin
+    (null (make-error-location "No error location available"))
+    (cons (%condition-location (car origin)))
+    (t (%condition-location origin))))
 
 (defun signal-compiler-condition (condition origin)
   (signal 'compiler-condition
