@@ -126,9 +126,9 @@ temporarily during completion.")
 fuzzy completions in the target buffer. Most of the bindings will
 do an implicit select in the completion window and let the
 keypress be processed in the target buffer."
-  nil
-  nil
-  slime-target-buffer-fuzzy-completions-map)
+  :init-value nil
+  :lighter nil
+  :keymap slime-target-buffer-fuzzy-completions-map)
 
 (add-to-list 'minor-mode-alist
              '(slime-fuzzy-target-buffer-completions-mode
