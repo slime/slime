@@ -479,9 +479,9 @@ joined together."))
 (define-minor-mode slime-repl-map-mode
   "Minor mode which makes slime-repl-mode-map available.
 \\{slime-repl-mode-map}"
-  nil
-  nil
-  slime-repl-mode-map)
+  :init-value nil
+  :lighter nil
+  :keymap slime-repl-mode-map)
 
 (defun slime-repl-mode ()
   "Major mode for interacting with a superior Lisp.
@@ -1223,8 +1223,8 @@ The handler will use qeuery to ask the use if the error should be ingored."
 (define-minor-mode slime-repl-read-mode
   "Mode to read input from Emacs
 \\{slime-repl-read-mode-map}"
-  nil
-  "[read]")
+  :init-value nil
+  :lighter "[read]")
 
 (make-variable-buffer-local
  (defvar slime-read-string-threads nil))

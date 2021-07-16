@@ -135,7 +135,8 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 
 (define-minor-mode slime-trace-dialog-hide-details-mode
   "Hide details in `slime-trace-dialog-mode'"
-  nil " Brief"    
+  :init-value nil
+  :lighter " Brief"
   :group 'slime-trace-dialog
   (unless (derived-mode-p 'slime-trace-dialog-mode)
     (error "Not a SLIME Trace Dialog buffer"))
@@ -143,7 +144,8 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
 
 (define-minor-mode slime-trace-dialog-autofollow-mode
   "Automatically open buffers with trace details from `slime-trace-dialog-mode'"
-  nil " Autofollow"
+  :init-value nil
+  :lighter " Autofollow"
   :group 'slime-trace-dialog
   (unless (derived-mode-p 'slime-trace-dialog-mode)
     (error "Not a SLIME Trace Dialog buffer")))

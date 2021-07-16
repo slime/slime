@@ -497,7 +497,8 @@ Use \\[macrostep-collapse-all] or collapse all visible expansions to
 quit and return to normal editing.
 
 \\{macrostep-keymap}"
-  nil " Macro-Stepper"
+  :init-value nil
+  :lighter " Macro-Stepper"
   :keymap macrostep-keymap
   :group macrostep
   (if macrostep-mode
