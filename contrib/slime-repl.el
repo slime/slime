@@ -425,7 +425,7 @@ joined together."))
 
 (defvar slime-repl-mode-map
   (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map lisp-mode-map)
+    (set-keymap-parent map (copy-keymap lisp-mode-map))
     map))
 
 (slime-define-keys slime-prefix-map
