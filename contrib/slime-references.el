@@ -103,7 +103,7 @@ See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
              (t
               (hyperspec-lookup what))))
           (t
-           (case slime-sbcl-manual-root
+           (cl-case slime-sbcl-manual-root
              (:info
               (info (format "(sbcl)%s" what)))
              (t
