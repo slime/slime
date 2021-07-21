@@ -1,4 +1,5 @@
 (require 'slime)
+(eval-when-compile (require 'cl)) ; lexcial-let*
 (require 'cl-lib)
 (require 'grep)
 
@@ -162,11 +163,13 @@ buffer's working directory"
       (let* ((files (mapcar 'slime-from-lisp-filename
                             (slime-eval `(swank:asdf-system-files ,sys-name))))
              (multi-isearch-next-buffer-function
-              ;; FIXME `lexical-let*' not defined!
+              ;; FIXME usage of `lexical-let*'
               ;; Problem: built-in `cl.el' defines this, but it's
               ;;  never loaded: the provided `cl-lib.el' requires it,
               ;;  but that is ignored when the built-in `cl-lib.el'
               ;;  exists.
+              ;; Current solution: require `cl.el' (at compile-time),
+              ;;  which is deprecated.
               (lexical-let* 
                   ((buffers-forward  (mapcar #'find-file-noselect files))
                    (buffers-backward (reverse buffers-forward)))
