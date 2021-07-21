@@ -181,7 +181,7 @@ buffer's working directory"
                                         buffers-backward)))
                       (if wrap
                           (car buffers)
-                          (second (memq current-buffer buffers))))))))
+                          (cl-second (memq current-buffer buffers))))))))
         (isearch-forward)))
     (defun slime-isearch-system ()
       (interactive)

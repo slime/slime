@@ -4912,7 +4912,7 @@ This variable specifies both what was expanded and how.")
     (erase-buffer)
     (insert expansion)
     (goto-char (point-min))
-    (font-lock-fontify-buffer)))
+    (font-lock-ensure)))
 
 (defun slime-create-macroexpansion-buffer ()
   (let ((name (slime-buffer-name :macroexpansion)))

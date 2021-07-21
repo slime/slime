@@ -99,7 +99,7 @@ See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
              (:issue
               (browse-url (common-lisp-issuex what)))
              (:special-operator
-              (browse-url (common-lisp-special-operator (downcase name))))
+              (browse-url (common-lisp-special-operator (downcase what))))
              (t
               (hyperspec-lookup what))))
           (t
