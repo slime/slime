@@ -106,10 +106,10 @@ the Emacs Lisp package.")
                  :test #'string-equal))))
 
 (defvar slime-lisp-modes '(lisp-mode))
-(defvar slime-contribs '(slime-fancy)
-  "A list of contrib packages to load with SLIME.")
 (define-obsolete-variable-alias 'slime-setup-contribs
 'slime-contribs "2.3.2")
+(defvar slime-contribs '(slime-fancy)
+  "A list of contrib packages to load with SLIME.")
 
 (cl-defun slime-setup (&optional (contribs nil contribs-p))
   "Setup Emacs so that lisp-mode buffers always use SLIME.
@@ -280,7 +280,8 @@ argument."
   "List of functions to perform completion.
 Works like `completion-at-point-functions'.
 `slime--completion-at-point' uses this variable."
-  :group 'slime-mode)
+  :group 'slime-mode
+  :type 'hook)
 
 ;;;;; slime-mode-faces
 
@@ -2404,7 +2405,7 @@ Debugged requests are ignored."
         (slime-pprint-event event (current-buffer)))
       (when (and (boundp 'outline-minor-mode)
                  outline-minor-mode)
-        (hide-entry))
+        (outline-hide-entry))
       (goto-char (point-max)))))
 
 (defun slime-pprint-event (event buffer)
@@ -3077,7 +3078,7 @@ first element of the source-path redundant."
                         (when more (down-list 1))))
           ;; Align at beginning
           (slime-forward-sexp)
-          (beginning-of-sexp))
+          (thing-at-point--beginning-of-sexp))
       (error (goto-char origin)))))
 
 
@@ -3385,7 +3386,7 @@ are supported:
       (when call-site (slime-search-call-site call-site))
       (when align
         (slime-forward-sexp)
-        (beginning-of-sexp)))
+        (thing-at-point--beginning-of-sexp)))
     (point)))
 
 
@@ -3672,12 +3673,12 @@ alist but ignores CDRs."
 (defun slime-push-definition-stack ()
   "Add point to find-tag-marker-ring."
   (require 'etags)
-  (ring-insert find-tag-marker-ring (point-marker)))
+  (xref-push-marker-stack))
 
 (defun slime-pop-find-definition-stack ()
   "Pop the edit-definition stack and goto the location."
   (interactive)
-  (pop-tag-mark))
+  (xref-pop-marker-stack))
 
 (cl-defstruct (slime-xref (:conc-name slime-xref.) (:type list))
   dspec location)
@@ -4911,7 +4912,7 @@ This variable specifies both what was expanded and how.")
     (erase-buffer)
     (insert expansion)
     (goto-char (point-min))
-    (font-lock-fontify-buffer)))
+    (font-lock-ensure)))
 
 (defun slime-create-macroexpansion-buffer ()
   (let ((name (slime-buffer-name :macroexpansion)))

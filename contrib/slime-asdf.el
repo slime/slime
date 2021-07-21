@@ -1,4 +1,5 @@
 (require 'slime)
+(eval-when-compile (require 'cl)) ; lexcial-let*
 (require 'cl-lib)
 (require 'grep)
 
@@ -82,7 +83,9 @@ in the directory of the current buffer."
 
 See also `slime-highlight-compiler-notes' and
 `slime-compilation-finished-hook'."
-  :group 'slime-asdf)
+  :group 'slime-asdf
+  ;; is it safe to make this `boolean'?
+  :type 'sexp)
 
 (defun slime-asdf-operation-finished-function (system)
   (if slime-asdf-collect-notes
@@ -160,6 +163,13 @@ buffer's working directory"
       (let* ((files (mapcar 'slime-from-lisp-filename
                             (slime-eval `(swank:asdf-system-files ,sys-name))))
              (multi-isearch-next-buffer-function
+              ;; FIXME usage of `lexical-let*'
+              ;; Problem: built-in `cl.el' defines this, but it's
+              ;;  never loaded: the provided `cl-lib.el' requires it,
+              ;;  but that is ignored when the built-in `cl-lib.el'
+              ;;  exists.
+              ;; Current solution: require `cl.el' (at compile-time),
+              ;;  which is deprecated.
               (lexical-let* 
                   ((buffers-forward  (mapcar #'find-file-noselect files))
                    (buffers-backward (reverse buffers-forward)))
@@ -174,7 +184,7 @@ buffer's working directory"
                                         buffers-backward)))
                       (if wrap
                           (car buffers)
-                          (second (memq current-buffer buffers))))))))
+                          (cl-second (memq current-buffer buffers))))))))
         (isearch-forward)))
     (defun slime-isearch-system ()
       (interactive)
@@ -237,9 +247,9 @@ depending on it."
    `(swank:reload-system ,system)
    (slime-asdf-operation-finished-function system)))
 
-(defun slime-who-depends-on (system-name)
+(defun slime-who-depends-on (system-name_)
   (interactive (list (slime-read-system-name)))
-  (slime-xref :depends-on system-name))
+  (slime-xref :depends-on system-name_))
 
 (defun slime-save-system (system)
   "Save files belonging to an ASDF system."

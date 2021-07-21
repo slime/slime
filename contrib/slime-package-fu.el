@@ -223,7 +223,7 @@ already exported/unexported."
            (slime-end-of-list))
           (t
            (slime-end-of-list)
-           (unless (looking-back "^\\s-*")
+           (unless (looking-back "^\\s-*" nil)
              (newline-and-indent))
            (insert "(:export ")
            (save-excursion (insert ")"))))))
@@ -260,7 +260,7 @@ already exported/unexported."
 (defun slime-insert-export (symbol-name)
   ;; Assumes we're at the inside :export after the last symbol
   (let ((symbol-name (slime-format-symbol-for-defpackage symbol-name)))
-    (unless (looking-back "^\\s-*")
+    (unless (looking-back "^\\s-*" nil)
       (newline-and-indent))
     (insert symbol-name)))
 

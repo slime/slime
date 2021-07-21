@@ -103,7 +103,7 @@
       (lisp-mode-variables t))
     (insert string)
     (let ((font-lock-verbose nil))
-      (font-lock-fontify-buffer))
+      (font-lock-ensure))
     (goto-char (point-min))
     (when (re-search-forward "===> \\(\\(.\\|\n\\)*\\) <===" nil t)
       (let ((highlight (match-string 1)))
