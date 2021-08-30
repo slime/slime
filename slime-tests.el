@@ -1292,10 +1292,29 @@ This test will fail more likely before dispatch caches are warmed up."
                                              :dont-close nil)))))
            (slime-sync-to-top-level 3)
            (slime-disconnect)
-           (slime-test-expect "Number of connections must remane the same"
+           (slime-test-expect "Number of connections must remain the same"
                               connection-count
                               (length slime-net-processes)))
       (slime-select-connection old-connection))))
+
+(def-slime-test (unix-connect-disconnect (:style :spawn)) ()
+    "`create-serve-unix' should be able to connect to a UNIX domain socket"
+    '(())
+  (let ((connection-count (length slime-net-processes))
+        (old-connection slime-default-connection)
+        (slime-connected-hook nil))
+    (unwind-protect
+        (progn
+          (slime-eval `(swank:create-server-unix "/tmp/slime-socket"))
+          (let ((slime-dispatching-connection
+                 (slime-connect-unix "/tmp/slime-socket" t)))
+            (slime-sync-to-top-level 3)
+            (slime-disconnect)
+            (slime-test-expect "Number of connections must remain the same"
+                               connection-count
+                               (length slime-net-processes))))
+      (slime-select-connection old-connection))))
+
 
 (def-slime-test disconnect-and-reconnect
     ()

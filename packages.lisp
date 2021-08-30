@@ -137,6 +137,7 @@
   (:export #:startup-multiprocessing
            #:start-server
            #:create-server
+           #:create-server-unix
            #:stop-server
            #:restart-server
            #:ed-in-emacs
