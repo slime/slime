@@ -31,4 +31,17 @@ symbol at point, or if QUERY is non-nil."
   (browse-url (format "http://bugs.launchpad.net/sbcl/+bug/%s" 
                       (substring bug 1))))
 
+(defun slime-indent-define-vop (path state indent-point sexp-column normal-indent)
+  (if (save-excursion
+       (backward-sexp)
+       (ignore-errors (down-list))
+       (looking-at ":generator"))
+      '4
+      (lisp-indent-259 '((&whole 4 &rest 4)
+                         &body)
+                       path state indent-point sexp-column normal-indent)))
+
+(put 'define-vop 'common-lisp-indent-function
+     'slime-indent-define-vop)
+
 (provide 'slime-sbcl-exts)
