@@ -24,7 +24,7 @@
              ;; The arglist of INST is (instruction ...INSTR-ARGLIST...).
              (push 'sb-assem::instruction (arglist.required-args decoded-arglist))
              (values decoded-arglist
-                     (list instr-name)
+                     (list (string-downcase instr-name))
                      t))))
     (if (null argument-forms)
         (call-next-method)
@@ -35,20 +35,18 @@
                      (arglist-dummy
                       (string-upcase (arglist-dummy.string-representation instruction)))
                      (symbol
-                      (string-downcase instruction))))
+                      (string-upcase instruction))))
                  (instr-fn
-                   #+#.(swank/backend:with-symbol 'op-encoder-name 'sb-assem)
-                   (or (sb-assem::op-encoder-name instr-name)
-                       (sb-assem::op-encoder-name (string-upcase instr-name)))
-                   #+#.(swank/backend:with-symbol 'inst-emitter-symbol 'sb-assem)
-                   (sb-assem::inst-emitter-symbol instr-name)
                    #+(and
-                      (not #.(swank/backend:with-symbol 'inst-emitter-symbol 'sb-assem))
-                      #.(swank/backend:with-symbol '*assem-instructions* 'sb-assem))
-                   (gethash instr-name sb-assem:*assem-instructions*)))
+                      #.(swank/backend:with-symbol '*inst-encoder* 'sb-assem)
+                      #.(swank/backend:with-symbol '*backend-instruction-set-package* 'sb-assem))
+                   (or (gethash (find-symbol instr-name sb-assem::*backend-instruction-set-package*)
+                                sb-assem::*inst-encoder*)
+                       (find-symbol (format nil "M:~A" instr-name)
+                                    sb-assem::*backend-instruction-set-package*))))
             (cond ((functionp instr-fn)
                    (with-available-arglist (arglist) (arglist instr-fn)
-                     (decode-instruction-arglist instr-name arglist)))
+                     (decode-instruction-arglist instr-name (cdr arglist))))
                   ((fboundp instr-fn)
                    (with-available-arglist (arglist) (arglist instr-fn)
                      ;; SB-ASSEM:INST invokes a symbolic INSTR-FN with
@@ -57,7 +55,7 @@
                                                  (if (or (get instr-fn :macro)
                                                          (macro-function instr-fn))
                                                      arglist
-                                                     (cddr arglist)))))
+                                                     (cdr arglist)))))
                   (t
                    (call-next-method))))))))
 
