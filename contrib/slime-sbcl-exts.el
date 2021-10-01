@@ -36,7 +36,7 @@ symbol at point, or if QUERY is non-nil."
        (backward-sexp)
        (ignore-errors (down-list))
        (looking-at ":generator"))
-      '4
+      (+ sexp-column 2)
       (lisp-indent-259 '((&whole 4 &rest 4)
                          &body)
                        path state indent-point sexp-column normal-indent)))
