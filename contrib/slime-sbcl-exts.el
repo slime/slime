@@ -37,8 +37,7 @@ symbol at point, or if QUERY is non-nil."
        (ignore-errors (down-list))
        (looking-at ":generator"))
       (+ sexp-column 2)
-      (lisp-indent-259 '((&whole 4 &rest 4)
-                         &body)
+      (lisp-indent-259 '((&whole 4) &body)
                        path state indent-point sexp-column normal-indent)))
 
 (put 'define-vop 'common-lisp-indent-function
