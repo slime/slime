@@ -44,6 +44,8 @@
                                 sb-assem::*inst-encoder*)
                        (find-symbol (format nil "M:~A" instr-name)
                                     sb-assem::*backend-instruction-set-package*))))
+            (when (consp instr-fn)
+              (setf instr-fn (car instr-fn)))
             (cond ((functionp instr-fn)
                    (with-available-arglist (arglist) (arglist instr-fn)
                      (decode-instruction-arglist instr-name (cdr arglist))))
