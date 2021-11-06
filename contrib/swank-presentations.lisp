@@ -97,7 +97,7 @@ The secondary value indicates the absence of an entry."
   (clear-presentation-tables)
   t)
 
-(defun present-repl-results (values)
+(defun present-repl-results (values &optional (newline t))
   ;; Override a function in swank.lisp, so that
   ;; presentations are associated with every REPL result.
   (flet ((send (value)
@@ -107,9 +107,9 @@ The secondary value indicates the absence of an entry."
 	     (send-to-emacs `(:write-string ,(prin1-to-string value)
 					    :repl-result))
 	     (send-to-emacs `(:presentation-end ,id :repl-result))
-	     (send-to-emacs `(:write-string ,(string #\Newline)
-					    :repl-result)))))
-    (fresh-line)
+	     (when newline (send-to-emacs `(:write-string ,(string #\Newline)
+					    :repl-result))))))
+    (when newline (fresh-line))
     (finish-output)
     (if (null values)
         (send-to-emacs `(:write-string "; No value" :repl-result))
