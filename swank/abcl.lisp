@@ -1005,7 +1005,7 @@
       (when (atom what)
         (setq what (list what sym)))
       (list (definition-specifier what)
-            (if (ext:pathname-jar-p path2)
+            (if (ext:pathname-jar-p (pathname path2))
                 `(:location
                   (:zip ,@(split-string (subseq path2 (length "jar:file:")) "!/"))
                   ;; pos never seems right. Use function name.
