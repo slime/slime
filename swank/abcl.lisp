@@ -1092,7 +1092,7 @@
        `(:line "Names java class" ,(jclass string))
        "")
    #+abcl-introspect
-   (if (and (jss-p) 
+   (if (and (jss-p)  (< (length string) 100)
             (stringp (funcall (intern "LOOKUP-CLASS-NAME" :jss) string :return-ambiguous t :muffle-warning t)))
        `(:multiple
          (:label "Abbreviates java class: ")
@@ -1394,7 +1394,7 @@
               collect '(:newline)))))))
 
 (defun parts-for-structure-def-slot (def)
-  `((:label ,(string-downcase (sys::dsd-name def))) " reader: " (:value ,(sys::dsd-reader def) ,(string-downcase (string (sys::dsdreader def))))
+  `((:label ,(string-downcase (sys::dsd-name def))) " reader: " (:value ,(sys::dsd-reader def) ,(string-downcase (string (sys::dsd-reader def))))
     ", index: " (:value ,(sys::dsd-index def))
     ,@(if (sys::dsd-initform def)
           `(", initform: " (:value ,(sys::dsd-initform def))))
@@ -1449,8 +1449,61 @@
 (defimplementation thread-name (thread)
   (threads:thread-name thread))
 
+(defun in-sldb (thread) 
+  (block it
+    (loop with trace = (#"getStackTrace" (cl-user::get-java-field thread "javaThread" t))
+          with has-sldb-loop =  (find-if (lambda(el)
+                                          (eq (gethash (#"getClassName" el) sys::*function-class-names*)
+                                              #'swank::sldb-loop))
+                                        trace)
+          for el across trace
+          do (cond ((and (#"getFileName" el) (#"matches" (#"getFileName" el) "\\.lisp$"))
+                    (return-from it nil))
+                   ((not (#"getFileName" el))
+                    (if (and 
+                         (#"matches" (#"getClassName" el) "abcl_.*")
+                         (let ((lookup (gethash  (#"getClassName" el) system::*function-class-names*)))
+                           (and lookup
+                                (symbolp   (sys::any-function-name lookup))
+                                (equalp  (string (sys::any-function-name lookup)) "RECEIVE-IF")
+                                has-sldb-loop)))
+                        (return-from it t)
+                        (return-from it nil)))))))
+
+(defun debugger-emacs-buffer (thread)
+  (let ((it (swank::eval-in-emacs `(buffer-name (sldb-find-buffer ,(thread-id thread) (slime-connection))))))
+    (if (equal it " *cl-connection*")
+        "no sldb buffer"
+        it)))
+
+;; Alive or dead, if alive the java thread state and method at top of stack
 (defimplementation thread-status (thread)
-  (format nil "Thread is ~:[dead~;alive~]" (threads:thread-alive-p thread)))
+  (let* ((jthread  (jss::get-java-field thread "javaThread" t))
+         (stack (jcall "getStackTrace" jthread))
+         (state (jcall "name" (jcall "getState" jthread)))
+         (interrupted? (jss::get-java-field thread "threadInterrupted" t)))
+    (setq state (second (assoc state '(("TIMED_WAITING" "Sleeping")
+                                       ("RUNNABLE" "Running")
+                                       ("WAITING" "Idle")
+                                       ("TERMINATED" "Terminated")
+                                       ("BLOCKED" "Waiting for lock"))
+                               :test 'equalp)))
+    (format nil "~{~a~^, ~}"
+            (append
+             ;; (if (not alive?)
+             ;;     '("Dead"))
+             (if interrupted?
+                 '("Thread has pending interrupts"))
+             (if (in-sldb thread)
+                 (list "In debugger" (debugger-emacs-buffer thread))
+                 (list state))
+             (if (and (equalp state "Running") (plusp (length stack)))
+                 (let ((f (elt stack 0))) (list (format nil "~a.~a()"  (jcall "replaceFirst" (jcall "getClassName" f) ".*\\." "")
+                                                        (jcall "getMethodName" f))))
+                 )
+             ))))
+
+
 
 (defimplementation make-lock (&key name)
   (declare (ignore name))
