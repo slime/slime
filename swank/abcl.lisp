@@ -1291,7 +1291,7 @@
                             (1+ (position #\. (jcall "toString" this)  :from-end t)))
           collect "  "
           collect (list :value this pre)
-          collect (list :value this (jcall "getName" this) )
+          collect (list :strong-value this (jcall "getName" this) )
           collect '(:newline))))
 
 (defun inspector-java-methods (class)
@@ -1315,7 +1315,7 @@
           for after = (subseq desc paren)
           collect "  "
           collect (list :value this pre)
-          collect (list :value this name)
+          collect (list :strong-value this name)
           collect (list :value this after)
           collect '(:newline))))
 
