@@ -6352,6 +6352,11 @@ was called originally."
   "Face for labels in the inspector."
   :group 'slime-inspector)
 
+(defface slime-inspector-strong-face
+  '((t (:inherit slime-inspector-label-face)))
+  "Face for parts of values that are emphasized in the inspector."
+  :group 'slime-inspector)
+
 (defface slime-inspector-value-face
     '((t (:inherit font-lock-builtin-face)))
   "Face for things which can themselves be inspected."
@@ -6457,6 +6462,12 @@ If PREV resp. NEXT are true insert more-buttons as needed."
            (list 'slime-part-number id
                  'mouse-face 'highlight
                  'face 'slime-inspector-value-face)
+         (insert string)))
+      ((:strong-value string id )
+       (slime-propertize-region
+           (list 'slime-part-number id
+                 'mouse-face 'highlight
+                 'face 'slime-inspector-strong-face)
          (insert string)))
       ((:label string)
        (insert (slime-inspector-fontify label string)))
