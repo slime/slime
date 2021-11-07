@@ -126,6 +126,9 @@ Backend code should treat the connection structure as opaque.")
 (defvar *after-init-hook* '()
   "Hook run after user init files are loaded.")
 
+(defvar *find-definitions-all-packages* nil
+  "If t then find-definitions will be called even if there is no symbol in the current package")
+
 
 ;;;; Connections
 ;;;
@@ -1777,13 +1780,23 @@ last form."
   (with-input-from-string (stream string)
     (let (- values)
       (loop
+	(handler-bind (#+abcl(reader-error
+			 (lambda (condition)
+			   (if (equal (slot-value condition 'sys::format-control)
+				      "Unmatched right parenthesis.")
+			       (progn  
+                                 ;; this has got to be the most irritating way to get into the debugger.
+                                 ;; stop it.
+                                 (warn "ignoring extra right parenthesis")
+                                 (return-from eval-region (values values -)))
+			       (error condition)))))
        (let ((form (read stream nil stream)))
          (when (eq form stream)
            (finish-output)
            (return (values values -)))
          (setq - form)
          (setq values (multiple-value-list (eval form)))
-         (finish-output))))))
+	    (finish-output)))))))
 
 (defslimefun interactive-eval-region (string)
   (with-buffer-syntax ()
@@ -1969,6 +1982,7 @@ N.B. this is not an actual package name or nickname."
 
 WHAT can be:
   A pathname or a string,
+  A literal string (:string STRING)
   A list (PATHNAME-OR-STRING &key LINE COLUMN POSITION),
   A function name (symbol or cons),
   NIL. "
@@ -1977,6 +1991,8 @@ WHAT can be:
     (let ((target 
            (etypecase what
              (null nil)
+              ((cons (eql :string) (cons string))
+               what)
              ((or string pathname) 
               `(:filename ,(canonicalize-filename what)))
              ((cons (or string pathname) *)
@@ -2993,9 +3009,9 @@ If non-nil, called with two arguments SPEC and TRACED-P." )
                       (values symbol found)))
                    ;; Packages are not named by symbols, so
                    ;; not-interned symbols can refer to packages
-                   ((find-package name)
+                   ((or *find-definitions-all-packages* (find-package name)
                     (return-from find-definitions-find-symbol-or-package
-                      (values (make-symbol name) t)))))))
+                          (values (make-symbol name) t))))))))
     (do-find name)
     (do-find (string-right-trim *find-definitions-right-trim* name))
     (do-find (string-left-trim *find-definitions-left-trim* name))
@@ -3017,8 +3033,10 @@ If non-nil, called with two arguments SPEC and TRACED-P." )
 DSPEC is a string and LOCATION a source location. NAME is a string."
   (multiple-value-bind (symbol found)
       (find-definitions-find-symbol-or-package name)
+    (if *find-definitions-all-packages*
+        (mapcar #'xref>elisp (find-definitions (or symbol name)))
     (when found
-      (mapcar #'xref>elisp (find-definitions symbol)))))
+          (mapcar #'xref>elisp (find-definitions (or symbol name)))))))
 
 ;;; Generic function so contribs can extend it.
 (defgeneric xref-doit (type thing)
@@ -3197,22 +3215,26 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
   (let ((newline '#.(string #\newline)))
     (etypecase part
       (string (list part))
+      ((cons (eql :multiple))
+       (mapcan (lambda(p) (prepare-part p istate)) (cdr part)))
       (cons (dcase part
               ((:newline) (list newline))
               ((:value obj &optional str) 
                (list (value-part obj str (istate.parts istate))))
+              ((:strong-value obj &optional str) 
+               (list (value-part obj str (istate.parts istate) t)))
               ((:label &rest strs)
                (list (list :label (apply #'cat (mapcar #'string strs)))))
               ((:action label lambda &key (refreshp t)) 
                (list (action-part label lambda refreshp
                                   (istate.actions istate))))
               ((:line label value)
-               (list (princ-to-string label) ": "
+               (list `(:label ,(princ-to-string label)) ": "
                      (value-part value nil (istate.parts istate))
                      newline)))))))
 
-(defun value-part (object string parts)
-  (list :value 
+(defun value-part (object string parts &optional strong?)
+  (list (if strong? :strong-value  :value)
         (or string (print-part-to-string object))
         (assign-index object parts)))
 
@@ -3420,7 +3442,7 @@ Return NIL if LIST is circular."
    (let ((content (hash-table-to-alist ht)))
      (cond ((every (lambda (x) (typep (first x) '(or string symbol))) content)
             (setf content (sort content 'string< :key #'first)))
-           ((every (lambda (x) (typep (first x) 'real)) content)
+           ((every (lambda (x) (typep (first x) 'number)) content)
             (setf content (sort content '< :key #'first))))
      (loop for (key . value) in content appending
            `((:value ,key) " = " (:value ,value)
@@ -3439,7 +3461,7 @@ Return NIL if LIST is circular."
    (iline "Adjustable" (adjustable-array-p array))
    (iline "Fill pointer" (if (array-has-fill-pointer-p array)
                              (fill-pointer array)))
-   "Contents:" '(:newline)
+   `(:label "Contents:") '(:newline)
    (labels ((k (i max)
               (cond ((= i max) '())
                     (t (lcons (iline i (row-major-aref array i))
@@ -3789,7 +3811,9 @@ Collisions are caused because package information is ignored."
   (setq *load-path* load-path))
 
 (defun init ()
-  (run-hook *after-init-hook*))
+  (run-hook *after-init-hook*)
+  (when (and (find-symbol "*AFTER-SWANK-INIT-HOOK*" "CL-USER") (boundp (intern "*AFTER-SWANK-INIT-HOOK*" "CL-USER")))
+    (run-hook (symbol-value (intern "*AFTER-SWANK-INIT-HOOK*" "CL-USER")))))
 
 ;; Local Variables:
 ;; coding: latin-1-unix
