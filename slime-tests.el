@@ -200,9 +200,8 @@ conditions (assertions)."
 (defun slime-wait-condition (name predicate timeout)
   (let ((end (time-add (current-time) (seconds-to-time timeout))))
     (while (not (funcall predicate))
-      (let ((now (current-time)))
-        (message "waiting for condition: %s [%s.%06d]" name
-                 (format-time-string "%H:%M:%S" now) (cl-third now)))
+      (message "waiting for condition: %s [%s]" name
+               (format-time-string "%H:%M:%S.%6N"))
       (cond ((time-less-p end (current-time))
              (error "Timeout waiting for condition: %S" name))
             (t
