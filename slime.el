@@ -3674,7 +3674,9 @@ alist but ignores CDRs."
 (defun slime-push-definition-stack ()
   "Add point to find-tag-marker-ring."
   (require 'etags)
-  (ring-insert find-tag-marker-ring (point-marker)))
+  (if (fboundp 'xref-push-marker-stack)
+      (xref-push-marker-stack)
+    (ring-insert find-tag-marker-ring (point-marker))))
 
 (defun slime-pop-find-definition-stack ()
   "Pop the edit-definition stack and goto the location."
