@@ -3672,14 +3672,14 @@ alist but ignores CDRs."
 ;;;; Edit definition
 
 (defun slime-push-definition-stack ()
-  "Add point to find-tag-marker-ring."
-  (require 'etags)
-  (ring-insert find-tag-marker-ring (point-marker)))
+  "Add point to find-tag-marker-stack."
+  (require 'xref)
+  (xref-push-marker-stack (point-marker)))
 
 (defun slime-pop-find-definition-stack ()
   "Pop the edit-definition stack and goto the location."
   (interactive)
-  (pop-tag-mark))
+  (xref-pop-marker-stack))
 
 (cl-defstruct (slime-xref (:conc-name slime-xref.) (:type list))
   dspec location)
