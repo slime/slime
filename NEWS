@@ -1,4 +1,7 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
+* 2.27 (January 2022)
+** Mostly improved compatibility with different implementations and bug fixes.
+
 * 2.26.1 (December 2020)
 ** SBCL compatibility
 
