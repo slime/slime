@@ -75,6 +75,7 @@
 (require 'outline)
 (require 'arc-mode)
 (require 'etags)
+(require 'xref)
 (require 'compile)
 (require 'gv)
 
@@ -3673,7 +3674,6 @@ alist but ignores CDRs."
 
 (defun slime-push-definition-stack ()
   "Add point to find-tag-marker-stack."
-  (require 'xref)
   (xref-push-marker-stack (point-marker)))
 
 (defun slime-pop-find-definition-stack ()
