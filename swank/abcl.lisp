@@ -1212,27 +1212,42 @@
 
 (defun inspector-java-object-fields (object)
   (loop
-     for super = (java::jobject-class object) then (jclass-superclass super)
-     while super
+    for super = (java::jobject-class object) then (jclass-superclass super)
+    while super
         ;;; NOTE: In the next line, if I write #'(lambda.... then I
         ;;; get an error compiling "Attempt to throw to the
         ;;; nonexistent tag DUPLICATABLE-CODE-P.". WTF
-     for fields
-       = (sort (jcall "getDeclaredFields" super) 'string-lessp :key (lambda(x) (jcall "getName" x)))
-     for fromline
-       = nil then (list `(:label "From: ") `(:value ,super  ,(jcall "getName" super)) '(:newline))
-     when (and (plusp (length fields)) fromline)
-     append fromline
-     append
-       (loop for this across fields
-          for value = (jcall "get" (progn (jcall "setAccessible" this t) this) object)
-          for line = `("  " (:label ,(jcall "getName" this)) ": " (:value ,value) (:newline))
+    for fields
+      = (sort (jcall "getDeclaredFields" super) 'string-lessp :key (lambda(x) (jcall "getName" x)))
+    for fromline
+      = nil then (list `(:label "From: ") `(:value ,super  ,(jcall "getName" super)) '(:newline))
+    when (and (plusp (length fields)) fromline)
+      append fromline
+    append
+    (loop for this across fields
+          ;;; openjdk17 workaround for setAccessible(): return an
+          ;;; "unavailable" label for field values which are not
+          ;;; accessible for some reason.
+          ;;;
+          ;;; TODO: make underlying reason for reflection failure
+          ;;; available somehow
+          for value-and-result = (let ((result
+                                         (ignore-errors
+                                          (jcall "get" (progn
+                                                         (ignore-errors (jcall "setAccessible" this t)) this)
+                                                 object))))
+                                   (if result
+                                       `(:value ,result)
+                                       '(:label "unavailable")))
+          for line = `("  " (:label ,(jcall "getName" this)) ": " ,value-and-result (:newline))
           if (static-field? this)
-          append line into statics
+            append line into statics
           else append line into members
           finally (return (append
-                           (if members `((:label "Member fields: ") (:newline) ,@members))
-                           (if statics `((:label "Static fields: ") (:newline) ,@statics)))))))
+                           (when members
+                             `((:label "Member fields: ") (:newline) ,@members))
+                           (when statics
+                             `((:label "Static fields: ") (:newline) ,@statics)))))))
 
 (defun emacs-inspect-java-object (object)
   (let ((to-string (lambda ()

@@ -1,4 +1,7 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
+* 2.28 (Unreleased)
+** abcl
+*** Fix inspector failure for openjdk16+ Java fields
 * 2.27 (January 2022)
 ** Mostly improved compatibility with different implementations and bug fixes.
 
