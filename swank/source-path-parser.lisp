@@ -181,6 +181,7 @@ Return the form and the source-map."
   (multiple-value-bind (*readtable* *package*) (guess-reader-state stream)
     (let (#+sbcl
           (*features* (append *features*
+                              '(:sb-xc)
                               (symbol-value (find-symbol "+INTERNAL-FEATURES+" 'sb-impl)))))
       (skip-toplevel-forms n stream)
       (read-and-record-source-map stream))))
