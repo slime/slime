@@ -111,6 +111,7 @@
 (defclass standard-slot-definition ()())
 
 (defun slot-definition-documentation (slot)
+  #-abcl-introspect
   (declare (ignore slot))
   #+abcl-introspect
   (documentation slot 't))
