@@ -735,9 +735,10 @@ Confirm that SUBFORM is correctly located."
 (def-slime-test utf-8-source
     (input output)
     "Source code containing utf-8 should work"
-    (list (let*  ((bytes "\343\201\212\343\201\257\343\202\210\343\201\206")
-                  ;;(encode-coding-string (string #x304a #x306f #x3088 #x3046)
-                  ;;                      'utf-8)
+    (list (let*  ((bytes "\000\343\201\212\343\201\257\343\202\210\343\201\206")
+                  ;; (encode-coding-string
+                  ;;   (string #x0000 #x304a #x306f #x3088 #x3046)
+                  ;;   'utf-8)
                   (string (decode-coding-string bytes 'utf-8-unix)))
             (cl-assert (equal bytes (encode-coding-string string 'utf-8-unix)))
             (list (concat "(defun cl-user::foo () \"" string "\")")
