@@ -1819,10 +1819,10 @@ stack."
                 (tail (member-if test q)))
            (when tail
              (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
-             (return (car tail)))))
-       (when (eq timeout t) (return (values nil t)))
-       #-darwin
-       (sb-thread:condition-wait waitq mutex)
+             (return (car tail)))
+           (when (eq timeout t) (return (values nil t)))
+           #-darwin
+           (sb-thread:condition-wait waitq mutex)))
        #+darwin
        (wait-sem sem))))
 
