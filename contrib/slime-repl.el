@@ -277,8 +277,10 @@ This is set to nil after displaying the buffer.")
       (goto-char slime-output-end)
       (slime-save-marker slime-output-start
         (slime-propertize-region '(face slime-repl-output-face
+                                        font-lock-face
+                                        slime-repl-output-face
                                         slime-repl-output t
-                                        rear-nonsticky (face))
+                                        rear-nonsticky (face font-lock-face))
           (let ((inhibit-read-only t))
 	    (insert-before-markers string)
 	    (when (and (= (point) slime-repl-prompt-start-mark)
@@ -300,7 +302,9 @@ This is set to nil after displaying the buffer.")
 	(when (and bol (not (bolp))) (insert-before-markers-and-inherit "\n"))
         (slime-save-marker slime-output-end
           (slime-propertize-region `(face slime-repl-result-face
-                                          rear-nonsticky (face))
+                                          font-lock-face
+                                          slime-repl-result-face
+                                          rear-nonsticky (face font-lock-face))
             (insert-before-markers string)))
         (set-marker slime-output-end (point))))
     (slime-repl-show-maximum-output)))
@@ -601,6 +605,7 @@ If `slime-repl-suppress-prompt' is true, does nothing and returns nil."
               (prompt (format "%s> " (slime-lisp-package-prompt-string))))
           (slime-propertize-region
               '(face slime-repl-prompt-face
+                     font-lock-face slime-repl-prompt-face
                      read-only t slime-repl-prompt t
                      rear-nonsticky t front-sticky (read-only)
                      inhibit-line-move-field-capture t
@@ -652,7 +657,7 @@ buffer."
   ;; special presentation face, for instance in the SBCL inspector.
   (add-text-properties slime-output-start slime-output-end
                        '(;;face slime-repl-output-face
-                         rear-nonsticky (face))))
+                         rear-nonsticky (face font-lock-face))))
 
 (defun slime-preserve-zmacs-region ()
   "In XEmacs, ensure that the zmacs-region stays active after this command."
@@ -774,7 +779,8 @@ If NEWLINE is true then add a newline at the end of the input."
     (let ((overlay (make-overlay slime-repl-input-start-mark end)))
       ;; These properties are on an overlay so that they won't be taken
       ;; by kill/yank.
-      (overlay-put overlay 'face 'slime-repl-input-face)))
+      (overlay-put overlay 'face 'slime-repl-input-face)
+      (overlay-put overlay 'font-lock-face 'slime-repl-input-face)))
   (let ((input (slime-repl-current-input)))
     (goto-char (point-max))
     (slime-mark-input-start)
