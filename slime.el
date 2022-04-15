@@ -818,7 +818,7 @@ positions before and after executing BODY."
 
 (defun slime-add-face (face string)
   (declare (indent 1))
-  (add-text-properties 0 (length string) (list 'face face) string)
+  (add-text-properties 0 (length string) (list 'face face 'font-lock-face face) string)
   string)
 
 ;; Interface
@@ -3493,7 +3493,8 @@ current one.
 The highlighting is automatically undone with a timer."
   (run-with-timer 0.2 nil
                   #'overlay-put overlay 'face (overlay-get overlay 'face))
-  (overlay-put overlay 'face 'slime-highlight-face))
+  (overlay-put overlay 'face 'slime-highlight-face)
+  (overlay-put overlay 'font-lock-face 'slime-highlight-face))
 
 
 ;;;;; Overlay lookup operations
@@ -4559,7 +4560,8 @@ source-location."
            (cl-loop for (label location) in refs do
                     (slime-insert-propertized
                      (list 'slime-location location
-                           'face 'font-lock-keyword-face)
+                           'face 'font-lock-keyword-face
+                           'font-lock-face 'font-lock-keyword-face)
                      "  " (slime-one-line-ify label) "\n")))
   ;; Remove the final newline to prevent accidental window-scrolling
   (backward-delete-char 1))
@@ -5463,6 +5465,7 @@ If MORE is non-nil, more frames are on the Lisp stack."
              point-entered sldb-fetch-more-frames
              start-open t
              face sldb-section-face
+             font-lock-face sldb-section-face
              mouse-face highlight)
      " --more--")
     (insert "\n")))
@@ -6415,7 +6418,8 @@ KILL-BUFFER hooks for the inspector buffer."
           (slime-propertize-region
               (list 'slime-part-number id
                     'mouse-face 'highlight
-                    'face 'slime-inspector-value-face)
+                    'face 'slime-inspector-value-face
+                    'font-lock-face 'slime-inspector-value-face)
             (insert title))
           (while (eq (char-before) ?\n)
             (backward-delete-char 1))
@@ -6456,14 +6460,16 @@ If PREV resp. NEXT are true insert more-buttons as needed."
        (slime-propertize-region
            (list 'slime-part-number id
                  'mouse-face 'highlight
-                 'face 'slime-inspector-value-face)
+                 'face 'slime-inspector-value-face
+                 'font-lock-face 'slime-inspector-value-face)
          (insert string)))
       ((:label string)
        (insert (slime-inspector-fontify label string)))
       ((:action string id)
        (slime-insert-propertized (list 'slime-action-number id
                                        'mouse-face 'highlight
-                                       'face 'slime-inspector-action-face)
+                                       'face 'slime-inspector-action-face
+                                       'font-lock-face 'slime-inspector-action-face)
                                  string)))))
 
 (defun slime-inspector-position ()
@@ -6661,7 +6667,8 @@ The `*' variable will be bound to the inspected object."
   (slime-insert-propertized
    (list 'slime-range-button (list index previous)
          'mouse-face 'highlight
-         'face 'slime-inspector-action-face)
+         'face 'slime-inspector-action-face
+         'font-lock-face 'slime-inspector-action-face)
    (if previous " [--more--]\n" " [--more--]")))
 
 (defun slime-inspector-fetch-all ()
