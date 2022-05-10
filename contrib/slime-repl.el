@@ -578,8 +578,10 @@ joined together."))
       (slime-save-marker slime-output-start
         (slime-save-marker slime-output-end
           (goto-char slime-output-end)
-          (insert-before-markers (format "; Evaluation aborted on %s.\n"
-                                         condition))
+          (insert-before-markers
+           ;; Comment-out multi-line error messages.
+           (format "; Evaluation aborted on %s.\n"
+                   (replace-regexp-in-string "\n" "\n; " condition)))
           (slime-repl-insert-prompt))))
     (slime-repl-show-maximum-output)))
 
