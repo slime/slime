@@ -1604,26 +1604,33 @@ stack."
                             append (label-value-line i value))))))))
 
 (defmethod emacs-inspect ((o function))
-    (cond ((sb-kernel:simple-fun-p o)
-                   (label-value-line*
-                    (:name (sb-kernel:%simple-fun-name o))
-                    (:arglist (sb-kernel:%simple-fun-arglist o))
-                    (:type (sb-kernel:%simple-fun-type o))
-                    (:code (sb-kernel:fun-code-header o))))
-          ((sb-kernel:closurep o)
-                   (append
-                    (label-value-line :function (sb-kernel:%closure-fun o))
-                    `("Closed over values:" (:newline))
-                    (loop for i below (1- (sb-kernel:get-closure-length o))
-                          append (label-value-line
-                                  i (sb-kernel:%closure-index-ref o i)))))
-          (t (call-next-method o))))
+  (cond ((sb-kernel:simple-fun-p o)
+         (append
+          (label-value-line*
+           ("Name" (sb-kernel:%simple-fun-name o))
+           ("Arglist" (sb-kernel:%simple-fun-arglist o))
+           ("Type" (sb-kernel:%simple-fun-type o))
+           ("Code" (sb-kernel:fun-code-header o)))
+          `("Disassembly:" (:newline)
+             ,(with-output-to-string (s)
+                (sb-disassem:disassemble-fun o :stream s)))))
+        ((sb-kernel:closurep o)
+         (append
+          (label-value-line :function (sb-kernel:%closure-fun o))
+          `("Closed over values:" (:newline))
+          (loop for i below (1- (sb-kernel:get-closure-length o))
+                append (label-value-line
+                        i (sb-kernel:%closure-index-ref o i)))))
+        (t (call-next-method o))))
 
 (defmethod emacs-inspect ((o sb-kernel:code-component))
   (append
    (label-value-line*
-    (:code-size (sb-kernel:%code-code-size o))
-    (:debug-info (sb-kernel:%code-debug-info o)))
+    ("Size" (sb-kernel:%code-code-size o))
+    ("Debug info" (sb-kernel:%code-debug-info o)))
+   `("Entry points: " (:newline))
+   (loop for i from 0 below (sb-vm::code-n-entries o)
+         append (label-value-line i (sb-kernel:%code-entry-point o i)))
    `("Constants:" (:newline))
    (loop for i from sb-vm:code-constants-offset
          below
