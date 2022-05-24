@@ -128,8 +128,9 @@ subexpressions of the object to stream positions."
 
 (defun extract-package (line)
   (declare (type string line))
-  (let ((name (cadr (read-from-string line))))
-    (find-package name)))
+  (let ((*readtable* (copy-readtable nil)))
+    (let ((name (cadr (read-from-string line))))
+      (find-package name))))
 
 #+(or)
 (progn
@@ -142,8 +143,9 @@ subexpressions of the object to stream positions."
 (defun readtable-for-package (package)
   ;; KLUDGE: due to the load order we can't reference the swank
   ;; package.
-  (funcall (read-from-string "swank::guess-buffer-readtable")
-           (string-upcase (package-name package))))
+  (let ((*readtable* (copy-readtable nil)))
+    (funcall (read-from-string "swank::guess-buffer-readtable")
+             (string-upcase (package-name package)))))
 
 ;; Search STREAM for a "(in-package ...)" form.  Use that to derive
 ;; the values for *PACKAGE* and *READTABLE*.
