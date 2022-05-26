@@ -1349,8 +1349,8 @@ stack."
       (fallback-source-location code-location)))
 
 (defun source-file-source-location (code-location)
-  (let* ((filename (code-location-debug-source-name code-location))
-         (code-date (file-write-date filename))
+  (let* ((code-date (code-location-debug-source-created code-location))
+         (filename (code-location-debug-source-name code-location))
          (*readtable* (guess-readtable-for-filename filename))
          (source-code (get-source-code filename code-date)))
     (with-debootstrapping
@@ -1366,6 +1366,10 @@ stack."
                             'sb-c 'debug-source-name
                             'sb-c 'debug-source-namestring)
                            (sb-di::code-location-debug-source code-location)))))
+
+(defun code-location-debug-source-created (code-location)
+  (sb-c::debug-source-created
+   (sb-di::code-location-debug-source code-location)))
 
 (defun code-location-debug-fun-fun (code-location)
   (sb-di:debug-fun-fun (sb-di:code-location-debug-fun code-location)))
