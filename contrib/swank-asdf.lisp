@@ -9,6 +9,7 @@
 ;;
 
 (in-package :swank)
+#+sbcl(declaim (sb-ext:muffle-conditions style-warning))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
 ;;; The best way to load ASDF is from an init file of an
