@@ -40,10 +40,11 @@
                    #+(and
                       #.(swank/backend:with-symbol '*inst-encoder* 'sb-assem)
                       #.(swank/backend:with-symbol '*backend-instruction-set-package* 'sb-assem))
-                   (or (gethash (find-symbol instr-name sb-assem::*backend-instruction-set-package*)
-                                sb-assem::*inst-encoder*)
-                       (find-symbol (format nil "M:~A" instr-name)
-                                    sb-assem::*backend-instruction-set-package*))))
+                   (and instr-name
+                        (or (gethash (find-symbol instr-name sb-assem::*backend-instruction-set-package*)
+                                     sb-assem::*inst-encoder*)
+                            (find-symbol (format nil "M:~A" instr-name)
+                                         sb-assem::*backend-instruction-set-package*)))))
             (when (consp instr-fn)
               (setf instr-fn (car instr-fn)))
             (cond ((functionp instr-fn)
