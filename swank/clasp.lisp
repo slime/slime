@@ -460,7 +460,7 @@
 (defimplementation frame-source-location (frame-number)
   (let ((csl (clasp-debug:frame-source-position (frame-from-number frame-number))))
     (if (clasp-debug:code-source-line-pathname csl)
-        (make-location (list :file (namestring (clasp-debug:code-source-line-pathname csl)))
+        (make-location (list :file (namestring (translate-logical-pathname (clasp-debug:code-source-line-pathname csl))))
                        (list :line (clasp-debug:code-source-line-line-number csl))
                        '(:align t))
         `(:error ,(format nil "No source for frame: ~a" frame-number)))))
@@ -521,7 +521,7 @@
                  `(:align t)))
 
 (defun translate-location (location)
-  (make-location (list :file (namestring (ext:source-location-pathname location)))
+  (make-location (list :file (namestring (translate-logical-pathname (ext:source-location-pathname location))))
                  (list :position (ext:source-location-offset location))
                  '(:align t)))
 
