@@ -197,6 +197,7 @@
            #:from-string
            #:to-string
            #:*swank-debugger-condition*
+           #:*eval-region-stream*
            #:run-hook-with-args-until-success
            #:make-output-function-for-target
            #:make-output-stream-for-target))
