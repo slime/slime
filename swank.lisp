@@ -3405,12 +3405,44 @@ Return NIL if LIST is circular."
    (iline "Adjustable" (adjustable-array-p array))
    (iline "Fill pointer" (if (array-has-fill-pointer-p array)
                              (fill-pointer array)))
-   "Contents:" '(:newline)
-   (labels ((k (i max)
-              (cond ((= i max) '())
-                    (t (lcons (iline i (row-major-aref array i))
-                              (k (1+ i) max))))))
-     (k 0 (array-total-size array)))))
+   (if (array-has-fill-pointer-p array)
+       (emacs-inspect-vector-with-fill-pointer-aux array)
+       (emacs-inspect-array-aux array))))
+
+(defun emacs-inspect-array-aux (array)
+  (unless (= 0 (array-total-size array))
+    (lcons*
+     "Contents:" '(:newline)
+     (labels ((k (i max)
+                (cond ((= i max) '())
+                      (t (lcons (iline i (row-major-aref array i))
+                                (k (1+ i) max))))))
+       (k 0 (array-total-size array))))))
+
+(defun emacs-inspect-vector-with-fill-pointer-aux (array)
+  (let ((active-elements? (< 0 (fill-pointer array)))
+        (inactive-elements? (< (fill-pointer array)
+                               (array-total-size array))))
+    (labels ((k (i max cont)
+               (cond ((= i max) (funcall cont))
+                     (t (lcons (iline i (row-major-aref array i))
+                               (k (1+ i) max cont)))))
+             (collect-active ()
+               (if active-elements?
+                   (lcons*
+                    "Active elements:" '(:newline)
+                    (k 0 (fill-pointer array)
+                       (lambda () (collect-inactive))))
+                   (collect-inactive)))
+             (collect-inactive ()
+               (if inactive-elements?
+                   (lcons*
+                    "Inactive elements:" '(:newline)
+                    (k (fill-pointer array)
+                       (array-total-size array)
+                       (constantly '())))
+                   '())))
+      (collect-active))))
 
 ;;;;; Chars
 
