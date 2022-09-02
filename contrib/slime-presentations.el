@@ -29,6 +29,47 @@
    (slime-presentation-init-keymaps)
    (slime-presentation-add-easy-menu)))
 
+(defgroup slime-presentations nil
+  "Slime presentations."
+  :group 'slime)
+
+(defcustom slime-presentation-form
+  'read
+  "Define how slime presentations are inserted in forms for the REPL.
+
+   Literal value: the presentation value is resolved and inserted
+   literally, at read-time. This is the default value, but for
+   example lists are going to be interpreted as function calls,
+   so it is often necessary to quotes them manually.
+
+   Evaluation time: a form is emitted which, when evaluated, will
+   resolve to the actual value being stored for a given
+   presentation id. The drawback is that if the form is quoted,
+   the form being emitted will contain calls to SWANK functions,
+   e.g. (SWANK:LOOKUP-PRESENTED-OBJECT-OR-LOSE ...).
+
+   Self-evaluating quoted form: the value is injected at
+   read-time, but automatically wrapped in a QUOTE form, making
+   any such value self-evaluating. In particular, lists are
+   evaluated as data, not compound forms. This avoids the common
+   error of inserting a presentation that contains a list without
+   quoting it.
+
+   Evaluated quoted form: wrap the quoted form in EVAL. In some
+   implementations, notably SBCL, compiling functions where
+   quoted forms are mutated results in warnings w.r.t. section
+   3.1.7 of the Hyperspec (modification of literal data). While
+   this is usually a good idea, on the REPL it is often
+   acceptable to not care about this kind of modification (there
+   is no need to be portable at the REPL usually). It is
+   sufficient to wrap the quoted form inside EVAL, as
+   in (EVAL (QUOTE FORM)) to silence the compiler."
+
+  :type '(choice (const :tag "Literal value" read)
+                 (const :tag "Literal form" eval)
+                 (const :tag "Self-evaluating quoted form" quote-read)
+                 (const :tag "Evaluated quoted form" eval-quote-read)))
+
 ;; To get presentations in the inspector as well, add this to your
 ;; init file.
 ;;
@@ -675,6 +716,13 @@ the presented object."
         (str-no-props (buffer-substring-no-properties start end)))
     (slime-reify-old-output str-props str-no-props)))
 
+(defun slime-presentation-wrap (form)
+  (ecase slime-presentation-form
+    (read (concat "#." form))
+    (eval form)
+    (quote-read (concat "(quote #." form ")"))
+    (eval-quote-read (concat "(eval (quote #." form "))"))))
+
 (defun slime-reify-old-output (str-props str-no-props)
   (let ((pos (slime-property-position 'slime-repl-presentation str-props)))
     (if (null pos)
@@ -684,9 +732,7 @@ the presented object."
         (if (not presentation)
             str-no-props
           (concat (substring str-no-props 0 pos)
-                  ;; Eval in the reader so that we play nice with quote.
-                  ;; -luke (19/May/2005)
-                  "#." (slime-presentation-expression presentation)
+                  (slime-presentation-wrap (slime-presentation-expression presentation))
                   (slime-reify-old-output (substring str-props end-pos)
                                           (substring str-no-props end-pos))))))))
 
