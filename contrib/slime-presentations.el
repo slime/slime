@@ -664,8 +664,7 @@ the presented object."
   (let ((id (slime-presentation-id presentation)))
     (cl-etypecase id
       (number
-       ;; Make sure it works even if *read-base* is not 10.
-       (format "(swank:lookup-presented-object-or-lose %d.)" id))
+       (format "(swank:lookup-presented-object-or-lose #10r%d.)" id))
       (list
        ;; for frame variables and inspector parts
        (format "(swank:lookup-presented-object-or-lose '%s)" id)))))
