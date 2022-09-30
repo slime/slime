@@ -151,6 +151,7 @@
 
 ;; The SIGIO stuff should probably be removed as it's unlikey that
 ;; anybody uses it.
+#+haiku
 #-win32
 (progn
   (defimplementation install-sigint-handler (function)
