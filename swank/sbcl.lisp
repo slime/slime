@@ -151,7 +151,7 @@
 
 ;; The SIGIO stuff should probably be removed as it's unlikey that
 ;; anybody uses it.
-#-win32
+#-(or win32 haiku)
 (progn
   (defimplementation install-sigint-handler (function)
     (sb-sys:enable-interrupt sb-unix:sigint
