@@ -172,8 +172,7 @@ terminates a current completion."
   (or (slime-maybe-complete-as-filename)
       (slime-expand-abbreviations-and-complete)))
 
-(defun slime-c-p-c-completion-at-point ()
-  #'slime-complete-symbol*)
+(defalias 'slime-c-p-c-completion-at-point #'slime-complete-symbol*)
 
 ;; FIXME: factorize
 (defun slime-expand-abbreviations-and-complete ()
