@@ -98,6 +98,10 @@ current repl's (as per slime-output-buffer) window."
   :type 'symbol
   :group 'slime-repl)
 
+(defcustom slime-repl-history-ignore-io-errors nil
+  "If t, errors during the loading/saving of the slime-repl are ignored."
+  :type '(boolean)
+  :group 'slime-repl)
 
 ;; dummy defvar for compiler
 (defvar slime-repl-read-mode)
@@ -1189,24 +1193,37 @@ truncated.  That part is untested, though!"
         (slime-repl-safe-save-merged-history)))))
 
 (defun slime-repl-safe-save-merged-history ()
-  (slime-repl-call-with-handler
+  (slime-repl-history-call-with-handler
    #'slime-repl-save-merged-history
-   "%S while saving the history. Continue? "))
+   "%S while saving the history."))
 
 (defun slime-repl-safe-load-history ()
-  (slime-repl-call-with-handler
+  (slime-repl-history-call-with-handler
    #'slime-repl-load-history
-   "%S while loading the history. Continue? "))
+   "%S while loading the history."))
 
-(defun slime-repl-call-with-handler (fun query)
+(defun slime-repl-history-call-with-handler (fun query-message)
   "Call FUN in the context of an error handler.
-The handler will use qeuery to ask the use if the error should be ingored."
+   If slime-repl-history-ignore-io-errors is nil, then
+   ask the user whether or not to continue."
   (condition-case err
       (funcall fun)
     (error
-     (if (y-or-n-p (format query (error-message-string err)))
-         nil
-       (signal (car err) (cdr err))))))
+     ;; Process the query-message, adding either "Ignoring..." or "Continue?"
+     ;; depending on whether we will be prompting the user or not.
+     (let* ((query-prompt (if slime-repl-history-ignore-io-errors
+                              " Ignoring... "
+                            " Continue? "))
+            (query (concat (format query-message (error-message-string err))
+                           query-prompt)))
+       (cond
+        ;; Ignore the error, tell the user an error happened, proceed.
+        (slime-repl-history-ignore-io-errors (message query) nil)
+        ;; Prompt the user on whether to continue.
+        ((y-or-n-p (format query (error-message-string err))) nil)
+        ;; If it reaches this point, the user has refused the chance
+        ;; to continue, therefore signal the error.
+        (t (signal (car err) (cdr err))))))))
 
 
 ;;;;; REPL Read Mode
