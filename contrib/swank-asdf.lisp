@@ -386,24 +386,25 @@ Example:
   "Returns a list of all systems in ASDF's central registry
 AND in its source-registry. (legacy name)"
   (unique-string-list
-   (mapcar
-    #'pathname-name
-    (while-collecting (c)
-      (loop for dir in asdf:*central-registry*
-            for defaults = (eval dir)
-            when defaults
-            do (collect-asds-in-directory defaults #'c))
-      (asdf:ensure-source-registry)
-      (if (or #+asdf3 t
-	      #-asdf3 (asdf:version-satisfies (asdf:asdf-version) "2.15"))
-          (loop :for k :being :the :hash-keys :of asdf::*source-registry*
-		:do (c k))
-	  #-asdf3
-          (dolist (entry (asdf::flatten-source-registry))
-            (destructuring-bind (directory &key recurse exclude) entry
-              (register-asd-directory
-               directory
-               :recurse recurse :exclude exclude :collect #'c))))))))
+   (while-collecting (c)
+     (loop for dir in asdf:*central-registry*
+           for defaults = (eval dir)
+           when defaults
+           do (collect-asds-in-directory
+               defaults
+               (lambda (pathname)
+                 (c (pathname-name pathname)))))
+     (asdf:ensure-source-registry)
+     (if (or #+asdf3 t
+	           #-asdf3 (asdf:version-satisfies (asdf:asdf-version) "2.15"))
+         (loop :for k :being :the :hash-keys :of asdf::*source-registry*
+		           :do (c k))
+	       #-asdf3
+         (dolist (entry (asdf::flatten-source-registry))
+           (destructuring-bind (directory &key recurse exclude) entry
+             (register-asd-directory
+              directory
+              :recurse recurse :exclude exclude :collect #'c)))))))
 
 (defslimefun list-all-systems-known-to-asdf ()
   "Returns a list of all systems ASDF knows already."
