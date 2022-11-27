@@ -75,7 +75,7 @@
 (require 'outline)
 (require 'arc-mode)
 (require 'etags)
-(require 'xref)
+(require 'xref nil t)
 (require 'compile)
 (require 'gv)
 
@@ -3674,12 +3674,16 @@ alist but ignores CDRs."
 
 (defun slime-push-definition-stack ()
   "Add point to find-tag-marker-stack."
-  (xref-push-marker-stack (point-marker)))
+  (if (fboundp 'xref-push-marker-stack)
+      (xref-push-marker-stack (point-marker))
+      (ring-insert find-tag-marker-ring (point-marker))))
 
 (defun slime-pop-find-definition-stack ()
   "Pop the edit-definition stack and goto the location."
   (interactive)
-  (xref-pop-marker-stack))
+  (if (fboundp 'xref-pop-marker-stack)
+      (xref-pop-marker-stack)
+      (pop-tag-mark)))
 
 (cl-defstruct (slime-xref (:conc-name slime-xref.) (:type list))
   dspec location)
