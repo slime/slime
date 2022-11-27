@@ -1412,6 +1412,11 @@ but that thread may hold it more than once."
             (type function function))
    (funcall function))
 
+(defmacro with-lock (lock &body body)
+  `(call-with-lock-held ,lock
+                        (lambda ()
+                          ,@body)))
+
 
 ;;;; Weak datastructures
 

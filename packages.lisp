@@ -62,7 +62,8 @@
 
            with-collected-macro-forms
            auto-flush-loop
-           *auto-flush-interval*))
+           *auto-flush-interval*
+           with-lock))
 
 (defpackage swank/rpc
   (:use :cl)
