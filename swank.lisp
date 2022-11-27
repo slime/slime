@@ -1045,7 +1045,8 @@ The processing is done in the extent of the toplevel restart."
           &rest _)
          (declare (ignore _))
          (encode-message event (current-socket-io)))
-        (((:emacs-pong :emacs-return :emacs-return-string :ed-rpc-forbidden)
+        (((:emacs-pong :emacs-return :emacs-return-string :ed-rpc-forbidden
+           :write-done)
           thread-id &rest args)
          (send-event (find-thread thread-id) (cons (car event) args)))
         ((:emacs-channel-send channel-id msg)

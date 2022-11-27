@@ -1728,8 +1728,10 @@ expansion will be added to the REPL's history.)"
 
 (defun slime-repl-event-hook-function (event)
   (slime-dcase event
-    ((:write-string output &optional target)
+    ((:write-string output &optional target thread)
      (slime-write-string output target)
+     (when thread
+       (slime-send `(:write-done ,thread)))
      t)
     ((:read-string thread tag)
      (cl-assert thread)
