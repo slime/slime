@@ -48,7 +48,7 @@
 Exits Emacs when finished. The exit code is the number of failed tests."
   (interactive)
   (let ((ert-debug-on-error nil)
-        (timeout 30)
+        (timeout 60)
         (slime-background-message-function #'ignore))
     (slime)
     ;; Block until we are up and running.
@@ -1368,7 +1368,7 @@ Reconnect afterwards."
                 (die "Unexpected error running takeoff forms"
                      err)))
              (with-timeout
-                 (20
+                 (60
                   (die "Timeout waiting for recipe test to finish."
                        takeoff))
                (while t (sit-for 1)))))))
