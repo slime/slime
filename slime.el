@@ -79,8 +79,10 @@
 (require 'compile)
 (require 'gv)
 
+(eval-and-compile
+ (require 'apropos))
+
 (eval-when-compile
-  (require 'apropos)
   (require 'gud)
   (require 'lisp-mnt))
 
