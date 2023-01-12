@@ -1065,7 +1065,9 @@ The rules for selecting the arguments are rather complicated:
                             (coding-system slime-net-coding-system)
                             (init 'slime-init-command)
                             name
-                            (buffer "*inferior-lisp*")
+                            (buffer (concat "*inferior-lisp "
+                                            (file-name-nondirectory program)
+                                            "*"))
                             init-function
                             env)
   "Start a Lisp process and connect to it.
@@ -1210,8 +1212,10 @@ Return the created process."
       (cd (expand-file-name directory)))
     (comint-mode)
     (let ((process-environment (append env process-environment))
-          (process-connection-type nil))
-      (comint-exec (current-buffer) "inferior-lisp" program nil program-args))
+          (process-connection-type nil)
+          (process-name
+           (concat "inferior-lisp-" (file-name-nondirectory program))))
+      (comint-exec (current-buffer) process-name program nil program-args))
     (lisp-mode-variables t)
     (let ((proc (get-buffer-process (current-buffer))))
       (slime-set-query-on-exit-flag proc)
