@@ -4512,8 +4512,7 @@ With prefix argument include internal symbols."
     (cl-loop for (prop value) on plist by #'cddr
              unless (eq prop :designator) do
              (let ((namespace (cadr (or (assq prop slime-apropos-namespaces)
-                                        (error "Unknown property: %S" prop))))
-                   (start (point)))
+                                        (error "Unknown property: %S" prop)))))
                (princ "  ")
                (insert-text-button
                 namespace
