@@ -105,7 +105,7 @@
     (fixnum socket)
     (two-way-stream (socket-fd (two-way-stream-input-stream socket)))
     (sb-bsd-sockets:socket (sb-bsd-sockets:socket-file-descriptor socket))
-    (file-stream (si:file-stream-fd socket))))
+    (file-stream (ext:file-stream-file-descriptor socket))))
 
 (defvar *external-format-to-coding-system*
   '((:latin-1
@@ -162,7 +162,7 @@
 
 
 (defimplementation getpid ()
-  (si:getpid))
+  (clasp-posix:getpid))
 
 (defimplementation set-default-directory (directory)
   (ext:chdir (namestring directory))  ; adapts *DEFAULT-PATHNAME-DEFAULTS*.
@@ -334,12 +334,12 @@
 
 (defimplementation arglist (name)
   (multiple-value-bind (arglist foundp)
-      (sys:function-lambda-list name)     ;; Uses bc-split
+      (ext:function-lambda-list name)     ;; Uses bc-split
     (if foundp arglist :not-available)))
 
 (defimplementation function-name (f)
   (typecase f
-    (generic-function (clos::generic-function-name f))
+    (generic-function (clos:generic-function-name f))
     (function (ext:compiled-function-name f))))
 
 ;; FIXME
@@ -502,9 +502,8 @@
   #+linux '("handle SIGPWR  noprint nostop"
             "handle SIGXCPU noprint nostop"))
 
-#+clasp-working
 (defimplementation command-line-args ()
-  (loop for n from 0 below (si:argc) collect (si:argv n)))
+  (loop for n below (ext:argc) collect (ext:argv n)))
 
 
 ;;;; Inspector
@@ -603,7 +602,7 @@
       (mp:with-lock (*thread-id-map-lock*)
         ;; Does TARGET-THREAD have an id already?
         (maphash (lambda (id thread-pointer)
-                   (let ((thread (si:weak-pointer-value thread-pointer)))
+                   (let ((thread (ext:weak-pointer-value thread-pointer)))
                      (cond ((not thread)
                             (remhash id *thread-id-map*))
                            ((eq thread target-thread)
@@ -611,14 +610,14 @@
                  *thread-id-map*)
         ;; TARGET-THREAD not found in *THREAD-ID-MAP*
         (let ((id (incf *thread-id-counter*))
-              (thread-pointer (si:make-weak-pointer target-thread)))
+              (thread-pointer (ext:make-weak-pointer target-thread)))
           (setf (gethash id *thread-id-map*) thread-pointer)
           id))))
 
   (defimplementation find-thread (id)
     (mp:with-lock (*thread-id-map-lock*)
       (let* ((thread-ptr (gethash id *thread-id-map*))
-             (thread (and thread-ptr (si:weak-pointer-value thread-ptr))))
+             (thread (and thread-ptr (ext:weak-pointer-value thread-ptr))))
         (unless thread
           (remhash id *thread-id-map*))
         thread)))
