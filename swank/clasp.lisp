@@ -481,6 +481,23 @@
                     collect `(,var ',value)))
         (progn ,form)))))
 
+(defimplementation activate-stepping (frame)
+  (declare (ignore frame))
+  (core:set-breakstep))
+
+(defimplementation sldb-stepper-condition-p (condition)
+  (typep condition 'clasp-debug:step-form))
+
+(defimplementation sldb-step-into ()
+  (invoke-restart 'clasp-debug:step-into))
+
+(defimplementation sldb-step-next ()
+  (invoke-restart 'clasp-debug:step-over))
+
+(defimplementation sldb-step-out ()
+  ;; FIXME: This stops stepping entirely. Clasp does not have step out yet.
+  (invoke-restart 'continue))
+
 #+clasp-working
 (defimplementation gdb-initial-commands ()
   ;; These signals are used by the GC.
@@ -702,3 +719,11 @@
 #+package-local-nicknames
 (defimplementation package-local-nicknames (package)
   (ext:package-local-nicknames package))
+
+;;; Floating point
+
+(defimplementation float-nan-p (float)
+  (ext:float-nan-p float))
+
+(defimplementation float-infinity-p (float)
+  (ext:float-infinity-p float))
