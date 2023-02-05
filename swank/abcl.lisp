@@ -712,6 +712,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; source location and users of it
 
+(defimplementation find-source-location (thing)
+  (source-location thing))
+
 (defgeneric source-location (object))
 
 ;; try to find some kind of source for internals
@@ -1053,13 +1056,21 @@
            (ismethod
              (and (consp what)
                   (eq (car what) :method)))
+           ;;; <file:../slime/slime.el> docstring for
+           ;;; slime-goto-source-location constains the position to a
+           ;;; single clause.  We prioritize a :POSITION clause over
+           ;;; others.
            (<position>
              (cond (isfunction
-                    (list :function-name (princ-to-string (second what))))
+                    (if pos
+                        `(:position ,(1+ (or pos 0)))
+                        `(:function-name ,(princ-to-string (second what)))))
                    (ismethod
-                    (stringify-method-specs what))
-                   (t
-                    (list :position (1+ (or pos 0))))))
+                    (if pos
+                        `(:position ,(1+ (or pos 0)))
+                        (stringify-method-specs what)))
+                   (t ;; Are we ever called with a nil POS?
+                    `(:position ,(1+ (or pos 0))))))
            (path2
              (if (eq path :top-level)
                  ;; this is bogus - figure out some way to guess which
