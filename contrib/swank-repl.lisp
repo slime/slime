@@ -226,6 +226,7 @@ This is an optimized way for Lisp to deliver output to Emacs."
     (let ((ok nil))
       (unwind-protect
            (prog1 (caddr (wait-for-event `(:emacs-return-string ,tag value)))
+             (swank/gray::reset-stream-line-column (connection.user-output *emacs-connection*))
              (setq ok t))
         (unless ok
           (send-to-emacs `(:read-aborted ,(current-thread-id) ,tag)))))))
@@ -251,6 +252,7 @@ LISTENER-EVAL directly, so that spacial variables *, etc are set."
                    (write-to-string '*listener-saved-value*))))
 
 (defslimefun listener-eval (string &key (window-width nil window-width-p))
+  (swank/gray::reset-stream-line-column (connection.user-output *emacs-connection*))
   (if window-width-p
       (let ((*print-right-margin* window-width))
         (funcall *listener-eval-function* string))
