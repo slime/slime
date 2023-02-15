@@ -766,7 +766,10 @@ If NEWLINE is true then add a newline at the end of the input."
     (slime-repl-add-to-input-history
      (buffer-substring slime-repl-input-start-mark end))
     (when newline
-      (insert "\n")
+      ;; Reset the output columns independently in case they are out of sync.
+      (terpri (current-buffer) t)
+      (let ((slime-write-string-function (lambda (&rest args) (declare (ignore args)))))
+        (slime-eval '(cl:fresh-line (swank::connection.user-output swank::*emacs-connection*))))
       (slime-repl-show-maximum-output))
     (let ((inhibit-modification-hooks t))
       (add-text-properties slime-repl-input-start-mark
