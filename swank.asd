@@ -55,8 +55,10 @@
                (:file "swank")))
 
 (defmethod asdf:perform :around ((op asdf:load-op) (c (eql (asdf:find-system "swank"))))
-  (let ((var (uiop:find-symbol* '#:*source-directory* '#:swank-loader nil)))
-    (if (and var (boundp var))
+  (let ((emc (uiop:find-symbol* '#:*started-from-emacs* '#:swank-loader nil))
+        (var (uiop:find-symbol* '#:*source-directory* '#:swank-loader nil)))
+    (if (and emc (boundp emc) (symbol-value emc)
+             var (boundp var))
         (let ((loaded (truename (symbol-value var)))
               (requested (truename (asdf:system-source-directory "swank"))))
           (unless (equal requested loaded)
