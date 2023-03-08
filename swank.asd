@@ -6,13 +6,6 @@
 ;; This is only useful if you want to start a Swank server in a Lisp
 ;; processes that doesn't run under Emacs. Lisp processes created by
 ;; `M-x slime' automatically start the server.
-;;
-;; If Swank is already loaded (e.g. the Lisp is running under SLIME),
-;; then attempts to load it via asdf do nothing, except for emitting a
-;; warning if Swank is to be loaded from a location that's different
-;; from the location where it was originally loaded from. This
-;; behavior is intended to prevent loading a possibly incompatible
-;; version of Swank with a running SLIME.
 
 ;; Usage:
 ;;
@@ -53,19 +46,6 @@
                              (:file "match")
                              (:file "rpc")))
                (:file "swank")))
-
-(defmethod asdf:perform :around ((op asdf:load-op) (c (eql (asdf:find-system "swank"))))
-  (let ((emc (uiop:find-symbol* '#:*started-from-emacs* '#:swank-loader nil))
-        (var (uiop:find-symbol* '#:*source-directory* '#:swank-loader nil)))
-    (if (and emc (boundp emc) (symbol-value emc)
-             var (boundp var))
-        (let ((loaded (truename (symbol-value var)))
-              (requested (truename (asdf:system-source-directory "swank"))))
-          (unless (equal requested loaded)
-            (warn "~@<Not loading SWANK from ~S because it was ~
-                      already loaded from ~S.~:@>"
-                  requested loaded)))
-        (call-next-method))))
 
 (asdf:defsystem "swank/exts"
   :depends-on ("swank")
