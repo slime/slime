@@ -6412,11 +6412,16 @@ was called originally."
 
 (defvar slime-inspector-mark-stack '())
 
+(defcustom slime-inspect-default "*"
+  "What should slime fill in as thing to inspect if there isn't an sexp at point"
+    :group 'slime-inspector
+    :type 'string)
+
 (defun slime-inspect (string)
   "Eval an expression and inspect the result."
   (interactive
    (list (slime-read-from-minibuffer "Inspect value (evaluated): "
-				     (slime-sexp-at-point))))
+				     (or (slime-sexp-at-point) slime-inspect-default))))
   (slime-eval-async `(swank:init-inspector ,string) 'slime-open-inspector))
 
 (define-derived-mode slime-inspector-mode fundamental-mode
