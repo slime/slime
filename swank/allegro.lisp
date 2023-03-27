@@ -558,7 +558,10 @@ to do this, this factors in the length of the inserted header itself."
    (lambda (stream filename)
      (when (and file offset (probe-file file))
        (write-tracking-preamble stream file offset))
-     (write-string string stream)
+     (write
+      (contextualized-code string file)
+      :readably t
+      :stream stream)
      (finish-output stream)
      (multiple-value-bind (binary-filename warnings? failure?)
          (let ((sys:*source-file-types* '(nil)) ; suppress .lisp extension

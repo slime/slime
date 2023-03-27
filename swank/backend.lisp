@@ -624,6 +624,27 @@ Return nil if the file contains no special markers."
                               str :start p)))
         (find-external-format (subseq str p end))))))
 
+(defun contextualized-code (string file)
+  "Wrap STRING -- a string of CL code to be compiled -- that was taken
+from FILE, into an s-expression in preparation to be compiled and loaded.
+  A helper function for use implementing SWANK-COMPILE-STRING.  Returns
+an s-expression that can be written to a temporary file, for compilation
+and loading.  Spoofs context so that it is as if STRING was compiled in
+FILE, instead of being ripped out of it."
+  `(let ((*compile-file-pathname* (or (eval-when (:compile-toplevel)
+                                        ,(parse-namestring file))
+                                      nil))
+         (*compile-file-truename* (or (eval-when (:compile-toplevel)
+                                        ,(truename (parse-namestring file)))
+                                      nil))
+         (*load-pathname* (or (eval-when (:load-toplevel)
+                                ,(parse-namestring file))
+                              nil))
+         (*load-truename* (or (eval-when (:load-toplevel)
+                                ,(truename (parse-namestring file)))
+                              nil)))
+     ,(read-from-string string)))
+
 
 ;;;; Streams
 

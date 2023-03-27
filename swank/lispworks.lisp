@@ -775,7 +775,9 @@ function names like \(SETF GET)."
            (print `(eval-when (:compile-toplevel)
                      (setq dspec::*location* (list ,@location)))
                   s))
-         (write-string string s))
+         (write (contextualized-code string filename)
+               :readably t
+               :stream s))
        tmpname))))
 
 ;;; xref
