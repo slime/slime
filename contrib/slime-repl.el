@@ -979,6 +979,8 @@ Empty strings and duplicates are ignored."
 (defvar slime-repl-history-pattern nil
   "The regexp most recently used for finding input history.")
 
+(defvar slime-repl-history-delete-input-on-wrap t)
+
 (defun slime-repl-history-replace (direction &optional regexp)
   "Replace the current input with the next line in DIRECTION.
 DIRECTION is 'forward' or 'backward' (in the history list).
@@ -997,7 +999,9 @@ If REGEXP is non-nil, only lines matching REGEXP are considered."
            (setq msg (format "History item: %d" pos)))
           ((not slime-repl-wrap-history)
            (setq msg (cond ((= pos min-pos) "End of history")
-                           ((= pos max-pos) "Beginning of history"))))
+                           ((= pos max-pos) "Beginning of history")))
+           (when slime-repl-history-delete-input-on-wrap
+             (slime-repl-delete-current-input)))
           (slime-repl-wrap-history
            (setq pos (if (= pos min-pos) max-pos min-pos))
            (setq msg "Wrapped history")))
