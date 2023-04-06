@@ -122,7 +122,11 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
   "Create function to send user output to Emacs."
   (lambda (string)
     (with-connection (connection)
-      (send-to-emacs `(:write-string ,string)))))
+      (send-to-emacs `(:write-string ,string nil ,(current-thread-id)))
+      ;; Wait for Emacs to finish writing, otherwise on continuous
+      ;; output its input buffer will fill up and nothing else will be
+      ;; processed, most importantly an interrupt-thread request.
+      (wait-for-event `(:write-done)))))
 
 (defun open-dedicated-output-stream (connection coding-system)
   "Open a dedicated output connection to the Emacs on SOCKET-IO.
@@ -222,6 +226,7 @@ This is an optimized way for Lisp to deliver output to Emacs."
     (let ((ok nil))
       (unwind-protect
            (prog1 (caddr (wait-for-event `(:emacs-return-string ,tag value)))
+             (swank/gray::reset-stream-line-column (connection.user-output *emacs-connection*))
              (setq ok t))
         (unless ok
           (send-to-emacs `(:read-aborted ,(current-thread-id) ,tag)))))))
@@ -247,6 +252,7 @@ LISTENER-EVAL directly, so that spacial variables *, etc are set."
                    (write-to-string '*listener-saved-value*))))
 
 (defslimefun listener-eval (string &key (window-width nil window-width-p))
+  (swank/gray::reset-stream-line-column (connection.user-output *emacs-connection*))
   (if window-width-p
       (let ((*print-right-margin* window-width))
         (funcall *listener-eval-function* string))

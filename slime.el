@@ -3,7 +3,7 @@
 ;; URL: https://github.com/slime/slime
 ;; Package-Requires: ((cl-lib "0.5") (macrostep "0.9"))
 ;; Keywords: languages, lisp, slime
-;; Version: 2.27
+;; Version: 2.28
 
 ;;;; License and Commentary
 
@@ -75,12 +75,14 @@
 (require 'outline)
 (require 'arc-mode)
 (require 'etags)
-(require 'xref)
+(require 'xref nil t)
 (require 'compile)
 (require 'gv)
 
+(eval-and-compile
+ (require 'apropos))
+
 (eval-when-compile
-  (require 'apropos)
   (require 'gud)
   (require 'lisp-mnt))
 
@@ -1361,7 +1363,6 @@ The default condition handler for timer functions (see
     "Hack and be merry!"
     "Your hacking starts... NOW!"
     "May the source be with you!"
-    "Take this REPL, brother, and may it serve you well."
     "Lemonodor-fame is but a hack away!"
     "Are we consing yet?"
     ,(format "%s, this could be the start of a beautiful program."
@@ -3674,12 +3675,16 @@ alist but ignores CDRs."
 
 (defun slime-push-definition-stack ()
   "Add point to find-tag-marker-stack."
-  (xref-push-marker-stack (point-marker)))
+  (if (fboundp 'xref-push-marker-stack)
+      (xref-push-marker-stack (point-marker))
+      (ring-insert find-tag-marker-ring (point-marker))))
 
 (defun slime-pop-find-definition-stack ()
   "Pop the edit-definition stack and goto the location."
   (interactive)
-  (xref-pop-marker-stack))
+  (if (fboundp 'xref-pop-marker-stack)
+      (xref-pop-marker-stack)
+      (pop-tag-mark)))
 
 (cl-defstruct (slime-xref (:conc-name slime-xref.) (:type list))
   dspec location)
@@ -4380,12 +4385,12 @@ If PACKAGE is NIL, then search in all packages."
   (slime-eval-describe `(swank:describe-function ,symbol-name)))
 
 (defface slime-apropos-symbol
-  '((t (:inherit bold)))
+  '((t (:inherit apropos-symbol)))
   "Face for the symbol name in Apropos output."
   :group 'slime)
 
 (defface slime-apropos-label
-  '((t (:inherit italic)))
+  '((t (:inherit apropos-button)))
   "Face for label (`Function', `Variable' ...) in Apropos output."
   :group 'slime)
 
@@ -4430,13 +4435,44 @@ With prefix argument include internal symbols."
                      current-prefix-arg))
   (slime-apropos "" (not internal) package))
 
-(autoload 'apropos-mode "apropos")
+(defun slime-apropos-next-symbol ()
+  "Move cursor down to the next symbol in an `apropos-mode' buffer."
+  (interactive nil slime-apropos-mode)
+  (forward-line)
+  (while (and (not (eq (face-at-point) 'slime-apropos-symbol))
+              (< (point) (point-max)))
+    (forward-line)))
+
+(defun slime-apropos-previous-symbol ()
+  "Move cursor back to the last symbol in an `apropos-mode' buffer."
+  (interactive nil slime-apropos-mode)
+  (forward-line -1)
+  (while (and (not (eq (face-at-point) 'slime-apropos-symbol))
+              (> (point) (point-min)))
+    (forward-line -1)))
+
+(defvar slime-apropos-mode-map
+  (let ((map (copy-keymap button-buffer-map)))
+    (set-keymap-parent map apropos-mode-map)
+    ;; Movement keys
+    (define-key map "n" #'slime-apropos-next-symbol)
+    (define-key map "p" #'slime-apropos-previous-symbol)
+    map)
+  "Keymap used in Slime Apropos mode.")
+
+(define-derived-mode slime-apropos-mode
+  apropos-mode "Slime Apropos"
+  "Major mode for following hyperlinks in output of Slime apropos commands.
+
+\\{slime-apropos-mode-map}")
+
 (defun slime-show-apropos (plists string package summary)
   (if (null plists)
       (message "No apropos matches for %S" string)
+    (setq apropos--current (list #'slime-show-apropos plists string package summary))
     (slime-with-popup-buffer ((slime-buffer-name :apropos)
                               :package package :connection t
-                              :mode 'apropos-mode)
+                              :mode 'slime-apropos-mode)
       (if (boundp 'header-line-format)
           (setq header-line-format summary)
         (insert summary "\n\n"))
@@ -4459,6 +4495,13 @@ With prefix argument include internal symbols."
     (:alien-union "Alien type")
     (:alien-enum "Alien enum")))
 
+(define-button-type 'slime-apropos-symbol
+  'help-echo "\\`mouse-2', \\`RET': Display more help on this symbol"
+  'follow-link t
+  'face 'slime-apropos-label
+  'mouse-face 'highlight
+  'action 'slime-call-describer)
+
 (defun slime-print-apropos (plists)
   (dolist (plist plists)
     (let ((designator (plist-get plist :designator)))
@@ -4468,24 +4511,24 @@ With prefix argument include internal symbols."
     (cl-loop for (prop value) on plist by #'cddr
              unless (eq prop :designator) do
              (let ((namespace (cadr (or (assq prop slime-apropos-namespaces)
-                                        (error "Unknown property: %S" prop))))
-                   (start (point)))
+                                        (error "Unknown property: %S" prop)))))
                (princ "  ")
-               (slime-insert-propertized `(face slime-apropos-label) namespace)
+               (insert-text-button
+                namespace
+                'type 'slime-apropos-symbol
+                'button t
+                'apropos-label namespace
+                'item-type prop
+                'item (plist-get plist :designator))
                (princ ": ")
                (princ (cl-etypecase value
                         (string value)
                         ((member nil :not-documented) "(not documented)")))
-               (add-text-properties
-                start (point)
-                (list 'type prop 'action 'slime-call-describer
-                      'button t 'apropos-label namespace
-                      'item (plist-get plist :designator)))
                (terpri)))))
 
 (defun slime-call-describer (arg)
   (let* ((pos (if (markerp arg) arg (point)))
-         (type (get-text-property pos 'type))
+         (type (get-text-property pos 'item-type))
          (item (get-text-property pos 'item)))
     (slime-eval-describe `(swank:describe-definition-for-emacs ,item ,type))))
 

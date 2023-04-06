@@ -221,7 +221,7 @@ Backend code should treat the connection structure as opaque.")
                        :socket-io stream
                        :communication-style style)))
     (run-hook *new-connection-hook* conn)
-    (send-to-sentinel `(:add-connection ,conn))
+    (add-connection conn)
     conn))
 
 (defslimefun ping (tag)
@@ -526,10 +526,7 @@ This is like defvar, but NAME will not be initialized."
     (setf (documentation ',name 'variable) ,doc)))
 
 
-;;;;; Sentinel
-;;;
-;;; The sentinel thread manages some global lists.
-;;; FIXME: Overdesigned?
+(defvar *connection-lock* (make-lock))
 
 (defvar *connections* '()
   "List of all active connections, with the most recent at the front.")
@@ -538,9 +535,6 @@ This is like defvar, but NAME will not be initialized."
   "A list ((server-socket port thread) ...) describing the listening sockets.
 Used to close sockets on server shutdown or restart.")
 
-;; FIXME: we simply access the global variable here.  We could ask the
-;; sentinel thread instead but then we still have the problem that the
-;; connection could be closed before we use it.  
 (defun default-connection ()
   "Return the 'default' Emacs connection.
 This connection can be used to talk with Emacs when no specific
@@ -550,58 +544,34 @@ The default connection is defined (quite arbitrarily) as the most
 recently established one."
   (car *connections*))
 
-(defun start-sentinel () 
-  (unless (find-registered 'sentinel)
-    (let ((thread (spawn #'sentinel :name "Swank Sentinel")))
-      (register-thread 'sentinel thread))))
+(defun add-connection (conn)
+  (with-lock *connection-lock*
+    (push conn *connections*)))
 
-(defun sentinel ()
-  (catch 'exit-sentinel
-    (loop (sentinel-serve (receive)))))
+(defun close-connection (connection condition backtrace)
+  (with-lock *connection-lock*
+    (close-connection% connection condition backtrace)))
 
-(defun send-to-sentinel (msg)
-  (let ((sentinel (find-registered 'sentinel)))
-    (cond (sentinel (send sentinel msg))
-          (t (sentinel-serve msg)))))
+(defun add-server (socket port thread)
+  (with-lock *connection-lock*
+    (push (list socket port thread) *servers*)))
 
-(defun sentinel-serve (msg)
-  (dcase msg
-    ((:add-connection conn)
-     (push conn *connections*))
-    ((:close-connection connection condition backtrace)
-     (close-connection% connection condition backtrace)
-     (sentinel-maybe-exit))
-    ((:add-server socket port thread)
-     (push (list socket port thread) *servers*))
-    ((:stop-server key port)
-     (sentinel-stop-server key port)
-     (sentinel-maybe-exit))))
-
-(defun sentinel-stop-server (key value)
-  (let ((probe (find value *servers* :key (ecase key 
-                                            (:socket #'car)
-                                            (:port #'cadr)))))
-    (cond (probe 
-           (setq *servers* (delete probe *servers*))
-           (destructuring-bind (socket _port thread) probe
-             (declare (ignore _port))
-             (ignore-errors (close-socket socket))
-             (when (and thread 
-                        (thread-alive-p thread)
-                        (not (eq thread (current-thread))))
-               (ignore-errors (kill-thread thread)))))
-          (t
-           (warn "No server for ~s: ~s" key value)))))
-
-(defun sentinel-maybe-exit ()
-  (when (and (null *connections*)
-             (null *servers*)
-             (and (current-thread)
-                  (eq (find-registered 'sentinel)
-                      (current-thread))))
-    (register-thread 'sentinel nil)
-    (throw 'exit-sentinel nil)))
-
+(defun %stop-server (key value)
+  (with-lock *connection-lock*
+    (let ((probe (find value *servers* :key (ecase key 
+                                              (:socket #'car)
+                                              (:port #'cadr)))))
+      (cond (probe 
+             (setq *servers* (delete probe *servers*))
+             (destructuring-bind (socket _port thread) probe
+               (declare (ignore _port))
+               (ignore-errors (close-socket socket))
+               (when (and thread 
+                          (thread-alive-p thread)
+                          (not (eq thread (current-thread))))
+                 (ignore-errors (kill-thread thread)))))
+            (t
+             (warn "No server for ~s: ~s" key value))))))
 
 ;;;;; Misc
 
@@ -760,13 +730,11 @@ e.g.: (restart-loop (http-request url) (use-value (new) (setq url new)))"
          (port (local-port socket)))
     (funcall announce-fn port)
     (labels ((serve () (accept-connections socket style dont-close))
-             (note () (send-to-sentinel `(:add-server ,socket ,port
-                                                      ,(current-thread))))
+             (note () (add-server socket port (current-thread)))
              (serve-loop () (note) (loop do (serve) while dont-close)))
       (ecase style
         (:spawn (initialize-multiprocessing
                  (lambda ()
-                   (start-sentinel)
                    (spawn #'serve-loop :name (format nil "Swank ~s" port)))))
         ((:fd-handler :sigio)
          (note)
@@ -776,7 +744,7 @@ e.g.: (restart-loop (http-request url) (use-value (new) (setq url new)))"
 
 (defun stop-server (port)
   "Stop server running on PORT."
-  (send-to-sentinel `(:stop-server :port ,port)))
+  (%stop-server :port port))
 
 (defun restart-server (&key (port default-server-port)
                        (style *communication-style*)
@@ -796,7 +764,7 @@ first."
          (authenticate-client client)
          (serve-requests (make-connection socket client style)))
     (unless dont-close
-      (send-to-sentinel `(:stop-server :socket ,socket)))))
+      (%stop-server :socket socket))))
 
 (defun authenticate-client (stream)
   (let ((secret (slime-secret)))
@@ -915,9 +883,6 @@ The processing is done in the extent of the toplevel restart."
 
 (defun current-socket-io ()
   (connection.socket-io *emacs-connection*))
-
-(defun close-connection (connection condition backtrace)
-  (send-to-sentinel `(:close-connection ,connection ,condition ,backtrace)))
 
 (defun close-connection% (c condition backtrace)
   (let ((*debugger-hook* nil))
@@ -1045,7 +1010,8 @@ The processing is done in the extent of the toplevel restart."
           &rest _)
          (declare (ignore _))
          (encode-message event (current-socket-io)))
-        (((:emacs-pong :emacs-return :emacs-return-string :ed-rpc-forbidden)
+        (((:emacs-pong :emacs-return :emacs-return-string :ed-rpc-forbidden
+           :write-done)
           thread-id &rest args)
          (send-event (find-thread thread-id) (cons (car event) args)))
         ((:emacs-channel-send channel-id msg)
@@ -3018,7 +2984,7 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
   (multiple-value-bind (symbol found)
       (find-definitions-find-symbol-or-package name)
     (when found
-      (mapcar #'xref>elisp (find-definitions symbol)))))
+      (mapcar #'xref>elisp (remove-duplicates (find-definitions symbol) :test #'equal)))))
 
 ;;; Generic function so contribs can extend it.
 (defgeneric xref-doit (type thing)
@@ -3439,12 +3405,44 @@ Return NIL if LIST is circular."
    (iline "Adjustable" (adjustable-array-p array))
    (iline "Fill pointer" (if (array-has-fill-pointer-p array)
                              (fill-pointer array)))
-   "Contents:" '(:newline)
-   (labels ((k (i max)
-              (cond ((= i max) '())
-                    (t (lcons (iline i (row-major-aref array i))
-                              (k (1+ i) max))))))
-     (k 0 (array-total-size array)))))
+   (if (array-has-fill-pointer-p array)
+       (emacs-inspect-vector-with-fill-pointer-aux array)
+       (emacs-inspect-array-aux array))))
+
+(defun emacs-inspect-array-aux (array)
+  (unless (= 0 (array-total-size array))
+    (lcons*
+     "Contents:" '(:newline)
+     (labels ((k (i max)
+                (cond ((= i max) '())
+                      (t (lcons (iline i (row-major-aref array i))
+                                (k (1+ i) max))))))
+       (k 0 (array-total-size array))))))
+
+(defun emacs-inspect-vector-with-fill-pointer-aux (array)
+  (let ((active-elements? (< 0 (fill-pointer array)))
+        (inactive-elements? (< (fill-pointer array)
+                               (array-total-size array))))
+    (labels ((k (i max cont)
+               (cond ((= i max) (funcall cont))
+                     (t (lcons (iline i (row-major-aref array i))
+                               (k (1+ i) max cont)))))
+             (collect-active ()
+               (if active-elements?
+                   (lcons*
+                    "Active elements:" '(:newline)
+                    (k 0 (fill-pointer array)
+                       (lambda () (collect-inactive))))
+                   (collect-inactive)))
+             (collect-inactive ()
+               (if inactive-elements?
+                   (lcons*
+                    "Inactive elements:" '(:newline)
+                    (k (fill-pointer array)
+                       (array-total-size array)
+                       (constantly '())))
+                   '())))
+      (collect-active))))
 
 ;;;;; Chars
 
@@ -3475,7 +3473,6 @@ Example:
    (6 \"swank-indentation-cache-thread\" \"Semaphore timed wait\" 0)
    (5 \"reader-thread\" \"Active\" 0)
    (4 \"control-thread\" \"Semaphore timed wait\" 0)
-   (2 \"Swank Sentinel\" \"Semaphore timed wait\" 0)
    (1 \"listener\" \"Active\" 0)
    (0 \"Initial\" \"Sleep\" 0))"
   (setq *thread-list* (all-threads))

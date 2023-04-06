@@ -1,3 +1,5 @@
+;; -*- lexical-binding: t; -*-
+
 (require 'slime)
 (require 'cl-lib)
 (require 'grep)
@@ -160,7 +162,7 @@ buffer's working directory"
       (let* ((files (mapcar 'slime-from-lisp-filename
                             (slime-eval `(swank:asdf-system-files ,sys-name))))
              (multi-isearch-next-buffer-function
-              (lexical-let* 
+              (let* 
                   ((buffers-forward  (mapcar #'find-file-noselect files))
                    (buffers-backward (reverse buffers-forward)))
                 #'(lambda (current-buffer wrap)

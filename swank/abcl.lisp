@@ -1,13 +1,13 @@
 ;;;; -*- indent-tabs-mode: nil; outline-regexp: ";;;;;*"; -*-
 ;;;
-;;; swank-abcl.lisp --- Armedbear CL specific code for SLIME.
+;;; swank-abcl.lisp --- Armed Bear Common Lisp specific code for SLIME.
 ;;;
 ;;; Adapted from swank-acl.lisp, Andras Simon, 2004
 ;;; New work by Alan Ruttenberg, 2016-7
+;;; maintained by Mark Evenson, 2009-2023
 ;;;
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
-;;;
 
 (defpackage swank/abcl
   (:use cl swank/backend)
@@ -85,7 +85,7 @@
             (format stream "~a" (jclass-name (jobject-class object))))
         ;; usual handling
         (format stream "~S" (type-of object)))
-      (format stream " "))
+    (format stream " "))
   (when body
     (funcall body))
   (when identity
@@ -162,7 +162,7 @@
    cl:method
    cl:standard-class
    #+#.(swank/backend:with-symbol
-           'compute-applicable-methods-using-classes 'mop)
+         'compute-applicable-methods-using-classes 'mop)
    mop:compute-applicable-methods-using-classes
    ;; standard-class readers
    mop:class-default-initargs
@@ -208,7 +208,7 @@
    slot-value-using-class
    set-slot-value-using-class
    #+#.(swank/backend:with-symbol
-           'slot-makunbound-using-class 'mop)
+         'slot-makunbound-using-class 'mop)
    mop:slot-makunbound-using-class))
 
 ;;;; TCP Server
@@ -297,34 +297,34 @@
       (ext::get-pid)       ;;; Introduced with abcl-1.5.0
       (handler-case
           (let* ((runtime
-                  (java:jstatic "getRuntime" "java.lang.Runtime"))
+                   (java:jstatic "getRuntime" "java.lang.Runtime"))
                  (command
-                  (java:jnew-array-from-array
-                   "java.lang.String" #("sh" "-c" "echo $PPID")))
+                   (java:jnew-array-from-array
+                    "java.lang.String" #("sh" "-c" "echo $PPID")))
                  (runtime-exec-jmethod
-                  ;; Complicated because java.lang.Runtime.exec() is
-                  ;; overloaded on a non-primitive type (array of
-                  ;; java.lang.String), so we have to use the actual
-                  ;; parameter instance to get java.lang.Class
-                  (java:jmethod "java.lang.Runtime" "exec"
-                                (java:jcall
-                                 (java:jmethod "java.lang.Object" "getClass")
-                                 command)))
+                   ;; Complicated because java.lang.Runtime.exec() is
+                   ;; overloaded on a non-primitive type (array of
+                   ;; java.lang.String), so we have to use the actual
+                   ;; parameter instance to get java.lang.Class
+                   (java:jmethod "java.lang.Runtime" "exec"
+                                 (java:jcall
+                                  (java:jmethod "java.lang.Object" "getClass")
+                                  command)))
                  (process
-                  (java:jcall runtime-exec-jmethod runtime command))
+                   (java:jcall runtime-exec-jmethod runtime command))
                  (output
-                  (java:jcall (java:jmethod "java.lang.Process" "getInputStream")
-                              process)))
+                   (java:jcall (java:jmethod "java.lang.Process" "getInputStream")
+                               process)))
             (java:jcall (java:jmethod "java.lang.Process" "waitFor")
                         process)
             (loop :with b :do
-               (setq b
-                     (java:jcall (java:jmethod "java.io.InputStream" "read")
-                                 output))
-               :until (member b '(-1 #x0a))     ; Either EOF or LF
-               :collecting (code-char b) :into result
-               :finally (return
-                          (parse-integer (coerce result 'string)))))
+              (setq b
+                    (java:jcall (java:jmethod "java.io.InputStream" "read")
+                                output))
+                  :until (member b '(-1 #x0a))     ; Either EOF or LF
+                  :collecting (code-char b) :into result
+                  :finally (return
+                             (parse-integer (coerce result 'string)))))
         (t () 0))))
 
 (defimplementation lisp-implementation-type-name ()
@@ -340,17 +340,17 @@
 
 (defimplementation arglist (fun)
   (cond ((symbolp fun)
-          (multiple-value-bind (arglist present)
-              (sys::arglist fun)
-            (when (and (not present)
-                       (fboundp fun)
-                       (typep (symbol-function fun)
-                              'standard-generic-function))
-              (setq arglist
-                    (mop::generic-function-lambda-list (symbol-function fun))
-                    present
-                    t))
-            (if present arglist :not-available)))
+         (multiple-value-bind (arglist present)
+             (sys::arglist fun)
+           (when (and (not present)
+                      (fboundp fun)
+                      (typep (symbol-function fun)
+                             'standard-generic-function))
+             (setq arglist
+                   (mop::generic-function-lambda-list (symbol-function fun))
+                   present
+                   t))
+           (if present arglist :not-available)))
         (t :not-available)))
 
 (defimplementation function-name (function)
@@ -369,7 +369,7 @@
   (with-collected-macro-forms (macro-forms)
       (handler-bind ((warning #'muffle-warning))
         (ignore-errors
-          (compile nil `(lambda () ,(macroexpand-all form env)))))
+         (compile nil `(lambda () ,(macroexpand-all form env)))))
     (values macro-forms nil)))
 
 (defimplementation describe-symbol-for-emacs (symbol)
@@ -426,13 +426,14 @@
   (lambda (condition old-hook)
     (prog1 (let (#+abcl-introspect
                  (sys::*caught-frames* nil))
-             ;; the next might be the right thing for earlier lisps but I don't know
-             ;;; XXX probably doesn't work in absence of ABCL-INTROSPECT on abcl-1.4 and earlier
+             ;;; the next might be the right thing for earlier lisps
+             ;;; XXX probably doesn't work in absence
+             ;;; of ABCL-INTROSPECT on abcl-1.4 and earlier
              (let (#+abcl-introspect
                    (sys::*saved-backtrace*
-                    (if (fboundp 'sys::new-backtrace)
-                        (sys::new-backtrace condition)
-                        (sys::backtrace))))
+                     (if (fboundp 'sys::new-backtrace)
+                         (sys::new-backtrace condition)
+                         (sys::backtrace))))
                (if *debugger-hook*
                    (funcall *debugger-hook* condition old-hook)
                    (funcall hook condition old-hook)))))))
@@ -465,8 +466,8 @@
 (defun backtrace (start end)
   "A backtrace without initial SWANK frames."
   (let ((backtrace
-         #+abcl-introspect sys::*saved-backtrace*
-         #-abcl-introspect (sys:backtrace)))
+          #+abcl-introspect sys::*saved-backtrace*
+          #-abcl-introspect (sys:backtrace)))
     (subseq (or (member *sldb-topframe* backtrace) backtrace) start end)))
 
 (defun nth-frame (index)
@@ -563,28 +564,28 @@
 
 #+abcl-introspect
 (defun abcl-introspect/frame-locals (frame index)
-    ;; FIXME introspect locals in SYS::JAVA-STACK-FRAME
-    (or (and (are-there-locals? frame index)
-             (let ((locals (abcl-introspect/sys:find-locals index (backtrace 0 (1+ index)))))
-               (let ((argcount (length (cdr (nth-frame-list index))))
-                     (them 
-                       (let ((operator (jss::get-java-field (nth-frame index) "operator" t)))
-                         (let* ((env (and (jss::jtypep operator 'lisp.closure)
-                                          (jss::get-java-field operator "environment" t)))
-                                (closed-count (if env (length (sys::environment-parts env)) 0)))
-                           (declare (ignore closed-count))
+  ;; FIXME introspect locals in SYS::JAVA-STACK-FRAME
+  (or (and (are-there-locals? frame index)
+           (let ((locals (abcl-introspect/sys:find-locals index (backtrace 0 (1+ index)))))
+             (let ((argcount (length (cdr (nth-frame-list index))))
+                   (them 
+                     (let ((operator (jss::get-java-field (nth-frame index) "operator" t)))
+                       (let* ((env (and (jss::jtypep operator 'lisp.closure)
+                                        (jss::get-java-field operator "environment" t)))
+                              (closed-count (if env (length (sys::environment-parts env)) 0)))
+                         (declare (ignore closed-count))
                                         ; FIXME closed-over are in parts but also in locals
                                         ; FIXME closed-over are in compiled functions to but are value of internal field
                                         ; environment is the enviromnet of 
-                           (loop for (kind symbol value) in (caar locals)
-                                 when (eq kind :lexical-variable)
+                         (loop for (kind symbol value) in (caar locals)
+                               when (eq kind :lexical-variable)
                                         ; FIXME should I qualify each by whether arg, closed-over, let-bound?
-                                   collect (list :name symbol 
-                                                 :id 0        
-                                                 :value value))))))
-                 (declare (ignore argcount))
-                 (reverse them))))))
-  
+                                 collect (list :name symbol 
+                                               :id 0        
+                                               :value value))))))
+               (declare (ignore argcount))
+               (reverse them))))))
+
 (defimplementation frame-locals (index)
   (let ((frame (nth-frame index)))         ;;(id -1)
     (let ((frame-locals
@@ -638,7 +639,7 @@
              (jcall "getDeclaredMethods" (jclass (getf list :class)))
              :key (lambda(e)(jcall "getName" e)) :test 'equal))
       (t (car list) ))))
-       
+
 (defimplementation frame-source-location (index)
   (let ((frame (nth-frame index)))
     (or (source-location (nth-frame index))
@@ -679,8 +680,7 @@
                                 (list :file (namestring *compile-filename*))
                                 (list :position 1))))))))
 
-(defimplementation swank-compile-file (input-file output-file
-                                       load-p external-format
+(defimplementation swank-compile-file (input-file output-file load-p external-format
                                        &key policy)
   (declare (ignore external-format policy))
   (let ((jvm::*resignal-compiler-warnings* t)
@@ -712,6 +712,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; source location and users of it
 
+(defimplementation find-source-location (thing)
+  (source-location thing))
+
 (defgeneric source-location (object))
 
 ;; try to find some kind of source for internals
@@ -732,7 +735,7 @@
                   (split-string classname "\\$")
                   (list classname (jcall "replaceFirst" classname "([^.]*\\.)*" "")))
             (unless (member local '("MacroObject" "CompiledClosure" "Closure") :test 'equal)
-            ;; look for java source
+              ;; look for java source
               (let* ((partial-path   (substitute #\/ #\. class))
                      (java-path (concatenate 'string partial-path ".java"))
                      (found-in-source-path (find-file-in-path java-path *source-path*))) 
@@ -751,7 +754,7 @@
                     ;; with jad <https://github.com/moparisthebest/jad>
                     ;; Also (setq sys::*disassembler* "jad -a -p")
                     (let ((class-in-source-path 
-                           (find-file-in-path (concatenate 'string partial-path ".class") *source-path*)))
+                            (find-file-in-path (concatenate 'string partial-path ".class") *source-path*)))
                       ;; no snippet, since internal class is in its own file
                       (when class-in-source-path
                         `(:primitive (:location ,class-in-source-path (:line 0) nil)))))))))))))
@@ -796,8 +799,8 @@
   (or (loop for spec in  sources
             for (dspec) = spec
             when (and (consp dspec) (eq (car dspec) :function))
-            when (and (consp dspec) (member (car dspec) '(:swank-implementation :function)))
-                 do (return-from if-we-have-to-choose-one-choose-the-function spec))
+              when (and (consp dspec) (member (car dspec) '(:swank-implementation :function)))
+                do (return-from if-we-have-to-choose-one-choose-the-function spec))
       (car sources)))
 
 (defmethod source-location ((symbol symbol))
@@ -809,9 +812,9 @@
       (and (pathnamep (ext:source-pathname symbol))
            (let ((pos (ext:source-file-position symbol))
                  (path (namestring (ext:source-pathname symbol))))
-             ; boot.lisp gets recorded wrong
+                                        ; boot.lisp gets recorded wrong
              (when (equal path "boot.lisp")
-                 (setq path (second (find-file-in-path "org/armedbear/lisp/boot.lisp" *source-path*))))
+               (setq path (second (find-file-in-path "org/armedbear/lisp/boot.lisp" *source-path*))))
              (cond ((ext:pathname-jar-p path)
                     `(:location
                       ;; strip off "jar:file:" = 9 characters
@@ -867,9 +870,9 @@
 (defmethod source-location ((method method))
   #+abcl-introspect
   (let ((found 
-         (find `(:method ,@(sys::method-spec-list method))
-               (get (function-name method) 'sys::source)
-               :key 'car :test 'equalp)))
+          (find `(:method ,@(sys::method-spec-list method))
+                (get (function-name method) 'sys::source)
+                :key 'car :test 'equalp)))
     (and found (second (slime-location-from-source-annotation (function-name method) found))))
   #-abcl-introspect
   (let ((name (function-name fun)))
@@ -887,7 +890,7 @@
 (defun split-string (string regexp)
   (coerce
    (jcall (jmethod "java.lang.String" "split" "java.lang.String")
-               string regexp)
+          string regexp)
    'list))
 
 (defun path-separator ()
@@ -918,14 +921,14 @@
                   #+abcl-introspect
                   (list (sys::find-system-jar)
                         (sys::find-contrib-jar))))
-                  ;; you should tell slime where the abcl sources are. In .swank.lisp I have:
-                  ;; (push (probe-file "/Users/alanr/repos/abcl/src/") *SOURCE-PATH*)
-"List of directories to search for source files.")
+  ;; you should tell slime where the abcl sources are. In .swank.lisp I have:
+  ;; (push (probe-file "/Users/alanr/repos/abcl/src/") *SOURCE-PATH*)
+  "List of directories to search for source files.")
 
 (defun zipfile-contains-p (zipfile-name entry-name)
   (let ((zipfile (jnew (jconstructor "java.util.zip.ZipFile"
-                                               "java.lang.String")
-                            zipfile-name)))
+                                     "java.lang.String")
+                       zipfile-name)))
     (jcall
      (jmethod "java.util.zip.ZipFile" "getEntry" "java.lang.String")
      zipfile entry-name)))
@@ -976,13 +979,13 @@
     :ir1-convert :def-ir1-translator
     :declaration declaim
     :alien-type :define-alien-type)
-  "Map SB-INTROSPECT definition type names to Slime-friendly forms")
+  "Map definition type names to Slime-friendly forms")
 
 (defun definition-specifier (type)
   "Return a pretty specifier for NAME representing a definition of type TYPE."
   (or (if (and (consp type) (getf *definition-types* (car type)))
-       `(,(getf *definition-types* (car type)) ,(second type) ,@(third type) ,@(cdddr type))
-       (getf *definition-types* type))
+          `(,(getf *definition-types* (car type)) ,(second type) ,@(third type) ,@(cdddr type))
+          (getf *definition-types* type))
       type))
 
 (defun stringify-method-specs (type)
@@ -1043,22 +1046,38 @@
 
 (defun slime-location-from-source-annotation (sym it)
   (destructuring-bind (what path pos) it
-
     (let* ((isfunction
-            ;; all of these are (defxxx forms, which is what :function locations look for in slime
-            (and (consp what) (member (car what)
-                                      '(:function :generic-function :macro :class :compiler-macro
-                                        :type :constant :variable :package :structure :condition))))
-           (ismethod (and (consp what) (eq (car what) :method)))
-           (<position> (cond (isfunction (list :function-name (princ-to-string (second what))))
-                                             (ismethod (stringify-method-specs what))
-                                             (t (list :position (1+ (or pos 0))))))
-
-           (path2 (if (eq path :top-level)
-                      ;; this is bogus - figure out some way to guess which is the repl associated with :toplevel
-                      ;; or get rid of this
-                      "emacs-buffer:*slime-repl*"
-                      (maybe-redirect-to-jar path))))
+             ;; all of these are (defxxx forms, which is what :function
+             ;; locations look for in slime
+             (and (consp what)
+                  (member (car what)
+                          '(:function :generic-function :macro :class :compiler-macro
+                            :type :constant :variable :package :structure :condition))))
+           (ismethod
+             (and (consp what)
+                  (eq (car what) :method)))
+           ;;; <file:../slime/slime.el> docstring for
+           ;;; slime-goto-source-location constains the position to a
+           ;;; single clause.  We prioritize a :POSITION clause over
+           ;;; others.
+           (<position>
+             (cond (isfunction
+                    (if pos
+                        `(:position ,(1+ (or pos 0)))
+                        `(:function-name ,(princ-to-string (second what)))))
+                   (ismethod
+                    (if pos
+                        `(:position ,(1+ (or pos 0)))
+                        (stringify-method-specs what)))
+                   (t ;; Are we ever called with a nil POS?
+                    `(:position ,(1+ (or pos 0))))))
+           (path2
+             (if (eq path :top-level)
+                 ;; this is bogus - figure out some way to guess which
+                 ;; is the repl associated with :toplevel or get
+                 ;; rid of this
+                 "emacs-buffer:*slime-repl*"
+                 (maybe-redirect-to-jar path))))
       (when (atom what)
         (setq what (list what sym)))
       (list (definition-specifier what)
@@ -1071,15 +1090,15 @@
                 ;; conspire with swank-compile-string to keep the
                 ;; buffer name in a pathname whose device is
                 ;; "emacs-buffer".
-                  (if (eql 0 (search "emacs-buffer:" path2))
-                      `(:location
-                        (:buffer ,(subseq path2  (load-time-value (length "emacs-buffer:"))))
-                        ,<position>
-                        (:align t))
-                      `(:location
-                        (:file ,path2)
-                        ,<position>
-                        (:align t))))))))
+                (if (eql 0 (search "emacs-buffer:" path2))
+                    `(:location
+                      (:buffer ,(subseq path2  (load-time-value (length "emacs-buffer:"))))
+                      ,<position>
+                      (:align t))
+                    `(:location
+                      (:file ,path2)
+                      ,<position>
+                      (:align t))))))))
 
 #+abcl-introspect
 (defimplementation list-callers (thing)
@@ -1111,7 +1130,7 @@
                        ,(if *slime-inspector-hyperspec-in-browser* 
                             '(lambda(a v) (eww a))
                             'browse-url-browser-function)))
-                        (slime-hyperdoc-lookup ,name))))
+                 (slime-hyperdoc-lookup ,name))))
     (swank::eval-in-emacs form t)))
 ;;; END FIXME move into generalized Swank infrastructure, or add to contrib mechanism
 
@@ -1131,10 +1150,10 @@
               `((:label "Java type: ") (:value ,jclass) (:newline)))
         ,@(if parts
               (loop :for (label . value) :in parts
-                 :appending (list
-                             (list :label (string-capitalize label))
-                             ": "
-                             (list :value value (princ-to-string value)) '(:newline)))
+                    :appending (list
+                                (list :label (string-capitalize label))
+                                ": "
+                                (list :value value (princ-to-string value)) '(:newline)))
               (list '(:label "No inspectable parts, dumping output of CL:DESCRIBE:")
                     '(:newline)
                     (with-output-to-string (desc) (describe o desc))))))))
@@ -1154,7 +1173,7 @@
        `(:multiple
          (:label "Abbreviates java class: ")
          ,(let ((it (funcall (intern "LOOKUP-CLASS-NAME" :jss) string :return-ambiguous t :muffle-warning t)))
-           `(:value ,(jclass it)))
+            `(:value ,(jclass it)))
          (:newline))
        "")
    (if (ignore-errors (find-package (string-upcase string)))
@@ -1181,10 +1200,10 @@
 (defmethod emacs-inspect ((o java:java-exception))
   (append (call-next-method)
           (list '(:newline) '(:label "Stack trace")
-                      '(:newline)
-                      (let ((w (jnew "java.io.StringWriter"))) 
-                        (jcall "printStackTrace" (java:java-exception-cause o) (jnew "java.io.PrintWriter" w))
-                        (jcall "toString" w)))))
+                '(:newline)
+                (let ((w (jnew "java.io.StringWriter"))) 
+                  (jcall "printStackTrace" (java:java-exception-cause o) (jnew "java.io.PrintWriter" w))
+                  (jcall "toString" w)))))
 
 
 
@@ -1193,18 +1212,18 @@
     (let ((lexicals (mapcar 'cdr (remove :lexical-variable parts :test-not 'eq :key 'car)))
 	  (specials (mapcar 'cdr (remove :special parts :test-not 'eq :key 'car)))
 	  (functions (mapcar 'cdr (remove :lexical-function parts :test-not 'eq :key 'car))))
-       `(,@(if lexicals  
-	       (list* '(:label "Lexicals:") '(:newline) 
-		      (loop for (var value) in lexicals 
-			    append `("  " (:label ,(format nil "~s" var)) ": " (:value ,value) (:newline)))))
-	 ,@(if functions  
-	       (list* '(:label "Functions:") '(:newline)
-		      (loop for (var value) in functions 
-			    append `("  "(:label ,(format nil "~s" var)) ": " (:value ,value) (:newline)))))
-	 ,@(if specials  
-	       (list* '(:label "Specials:") '(:newline) 
-		      (loop for (var value) in specials 
-			    append `("  " (:label ,(format nil "~s" var)) ": " (:value ,value) (:newline)))))))))
+      `(,@(if lexicals  
+	      (list* '(:label "Lexicals:") '(:newline) 
+		     (loop for (var value) in lexicals 
+			   append `("  " (:label ,(format nil "~s" var)) ": " (:value ,value) (:newline)))))
+	,@(if functions  
+	      (list* '(:label "Functions:") '(:newline)
+		     (loop for (var value) in functions 
+			   append `("  "(:label ,(format nil "~s" var)) ": " (:value ,value) (:newline)))))
+	,@(if specials  
+	      (list* '(:label "Specials:") '(:newline) 
+		     (loop for (var value) in specials 
+			   append `("  " (:label ,(format nil "~s" var)) ": " (:value ,value) (:newline)))))))))
 
 (defmethod emacs-inspect ((slot mop::slot-definition))
   `("Name: "
@@ -1212,67 +1231,67 @@
     (:newline)
     "Documentation:" (:newline)
     ,@(when (slot-definition-documentation slot)
-            `((:value ,(slot-definition-documentation slot)) (:newline)))
+        `((:value ,(slot-definition-documentation slot)) (:newline)))
     "Initialization:" (:newline)
     (:label "  Args: ") (:value ,(mop:slot-definition-initargs slot)) (:newline)
     (:label "  Form: ")  ,(if (mop:slot-definition-initfunction slot)
-                     `(:value ,(mop:slot-definition-initform slot))
-                     "#<unspecified>") (:newline)
-                     (:label "  Function: ")
-                     (:value ,(mop:slot-definition-initfunction slot))
-                     (:newline)))
+                              `(:value ,(mop:slot-definition-initform slot))
+                              "#<unspecified>") (:newline)
+    (:label "  Function: ")
+    (:value ,(mop:slot-definition-initfunction slot))
+    (:newline)))
 
 (defmethod emacs-inspect ((f function))
   `(,@(when (function-name f)
         `((:label "Name: ")
           ,(princ-to-string (sys::any-function-name f)) (:newline)))
-      ,@(multiple-value-bind (args present) (sys::arglist f)
-          (when present
-            `((:label "Argument list: ")
-              ,(princ-to-string args)
-              (:newline))))
-      #+abcl-introspect
-      ,@(when (documentation f t)
-          `("Documentation:" (:newline)
-                             ,(documentation f t) (:newline)))
-      ,@(when (function-lambda-expression f)
-          `((:label "Lambda expression:")
-            (:newline) ,(princ-to-string
-                         (function-lambda-expression f)) (:newline)))
-      (:label "Function java class: ") (:value ,(jcall "getClass" f)) (:newline)
-      #+abcl-introspect
-      ,@(when (jcall "isInstance"  (java::jclass "org.armedbear.lisp.CompiledClosure") f)
-          `((:label "Closed over: ")
-            ,@(loop
-                 for el in (sys::compiled-closure-context f)
-                 collect `(:value ,el)
-                 collect " ")
-            (:newline)))
-      #+abcl-introspect
-      ,@(when (sys::get-loaded-from f)
-          (list `(:label "Defined in: ")
-                `(:value ,(sys::get-loaded-from f) ,(namestring (sys::get-loaded-from f)))
-                '(:newline)))
-      ;; I think this should work in older lisps too -- alanr
-      ,@(let ((fields (jcall "getDeclaredFields" (jcall "getClass" f))))
-          (when (plusp (length fields))
-            (list* '(:label "Internal fields: ") '(:newline)
-                   (loop for field across fields
-                      do (jcall "setAccessible" field t) ;;; not a great idea esp. wrt. Java9
-                      append
-                        (let ((value (jcall "get" field f)))
-                          (list "  "
-                                `(:label ,(jcall "getName" field))
-                                ": "
-                                `(:value ,value ,(princ-to-string value))
-                                '(:newline)))))))
-      #+abcl-introspect
-      ,@(when (and (function-name f) (symbolp (function-name f))
-                   (eq (symbol-package (function-name f)) (find-package :cl)))
-          (list '(:newline) (list :action "Lookup in hyperspec"
-                                  (lambda () (hyperspec-do (symbol-name (function-name f))))
-                                  :refreshp nil)
-                '(:newline)))))
+    ,@(multiple-value-bind (args present) (sys::arglist f)
+        (when present
+          `((:label "Argument list: ")
+            ,(princ-to-string args)
+            (:newline))))
+    #+abcl-introspect
+    ,@(when (documentation f t)
+        `("Documentation:" (:newline)
+                           ,(documentation f t) (:newline)))
+    ,@(when (function-lambda-expression f)
+        `((:label "Lambda expression:")
+          (:newline) ,(princ-to-string
+                       (function-lambda-expression f)) (:newline)))
+    (:label "Function java class: ") (:value ,(jcall "getClass" f)) (:newline)
+    #+abcl-introspect
+    ,@(when (jcall "isInstance"  (java::jclass "org.armedbear.lisp.CompiledClosure") f)
+        `((:label "Closed over: ")
+          ,@(loop
+              for el in (sys::compiled-closure-context f)
+              collect `(:value ,el)
+              collect " ")
+          (:newline)))
+    #+abcl-introspect
+    ,@(when (sys::get-loaded-from f)
+        (list `(:label "Defined in: ")
+              `(:value ,(sys::get-loaded-from f) ,(namestring (sys::get-loaded-from f)))
+              '(:newline)))
+    ;; I think this should work in older lisps too -- alanr
+    ,@(let ((fields (jcall "getDeclaredFields" (jcall "getClass" f))))
+        (when (plusp (length fields))
+          (list* '(:label "Internal fields: ") '(:newline)
+                 (loop for field across fields
+                       do (jcall "setAccessible" field t) ;;; not a great idea esp. wrt. Java9
+                       append
+                       (let ((value (jcall "get" field f)))
+                         (list "  "
+                               `(:label ,(jcall "getName" field))
+                               ": "
+                               `(:value ,value ,(princ-to-string value))
+                               '(:newline)))))))
+    #+abcl-introspect
+    ,@(when (and (function-name f) (symbolp (function-name f))
+                 (eq (symbol-package (function-name f)) (find-package :cl)))
+        (list '(:newline) (list :action "Lookup in hyperspec"
+                                (lambda () (hyperspec-do (symbol-name (function-name f))))
+                                :refreshp nil)
+              '(:newline)))))
 
 (defmethod emacs-inspect ((o java:java-object))
   (if (jinstance-of-p o (jclass "java.lang.Class"))
@@ -1354,30 +1373,30 @@
     (:newline)
     "Documentation:" (:newline)
     ,@(when (slot-definition-documentation slot)
-            `((:value ,(slot-definition-documentation slot)) (:newline)))
+        `((:value ,(slot-definition-documentation slot)) (:newline)))
     (:label "Initialization:") (:newline)
     (:label "  Args: ") (:value ,(mop:slot-definition-initargs slot)) (:newline)
     (:label "  Form: ")
     ,(if (mop:slot-definition-initfunction slot)
-                     `(:value ,(mop:slot-definition-initform slot))
-                     "#<unspecified>") (:newline)
-                     "  Function: "
-                     (:value ,(mop:slot-definition-initfunction slot))
-                     (:newline)))
+         `(:value ,(mop:slot-definition-initform slot))
+         "#<unspecified>") (:newline)
+    "  Function: "
+    (:value ,(mop:slot-definition-initfunction slot))
+    (:newline)))
 
 (defun inspector-java-fields (class)
   (loop
-     for super
-       = class then (jclass-superclass super)
-     while super
-     for fields
-       = (jcall "getDeclaredFields" super)
-     for fromline
-       = nil then (list `(:label "From: ") `(:value ,super  ,(jcall "getName" super)) '(:newline))
-     when (and (plusp (length fields)) fromline)
-     append fromline
-     append
-       (loop for this across fields
+    for super
+      = class then (jclass-superclass super)
+    while super
+    for fields
+      = (jcall "getDeclaredFields" super)
+    for fromline
+      = nil then (list `(:label "From: ") `(:value ,super  ,(jcall "getName" super)) '(:newline))
+    when (and (plusp (length fields)) fromline)
+      append fromline
+    append
+    (loop for this across fields
           for pre = (subseq (jcall "toString" this)
                             0 
                             (1+ (position #\. (jcall "toString" this)  :from-end t)))
@@ -1388,17 +1407,17 @@
 
 (defun inspector-java-methods (class)
   (loop
-     for super
-       = class then (jclass-superclass super)
-     while super
-     for methods
-       = (jcall "getDeclaredMethods" super)
-     for fromline
-       = nil then (list `(:label "From: ") `(:value ,super  ,(jcall "getName" super)) '(:newline))
-     when (and (plusp (length methods)) fromline)
-     append fromline
-     append
-       (loop for this across methods
+    for super
+      = class then (jclass-superclass super)
+    while super
+    for methods
+      = (jcall "getDeclaredMethods" super)
+    for fromline
+      = nil then (list `(:label "From: ") `(:value ,super  ,(jcall "getName" super)) '(:newline))
+    when (and (plusp (length methods)) fromline)
+      append fromline
+    append
+    (loop for this across methods
           for desc = (jcall "toString" this)
           for paren =  (position #\( desc)
           for dot = (position #\. (subseq desc 0 paren) :from-end t)
@@ -1431,7 +1450,7 @@
                          `(:action "[open in emacs buffer]" ,(lambda() (swank::ed-in-emacs `( ,path)))) '(:newline)))
       ,@(if has-superclasses 
             (list* '(:label "Superclasses: ") (butlast (loop for super = (jclass-superclass class) then (jclass-superclass super)
-                            while super collect (list :value super (jcall "getName" super)) collect ", "))))
+                                                             while super collect (list :value super (jcall "getName" super)) collect ", "))))
       ,@(if has-interfaces
             (list* '(:newline) '(:label "Implements Interfaces: ")
                    (butlast (loop for i across (jclass-interfaces class) collect (list :value i (jcall "getName" i)) collect ", "))))
@@ -1463,27 +1482,27 @@
 (defmethod emacs-inspect ((object sys::structure-class))
   (let* ((name (jss::get-java-field object "name" t))
          (def (get name  'system::structure-definition)))
-  `((:label "Class: ") (:value ,object) (:newline)
-    (:label "Raw defstruct definition: ") (:value ,def  ,(let ((*print-array* nil)) (prin1-to-string def))) (:newline)
-   ,@(parts-for-structure-def  name)
-    ;; copy-paste from swank fancy inspector
-    ,@(when (swank-mop:specializer-direct-methods object)
-        `((:label "It is used as a direct specializer in the following methods:")
-          (:newline)
-          ,@(loop
-              for method in (specializer-direct-methods object)
-              for method-spec = (swank::method-for-inspect-value method)
-              collect "  "
-              collect `(:value ,method ,(string-downcase (string (car method-spec))))
-              collect `(:value ,method ,(format nil " (~{~a~^ ~})" (cdr method-spec)))
-              append (let ((method method))
-                       `(" " (:action "[remove]"
-                                      ,(lambda () (remove-method (swank-mop::method-generic-function method) method)))))
-              collect '(:newline)
-              if (documentation method t)
-                collect "    Documentation: " and
-              collect (swank::abbrev-doc  (documentation method t)) and
-              collect '(:newline)))))))
+    `((:label "Class: ") (:value ,object) (:newline)
+      (:label "Raw defstruct definition: ") (:value ,def  ,(let ((*print-array* nil)) (prin1-to-string def))) (:newline)
+      ,@(parts-for-structure-def  name)
+      ;; copy-paste from swank fancy inspector
+      ,@(when (swank-mop:specializer-direct-methods object)
+          `((:label "It is used as a direct specializer in the following methods:")
+            (:newline)
+            ,@(loop
+                for method in (specializer-direct-methods object)
+                for method-spec = (swank::method-for-inspect-value method)
+                collect "  "
+                collect `(:value ,method ,(string-downcase (string (car method-spec))))
+                collect `(:value ,method ,(format nil " (~{~a~^ ~})" (cdr method-spec)))
+                append (let ((method method))
+                         `(" " (:action "[remove]"
+                                        ,(lambda () (remove-method (swank-mop::method-generic-function method) method)))))
+                collect '(:newline)
+                if (documentation method t)
+                  collect "    Documentation: " and
+                collect (swank::abbrev-doc  (documentation method t)) and
+                collect '(:newline)))))))
 
 (defun parts-for-structure-def-slot (def)
   `((:label ,(string-downcase (sys::dsd-name def))) " reader: " (:value ,(sys::dsd-reader def) ,(string-downcase (string (sys::dsdreader def))))
@@ -1491,8 +1510,8 @@
     ,@(if (sys::dsd-initform def)
           `(", initform: " (:value ,(sys::dsd-initform def))))
     ,@(if (sys::dsd-read-only def)
-         '(", Read only"))))
-  
+          '(", Read only"))))
+
 (defun parts-for-structure-def (name)
   (let ((structure-def (get name 'system::structure-definition )))
     (append
@@ -1504,18 +1523,18 @@
            for value = (eval `(,fsym ,structure-def))
            append `((:label ,(string-capitalize (string key))) ": " (:value ,value) (:newline)))
      (let* ((direct (sys::dd-direct-slots structure-def) )
-           (all (sys::dd-slots structure-def))
-           (inherited (set-difference all direct)))
-     `((:label "Direct slots: ") (:newline)
-       ,@(loop for slotdef in direct  
-               append `("  " ,@(parts-for-structure-def-slot slotdef)
-                             (:newline)))
-       ,@(if inherited 
-             (append '((:label "Inherited slots: ") (:newline))
-                     (loop for slotdef in inherited  
-                           append `("  " (:label ,(string-downcase (string (sys::dsd-name slotdef))))
-                                         (:value ,slotdef "slot definition")
-                                         (:newline))))))))))
+            (all (sys::dd-slots structure-def))
+            (inherited (set-difference all direct)))
+       `((:label "Direct slots: ") (:newline)
+         ,@(loop for slotdef in direct  
+                 append `("  " ,@(parts-for-structure-def-slot slotdef)
+                               (:newline)))
+         ,@(if inherited 
+               (append '((:label "Inherited slots: ") (:newline))
+                       (loop for slotdef in inherited  
+                             append `("  " (:label ,(string-downcase (string (sys::dsd-name slotdef))))
+                                           (:value ,slotdef "slot definition")
+                                           (:newline))))))))))
 
 ;;;; Multithreading
 
@@ -1529,9 +1548,9 @@
 
 (defimplementation thread-id (thread)
   (threads:synchronized-on *thread-plists*
-    (or (getf (gethash thread *thread-plists*) 'id)
-        (setf (getf (gethash thread *thread-plists*) 'id)
-              (incf *thread-id-counter*)))))
+                           (or (getf (gethash thread *thread-plists*) 'id)
+                               (setf (getf (gethash thread *thread-plists*) 'id)
+                                     (incf *thread-id-counter*)))))
 
 (defimplementation find-thread (id)
   (find id (all-threads)
@@ -1572,30 +1591,30 @@
 (defun mailbox (thread)
   "Return THREAD's mailbox."
   (threads:synchronized-on *thread-plists*
-    (or (getf (gethash thread *thread-plists*) 'mailbox)
-        (setf (getf (gethash thread *thread-plists*) 'mailbox)
-              (make-mailbox)))))
+                           (or (getf (gethash thread *thread-plists*) 'mailbox)
+                               (setf (getf (gethash thread *thread-plists*) 'mailbox)
+                                     (make-mailbox)))))
 
 (defimplementation send (thread message)
   (let ((mbox (mailbox thread)))
     (threads:synchronized-on mbox
-      (setf (mailbox-queue mbox)
-            (nconc (mailbox-queue mbox) (list message)))
-      (threads:object-notify-all mbox))))
+                             (setf (mailbox-queue mbox)
+                                   (nconc (mailbox-queue mbox) (list message)))
+                             (threads:object-notify-all mbox))))
 
 (defimplementation receive-if (test &optional timeout)
   (let* ((mbox (mailbox (current-thread))))
     (assert (or (not timeout) (eq timeout t)))
     (loop
-     (check-slime-interrupts)
-     (threads:synchronized-on mbox
-       (let* ((q (mailbox-queue mbox))
-              (tail (member-if test q)))
-         (when tail
-           (setf (mailbox-queue mbox) (nconc (ldiff q tail) (cdr tail)))
-           (return (car tail)))
-         (when (eq timeout t) (return (values nil t)))
-         (threads:object-wait mbox 0.3))))))
+      (check-slime-interrupts)
+      (threads:synchronized-on mbox
+                               (let* ((q (mailbox-queue mbox))
+                                      (tail (member-if test q)))
+                                 (when tail
+                                   (setf (mailbox-queue mbox) (nconc (ldiff q tail) (cdr tail)))
+                                   (return (car tail)))
+                                 (when (eq timeout t) (return (values nil t)))
+                                 (threads:object-wait mbox 0.3))))))
 
 (defimplementation quit-lisp ()
   (ext:exit))
@@ -1622,8 +1641,7 @@
         for impl = (get s 'swank-backend::implementation)
         do (when (and impl (not (compiled-function-p impl)))
              (let ((name (gensym)))
-               (compile name  impl)
+               (compile name impl)
                (let ((compiled (symbol-function name)))
                  (system::%set-lambda-name compiled (second (sys::lambda-name impl)))
                  (setf (get s 'swank-backend::implementation) compiled))))))
-

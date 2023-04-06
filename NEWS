@@ -1,7 +1,15 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
-* 2.28 (Unreleased)
+* 2.29 (unreleased)
+** Core
+*** Loading the system "swank" with ASDF produces compilation artifacts
+** ABCL
+*** Fix missing source position from string buffer location 
+* 2.28 (January 2023)
+** Operations that produce a lot of output can be interrupted more easily. 
+** Improved compatibility with implementations and newer Emacs versions.
 ** abcl
 *** Fix inspector failure for openjdk16+ Java fields
+
 * 2.27 (January 2022)
 ** Mostly improved compatibility with different implementations and bug fixes.
 

@@ -770,6 +770,7 @@ If NEWLINE is true then add a newline at the end of the input."
     (slime-repl-add-to-input-history
      (buffer-substring slime-repl-input-start-mark end))
     (when newline
+      ;; Reset the output columns independently in case they are out of sync.
       (insert "\n")
       (slime-repl-show-maximum-output))
     (let ((inhibit-modification-hooks t))
@@ -1745,8 +1746,10 @@ expansion will be added to the REPL's history.)"
 
 (defun slime-repl-event-hook-function (event)
   (slime-dcase event
-    ((:write-string output &optional target)
+    ((:write-string output &optional target thread)
      (slime-write-string output target)
+     (when thread
+       (slime-send `(:write-done ,thread)))
      t)
     ((:read-string thread tag)
      (cl-assert thread)

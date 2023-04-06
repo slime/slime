@@ -48,7 +48,7 @@
 Exits Emacs when finished. The exit code is the number of failed tests."
   (interactive)
   (let ((ert-debug-on-error nil)
-        (timeout 30)
+        (timeout 60)
         (slime-background-message-function #'ignore))
     (slime)
     ;; Block until we are up and running.
@@ -200,9 +200,8 @@ conditions (assertions)."
 (defun slime-wait-condition (name predicate timeout)
   (let ((end (time-add (current-time) (seconds-to-time timeout))))
     (while (not (funcall predicate))
-      (let ((now (current-time)))
-        (message "waiting for condition: %s [%s.%06d]" name
-                 (format-time-string "%H:%M:%S" now) (cl-third now)))
+      (message "waiting for condition: %s [%s]" name
+               (format-time-string "%H:%M:%S.%6N"))
       (cond ((time-less-p end (current-time))
              (error "Timeout waiting for condition: %S" name))
             (t
@@ -1368,7 +1367,7 @@ Reconnect afterwards."
                 (die "Unexpected error running takeoff forms"
                      err)))
              (with-timeout
-                 (20
+                 (60
                   (die "Timeout waiting for recipe test to finish."
                        takeoff))
                (while t (sit-for 1)))))))
