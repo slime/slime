@@ -46,7 +46,7 @@
   #+lispworks '((swank lispworks) (swank gray))
   #+allegro '((swank allegro) (swank gray))
   #+clisp '(xref metering (swank clisp) (swank gray))
-  #+armedbear '((swank abcl))
+  #+armedbear '((swank abcl) (swank gray))
   #+cormanlisp '((swank corman) (swank gray))
   #+ecl '((swank ecl) (swank gray))
   #+clasp '(metering (swank clasp) (swank gray))

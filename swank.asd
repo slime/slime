@@ -42,7 +42,7 @@
                              (:file "clasp" :if-feature :clasp)
                              (:file "mkcl" :if-feature :mkcl)
                              (:file "mezzano" :if-feature :mezzano)
-                             (:file "gray" :if-feature (:not :armedbear))
+                             (:file "gray")
                              (:file "match")
                              (:file "rpc")))
                (:file "swank")))
