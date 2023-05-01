@@ -49,10 +49,13 @@
 (defimplementation gray-package-name ()
   "GRAY-STREAMS")
 
-;; FIXME: switch to shared Gray stream implementation when the
-;; architecture for booting streams allows us to replace the Java-side
-;; implementation of a Slime{Input,Output}Stream.java classes are
-;; subsumed <http://abcl.org/trac/ticket/373>.
+;;;; abcl-1.9.2 revamped Gray Streams, so it uses the default
+;;;; implementation of MAKE-{INPUT,OUTPUT}-STREAM.
+
+;;;; Previous ABCL versions use the specialized Java implementations,
+;;;; which won't work with all SLIME contribs, notably the
+;;;; <file:../contrib/slime-repl.lisp> one
+#-#.(swank/backend:with-symbol 'java/element-type 'gray-streams/java)
 (progn
   (defimplementation make-output-stream (write-string)
     (ext:make-slime-output-stream write-string))
