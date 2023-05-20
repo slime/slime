@@ -547,13 +547,13 @@
    values))
 
 ;; Switch to enable or disable locals functionality
-#+abcl-introspect
+#+#.(swank/backend:with-symbol 'find-locals 'abcl-introspect/sys)
 (defvar *enable-locals* t)
 
-#+abcl-introspect 
+#+#.(swank/backend:with-symbol 'find-locals 'abcl-introspect/sys)
 (defun are-there-locals? (frame index)
   (and *enable-locals*
-       (fboundp 'abcl-introspect/sys::find-locals)
+       (fboundp 'abcl-introspect/sys:find-locals)
        (typep frame 'sys::lisp-stack-frame)
        (let ((operator (jss::get-java-field (nth-frame index) "operator" t)))
          (and (function-lambda-expression (if (functionp operator) operator (symbol-function operator)))
@@ -562,7 +562,7 @@
                   (not (eq (symbol-package operator) (find-package 'cl)))
                   t)))))
 
-#+abcl-introspect
+#+#.(swank/backend:with-symbol 'find-locals 'abcl-introspect/sys)
 (defun abcl-introspect/frame-locals (frame index)
   ;; FIXME introspect locals in SYS::JAVA-STACK-FRAME
   (or (and (are-there-locals? frame index)
@@ -614,12 +614,12 @@
                            :value value))))
       (append frame-arguments frame-locals))))
 
-#+abcl-introspect
+#+#.(swank/backend:with-symbol 'find-locals 'abcl-introspect/sys)
 (defimplementation frame-catch-tags (index)
   (mapcar 'second (remove :catch (caar (abcl-introspect/sys:find-locals index (backtrace 0 (1+ index))))
                           :test-not 'eq :key 'car)))
 
-#+abcl-introspect
+#+#.(swank/backend:with-symbol 'find-locals 'abcl-introspect/sys)
 (defimplementation frame-var-value (index id)
   (if (are-there-locals? (nth-frame index) index)
       (third (nth id (reverse (remove :lexical-variable
@@ -627,7 +627,7 @@
                                       :test-not 'eq :key 'car))))
       (elt (rest (jcall "toLispList" (nth-frame index))) id)))
 
-#+abcl-introspect
+#+#.(swank/backend:with-symbol 'find-locals 'abcl-introspect/sys)
 (defimplementation disassemble-frame (index)
   (sys::disassemble (frame-function (nth-frame index))))
 
