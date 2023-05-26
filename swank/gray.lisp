@@ -39,9 +39,11 @@
 
 (in-package swank/gray)
 
+(defconstant +string-maximum+ 64000)
+
 (defclass slime-output-stream (fundamental-character-output-stream)
   ((output-fn :initarg :output-fn)
-   (buffer :initform (make-string 64000))
+   (buffer :initform (make-string +string-maximum+))
    (fill-pointer :initform 0)
    (column :initform 0)
    (lock :initform (make-lock :name "buffer write lock"))
