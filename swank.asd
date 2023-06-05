@@ -9,17 +9,28 @@
 
 ;; Usage:
 ;;
-;;   (asdf:load-system "swank")
-;;   (swank:create-swank-server PORT) => ACTUAL-PORT
+;;   (asdf:load-system :swank)
+;;   (swank:create-server :dont-close t)
 ;;
-;; (PORT can be zero to mean "any available port".)
-;; Then the Swank server is running on localhost:ACTUAL-PORT. You can
+;; After which, the Swank server is running on localhost:4005. You can
 ;; use `M-x slime-connect' to connect Emacs to it.
 ;;
 ;; This code has been placed in the Public Domain.  All warranties
 ;; are disclaimed.
 
 (asdf:defsystem "swank"
+  :perform (load-op :after (o c)
+              (set (intern '*source-directory* 'swank-loader)
+                   (asdf:system-source-directory :swank))
+              (set (intern '*fasl-directory* 'swank-loader)
+                   (asdf:apply-output-translations (asdf:system-source-directory :swank)))
+              (uiop:symbol-call :swank :before-init
+                 (uiop:symbol-call :swank-loader :slime-version-string)
+                 (list
+                  (uiop:symbol-call :swank-loader :contrib-dir
+                     (symbol-value (intern "*FASL-DIRECTORY*" 'swank-loader)))
+                  (uiop:symbol-call :swank-loader :contrib-dir
+                     (symbol-value (intern "*SOURCE-DIRECTORY*" 'swank-loader))))))
   :components ((:file "swank-loader")
                (:file "packages")
                (:file "xref" :if-feature :clisp)
@@ -61,6 +72,7 @@
                (:file "swank-asdf" :if-feature (:or :asdf2 :asdf3 :sbcl :ecl))
                (:file "swank-package-fu")
                (:file "swank-hyperdoc")
+               (:file "swank-indentation")
                (:file "swank-sbcl-exts" :if-feature :sbcl)
                (:file "swank-mrepl")
                (:file "swank-trace-dialog")
