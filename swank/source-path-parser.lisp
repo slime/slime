@@ -23,8 +23,8 @@
 
 ;;; Taken from swank-cmucl.lisp, by Helmut Eller
 
-(defpackage swank/source-path-parser
-  (:use cl)
+(defpackage :swank/source-path-parser
+  (:use :cl)
   (:export
    read-source-form
    source-path-string-position

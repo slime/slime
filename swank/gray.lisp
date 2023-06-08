@@ -8,7 +8,7 @@
 ;;; are disclaimed.
 ;;;
 
-(in-package swank/backend)
+(in-package :swank/backend)
 
 #.(progn
     (defvar *gray-stream-symbols*
@@ -32,12 +32,12 @@
       #+sbcl stream-file-position))
     nil)
 
-(defpackage swank/gray
-  (:use cl swank/backend)
+(defpackage :swank/gray
+  (:use :cl :swank/backend)
   (:import-from #.(gray-package-name) . #.*gray-stream-symbols*)
   (:export . #.*gray-stream-symbols*))
 
-(in-package swank/gray)
+(in-package :swank/gray)
 
 (defclass slime-output-stream (fundamental-character-output-stream)
   ((output-fn :initarg :output-fn)

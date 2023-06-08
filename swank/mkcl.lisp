@@ -8,10 +8,10 @@
 
 ;;; Administrivia
 
-(defpackage swank/mkcl
-  (:use cl swank/backend))
+(defpackage :swank/mkcl
+  (:use :cl :swank/backend))
 
-(in-package swank/mkcl)
+(in-package :swank/mkcl)
 
 ;;(declaim (optimize (debug 3)))
 

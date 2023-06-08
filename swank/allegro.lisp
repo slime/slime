@@ -8,10 +8,10 @@
 ;;; are disclaimed.
 ;;;
 
-(defpackage swank/allegro
-  (:use cl swank/backend))
+(defpackage :swank/allegro
+  (:use :cl :swank/backend))
 
-(in-package swank/allegro)
+(in-package :swank/allegro)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :sock)

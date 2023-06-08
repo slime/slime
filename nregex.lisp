@@ -29,7 +29,7 @@
 ;; this file. -- he
 
 ;;;; CND - 6/3/2001
-(defpackage slime-nregex
+(defpackage :slime-nregex
   (:use #:common-lisp)
   (:export 
    #:regex

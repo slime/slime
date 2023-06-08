@@ -1,9 +1,9 @@
 
-(defpackage swank-snapshot
-  (:use cl)
+(defpackage :swank-snapshot
+  (:use :cl)
   (:export restore-snapshot save-snapshot background-save-snapshot)
-  (:import-from swank defslimefun))
-(in-package swank-snapshot)
+  (:import-from :swank defslimefun))
+(in-package :swank-snapshot)
 
 (defslimefun save-snapshot (image-file)
   (swank/backend:save-image image-file 

@@ -8,10 +8,10 @@
 ;;; are disclaimed.
 ;;;
 
-(defpackage swank/lispworks
-  (:use cl swank/backend))
+(defpackage :swank/lispworks
+  (:use :cl :swank/backend))
 
-(in-package swank/lispworks)
+(in-package :swank/lispworks)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require "comm"))

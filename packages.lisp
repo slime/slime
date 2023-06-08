@@ -1,6 +1,6 @@
-(defpackage swank/backend
+(defpackage :swank/backend
   (:use cl)
-  (:nicknames swank-backend)
+  (:nicknames :swank-backend)
   (:export *debug-swank-backend*
            *log-output*
            sldb-condition
@@ -65,7 +65,7 @@
            *auto-flush-interval*
            with-lock))
 
-(defpackage swank/rpc
+(defpackage :swank/rpc
   (:use :cl)
   (:export
    read-message
@@ -75,12 +75,12 @@
    swank-reader-error.cause
    write-message))
 
-(defpackage swank/match
+(defpackage :swank/match
   (:use cl)
   (:export match))
 
 ;; FIXME: rename to sawnk/mop
-(defpackage swank-mop
+(defpackage :swank-mop
   (:use)
   (:export
    ;; classes
@@ -133,8 +133,8 @@
    compute-applicable-methods-using-classes
    finalize-inheritance))
 
-(defpackage swank
-  (:use cl swank/backend swank/match swank/rpc)
+(defpackage :swank
+  (:use :cl :swank/backend :swank/match :swank/rpc)
   (:export #:startup-multiprocessing
            #:start-server
            #:create-server

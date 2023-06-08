@@ -8,10 +8,10 @@
 
 ;;; Administrivia
 
-(defpackage swank/clasp
-  (:use cl swank/backend))
+(defpackage :swank/clasp
+  (:use :cl :swank/backend))
 
-(in-package swank/clasp)
+(in-package :swank/clasp)
 
 ;; Hard dependencies.
 (eval-when (:compile-toplevel :load-toplevel :execute)

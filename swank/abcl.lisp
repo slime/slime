@@ -9,8 +9,8 @@
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
 
-(defpackage swank/abcl
-  (:use cl swank/backend)
+(defpackage :swank/abcl
+  (:use :cl :swank/backend)
   (:import-from :java
                 #:jcall #:jstatic
                 #:jmethod
@@ -28,7 +28,7 @@
                 #+#.(swank/backend:with-symbol 'jclass-name 'java) #:jclass-name
                 #+#.(swank/backend:with-symbol 'java-object-p 'java) #:java-object-p))
 
-(in-package swank/abcl)
+(in-package :swank/abcl)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :collect) ;just so that it doesn't spoil the flying letters

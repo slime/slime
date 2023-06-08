@@ -20,9 +20,9 @@
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
 
-(defpackage swank/source-file-cache
-  (:use cl)
-  (:import-from swank/backend
+(defpackage :swank/source-file-cache
+  (:use :cl)
+  (:import-from :swank/backend
 		defimplementation buffer-first-change
 		guess-external-format
 		find-external-format)

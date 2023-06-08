@@ -34,10 +34,10 @@
 
 ;;; [1] http://cvs.sourceforge.net/viewcvs.py/clocc/clocc/src/tools/metering/
 
-(defpackage swank/clisp
-  (:use cl swank/backend))
+(defpackage :swank/clisp
+  (:use :cl :swank/backend))
 
-(in-package swank/clisp)
+(in-package :swank/clisp)
 
 (eval-when (:compile-toplevel)
   (unless (string< "2.44" (lisp-implementation-version))
