@@ -3388,8 +3388,11 @@ are supported:
       (when edit-path (slime-search-edit-path edit-path))
       (when call-site (slime-search-call-site call-site))
       (when align
-        (slime-forward-sexp)
-        (beginning-of-sexp)))
+        (condition-case nil
+            (progn
+              (slime-forward-sexp)
+              (beginning-of-sexp))
+          (error (goto-char 0)))))
     (point)))
 
 
