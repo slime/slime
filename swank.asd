@@ -20,9 +20,9 @@
 
 (asdf:defsystem "swank"
   :perform (load-op :after (o c)
-              (set (intern '*source-directory* 'swank-loader)
+              (set (intern '*SOURCE-DIRECTORY* 'swank-loader)
                    (asdf:system-source-directory :swank))
-              (set (intern '*fasl-directory* 'swank-loader)
+              (set (intern '*FASL-DIRECTORY* 'swank-loader)
                    (asdf:apply-output-translations (asdf:system-source-directory :swank)))
               (uiop:symbol-call :swank :before-init
                  (uiop:symbol-call :swank-loader :slime-version-string)
