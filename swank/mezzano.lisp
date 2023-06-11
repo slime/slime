@@ -8,8 +8,8 @@
 
 ;;; Administrivia
 
-(defpackage swank/mezzano
-  (:use cl swank/backend))
+(defpackage :swank/mezzano
+  (:use :cl :swank/backend))
 
 (in-package swank/mezzano)
 

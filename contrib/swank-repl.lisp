@@ -1,13 +1,13 @@
 ;;; swank-repl.lisp --- Server side part of the Lisp listener.
 ;;
 ;; License: public domain
-(in-package swank)
+(in-package :swank)
 
-(defpackage swank-repl
-  (:use cl swank/backend)
+(defpackage :swank-repl
+  (:use cl :swank/backend)
   (:export *send-repl-results-function*)
   (:import-from
-   swank
+   :swank
 
    *default-worker-thread-bindings*
 
@@ -70,7 +70,7 @@
    *dedicated-output-stream-port*
    *globally-redirect-io*))
 
-(in-package swank-repl)
+(in-package :swank-repl)
 
 (defvar *use-dedicated-output-stream* nil
   "When T swank will attempt to create a second connection to Emacs

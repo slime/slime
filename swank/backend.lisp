@@ -10,7 +10,7 @@
 ;;; separately for each Lisp. Each is declared as a generic function
 ;;; for which swank-<implementation>.lisp provides methods.
 
-(in-package swank/backend)
+(in-package :swank/backend)
 
 
 ;;;; Metacode

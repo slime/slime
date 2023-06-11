@@ -84,7 +84,7 @@
 ;;      case, like OTHER above.
 ;;
 
-(in-package swank/match)
+(in-package :swank/match)
 
 (defmacro match (expression &body patterns)
   `(select-match ,expression ,@patterns))

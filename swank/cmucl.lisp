@@ -6,11 +6,11 @@
 ;;;
 ;;; This is the CMUCL implementation of the `swank/backend' package.
 
-(defpackage swank/cmucl
-  (:use cl swank/backend swank/source-path-parser swank/source-file-cache
-        fwrappers))
+(defpackage :swank/cmucl
+  (:use :cl :swank/backend :swank/source-path-parser :swank/source-file-cache
+        :fwrappers))
 
-(in-package swank/cmucl)
+(in-package :swank/cmucl)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
 

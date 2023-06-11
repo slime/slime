@@ -11,8 +11,8 @@
 
 ;;; Administrivia
 
-(defpackage swank/sbcl
-  (:use cl swank/backend swank/source-path-parser swank/source-file-cache))
+(defpackage :swank/sbcl
+  (:use :cl :swank/backend :swank/source-path-parser :swank/source-file-cache))
 
 (in-package swank/sbcl)
 
