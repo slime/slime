@@ -1310,7 +1310,8 @@ object."
              (let ((result-form))
                (loop for (car . cdr) on form do
                      (cond ((eql car +cursor-marker+)
-                            (decf (first path))
+                            (when (plusp (first path))
+                              (decf (first path)))
                             (return-from grovel
                               (values (nreconc result-form cdr)
                                       last
@@ -1613,7 +1614,24 @@ datum for subsequent logics to rely on."
       (soft-assert (eq (provided-arguments-ref '(a :k (b c)) sample :k 1)
                        'c)))))
 
+(defun test-extract-cursor-marker ()
+  (macrolet ((soft-assert (form)
+               `(unless ,form
+                  (warn "Assertion failed: ~S~%" ',form))))
+    ;; The form passed to EXTRACT-CURSOR-MARKER is what one gets with
+    ;; this definition:
+    ;;
+    ;;     (defmacro with-x ((x)))
+    ;;
+    ;; and the cursor at |:
+    ;;
+    ;;     (with-x (#+nil|))
+    (soft-assert (equal (nth-value 2 (extract-cursor-marker
+                                      '("foo" (swank::%cursor-marker%))))
+                        '(1 0)))))
+
 (test-print-arglist)
 (test-arglist-ref)
+(test-extract-cursor-marker)
 
 (provide :swank-arglists)
