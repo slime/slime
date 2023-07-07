@@ -53,7 +53,12 @@
           (push pt2 todo)
           (push cursexp sexps)))))
     (when sexps
-      (setf (car sexps) (cl-nreconc form-suffix (car sexps)))
+      (if (car sexps)
+          (setf (car sexps) (cl-nreconc form-suffix (car sexps)))
+          (setf (car sexps) (nreverse
+                             (if (equal (car form-suffix) "")
+                                 form-suffix
+                                 (cons "" form-suffix)))))
       (while (> depth 1)
         (push (nreverse (pop sexps)) (car sexps))
         (cl-decf depth))
