@@ -1569,7 +1569,8 @@ expansion will be added to the REPL's history.)"
                         (save-excursion (insert ")"))))
                  (unless function
                    (goto-char slime-repl-input-start-mark)))))
-    (let ((toplevel (slime-parse-toplevel-form)))
+    (let ((toplevel (slime-parse-toplevel-form '(:defun :defgeneric :defmacro :define-compiler-macro
+                                                 :defmethod :defparameter :defvar :defconstant :defclass))))
       (if (symbolp toplevel)
           (error "Not in a function definition")
         (slime-dcase toplevel
