@@ -155,14 +155,25 @@ Return nil if nothing appropriate is available."
             when (string-starts-with line prefix)
               return (subseq line (length prefix))))))
 
+
 (defun default-fasl-dir ()
-  (merge-pathnames
-   (make-pathname
-    :directory `(:relative ".slime" "fasl"
-                 ,@(if (slime-version-string) (list (slime-version-string)))
-                 ,(unique-dir-name)
-                 ,@(if *load-truename* (cdr (pathname-directory *load-truename*)))))
-   (user-homedir-pathname)))
+  "If XDG_DATA_HOME is set the default fasl directory is
+XDG_DATA_HOME/slime/fasl; otherwise ~/.slime/fasl"
+  (let* ((xdg-data-home (uiop:getenv "XDG_DATA_HOME"))
+         (base-path (if xdg-data-home
+                        (parse-namestring xdg-data-home)
+                        (user-homedir-pathname)))
+         (slime-dir (if xdg-data-home
+                        "slime"
+                        ".slime")))
+    (merge-pathnames
+     (make-pathname
+      :directory `(:relative ,slime-dir "fasl"
+                   ,@(if (slime-version-string) (list (slime-version-string)))
+                   ,(unique-dir-name)
+                   ,@(if *load-truename* (cdr (pathname-directory *load-truename*)))))
+     base-path)))
+
 
 (defvar *fasl-directory* (default-fasl-dir)
   "The directory where fasl files should be placed.")
