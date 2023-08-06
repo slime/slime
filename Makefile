@@ -12,7 +12,7 @@ LOAD_PATH=-L .
 ELFILES := slime.el slime-autoloads.el slime-tests.el $(wildcard lib/*.el)
 ELCFILES := $(ELFILES:.el=.elc)
 
-SLIME_DIR := $(shell if [ -z "$${XDG_DATA_HOME}" ]; then echo "~/.slime"; else echo "$${XDG_DATA_HOME}/slime"; fi)
+SLIME_DIR := $(shell if [ -z "$${SLIME_HOME_DIR}" ]; then echo "~/.slime"; else echo "$${SLIME_HOME_DIR}"; fi)
 
 default: compile contrib-compile
 

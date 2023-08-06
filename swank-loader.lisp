@@ -157,22 +157,19 @@ Return nil if nothing appropriate is available."
 
 
 (defun default-fasl-dir ()
-  "If XDG_DATA_HOME is set the default fasl directory is
-XDG_DATA_HOME/slime/fasl; otherwise ~/.slime/fasl"
-  (let* ((xdg-data-home (uiop:getenv "XDG_DATA_HOME"))
-         (base-path (if (> (length xdg-data-home) 0)
-                        (parse-namestring xdg-data-home)
-                        (user-homedir-pathname)))
-         (slime-dir (if (> (length xdg-data-home) 0)
-                        "slime"
-                        ".slime")))
+  "If the environment variable, SLIME_HOME_DIR is set, then the default fasl
+ directory is SLIME_HOME_DIR/fasl; otherwise ~/.slime/fasl"
+  (let* ((slime-home-dir-var (uiop:getenv "SLIME_HOME_DIR"))
+         (slime-dir (if (> (length slime-home-dir-var) 0)
+                        (parse-namestring slime-home-dir-var)
+                        (merge-pathnames ".slime/" (user-homedir-pathname)))))
     (merge-pathnames
      (make-pathname
-      :directory `(:relative ,slime-dir "fasl"
+      :directory `(:relative "fasl"
                    ,@(if (slime-version-string) (list (slime-version-string)))
                    ,(unique-dir-name)
                    ,@(if *load-truename* (cdr (pathname-directory *load-truename*)))))
-     base-path)))
+     slime-dir)))
 
 
 (defvar *fasl-directory* (default-fasl-dir)
