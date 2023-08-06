@@ -14,8 +14,6 @@ ELCFILES := $(ELFILES:.el=.elc)
 
 SLIME_DIR := $(shell if [ -z "$${XDG_DATA_HOME}" ]; then echo "~/.slime"; else echo "$${XDG_DATA_HOME}/slime"; fi)
 
-# rest of your Makefile
-
 default: compile contrib-compile
 
 all: compile
