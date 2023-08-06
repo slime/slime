@@ -160,10 +160,10 @@ Return nil if nothing appropriate is available."
   "If XDG_DATA_HOME is set the default fasl directory is
 XDG_DATA_HOME/slime/fasl; otherwise ~/.slime/fasl"
   (let* ((xdg-data-home (uiop:getenv "XDG_DATA_HOME"))
-         (base-path (if xdg-data-home
+         (base-path (if (> (length xdg-data-home) 0)
                         (parse-namestring xdg-data-home)
                         (user-homedir-pathname)))
-         (slime-dir (if xdg-data-home
+         (slime-dir (if (> (length xdg-data-home) 0)
                         "slime"
                         ".slime")))
     (merge-pathnames
