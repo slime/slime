@@ -5719,12 +5719,14 @@ This is 0 if START and END at the same line."
         (t
          (slime-show-source-location source-location t nil))))))
 
+(defvar slime-show-source-location--display-buffer-action t)
+
 (defun slime-show-source-location (source-location
                                    &optional highlight recenter-arg)
   "Go to SOURCE-LOCATION and display the buffer in the other window."
   (slime-goto-source-location source-location)
   ;; show the location, but don't hijack focus.
-  (slime--display-position (point) t recenter-arg)
+  (slime--display-position (point) slime-show-source-location--display-buffer-action recenter-arg)
   (when highlight (slime-highlight-sexp)))
 
 (defun slime--display-position (pos other-window recenter-arg)
