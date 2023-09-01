@@ -134,15 +134,22 @@
                 finally (return (append result (switch-to-double-floats cdr)))))
     (t x)))
 
+(defvar *swank-print-readably* nil)
+
 (defun prin1-to-string-for-emacs (object package)
-  (with-standard-io-syntax
-    (let ((*print-case* :downcase)
-          (*print-readably* nil)
-          (*print-pretty* nil)
-          (*package* package)
-          ;; Emacs has only double floats.
-          (*read-default-float-format* 'double-float))
-      (prin1-to-string (switch-to-double-floats object)))))
+  (flet ((print-to-string (object package readably-p)
+           (with-standard-io-syntax
+             (let ((*print-case* :downcase)
+                   (*print-readably* readably-p)
+                   (*print-pretty* nil)
+                   (*package* package)
+                   ;; Emacs has only double floats.
+                   (*read-default-float-format* 'double-float))
+               (prin1-to-string (switch-to-double-floats object))))))
+    (handler-case (print-to-string object package *swank-print-readably*)
+      (print-not-readable (condition)
+        (declare (ignore condition))
+        (print-to-string object package nil)))))
 
 
 #| TEST/DEMO:
