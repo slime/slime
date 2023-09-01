@@ -67,7 +67,8 @@
 
 (swank-loader:define-package #:swank/rpc
   (:use #:cl)
-  (:export #:read-message
+  (:export #:*swank-print-readably*
+           #:read-message
            #:read-packet
            #:swank-reader-error
            #:swank-reader-error.packet
