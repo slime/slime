@@ -28,6 +28,13 @@
   (when (find-symbol "TEMPORARY-DIRECTORY" "EXT")
     (pushnew :temporary-directory *features*)))
 
+;;; Compatibility tests
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  ;; xref support (2.4)
+  (defun clasp-with-xref-p ()
+   (with-symbol 'who-calls 'ext)))
+
 ;;; Swank-mop
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -380,6 +387,24 @@
   (or (subtypep nil symbol)
       (not (eq (type-specifier-arglist symbol) :not-available))))
 
+;;; XREF
+
+#+#.(swank/clasp::clasp-with-xref-p)
+(macrolet ((defxref (name &optional (fname name))
+             `(defimplementation ,name (what)
+                (let ((r (,(find-symbol (symbol-name fname) "EXT")
+                          what)))
+                  (loop for (fname . spi) in r
+                        collect (list fname (translate-spi spi)))))))
+  (defxref who-calls)
+  (defxref who-binds)
+  (defxref who-sets)
+  (defxref who-references)
+  (defxref who-macroexpands)
+  (defxref who-specializes who-specializes-directly)
+  (defxref list-callers)
+  (defxref list-callees))
+
 
 ;;; Debugging
 
@@ -451,13 +476,21 @@
 (defimplementation print-frame (frame stream)
   (clasp-debug:prin1-frame-call frame stream))
 
+(defun translate-spi (spi)
+  (if spi
+      (let ((pathname (clasp-debug:code-source-line-pathname spi)))
+        (if pathname
+            (make-location (list :file (namestring (translate-logical-pathname pathname)))
+                           (list :line (clasp-debug:code-source-line-line-number spi))
+                           '(:align t))
+            nil))
+      nil))
+
 (defimplementation frame-source-location (frame-number)
-  (let ((csl (clasp-debug:frame-source-position (frame-from-number frame-number))))
-    (if (clasp-debug:code-source-line-pathname csl)
-        (make-location (list :file (namestring (translate-logical-pathname (clasp-debug:code-source-line-pathname csl))))
-                       (list :line (clasp-debug:code-source-line-line-number csl))
-                       '(:align t))
-        `(:error ,(format nil "No source for frame: ~a" frame-number)))))
+  (or (translate-spi
+       (clasp-debug:frame-source-position
+        (frame-from-number frame-number)))
+      `(:error ,(format nil "No source for frame: ~a" frame-number))))
 
 (defimplementation frame-locals (frame-number)
   (loop for (var . value)
