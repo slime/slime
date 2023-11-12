@@ -3605,7 +3605,8 @@ after each command.")
        (handle-indentation-cache-request c request))
       (multithreaded-connection
        (without-slime-interrupts
-         (send (mconn.indentation-cache-thread c) request))))))
+         (send (mconn.indentation-cache-thread c) request)))
+      (null t))))
 
 (defun indentation-cache-loop (connection)
   (with-connection (connection)
