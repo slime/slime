@@ -3126,7 +3126,14 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
                   (return)
                else do (push x qualifiers)
                while sexp)
-         (find-method (fdefinition gf) qualifiers (mapcar #'find-class specializers))))
+         (find-method (fdefinition gf) qualifiers 
+                      (mapcar (lambda (spec)
+                                (etypecase spec
+                                  (symbol (find-class spec))
+                                  ((cons (eql eql))
+                                   (make-instance 'swank-mop:eql-specializer
+                                                  :object (second spec)))))
+                              specializers))))
       (t
        (eval sexp)))))
 
