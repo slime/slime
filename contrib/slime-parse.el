@@ -228,7 +228,10 @@ The pattern can have the form:
                always (ignore-errors
                         (cl-etypecase p
                           (symbol (slime-beginning-of-list)
-                                  (eq (read (current-buffer)) p))
+                                  (let ((x (read (current-buffer))))
+                                    (and (symbolp x)
+                                         (string-equal-ignore-case (symbol-name x)
+                                                                   (symbol-name p)))))
                           (number (backward-up-list p)
                                   t)))))))
 
