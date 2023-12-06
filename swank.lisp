@@ -2622,8 +2622,12 @@ the filename of the module (or nil if the file doesn't exist).")
 (defslimefun disassemble-form (form)
   (with-buffer-syntax ()
     (with-output-to-string (*standard-output*)
-      (let ((*print-readably* nil))
-        (disassemble (eval (read-from-string form)))))))
+      (let ((definition (find-definition form)))
+        (disassemble (if (typep definition 'method)
+                         (or #+#.(swank/backend:with-symbol '%method-function-fast-function 'sb-pcl)
+                             (sb-pcl::%method-function-fast-function (swank-mop:method-function definition))
+                             (sb-mop:method-generic-function definition))
+                         definition))))))
 
 
 ;;;; Simple completion
@@ -3107,12 +3111,32 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
 (defun reset-inspector ()
   (setq *istate* nil
         *inspector-history* (make-array 10 :adjustable t :fill-pointer 0)))
-  
-(defslimefun init-inspector (string)
+
+(defun find-definition (string)
+  (let ((sexp (read-from-string string)))
+    (typecase sexp
+      ((cons (eql :defmethod))
+       (pop sexp)
+       (let ((gf (pop sexp))
+             (qualifiers)
+             (specializers))
+         (loop for x = (pop sexp)
+               when (consp x)
+               do (setf specializers x)
+                  (return)
+               else do (push x qualifiers)
+               while sexp)
+         (find-method (fdefinition gf) qualifiers (mapcar #'find-class specializers))))
+      (t
+       (eval sexp)))))
+
+(defslimefun init-inspector (string &optional definition)
   (with-buffer-syntax ()
     (with-retry-restart (:msg "Retry SLIME inspection request.")
       (reset-inspector)
-      (inspect-object (eval (read-from-string string))))))
+      (inspect-object (if definition
+                          (find-definition string)
+                          (eval (read-from-string string)))))))
 
 (defun ensure-istate-metadata (o indicator default)
   (with-struct (istate. object metadata-plist) *istate*
