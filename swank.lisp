@@ -2626,7 +2626,7 @@ the filename of the module (or nil if the file doesn't exist).")
         (disassemble (if (typep definition 'method)
                          (or #+#.(swank/backend:with-symbol '%method-function-fast-function 'sb-pcl)
                              (sb-pcl::%method-function-fast-function (swank-mop:method-function definition))
-                             (sb-mop:method-generic-function definition))
+                             (swank-mop:method-generic-function definition))
                          definition))))))
 
 
