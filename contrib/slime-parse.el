@@ -259,17 +259,18 @@ Point is placed before the first expression in the list."
   (down-list -1))
 
 (defun slime-parse-toplevel-form (&optional match)
-  (ignore-errors                        ; (foo)
-   (let ((start (car (slime-region-for-defun-at-point))))
-     (or (save-excursion
+  (let ((start (car (slime-region-for-defun-at-point))))
+    (or (ignore-errors
+         (save-excursion
           (goto-char start)
           (down-list 1)
           (forward-sexp 1)
           (let ((context (slime-parse-context (read (current-buffer)))))
             (when (or (not match)
                       (member (car context) match))
-              context)))
-         (when match
+              context))))
+        (when match
+          (ignore-errors
            (save-excursion
             (cl-loop while (> (point) start)
                      thereis
