@@ -22,7 +22,7 @@
   (when (probe-file "sys:profile.fas")
     (require :profile)
     (pushnew :profile *features*))
-  (when (probe-file "sys:serve-event")
+  (when (probe-file "sys:src;lisp;modules;serve-event;")
     (require :serve-event)
     (pushnew :serve-event *features*))
   (when (find-symbol "TEMPORARY-DIRECTORY" "EXT")
