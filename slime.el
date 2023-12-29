@@ -503,7 +503,7 @@ information."
             (pkg   (slime-current-package)))
         (concat " "
                 (if local "{" "[")
-                (if pkg (slime-pretty-package-name pkg) "?")
+                (if pkg (string-replace "%" "%%" (slime-pretty-package-name pkg)) "?")
                 " "
                 ;; ignore errors for closed connections
                 (ignore-errors (slime-connection-name conn))
@@ -1360,7 +1360,6 @@ The default condition handler for timer functions (see
     "Hack and be merry!"
     "Your hacking starts... NOW!"
     "May the source be with you!"
-    "Take this REPL, brother, and may it serve you well."
     "Lemonodor-fame is but a hack away!"
     "Are we consing yet?"
     ,(format "%s, this could be the start of a beautiful program."
@@ -3215,7 +3214,8 @@ you should check twice before modifying.")
      (let ((filename (slime-from-lisp-filename filename)))
        (slime-check-location-filename-sanity filename)
        (set-buffer (or (get-file-buffer filename)
-                       (let ((find-file-suppress-same-file-warnings t))
+                       (let ((find-file-suppress-same-file-warnings t)
+                             (confirm-nonexistent-file-or-buffer t))
                          (find-file-noselect filename))))))
     ((:buffer buffer-name)
      (slime-check-location-buffer-name-sanity buffer-name)
@@ -3386,8 +3386,11 @@ are supported:
       (when edit-path (slime-search-edit-path edit-path))
       (when call-site (slime-search-call-site call-site))
       (when align
-        (slime-forward-sexp)
-        (beginning-of-sexp)))
+        (condition-case nil
+            (progn
+              (slime-forward-sexp)
+              (beginning-of-sexp))
+          (error (goto-char 0)))))
     (point)))
 
 
@@ -4509,8 +4512,7 @@ With prefix argument include internal symbols."
     (cl-loop for (prop value) on plist by #'cddr
              unless (eq prop :designator) do
              (let ((namespace (cadr (or (assq prop slime-apropos-namespaces)
-                                        (error "Unknown property: %S" prop))))
-                   (start (point)))
+                                        (error "Unknown property: %S" prop)))))
                (princ "  ")
                (insert-text-button
                 namespace
@@ -6362,6 +6364,10 @@ was called originally."
         (fstring "%s%2s  %-10s  %-17s  %-7s %-s\n"))
     (insert (format fstring " " "Nr" "Name" "Port" "Pid" "Type")
             (format fstring " " "--" "----" "----" "---" "----"))
+    (setf slime-net-processes
+          (cl-remove-if-not (lambda (conn)
+                              (eq (process-status conn) 'open))
+                            slime-net-processes))
     (dolist (p (reverse slime-net-processes))
       (when (eq default p) (setf default-pos (point)))
       (slime-insert-propertized
@@ -6411,12 +6417,12 @@ was called originally."
 
 (defvar slime-inspector-mark-stack '())
 
-(defun slime-inspect (string)
+(defun slime-inspect (string &optional definition)
   "Eval an expression and inspect the result."
   (interactive
    (list (slime-read-from-minibuffer "Inspect value (evaluated): "
 				     (slime-sexp-at-point))))
-  (slime-eval-async `(swank:init-inspector ,string) 'slime-open-inspector))
+  (slime-eval-async `(swank:init-inspector ,string ,definition) 'slime-open-inspector))
 
 (define-derived-mode slime-inspector-mode fundamental-mode
   "Slime-Inspector"

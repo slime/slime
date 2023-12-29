@@ -766,6 +766,7 @@ If NEWLINE is true then add a newline at the end of the input."
     (slime-repl-add-to-input-history
      (buffer-substring slime-repl-input-start-mark end))
     (when newline
+      ;; Reset the output columns independently in case they are out of sync.
       (insert "\n")
       (slime-repl-show-maximum-output))
     (let ((inhibit-modification-hooks t))
@@ -1568,7 +1569,8 @@ expansion will be added to the REPL's history.)"
                         (save-excursion (insert ")"))))
                  (unless function
                    (goto-char slime-repl-input-start-mark)))))
-    (let ((toplevel (slime-parse-toplevel-form)))
+    (let ((toplevel (slime-parse-toplevel-form '(:defun :defgeneric :defmacro :define-compiler-macro
+                                                 :defmethod :defparameter :defvar :defconstant :defclass))))
       (if (symbolp toplevel)
           (error "Not in a function definition")
         (slime-dcase toplevel
