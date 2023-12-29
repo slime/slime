@@ -2284,7 +2284,7 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
   (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
 
 (defslimefun sldb-continue ()
-  (continue))
+  (invoke-restart (find 'continue *sldb-restarts* :key #'restart-name)))
 
 (defun coerce-to-condition (datum args)
   (etypecase datum

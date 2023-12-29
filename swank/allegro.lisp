@@ -107,7 +107,16 @@
 ;;;; Misc
 
 (defimplementation arglist (symbol)
-  (handler-case (excl:arglist symbol)
+  (handler-case
+      (let ((lambda-expression (ignore-errors
+                                (function-lambda-expression
+                                 (symbol-function symbol)))))
+        ;; LAMBDA-EXPRESSION, if available, has the default values of
+        ;; optional and keyword arguments of compiled functions while
+        ;; EXCL:ARGLIST doesn't.
+        (if lambda-expression
+            (second lambda-expression)
+            (excl:arglist symbol)))
     (simple-error () :not-available)))
 
 (defimplementation macroexpand-all (form &optional env)
