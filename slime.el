@@ -1,7 +1,7 @@
 ;;; slime.el --- Superior Lisp Interaction Mode for Emacs -*-lexical-binding:t-*-
 
 ;; URL: https://github.com/slime/slime
-;; Package-Requires: ((cl-lib "0.5") (macrostep "0.9"))
+;; Package-Requires: ((emacs "24.3") (macrostep "0.9"))
 ;; Keywords: languages, lisp, slime
 ;; Version: 2.28
 
@@ -58,10 +58,7 @@
 
 
 ;;;; Dependencies and setup
-(eval-and-compile
-  (require 'cl-lib nil t)
-  ;; For emacs 23, look for bundled version
-  (require 'cl-lib "lib/cl-lib"))
+(require 'cl-lib)
 
 (eval-and-compile
   (if (< emacs-major-version 23)
@@ -7697,6 +7694,5 @@ See `slime-output-target-to-marker'."
 ;; Local Variables:
 ;; outline-regexp: ";;;;+"
 ;; indent-tabs-mode: nil
-;; coding: latin-1-unix
 ;; End:
 ;;; slime.el ends here
