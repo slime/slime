@@ -53,7 +53,12 @@
           (push pt2 todo)
           (push cursexp sexps)))))
     (when sexps
-      (setf (car sexps) (cl-nreconc form-suffix (car sexps)))
+      (if (car sexps)
+          (setf (car sexps) (cl-nreconc form-suffix (car sexps)))
+          (setf (car sexps) (nreverse
+                             (if (equal (car form-suffix) "")
+                                 form-suffix
+                                 (cons "" form-suffix)))))
       (while (> depth 1)
         (push (nreverse (pop sexps)) (car sexps))
         (cl-decf depth))
@@ -223,7 +228,10 @@ The pattern can have the form:
                always (ignore-errors
                         (cl-etypecase p
                           (symbol (slime-beginning-of-list)
-                                  (eq (read (current-buffer)) p))
+                                  (let ((x (read (current-buffer))))
+                                    (and (symbolp x)
+                                         (string-equal-ignore-case (symbol-name x)
+                                                                   (symbol-name p)))))
                           (number (backward-up-list p)
                                   t)))))))
 
@@ -250,13 +258,31 @@ Point is placed before the first expression in the list."
   (forward-list 1)
   (down-list -1))
 
-(defun slime-parse-toplevel-form ()
-  (ignore-errors                        ; (foo)
-    (save-excursion
-      (goto-char (car (slime-region-for-defun-at-point)))
-      (down-list 1)
-      (forward-sexp 1)
-      (slime-parse-context (read (current-buffer))))))
+(defun slime-parse-toplevel-form (&optional match)
+  (let ((start (car (slime-region-for-defun-at-point))))
+    (or (ignore-errors
+         (save-excursion
+          (goto-char start)
+          (down-list 1)
+          (forward-sexp 1)
+          (let ((context (slime-parse-context (read (current-buffer)))))
+            (when (or (not match)
+                      (member (car context) match))
+              context))))
+        (when match
+          (ignore-errors
+           (save-excursion
+            (cl-loop while (> (point) start)
+                     thereis
+                     (progn
+                       (backward-up-list)
+                       (ignore-errors
+                        (save-excursion
+                         (down-list 1)
+                         (forward-sexp 1)
+                         (let ((context (slime-parse-context (read (current-buffer)))))
+                           (when (member (car context) match)
+                             context))))))))))))
 
 (defun slime-arglist-specializers (arglist)
   (cond ((or (null arglist)
@@ -271,12 +297,15 @@ Point is placed before the first expression in the list."
 
 (defun slime-definition-at-point (&optional only-functional)
   "Return object corresponding to the definition at point."
-  (let ((toplevel (slime-parse-toplevel-form)))
+  (let* ((functional '(:defun :defgeneric :defmethod :defmacro :define-compiler-macro))
+         (all '(:defun :defgeneric :defmacro :define-modify-macro :define-compiler-macro 
+                :defmethod :defparameter :defvar :defconstant :defclass :defstruct :defpackage))
+         (toplevel (slime-parse-toplevel-form (if only-functional
+                                                  functional
+                                                  all))))
     (if (or (symbolp toplevel)
             (and only-functional
-                 (not (member (car toplevel)
-                              '(:defun :defgeneric :defmethod
-                                       :defmacro :define-compiler-macro)))))
+                 (not (member (car toplevel) functional))))
         (error "Not in a definition")
       (slime-dcase toplevel
         (((:defun :defgeneric) symbol)
@@ -285,9 +314,9 @@ Point is placed before the first expression in the list."
          (format "(macro-function '%s)" symbol))
         ((:define-compiler-macro symbol)
          (format "(compiler-macro-function '%s)" symbol))
-        ((:defmethod symbol &rest args)
+        ((:defmethod &rest args)
          (declare (ignore args))
-         (format "#'%s" symbol))
+         (format "%s" toplevel))
         (((:defparameter :defvar :defconstant) symbol)
          (format "'%s" symbol))
         (((:defclass :defstruct) symbol)

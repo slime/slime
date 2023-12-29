@@ -151,7 +151,7 @@ If it's not in the cache, the cache will be updated asynchronously."
 
 (defun slime-autodoc--async (context multilinep)
   (slime-eval-async
-      `(swank:autodoc ',context ;; FIXME: misuse of quote
+      `(swank:autodoc ',context
 		      :print-right-margin ,(window-width (minibuffer-window)))
     (slime-curry #'slime-autodoc--async% context multilinep)))
 

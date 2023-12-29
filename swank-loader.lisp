@@ -24,7 +24,8 @@
            :list-fasls
            :*source-directory*
            :*fasl-directory*
-           :*started-from-emacs*))
+           :*started-from-emacs*
+           :define-package))
 
 (cl:in-package :swank-loader)
 
@@ -46,7 +47,7 @@
   #+lispworks '((swank lispworks) (swank gray))
   #+allegro '((swank allegro) (swank gray))
   #+clisp '(xref metering (swank clisp) (swank gray))
-  #+armedbear '((swank abcl))
+  #+armedbear '((swank abcl) (swank gray))
   #+cormanlisp '((swank corman) (swank gray))
   #+ecl '((swank ecl) (swank gray))
   #+clasp '(metering (swank clasp) (swank gray))
@@ -375,3 +376,20 @@ global variabes in SWANK."
               (collect-fasls (src-files *contribs*
                                         (contrib-dir *source-directory*))
                              (contrib-dir *fasl-directory*))))))
+
+(defmacro define-package (package &rest options)
+  "This is like CL:DEFPACKAGE but silences warnings and errors
+  signalled when the redefined package is at variance with the current
+  state of the package. Typically this situation occurs when symbols
+  are exported by calling EXPORT (as is the case with DEFSECTION) as
+  opposed to adding :EXPORT forms to the DEFPACKAGE form and the
+  package definition is subsequently reevaluated. See the section on
+  [package variance](http://www.sbcl.org/manual/#Package-Variance) in
+  the SBCL manual."
+  `(eval-when (:compile-toplevel :load-toplevel, :execute)
+     (locally
+         (declare #+sbcl
+                  (sb-ext:muffle-conditions sb-kernel::package-at-variance))
+       (handler-bind
+           (#+sbcl (sb-kernel::package-at-variance #'muffle-warning))
+         (cl:defpackage ,package ,@options)))))

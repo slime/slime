@@ -1111,7 +1111,7 @@ Recompile all definitions.
 @table @kbd
 @kbditem{C-c C-m, slime-expand-1}
 Macroexpand (or compiler-macroexpand) the expression starting at point
-once.  If invoked with a prefix argument use macroexpand instead or
+once.  If invoked with a prefix argument, use macroexpand instead of
 macroexpand-1 (or compiler-macroexpand instead of
 compiler-macroexpand-1).
 

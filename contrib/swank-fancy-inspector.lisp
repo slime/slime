@@ -39,7 +39,7 @@
         ;; Function
         (if (fboundp symbol)
             (append (if (macro-function symbol)
-                        `("It a macro with macro-function: "
+                        `("It is a macro with macro-function: "
                           (:value ,(macro-function symbol)))
                         `("It is a function: "
                           (:value ,(symbol-function symbol))))

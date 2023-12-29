@@ -118,19 +118,19 @@ position, or nil."
 					(point))
 				      t)))
 	(when reader-conditional-pt
-          (let* ((parser-state
-                  (parse-partial-sexp
-		   (progn (goto-char (+ reader-conditional-pt 2))
-			  (forward-sexp) ; skip feature expr.
-			  (point))
-		   orig-pt))
-                 (paren-depth  (car  parser-state))
-                 (last-sexp-pt (cl-caddr  parser-state)))
-            (if (and paren-depth
-		     (not (cl-plusp paren-depth)) ; no '(' in between?
-                     (not last-sexp-pt)) ; no complete sexp in between?
-                reader-conditional-pt
-              nil))))
+          (let ((condition-end (progn (goto-char (+ reader-conditional-pt 2))
+			              (forward-sexp) ; skip feature expr.
+			              (point))))
+            (unless (>= condition-end orig-pt)
+              (let* ((parser-state
+                       (parse-partial-sexp condition-end orig-pt))
+                     (paren-depth  (car  parser-state))
+                     (last-sexp-pt (cl-caddr  parser-state)))
+                (if (and paren-depth
+		         (not (cl-plusp paren-depth)) ; no '(' in between?
+                         (not last-sexp-pt)) ; no complete sexp in between?
+                    reader-conditional-pt
+                    nil))))))
     (scan-error nil)))			; improper feature expression
 
 
