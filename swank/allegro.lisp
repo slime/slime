@@ -41,8 +41,13 @@
   (excl:string-to-octets s :external-format utf8-ef
                          :null-terminate nil))
 
-(defimplementation utf8-to-string (u)
-  (excl:octets-to-string u :external-format utf8-ef))
+(defimplementation utf8-to-string (octets)
+  (let ((string (make-string (length octets))))
+    (multiple-value-bind (string chars-copied)
+        ;; Allegro 10.1 stops processing octets when it sees a zero,
+        ;; unless it is copying into an existing string.
+        (excl:octets-to-string octets :string string :external-format utf8-ef)
+      (subseq string 0 chars-copied))))
 
 
 ;;;; TCP Server

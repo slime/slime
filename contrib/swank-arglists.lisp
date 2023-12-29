@@ -94,6 +94,29 @@ Otherwise NIL is returned."
   known-junk            ; &whole, &environment
   unknown-junk)         ; unparsed stuff
 
+(defstruct (keyword-arg
+            (:conc-name keyword-arg.)
+            (:constructor %make-keyword-arg))
+  keyword
+  arg-name
+  default-arg)
+
+(defun make-keyword-arg (keyword arg-name default-arg)
+  (%make-keyword-arg :keyword keyword
+                     :arg-name arg-name
+                     :default-arg (canonicalize-default-arg default-arg)))
+
+;;; FIXME suppliedp?
+(defstruct (optional-arg
+            (:conc-name optional-arg.)
+            (:constructor %make-optional-arg))
+  arg-name
+  default-arg)
+
+(defun make-optional-arg (arg-name default-arg)
+  (%make-optional-arg :arg-name arg-name
+                      :default-arg (canonicalize-default-arg default-arg)))
+
 ;;;
 ;;; [*] The &ANY lambda keyword is an extension to ANSI Common Lisp,
 ;;;     and is only used to describe certain arglists that cannot be
@@ -420,22 +443,10 @@ Otherwise NIL is returned."
     (symbol arg)
     (arglist (encode-arglist arg))))
 
-(defstruct (keyword-arg
-            (:conc-name keyword-arg.)
-            (:constructor %make-keyword-arg))
-  keyword
-  arg-name
-  default-arg)
-
 (defun canonicalize-default-arg (form)
   (if (equalp ''nil form)
       nil
       form))
-
-(defun make-keyword-arg (keyword arg-name default-arg)
-  (%make-keyword-arg :keyword keyword
-                     :arg-name arg-name
-                     :default-arg (canonicalize-default-arg default-arg)))
 
 (defun decode-keyword-arg (arg)
   "Decode a keyword item of formal argument list.
@@ -493,17 +504,6 @@ Return three values: keyword, argument name, default arg."
                   (make-keyword-arg :x 'y nil)))
   (assert (equalp (decode-keyword-arg '((:x y) t))
                   (make-keyword-arg :x 'y t))))
-
-;;; FIXME suppliedp?
-(defstruct (optional-arg
-            (:conc-name optional-arg.)
-            (:constructor %make-optional-arg))
-  arg-name
-  default-arg)
-
-(defun make-optional-arg (arg-name default-arg)
-  (%make-optional-arg :arg-name arg-name
-                      :default-arg (canonicalize-default-arg default-arg)))
 
 (defun decode-optional-arg (arg)
   "Decode an optional item of a formal argument list.
@@ -1351,10 +1351,10 @@ object."
     ;; Notice that we only have information to "look backward" and
     ;; show arglists of previously occuring local functions.
     (destructuring-bind (defs . body) args
-      (unless (or (atom defs) (null body))   ; `(labels ,foo (|'
+      (when (consp defs)   ; `(labels ,foo (|'
         (let ((current-def (car (last defs))))
           (cond ((atom current-def) nil) ; `(labels ((foo (x) ...)|'
-                ((not (null body))
+                (body
                  (extract-local-op-arglists 'cl:flet args))
                 (t
                  (let ((def.body (cddr current-def)))

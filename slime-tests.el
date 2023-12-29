@@ -48,7 +48,7 @@
 Exits Emacs when finished. The exit code is the number of failed tests."
   (interactive)
   (let ((ert-debug-on-error nil)
-        (timeout 30)
+        (timeout 60)
         (slime-background-message-function #'ignore))
     (slime)
     ;; Block until we are up and running.
@@ -734,9 +734,10 @@ Confirm that SUBFORM is correctly located."
 (def-slime-test utf-8-source
     (input output)
     "Source code containing utf-8 should work"
-    (list (let*  ((bytes "\343\201\212\343\201\257\343\202\210\343\201\206")
-                  ;;(encode-coding-string (string #x304a #x306f #x3088 #x3046)
-                  ;;                      'utf-8)
+    (list (let*  ((bytes "\000\343\201\212\343\201\257\343\202\210\343\201\206")
+                  ;; (encode-coding-string
+                  ;;   (string #x0000 #x304a #x306f #x3088 #x3046)
+                  ;;   'utf-8)
                   (string (decode-coding-string bytes 'utf-8-unix)))
             (cl-assert (equal bytes (encode-coding-string string 'utf-8-unix)))
             (list (concat "(defun cl-user::foo () \"" string "\")")
@@ -1366,7 +1367,7 @@ Reconnect afterwards."
                 (die "Unexpected error running takeoff forms"
                      err)))
              (with-timeout
-                 (20
+                 (60
                   (die "Timeout waiting for recipe test to finish."
                        takeoff))
                (while t (sit-for 1)))))))

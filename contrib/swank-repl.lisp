@@ -122,7 +122,11 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
   "Create function to send user output to Emacs."
   (lambda (string)
     (with-connection (connection)
-      (send-to-emacs `(:write-string ,string)))))
+      (send-to-emacs `(:write-string ,string nil ,(current-thread-id)))
+      ;; Wait for Emacs to finish writing, otherwise on continuous
+      ;; output its input buffer will fill up and nothing else will be
+      ;; processed, most importantly an interrupt-thread request.
+      (wait-for-event `(:write-done)))))
 
 (defun open-dedicated-output-stream (connection coding-system)
   "Open a dedicated output connection to the Emacs on SOCKET-IO.

@@ -41,7 +41,7 @@
 
 (defclass slime-output-stream (fundamental-character-output-stream)
   ((output-fn :initarg :output-fn)
-   (buffer :initform (make-string 8000))
+   (buffer :initform (make-string 64000))
    (fill-pointer :initform 0)
    (column :initform 0)
    (lock :initform (make-lock :name "buffer write lock"))

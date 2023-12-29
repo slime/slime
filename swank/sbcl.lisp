@@ -151,7 +151,7 @@
 
 ;; The SIGIO stuff should probably be removed as it's unlikey that
 ;; anybody uses it.
-#-win32
+#-(or win32 haiku)
 (progn
   (defimplementation install-sigint-handler (function)
     (sb-sys:enable-interrupt sb-unix:sigint
@@ -979,7 +979,8 @@ QUALITIES is an alist with (quality . value)"
        (make-location `(:file ,(namestring
                                 (translate-logical-pathname pathname)))
                       '(:position 1)
-                      (when (eql type :function)
+                      (when (and (eql type :function)
+                                 (symbolp name))
                         `(:snippet ,(format nil "(defun ~a "
                                             (symbol-name name))))))
       (:invalid
@@ -1603,26 +1604,33 @@ stack."
                             append (label-value-line i value))))))))
 
 (defmethod emacs-inspect ((o function))
-    (cond ((sb-kernel:simple-fun-p o)
-                   (label-value-line*
-                    (:name (sb-kernel:%simple-fun-name o))
-                    (:arglist (sb-kernel:%simple-fun-arglist o))
-                    (:type (sb-kernel:%simple-fun-type o))
-                    (:code (sb-kernel:fun-code-header o))))
-          ((sb-kernel:closurep o)
-                   (append
-                    (label-value-line :function (sb-kernel:%closure-fun o))
-                    `("Closed over values:" (:newline))
-                    (loop for i below (1- (sb-kernel:get-closure-length o))
-                          append (label-value-line
-                                  i (sb-kernel:%closure-index-ref o i)))))
-          (t (call-next-method o))))
+  (cond ((sb-kernel:simple-fun-p o)
+         (append
+          (label-value-line*
+           ("Name" (sb-kernel:%simple-fun-name o))
+           ("Arglist" (sb-kernel:%simple-fun-arglist o))
+           ("Type" (sb-kernel:%simple-fun-type o))
+           ("Code" (sb-kernel:fun-code-header o)))
+          `("Disassembly:" (:newline)
+             ,(with-output-to-string (s)
+                (sb-disassem:disassemble-fun o :stream s)))))
+        ((sb-kernel:closurep o)
+         (append
+          (label-value-line :function (sb-kernel:%closure-fun o))
+          `("Closed over values:" (:newline))
+          (loop for i below (1- (sb-kernel:get-closure-length o))
+                append (label-value-line
+                        i (sb-kernel:%closure-index-ref o i)))))
+        (t (call-next-method o))))
 
 (defmethod emacs-inspect ((o sb-kernel:code-component))
   (append
    (label-value-line*
-    (:code-size (sb-kernel:%code-code-size o))
-    (:debug-info (sb-kernel:%code-debug-info o)))
+    ("Size" (sb-kernel:%code-code-size o))
+    ("Debug info" (sb-kernel:%code-debug-info o)))
+   `("Entry points: " (:newline))
+   (loop for i from 0 below (sb-vm::code-n-entries o)
+         append (label-value-line i (sb-kernel:%code-entry-point o i)))
    `("Constants:" (:newline))
    (loop for i from sb-vm:code-constants-offset
          below
@@ -1666,7 +1674,7 @@ stack."
     (sb-thread:with-mutex (*thread-id-counter-lock*)
       (incf *thread-id-counter*)))
 
-  (defparameter *thread-id-map* (make-hash-table))
+  (defvar *thread-id-map* (make-hash-table))
 
   ;; This should be a thread -> id map but as weak keys are not
   ;; supported it is id -> map instead.
@@ -1738,13 +1746,38 @@ stack."
     (sb-thread:thread-alive-p thread))
 
   (defvar *mailbox-lock* (sb-thread:make-mutex :name "mailbox lock"))
-  (defvar *mailboxes* (list))
+  (defvar *mailboxes* ())
   (declaim (type list *mailboxes*))
+
+  #+darwin
+  (progn
+    (defun make-sem ()
+      (sb-alien:alien-funcall
+       (sb-alien:extern-alien
+        "dispatch_semaphore_create"
+        (function sb-sys:system-area-pointer sb-alien:long))
+       0))
+
+    (defun wait-sem (sem)
+      (sb-alien:alien-funcall
+       (sb-alien:extern-alien "dispatch_semaphore_wait"
+                              (function sb-alien:long sb-sys:system-area-pointer sb-alien:long-long))
+       sem
+       -1))
+
+    (defun signal-sem (sem)
+      (sb-alien:alien-funcall
+       (sb-alien:extern-alien "dispatch_semaphore_signal"
+                              (function sb-alien:long sb-sys:system-area-pointer))
+       sem)))
 
   (defstruct (mailbox (:conc-name mailbox.))
     thread
     (mutex (sb-thread:make-mutex))
-    (waitqueue  (sb-thread:make-waitqueue))
+    #-darwin
+    (waitqueue (sb-thread:make-waitqueue))
+    #+darwin
+    (sem (make-sem))
     (queue '() :type list))
 
   (defun mailbox (thread)
@@ -1756,10 +1789,13 @@ stack."
             mb))))
 
   (defimplementation wake-thread (thread)
+    #-darwin
     (let* ((mbox (mailbox thread))
            (mutex (mailbox.mutex mbox)))
       (sb-thread:with-recursive-lock (mutex)
-        (sb-thread:condition-broadcast (mailbox.waitqueue mbox)))))
+        (sb-thread:condition-broadcast (mailbox.waitqueue mbox))))
+    #+darwin
+    (signal-sem (mailbox.sem (mailbox thread))))
 
   (defimplementation send (thread message)
     (let* ((mbox (mailbox thread))
@@ -1767,12 +1803,18 @@ stack."
       (sb-thread:with-mutex (mutex)
         (setf (mailbox.queue mbox)
               (nconc (mailbox.queue mbox) (list message)))
-        (sb-thread:condition-broadcast (mailbox.waitqueue mbox)))))
-
+        #-darwin
+        (sb-thread:condition-broadcast (mailbox.waitqueue mbox))
+        #+darwin
+        (signal-sem (mailbox.sem mbox)))))
+  
   (defimplementation receive-if (test &optional timeout)
     (let* ((mbox (mailbox (current-thread)))
            (mutex (mailbox.mutex mbox))
-           (waitq (mailbox.waitqueue mbox)))
+           #-darwin
+           (waitq (mailbox.waitqueue mbox))
+           #+darwin
+           (sem (mailbox.sem mbox)))
       (assert (or (not timeout) (eq timeout t)))
       (loop
        (check-slime-interrupts)
@@ -1781,9 +1823,12 @@ stack."
                 (tail (member-if test q)))
            (when tail
              (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
-             (return (car tail))))
-         (when (eq timeout t) (return (values nil t)))
-         (sb-thread:condition-wait waitq mutex)))))
+             (return (car tail)))
+           (when (eq timeout t) (return (values nil t)))
+           #-darwin
+           (sb-thread:condition-wait waitq mutex)))
+       #+darwin
+       (wait-sem sem))))
 
   (let ((alist '())
         (mutex (sb-thread:make-mutex :name "register-thread")))
