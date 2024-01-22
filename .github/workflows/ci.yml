@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+
     strategy:
       matrix:
         lisp: [ccl, sbcl]
