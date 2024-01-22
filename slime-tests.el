@@ -60,7 +60,7 @@ Exits Emacs when finished. The exit code is the number of failed tests."
         (when timed-out
           (when noninteractive
             (kill-emacs 252)))))
-    (slime-sync-to-top-level 5)
+    (slime-sync-to-top-level 30)
     (let* ((selector (if randomize
                          `(member ,@(slime-shuffle-list
                                      (ert-select-tests (or test-name t) t)))
@@ -1177,7 +1177,7 @@ on *DEBUGGER-HOOK*."
 (def-slime-test end-of-file
     (expr)
     "Signalling END-OF-FILE should invoke the debugger."
-    '(((cl:error 'cl:end-of-file))
+    '(((cl:error 'cl:end-of-file :stream cl:*standard-input*))
       ((cl:read-from-string "")))
   (let ((value (slime-eval
                 `(cl:let ((condition nil))
