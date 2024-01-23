@@ -283,7 +283,7 @@ form suitable for testing with #+."
                (t start)))
         ((<= code #x7ff) (utf8-encode-aux code buffer start end 2))
         ((<= #xd800 code #xdfff)
-         (%utf8-encode (code-char #xFFFD) ;; Replacement_Character
+         (%utf8-encode #xFFFD ;; Replacement_Character
                        buffer start end))
         ((<= code #xffff) (utf8-encode-aux code buffer start end 3))
         ((<= code #x1fffff) (utf8-encode-aux code buffer start end 4))
