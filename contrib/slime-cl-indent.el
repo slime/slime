@@ -117,13 +117,13 @@ is nil."
 If t (the default), keywords in contexts where no other
 indentation rule takes precedence are aligned like this:
 
-\(make-instance 'foo :bar t
+\(make-instance \\='foo :bar t
                     :quux 42)
 
 If nil, they are indented like any other function
 call arguments:
 
-\(make-instance 'foo :bar t
+\(make-instance \\='foo :bar t
                :quux 42)"
   :type 'boolean
   :group 'lisp-indent)
@@ -1447,7 +1447,7 @@ minimiz\\(e\\|ing\\)\\)"
 
 (defvar common-lisp-indent-clause-joining-loop-macro-keyword
   "\\(#?:\\)?and"
-  "Regexp matching 'and', and anything else there ever comes to be like it.")
+  "Regexp matching `and', and anything else there ever comes to be like it.")
 
 (defvar common-lisp-indent-indented-loop-macro-keyword
   "\\(#?:\\)?\\(\\(up\\|down\\)?(from\\|to)\\|below\\|above\\|in\\(to\\)?\\|\

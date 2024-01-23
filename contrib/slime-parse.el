@@ -316,7 +316,6 @@ Point is placed before the first expression in the list."
         ((:define-compiler-macro symbol)
          (format "(compiler-macro-function '%s)" symbol))
         ((:defmethod &rest args)
-         (declare (ignore args))
          (format "%s" toplevel))
         (((:defparameter :defvar :defconstant) symbol)
          (format "'%s" symbol))
