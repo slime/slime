@@ -1,4 +1,8 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
+* 2.29.1 (January 2024)
+** Compatibility with older Emacs versions
+** Type error in utf8-encode
+
 * 2.29 (January 2024)
 ** Core
 *** Loading the system "swank" with ASDF produces compilation artifacts
