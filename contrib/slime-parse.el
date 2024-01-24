@@ -230,8 +230,9 @@ The pattern can have the form:
                           (symbol (slime-beginning-of-list)
                                   (let ((x (read (current-buffer))))
                                     (and (symbolp x)
-                                         (string-equal-ignore-case (symbol-name x)
-                                                                   (symbol-name p)))))
+                                         (eq (compare-strings (symbol-name x) 0 nil
+                                                              (symbol-name p) 0 nil t)
+                                             t))))
                           (number (backward-up-list p)
                                   t)))))))
 
