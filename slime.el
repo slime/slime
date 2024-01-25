@@ -963,8 +963,9 @@ MODE is the name of a major mode which will be enabled.
 
 ;; We no longer load inf-lisp, but we use this variable for backward
 ;; compatibility.
-(defvar inferior-lisp-program "lisp"
-  "*Program name for invoking an inferior Lisp with for Inferior Lisp mode.")
+(defcustom inferior-lisp-program "lisp"
+  "*Program name for invoking an inferior Lisp with Inferior Lisp mode."
+  :type 'string)
 
 (defvar slime-lisp-implementations nil
   "*A list of known Lisp implementations.
