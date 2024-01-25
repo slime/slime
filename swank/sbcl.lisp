@@ -1665,54 +1665,62 @@ stack."
 #+(and sb-thread
        #.(swank/backend:with-symbol "THREAD-NAME" "SB-THREAD"))
 (progn
-  (defvar *thread-id-counter* 0)
+  #-#.(swank/backend:with-symbol "THREAD-OS-TID" "SB-THREAD")
+  (progn
+    (defvar *thread-id-counter* 0)
 
-  (defvar *thread-id-counter-lock*
-    (sb-thread:make-mutex :name "thread id counter lock"))
+    (defvar *thread-id-counter-lock*
+      (sb-thread:make-mutex :name "thread id counter lock"))
 
-  (defun next-thread-id ()
-    (sb-thread:with-mutex (*thread-id-counter-lock*)
-      (incf *thread-id-counter*)))
+    (defun next-thread-id ()
+      (sb-thread:with-mutex (*thread-id-counter-lock*)
+        (incf *thread-id-counter*)))
 
-  (defvar *thread-id-map* (make-hash-table))
+    (defvar *thread-id-map* (make-hash-table))
 
-  ;; This should be a thread -> id map but as weak keys are not
-  ;; supported it is id -> map instead.
-  (defvar *thread-id-map-lock*
-    (sb-thread:make-mutex :name "thread id map lock"))
+    ;; This should be a thread -> id map but as weak keys are not
+    ;; supported it is id -> map instead.
+    (defvar *thread-id-map-lock*
+      (sb-thread:make-mutex :name "thread id map lock"))
+
+    (defimplementation thread-id (thread)
+      (block thread-id
+        (sb-thread:with-mutex (*thread-id-map-lock*)
+          (loop for id being the hash-key in *thread-id-map*
+                using (hash-value thread-pointer)
+                do
+                (let ((maybe-thread (sb-ext:weak-pointer-value thread-pointer)))
+                  (cond ((null maybe-thread)
+                         ;; the value is gc'd, remove it manually
+                         (remhash id *thread-id-map*))
+                        ((eq thread maybe-thread)
+                         (return-from thread-id id)))))
+          ;; lazy numbering
+          (let ((id (next-thread-id)))
+            (setf (gethash id *thread-id-map*) (sb-ext:make-weak-pointer thread))
+            id))))
+
+    (defimplementation find-thread (id)
+      (sb-thread:with-mutex (*thread-id-map-lock*)
+        (let ((thread-pointer (gethash id *thread-id-map*)))
+          (if thread-pointer
+              (let ((maybe-thread (sb-ext:weak-pointer-value thread-pointer)))
+                (if maybe-thread
+                    maybe-thread
+                    ;; the value is gc'd, remove it manually
+                    (progn
+                      (remhash id *thread-id-map*)
+                      nil)))
+              nil)))))
+  #+#.(swank/backend:with-symbol "THREAD-OS-TID" "SB-THREAD")
+  (progn
+    (defimplementation thread-id (thread)
+      (sb-thread::thread-os-tid thread))
+    (defimplementation find-thread (id)
+      (find id (sb-thread:list-all-threads) :key #'sb-thread::thread-os-tid)))
 
   (defimplementation spawn (fn &key name)
     (sb-thread:make-thread fn :name name))
-
-  (defimplementation thread-id (thread)
-    (block thread-id
-      (sb-thread:with-mutex (*thread-id-map-lock*)
-        (loop for id being the hash-key in *thread-id-map*
-              using (hash-value thread-pointer)
-              do
-              (let ((maybe-thread (sb-ext:weak-pointer-value thread-pointer)))
-                (cond ((null maybe-thread)
-                       ;; the value is gc'd, remove it manually
-                       (remhash id *thread-id-map*))
-                      ((eq thread maybe-thread)
-                       (return-from thread-id id)))))
-        ;; lazy numbering
-        (let ((id (next-thread-id)))
-          (setf (gethash id *thread-id-map*) (sb-ext:make-weak-pointer thread))
-          id))))
-
-  (defimplementation find-thread (id)
-    (sb-thread:with-mutex (*thread-id-map-lock*)
-      (let ((thread-pointer (gethash id *thread-id-map*)))
-        (if thread-pointer
-            (let ((maybe-thread (sb-ext:weak-pointer-value thread-pointer)))
-              (if maybe-thread
-                  maybe-thread
-                  ;; the value is gc'd, remove it manually
-                  (progn
-                    (remhash id *thread-id-map*)
-                    nil)))
-            nil))))
 
   (defimplementation thread-name (thread)
     ;; sometimes the name is not a string (e.g. NIL)
