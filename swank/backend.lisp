@@ -336,10 +336,14 @@ form suitable for testing with #+."
   (default-utf8-to-string octets))
 
 
-;;;; TCP server
+;;;; Socket server
 
 (definterface create-socket (host port &key backlog)
   "Create a listening TCP socket on interface HOST and port PORT.
+BACKLOG queue length for incoming connections.")
+
+(definterface create-local-socket (socket-path &key backlog)
+  "Create a listening local (currently: UNIX domain) socket at SOCKET-PATH.
 BACKLOG queue length for incoming connections.")
 
 (definterface local-port (socket)

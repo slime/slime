@@ -92,7 +92,7 @@
                                                      #+sb-unicode #\Replacement_Character
                                                      #-sb-unicode #\? )))
 
-;;; TCP Server
+;;; Socket Server
 
 (defimplementation preferred-communication-style ()
   (cond
@@ -130,6 +130,21 @@
 
     (sb-bsd-sockets:socket-listen socket (or backlog 5))
     socket))
+
+#+unix
+(defimplementation create-local-socket (socket-path &key backlog)
+  (handler-case
+      (sb-posix:unlink socket-path)
+    ;; We don't care if it doesn't exist yet
+    (sb-posix:syscall-error ()))
+  (let ((socket (make-instance 'sb-bsd-sockets:local-socket :type :stream)))
+    (sb-bsd-sockets:socket-bind socket socket-path)
+    (sb-bsd-sockets:socket-listen socket (or backlog 5))
+    socket))
+
+;; #-unix
+;; (defimplementation create-local-socket (socket-path &key backlog)
+;;   )
 
 (defimplementation local-port (socket)
   (nth-value 1 (sb-bsd-sockets:socket-name socket)))

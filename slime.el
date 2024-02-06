@@ -1099,6 +1099,12 @@ DIRECTORY change to this directory before starting the process.
 (defun slime-start* (options)
   (apply #'slime-start options))
 
+(defun slime--maybe-ask-for-closing-connections ()
+  "Ask for closing old connections if there are any."
+  (when (and slime-net-processes
+             (y-or-n-p "Close old connections first? "))
+    (slime-disconnect-all)))
+
 (defun slime-connect (host port &optional _coding-system interactive-p &rest parameters)
   "Connect to a running Swank server. Return the connection."
   (interactive (list (read-from-minibuffer
@@ -1110,12 +1116,23 @@ DIRECTORY change to this directory before starting the process.
                        nil nil '(slime-connect-port-history . 1)))
                      nil t))
   (slime-setup)
-  (when (and interactive-p
-             slime-net-processes
-             (y-or-n-p "Close old connections first? "))
-    (slime-disconnect-all))
+
+  (when interactive-p
+    (slime--maybe-ask-for-closing-connections))
+
   (message "Connecting to Swank on port %S.." port)
   (slime-setup-connection (apply 'slime-net-connect host port parameters)))
+
+(defun slime-connect-unix (socket-path &optional skip-close-check &rest parameters)
+  "Connect to a running Swank server via a UNIX socket. Return the connection."
+  (interactive "fUNIX socket: ")
+  (slime-setup)
+
+  (unless skip-close-check
+    (slime--maybe-ask-for-closing-connections))
+
+  (message "Connecting to Swank on UNIX socket %S..." socket-path)
+  (slime-setup-connection (apply 'slime-net-connect-unix socket-path parameters)))
 
 ;; FIXME: seems redundant
 (defun slime-start-and-init (options fun)
@@ -1429,6 +1446,23 @@ first line of the file."
     (slime-set-query-on-exit-flag proc)
     (when (fboundp 'set-process-coding-system)
       (set-process-coding-system proc 'binary 'binary))
+    (slime-send-secret proc)
+    proc))
+
+(defun slime-net-connect-unix (socket-path &rest parameters)
+  "Establish a connection with a CL via a UNIX domain socket."
+  (let* ((inhibit-quit nil)
+         (buffer (slime-make-net-buffer "*cl-connection*"))
+         (proc (make-network-process
+                :name "SLIME Lisp (local socket)"
+                :buffer buffer
+                :filter 'slime-net-filter
+                :sentinel 'slime-net-sentinel
+                :family 'local
+                :service socket-path
+                :coding 'binary)))
+    (push proc slime-net-processes)
+    (slime-set-query-on-exit-flag proc)
     (slime-send-secret proc)
     proc))
 
