@@ -37,4 +37,4 @@ doc/*.tgz
 
 # ELPA-generated files
 /slime-pkg.el
-/slime-autoloads.el
+# /slime-autoloads.el
