@@ -4213,7 +4213,7 @@ in Lisp when committed with \\[slime-edit-value-commit]."
 \\(See `slime-edit-value'.)"
   (interactive)
   (if (null slime-edit-form-string)
-      (error "Not editing a value.")
+      (user-error "Not editing a value.")
     (let ((value (buffer-substring-no-properties (point-min) (point-max))))
       (let ((buffer (current-buffer)))
         (slime-eval-async `(swank:commit-edited-value ,slime-edit-form-string
@@ -4375,21 +4375,21 @@ If PACKAGE is NIL, then search in all packages."
   "Describe the symbol at point."
   (interactive (list (slime-read-symbol-name "Describe symbol: ")))
   (when (not symbol-name)
-    (error "No symbol given"))
+    (user-error "No symbol given"))
   (slime-eval-describe `(swank:describe-symbol ,symbol-name)))
 
 (defun slime-documentation (symbol-name)
   "Display function- or symbol-documentation for SYMBOL-NAME."
   (interactive (list (slime-read-symbol-name "Documentation for symbol: ")))
   (when (not symbol-name)
-    (error "No symbol given"))
+    (user-error "No symbol given"))
   (slime-eval-describe
    `(swank:documentation-symbol ,symbol-name)))
 
 (defun slime-describe-function (symbol-name)
   (interactive (list (slime-read-symbol-name "Describe symbol's function: ")))
   (when (not symbol-name)
-    (error "No symbol given"))
+    (user-error "No symbol given"))
   (slime-eval-describe `(swank:describe-function ,symbol-name)))
 
 (defface slime-apropos-symbol
@@ -5560,17 +5560,17 @@ Called on the `point-entered' text-property hook."
 
 (defun sldb-restart-at-point ()
   (or (get-text-property (point) 'restart)
-      (error "No restart at point")))
+      (user-error "No restart at point")))
 
 (defun sldb-frame-number-at-point ()
   (let ((frame (get-text-property (point) 'frame)))
     (cond (frame (car frame))
-	  (t (error "No frame at point")))))
+	  (t (user-error "No frame at point")))))
 
 (defun sldb-var-number-at-point ()
   (let ((var (get-text-property (point) 'var)))
     (cond (var var)
-	  (t (error "No variable at point")))))
+	  (t (user-error "No variable at point")))))
 
 (defun sldb-previous-frame-number ()
   (save-excursion
@@ -6322,7 +6322,7 @@ was called originally."
 
 (defun slime-connection-at-point ()
   (or (get-text-property (point) 'slime-connection)
-      (error "No connection at point")))
+      (user-error "No connection at point")))
 
 (defun slime-quit-connection-at-point (connection)
   (interactive (list (slime-connection-at-point)))
@@ -6570,7 +6570,7 @@ that value.
         (slime-action-number
          (slime-eval-async `(swank:inspector-call-nth-action ,value)
            opener))
-        (t (error "No object at point"))))))
+        (t (user-error "No object at point"))))))
 
 (defun slime-inspector-operate-on-click (event)
   "Move to events' position and operate the part."
@@ -6583,7 +6583,7 @@ that value.
            (goto-char point)
            (slime-inspector-operate-on-point))
           (t
-           (error "No clickable part here")))))
+           (user-error "No clickable part here")))))
 
 (defun slime-inspector-pop ()
   "Reinspect the previous object."
@@ -6649,7 +6649,7 @@ If ARG is negative, move backwards."
                    (setq previously-wrapped-p nil))
           (if (not previously-wrapped-p) ; cycle detection
               (progn (goto-char minpos) (setq previously-wrapped-p t))
-            (error "No inspectable objects")))))
+            (user-error "No inspectable objects")))))
     ;; Backward.
     (while (< arg 0)
       (cl-destructuring-bind (pos foundp)
@@ -6662,7 +6662,7 @@ If ARG is negative, move backwards."
                    (setq previously-wrapped-p nil))
           (if (not previously-wrapped-p) ; cycle detection
               (progn (goto-char maxpos) (setq previously-wrapped-p t))
-            (error "No inspectable objects")))))))
+            (user-error "No inspectable objects")))))))
 
 (defun slime-inspector-previous-inspectable-object (arg)
   "Move point to the previous inspectable object.
@@ -6677,7 +6677,7 @@ If ARG is negative, move forwards."
 
 (defun slime-inspector-pprint (part)
   (interactive (list (or (get-text-property (point) 'slime-part-number)
-                         (error "No part at point"))))
+                         (user-error "No part at point"))))
   (slime-eval-describe `(swank:pprint-inspector-part ,part)))
 
 (defun slime-inspector-eval (string)
