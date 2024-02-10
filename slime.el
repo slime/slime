@@ -1,7 +1,7 @@
 ;;; slime.el --- Superior Lisp Interaction Mode for Emacs -*-lexical-binding:t-*-
 
 ;; URL: https://github.com/slime/slime
-;; Package-Requires: ((cl-lib "0.5") (macrostep "0.9"))
+;; Package-Requires: ((emacs "24.3") (macrostep "0.9"))
 ;; Keywords: languages, lisp, slime
 ;; Version: 2.29.1
 
@@ -57,11 +57,7 @@
 ;;; Code:
 
 
-;;;; Dependencies and setup
-(eval-and-compile
-  (require 'cl-lib nil t)
-  ;; For emacs 23, look for bundled version
-  (require 'cl-lib "lib/cl-lib"))
+(require 'cl-lib)
 
 (eval-and-compile
   (if (< emacs-major-version 23)
@@ -3904,8 +3900,7 @@ The result is a (possibly empty) list of definitions."
           (slime-eval-async `(swank:buffer-first-change ,filename)))))))
 
 (defun slime-setup-first-change-hook ()
-  (add-hook (make-local-variable 'first-change-hook)
-            'slime-first-change-hook))
+  (add-hook 'first-change-hook #'slime-first-change-hook nil t))
 
 (add-hook 'slime-mode-hook 'slime-setup-first-change-hook)
 
