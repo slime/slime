@@ -26,8 +26,7 @@
 
 ;;;; Tests
 (require 'slime)
-(require 'ert nil t)
-(require 'ert "lib/ert" t) ;; look for bundled version for Emacs 23
+(require 'ert)
 (require 'cl-lib)
 (require 'bytecomp) ; byte-compile-current-file
 

@@ -291,7 +291,7 @@ This chapter tells you how to get @SLIME{} up and running.
 
 @SLIME{} supports a wide range of operating systems and Lisp
 implementations. @SLIME{} runs on Unix systems, Mac OSX, and Microsoft
-Windows. GNU Emacs versions 24 and 23.4 are supported. @emph{XEmacs is
+Windows. GNU Emacs versions 24.3 and above are supported. @emph{XEmacs is
 not supported anymore}.
 
 The supported Lisp implementations, roughly ordered from the
