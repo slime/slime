@@ -4943,8 +4943,13 @@ When displaying XREF information, this goes to the previous reference."
 This variable specifies both what was expanded and how.")
 
 (defun slime-eval-macroexpand (expander &optional string)
-  (let ((string (or string (slime-sexp-at-point-or-error))))
-    (setq slime-eval-macroexpand-expression `(,expander ,string))
+  (let ((string (or string (slime-sexp-at-point-or-error)))
+        (macrolet (when (fboundp 'slime-enclosing-macrolets)
+                    (slime-enclosing-macrolets))))
+    (setq slime-eval-macroexpand-expression
+          (if macrolet
+              `(swank:swank-macrolet-expand ',macrolet ',expander ,string)
+              `(,expander ,string)))
     (slime-eval-async slime-eval-macroexpand-expression
       #'slime-initialize-macroexpansion-buffer)))
 

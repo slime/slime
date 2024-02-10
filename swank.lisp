@@ -2575,46 +2575,55 @@ the filename of the module (or nil if the file doesn't exist).")
     (*print-level* . nil)
     (*print-length* . nil)))
 
-(defun apply-macro-expander (expander string)
+(defun apply-macro-expander (expander string &optional environment)
   (with-buffer-syntax ()
     (with-bindings *macroexpand-printer-bindings*
-      (prin1-to-string (funcall expander (from-string string))))))
+      (prin1-to-string (funcall expander (from-string string) environment)))))
 
-(defslimefun swank-macroexpand-1 (string)
-  (apply-macro-expander #'macroexpand-1 string))
+(defslimefun swank-macroexpand-1 (string &optional environment)
+  (apply-macro-expander #'macroexpand-1 string environment))
 
-(defslimefun swank-macroexpand (string)
-  (apply-macro-expander #'macroexpand string))
+(defslimefun swank-macroexpand (string &optional environment)
+  (apply-macro-expander #'macroexpand string environment))
 
-(defslimefun swank-macroexpand-all (string)
-  (apply-macro-expander #'macroexpand-all string))
+(defslimefun swank-macroexpand-all (string &optional environment)
+  (apply-macro-expander #'macroexpand-all string environment))
 
-(defslimefun swank-compiler-macroexpand-1 (string)
-  (apply-macro-expander #'compiler-macroexpand-1 string))
+(defslimefun swank-compiler-macroexpand-1 (string &optional environment)
+  (apply-macro-expander #'compiler-macroexpand-1 string environment))
 
-(defslimefun swank-compiler-macroexpand (string)
-  (apply-macro-expander #'compiler-macroexpand string))
+(defslimefun swank-compiler-macroexpand (string &optional environment)
+  (apply-macro-expander #'compiler-macroexpand string environment))
 
-(defslimefun swank-expand-1 (string)
-  (apply-macro-expander #'expand-1 string))
+(defslimefun swank-expand-1 (string &optional environment)
+  (apply-macro-expander #'expand-1 string environment))
 
-(defslimefun swank-expand (string)
-  (apply-macro-expander #'expand string))
+(defslimefun swank-expand (string &optional environment)
+  (apply-macro-expander #'expand string environment))
 
-(defun expand-1 (form)
-  (multiple-value-bind (expansion expanded?) (macroexpand-1 form)
+(defmacro current-environment (&environment env)
+  env)
+
+(defslimefun swank-macrolet-expand (macrolets expander string)
+  (with-buffer-syntax ()
+    (let ((macrolet-forms
+            '(current-environment)))
+      (loop for macrolet in macrolets
+            do (setf macrolet-forms
+                     `(macrolet ,(from-string macrolet) ,macrolet-forms )))
+      (funcall expander string (eval macrolet-forms)))))
+
+(defun expand-1 (form &optional environment)
+  (multiple-value-bind (expansion expanded?) (macroexpand-1 form environment)
     (if expanded?
         (values expansion t)
         (compiler-macroexpand-1 form))))
 
-(defun expand (form)
-  (expand-repeatedly #'expand-1 form))
-
-(defun expand-repeatedly (expander form)
+(defun expand (form &optional environment)
   (loop
-    (multiple-value-bind (expansion expanded?) (funcall expander form)
-      (unless expanded? (return expansion))
-      (setq form expansion))))
+   (multiple-value-bind (expansion expanded?) (expand-1 form environment)
+     (unless expanded? (return expansion))
+     (setq form expansion))))
 
 (defslimefun swank-format-string-expand (string)
   (apply-macro-expander #'format-string-expand string))
