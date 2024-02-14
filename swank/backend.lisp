@@ -637,17 +637,22 @@ The stream calls READ-STRING when input is needed.")
 
 (defvar *auto-flush-interval* 0.2)
 
-(defun auto-flush-loop (stream interval &optional receive)
+(defun auto-flush-loop (stream interval &optional receive (flush #'force-output))
   (loop
    (when (not (and (open-stream-p stream)
                    (output-stream-p stream)))
      (return nil))
-   (force-output stream)
+   (funcall flush stream)
    (when receive
      (receive-if #'identity))
    (sleep interval)))
 
 (definterface make-auto-flush-thread (stream)
+  "Make an auto-flush thread"
+  (spawn (lambda () (auto-flush-loop stream *auto-flush-interval* nil))
+         :name "auto-flush-thread"))
+
+(definterface really-finish-output (stream)
   "Make an auto-flush thread"
   (spawn (lambda () (auto-flush-loop stream *auto-flush-interval* nil))
          :name "auto-flush-thread"))
