@@ -216,7 +216,7 @@
 (defimplementation make-auto-flush-thread (stream)
   (if (typep stream 'slime-output-stream)
       (setf (flush-thread stream)
-            (spawn (lambda () (auto-flush-loop stream 0.05 t #'%stream-finish-output))
+            (spawn (lambda () (auto-flush-loop stream 0.005 t #'%stream-finish-output))
                    :name "auto-flush-thread"))
       (spawn (lambda () (auto-flush-loop stream *auto-flush-interval*))
              :name "auto-flush-thread")))
