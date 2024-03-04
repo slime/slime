@@ -251,38 +251,37 @@ most recently enclosed macro or function."
 (defun slime-fuzzy-complete-symbol ()
   "Fuzzily completes the abbreviation at point into a symbol."
   (interactive)
-  (when (save-excursion (re-search-backward "\"[^ \t\n]+\\=" nil t))
-    (cl-return-from slime-fuzzy-complete-symbol
+  (if (save-excursion (re-search-backward "\"[^ \t\n]+\\=" nil t))
       ;; don't add space after completion
       (let ((comint-completion-addsuffix '("/" . "")))
         (if slime-when-complete-filename-expand
             (comint-replace-by-expanded-filename)
-          ;; FIXME: use `comint-filename-completion' when dropping emacs23
-          (funcall (if (>= emacs-major-version 24)
-                       'comint-filename-completion
-                     'comint-dynamic-complete-as-filename))))))
-  (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
-         (beg (move-marker (make-marker) (slime-symbol-start-pos)))
-         (prefix (buffer-substring-no-properties beg end)))
-    (cl-destructuring-bind (completion-set interrupted-p)
-        (slime-fuzzy-completions prefix)
-      (if (null completion-set)
-          (progn (slime-minibuffer-respecting-message
-                  "Can't find completion for \"%s\"" prefix)
-                 (ding)
-                 (slime-fuzzy-done))
-          (goto-char end)
-          (cond ((slime-length= completion-set 1)
-                 ;; insert completed string
-                 (insert-and-inherit (caar completion-set))
-                 (delete-region beg end)
-                 (goto-char (+ beg (length (caar completion-set))))
-                 (slime-minibuffer-respecting-message "Sole completion")
-                 (slime-fuzzy-done))
-                ;; Incomplete
-                (t
-                 (slime-fuzzy-choices-buffer completion-set interrupted-p
-                                             beg end)))))))
+            ;; FIXME: use `comint-filename-completion' when dropping emacs23
+            (funcall (if (>= emacs-major-version 24)
+                         'comint-filename-completion
+                         'comint-dynamic-complete-as-filename))))
+      (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
+             (beg (move-marker (make-marker) (slime-symbol-start-pos)))
+             (prefix (buffer-substring-no-properties beg end)))
+        (cl-destructuring-bind (completion-set interrupted-p)
+                               (slime-fuzzy-completions prefix)
+                               (if (null completion-set)
+                                   (progn (slime-minibuffer-respecting-message
+                                           "Can't find completion for \"%s\"" prefix)
+                                          (ding)
+                                          (slime-fuzzy-done))
+                                   (goto-char end)
+                                   (cond ((slime-length= completion-set 1)
+                                          ;; insert completed string
+                                          (insert-and-inherit (caar completion-set))
+                                          (delete-region beg end)
+                                          (goto-char (+ beg (length (caar completion-set))))
+                                          (slime-minibuffer-respecting-message "Sole completion")
+                                          (slime-fuzzy-done))
+                                         ;; Incomplete
+                                         (t
+                                          (slime-fuzzy-choices-buffer completion-set interrupted-p
+                                                                      beg end))))))))
 
 
 (defun slime-get-fuzzy-buffer ()
