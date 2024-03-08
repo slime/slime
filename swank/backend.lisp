@@ -810,9 +810,9 @@ forms."
             (compile nil `(lambda () ,expansion))))
       (values macro-forms compiler-macro-forms))))
 
-(definterface format-string-expand (control-string)
+(definterface format-string-expand (control-string &optional env)
   "Expand the format string CONTROL-STRING."
-  (macroexpand `(formatter ,control-string)))
+  (macroexpand `(formatter ,control-string) env))
 
 (definterface describe-symbol-for-emacs (symbol)
    "Return a property list describing SYMBOL.
