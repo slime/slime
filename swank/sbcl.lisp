@@ -1515,14 +1515,17 @@ stack."
             (t (format nil "Cannot return from frame: ~S" frame)))))
 
   (defimplementation restart-frame (index)
-    (let ((frame (nth-frame index)))
+    (let ((frame (nth-frame index))
+          (sb-debug:*method-frame-style* :minimal))
       (when (sb-debug:frame-has-debug-tag-p frame)
         (multiple-value-bind (fname args) (sb-debug::frame-call frame)
           (multiple-value-bind (fun arglist)
               (if (and (sb-int:legal-fun-name-p fname) (fboundp fname))
                   (values (fdefinition fname) args)
                   (values (sb-di:debug-fun-fun (sb-di:frame-debug-fun frame))
-                          (sb-debug::frame-args-as-list frame)))
+                          (sb-debug::frame-args-as-list frame 
+                                                        #+#.(swank/backend:with-symbol '*default-argument-limit* 'sb-debug)
+                                                        call-arguments-limit)))
             (when (functionp fun)
               (sb-debug:unwind-to-frame-and-call
                frame
