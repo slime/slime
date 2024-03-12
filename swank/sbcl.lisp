@@ -1522,7 +1522,7 @@ stack."
               (if (and (sb-int:legal-fun-name-p fname) (fboundp fname))
                   (values (fdefinition fname) args)
                   (values (sb-di:debug-fun-fun (sb-di:frame-debug-fun frame))
-                          (sb-debug::frame-args-as-list frame)))
+                          (sb-debug::frame-args-as-list frame 255)))
             (when (functionp fun)
               (sb-debug:unwind-to-frame-and-call
                frame
