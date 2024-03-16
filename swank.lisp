@@ -3151,7 +3151,7 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
     (with-retry-restart (:msg "Retry SLIME inspection request.")
       (reset-inspector)
       (inspect-object (if definition
-                          (find-definition string)
+                          (find-definition definition)
                           (eval (read-from-string string)))))))
 
 (defun ensure-istate-metadata (o indicator default)
