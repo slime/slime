@@ -155,14 +155,22 @@ Return nil if nothing appropriate is available."
             when (string-starts-with line prefix)
               return (subseq line (length prefix))))))
 
+
 (defun default-fasl-dir ()
-  (merge-pathnames
-   (make-pathname
-    :directory `(:relative ".slime" "fasl"
-                 ,@(if (slime-version-string) (list (slime-version-string)))
-                 ,(unique-dir-name)
-                 ,@(if *load-truename* (cdr (pathname-directory *load-truename*)))))
-   (user-homedir-pathname)))
+  "If the environment variable, SLIME_HOME_DIR is set, then the default fasl
+ directory is SLIME_HOME_DIR/fasl; otherwise ~/.slime/fasl"
+  (let* ((slime-home-dir-var (uiop:getenv "SLIME_HOME_DIR"))
+         (slime-dir (if (> (length slime-home-dir-var) 0)
+                        (parse-namestring slime-home-dir-var)
+                        (merge-pathnames ".slime/" (user-homedir-pathname)))))
+    (merge-pathnames
+     (make-pathname
+      :directory `(:relative "fasl"
+                   ,@(if (slime-version-string) (list (slime-version-string)))
+                   ,(unique-dir-name)
+                   ,@(if *load-truename* (cdr (pathname-directory *load-truename*)))))
+     slime-dir)))
+
 
 (defvar *fasl-directory* (default-fasl-dir)
   "The directory where fasl files should be placed.")

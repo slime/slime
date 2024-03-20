@@ -12,6 +12,8 @@ LOAD_PATH=-L .
 ELFILES := slime.el slime-autoloads.el slime-tests.el $(wildcard lib/*.el)
 ELCFILES := $(ELFILES:.el=.elc)
 
+SLIME_DIR := $(shell if [ -z "$${SLIME_HOME_DIR}" ]; then echo "~/.slime"; else echo "$${SLIME_HOME_DIR}"; fi)
+
 default: compile contrib-compile
 
 all: compile
@@ -88,7 +90,7 @@ FASLREGEX = .*\.\(fasl\|ufasl\|sse2f\|lx32fsl\|abcl\|fas\|lib\|trace\)$$
 
 clean-fasls:
 	find . -regex '$(FASLREGEX)' -exec rm -v {} \;
-	[ ! -d ~/.slime/fasl ] || rm -rf ~/.slime/fasl
+	[ ! -d $(SLIME_DIR)/fasl ] || rm -rf $(SLIME_DIR)/fasl
 
 clean: clean-fasls
 	find . -iname '*.elc' -exec rm {} \;
