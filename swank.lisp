@@ -761,8 +761,8 @@ first."
   (unwind-protect
        (let ((client (accept-connection socket :external-format nil
                                                :buffering t)))
-         (authenticate-client client)
-         (serve-requests (make-connection socket client style)))
+         (when (authenticate-client client)
+           (serve-requests (make-connection socket client style))))
     (unless dont-close
       (%stop-server :socket socket))))
 
@@ -772,8 +772,10 @@ first."
       (set-stream-timeout stream 20)
       (let ((first-val (read-packet stream)))
         (unless (and (stringp first-val) (string= first-val secret))
-          (error "Incoming connection doesn't know the password.")))
-      (set-stream-timeout stream nil))))
+          (warn "Incoming connection doesn't know the password.")
+          (return-from authenticate-client nil)))
+      (set-stream-timeout stream nil))
+    t))
 
 (defun slime-secret ()
   "Finds the magic secret from the user's home directory.  Returns nil
