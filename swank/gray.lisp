@@ -114,20 +114,6 @@
     (setf (flush-scheduled stream) nil))
   nil)
 
-#+(and sbcl sb-thread)
-(defmethod stream-force-output :around ((stream slime-output-stream))
-  ;; Workaround for deadlocks between the world-lock and auto-flush-thread
-  ;; buffer write lock.
-  ;;
-  ;; Another alternative would be to grab the world-lock here, but that's less
-  ;; future-proof, and could introduce other lock-ordering issues in the
-  ;; future.
-  (handler-case
-      (sb-sys:with-deadline (:seconds 0.1)
-        (call-next-method))
-    (sb-sys:deadline-timeout ()
-      nil)))
-
 (defmethod stream-force-output ((stream slime-output-stream))
   (stream-finish-output stream))
 
