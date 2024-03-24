@@ -74,9 +74,6 @@
 (defimplementation lisp-implementation-type-name ()
   "sbcl")
 
-;; Declare return type explicitly to shut up STYLE-WARNINGS about
-;; %SAP-ALIEN in ENABLE-SIGIO-ON-FD below.
-(declaim (ftype (function () (values (signed-byte 32) &optional)) getpid))
 (defimplementation getpid ()
   (sb-posix:getpid))
 
