@@ -105,10 +105,12 @@ the Emacs Lisp package.")
                  :test #'string-equal))))
 
 (defvar slime-lisp-modes '(lisp-mode))
-(defvar slime-contribs '(slime-fancy)
-  "A list of contrib packages to load with SLIME.")
+
 (define-obsolete-variable-alias 'slime-setup-contribs
 'slime-contribs "2.3.2")
+
+(defvar slime-contribs '(slime-fancy)
+  "A list of contrib packages to load with SLIME.")
 
 ;;;###autoload
 (cl-defun slime-setup (&optional (contribs nil contribs-p))
@@ -280,7 +282,8 @@ argument."
   "List of functions to perform completion.
 Works like `completion-at-point-functions'.
 `slime--completion-at-point' uses this variable."
-  :group 'slime-mode)
+  :group 'slime-mode
+  :type '(repeat function))
 
 ;;;;; slime-mode-faces
 
@@ -687,7 +690,6 @@ If BOTHP is true also add bindings with control modifier."
 ;;;;; Syntactic sugar
 
 (defmacro slime-dcase (value &rest patterns)
-  (declare (indent 1))
   "Dispatch VALUE to one of PATTERNS.
 A cross between `case' and `destructuring-bind'.
 The pattern syntax is:
@@ -695,6 +697,7 @@ The pattern syntax is:
 The list of patterns is searched for a HEAD `eq' to the car of
 VALUE. If one is found, the BODY is executed with ARGS bound to the
 corresponding values in the CDR of VALUE."
+  (declare (indent 1))
   (let ((operator (cl-gensym "op-"))
 	(operands (cl-gensym "rand-"))
 	(tmp (cl-gensym "tmp-")))
@@ -2408,7 +2411,7 @@ Debugged requests are ignored."
         (slime-pprint-event event (current-buffer)))
       (when (and (boundp 'outline-minor-mode)
                  outline-minor-mode)
-        (hide-entry))
+        (outline-hide-entry))
       (goto-char (point-max)))))
 
 (defun slime-pprint-event (event buffer)
@@ -3081,7 +3084,7 @@ first element of the source-path redundant."
                         (when more (down-list 1))))
           ;; Align at beginning
           (slime-forward-sexp)
-          (beginning-of-sexp))
+          (thing-at-point--beginning-of-sexp))
       (error (goto-char origin)))))
 
 
@@ -3392,7 +3395,7 @@ are supported:
         (condition-case nil
             (progn
               (slime-forward-sexp)
-              (beginning-of-sexp))
+              (thing-at-point--beginning-of-sexp))
           (error (goto-char 0)))))
     (point)))
 
@@ -4114,7 +4117,7 @@ inserted in the current buffer."
 
 (defun slime-eval-defun ()
   "Evaluate the current toplevel form.
-Use `slime-re-evaluate-defvar' if the from starts with '(defvar'"
+Use `slime-re-evaluate-defvar' if the from starts with `(defvar'"
   (interactive)
   (let ((form (slime-defun-at-point)))
     (cond ((string-match "^(defvar " form)
@@ -6333,7 +6336,7 @@ was called originally."
       (when (time-less-p end (current-time))
         (message "Quit timeout expired.  Disconnecting.")
         (delete-process connection))
-      (sit-for 0 100)))
+      (sit-for 0.100)))
   (slime-update-connection-list))
 
 (defun slime-restart-connection-at-point (connection)
@@ -6617,7 +6620,7 @@ that value.
 ;; FIXME: could probably use slime-search-property.
 (defun slime-find-inspectable-object (direction limit)
   "Find the next/previous inspectable object.
-DIRECTION can be either 'next or 'prev.
+DIRECTION can be either `next or `prev.
 LIMIT is the maximum or minimum position in the current buffer.
 
 Return a list of two values: If an object could be found, the
@@ -7318,7 +7321,7 @@ is setup, unless the user already set one explicitly."
 ;;; FIXME: this looks almost slime `slime-alistify', perhaps the two
 ;;;        functions can be merged.
 (defun slime-group-similar (similar-p list)
-  "Return the list of lists of 'similar' adjacent elements of LIST.
+  "Return the list of lists of similar adjacent elements of LIST.
 The function SIMILAR-P is used to test for similarity.
 The order of the input list is preserved."
   (if (null list)
