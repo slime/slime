@@ -157,6 +157,7 @@ RESULT-P decides whether a face for a return value or output text is used."
                        "mouse-2: copy to input; mouse-3: menu"
                      "mouse-2: inspect; mouse-3: menu"))
       (overlay-put overlay 'face 'slime-repl-inputed-output-face)
+      (overlay-put overlay 'font-lock-face 'slime-repl-inputed-output-face)
       (overlay-put overlay 'keymap slime-presentation-map))))
 
 (defun slime-remove-presentation-properties (from to presentation)
@@ -771,7 +772,8 @@ output; otherwise the new input is appended."
           (saved-point (point-marker)))
       (goto-char marker)
       (slime-propertize-region `(face slime-repl-result-face
-                                      rear-nonsticky (face))
+                                      font-lock-face slime-repl-result-face
+                                      rear-nonsticky (face font-lock-face))
         (insert string))
       ;; Move the input-start marker after the REPL result.
       (set-marker marker (point))
@@ -841,14 +843,16 @@ even on Common Lisp implementations without weak hash tables."
        (slime-propertize-region
            (list 'slime-part-number id
                  'mouse-face 'highlight
-                 'face 'slime-inspector-value-face)
+                 'face 'slime-inspector-value-face
+                 'font-lock-face 'slime-inspector-value-face)
          (slime-insert-presentation string `(:inspected-part ,id) t)))
       ((:label string)
        (insert (slime-inspector-fontify label string)))
       ((:action string id)
        (slime-insert-propertized (list 'slime-action-number id
                                        'mouse-face 'highlight
-                                       'face 'slime-inspector-action-face)
+                                       'face 'slime-inspector-action-face
+                                       'font-lock-face 'slime-inspector-action-face)
                                  string)))))
 
 (defun slime-presentation-sldb-insert-frame-variable-value (value frame index)
