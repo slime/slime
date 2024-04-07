@@ -316,8 +316,8 @@ TIME-LIMIT-IN-MSEC is NIL, an infinite time limit is assumed."
     (:nearest-package
      ;; Keep only the first occurence of the symbol.
      #'(lambda (symbol)
-         (unless (gethash (symbol-name symbol) dedup-table)
-           (setf (gethash (symbol-name symbol) dedup-table) t))))
+         (unless (gethash symbol dedup-table)
+           (setf (gethash symbol dedup-table) t))))
     (:all
      ;; No filter
      #'identity)
