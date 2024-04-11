@@ -400,14 +400,13 @@
  (values))
 
 (defvar *shebang-readtable*
-  (let ((*readtable* (copy-readtable nil)))
+  (let ((readtable (copy-readtable nil)))
     (set-dispatch-macro-character #\# #\!
                                   (lambda (s c n) (shebang-reader s c n))
-                                  *readtable*)
-    *readtable*))
-
-(defun shebang-readtable ()
-  *shebang-readtable*)
+                                  readtable)
+    ;; Cross-floats
+    (set-macro-character #\$ (lambda (stream char) (values)) nil readtable)
+    readtable))
 
 (defun sbcl-package-p (package)
   (let ((name (package-name package)))
@@ -420,15 +419,18 @@
 
 (defun guess-readtable-for-filename (filename)
   (if (sbcl-source-file-p filename)
-      (shebang-readtable)
+      *shebang-readtable*
       *readtable*))
 
 (defvar *debootstrap-packages* t)
 
 (defun call-with-debootstrapping (fun)
-  (handler-bind ((sb-int:bootstrap-package-not-found
-                  #'sb-int:debootstrap-package))
-    (funcall fun)))
+  (let ((*features* (append *features*
+                            #+#.(swank/backend:with-symbol '+internal-features+ 'sb-impl)
+                            sb-impl:+internal-features+)))
+    (handler-bind ((sb-int:bootstrap-package-not-found
+                     #'sb-int:debootstrap-package))
+      (funcall fun))))
 
 (defmacro with-debootstrapping (&body body)
   `(call-with-debootstrapping (lambda () ,@body)))
@@ -441,7 +443,7 @@
          (funcall fn))))
 
 (defimplementation default-readtable-alist ()
-  (let ((readtable (shebang-readtable)))
+  (let ((readtable *shebang-readtable*))
     (loop for p in (remove-if-not #'sbcl-package-p (list-all-packages))
           collect (cons (package-name p) readtable))))
 
