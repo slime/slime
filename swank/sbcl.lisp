@@ -2099,3 +2099,6 @@ stack."
 
   (defmethod sexp-ref ((s sb-impl::comma) i)
     (sexp-ref (sb-impl::comma-expr s) i)))
+
+(defimplementation augment-features ()
+  (append *features* #+sb-devel sb-impl:+internal-features+))

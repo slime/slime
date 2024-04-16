@@ -1427,7 +1427,7 @@ FEATURES: a list of keywords
 PACKAGE: a list (&key NAME PROMPT)
 VERSION: the protocol version"
   (let ((c *emacs-connection*))
-    (setq *slime-features* *features*)
+    (setq *slime-features* (augment-features))
     `(:pid ,(getpid) :style ,(connection.communication-style c)
       :encoding (:coding-systems
                  ,(loop for cs in '("utf-8-unix" "iso-latin-1-unix")
@@ -3600,9 +3600,10 @@ The server port is written to PORT-FILE-NAME."
 (defun sync-features-to-emacs ()
   "Update Emacs if any relevant Lisp state has changed."
   ;; FIXME: *slime-features* should be connection-local
-  (unless (eq *slime-features* *features*)
-    (setq *slime-features* *features*)
-    (send-to-emacs (list :new-features (features-for-emacs)))))
+  (let ((features (augment-features)))
+    (unless (equal *slime-features* features)
+      (setq *slime-features* features)
+      (send-to-emacs (list :new-features (features-for-emacs))))))
 
 (defun features-for-emacs ()
   "Return `*slime-features*' in a format suitable to send it to Emacs."

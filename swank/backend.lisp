@@ -1589,3 +1589,7 @@ Implementations intercept calls to SPEC and call, in this order:
                 nil)
                (prop-value t)
                (t nil)))))
+
+(definterface augment-features ()
+  "*features* or something else "
+  *features*)
