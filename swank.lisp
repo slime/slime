@@ -3141,7 +3141,7 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
                                   (symbol (find-class spec))
                                   ((cons (eql eql))
                                    (make-instance 'swank-mop:eql-specializer
-                                                  :object (second spec)))))
+                                                  :object (eval (second spec))))))
                               specializers))))
       (t
        (eval sexp)))))
