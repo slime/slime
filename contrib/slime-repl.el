@@ -55,6 +55,19 @@ maintain."
   :type '(boolean)
   :group 'slime-repl)
 
+(defcustom slime-repl-history-recall-mode 'replace
+  "When REPLACE, a recalled history item replaces the current input.
+   When INSERT, a recalled history item is inserted at point, making
+   it much easier to nest a previous input inside the current one,
+   particularly if you are using Paredit. INSERT also turns off the
+   behavior whereby M-p (slime-repl-previous-input) and
+   M-n (slime-repl-next-input), if you have already typed some characters,
+   automatically use them as a history search string; if you want to
+   search the history, use M-r (slime-repl-previous-matching-input)."
+  :type '(radio (const replace)
+		(const insert))
+  :group 'slime-repl)
+
 (defcustom slime-repl-auto-right-margin nil
   "When T we bind CL:*PRINT-RIGHT-MARGIN* to the width of the
 current repl's (as per slime-output-buffer) window."
@@ -966,7 +979,7 @@ Empty strings and duplicates are ignored."
       (push string slime-repl-input-history))))
 
 ;; These two vars contain the state of the last history search.  We
-;; only use them if `last-command' was 'slime-repl-history-replace,
+;; only use them if `last-command' was 'slime-repl-history-recall,
 ;; otherwise we reinitialize them.
 
 (defvar slime-repl-input-history-position -1
@@ -975,8 +988,10 @@ Empty strings and duplicates are ignored."
 (defvar slime-repl-history-pattern nil
   "The regexp most recently used for finding input history.")
 
-(defun slime-repl-history-replace (direction &optional regexp)
-  "Replace the current input with the next line in DIRECTION.
+(defun slime-repl-history-recall (direction &optional regexp)
+  "Recall the next history entry in DIRECTION.
+Replace the current input with it if SLIME-REPL-HISTORY-RECALL-MODE
+is REPLACE, or just insert it at point if this mode is INSERT.
 DIRECTION is 'forward' or 'backward' (in the history list).
 If REGEXP is non-nil, only lines matching REGEXP are considered."
   (setq slime-repl-history-pattern regexp)
@@ -989,7 +1004,13 @@ If REGEXP is non-nil, only lines matching REGEXP are considered."
                                               (slime-repl-current-input)))
          (msg nil))
     (cond ((and (< min-pos pos) (< pos max-pos))
-           (slime-repl-replace-input (nth pos slime-repl-input-history))
+           (if (eq slime-repl-history-recall-mode 'replace)
+	       (slime-repl-replace-input (nth pos slime-repl-input-history))
+	     (when (slime-repl-history-search-in-progress-p)
+	       (delete-region (- (point) (length (nth slime-repl-input-history-position
+						      slime-repl-input-history)))
+			      (point)))
+             (insert-and-inherit (nth pos slime-repl-input-history)))
            (setq msg (format "History item: %d" pos)))
           ((not slime-repl-wrap-history)
            (setq msg (cond ((= pos min-pos) "End of history")
@@ -1004,10 +1025,10 @@ If REGEXP is non-nil, only lines matching REGEXP are considered."
     (message "%s%s" msg (cond ((not regexp) "")
                               (t (format "; current regexp: %s" regexp))))
     (setq slime-repl-input-history-position pos)
-    (setq this-command 'slime-repl-history-replace)))
+    (setq this-command 'slime-repl-history-recall)))
 
 (defun slime-repl-history-search-in-progress-p ()
-  (eq last-command 'slime-repl-history-replace))
+  (eq last-command 'slime-repl-history-recall))
 
 (defun slime-repl-terminate-history-search ()
   (setq last-command this-command))
@@ -1040,8 +1061,10 @@ Otherwise use the current input as search pattern.
 With a prefix-arg, do replacement from the mark."
   (interactive)
   (let ((slime-repl-history-use-mark (or slime-repl-history-use-mark
-                                         current-prefix-arg)))
-    (slime-repl-history-replace 'backward (slime-repl-history-pattern t))))
+                                         current-prefix-arg))
+	(autosearch (eq slime-repl-history-recall-mode 'replace)))
+    (slime-repl-history-recall 'backward
+			       (slime-repl-history-pattern autosearch))))
 
 (defun slime-repl-next-input ()
   "Cycle forwards through input history.
@@ -1050,18 +1073,20 @@ See `slime-repl-previous-input'.
 With a prefix-arg, do replacement from the mark."
   (interactive)
   (let ((slime-repl-history-use-mark (or slime-repl-history-use-mark
-                                         current-prefix-arg)))
-    (slime-repl-history-replace 'forward (slime-repl-history-pattern t))))
+                                         current-prefix-arg))
+	(autosearch (eq slime-repl-history-recall-mode 'replace)))
+    (slime-repl-history-recall 'forward
+			       (slime-repl-history-pattern autosearch))))
 
 (defun slime-repl-forward-input ()
   "Cycle forwards through input history."
   (interactive)
-  (slime-repl-history-replace 'forward (slime-repl-history-pattern)))
+  (slime-repl-history-recall 'forward (slime-repl-history-pattern)))
 
 (defun slime-repl-backward-input ()
   "Cycle backwards through input history."
   (interactive)
-  (slime-repl-history-replace 'backward (slime-repl-history-pattern)))
+  (slime-repl-history-recall 'backward (slime-repl-history-pattern)))
 
 (defun slime-repl-previous-matching-input (regexp)
   "Insert the previous matching input.
@@ -1072,7 +1097,7 @@ With a prefix-arg, do the insertion at the mark."
   (slime-repl-terminate-history-search)
   (let ((slime-repl-history-use-mark (or slime-repl-history-use-mark
                                          current-prefix-arg)))
-    (slime-repl-history-replace 'backward regexp)))
+    (slime-repl-history-recall 'backward regexp)))
 
 (defun slime-repl-next-matching-input (regexp)
   "Insert the next matching input.
@@ -1083,7 +1108,7 @@ With a prefix-arg, do the insertion at the mark."
   (slime-repl-terminate-history-search)
   (let ((slime-repl-history-use-mark (or slime-repl-history-use-mark
                                          current-prefix-arg)))
-   (slime-repl-history-replace 'forward regexp)))
+   (slime-repl-history-recall 'forward regexp)))
 
 (defun slime-repl-history-pattern (&optional use-current-input)
   "Return the regexp for the navigation commands."
