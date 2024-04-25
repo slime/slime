@@ -1004,11 +1004,13 @@ command also called this function.
 DIRECTION is 'forward' or 'backward' (in the history list).
 If REGEXP is non-nil, only lines matching REGEXP are considered."
   (setq slime-repl-history-pattern regexp)
+  (setq this-command 'slime-repl-history-recall)
   (let* ((min-pos -1)
          (max-pos (length slime-repl-input-history))
          (pos0 (cond ((slime-repl-history-search-in-progress-p)
                       slime-repl-input-history-position)
-                     (t min-pos)))
+                     ((eq direction 'forward) max-pos)
+		     (t min-pos)))
          (pos (slime-repl-position-in-history pos0 direction (or regexp "")
                                               (slime-repl-current-input)))
          (msg nil))
@@ -1021,6 +1023,7 @@ If REGEXP is non-nil, only lines matching REGEXP are considered."
            (when slime-repl-history-original-input
              (insert-and-inherit slime-repl-history-original-input)
 	     (backward-char slime-repl-history-original-input-tail-length))
+	   (setq this-command nil)	; exit search-in-progress
            (setq msg (cond ((= pos min-pos) "End of history")
                            ((= pos max-pos) "Beginning of history"))))
           (slime-repl-wrap-history
@@ -1032,8 +1035,7 @@ If REGEXP is non-nil, only lines matching REGEXP are considered."
     ;;(message "%s [%d %d %s]" msg start-pos pos regexp)
     (message "%s%s" msg (cond ((not regexp) "")
                               (t (format "; current regexp: %s" regexp))))
-    (setq slime-repl-input-history-position pos)
-    (setq this-command 'slime-repl-history-recall)))
+    (setq slime-repl-input-history-position pos)))
 
 (defun slime-repl-delete-last-recalled-history-item ()
   (when (slime-repl-history-search-in-progress-p)
@@ -1131,21 +1133,36 @@ With a prefix-arg, do the insertion at the mark."
     (cond ((and slime-repl-history-autosearch-mode use-current-input)
 	   (goto-char (max (slime-repl-history-yank-start) (point)))
 	   (let* ((str (slime-repl-current-input t))
-		  (all-input (slime-repl-current-input))
 		  (regexp (cond ((string-match "^[ \t\n]*$" str) nil)
 				(t (concat "^" (regexp-quote str))))))
 	     (when regexp
-	       (cond (slime-repl-paredit-compatibility
-		      ;; Handle the text following point: delete it, but save it.
-		      (delete-region (slime-repl-history-yank-start) (point-max))
-		      (setq slime-repl-history-original-input all-input)
-		      (setq slime-repl-history-original-input-tail-length
-			    (- (length all-input) (length str))))
-		     (t
-		      (delete-region (slime-repl-history-yank-start) (point))
-		      (setq slime-repl-history-original-input str))))
+	       (slime-repl-history-init-autosearch str))
 	     regexp))
 	  (t nil))))
+
+(defun slime-repl-history-init-autosearch (str)
+  "Delete and save the autosearch input.
+STR is the unquoted search string."
+  (cond (slime-repl-paredit-compatibility
+	 ;; Handle the text after point: delete it, but save it.
+	 ;; In use-mark mode, carefully take just the sexp after the mark.
+	 (let* ((delete-from (slime-repl-history-yank-start))
+		(delete-to
+		 (if (not slime-repl-history-use-mark)
+		     (point-max)
+		   (save-excursion
+		     (goto-char (mark))
+		     (ignore-errors (forward-sexp))
+		     ;; If `forward-sexp' failed, just use EOB.
+		     (if (= (point) (mark)) (point-max) (point)))))
+		(input (buffer-substring-no-properties delete-from delete-to)))
+	   (delete-region delete-from delete-to)
+	   (setq slime-repl-history-original-input input)
+	   (setq slime-repl-history-original-input-tail-length
+		 (- (length input) (length str)))))
+	(t
+	 (delete-region (slime-repl-history-yank-start) (point))
+	 (setq slime-repl-history-original-input str))))
 
 (defun slime-repl-delete-from-input-history (string)
   "Delete STRING from the repl input history.
