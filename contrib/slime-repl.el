@@ -55,17 +55,18 @@ maintain."
   :type '(boolean)
   :group 'slime-repl)
 
-(defcustom slime-repl-history-recall-mode 'replace
-  "When REPLACE, a recalled history item replaces the current input.
-   When INSERT, a recalled history item is inserted at point, making
-   it much easier to nest a previous input inside the current one,
-   particularly if you are using Paredit. INSERT also turns off the
-   behavior whereby M-p (slime-repl-previous-input) and
-   M-n (slime-repl-next-input), if you have already typed some characters,
-   automatically use them as a history search string; if you want to
-   search the history, use M-r (slime-repl-previous-matching-input)."
-  :type '(radio (const replace)
-		(const insert))
+(defcustom slime-repl-history-autosearch-mode t
+  "Controls the behavior of M-p (slime-repl-previous-input) when some
+   characters have already been typed on the input line.  When T,
+   the text preceding point is used as a history search string; when
+   NIL, this behavior is disabled."
+  :type '(boolean)
+  :group 'slime-repl)
+
+(defcustom slime-repl-paredit-compatibility nil
+  "When T, tweaks the behavior of a few commands to be friendlier to
+users of ParEdit and similar balanced-parenthesis-editing packages."
+  :type '(boolean)
   :group 'slime-repl)
 
 (defcustom slime-repl-auto-right-margin nil
@@ -883,16 +884,16 @@ used with a prefix argument (C-u), doesn't switch back afterwards."
         (yank)))))
 
 (defun slime-repl-kill-input ()
-  "Kill all text from the prompt to point."
+  "Kill all text from the prompt to point.
+In `slime-repl-paredit-compatibility' mode, kills from the prompt
+to the end of the buffer."
   (interactive)
-  (cond ((< (marker-position slime-repl-input-start-mark) (point))
+  (cond (slime-repl-paredit-compatibility
+	 (kill-region slime-repl-input-start-mark (point-max)))
+	((< (marker-position slime-repl-input-start-mark) (point))
          (kill-region slime-repl-input-start-mark (point)))
         ((= (point) (marker-position slime-repl-input-start-mark))
          (slime-repl-delete-current-input))))
-
-(defun slime-repl-replace-input (string)
-  (slime-repl-delete-current-input)
-  (insert-and-inherit string))
 
 (defun slime-repl-input-line-beginning-position ()
   (save-excursion
@@ -988,10 +989,18 @@ Empty strings and duplicates are ignored."
 (defvar slime-repl-history-pattern nil
   "The regexp most recently used for finding input history.")
 
+(defvar slime-repl-history-original-input nil
+  "The input string that was converted to a regexp; see
+`slime-repl-history-pattern'.")
+
+(defvar slime-repl-history-original-input-tail-length 0
+  "In `slime-repl-history-original-input', the number of characters
+between the original point and the end of the string.")
+
 (defun slime-repl-history-recall (direction &optional regexp)
   "Recall the next history entry in DIRECTION.
-Replace the current input with it if SLIME-REPL-HISTORY-RECALL-MODE
-is REPLACE, or just insert it at point if this mode is INSERT.
+Insert it at point, replacing the previous history entry if the last
+command also called this function.
 DIRECTION is 'forward' or 'backward' (in the history list).
 If REGEXP is non-nil, only lines matching REGEXP are considered."
   (setq slime-repl-history-pattern regexp)
@@ -1004,15 +1013,14 @@ If REGEXP is non-nil, only lines matching REGEXP are considered."
                                               (slime-repl-current-input)))
          (msg nil))
     (cond ((and (< min-pos pos) (< pos max-pos))
-           (if (eq slime-repl-history-recall-mode 'replace)
-	       (slime-repl-replace-input (nth pos slime-repl-input-history))
-	     (when (slime-repl-history-search-in-progress-p)
-	       (delete-region (- (point) (length (nth slime-repl-input-history-position
-						      slime-repl-input-history)))
-			      (point)))
-             (insert-and-inherit (nth pos slime-repl-input-history)))
+           (slime-repl-delete-last-recalled-history-item)
+           (insert-and-inherit (nth pos slime-repl-input-history))
            (setq msg (format "History item: %d" pos)))
           ((not slime-repl-wrap-history)
+           (slime-repl-delete-last-recalled-history-item)
+           (when slime-repl-history-original-input
+             (insert-and-inherit slime-repl-history-original-input)
+	     (backward-char slime-repl-history-original-input-tail-length))
            (setq msg (cond ((= pos min-pos) "End of history")
                            ((= pos max-pos) "Beginning of history"))))
           (slime-repl-wrap-history
@@ -1027,11 +1035,19 @@ If REGEXP is non-nil, only lines matching REGEXP are considered."
     (setq slime-repl-input-history-position pos)
     (setq this-command 'slime-repl-history-recall)))
 
+(defun slime-repl-delete-last-recalled-history-item ()
+  (when (slime-repl-history-search-in-progress-p)
+    (delete-region (- (point) (length (nth slime-repl-input-history-position
+					   slime-repl-input-history)))
+		   (point))))
+
 (defun slime-repl-history-search-in-progress-p ()
   (eq last-command 'slime-repl-history-recall))
 
 (defun slime-repl-terminate-history-search ()
-  (setq last-command this-command))
+  (setq last-command this-command)
+  (setq slime-repl-history-original-input nil)
+  (setq slime-repl-history-original-input-tail-length 0))
 
 (defun slime-repl-position-in-history (start-pos direction regexp
                                                  &optional exclude-string)
@@ -1061,10 +1077,8 @@ Otherwise use the current input as search pattern.
 With a prefix-arg, do replacement from the mark."
   (interactive)
   (let ((slime-repl-history-use-mark (or slime-repl-history-use-mark
-                                         current-prefix-arg))
-	(autosearch (eq slime-repl-history-recall-mode 'replace)))
-    (slime-repl-history-recall 'backward
-			       (slime-repl-history-pattern autosearch))))
+                                         current-prefix-arg)))
+    (slime-repl-history-recall 'backward (slime-repl-history-pattern t))))
 
 (defun slime-repl-next-input ()
   "Cycle forwards through input history.
@@ -1073,10 +1087,8 @@ See `slime-repl-previous-input'.
 With a prefix-arg, do replacement from the mark."
   (interactive)
   (let ((slime-repl-history-use-mark (or slime-repl-history-use-mark
-                                         current-prefix-arg))
-	(autosearch (eq slime-repl-history-recall-mode 'replace)))
-    (slime-repl-history-recall 'forward
-			       (slime-repl-history-pattern autosearch))))
+                                         current-prefix-arg)))
+    (slime-repl-history-recall 'forward (slime-repl-history-pattern t))))
 
 (defun slime-repl-forward-input ()
   "Cycle forwards through input history."
@@ -1112,14 +1124,28 @@ With a prefix-arg, do the insertion at the mark."
 
 (defun slime-repl-history-pattern (&optional use-current-input)
   "Return the regexp for the navigation commands."
-  (cond ((slime-repl-history-search-in-progress-p)
-         slime-repl-history-pattern)
-        (use-current-input
-         (goto-char (max (slime-repl-history-yank-start) (point)))
-         (let ((str (slime-repl-current-input t)))
-           (cond ((string-match "^[ \t\n]*$" str) nil)
-                 (t (concat "^" (regexp-quote str))))))
-        (t nil)))
+  (if (slime-repl-history-search-in-progress-p)
+      slime-repl-history-pattern
+    (setq slime-repl-history-original-input nil)
+    (setq slime-repl-history-original-input-tail-length 0)
+    (cond ((and slime-repl-history-autosearch-mode use-current-input)
+	   (goto-char (max (slime-repl-history-yank-start) (point)))
+	   (let* ((str (slime-repl-current-input t))
+		  (all-input (slime-repl-current-input))
+		  (regexp (cond ((string-match "^[ \t\n]*$" str) nil)
+				(t (concat "^" (regexp-quote str))))))
+	     (when regexp
+	       (cond (slime-repl-paredit-compatibility
+		      ;; Handle the text following point: delete it, but save it.
+		      (delete-region (slime-repl-history-yank-start) (point-max))
+		      (setq slime-repl-history-original-input all-input)
+		      (setq slime-repl-history-original-input-tail-length
+			    (- (length all-input) (length str))))
+		     (t
+		      (delete-region (slime-repl-history-yank-start) (point))
+		      (setq slime-repl-history-original-input str))))
+	     regexp))
+	  (t nil))))
 
 (defun slime-repl-delete-from-input-history (string)
   "Delete STRING from the repl input history.
