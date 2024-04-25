@@ -1629,7 +1629,9 @@ stack."
   (append
    (label-value-line*
     ("Size" (sb-kernel:%code-code-size o))
-    ("Debug info" (sb-kernel:%code-debug-info o)))
+    ("Debug info" (sb-kernel:%code-debug-info o))
+    #+#.(swank/backend:with-symbol "%CODE-FIXUPS" "SB-VM")
+    ("Fixups" (sb-vm::%code-fixups o)))
    `("Entry points: " (:newline))
    (loop for i from 0 below (sb-vm::code-n-entries o)
          append (label-value-line i (sb-kernel:%code-entry-point o i)))
