@@ -2625,8 +2625,8 @@ the filename of the module (or nil if the file doesn't exist).")
      (unless expanded? (return expansion))
      (setq form expansion))))
 
-(defslimefun swank-format-string-expand (string)
-  (apply-macro-expander #'format-string-expand string))
+(defslimefun swank-format-string-expand (string &optional environment)
+  (apply-macro-expander #'format-string-expand string environment))
 
 (defslimefun disassemble-form (form)
   (with-buffer-syntax ()
