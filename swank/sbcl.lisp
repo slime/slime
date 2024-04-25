@@ -946,7 +946,8 @@ QUALITIES is an alist with (quality . value)"
                           (ignore-errors
                            (source-file-position namestring file-write-date
                                                  form-path))))
-                    character-offset))
+                    character-offset
+                    0))
            (snippet (source-hint-snippet namestring file-write-date pos)))
       (make-location `(:file ,namestring)
                      ;; /file positions/ in Common Lisp start from
