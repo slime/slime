@@ -735,7 +735,8 @@ e.g.: (restart-loop (http-request url) (use-value (new) (setq url new)))"
       (ecase style
         (:spawn (initialize-multiprocessing
                  (lambda ()
-                   (if dont-close
+                   (if (or dont-close
+                           *main-thread-used*)
                        (spawn #'serve-loop :name (format nil "Swank ~s" port))
                        (serve-loop)))))
         ((:fd-handler :sigio)
@@ -770,7 +771,8 @@ first."
                                                  :buffering t)))
            (authenticate-client client)
            (when (and (not dont-close)
-                      (eq style :spawn))
+                      (eq style :spawn)
+                      (not *main-thread-used*))
              (setf *main-thread* (current-thread)
                    *main-thread-used* nil))
            (serve-requests (setf connection (make-connection socket client style))))
