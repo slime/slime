@@ -204,8 +204,16 @@ This is an optimized way for Lisp to deliver output to Emacs."
       (add-hook *connection-closed-hook* 'update-redirection-after-close)
       (typecase conn
 	(multithreaded-connection
-	 (setf (mconn.repl-thread conn)
-	       (spawn-repl-thread conn "repl-thread"))))
+         (if swank::*main-thread*
+             (send swank::*main-thread* 
+                   (list :run-on-main-thread
+                         (lambda ()
+                           (shiftf (mconn.repl-thread conn)
+                                   swank::*main-thread* nil)
+                           (with-bindings *default-worker-thread-bindings*
+                             (repl-loop conn)))))
+	     (setf (mconn.repl-thread conn)
+	           (spawn-repl-thread conn "repl-thread")))))
       (list (package-name *package*)
             (package-string-for-prompt *package*)))))
 

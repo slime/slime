@@ -735,7 +735,9 @@ e.g.: (restart-loop (http-request url) (use-value (new) (setq url new)))"
       (ecase style
         (:spawn (initialize-multiprocessing
                  (lambda ()
-                   (spawn #'serve-loop :name (format nil "Swank ~s" port)))))
+                   (if dont-close
+                       (spawn #'serve-loop :name (format nil "Swank ~s" port))
+                       (serve-loop)))))
         ((:fd-handler :sigio)
          (note)
          (add-fd-handler socket #'serve))
@@ -757,14 +759,29 @@ first."
   (sleep 5)
   (create-server :port port :style style :dont-close dont-close))
 
+
+(defvar *main-thread* nil)
+
 (defun accept-connections (socket style dont-close)
-  (unwind-protect
-       (let ((client (accept-connection socket :external-format nil
-                                               :buffering t)))
-         (authenticate-client client)
-         (serve-requests (make-connection socket client style)))
-    (unless dont-close
-      (%stop-server :socket socket))))
+  (let (connection)
+    (unwind-protect
+         (let ((client (accept-connection socket :external-format nil
+                                                 :buffering t)))
+           (authenticate-client client)
+           (when (and (not dont-close)
+                      (eq style :spawn))
+             (setf *main-thread* (current-thread)))
+           (serve-requests (setf connection (make-connection socket client style))))
+      (unless dont-close
+        (%stop-server :socket socket)
+        (when (eq style :spawn)
+          (with-connection (connection)
+            (loop
+             (dcase (wait-for-event `(:run-on-main-thread _))
+               ((:run-on-main-thread function)
+                (funcall function)
+                (unless *main-thread*
+                  (return)))))))))))
 
 (defun authenticate-client (stream)
   (let ((secret (slime-secret)))
@@ -875,11 +892,11 @@ The processing is done in the extent of the toplevel restart."
        (wait-for-event `(or (:emacs-rex . _)
                             (:emacs-channel-send . _))
                        timeout)
-    (when timeout? (return))
-    (dcase event
-      ((:emacs-rex &rest args) (apply #'eval-for-emacs args))
-      ((:emacs-channel-send channel (selector &rest args))
-       (channel-send channel selector args))))))
+     (when timeout? (return))
+     (dcase event
+       ((:emacs-rex &rest args) (apply #'eval-for-emacs args))
+       ((:emacs-channel-send channel (selector &rest args))
+        (channel-send channel selector args))))))
 
 (defun current-socket-io ()
   (connection.socket-io *emacs-connection*))
