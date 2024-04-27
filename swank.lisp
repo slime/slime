@@ -761,6 +761,7 @@ first."
 
 
 (defvar *main-thread* nil)
+(defvar *main-thread-used* nil)
 
 (defun accept-connections (socket style dont-close)
   (let (connection)
@@ -770,7 +771,8 @@ first."
            (authenticate-client client)
            (when (and (not dont-close)
                       (eq style :spawn))
-             (setf *main-thread* (current-thread)))
+             (setf *main-thread* (current-thread)
+                   *main-thread-used* nil))
            (serve-requests (setf connection (make-connection socket client style))))
       (unless dont-close
         (%stop-server :socket socket)
@@ -779,7 +781,10 @@ first."
             (loop
              (dcase (wait-for-event `(:run-on-main-thread _))
                ((:run-on-main-thread function)
-                (funcall function)
+                (setf *main-thread-used* (current-thread))
+                (catch 'exit-to-main-thread
+                  (funcall function))
+                (setf *main-thread-used* nil)
                 (unless *main-thread*
                   (return)))))))))))
 
@@ -1170,7 +1175,10 @@ event was found."
       (when (and thread
                  (thread-alive-p thread)
                  (not (equal (current-thread) thread)))
-        (ignore-errors (kill-thread thread))))))
+        (ignore-errors
+         (if (equal thread *main-thread-used*)
+             (interrupt-thread thread  (lambda () (throw 'exit-to-main-thread t)))
+             (kill-thread thread)))))))
 
 ;;;;;; Signal driven IO
 
