@@ -1,4 +1,8 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
+* 2.30 (April 2024)
+** Better I/O performance
+** Macroexpand for macrolet
+
 * 2.29.1 (January 2024)
 ** Compatibility with older Emacs versions
 ** Type error in utf8-encode
