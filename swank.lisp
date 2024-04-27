@@ -762,7 +762,8 @@ first."
 
 
 (defvar *main-thread* nil)
-(defvar *main-thread-used* nil)
+;; interrupting the listener thread doesn't work on ccl
+(defvar *main-thread-used* (or #+ccl t)) 
 
 (defun accept-connections (socket style dont-close)
   (let (connection)
