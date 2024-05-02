@@ -85,8 +85,7 @@ be sensitive and remember what object it is in the repl if predicate is true"
   (defun slime-stream-p (stream)
     "Check if stream is one of the slime streams, since if it isn't we
 don't want to present anything.
-Two special return values: 
-:DEDICATED -- Output ends up on a dedicated output stream
+Special return values: 
 :REPL-RESULT -- Output ends up on the :repl-results target.
 "
     (if (eq last-stream stream)
@@ -107,15 +106,7 @@ Two special return values:
 			     (fboundp 'pretty-print::enqueue-annotation)
 			     (let ((slime-stream-p
 				    (slime-stream-p (pretty-print::pretty-stream-target stream))))
-			       (and ;; Printing through CMUCL pretty
-				    ;; streams is only cleanly
-				    ;; possible if we are using the
-				    ;; bridge-less protocol with
-				    ;; annotations, because the bridge
-				    ;; escape sequences disturb the
-				    ;; pretty printer layout.
-				    (not (eql slime-stream-p :dedicated-output))
-				    ;; If OK, return the return value
+			       (and ;; If OK, return the return value
 				    ;; we got from slime-stream-p on
 				    ;; the target stream (could be
 				    ;; :repl-result):
@@ -125,15 +116,12 @@ Two special return values:
 		      (declare (notinline sb-pretty::pretty-stream-target))
 		      (and (typep stream (find-symbol "PRETTY-STREAM" 'sb-pretty))
                            (find-symbol "ENQUEUE-ANNOTATION" 'sb-pretty)
-                           (not *use-dedicated-output-stream*)
                            (slime-stream-p (sb-pretty::pretty-stream-target stream))))
 		    #+allegro
 		    (and (typep stream 'excl:xp-simple-stream)
 			 (slime-stream-p (excl::stream-output-handle stream)))
 		    (loop for connection in *connections*
-			  thereis (or (and (eq stream (connection.dedicated-output connection))
-					   :dedicated)
-				      (eq stream (connection.socket-io connection))
+			  thereis (or (eq stream (connection.socket-io connection))
 				      (eq stream (connection.user-output connection))
 				      (eq stream (connection.user-io connection))
 				      (and (eq stream (connection.repl-results connection))
@@ -181,11 +169,6 @@ Two special return values:
     (let ((pid (presentation-record-id record))
 	  (target (presentation-record-target record)))
       (case target
-	(:dedicated 
-	 ;; Use bridge protocol
-	 (write-string "<" stream)
-	 (prin1 pid stream)
-	 (write-string "" stream))
 	(t
 	 (finish-output stream)
 	 (send-to-emacs `(:presentation-start ,pid ,target)))))
@@ -198,11 +181,6 @@ Two special return values:
     (let ((pid (presentation-record-id record))
 	  (target (presentation-record-target record)))
       (case target
-	(:dedicated 
-	 ;; Use bridge protocol
-	 (write-string ">" stream)
-	 (prin1 pid stream)
-	 (write-string "" stream))
 	(t
 	 (finish-output stream)
 	 (send-to-emacs `(:presentation-end ,pid ,target)))))))

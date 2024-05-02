@@ -1603,8 +1603,7 @@ This is more compatible with the CL reader."
 ;;; with. Typically there would only be one, but a user can choose to
 ;;; connect to many Lisps simultaneously.
 ;;;
-;;; A connection consists of a control socket, optionally an extra
-;;; socket dedicated to receiving Lisp output (an optimization), and a
+;;; A connection consists of a control socket and a
 ;;; set of connection-local state variables.
 ;;;
 ;;; The state variables are stored as buffer-local variables in the

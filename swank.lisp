@@ -145,9 +145,6 @@ Backend code should treat the connection structure as opaque.")
   ;; Character I/O stream of socket connection.  Read-only to avoid
   ;; race conditions during initialization.
   (socket-io        (missing-arg) :type stream :read-only t)
-  ;; Optional dedicated output socket (backending `user-output' slot).
-  ;; Has a slot so that it can be closed with the connection.
-  (dedicated-output nil :type (or stream null))
   ;; Streams that can be used for user interaction, with requests
   ;; redirected to Emacs.
   (user-input       nil :type (or stream null))
@@ -916,8 +913,6 @@ The processing is done in the extent of the toplevel restart."
             (escape-non-ascii (safe-condition-message condition)))
     (stop-serving-requests c)
     (close (connection.socket-io c))
-    (when (connection.dedicated-output c)
-      (ignore-errors (close (connection.dedicated-output c))))
     (setf *connections* (remove c *connections*))
     (run-hook *connection-closed-hook* c)
     (when (and condition (not (typep condition 'end-of-file)))
