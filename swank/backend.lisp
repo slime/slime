@@ -653,9 +653,8 @@ The stream calls READ-STRING when input is needed.")
          :name "auto-flush-thread"))
 
 (definterface really-finish-output (stream)
-  "Make an auto-flush thread"
-  (spawn (lambda () (auto-flush-loop stream *auto-flush-interval* nil))
-         :name "auto-flush-thread"))
+  "FINISH-OUTPUT or more"
+  (finish-output stream))
 
 
 ;;;; Documentation

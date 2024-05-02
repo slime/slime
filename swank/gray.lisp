@@ -39,30 +39,41 @@
 
 (in-package swank/gray)
 
-(defclass slime-output-stream (fundamental-character-output-stream)
-  ((output-fn :initarg :output-fn)
-   (buffer :initform (make-string 64000))
-   (fill-pointer :initform 0)
-   (column :initform 0)
-   (lock :initform (make-lock :name "buffer write lock"))
-   (flush-thread :initarg :flush-thread
-                 :initform nil
-                 :accessor flush-thread)
-   (flush-scheduled :initarg :flush-scheduled
-                    :initform nil
-                    :accessor flush-scheduled)))
+;;; Avoid using CLOS in the auto-flush thread due to possible
+;;; deadlocks between CLOS and streams.  
+(defstruct stream-data
+  (output-fn)
+  (buffer (make-string 64000))
+  (fill-pointer 0)
+  (column 0)
+  (lock (make-lock :name "buffer write lock"))
+  (flush-thread)
+  (flush-scheduled))
 
-(defun maybe-schedule-flush (stream)
-  (when (flush-thread stream)
-    (or (flush-scheduled stream)
-        (progn
-          (setf (flush-scheduled stream) t)
-          (send (flush-thread stream) t)
-          t))))
+(defclass slime-output-stream (fundamental-character-output-stream)
+  ((data :initform (make-stream-data)
+         :initarg :data 
+         :accessor data)))
 
 (defmacro with-slime-output-stream (stream &body body)
-  `(with-slots (lock output-fn buffer fill-pointer column) ,stream
+  `(with-accessors ((lock stream-data-lock)
+                    (output-fn stream-data-output-fn)
+                    (buffer stream-data-buffer)
+                    (fill-pointer stream-data-fill-pointer)
+                    (column stream-data-column)
+                    (flush-thread stream-data-flush-thread)
+                    (flush-scheduled stream-data-flush-scheduled))
+       (data ,stream)
      (call-with-lock-held lock (lambda () ,@body))))
+
+(defun maybe-schedule-flush (stream)
+  (with-slime-output-stream stream
+    (when flush-thread
+      (or flush-scheduled
+          (progn
+            (setf flush-scheduled t)
+            (send flush-thread t)
+            t)))))
 
 (defmethod stream-write-char ((stream slime-output-stream) char)
   (with-slime-output-stream stream
@@ -111,7 +122,7 @@
     (unless (zerop fill-pointer)
       (funcall output-fn (subseq buffer 0 fill-pointer))
       (setf fill-pointer 0))
-    (setf (flush-scheduled stream) nil))
+    (setf flush-scheduled nil))
   nil)
 
 (defmethod stream-force-output ((stream slime-output-stream))
@@ -201,7 +212,7 @@
 
 (defimplementation make-auto-flush-thread (stream)
   (if (typep stream 'slime-output-stream)
-      (setf (flush-thread stream)
+      (setf (stream-data-flush-thread (data stream))
             (spawn (lambda () (auto-flush-loop stream 0.005 t #'%stream-finish-output))
                    :name "auto-flush-thread"))
       (spawn (lambda () (auto-flush-loop stream *auto-flush-interval*))
@@ -214,7 +225,7 @@
         (finish-output stream))))
 
 (defimplementation make-output-stream (write-string)
-  (make-instance 'slime-output-stream :output-fn write-string))
+  (make-instance 'slime-output-stream :data (make-stream-data :output-fn write-string)))
 
 (defimplementation make-input-stream (read-string)
   (make-instance 'slime-input-stream :input-fn read-string))
