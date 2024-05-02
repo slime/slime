@@ -55,7 +55,7 @@
          :initarg :data 
          :accessor data)))
 
-(defmacro with-slime-output-stream (stream &body body)
+(defmacro with-stream-data (data &body body)
   `(with-accessors ((lock stream-data-lock)
                     (output-fn stream-data-output-fn)
                     (buffer stream-data-buffer)
@@ -63,11 +63,15 @@
                     (column stream-data-column)
                     (flush-thread stream-data-flush-thread)
                     (flush-scheduled stream-data-flush-scheduled))
-       (data ,stream)
+       ,data
      (call-with-lock-held lock (lambda () ,@body))))
 
-(defun maybe-schedule-flush (stream)
-  (with-slime-output-stream stream
+(defmacro with-slime-output-stream (stream &body body)
+  `(let ((data (data ,stream)))
+     (with-stream-data data ,@body)))
+
+(defun maybe-schedule-flush (data)
+  (with-stream-data data
     (when flush-thread
       (or flush-scheduled
           (progn
@@ -83,8 +87,8 @@
     (when (char= #\newline char)
       (setf column 0))
     (if (= fill-pointer (length buffer))
-        (%stream-finish-output stream)
-        (maybe-schedule-flush stream)))
+        (%stream-finish-output data)
+        (maybe-schedule-flush data)))
   char)
 
 (defmethod stream-write-string ((stream slime-output-stream) string
@@ -96,12 +100,12 @@
            (count (- end start))
            (free (- len fill-pointer)))
       (when (>= count free)
-        (%stream-finish-output stream))
+        (%stream-finish-output data))
       (cond ((< count len)
              (replace buffer string :start1 fill-pointer
                       :start2 start :end2 end)
              (incf fill-pointer count)
-             (maybe-schedule-flush stream))
+             (maybe-schedule-flush data))
             (t
              (funcall output-fn (subseq string start end))))
       (let ((last-newline (position #\newline string :from-end t
@@ -117,8 +121,8 @@
 (defun reset-stream-line-column (stream)
   (with-slime-output-stream stream (setf column 0)))
 
-(defun %stream-finish-output (stream)
-  (with-slime-output-stream stream
+(defun %stream-finish-output (data)
+  (with-stream-data data
     (unless (zerop fill-pointer)
       (funcall output-fn (subseq buffer 0 fill-pointer))
       (setf fill-pointer 0))
@@ -129,8 +133,9 @@
   (stream-finish-output stream))
 
 (defmethod stream-finish-output ((stream slime-output-stream))
-  (unless (maybe-schedule-flush stream)
-    (%stream-finish-output stream)))
+  (with-slime-output-stream stream
+    (unless (maybe-schedule-flush data)
+      (%stream-finish-output data))))
 
 (defmethod stream-fresh-line ((stream slime-output-stream))
   (with-slime-output-stream stream
@@ -213,7 +218,8 @@
 (defimplementation make-auto-flush-thread (stream)
   (if (typep stream 'slime-output-stream)
       (setf (stream-data-flush-thread (data stream))
-            (spawn (lambda () (auto-flush-loop stream 0.005 t #'%stream-finish-output))
+            (spawn (lambda () (auto-flush-loop stream 0.005 t (lambda (stream) 
+                                                                (%stream-finish-output (data stream)))))
                    :name "auto-flush-thread"))
       (spawn (lambda () (auto-flush-loop stream *auto-flush-interval*))
              :name "auto-flush-thread")))
@@ -221,7 +227,7 @@
 (defimplementation really-finish-output (stream)
   (let ((stream (swank::real-output-stream stream)))
     (if (typep stream 'slime-output-stream)
-        (%stream-finish-output stream)
+        (%stream-finish-output (data stream))
         (finish-output stream))))
 
 (defimplementation make-output-stream (write-string)
