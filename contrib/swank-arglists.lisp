@@ -1143,6 +1143,7 @@ RAW-FORM that does have an arglist. The highlighted parameter is
 wrapped in ===> X <===.
 
 Second, a boolean value telling whether the returned string can be cached."
+  (setf *pre-reply-hook* nil) ;; reduce latency
   (handler-bind ((serious-condition
                   #'(lambda (c)
                       (unless (debug-on-swank-error)

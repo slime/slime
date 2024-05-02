@@ -1709,7 +1709,8 @@ Errors are trapped and invoke our debugger."
     (unwind-protect
          (let ((*buffer-package* (guess-buffer-package buffer-package))
                (*buffer-readtable* (guess-buffer-readtable buffer-package))
-               (*pending-continuations* (cons id *pending-continuations*)))
+               (*pending-continuations* (cons id *pending-continuations*))
+               (*pre-reply-hook* *pre-reply-hook*))
            (check-type *buffer-package* package)
            (check-type *buffer-readtable* readtable)
            ;; APPLY would be cleaner than EVAL. 
