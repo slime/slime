@@ -166,8 +166,9 @@ INPUT OUTPUT IO REPL-RESULTS"
                          (lambda ()
                            (shiftf (mconn.repl-thread conn)
                                    swank::*main-thread* nil)
-                           (with-bindings *default-worker-thread-bindings*
-                             (repl-loop conn)))))
+                           (swank::with-io-redirection (conn)
+                             (with-bindings *default-worker-thread-bindings*
+                               (repl-loop conn))))))
 	     (setf (mconn.repl-thread conn)
 	           (spawn-repl-thread conn "repl-thread")))))
       (list (package-name *package*)
