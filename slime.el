@@ -6573,8 +6573,7 @@ that value.
          (slime-inspector-fetch-more value))
         (slime-action-number
          (slime-eval-async `(swank:inspector-call-nth-action ,value)
-           opener))
-        (t (user-error "No object at point"))))))
+           opener))))))
 
 (defun slime-inspector-operate-on-click (event)
   "Move to events' position and operate the part."
@@ -6585,9 +6584,7 @@ that value.
                     (get-text-property point 'slime-range-button)
                     (get-text-property point 'slime-action-number)))
            (goto-char point)
-           (slime-inspector-operate-on-point))
-          (t
-           (user-error "No clickable part here")))))
+           (slime-inspector-operate-on-point)))))
 
 (defun slime-inspector-pop ()
   "Reinspect the previous object."
