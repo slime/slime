@@ -4577,7 +4577,8 @@ The most important commands:
   ("\M-," 'slime-xref-retract)
   ([remap next-line] 'slime-xref-next-line)
   ([remap previous-line] 'slime-xref-prev-line)
-  )
+  ([mouse-1] 'slime-mouse-show-xref)
+  ([mouse-3] 'slime-mouse-goto-xref))
 
 
 ;;;;; XREF results buffer and window management
@@ -4778,6 +4779,19 @@ This is used by `slime-goto-next-xref'")
   (interactive)
   (let ((location (slime-xref-location-at-point)))
     (slime-show-source-location location t 1)))
+
+(defun slime-mouse-show-xref (event)
+  (interactive "@e")
+  (let* ((point (posn-point (event-end event)))
+         (location (get-text-property point 'slime-location)))
+    (when (and location
+               (eq (get-char-property point 'mouse-face) 'highlight))
+      (slime-show-source-location location t 1))))
+
+(defun slime-mouse-goto-xref (event)
+  (interactive "@e")
+  (slime-mouse-show-xref event)
+  (quit-window))
 
 (defun slime-goto-next-xref (&optional backward)
   "Goto the next cross-reference location."
