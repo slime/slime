@@ -1023,7 +1023,10 @@ If REGEXP is non-nil, only lines matching REGEXP are considered."
            (when slime-repl-history-original-input
              (insert-and-inherit slime-repl-history-original-input)
 	     (backward-char slime-repl-history-original-input-tail-length))
-	   (setq this-command nil)	; exit search-in-progress
+	   ;; Exit autosearch (it's easy to restart) but not M-r.
+	   ;; &&& No longer needed, I think.
+	   ;; (unless (and regexp (not slime-repl-history-original-input))
+	   ;;   (setq this-command nil))
            (setq msg (cond ((= pos min-pos) "End of history")
                            ((= pos max-pos) "Beginning of history"))))
           (slime-repl-wrap-history
@@ -1038,7 +1041,10 @@ If REGEXP is non-nil, only lines matching REGEXP are considered."
     (setq slime-repl-input-history-position pos)))
 
 (defun slime-repl-delete-last-recalled-history-item ()
-  (when (slime-repl-history-search-in-progress-p)
+  (when (and (slime-repl-history-search-in-progress-p)
+	     (>= slime-repl-input-history-position 0)
+	     (< slime-repl-input-history-position
+		(length slime-repl-input-history)))
     (delete-region (- (point) (length (nth slime-repl-input-history-position
 					   slime-repl-input-history)))
 		   (point))))
