@@ -3154,12 +3154,12 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
              (qualifiers)
              (specializers))
          (loop for x = (pop sexp)
-               when (consp x)
+               when (listp x)
                do (setf specializers x)
                   (return)
                else do (push x qualifiers)
                while sexp)
-         (find-method (fdefinition gf) qualifiers 
+         (find-method (fdefinition gf) qualifiers
                       (mapcar (lambda (spec)
                                 (etypecase spec
                                   (symbol (find-class spec))
