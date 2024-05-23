@@ -123,7 +123,9 @@ INPUT OUTPUT IO REPL-RESULTS"
         (t
          (let ((thread (mconn.repl-thread connection)))
            (cond ((not thread) nil)
-                 ((thread-alive-p thread) thread)
+                 ((and (not (eq thread 'aborted))
+                       (thread-alive-p thread))
+                  thread)
                  (t
                   (setf (mconn.repl-thread connection)
                         (spawn-repl-thread connection "new-repl-thread"))))))))
@@ -135,7 +137,11 @@ INPUT OUTPUT IO REPL-RESULTS"
          :name name))
 
 (defun repl-loop (connection)
-  (handle-requests connection))
+  (unwind-protect
+       (handle-requests connection)
+    (when (typep connection 'multithreaded-connection)
+      (setf (mconn.repl-thread connection)
+            'aborted))))
 
 ;;;;; Redirection during requests
 ;;;
