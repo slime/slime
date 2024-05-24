@@ -21,6 +21,8 @@
 (defvar slime-sprof-exclude-swank nil
   "*Display swank functions in the report.")
 
+(defvar slime-sprof-sort 'cumul)
+
 (define-derived-mode slime-sprof-browser-mode fundamental-mode
   "slprof"
   "Mode for browsing profiler data\
@@ -61,22 +63,40 @@
 
 (defun slime-sprof-format (graph)
   (with-current-buffer (slime-buffer-name :sprof)
-    (let ((inhibit-read-only t))
-      (erase-buffer)
-      (insert (format "%4s %-54s %6s %6s %6s\n"
-                      "Rank"
-                      "Name"
-                      "Self%"
-                      "Cumul%"
-                      "Total%"))
-      (dolist (data graph)
-        (slime-sprof-browser-insert-line data 54))))
-  (forward-line 2))
+    (let ((line (line-number-at-pos))
+          (point (point)))
+      (save-excursion
+       (let ((inhibit-read-only t))
+         (erase-buffer)
+         (insert (format "%4s %-56s"
+                         "Rank"
+                         "Name"))
+         (loop for (label name) in '(("Self%" self) ("Cumul%" cumul))
+               do
+               (insert-text-button
+                label
+                'button t
+                'sort name
+                'action 'slime-sprof-sort)
+               (insert " "))
+         (insert "Total%\n")
+         (dolist (data graph)
+           (slime-sprof-browser-insert-line data 54))))
+      (if (= line 1)
+          (goto-char point)
+          (goto-line 2)))))
+
+(defun slime-sprof-sort (arg)
+  (let* ((pos (if (markerp arg) arg (point)))
+         (sort (get-text-property pos 'sort)))
+    (setf slime-sprof-sort sort)
+    (slime-sprof-update)))
 
 (cl-defun slime-sprof-update (&optional (exclude-swank slime-sprof-exclude-swank))
   (slime-eval-async `(swank:swank-sprof-get-call-graph
-                      :exclude-swank ,exclude-swank)
-    'slime-sprof-format))
+                      :exclude-swank ,exclude-swank
+                      :sort ',slime-sprof-sort)
+                    'slime-sprof-format))
 
 (defalias 'slime-sprof-browser 'slime-sprof-report)
 
