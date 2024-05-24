@@ -50,10 +50,9 @@
           (samples-percent (sb-sprof::node-accrued-count node))))
 
 (defun filter-swank-nodes (nodes)
-  (let ((swank-packages (load-time-value
-                         (mapcar #'find-package
-                                 '(swank swank/rpc swank/mop
-                                   swank/match swank/backend)))))
+  (let ((swank-packages (loop for package in (list-all-packages)
+                              when (search "SWANK" (package-name package) :test #'char-equal)
+                              collect package)))
     (remove-if (lambda (node)
                  (let ((name (sb-sprof::node-name node)))
                    (and (symbolp name)
