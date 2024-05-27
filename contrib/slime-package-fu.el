@@ -62,11 +62,11 @@ use `slime-export-symbol-representation-function'.")
       (slime-eval `(swank:package= ,designator1 ,designator2))))
 
 (defun slime-export-symbol (symbol package)
-  "Unexport `symbol' from `package' in the Lisp image."
+  "Export `symbol' from `package' in the Lisp image."
   (slime-eval `(swank:export-symbol-for-emacs ,symbol ,package)))
 
 (defun slime-unexport-symbol (symbol package)
-  "Export `symbol' from `package' in the Lisp image."
+  "Unexport `symbol' from `package' in the Lisp image."
   (slime-eval `(swank:unexport-symbol-for-emacs ,symbol ,package)))
 
 
