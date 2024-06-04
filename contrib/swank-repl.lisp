@@ -162,21 +162,25 @@ INPUT OUTPUT IO REPL-RESULTS"
 		    (*debug-io*        . ,(@ user-io))
 		    (*query-io*        . ,(@ user-io))
 		    (*terminal-io*     . ,(@ user-io))))))
-      (maybe-redirect-global-io conn)
       (add-hook *connection-closed-hook* 'update-redirection-after-close)
       (typecase conn
 	(multithreaded-connection
-         (if swank::*main-thread*
-             (send swank::*main-thread* 
-                   (list :run-on-main-thread
-                         (lambda ()
-                           (shiftf (mconn.repl-thread conn)
-                                   swank::*main-thread* nil)
-                           (swank::with-io-redirection (conn)
-                             (with-bindings *default-worker-thread-bindings*
-                               (repl-loop conn))))))
-	     (setf (mconn.repl-thread conn)
-	           (spawn-repl-thread conn "repl-thread")))))
+         (cond (swank::*main-thread*
+                (send swank::*main-thread*
+                      (list :run-on-main-thread
+                            (lambda ()
+                              (maybe-redirect-global-io conn)
+                              (shiftf (mconn.repl-thread conn)
+                                      swank::*main-thread* nil)
+                              (swank::with-io-redirection (conn)
+                                (with-bindings *default-worker-thread-bindings*
+                                  (repl-loop conn)))))))
+               (t
+                (maybe-redirect-global-io conn)
+	        (setf (mconn.repl-thread conn)
+	              (spawn-repl-thread conn "repl-thread")))))
+        (t
+         (maybe-redirect-global-io conn)))
       (list (package-name *package*)
             (package-string-for-prompt *package*)))))
 
