@@ -40,7 +40,7 @@
 (in-package swank/gray)
 
 ;;; Avoid using CLOS in the auto-flush thread due to possible
-;;; deadlocks between CLOS and streams.  
+;;; deadlocks between CLOS and streams.
 (defstruct stream-data
   (output-fn)
   (buffer (make-string 64000))
@@ -52,7 +52,7 @@
 
 (defclass slime-output-stream (fundamental-character-output-stream)
   ((data :initform (make-stream-data)
-         :initarg :data 
+         :initarg :data
          :accessor data)))
 
 (defmacro with-stream-data (data &body body)
@@ -218,8 +218,10 @@
 (defimplementation make-auto-flush-thread (stream)
   (if (typep stream 'slime-output-stream)
       (setf (stream-data-flush-thread (data stream))
-            (spawn (lambda () (auto-flush-loop stream 0.005 t (lambda (stream) 
-                                                                (%stream-finish-output (data stream)))))
+            (spawn (lambda () (auto-flush-loop stream #-allegro 0.005
+                                                      #+allegro 0.08
+                                                      t (lambda (stream)
+                                                          (%stream-finish-output (data stream)))))
                    :name "auto-flush-thread"))
       (spawn (lambda () (auto-flush-loop stream *auto-flush-interval*))
              :name "auto-flush-thread")))
