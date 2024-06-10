@@ -340,8 +340,7 @@ inspecting details of traced functions. Invoke this dialog with C-c T."
                            (funcall lambda button))
            'mouse-face 'highlight
            'face       'slime-inspector-action-face
-           props)
-    string))
+           props)))
 
 (defun slime-trace-dialog--call-maintaining-properties (pos fn)
   (save-excursion

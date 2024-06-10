@@ -26,8 +26,7 @@
 
 ;;;; Tests
 (require 'slime)
-(require 'ert nil t)
-(require 'ert "lib/ert" t) ;; look for bundled version for Emacs 23
+(require 'ert)
 (require 'cl-lib)
 (require 'bytecomp) ; byte-compile-current-file
 
@@ -60,7 +59,7 @@ Exits Emacs when finished. The exit code is the number of failed tests."
         (when timed-out
           (when noninteractive
             (kill-emacs 252)))))
-    (slime-sync-to-top-level 5)
+    (slime-sync-to-top-level 30)
     (let* ((selector (if randomize
                          `(member ,@(slime-shuffle-list
                                      (ert-select-tests (or test-name t) t)))
@@ -1177,8 +1176,11 @@ on *DEBUGGER-HOOK*."
 (def-slime-test end-of-file
     (expr)
     "Signalling END-OF-FILE should invoke the debugger."
-    '(((cl:error 'cl:end-of-file))
+    '(((cl:error 'cl:end-of-file :stream cl:*standard-input*))
       ((cl:read-from-string "")))
+  (when (and noninteractive
+             (equal (slime-lisp-implementation-name) "ccl"))
+    (slime-skip-test "potential deadlocks"))
   (let ((value (slime-eval
                 `(cl:let ((condition nil))
                          (cl:with-simple-restart

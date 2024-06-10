@@ -228,7 +228,11 @@ The pattern can have the form:
                always (ignore-errors
                         (cl-etypecase p
                           (symbol (slime-beginning-of-list)
-                                  (eq (read (current-buffer)) p))
+                                  (let ((x (read (current-buffer))))
+                                    (and (symbolp x)
+                                         (eq (compare-strings (symbol-name x) 0 nil
+                                                              (symbol-name p) 0 nil t)
+                                             t))))
                           (number (backward-up-list p)
                                   t)))))))
 
@@ -256,17 +260,18 @@ Point is placed before the first expression in the list."
   (down-list -1))
 
 (defun slime-parse-toplevel-form (&optional match)
-  (ignore-errors                        ; (foo)
-   (let ((start (car (slime-region-for-defun-at-point))))
-     (or (save-excursion
+  (let ((start (car (slime-region-for-defun-at-point))))
+    (or (ignore-errors
+         (save-excursion
           (goto-char start)
           (down-list 1)
           (forward-sexp 1)
           (let ((context (slime-parse-context (read (current-buffer)))))
             (when (or (not match)
                       (member (car context) match))
-              context)))
-         (when match
+              context))))
+        (when match
+          (ignore-errors
            (save-excursion
             (cl-loop while (> (point) start)
                      thereis
@@ -310,9 +315,9 @@ Point is placed before the first expression in the list."
          (format "(macro-function '%s)" symbol))
         ((:define-compiler-macro symbol)
          (format "(compiler-macro-function '%s)" symbol))
-        ((:defmethod symbol &rest args)
+        ((:defmethod &rest args)
          (declare (ignore args))
-         (format "#'%s" symbol))
+         (format "%s" toplevel))
         (((:defparameter :defvar :defconstant) symbol)
          (format "'%s" symbol))
         (((:defclass :defstruct) symbol)

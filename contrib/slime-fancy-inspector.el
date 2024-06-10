@@ -15,7 +15,7 @@
 (defun slime-inspect-definition ()
   "Inspect definition at point"
   (interactive)
-  (slime-inspect (slime-definition-at-point)))
+  (slime-inspect nil (slime-definition-at-point)))
 
 (defun slime-disassemble-definition ()
   "Disassemble definition at point"

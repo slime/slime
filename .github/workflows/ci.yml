@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+
     strategy:
       matrix:
         lisp: [ccl, sbcl]
@@ -17,10 +19,10 @@ jobs:
       fail-fast: false
     steps:
 
-    - uses: cachix/install-nix-action@v20
+    - uses: cachix/install-nix-action@v25
       with:
-        nix_path: nixpkgs=channel:nixos-unstable
-    - uses: purcell/setup-emacs@master
+        nix_path: nixpkgs=channel:nixos-23.11
+    - uses: purcell/setup-emacs@v6.0
       with:
         version: ${{ matrix.emacs_version }}
     - uses: actions/checkout@v2

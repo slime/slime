@@ -122,7 +122,7 @@ Examples:
     (cl-values
      (nreverse result)
      (nreverse arg-indices)
- (nreverse points))))
+     (nreverse points))))
 
 (defvar slime-variable-binding-ops-alist
   '((let &bindings &body)
@@ -145,7 +145,11 @@ Examples:
 
 (defun slime-binding-op-body-pos (op)
   (let ((special-lambda-list (slime-lookup-binding-op op)))
-    (if special-lambda-list (cl-position '&body special-lambda-list))))
+    (when special-lambda-list
+      (cl-position (if (eq (car special-lambda-list) 'labels)
+                       '&bindings
+                       '&body)
+                   special-lambda-list))))
 
 (defun slime-binding-op-bindings-pos (op)
   (let ((special-lambda-list (slime-lookup-binding-op op)))
@@ -213,14 +217,28 @@ points where their bindings are established as second value."
                  (nreverse arglists)
                  (nreverse start-points)))))
 
+(defun slime-find-enclosing-definitions (ops indices points)
+  (let (macrolets)
+    (save-excursion
+      (cl-loop for (op . nil) in ops
+               for index in indices
+               for point in points
+               do (when (and (slime-binding-op-p op :function)
+                             ;; Are the bindings of OP in scope?
+                             (>= index (slime-binding-op-body-pos op)))
+                    (goto-char point)
+                    (forward-sexp)
+                    (ignore-errors
+                     (let ((start (point)))
+                       (forward-sexp)
+                       (push (buffer-substring-no-properties start
+                                                        (point))
+                             macrolets)))))
+      (nreverse macrolets))))
 
-(defun slime-enclosing-bound-macros ()
-  (cl-multiple-value-call #'slime-find-bound-macros
-                          (slime-enclosing-form-specs)))
-
-(defun slime-find-bound-macros (ops indices points)
-  ;; Kludgy!
+(defun slime-enclosing-macrolets ()
   (let ((slime-function-binding-ops-alist '((macrolet &bindings &body))))
-    (slime-find-bound-functions ops indices points)))
+    (cl-multiple-value-call #'slime-find-enclosing-definitions
+                            (slime-enclosing-form-specs))))
 
 (provide 'slime-enclosing-context)

@@ -154,8 +154,6 @@
            #:*dont-close*
            #:*fasl-pathname-function*
            #:*log-events*
-           #:*use-dedicated-output-stream*
-           #:*dedicated-output-stream-port*
            #:*configure-emacs-indentation*
            #:*readtable-alist*
            #:*globally-redirect-io*

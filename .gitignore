@@ -34,3 +34,7 @@ doc/*.pgs
 doc/*.vrs
 doc/*.tgz
 /dist/
+
+# ELPA-generated files
+/slime-pkg.el
+# /slime-autoloads.el

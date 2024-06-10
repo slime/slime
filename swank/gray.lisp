@@ -39,28 +39,45 @@
 
 (in-package swank/gray)
 
-(defclass slime-output-stream (fundamental-character-output-stream)
-  ((output-fn :initarg :output-fn)
-   (buffer :initform (make-string 64000))
-   (fill-pointer :initform 0)
-   (column :initform 0)
-   (lock :initform (make-lock :name "buffer write lock"))
-   (flush-thread :initarg :flush-thread
-                 :initform nil
-                 :accessor flush-thread)
-   (flush-scheduled :initarg :flush-scheduled
-                    :initform nil
-                    :accessor flush-scheduled)))
+;;; Avoid using CLOS in the auto-flush thread due to possible
+;;; deadlocks between CLOS and streams.
+(defstruct stream-data
+  (output-fn)
+  (buffer (make-string 64000))
+  (fill-pointer 0)
+  (column 0)
+  (lock (make-lock :name "buffer write lock"))
+  (flush-thread)
+  (flush-scheduled))
 
-(defun maybe-schedule-flush (stream)
-  (when (and (flush-thread stream)
-             (not (flush-scheduled stream)))
-    (setf (flush-scheduled stream) t)
-    (send (flush-thread stream) t)))
+(defclass slime-output-stream (fundamental-character-output-stream)
+  ((data :initform (make-stream-data)
+         :initarg :data
+         :accessor data)))
+
+(defmacro with-stream-data (data &body body)
+  `(with-accessors ((lock stream-data-lock)
+                    (output-fn stream-data-output-fn)
+                    (buffer stream-data-buffer)
+                    (fill-pointer stream-data-fill-pointer)
+                    (column stream-data-column)
+                    (flush-thread stream-data-flush-thread)
+                    (flush-scheduled stream-data-flush-scheduled))
+       ,data
+     (call-with-lock-held lock (lambda () ,@body))))
 
 (defmacro with-slime-output-stream (stream &body body)
-  `(with-slots (lock output-fn buffer fill-pointer column) ,stream
-     (call-with-lock-held lock (lambda () ,@body))))
+  `(let ((data (data ,stream)))
+     (with-stream-data data ,@body)))
+
+(defun maybe-schedule-flush (data)
+  (with-stream-data data
+    (when flush-thread
+      (or flush-scheduled
+          (progn
+            (setf flush-scheduled t)
+            (send flush-thread t)
+            t)))))
 
 (defmethod stream-write-char ((stream slime-output-stream) char)
   (with-slime-output-stream stream
@@ -70,8 +87,8 @@
     (when (char= #\newline char)
       (setf column 0))
     (if (= fill-pointer (length buffer))
-        (finish-output stream)
-        (maybe-schedule-flush stream)))
+        (%stream-finish-output data)
+        (maybe-schedule-flush data)))
   char)
 
 (defmethod stream-write-string ((stream slime-output-stream) string
@@ -83,12 +100,12 @@
            (count (- end start))
            (free (- len fill-pointer)))
       (when (>= count free)
-        (stream-finish-output stream))
+        (%stream-finish-output data))
       (cond ((< count len)
              (replace buffer string :start1 fill-pointer
                       :start2 start :end2 end)
              (incf fill-pointer count)
-             (maybe-schedule-flush stream))
+             (maybe-schedule-flush data))
             (t
              (funcall output-fn (subseq string start end))))
       (let ((last-newline (position #\newline string :from-end t
@@ -104,30 +121,21 @@
 (defun reset-stream-line-column (stream)
   (with-slime-output-stream stream (setf column 0)))
 
-(defmethod stream-finish-output ((stream slime-output-stream))
-  (with-slime-output-stream stream
+(defun %stream-finish-output (data)
+  (with-stream-data data
     (unless (zerop fill-pointer)
       (funcall output-fn (subseq buffer 0 fill-pointer))
       (setf fill-pointer 0))
-    (setf (flush-scheduled stream) nil))
+    (setf flush-scheduled nil))
   nil)
-
-#+(and sbcl sb-thread)
-(defmethod stream-force-output :around ((stream slime-output-stream))
-  ;; Workaround for deadlocks between the world-lock and auto-flush-thread
-  ;; buffer write lock.
-  ;;
-  ;; Another alternative would be to grab the world-lock here, but that's less
-  ;; future-proof, and could introduce other lock-ordering issues in the
-  ;; future.
-  (handler-case
-      (sb-sys:with-deadline (:seconds 0.1)
-        (call-next-method))
-    (sb-sys:deadline-timeout ()
-      nil)))
 
 (defmethod stream-force-output ((stream slime-output-stream))
   (stream-finish-output stream))
+
+(defmethod stream-finish-output ((stream slime-output-stream))
+  (with-slime-output-stream stream
+    (unless (maybe-schedule-flush data)
+      (%stream-finish-output data))))
 
 (defmethod stream-fresh-line ((stream slime-output-stream))
   (with-slime-output-stream stream
@@ -209,14 +217,23 @@
 
 (defimplementation make-auto-flush-thread (stream)
   (if (typep stream 'slime-output-stream)
-      (setf (flush-thread stream)
-            (spawn (lambda () (auto-flush-loop stream 0.08 t))
+      (setf (stream-data-flush-thread (data stream))
+            (spawn (lambda () (auto-flush-loop stream #-allegro 0.005
+                                                      #+allegro 0.08
+                                                      t (lambda (stream)
+                                                          (%stream-finish-output (data stream)))))
                    :name "auto-flush-thread"))
       (spawn (lambda () (auto-flush-loop stream *auto-flush-interval*))
              :name "auto-flush-thread")))
 
+(defimplementation really-finish-output (stream)
+  (let ((stream (swank::real-output-stream stream)))
+    (if (typep stream 'slime-output-stream)
+        (%stream-finish-output (data stream))
+        (finish-output stream))))
+
 (defimplementation make-output-stream (write-string)
-  (make-instance 'slime-output-stream :output-fn write-string))
+  (make-instance 'slime-output-stream :data (make-stream-data :output-fn write-string)))
 
 (defimplementation make-input-stream (read-string)
   (make-instance 'slime-input-stream :input-fn read-string))

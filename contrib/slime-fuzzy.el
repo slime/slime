@@ -42,9 +42,6 @@ comint-filename-completion to complete file names"
 
 (defvar slime-fuzzy-target-buffer nil
   "The buffer that is the target of the completion activities.")
-(defvar slime-fuzzy-saved-window-configuration nil
-  "The saved window configuration before the fuzzy completion
-buffer popped up.")
 (defvar slime-fuzzy-start nil
   "The beginning of the completion slot in the target buffer.
 This is a non-advancing marker.")
@@ -160,6 +157,7 @@ keypress be processed in the target buffer."
              [remap slime-indent-and-complete-symbol]
              ,(kbd "<tab>"))
            'slime-fuzzy-select)
+      (def (kbd "<mouse-1>") 'slime-fuzzy-select/mouse)
       (def (kbd "<mouse-2>") 'slime-fuzzy-select/mouse)
       (def `(,(kbd "RET")
              ,(kbd "<SPC>"))
@@ -250,43 +248,40 @@ most recently enclosed macro or function."
             ((memq (char-before) '(?\t ?\ ))
              (slime-echo-arglist))))))
 
-(cl-defun slime-fuzzy-complete-symbol ()
+(defun slime-fuzzy-complete-symbol ()
   "Fuzzily completes the abbreviation at point into a symbol."
   (interactive)
-  (when (save-excursion (re-search-backward "\"[^ \t\n]+\\=" nil t))
-    (cl-return-from slime-fuzzy-complete-symbol
+  (if (save-excursion (re-search-backward "\"[^ \t\n]+\\=" nil t))
       ;; don't add space after completion
       (let ((comint-completion-addsuffix '("/" . "")))
         (if slime-when-complete-filename-expand
             (comint-replace-by-expanded-filename)
-          ;; FIXME: use `comint-filename-completion' when dropping emacs23
-          (funcall (if (>= emacs-major-version 24)
-                       'comint-filename-completion
-                     'comint-dynamic-complete-as-filename))))))
-  (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
-         (beg (move-marker (make-marker) (slime-symbol-start-pos)))
-         (prefix (buffer-substring-no-properties beg end)))
-    (cl-destructuring-bind (completion-set interrupted-p)
-        (slime-fuzzy-completions prefix)
-      (if (null completion-set)
-          (progn (slime-minibuffer-respecting-message
-                  "Can't find completion for \"%s\"" prefix)
-                 (ding)
-                 (slime-fuzzy-done))
-          (goto-char end)
-          (cond ((slime-length= completion-set 1)
-                 ;; insert completed string
-                 (insert-and-inherit (caar completion-set))
-                 (delete-region beg end)
-                 (goto-char (+ beg (length (caar completion-set))))
-                 (slime-minibuffer-respecting-message "Sole completion")
-                 (slime-fuzzy-done))
-                ;; Incomplete
-                (t
-                 (slime-fuzzy-choices-buffer completion-set interrupted-p
-                                             beg end)
-                 (slime-minibuffer-respecting-message
-                  "Complete but not unique")))))))
+            ;; FIXME: use `comint-filename-completion' when dropping emacs23
+            (funcall (if (>= emacs-major-version 24)
+                         'comint-filename-completion
+                         'comint-dynamic-complete-as-filename))))
+      (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
+             (beg (move-marker (make-marker) (slime-symbol-start-pos)))
+             (prefix (buffer-substring-no-properties beg end)))
+        (cl-destructuring-bind (completion-set interrupted-p)
+                               (slime-fuzzy-completions prefix)
+                               (if (null completion-set)
+                                   (progn (slime-minibuffer-respecting-message
+                                           "Can't find completion for \"%s\"" prefix)
+                                          (ding)
+                                          (slime-fuzzy-done))
+                                   (goto-char end)
+                                   (cond ((slime-length= completion-set 1)
+                                          ;; insert completed string
+                                          (insert-and-inherit (caar completion-set))
+                                          (delete-region beg end)
+                                          (goto-char (+ beg (length (caar completion-set))))
+                                          (slime-minibuffer-respecting-message "Sole completion")
+                                          (slime-fuzzy-done))
+                                         ;; Incomplete
+                                         (t
+                                          (slime-fuzzy-choices-buffer completion-set interrupted-p
+                                                                      beg end))))))))
 
 
 (defun slime-get-fuzzy-buffer ()
@@ -357,9 +352,6 @@ buffer so that it can possibly be restored when the user is
 done."
   (let ((new-completion-buffer (not slime-fuzzy-target-buffer))
         (connection (slime-connection)))
-    (when new-completion-buffer
-      (setq slime-fuzzy-saved-window-configuration
-            (current-window-configuration)))
     (slime-fuzzy-enable-target-buffer-completions-mode)
     (setq slime-fuzzy-target-buffer (current-buffer))
     (setq slime-fuzzy-start (move-marker (make-marker) start))
@@ -372,11 +364,6 @@ done."
     (slime-fuzzy-next)
     (setq slime-buffer-connection connection)
     (when new-completion-buffer
-      ;; Hook to nullify window-config restoration if the user changes
-      ;; the window configuration himself.
-      (when (boundp 'window-configuration-change-hook)
-        (add-hook 'window-configuration-change-hook
-                  'slime-fuzzy-window-configuration-change))
       (add-hook 'kill-buffer-hook 'slime-fuzzy-abort 'append t)
       (set (make-local-variable 'cursor-type) nil)
       (setq buffer-quit-function 'slime-fuzzy-abort)) ; M-Esc Esc
@@ -563,42 +550,17 @@ run."
         (slime-fuzzy-select)))))
 
 (defun slime-fuzzy-done ()
-  "Cleans up after the completion process.  This removes all hooks,
-and attempts to restore the window configuration.  If this fails,
-it just burys the completions buffer and leaves the window
-configuration alone."
+  "Cleans up after the completion process."
   (when slime-fuzzy-target-buffer
     (set-buffer slime-fuzzy-target-buffer)
     (slime-fuzzy-disable-target-buffer-completions-mode)
-    (if (slime-fuzzy-maybe-restore-window-configuration)
-        (bury-buffer (slime-get-fuzzy-buffer))
-        ;; We couldn't restore the windows, so just bury the fuzzy
-        ;; completions buffer and let something else fill it in.
-        (pop-to-buffer (slime-get-fuzzy-buffer))
-        (bury-buffer))
+    (let ((window (get-buffer-window (slime-get-fuzzy-buffer))))
+      (when window
+        (quit-window nil window)))
     (if (slime-minibuffer-p slime-fuzzy-target-buffer)
         (select-window (minibuffer-window))
         (pop-to-buffer slime-fuzzy-target-buffer))
     (goto-char slime-fuzzy-end)
-    (setq slime-fuzzy-target-buffer nil)
-    (remove-hook 'window-configuration-change-hook
-                 'slime-fuzzy-window-configuration-change)))
-
-(defun slime-fuzzy-maybe-restore-window-configuration ()
-  "Restores the saved window configuration if it has not been
-nullified."
-  (when (boundp 'window-configuration-change-hook)
-    (remove-hook 'window-configuration-change-hook
-                 'slime-fuzzy-window-configuration-change))
-  (if (not slime-fuzzy-saved-window-configuration)
-      nil
-    (set-window-configuration slime-fuzzy-saved-window-configuration)
-    (setq slime-fuzzy-saved-window-configuration nil)
-    t))
-
-(defun slime-fuzzy-window-configuration-change ()
-  "Called on window-configuration-change-hook.  Since the window
-configuration was changed, we nullify our saved configuration."
-  (setq slime-fuzzy-saved-window-configuration nil))
+    (setq slime-fuzzy-target-buffer nil)))
 
 (provide 'slime-fuzzy)

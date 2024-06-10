@@ -1,9 +1,24 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
-* 2.29 (unreleased)
+* 2.30 (April 2024)
+** Better I/O performance
+** Macroexpand for macrolet
+
+* 2.29.1 (January 2024)
+** Compatibility with older Emacs versions
+** Type error in utf8-encode
+
+* 2.29 (January 2024)
 ** Core
 *** Loading the system "swank" with ASDF produces compilation artifacts
 ** ABCL
-*** Fix missing source position from string buffer location 
+*** Fix missing source position from string buffer location
+** CLASP
+*** Add interface to debug stepper
+*** Update xref implmentation
+*** Close temp file before compile-file
+*** Fix detection of serve-event module
+** Boring bug fixes
+
 * 2.28 (January 2023)
 ** Operations that produce a lot of output can be interrupted more easily. 
 ** Improved compatibility with implementations and newer Emacs versions.

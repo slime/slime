@@ -74,9 +74,6 @@
 (defimplementation lisp-implementation-type-name ()
   "sbcl")
 
-;; Declare return type explicitly to shut up STYLE-WARNINGS about
-;; %SAP-ALIEN in ENABLE-SIGIO-ON-FD below.
-(declaim (ftype (function () (values (signed-byte 32) &optional)) getpid))
 (defimplementation getpid ()
   (sb-posix:getpid))
 
@@ -403,14 +400,13 @@
  (values))
 
 (defvar *shebang-readtable*
-  (let ((*readtable* (copy-readtable nil)))
+  (let ((readtable (copy-readtable nil)))
     (set-dispatch-macro-character #\# #\!
                                   (lambda (s c n) (shebang-reader s c n))
-                                  *readtable*)
-    *readtable*))
-
-(defun shebang-readtable ()
-  *shebang-readtable*)
+                                  readtable)
+    ;; Cross-floats
+    (set-macro-character #\$ (lambda (stream char) (values)) nil readtable)
+    readtable))
 
 (defun sbcl-package-p (package)
   (let ((name (package-name package)))
@@ -423,15 +419,18 @@
 
 (defun guess-readtable-for-filename (filename)
   (if (sbcl-source-file-p filename)
-      (shebang-readtable)
+      *shebang-readtable*
       *readtable*))
 
 (defvar *debootstrap-packages* t)
 
 (defun call-with-debootstrapping (fun)
-  (handler-bind ((sb-int:bootstrap-package-not-found
-                  #'sb-int:debootstrap-package))
-    (funcall fun)))
+  (let ((*features* (append *features*
+                            #+#.(swank/backend:with-symbol '+internal-features+ 'sb-impl)
+                            sb-impl:+internal-features+)))
+    (handler-bind ((sb-int:bootstrap-package-not-found
+                     #'sb-int:debootstrap-package))
+      (funcall fun))))
 
 (defmacro with-debootstrapping (&body body)
   `(call-with-debootstrapping (lambda () ,@body)))
@@ -444,7 +443,7 @@
          (funcall fn))))
 
 (defimplementation default-readtable-alist ()
-  (let ((readtable (shebang-readtable)))
+  (let ((readtable *shebang-readtable*))
     (loop for p in (remove-if-not #'sbcl-package-p (list-all-packages))
           collect (cons (package-name p) readtable))))
 
@@ -947,7 +946,8 @@ QUALITIES is an alist with (quality . value)"
                           (ignore-errors
                            (source-file-position namestring file-write-date
                                                  form-path))))
-                    character-offset))
+                    character-offset
+                    0))
            (snippet (source-hint-snippet namestring file-write-date pos)))
       (make-location `(:file ,namestring)
                      ;; /file positions/ in Common Lisp start from
@@ -1515,14 +1515,17 @@ stack."
             (t (format nil "Cannot return from frame: ~S" frame)))))
 
   (defimplementation restart-frame (index)
-    (let ((frame (nth-frame index)))
+    (let ((frame (nth-frame index))
+          (sb-debug:*method-frame-style* :minimal))
       (when (sb-debug:frame-has-debug-tag-p frame)
         (multiple-value-bind (fname args) (sb-debug::frame-call frame)
           (multiple-value-bind (fun arglist)
               (if (and (sb-int:legal-fun-name-p fname) (fboundp fname))
                   (values (fdefinition fname) args)
                   (values (sb-di:debug-fun-fun (sb-di:frame-debug-fun frame))
-                          (sb-debug::frame-args-as-list frame)))
+                          (sb-debug::frame-args-as-list frame 
+                                                        #+#.(swank/backend:with-symbol '*default-argument-limit* 'sb-debug)
+                                                        call-arguments-limit)))
             (when (functionp fun)
               (sb-debug:unwind-to-frame-and-call
                frame
@@ -1627,7 +1630,9 @@ stack."
   (append
    (label-value-line*
     ("Size" (sb-kernel:%code-code-size o))
-    ("Debug info" (sb-kernel:%code-debug-info o)))
+    ("Debug info" (sb-kernel:%code-debug-info o))
+    #+#.(swank/backend:with-symbol "%CODE-FIXUPS" "SB-VM")
+    ("Fixups" (sb-vm::%code-fixups o)))
    `("Entry points: " (:newline))
    (loop for i from 0 below (sb-vm::code-n-entries o)
          append (label-value-line i (sb-kernel:%code-entry-point o i)))
@@ -1665,63 +1670,81 @@ stack."
 #+(and sb-thread
        #.(swank/backend:with-symbol "THREAD-NAME" "SB-THREAD"))
 (progn
-  (defvar *thread-id-counter* 0)
+  #-#.(swank/backend:with-symbol "THREAD-OS-TID" "SB-THREAD")
+  (progn
+    (defvar *thread-id-counter* 0)
 
-  (defvar *thread-id-counter-lock*
-    (sb-thread:make-mutex :name "thread id counter lock"))
+    (defvar *thread-id-counter-lock*
+      (sb-thread:make-mutex :name "thread id counter lock"))
 
-  (defun next-thread-id ()
-    (sb-thread:with-mutex (*thread-id-counter-lock*)
-      (incf *thread-id-counter*)))
+    (defun next-thread-id ()
+      (sb-thread:with-mutex (*thread-id-counter-lock*)
+        (incf *thread-id-counter*)))
 
-  (defvar *thread-id-map* (make-hash-table))
+    (defvar *thread-id-map* (make-hash-table))
 
-  ;; This should be a thread -> id map but as weak keys are not
-  ;; supported it is id -> map instead.
-  (defvar *thread-id-map-lock*
-    (sb-thread:make-mutex :name "thread id map lock"))
+    ;; This should be a thread -> id map but as weak keys are not
+    ;; supported it is id -> map instead.
+    (defvar *thread-id-map-lock*
+      (sb-thread:make-mutex :name "thread id map lock"))
+
+    (defimplementation thread-id (thread)
+      (block thread-id
+        (sb-thread:with-mutex (*thread-id-map-lock*)
+          (loop for id being the hash-key in *thread-id-map*
+                using (hash-value thread-pointer)
+                do
+                (let ((maybe-thread (sb-ext:weak-pointer-value thread-pointer)))
+                  (cond ((null maybe-thread)
+                         ;; the value is gc'd, remove it manually
+                         (remhash id *thread-id-map*))
+                        ((eq thread maybe-thread)
+                         (return-from thread-id id)))))
+          ;; lazy numbering
+          (let ((id (next-thread-id)))
+            (setf (gethash id *thread-id-map*) (sb-ext:make-weak-pointer thread))
+            id))))
+
+    (defimplementation find-thread (id)
+      (sb-thread:with-mutex (*thread-id-map-lock*)
+        (let ((thread-pointer (gethash id *thread-id-map*)))
+          (if thread-pointer
+              (let ((maybe-thread (sb-ext:weak-pointer-value thread-pointer)))
+                (if maybe-thread
+                    maybe-thread
+                    ;; the value is gc'd, remove it manually
+                    (progn
+                      (remhash id *thread-id-map*)
+                      nil)))
+              nil)))))
+  #+#.(swank/backend:with-symbol "THREAD-OS-TID" "SB-THREAD")
+  (progn
+    (defimplementation thread-id (thread)
+      (sb-thread::thread-os-tid thread))
+    (defimplementation find-thread (id)
+      (find id (sb-thread:list-all-threads) :key #'sb-thread::thread-os-tid)))
 
   (defimplementation spawn (fn &key name)
     (sb-thread:make-thread fn :name name))
 
-  (defimplementation thread-id (thread)
-    (block thread-id
-      (sb-thread:with-mutex (*thread-id-map-lock*)
-        (loop for id being the hash-key in *thread-id-map*
-              using (hash-value thread-pointer)
-              do
-              (let ((maybe-thread (sb-ext:weak-pointer-value thread-pointer)))
-                (cond ((null maybe-thread)
-                       ;; the value is gc'd, remove it manually
-                       (remhash id *thread-id-map*))
-                      ((eq thread maybe-thread)
-                       (return-from thread-id id)))))
-        ;; lazy numbering
-        (let ((id (next-thread-id)))
-          (setf (gethash id *thread-id-map*) (sb-ext:make-weak-pointer thread))
-          id))))
-
-  (defimplementation find-thread (id)
-    (sb-thread:with-mutex (*thread-id-map-lock*)
-      (let ((thread-pointer (gethash id *thread-id-map*)))
-        (if thread-pointer
-            (let ((maybe-thread (sb-ext:weak-pointer-value thread-pointer)))
-              (if maybe-thread
-                  maybe-thread
-                  ;; the value is gc'd, remove it manually
-                  (progn
-                    (remhash id *thread-id-map*)
-                    nil)))
-            nil))))
-
   (defimplementation thread-name (thread)
     ;; sometimes the name is not a string (e.g. NIL)
-    (princ-to-string (sb-thread:thread-name thread)))
+    (sb-thread:thread-name thread))
 
   (defimplementation thread-status (thread)
-    (if (sb-thread:thread-alive-p thread)
-        "Running"
-        "Stopped"))
+    #+sb-thread
+    (let ((waiting (sb-thread::thread-waiting-for thread)))
+      (cond ((and (typep waiting 'sb-thread:mutex)
+                  (let ((owner (sb-thread:mutex-owner waiting)))
+                    (and owner
+                         (format nil "Waiting on a mutex~@[ (~a)~] held by ~a~@[ ~a~]"
+                                 (sb-thread:mutex-name waiting)
+                                 (thread-id owner)
+                                 (thread-name owner))))))
+            ((sb-thread:thread-alive-p thread)
+             "Running")
+            (t
+             "Stopped"))))
 
   (defimplementation make-lock (&key name)
     (sb-thread:make-mutex :name name))
@@ -2079,3 +2102,6 @@ stack."
 
   (defmethod sexp-ref ((s sb-impl::comma) i)
     (sexp-ref (sb-impl::comma-expr s) i)))
+
+(defimplementation augment-features ()
+  (append *features* #+sb-devel sb-impl:+internal-features+))
