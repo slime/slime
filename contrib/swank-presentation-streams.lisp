@@ -88,12 +88,14 @@ don't want to present anything.
 Special return values: 
 :REPL-RESULT -- Output ends up on the :repl-results target.
 "
+    (case stream
+      ((nil) (setq stream *standard-output*))
+      ((t)  (setq stream *terminal-io*)))
+
     (if (eq last-stream stream)
 	last-answer
 	(progn
 	  (setq last-stream stream)
-	  (if (eq stream t) 
-	      (setq stream *standard-output*))
 	  (setq last-answer 
 		(or #+openmcl 
 		    (and (typep stream 'ccl::xp-stream) 
