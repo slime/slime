@@ -4065,22 +4065,39 @@ inserted in the current buffer."
      (run-hooks 'slime-transcript-stop-hook)
      (message "Evaluation aborted on %s." condition))))
 
-(defun slime-eval-print (string)
-  "Eval STRING in Lisp; insert any output and the result at point."
-  (slime-eval-async `(swank:eval-and-grab-output ,string)
-    (lambda (result)
-      (cl-destructuring-bind (output value) result
-        (push-mark)
-        (insert output value)))))
+(defconst slime-output-targets
+  '(common-lisp:values
+    common-lisp:*standard-output*
+    common-lisp:*trace-output*
+    common-lisp:*error-output*)
+  "Possible keys in the alist returned by Common Lisp function `swank:eval-and-grab-output'.")
 
-(defun slime-eval-save (string)
-  "Evaluate STRING in Lisp and save the result in the kill ring."
-  (slime-eval-async `(swank:eval-and-grab-output ,string)
-    (lambda (result)
-      (cl-destructuring-bind (output value) result
-        (let ((string (concat output value)))
-          (kill-new string)
-          (message "Evaluation finished; pushed result to kill ring."))))))
+(cl-defun slime-eval-print
+    (string &optional (targets-to-print '(common-lisp:*standard-output*
+                                          common-lisp:values)))
+  "Eval STRING in Lisp; insert standard output and the result at point.
+
+Contents to be inserted may be specified via optional parameter TARGETS-TO-PRINT which should be a (multi)subset of list `slime-output-targets'."
+  (cl-assert (null (cl-set-difference targets-to-print slime-output-targets)))
+  (slime-eval-async `(swank:eval-and-grab-output ,string ',targets-to-print)
+    (lambda (results-alist)
+      (push-mark)
+      (dolist (target targets-to-print)
+        (insert (cdr (assoc target results-alist)))))))
+
+(cl-defun slime-eval-save
+    (string &optional (targets-to-save '(common-lisp:*standard-output*
+                                         common-lisp:values)))
+  "Evaluate STRING in Lisp and save the result in the kill ring.
+
+Contents to be saved may be specified via optional parameter `targets-to-save' which should be a (multi)subset of list `slime-output-targets'."
+  (cl-assert (null (cl-set-difference targets-to-save slime-output-targets)))
+  (slime-eval-async `(swank:eval-and-grab-output ,string ',targets-to-save)
+    (lambda (results-alist)
+      (kill-new
+       (mapconcat (lambda (target) (cdr (assoc target results-alist)))
+                  targets-to-save ""))
+      (message "Evaluation finished; pushed result to kill ring."))))
 
 (defun slime-eval-describe (form)
   "Evaluate FORM in Lisp and display the result in a new buffer."
