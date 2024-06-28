@@ -78,7 +78,7 @@ When :STARTED-FROM-EMACS redirect when launched by M-x slime")
     ((t) t)
     (:started-from-emacs swank-loader:*started-from-emacs*)))
 
-(defun open-streams (connection properties)
+(defun open-streams (connection)
   "Return the 4 streams for IO redirection:
 INPUT OUTPUT IO REPL-RESULTS"
   (let* ((input-fn
@@ -148,10 +148,10 @@ INPUT OUTPUT IO REPL-RESULTS"
 ;;; We always redirect the standard streams to Emacs while evaluating
 ;;; an RPC. This is done with simple dynamic bindings.
 
-(defslimefun create-repl (target &key coding-system)
+(defslimefun create-repl (target)
   (assert (eq target nil))
   (let ((conn *emacs-connection*))
-    (initialize-streams-for-connection conn `(:coding-system ,coding-system))
+    (initialize-streams-for-connection conn)
     (with-struct* (connection. @ conn)
       (setf (@ env)
 	    `((*standard-input*  . ,(@ user-input))
@@ -184,9 +184,9 @@ INPUT OUTPUT IO REPL-RESULTS"
       (list (package-name *package*)
             (package-string-for-prompt *package*)))))
 
-(defun initialize-streams-for-connection (connection properties)
+(defun initialize-streams-for-connection (connection)
   (multiple-value-bind (in out io repl-results)
-      (open-streams connection properties)
+      (open-streams connection)
     (setf (connection.user-io connection)          io
           (connection.user-output connection)      out
           (connection.user-input connection)       in

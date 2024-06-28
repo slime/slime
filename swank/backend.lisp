@@ -477,10 +477,6 @@ This is used to resolve filenames without directory component."
   "Call FN with hooks to handle special syntax."
   (funcall fn))
 
-(definterface default-readtable-alist ()
-  "Return a suitable initial value for SWANK:*READTABLE-ALIST*."
-  '())
-
 
 ;;;; Packages
 

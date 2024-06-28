@@ -1674,13 +1674,13 @@ Return nil if no package matches."
         (if (find #\! string)           ; for SBCL
             (guess-package (substitute #\- #\! string))))))
 
-(defvar *readtable-alist* (default-readtable-alist)
+(defvar *readtable-alist* nil
   "An alist mapping package names to readtables.")
 
 (defun guess-buffer-readtable (package-name)
   (let ((package (guess-package package-name)))
     (or (and package 
-             (cdr (assoc (package-name package) *readtable-alist* 
+             (cdr (assoc (package-name package) *readtable-alist*
                          :test #'string=)))
         *readtable*)))
 
