@@ -1494,6 +1494,8 @@ EVAL'd by Lisp."
   (setq slime-net-processes (remove process slime-net-processes))
   (when (eq process slime-default-connection)
     (setq slime-default-connection nil))
+  (when (eq process slime-dispatching-connection)
+    (setq slime-dispatching-connection nil))
   (cond (debug
          (set-process-sentinel process 'ignore)
          (set-process-filter process 'ignore)
