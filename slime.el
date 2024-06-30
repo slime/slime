@@ -4615,7 +4615,7 @@ source-location."
                      (insert "\n"))))
   ;; Remove the final newline to prevent accidental window-scrolling
   (backward-delete-char 1)
-  (insert ?\x200B))
+  (insert " "))
 
 (defun slime-xref-next-line ()
   (interactive)
