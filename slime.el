@@ -504,7 +504,7 @@ information."
             (pkg   (slime-current-package)))
         (concat " "
                 (if local "{" "[")
-                (if pkg (string-replace "%" "%%" (slime-pretty-package-name pkg)) "?")
+                (if pkg (replace-regexp-in-string "%" "%%" (slime-pretty-package-name pkg)) "?")
                 " "
                 ;; ignore errors for closed connections
                 (ignore-errors (slime-connection-name conn))
