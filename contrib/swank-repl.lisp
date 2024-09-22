@@ -78,6 +78,63 @@ When :STARTED-FROM-EMACS redirect when launched by M-x slime")
     ((t) t)
     (:started-from-emacs swank-loader:*started-from-emacs*)))
 
+(defun make-output-function (connection)
+  "Create function to send user output to Emacs."
+  (lambda (string)
+    (with-connection (connection)
+      (send-to-emacs `(:write-string ,string nil ,(current-thread-id)))
+      ;; Wait for Emacs to finish writing, otherwise on continuous
+      ;; output its input buffer will fill up and nothing else will be
+      ;; processed, most importantly an interrupt-thread request.
+      (wait-for-event `(:write-done)))))
+
+(defun repl-loop (connection)
+  (unwind-protect
+       (handle-requests connection)
+    (when (typep connection 'multithreaded-connection)
+      (setf (mconn.repl-thread connection)
+            'aborted))))
+
+(defun spawn-repl-thread (connection name)
+  (spawn (lambda ()
+           (with-bindings *default-worker-thread-bindings*
+             (repl-loop connection)))
+         :name name))
+
+(defun find-repl-thread (connection)
+  (cond ((not (use-threads-p))
+         (current-thread))
+        (t
+         (let ((thread (mconn.repl-thread connection)))
+           (cond ((not thread) nil)
+                 ((and (not (eq thread 'aborted))
+                       (thread-alive-p thread))
+                  thread)
+                 (t
+                  (setf (mconn.repl-thread connection)
+                        (spawn-repl-thread connection "new-repl-thread"))))))))
+
+(defmethod thread-for-evaluation ((connection multithreaded-connection)
+				  (id (eql :find-existing)))
+  (or (car (mconn.active-threads connection))
+      (find-repl-thread connection)))
+
+(defmethod thread-for-evaluation ((connection multithreaded-connection)
+				  (id (eql :repl-thread)))
+  (find-repl-thread connection))
+
+(defun read-user-input-from-emacs ()
+  (let ((tag (make-tag)))
+    (really-finish-output *standard-output*)
+    (send-to-emacs `(:read-string ,(current-thread-id) ,tag))
+    (let ((ok nil))
+      (unwind-protect
+           (prog1 (caddr (wait-for-event `(:emacs-return-string ,tag value)))
+             (swank/gray::reset-stream-line-column (connection.user-output *emacs-connection*))
+             (setq ok t))
+        (unless ok
+          (send-to-emacs `(:read-aborted ,(current-thread-id) ,tag)))))))
+
 (defun open-streams (connection)
   "Return the 4 streams for IO redirection:
 INPUT OUTPUT IO REPL-RESULTS"
@@ -98,55 +155,128 @@ INPUT OUTPUT IO REPL-RESULTS"
              (make-auto-flush-thread out))))
     (values in out io repl-results)))
 
-(defun make-output-function (connection)
-  "Create function to send user output to Emacs."
-  (lambda (string)
-    (with-connection (connection)
-      (send-to-emacs `(:write-string ,string nil ,(current-thread-id)))
-      ;; Wait for Emacs to finish writing, otherwise on continuous
-      ;; output its input buffer will fill up and nothing else will be
-      ;; processed, most importantly an interrupt-thread request.
-      (wait-for-event `(:write-done)))))
-
-(defmethod thread-for-evaluation ((connection multithreaded-connection)
-				  (id (eql :find-existing)))
-  (or (car (mconn.active-threads connection))
-      (find-repl-thread connection)))
-
-(defmethod thread-for-evaluation ((connection multithreaded-connection)
-				  (id (eql :repl-thread)))
-  (find-repl-thread connection))
-
-(defun find-repl-thread (connection)
-  (cond ((not (use-threads-p))
-         (current-thread))
-        (t
-         (let ((thread (mconn.repl-thread connection)))
-           (cond ((not thread) nil)
-                 ((and (not (eq thread 'aborted))
-                       (thread-alive-p thread))
-                  thread)
-                 (t
-                  (setf (mconn.repl-thread connection)
-                        (spawn-repl-thread connection "new-repl-thread"))))))))
-
-(defun spawn-repl-thread (connection name)
-  (spawn (lambda ()
-           (with-bindings *default-worker-thread-bindings*
-             (repl-loop connection)))
-         :name name))
-
-(defun repl-loop (connection)
-  (unwind-protect
-       (handle-requests connection)
-    (when (typep connection 'multithreaded-connection)
-      (setf (mconn.repl-thread connection)
-            'aborted))))
+(defun initialize-streams-for-connection (connection)
+  (multiple-value-bind (in out io repl-results)
+      (open-streams connection)
+    (setf (connection.user-io connection)          io
+          (connection.user-output connection)      out
+          (connection.user-input connection)       in
+          (connection.repl-results connection)     repl-results)
+    connection))
 
 ;;;;; Redirection during requests
 ;;;
 ;;; We always redirect the standard streams to Emacs while evaluating
 ;;; an RPC. This is done with simple dynamic bindings.
+
+;;;;; Global redirection setup
+
+(defvar *standard-output-streams*
+  '(*standard-output* *error-output* *trace-output*)
+  "The symbols naming standard output streams.")
+
+(defvar *standard-input-streams*
+  '(*standard-input*)
+  "The symbols naming standard input streams.")
+
+(defvar *standard-io-streams*
+  '(*debug-io* *query-io* *terminal-io*)
+  "The symbols naming standard io streams.")
+
+(defun prefixed-var (prefix variable-symbol)
+  "(PREFIXED-VAR \"FOO\" '*BAR*) => SWANK::*FOO-BAR*"
+  (let ((basename (subseq (symbol-name variable-symbol) 1)))
+    (intern (format nil "*~A-~A" (string prefix) basename) :swank)))
+
+(defun globally-redirect-io-to-connection (connection)
+  "Set the standard I/O streams to redirect to CONNECTION.
+Assigns *CURRENT-<STREAM>* for all standard streams."
+  (dolist (o *standard-output-streams*)
+    (set (prefixed-var '#:current o)
+         (connection.user-output connection)))
+  ;; FIXME: If we redirect standard input to Emacs then we get the
+  ;; regular Lisp top-level trying to read from our REPL.
+  ;;
+  ;; Perhaps the ideal would be for the real top-level to run in a
+  ;; thread with local bindings for all the standard streams. Failing
+  ;; that we probably would like to inhibit it from reading while
+  ;; Emacs is connected.
+  ;;
+  ;; Meanwhile we just leave *standard-input* alone.
+  #+NIL
+  (dolist (i *standard-input-streams*)
+    (set (prefixed-var '#:current i)
+         (connection.user-input connection)))
+  (dolist (io *standard-io-streams*)
+    (set (prefixed-var '#:current io)
+         (connection.user-io connection))))
+
+;;;;; Global redirection hooks
+
+(defvar *global-stdio-connection* nil
+  "The connection to which standard I/O streams are globally redirected.
+NIL if streams are not globally redirected.")
+
+(defvar *saved-global-streams* '()
+  "A plist to save and restore redirected stream objects.
+E.g. the value for '*standard-output* holds the stream object
+for *standard-output* before we install our redirection.")
+
+(defun revert-global-io-redirection ()
+  "Set *CURRENT-<STREAM>* to *REAL-<STREAM>* for all standard streams."
+  (dolist (stream-var (append *standard-output-streams*
+                              *standard-input-streams*
+                              *standard-io-streams*))
+    (set (prefixed-var '#:current stream-var)
+         (getf *saved-global-streams* stream-var))))
+
+(defun setup-stream-indirection (stream-var &optional stream)
+  "Setup redirection scaffolding for a global stream variable.
+Supposing (for example) STREAM-VAR is *STANDARD-INPUT*, this macro:
+
+1. Saves the value of *STANDARD-INPUT* in `*SAVED-GLOBAL-STREAMS*'.
+
+2. Creates *CURRENT-STANDARD-INPUT*, initially with the same value as
+*STANDARD-INPUT*.
+
+3. Assigns *STANDARD-INPUT* to a synonym stream pointing to
+*CURRENT-STANDARD-INPUT*.
+
+This has the effect of making *CURRENT-STANDARD-INPUT* contain the
+effective global value for *STANDARD-INPUT*. This way we can assign
+the effective global value even when *STANDARD-INPUT* is shadowed by a
+dynamic binding."
+  (let ((current-stream-var (prefixed-var '#:current stream-var))
+        (stream (or stream (symbol-value stream-var))))
+    ;; Save the real stream value for the future.
+    (setf (getf *saved-global-streams* stream-var) stream)
+    ;; Define a new variable for the effective stream.
+    ;; This can be reassigned.
+    (proclaim `(special ,current-stream-var))
+    (set current-stream-var stream)
+    ;; Assign the real binding as a synonym for the current one.
+    (let ((stream (make-synonym-stream current-stream-var)))
+      (set stream-var stream)
+      (set-default-initial-binding stream-var `(quote ,stream)))))
+
+(defun init-global-stream-redirection ()
+  (when (globally-redirect-io-p)
+    (cond (*saved-global-streams*
+           (warn "Streams already redirected."))
+          (t
+           (mapc #'setup-stream-indirection
+                 (append *standard-output-streams*
+                         *standard-input-streams*
+                         *standard-io-streams*))))))
+
+(defun maybe-redirect-global-io (connection)
+  "Consider globally redirecting to CONNECTION."
+  (when (and (globally-redirect-io-p) (null *global-stdio-connection*)
+             (connection.user-io connection))
+    (unless *saved-global-streams*
+      (init-global-stream-redirection))
+    (setq *global-stdio-connection* connection)
+    (globally-redirect-io-to-connection connection)))
 
 (defslimefun create-repl (target)
   (assert (eq target nil))
@@ -184,27 +314,6 @@ INPUT OUTPUT IO REPL-RESULTS"
       (list (package-name *package*)
             (package-string-for-prompt *package*)))))
 
-(defun initialize-streams-for-connection (connection)
-  (multiple-value-bind (in out io repl-results)
-      (open-streams connection)
-    (setf (connection.user-io connection)          io
-          (connection.user-output connection)      out
-          (connection.user-input connection)       in
-          (connection.repl-results connection)     repl-results)
-    connection))
-
-(defun read-user-input-from-emacs ()
-  (let ((tag (make-tag)))
-    (really-finish-output *standard-output*)
-    (send-to-emacs `(:read-string ,(current-thread-id) ,tag))
-    (let ((ok nil))
-      (unwind-protect
-           (prog1 (caddr (wait-for-event `(:emacs-return-string ,tag value)))
-             (swank/gray::reset-stream-line-column (connection.user-output *emacs-connection*))
-             (setq ok t))
-        (unless ok
-          (send-to-emacs `(:read-aborted ,(current-thread-id) ,tag)))))))
-
 ;;;;; Listener eval
 
 (defvar *listener-eval-function* 'repl-eval)
@@ -218,13 +327,6 @@ LISTENER-GET-VALUE."
   (setq *listener-saved-value* (apply slimefun args))
   t)
 
-(defslimefun listener-get-value ()
-  "Get the last value saved by LISTENER-SAVE-VALUE.
-The value should be produced as if it were requested through
-LISTENER-EVAL directly, so that spacial variables *, etc are set."
-  (listener-eval (let ((*package* (find-package :keyword)))
-                   (write-to-string '*listener-saved-value*))))
-
 (defslimefun listener-eval (string &key (window-width nil window-width-p))
   (swank/gray::reset-stream-line-column (connection.user-output *emacs-connection*))
   (if window-width-p
@@ -232,12 +334,26 @@ LISTENER-EVAL directly, so that spacial variables *, etc are set."
         (funcall *listener-eval-function* string))
       (funcall *listener-eval-function* string)))
 
+(defslimefun listener-get-value ()
+  "Get the last value saved by LISTENER-SAVE-VALUE.
+The value should be produced as if it were requested through
+LISTENER-EVAL directly, so that spacial variables *, etc are set."
+  (listener-eval (let ((*package* (find-package :keyword)))
+                   (write-to-string '*listener-saved-value*))))
+
 (defslimefun clear-repl-variables ()
   (let ((variables '(*** ** * /// // / +++ ++ +)))
     (loop for variable in variables
        do (setf (symbol-value variable) nil))))
 
 (defvar *send-repl-results-function* 'send-repl-results-to-emacs)
+
+(defun track-package (fun)
+  (let ((p *package*))
+    (unwind-protect (funcall fun)
+      (unless (eq *package* p)
+        (send-to-emacs (list :new-package (package-name *package*)
+                             (package-string-for-prompt *package*)))))))
 
 (defun repl-eval (string)
   (clear-user-input)
@@ -252,13 +368,6 @@ LISTENER-EVAL directly, so that spacial variables *, etc are set."
            (funcall *send-repl-results-function* values))))))
   nil)
 
-(defun track-package (fun)
-  (let ((p *package*))
-    (unwind-protect (funcall fun)
-      (unless (eq *package* p)
-        (send-to-emacs (list :new-package (package-name *package*)
-                             (package-string-for-prompt *package*)))))))
-
 (defun send-repl-results-to-emacs (values)
   (really-finish-output *standard-output*)
   (if (null values)
@@ -272,8 +381,6 @@ LISTENER-EVAL directly, so that spacial variables *, etc are set."
         (swank:make-output-stream-for-target *emacs-connection* target))
   nil)
 
-
-
 ;;;; IO to Emacs
 ;;;
 ;;; This code handles redirection of the standard I/O streams
@@ -298,114 +405,7 @@ LISTENER-EVAL directly, so that spacial variables *, etc are set."
 ;;; variables, so they can always be assigned to affect a global
 ;;; change.
 
-;;;;; Global redirection setup
 
-(defvar *saved-global-streams* '()
-  "A plist to save and restore redirected stream objects.
-E.g. the value for '*standard-output* holds the stream object
-for *standard-output* before we install our redirection.")
-
-(defun setup-stream-indirection (stream-var &optional stream)
-  "Setup redirection scaffolding for a global stream variable.
-Supposing (for example) STREAM-VAR is *STANDARD-INPUT*, this macro:
-
-1. Saves the value of *STANDARD-INPUT* in `*SAVED-GLOBAL-STREAMS*'.
-
-2. Creates *CURRENT-STANDARD-INPUT*, initially with the same value as
-*STANDARD-INPUT*.
-
-3. Assigns *STANDARD-INPUT* to a synonym stream pointing to
-*CURRENT-STANDARD-INPUT*.
-
-This has the effect of making *CURRENT-STANDARD-INPUT* contain the
-effective global value for *STANDARD-INPUT*. This way we can assign
-the effective global value even when *STANDARD-INPUT* is shadowed by a
-dynamic binding."
-  (let ((current-stream-var (prefixed-var '#:current stream-var))
-        (stream (or stream (symbol-value stream-var))))
-    ;; Save the real stream value for the future.
-    (setf (getf *saved-global-streams* stream-var) stream)
-    ;; Define a new variable for the effective stream.
-    ;; This can be reassigned.
-    (proclaim `(special ,current-stream-var))
-    (set current-stream-var stream)
-    ;; Assign the real binding as a synonym for the current one.
-    (let ((stream (make-synonym-stream current-stream-var)))
-      (set stream-var stream)
-      (set-default-initial-binding stream-var `(quote ,stream)))))
-
-(defun prefixed-var (prefix variable-symbol)
-  "(PREFIXED-VAR \"FOO\" '*BAR*) => SWANK::*FOO-BAR*"
-  (let ((basename (subseq (symbol-name variable-symbol) 1)))
-    (intern (format nil "*~A-~A" (string prefix) basename) :swank)))
-
-(defvar *standard-output-streams*
-  '(*standard-output* *error-output* *trace-output*)
-  "The symbols naming standard output streams.")
-
-(defvar *standard-input-streams*
-  '(*standard-input*)
-  "The symbols naming standard input streams.")
-
-(defvar *standard-io-streams*
-  '(*debug-io* *query-io* *terminal-io*)
-  "The symbols naming standard io streams.")
-
-(defun init-global-stream-redirection ()
-  (when (globally-redirect-io-p)
-    (cond (*saved-global-streams*
-           (warn "Streams already redirected."))
-          (t
-           (mapc #'setup-stream-indirection
-                 (append *standard-output-streams*
-                         *standard-input-streams*
-                         *standard-io-streams*))))))
-
-(defun globally-redirect-io-to-connection (connection)
-  "Set the standard I/O streams to redirect to CONNECTION.
-Assigns *CURRENT-<STREAM>* for all standard streams."
-  (dolist (o *standard-output-streams*)
-    (set (prefixed-var '#:current o)
-         (connection.user-output connection)))
-  ;; FIXME: If we redirect standard input to Emacs then we get the
-  ;; regular Lisp top-level trying to read from our REPL.
-  ;;
-  ;; Perhaps the ideal would be for the real top-level to run in a
-  ;; thread with local bindings for all the standard streams. Failing
-  ;; that we probably would like to inhibit it from reading while
-  ;; Emacs is connected.
-  ;;
-  ;; Meanwhile we just leave *standard-input* alone.
-  #+NIL
-  (dolist (i *standard-input-streams*)
-    (set (prefixed-var '#:current i)
-         (connection.user-input connection)))
-  (dolist (io *standard-io-streams*)
-    (set (prefixed-var '#:current io)
-         (connection.user-io connection))))
-
-(defun revert-global-io-redirection ()
-  "Set *CURRENT-<STREAM>* to *REAL-<STREAM>* for all standard streams."
-  (dolist (stream-var (append *standard-output-streams*
-                              *standard-input-streams*
-                              *standard-io-streams*))
-    (set (prefixed-var '#:current stream-var)
-         (getf *saved-global-streams* stream-var))))
-
-;;;;; Global redirection hooks
-
-(defvar *global-stdio-connection* nil
-  "The connection to which standard I/O streams are globally redirected.
-NIL if streams are not globally redirected.")
-
-(defun maybe-redirect-global-io (connection)
-  "Consider globally redirecting to CONNECTION."
-  (when (and (globally-redirect-io-p) (null *global-stdio-connection*)
-             (connection.user-io connection))
-    (unless *saved-global-streams*
-      (init-global-stream-redirection))
-    (setq *global-stdio-connection* connection)
-    (globally-redirect-io-to-connection connection)))
 
 (defun update-redirection-after-close (closed-connection)
   "Update redirection after a connection closes."

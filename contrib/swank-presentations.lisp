@@ -49,54 +49,6 @@ If OBJECT was saved previously return the old id."
           (setf (gethash object *object-to-presentation-id*) id)
           id))))
 
-(defslimefun lookup-presented-object (id)
-  "Retrieve the object corresponding to ID.
-The secondary value indicates the absence of an entry."
-  (etypecase id
-    (integer
-     ;;
-     (multiple-value-bind (object foundp)
-         (gethash id *presentation-id-to-object*)
-       (cond
-         ((eql object *nil-surrogate*)
-          ;; A stored nil object
-          (values nil t))
-         ((null object)
-          ;; Object that was replaced by nil in the weak hash table
-          ;; when the object was garbage collected.
-          (values nil nil))
-         (t
-          (values object foundp)))))
-    (cons
-     (dcase id
-       ((:frame-var thread-id frame index)
-        (declare (ignore thread-id)) ; later
-        (handler-case
-            (frame-var-value frame index)
-          (t (condition)
-            (declare (ignore condition))
-            (values nil nil))
-          (:no-error (value)
-            (values value t))))
-       ((:inspected-part part-index)
-        (inspector-nth-part part-index))))))
-
-(defslimefun lookup-presented-object-or-lose (id)
-  "Get the result of the previous REPL evaluation with ID."
-  (multiple-value-bind (object foundp) (lookup-presented-object id)
-    (cond (foundp object)
-          (t (error "Attempt to access unrecorded object (id ~D)." id)))))
-
-(defslimefun lookup-and-save-presented-object-or-lose (id)
-  "Get the object associated with ID and save it in the presentation tables."
-  (let ((obj (lookup-presented-object-or-lose id)))
-    (save-presented-object obj)))
-
-(defslimefun clear-repl-results ()
-  "Forget the results of all previous REPL evaluations."
-  (clear-presentation-tables)
-  t)
-
 (defun present-repl-results (values)
   ;; Override a function in swank.lisp, so that
   ;; presentations are associated with every REPL result.
@@ -115,7 +67,6 @@ The secondary value indicates the absence of an entry."
         (send-to-emacs `(:write-string "; No value" :repl-result))
         (mapc #'send values))))
 
-
 ;;;; Presentation menu protocol
 ;;
 ;; To define a menu for a type of object, define a method
@@ -137,14 +88,6 @@ The secondary value indicates the absence of an entry."
 
 (defvar *presentation-active-menu* nil)
 
-(defun menu-choices-for-presentation-id (id)
-  (multiple-value-bind (ob presentp) (lookup-presented-object id)
-    (cond ((not presentp) 'not-present)
-	  (t
-	   (let ((menu-and-actions (menu-choices-for-presentation ob)))
-	     (setq *presentation-active-menu* (cons id menu-and-actions))
-	     (mapcar 'car menu-and-actions))))))
-
 (defun swank-ioify (thing)
   (cond ((keywordp thing) thing)
 	((and (symbolp thing)(not (find #\: (symbol-name thing))))
@@ -152,15 +95,6 @@ The secondary value indicates the absence of an entry."
 	((consp thing) (cons (swank-ioify (car thing))
 			     (swank-ioify (cdr thing))))
 	(t thing)))
-
-(defun execute-menu-choice-for-presentation-id (id count item)
-  (let ((ob (lookup-presented-object id)))
-    (assert (equal id (car *presentation-active-menu*)) ()
-	    "Bug: Execute menu call for id ~a  but menu has id ~a"
-	    id (car *presentation-active-menu*))
-    (let ((action (second (nth (1- count) (cdr *presentation-active-menu*)))))
-      (swank-ioify (funcall action item ob id)))))
-
 
 (defgeneric menu-choices-for-presentation (object)
   (:method (ob) (declare (ignore ob)) nil)) ; default method
@@ -232,6 +166,70 @@ The secondary value indicates the absence of an entry."
               (lambda (choice object id)
                 (declare (ignore choice id))
                 (disassemble object)))))
+
+(defslimefun lookup-presented-object (id)
+  "Retrieve the object corresponding to ID.
+The secondary value indicates the absence of an entry."
+  (etypecase id
+    (integer
+     ;;
+     (multiple-value-bind (object foundp)
+         (gethash id *presentation-id-to-object*)
+       (cond
+         ((eql object *nil-surrogate*)
+          ;; A stored nil object
+          (values nil t))
+         ((null object)
+          ;; Object that was replaced by nil in the weak hash table
+          ;; when the object was garbage collected.
+          (values nil nil))
+         (t
+          (values object foundp)))))
+    (cons
+     (dcase id
+       ((:frame-var thread-id frame index)
+        (declare (ignore thread-id)) ; later
+        (handler-case
+            (frame-var-value frame index)
+          (t (condition)
+            (declare (ignore condition))
+            (values nil nil))
+          (:no-error (value)
+            (values value t))))
+       ((:inspected-part part-index)
+        (inspector-nth-part part-index))))))
+
+(defun menu-choices-for-presentation-id (id)
+  (multiple-value-bind (ob presentp) (lookup-presented-object id)
+    (cond ((not presentp) 'not-present)
+	  (t
+	   (let ((menu-and-actions (menu-choices-for-presentation ob)))
+	     (setq *presentation-active-menu* (cons id menu-and-actions))
+	     (mapcar 'car menu-and-actions))))))
+
+(defun execute-menu-choice-for-presentation-id (id count item)
+  (let ((ob (lookup-presented-object id)))
+    (assert (equal id (car *presentation-active-menu*)) ()
+	    "Bug: Execute menu call for id ~a  but menu has id ~a"
+	    id (car *presentation-active-menu*))
+    (let ((action (second (nth (1- count) (cdr *presentation-active-menu*)))))
+      (swank-ioify (funcall action item ob id)))))
+
+(defslimefun lookup-presented-object-or-lose (id)
+  "Get the result of the previous REPL evaluation with ID."
+  (multiple-value-bind (object foundp) (lookup-presented-object id)
+    (cond (foundp object)
+          (t (error "Attempt to access unrecorded object (id ~D)." id)))))
+
+(defslimefun lookup-and-save-presented-object-or-lose (id)
+  "Get the object associated with ID and save it in the presentation tables."
+  (let ((obj (lookup-presented-object-or-lose id)))
+    (save-presented-object obj)))
+
+(defslimefun clear-repl-results ()
+  "Forget the results of all previous REPL evaluations."
+  (clear-presentation-tables)
+  t)
 
 (defslimefun inspect-presentation (id reset-p)
   (let ((what (lookup-presented-object-or-lose id)))

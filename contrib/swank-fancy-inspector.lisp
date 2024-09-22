@@ -9,6 +9,67 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (swank-require :swank-util))
 
+(defun docstring-ispec (label object kind)
+  "Return a inspector spec if OBJECT has a docstring of kind KIND."
+  (let ((docstring (documentation object kind)))
+    (cond ((not docstring) nil)
+          ((< (+ (length label) (length docstring))
+              75)
+           (list label ": " docstring '(:newline)))
+          (t
+           (list label ":" '(:newline) "  " docstring '(:newline))))))
+
+
+
+(defun inspector-princ (list)
+  "Like princ-to-string, but don't rewrite (function foo) as #'foo.
+Do NOT pass circular lists to this function."
+  (let ((*print-pprint-dispatch* (copy-pprint-dispatch)))
+    (set-pprint-dispatch '(cons (member function)) nil)
+    (princ-to-string list)))
+
+#-sbcl
+(defun inspect-type-specifier (symbol)
+  (declare (ignore symbol)))
+
+#+sbcl
+(defun inspect-type-specifier (symbol)
+  (let* ((kind (sb-int:info :type :kind symbol))
+         (fun (case kind
+                (:defined
+                 (or (sb-int:info :type :expander symbol) t))
+                (:primitive
+                 (or #.(if (swank/sbcl::sbcl-version>= 1 3 1)
+                           '(let ((x (sb-int:info :type :expander symbol)))
+                             (if (consp x)
+                                 (car x)
+                                 x))
+                           '(sb-int:info :type :translator symbol))
+                     t)))))
+    (when fun
+      (append
+       (list
+        (format nil "It names a ~@[primitive~* ~]type-specifier."
+                (eq kind :primitive))
+        '(:newline))
+       (docstring-ispec "Type-specifier documentation" symbol 'type)
+       (unless (eq t fun)
+         (let ((arglist (arglist fun)))
+           (append
+            `("Type-specifier lambda-list: "
+              ;; Could use ~:s, but inspector-princ does a bit more,
+              ;; and not all NILs in the arglist should be printed that way.
+              ,(if arglist
+                   (inspector-princ arglist)
+                   "()")
+              (:newline))
+            (multiple-value-bind (expansion ok)
+                (handler-case (sb-ext:typexpand-1 symbol)
+                  (error () (values nil nil)))
+              (when ok
+                (list "Type-specifier expansion: "
+                      (princ-to-string expansion)))))))))))
+
 (defmethod emacs-inspect ((symbol symbol))
   (let ((package (symbol-package symbol)))
     (multiple-value-bind (_symbol status)
@@ -91,58 +152,6 @@
             (label-value-line "It names the package" (find-package symbol)))
         (inspect-type-specifier symbol)))))
 
-#-sbcl
-(defun inspect-type-specifier (symbol)
-  (declare (ignore symbol)))
-
-#+sbcl
-(defun inspect-type-specifier (symbol)
-  (let* ((kind (sb-int:info :type :kind symbol))
-         (fun (case kind
-                (:defined
-                 (or (sb-int:info :type :expander symbol) t))
-                (:primitive
-                 (or #.(if (swank/sbcl::sbcl-version>= 1 3 1)
-                           '(let ((x (sb-int:info :type :expander symbol)))
-                             (if (consp x)
-                                 (car x)
-                                 x))
-                           '(sb-int:info :type :translator symbol))
-                     t)))))
-    (when fun
-      (append
-       (list
-        (format nil "It names a ~@[primitive~* ~]type-specifier."
-                (eq kind :primitive))
-        '(:newline))
-       (docstring-ispec "Type-specifier documentation" symbol 'type)
-       (unless (eq t fun)
-         (let ((arglist (arglist fun)))
-           (append
-            `("Type-specifier lambda-list: "
-              ;; Could use ~:s, but inspector-princ does a bit more,
-              ;; and not all NILs in the arglist should be printed that way.
-              ,(if arglist
-                   (inspector-princ arglist)
-                   "()")
-              (:newline))
-            (multiple-value-bind (expansion ok)
-                (handler-case (sb-ext:typexpand-1 symbol)
-                  (error () (values nil nil)))
-              (when ok
-                (list "Type-specifier expansion: "
-                      (princ-to-string expansion)))))))))))
-
-(defun docstring-ispec (label object kind)
-  "Return a inspector spec if OBJECT has a docstring of kind KIND."
-  (let ((docstring (documentation object kind)))
-    (cond ((not docstring) nil)
-          ((< (+ (length label) (length docstring))
-              75)
-           (list label ": " docstring '(:newline)))
-          (t
-           (list label ":" '(:newline) "  " docstring '(:newline))))))
-
 (unless (find-method #'emacs-inspect '() (list (find-class 'function)) nil)
   (defmethod emacs-inspect ((f function))
     (inspect-function f)))
@@ -190,6 +199,8 @@
                  (swank-mop:method-generic-function method)))
           (swank-mop:method-qualifiers method)
           (method-specializers-for-inspect method)))
+
+(defgeneric all-slots-for-inspector (object))
 
 (defmethod emacs-inspect ((object standard-object))
   (let ((class (class-of object)))
@@ -278,7 +289,88 @@ See `methods-by-applicability'.")
 (defvar *inspector-slots-default-grouping* :all
   "Accepted values: :inheritance and :all")
 
-(defgeneric all-slots-for-inspector (object))
+(defgeneric slot-value-for-inspector (class object slot)
+  (:method (class object slot)
+    (let ((boundp (swank-mop:slot-boundp-using-class class object slot)))
+      (if boundp
+          `(:value ,(swank-mop:slot-value-using-class class object slot))
+          "#<unbound>"))))
+
+(defun make-slot-listing (checklist object class effective-slots direct-slots
+                          longest-slot-name-length)
+  (flet ((padding-for (slot-name)
+           (make-string (- longest-slot-name-length (length slot-name))
+                        :initial-element #\Space)))
+    (loop
+      for effective-slot :in effective-slots
+      for direct-slot = (find (swank-mop:slot-definition-name effective-slot)
+                              direct-slots
+                              :key #'swank-mop:slot-definition-name)
+      for slot-name   = (inspector-princ
+                         (swank-mop:slot-definition-name effective-slot))
+      collect (make-checklist-button checklist)
+      collect "  "
+      collect `(:value ,(if direct-slot
+                            (list direct-slot effective-slot)
+                            effective-slot)
+                       ,slot-name)
+      collect (padding-for slot-name)
+      collect " = "
+      collect (slot-value-for-inspector class object effective-slot)
+      collect '(:newline))))
+
+(defun slot-home-class-using-class (slot class)
+  (let ((slot-name (swank-mop:slot-definition-name slot)))
+    (loop for class in (reverse (swank-mop:class-precedence-list class))
+          thereis (and (member slot-name (swank-mop:class-direct-slots class)
+                               :key #'swank-mop:slot-definition-name
+                               :test #'eq)
+                       class))))
+
+(defun list-all-slots-by-inheritance (checklist object class effective-slots
+                                      direct-slots longest-slot-name-length)
+  (flet ((slot-home-class (slot)
+           (slot-home-class-using-class slot class)))
+    (let ((current-slots '()))
+      (append
+       (loop for slot in effective-slots
+             for previous-home-class = (slot-home-class slot) then home-class
+             for home-class = previous-home-class then (slot-home-class slot)
+             if (eq home-class previous-home-class)
+               do (push slot current-slots)
+             else
+               collect '(:newline)
+               and collect (format nil "~A:" (class-name previous-home-class))
+               and collect '(:newline)
+               and append (make-slot-listing checklist object class
+                                             (nreverse current-slots)
+                                             direct-slots
+                                             longest-slot-name-length)
+               and do (setf current-slots (list slot)))
+       (and current-slots
+            `((:newline)
+              ,(format nil "~A:"
+                       (class-name (slot-home-class-using-class
+                                    (car current-slots) class)))
+              (:newline)
+              ,@(make-slot-listing checklist object class
+                                   (nreverse current-slots) direct-slots
+                                   longest-slot-name-length)))))))
+
+(defun stable-sort-by-inheritance (slots class predicate)
+  (stable-sort slots predicate
+               :key #'(lambda (s)
+                        (class-name (slot-home-class-using-class s class)))))
+
+(defun query-and-set-slot (class object slot)
+  (let* ((slot-name (swank-mop:slot-definition-name slot))
+         (value-string (read-from-minibuffer-in-emacs
+                        (format nil "Set slot ~S to (evaluated) : "
+                                slot-name))))
+    (when (and value-string (not (string= value-string "")))
+      (with-simple-restart (abort "Abort setting slot ~S" slot-name)
+        (setf (swank-mop:slot-value-using-class class object slot)
+              (eval (read-from-string value-string)))))))
 
 (defmethod all-slots-for-inspector ((object standard-object))
   (let* ((class           (class-of object))
@@ -366,90 +458,6 @@ See `methods-by-applicability'.")
                :refreshp t)
       (:newline))))
 
-(defun list-all-slots-by-inheritance (checklist object class effective-slots
-                                      direct-slots longest-slot-name-length)
-  (flet ((slot-home-class (slot)
-           (slot-home-class-using-class slot class)))
-    (let ((current-slots '()))
-      (append
-       (loop for slot in effective-slots
-             for previous-home-class = (slot-home-class slot) then home-class
-             for home-class = previous-home-class then (slot-home-class slot)
-             if (eq home-class previous-home-class)
-               do (push slot current-slots)
-             else
-               collect '(:newline)
-               and collect (format nil "~A:" (class-name previous-home-class))
-               and collect '(:newline)
-               and append (make-slot-listing checklist object class
-                                             (nreverse current-slots)
-                                             direct-slots
-                                             longest-slot-name-length)
-               and do (setf current-slots (list slot)))
-       (and current-slots
-            `((:newline)
-              ,(format nil "~A:"
-                       (class-name (slot-home-class-using-class
-                                    (car current-slots) class)))
-              (:newline)
-              ,@(make-slot-listing checklist object class
-                                   (nreverse current-slots) direct-slots
-                                   longest-slot-name-length)))))))
-
-(defun make-slot-listing (checklist object class effective-slots direct-slots
-                          longest-slot-name-length)
-  (flet ((padding-for (slot-name)
-           (make-string (- longest-slot-name-length (length slot-name))
-                        :initial-element #\Space)))
-    (loop
-      for effective-slot :in effective-slots
-      for direct-slot = (find (swank-mop:slot-definition-name effective-slot)
-                              direct-slots
-                              :key #'swank-mop:slot-definition-name)
-      for slot-name   = (inspector-princ
-                         (swank-mop:slot-definition-name effective-slot))
-      collect (make-checklist-button checklist)
-      collect "  "
-      collect `(:value ,(if direct-slot
-                            (list direct-slot effective-slot)
-                            effective-slot)
-                       ,slot-name)
-      collect (padding-for slot-name)
-      collect " = "
-      collect (slot-value-for-inspector class object effective-slot)
-      collect '(:newline))))
-
-(defgeneric slot-value-for-inspector (class object slot)
-  (:method (class object slot)
-    (let ((boundp (swank-mop:slot-boundp-using-class class object slot)))
-      (if boundp
-          `(:value ,(swank-mop:slot-value-using-class class object slot))
-          "#<unbound>"))))
-
-(defun slot-home-class-using-class (slot class)
-  (let ((slot-name (swank-mop:slot-definition-name slot)))
-    (loop for class in (reverse (swank-mop:class-precedence-list class))
-          thereis (and (member slot-name (swank-mop:class-direct-slots class)
-                               :key #'swank-mop:slot-definition-name
-                               :test #'eq)
-                       class))))
-
-(defun stable-sort-by-inheritance (slots class predicate)
-  (stable-sort slots predicate
-               :key #'(lambda (s)
-                        (class-name (slot-home-class-using-class s class)))))
-
-(defun query-and-set-slot (class object slot)
-  (let* ((slot-name (swank-mop:slot-definition-name slot))
-         (value-string (read-from-minibuffer-in-emacs
-                        (format nil "Set slot ~S to (evaluated) : "
-                                slot-name))))
-    (when (and value-string (not (string= value-string "")))
-      (with-simple-restart (abort "Abort setting slot ~S" slot-name)
-        (setf (swank-mop:slot-value-using-class class object slot)
-              (eval (read-from-string value-string)))))))
-
-
 (defmethod emacs-inspect ((gf standard-generic-function))
   (flet ((lv (label value) (label-value-line label value)))
     (append
@@ -506,6 +514,14 @@ See `methods-by-applicability'.")
              (if (symbolp name)
                  name
                  (second name)))))))
+
+(defun common-seperated-spec (list &optional (callback (lambda (v)
+                                                         `(:value ,v))))
+  (butlast
+   (loop
+      for i in list
+      collect (funcall callback i)
+      collect ", ")))
 
 (defmethod emacs-inspect ((class standard-class))
   `("Name: "
@@ -991,20 +1007,5 @@ SPECIAL-OPERATOR groups."
       (append (when (typep stream 'file-stream)
                 (make-file-stream-ispec stream))
               content))))
-
-(defun common-seperated-spec (list &optional (callback (lambda (v)
-                                                         `(:value ,v))))
-  (butlast
-   (loop
-      for i in list
-      collect (funcall callback i)
-      collect ", ")))
-
-(defun inspector-princ (list)
-  "Like princ-to-string, but don't rewrite (function foo) as #'foo.
-Do NOT pass circular lists to this function."
-  (let ((*print-pprint-dispatch* (copy-pprint-dispatch)))
-    (set-pprint-dispatch '(cons (member function)) nil)
-    (princ-to-string list)))
 
 (provide :swank-fancy-inspector)

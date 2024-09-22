@@ -33,7 +33,6 @@ program.")
 (defparameter *traces-per-report* 150
   "Number of traces to report to emacs in each batch.")
 
-
 ;;;; `trace-entry' model
 ;;;;
 (defvar *traces* (make-array 1000 :fill-pointer 0
@@ -42,6 +41,13 @@ program.")
 (defvar *trace-lock* (swank/backend:make-lock :name "swank-trace-dialog lock"))
 
 (defvar *current-trace-by-thread* (make-hash-table))
+
+(defun useful-backtrace ()
+  (swank/backend:call-with-debugging-environment
+   #'(lambda ()
+       (loop for i from 0
+             for frame in (swank/backend:compute-backtrace 0 20)
+             collect (list i (swank::frame-to-string frame))))))
 
 (defclass trace-entry ()
   ((id         :reader   id-of)
@@ -87,13 +93,6 @@ program.")
     (values (nth part-id l)
             (< part-id (length l)))))
 
-(defun useful-backtrace ()
-  (swank/backend:call-with-debugging-environment
-   #'(lambda ()
-       (loop for i from 0
-             for frame in (swank/backend:compute-backtrace 0 20)
-             collect (list i (swank::frame-to-string frame))))))
-
 (defun current-trace ()
   (gethash (swank/backend:current-thread) *current-trace-by-thread*))
 
@@ -101,10 +100,17 @@ program.")
   (setf (gethash (swank/backend:current-thread) *current-trace-by-thread*)
         trace))
 
-
 ;;;; Control of traced specs
 ;;;
 (defvar *traced-specs* '())
+
+(defslimefun dialog-traced-p (spec)
+  (find spec *traced-specs* :test #'equal))
+
+(defslimefun dialog-untrace (spec)
+  (swank/backend:unwrap spec 'trace-dialog)
+  (setq *traced-specs* (remove spec *traced-specs* :test #'equal))
+  (format nil "~a is now untraced for trace dialog" spec))
 
 (defslimefun dialog-trace (spec)
   (flet ((before-hook (args)
@@ -130,18 +136,10 @@ program.")
     (pushnew spec *traced-specs*)
     (format nil "~a is now traced for trace dialog" spec)))
 
-(defslimefun dialog-untrace (spec)
-  (swank/backend:unwrap spec 'trace-dialog)
-  (setq *traced-specs* (remove spec *traced-specs* :test #'equal))
-  (format nil "~a is now untraced for trace dialog" spec))
-
 (defslimefun dialog-toggle-trace (spec)
   (if (dialog-traced-p spec)
       (dialog-untrace spec)
       (dialog-trace spec)))
-
-(defslimefun dialog-traced-p (spec)
-  (find spec *traced-specs* :test #'equal))
 
 (defslimefun dialog-untrace-all ()
   (untrace)
@@ -159,7 +157,6 @@ program.")
                    (dialog-untrace spec)
                    "untraced for the trace dialog as well")))))
 
-
 ;;;; A special kind of trace call
 ;;;
 (defun trace-format (format-spec &rest format-args)
@@ -170,7 +167,6 @@ program.")
                                 :parent (current-trace)
                                 :retlist nil)))
 
-
 ;;;; Reporting to emacs
 ;;;
 (defparameter *visitor-idx* 0)
