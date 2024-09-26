@@ -1909,14 +1909,10 @@ MAP -- rewrite the chars in STRING according to this alist."
   `((:common-lisp-user . :cl-user))
   "Canonical package names to use instead of shortest name/nickname.")
 
-(defvar *auto-abbreviate-dotted-packages* t
-  "Abbreviate dotted package names to their last component if T.")
-
 (defun package-string-for-prompt (package)
   "Return the shortest nickname (or canonical name) of PACKAGE."
   (unparse-name
    (or (canonical-package-nickname package)
-       (auto-abbreviated-package-name package)
        (shortest-package-nickname package))))
 
 (defun canonical-package-nickname (package)
@@ -1924,25 +1920,6 @@ MAP -- rewrite the chars in STRING according to this alist."
   (let ((name (cdr (assoc (package-name package) *canonical-package-nicknames* 
                           :test #'string=))))
     (and name (string name))))
-
-(defun auto-abbreviated-package-name (package)
-  "Return an abbreviated 'name' for PACKAGE. 
-
-N.B. this is not an actual package name or nickname."
-  (when *auto-abbreviate-dotted-packages*
-    (loop with package-name = (package-name package)
-          with offset = nil
-          do (let ((last-dot-pos (position #\. package-name :end offset 
-                                           :from-end t)))
-               (unless last-dot-pos
-                 (return nil))
-               ;; If a dot chunk contains only numbers, that chunk most
-               ;; likely represents a version number; so we collect the
-               ;; next chunks, too, until we find one with meat.
-               (let ((name (subseq package-name (1+ last-dot-pos) offset)))
-                 (if (notevery #'digit-char-p name)
-                     (return (subseq package-name (1+ last-dot-pos)))
-                     (setq offset last-dot-pos)))))))
 
 (defun shortest-package-nickname (package)
   "Return the shortest nickname of PACKAGE."
