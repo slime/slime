@@ -1,5 +1,4 @@
 (require 'slime)
-(require 'bridge)
 (require 'cl-lib)
 
 (define-slime-contrib slime-presentations
@@ -806,19 +805,6 @@ buffer. Presentations of old results are expanded into code."
     (slime-repl-grab-old-output end-of-input)
     (slime-repl-recenter-if-needed)
     t))
-
-(defun slime-presentation-bridge-insert (process output)
-  (slime-output-filter process (or output "")))
-
-(defun slime-presentation-on-stream-open (stream)
-  (install-bridge)
-  (setq bridge-insert-function #'slime-presentation-bridge-insert)
-  (setq bridge-destination-insert nil)
-  (setq bridge-source-insert nil)
-  (setq bridge-handlers
-	(cl-list* '("<" . slime-mark-presentation-start-handler)
-	          '(">" . slime-mark-presentation-end-handler)
-	          bridge-handlers)))
 
 (defun slime-clear-presentations ()
   "Forget all objects associated to SLIME presentations.

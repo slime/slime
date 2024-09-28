@@ -189,58 +189,6 @@ input start, return it.  Otherwise, return 'slime-repl-input-start-mark'."
       (display-buffer (current-buffer) t))
     (slime-repl-show-maximum-output)))
 
-(defun slime-output-filter (process string)
-  (with-current-buffer (process-buffer process)
-    (when (and (cl-plusp (length string))
-               (eq (process-status slime-buffer-connection) 'open))
-      (slime-write-string string))))
-
-(defvar slime-open-stream-hooks)
-
-(defun slime-open-stream-to-lisp (port coding-system)
-  (let ((stream (open-network-stream "*lisp-output-stream*"
-                                     (slime-with-connection-buffer ()
-                                       (current-buffer))
-				     (car (process-contact (slime-connection)))
-                                     port))
-        (emacs-coding-system (car (cl-find coding-system
-                                           slime-net-valid-coding-systems
-                                           :key #'cl-third))))
-    (slime-set-query-on-exit-flag stream)
-    (set-process-filter stream 'slime-output-filter)
-    (set-process-coding-system stream emacs-coding-system emacs-coding-system)
-    (let ((secret (slime-secret)))
-      (when secret
-	(slime-net-send secret stream)))
-    (run-hook-with-args 'slime-open-stream-hooks stream)
-    stream))
-
-(defun slime-io-speed-test (&optional profile)
-  "A simple minded benchmark for stream performance.
-If a prefix argument is given, instrument the slime package for
-profiling before running the benchmark."
-  (interactive "P")
-  (eval-and-compile
-    (require 'elp))
-  (elp-reset-all)
-  (elp-restore-all)
-  (load "slime.el")
-  ;;(byte-compile-file "slime-net.el" t)
-  ;;(setq slime-log-events nil)
-  (setq slime-enable-evaluate-in-emacs t)
-  ;;(setq slime-repl-enable-presentations nil)
-  (when profile
-    (elp-instrument-package "slime-"))
-  (kill-buffer (slime-output-buffer))
-  (switch-to-buffer (slime-output-buffer))
-  (delete-other-windows)
-  (sit-for 0)
-  (slime-repl-send-string "(swank:io-speed-test 4000 1)")
-  (let ((proc (slime-inferior-process)))
-    (when proc
-      (display-buffer (process-buffer proc) t)
-      (goto-char (point-max)))))
-
 (defvar slime-write-string-function 'slime-repl-write-string)
 
 (defun slime-write-string (string &optional target)
