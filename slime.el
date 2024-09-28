@@ -1875,8 +1875,9 @@ This is automatically synchronized from Lisp.")
         (setf (slime-machine-instance) instance))
       (cl-destructuring-bind (&key coding-systems) encoding
         (setf (slime-connection-coding-systems) coding-systems)))
-    (let ((args (let ((p (slime-inferior-process)))
-                  (if p (slime-inferior-lisp-args p)))))
+    (let* ((process (slime-inferior-process))
+           (args (and process
+                      (slime-inferior-lisp-args process))))
       (let ((name (plist-get args ':name)))
         (when name
           (unless (string= (slime-lisp-implementation-name) name)
@@ -1884,8 +1885,9 @@ This is automatically synchronized from Lisp.")
                   (slime-generate-connection-name (symbol-name name))))))
       (slime-load-contribs)
       (run-hooks 'slime-connected-hook)
-      (with-current-buffer (process-buffer (slime-inferior-process))
-        (setq slime-inferior-lisp-connected connection))
+      (when process
+        (with-current-buffer (process-buffer process)
+          (setq slime-inferior-lisp-connected connection)))
       (let ((fun (plist-get args ':init-function)))
         (when fun (funcall fun))))
     (message "Connected. %s" (slime-random-words-of-encouragement))))
