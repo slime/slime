@@ -1848,7 +1848,8 @@ This is automatically synchronized from Lisp.")
 
 (defun slime-insert-inferior-lisp-output (string)
   (let ((slime-dispatching-connection slime-inferior-lisp-connected))
-    (when slime-dispatching-connection
+    (when (and slime-dispatching-connection
+               (eq (process-status slime-dispatching-connection) 'open))
       (funcall slime-terminal-output-function string)))
   string)
 
