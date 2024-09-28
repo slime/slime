@@ -1202,15 +1202,8 @@ Return true if we have been given permission to continue."
 (defvar slime-inferior-process-start-hook nil
   "Hook called whenever a new process gets started.")
 
-
 (defvar slime-inferior-lisp-connected nil)
-(defvar slime-terminal-output-function nil)
-
-(defun slime-insert-inferior-lisp-output (string)
-  (when slime-inferior-lisp-connected
-    (let ((slime-dispatching-connection slime-inferior-lisp-connected))
-      (funcall slime-terminal-output-function string)))
-  string)
+(defvar slime-terminal-output-function 'identity)
 
 (defun slime-start-lisp (program program-args env directory buffer)
   "Does the same as `inferior-lisp' but less ugly.
@@ -1501,21 +1494,6 @@ EVAL'd by Lisp."
             (memq base candidates)))
       (and (not (multibyte-string-p string))
            (not (slime-coding-system-mulibyte-p coding-system)))))
-
-(defun slime-net-close (process &optional debug)
-  (setq slime-net-processes (remove process slime-net-processes))
-  (when (eq process slime-default-connection)
-    (setq slime-default-connection nil))
-  (when (eq process slime-dispatching-connection)
-    (setq slime-dispatching-connection nil))
-  (cond (debug
-         (set-process-sentinel process 'ignore)
-         (set-process-filter process 'ignore)
-         (delete-process process))
-        (t
-         (run-hook-with-args 'slime-net-process-close-hooks process)
-         ;; killing the buffer also closes the socket
-         (kill-buffer (process-buffer process)))))
 
 (defun slime-net-sentinel (process message)
   (message "Lisp connection closed unexpectedly: %s" message)
@@ -1868,6 +1846,12 @@ This is automatically synchronized from Lisp.")
     (slime-eval-async '(swank:connection-info)
       (slime-curry #'slime-set-connection-info proc))))
 
+(defun slime-insert-inferior-lisp-output (string)
+  (let ((slime-dispatching-connection slime-inferior-lisp-connected))
+    (when slime-dispatching-connection
+      (funcall slime-terminal-output-function string)))
+  string)
+
 (defun slime-set-connection-info (connection info)
   "Initialize CONNECTION with INFO received from Lisp."
   (let ((slime-dispatching-connection connection)
@@ -1905,6 +1889,21 @@ This is automatically synchronized from Lisp.")
       (let ((fun (plist-get args ':init-function)))
         (when fun (funcall fun))))
     (message "Connected. %s" (slime-random-words-of-encouragement))))
+
+(defun slime-net-close (process &optional debug)
+  (setq slime-net-processes (remove process slime-net-processes))
+  (when (eq process slime-default-connection)
+    (setq slime-default-connection nil))
+  (when (eq process slime-dispatching-connection)
+    (setq slime-dispatching-connection nil))
+  (cond (debug
+         (set-process-sentinel process 'ignore)
+         (set-process-filter process 'ignore)
+         (delete-process process))
+        (t
+         (run-hook-with-args 'slime-net-process-close-hooks process)
+         ;; killing the buffer also closes the socket
+         (kill-buffer (process-buffer process)))))
 
 (defun slime-check-version (version conn)
   (or (equal version slime-protocol-version)
