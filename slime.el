@@ -1202,6 +1202,16 @@ Return true if we have been given permission to continue."
 (defvar slime-inferior-process-start-hook nil
   "Hook called whenever a new process gets started.")
 
+
+(defvar slime-inferior-lisp-connected nil)
+(defvar slime-terminal-output-function nil)
+
+(defun slime-insert-inferior-lisp-output (string)
+  (when slime-inferior-lisp-connected
+    (let ((slime-dispatching-connection slime-inferior-lisp-connected))
+      (funcall slime-terminal-output-function string)))
+  string)
+
 (defun slime-start-lisp (program program-args env directory buffer)
   "Does the same as `inferior-lisp' but less ugly.
 Return the created process."
@@ -1209,6 +1219,8 @@ Return the created process."
     (when directory
       (cd (expand-file-name directory)))
     (comint-mode)
+    (set (make-local-variable 'slime-inferior-lisp-connected) nil)
+    (add-hook 'comint-preoutput-filter-functions 'slime-insert-inferior-lisp-output 0 t)
     (let ((process-environment (append env process-environment))
           (process-connection-type nil))
       (comint-exec (current-buffer) "inferior-lisp" program nil program-args))
@@ -1888,6 +1900,8 @@ This is automatically synchronized from Lisp.")
                   (slime-generate-connection-name (symbol-name name))))))
       (slime-load-contribs)
       (run-hooks 'slime-connected-hook)
+      (with-current-buffer (process-buffer (slime-inferior-process))
+        (setq slime-inferior-lisp-connected connection))
       (let ((fun (plist-get args ':init-function)))
         (when fun (funcall fun))))
     (message "Connected. %s" (slime-random-words-of-encouragement))))
