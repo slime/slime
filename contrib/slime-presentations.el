@@ -20,7 +20,6 @@
    (add-hook 'slime-connected-hook 'slime-presentations-on-connected)
    (add-hook 'slime-repl-return-hooks 'slime-presentation-on-return-pressed)
    (add-hook 'slime-repl-current-input-hooks 'slime-presentation-current-input)
-   (add-hook 'slime-open-stream-hooks 'slime-presentation-on-stream-open)
    (add-hook 'slime-repl-clear-buffer-hook 'slime-clear-presentations)
    (add-hook 'slime-edit-definition-hooks 'slime-edit-presentation)
    (setq sldb-insert-frame-variable-value-function
