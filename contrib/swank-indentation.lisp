@@ -27,6 +27,7 @@ emacs.")
       (walk indentation))))
 
 ;;; override swank version of this function
+(fmakunbound 'symbol-indentation)
 (defun symbol-indentation (symbol)
   "Return a form describing the indentation of SYMBOL. 
 
@@ -45,6 +46,7 @@ in Emacs."
           (macro-indentation arglist)))))
     (t nil)))
 
+(fmakunbound 'macro-indentation)
 ;;; More complex version.
 (defun macro-indentation (arglist)
   (labels ((frob (list &optional base)

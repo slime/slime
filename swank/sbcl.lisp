@@ -1517,7 +1517,7 @@ stack."
 
 ;;;; Inspector
 
-(defmethod emacs-inspect ((o t))
+(defmethod emacs-inspect :around ((o t))
   (cond ((sb-di::indirect-value-cell-p o)
          (label-value-line* (:value (sb-kernel:value-cell-ref o))))
 	(t

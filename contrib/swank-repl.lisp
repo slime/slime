@@ -5,7 +5,13 @@
 
 (defpackage swank-repl
   (:use cl swank/backend)
-  (:export *send-repl-results-function*)
+  (:export *send-repl-results-function*
+           clear-repl-variables
+           listener-eval
+           listener-get-value
+           create-repl
+           listener-save-value
+           redirect-trace-output)
   (:import-from
    swank
 
@@ -108,8 +114,8 @@ INPUT OUTPUT IO REPL-RESULTS"
       ;; processed, most importantly an interrupt-thread request.
       (wait-for-event `(:write-done)))))
 
-(defmethod thread-for-evaluation ((connection multithreaded-connection)
-				  (id (eql :find-existing)))
+(defmethod thread-for-evaluation :around ((connection multithreaded-connection)
+				          (id (eql :find-existing)))
   (or (car (mconn.active-threads connection))
       (find-repl-thread connection)))
 

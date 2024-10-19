@@ -721,6 +721,10 @@ e.g.: (restart-loop (http-request url) (use-value (new) (setq url new)))"
         (ignore-errors (list (parse-integer (read-line *query-io*)))))
       (setq port new-port))))
 
+(defvar *main-thread* nil)
+;; interrupting the listener thread doesn't work on ccl
+(defvar *main-thread-used* (or #+ccl t))
+
 (defun setup-server (port announce-fn style dont-close backlog)
   (init-log-output)
   (let* ((socket (socket-quest port backlog))
@@ -756,12 +760,7 @@ first."
   (stop-server port)
   (sleep 5)
   (create-server :port port :style style :dont-close dont-close))
-
-
-(defvar *main-thread* nil)
-;; interrupting the listener thread doesn't work on ccl
-(defvar *main-thread-used* (or #+ccl t)) 
-
+ 
 (defun accept-connections (socket style dont-close)
   (let (connection)
     (unwind-protect
@@ -2058,9 +2057,6 @@ after Emacs causes a restart to be invoked."
 ;;;
 ;;; These variables are dynamically bound during debugging.
 ;;;
-(defvar *swank-debugger-condition* nil
-  "The condition being debugged.")
-
 (defvar *sldb-level* 0
   "The current level of recursive debugging.")
 

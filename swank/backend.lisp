@@ -10,6 +10,13 @@
 ;;; separately for each Lisp. Each is declared as a generic function
 ;;; for which swank-<implementation>.lisp provides methods.
 
+(in-package swank)
+
+;;; Forward references
+(defvar *communication-style*)
+(defvar *swank-debugger-condition* nil
+  "The condition being debugged.")
+
 (in-package swank/backend)
 
 
