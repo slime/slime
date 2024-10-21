@@ -5959,6 +5959,12 @@ VAR should be a plist with the keys :name, :id, and :value."
   (slime-eval-async '(swank:inspect-current-condition)
     'slime-open-inspector))
 
+(defun sldb-inspect-frame-function ()
+  (interactive)
+  (let ((frame (sldb-frame-number-at-point)))
+    (slime-eval-async `(swank:inspect-frame-function ,frame)
+      'slime-open-inspector)))
+
 (defun sldb-print-condition ()
   (interactive)
   (slime-eval-describe `(swank:sdlb-print-condition)))

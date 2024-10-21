@@ -3355,6 +3355,11 @@ Return nil if there's no previous object."
     (reset-inspector)
     (inspect-object (frame-var-value frame var))))
 
+(defslimefun inspect-frame-function (frame)
+  (with-buffer-syntax ()
+    (reset-inspector)
+    (inspect-object (frame-function frame))))
+
 ;;;;; Lists
 
 (defmethod emacs-inspect ((o cons))

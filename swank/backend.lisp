@@ -941,6 +941,9 @@ relatively to the frame associated to FRAME-NUMBER.")
 The output should be written to standard output.
 FRAME-NUMBER is a non-negative integer.")
 
+(definterface frame-function (frame-number)
+  "Return the frame function.")
+
 (definterface eval-in-frame (form frame-number)
    "Evaluate a Lisp form in the lexical context of a stack frame
 in the debugger.

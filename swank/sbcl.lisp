@@ -1481,6 +1481,9 @@ stack."
     (let ((frame (nth-frame index)))
       (return-from-frame index (sb-debug::frame-call-as-list frame)))))
 
+(defimplementation frame-function (frame-number)
+  (sb-di:debug-fun-fun (sb-di:frame-debug-fun (nth-frame frame-number))))
+
 ;;;;; reference-conditions
 
 (defimplementation print-condition (condition stream)
