@@ -1220,16 +1220,6 @@ inserted into the buffer as is, or a list of the form:
  after calling the lambda.
 "))
 
-(defmethod emacs-inspect ((object t))
-  "Generic method for inspecting any kind of object.
-
-Since we don't know how to deal with OBJECT we simply dump the
-output of CL:DESCRIBE."
-   `("Type: " (:value ,(type-of object)) (:newline)
-     "Don't know how to inspect the object, dumping output of CL:DESCRIBE:"
-     (:newline) (:newline)
-     ,(with-output-to-string (desc) (describe object desc))))
-
 (definterface eval-context (object)
   "Return a list of bindings corresponding to OBJECT's slots."
   (declare (ignore object))

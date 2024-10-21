@@ -3504,6 +3504,17 @@ Return NIL if LIST is circular."
        `("In the current readtable (" 
          (:value ,*readtable*) ") it is a macro character: "
          (:value ,(get-macro-character char))))))
+
+(unless (find-method #'emacs-inspect nil (list (find-class t)))
+  (defmethod emacs-inspect ((object t))
+    "Generic method for inspecting any kind of object.
+
+Since we don't know how to deal with OBJECT we simply dump the
+output of CL:DESCRIBE."
+    `("Type: " (:value ,(type-of object)) (:newline)
+      "Don't know how to inspect the object, dumping output of CL:DESCRIBE:"
+      (:newline) (:newline)
+      ,(with-output-to-string (desc) (describe object desc)))))
 
 ;;;; Thread listing
 
