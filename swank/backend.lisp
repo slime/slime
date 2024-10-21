@@ -939,7 +939,8 @@ relatively to the frame associated to FRAME-NUMBER.")
 (definterface disassemble-frame (frame-number)
   "Disassemble the code for the FRAME-NUMBER.
 The output should be written to standard output.
-FRAME-NUMBER is a non-negative integer.")
+FRAME-NUMBER is a non-negative integer."
+  (disassemble (frame-function frame-number)))
 
 (definterface frame-function (frame-number)
   "Return the frame function.")
