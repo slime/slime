@@ -6040,6 +6040,12 @@ restart to invoke, otherwise use the restart at point."
       ((:ok value) (message "Restart returned: %s" value))
       ((:abort _)))))
 
+(defun sldb-inspect-restart (&optional number)
+  (interactive)
+  (let ((restart (or number (sldb-restart-at-point))))
+    (slime-eval-async `(swank:inspect-nth-restart ,restart)
+                      'slime-open-inspector)))
+
 (defun sldb-invoke-restart-by-name (restart-name)
   (interactive (list (let ((completion-ignore-case t))
                        (completing-read "Restart: " sldb-restarts nil t

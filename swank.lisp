@@ -3360,6 +3360,11 @@ Return nil if there's no previous object."
     (reset-inspector)
     (inspect-object (frame-function frame))))
 
+(defslimefun inspect-nth-restart (n)
+  (with-buffer-syntax ()
+    (reset-inspector)
+    (inspect-object (nth-restart n))))
+
 ;;;;; Lists
 
 (defmethod emacs-inspect ((o cons))
