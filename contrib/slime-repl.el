@@ -218,6 +218,68 @@ This is set to nil after displaying the buffer.")
 
 (put 'slime-save-marker 'lisp-indent-function 1)
 
+;; adapted from comint-carriage-motion
+(defun slime-repl-carriage-motion (start end)
+  "Interpret carriage control characters in the region from START to END.
+Translate carriage return/linefeed sequences to linefeeds.
+Make single carriage returns delete to the beginning of the line.
+Make backspaces delete the previous character."
+  (save-excursion
+    ;; We used to check the existence of \b and \r at first to avoid
+    ;; calling save-match-data and save-restriction.  But, such a
+    ;; check is not necessary now because we don't use regexp search
+    ;; nor save-restriction.  Note that the buffer is already widen,
+    ;; and calling narrow-to-region and widen are not that heavy.
+    (goto-char start)
+    (let* ((inhibit-field-text-motion t)
+	   (inhibit-read-only t)
+	   (lbeg (line-beginning-position))
+	   delete-end ch)
+      ;; If the preceding text is marked as "must-overwrite", record
+      ;; it in delete-end.
+      (when (and (> start (point-min))
+		 (get-text-property (1- start) 'slime-repl-must-overwrite))
+	(setq delete-end (point-marker))
+	(remove-text-properties lbeg start '(slime-repl-must-overwrite nil)))
+      (narrow-to-region lbeg end)
+      ;; Handle BS, LF, and CR specially.
+      (while (and (skip-chars-forward "^\b\n\r") (not (eobp)))
+	(setq ch (following-char))
+	(cond ((= ch ?\b)		; CH = BS
+	       (delete-char 1)
+	       (if (> (point) lbeg)
+		   (delete-char -1)))
+	      ((= ch ?\n)
+	       (when delete-end		; CH = LF
+		 (if (< delete-end (point))
+		     (delete-region lbeg delete-end))
+		 (set-marker delete-end nil)
+		 (setq delete-end nil))
+	       (forward-char 1)
+	       (setq lbeg (point)))
+	      (t			; CH = CR
+	       (delete-char 1)
+	       (if delete-end
+		   (when (< delete-end (point))
+		     (delete-region lbeg delete-end)
+		     (move-marker delete-end (point)))
+		 (setq delete-end (point-marker))))))
+      (when delete-end
+	(if (< delete-end (point))
+	    ;; As there's a text after the last CR, make the current
+	    ;; line contain only that text.
+	    (delete-region lbeg delete-end)
+	  ;; Remember that the process output ends by CR, and thus we
+	  ;; must overwrite the contents of the current line next
+	  ;; time.
+	  (put-text-property lbeg delete-end 'slime-repl-must-overwrite t))
+	(set-marker delete-end nil))
+      (widen))))
+
+(defvar slime-repl-carriage-motion nil
+  "When enabled, handle carriage motion in output.
+See: `slime-repl-carriage-motion'")
+
 (defun slime-repl-emit (string)
   ;; insert the string STRING in the output buffer
   (with-current-buffer (slime-output-buffer)
@@ -227,8 +289,11 @@ This is set to nil after displaying the buffer.")
         (slime-propertize-region '(face slime-repl-output-face
                                         slime-repl-output t
                                         rear-nonsticky (face))
-          (let ((inhibit-read-only t))
+          (let ((inhibit-read-only t)
+		(start (point)))
 	    (insert-before-markers string)
+	    (when slime-repl-carriage-motion
+	      (slime-repl-carriage-motion start (point)))
 	    (when (and (= (point) slime-repl-prompt-start-mark)
 		       (not (bolp)))
 	      (insert-before-markers "\n")
