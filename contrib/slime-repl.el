@@ -287,7 +287,7 @@ See: `slime-repl-carriage-motion'")
     (save-excursion
       (goto-char slime-output-end)
       (slime-save-marker slime-output-start
-        (slime-propertize-region  (when (not slime-repl-carriage-motion)
+        (slime-propertize-region  (unless slime-repl-carriage-motion
 				    '(face slime-repl-output-face
 					   slime-repl-output t
 					   rear-nonsticky (face)))
