@@ -1752,8 +1752,8 @@ Errors are trapped and invoke our debugger."
         (format-values-for-echo-area values)))))
 
 (defslimefun eval-and-grab-output
-    (string &optional (targets-to-capture '(*standard-output* values)
-                                          targets-provided-p))
+    (string &key (targets-to-capture '(*standard-output* values)
+                                     targets-provided-p))
   "Evaluate contents of STRING, return alist of results including various output streams. Possible keys in the returned alist should be listed in the value of `slime-output-targets' variable in `slime.el'."
   (with-buffer-syntax ()
     (with-retry-restart (:msg "Retry SLIME evaluation request.")
