@@ -1751,9 +1751,48 @@ Errors are trapped and invoke our debugger."
         (finish-output)
         (format-values-for-echo-area values)))))
 
+(defun nest (n f x)
+  (check-type n (integer 0))
+  (check-type f function)
+  (until (zerop n)
+    (psetf x (funcall f x)
+           n (1- n)))
+  x)
+
+(defun macroexpander (macroexp-spec &optional (package-designator
+                                               "COMMON-LISP"))
+  "Return type: valid entry for a car in a compound form.
+
+MACROEXP-SPEC is presumed to have prefix  macroexp ."
+  (declare (type string macroexp-spec))
+  (let ((suffix (subseq macroexp-spec (length "macroexp"))))
+    (or (multiple-value-bind (suffix end) (ignore-errors
+                                           (read-from-string suffix))
+          (when (and end (= end (length suffix))
+                     (integerp suffix))
+            (if (eql 1 suffix)
+                'macroexpand-1
+              `(lambda (form) (nest ,suffix #'macroexpand-1 form)))))
+        (intern macroexp-spec (find-package package-designator)))))
+
+(defmacro fif (test f x)
+  "If TEST evaluates to non-nil, return (F X).  Otherwise, return X."
+  (let ((internal-function-name (make-symbol "FIF-VALUE")))
+    `(flet ((,internal-function-name () ,x))
+       (if ,test (funcall ,f (,internal-function-name))
+         (,internal-function-name)))))
+
+;; Support for common-lisp-indent-function in elisp
+;; (put 'fif 'common-lisp-indent-function '(nil &body))
+
+(defmacro wrap-if (condition wrapper var &optional (form nil form-supplied-p))
+  (check-type var variable)
+  `(fif ,condition (lambda (,var) ,wrapper) ,(if form-supplied-p form var)))
+
 (defslimefun eval-and-grab-output
     (string &key (targets-to-capture '(*standard-output* values)
-                                     targets-provided-p))
+                                     targets-provided-p)
+            macroexp)
   "Evaluate contents of STRING, return alist of results including various output streams. Possible keys in the returned alist should be listed in the value of `slime-output-targets' variable in `slime.el'."
   (with-buffer-syntax ()
     (with-retry-restart (:msg "Retry SLIME evaluation request.")
@@ -1769,13 +1808,27 @@ Errors are trapped and invoke our debugger."
                    `(if (member ',stream-symbol targets-to-capture)
                         (make-string-output-stream)
                         ,stream-symbol)))
-        (let* ((*trace-output*
+        (let* ((form (let ((forms (from-string string)))
+                       (if macroexp
+                           (when forms
+                             (let* (last
+                                    (most (loop for rest on forms
+                                                if (cdr rest) collect (car rest)
+                                                else do (setq last (car rest)))))
+                               (wrap-if most `(progn
+                                                ,@most
+                                                ,last)
+                                        last
+                                        `(,(macroexpander macroexp)
+                                          ',last))))
+                           `(progn ,@forms))))
+               (*trace-output*
                  (maybe-make-string-output-stream *trace-output*))
                (*error-output*
                  (maybe-make-string-output-stream *error-output*))
                (*standard-output*
                  (maybe-make-string-output-stream *standard-output*))
-               (values (multiple-value-list (eval (from-string string)))))
+               (values (multiple-value-list (eval form))))
           (if targets-provided-p
               ;; It is not clear what would be the most natural order here.
               ;; We picked the reversed binding order.
