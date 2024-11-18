@@ -3519,7 +3519,7 @@ Return NIL if LIST is circular."
          (:value ,*readtable*) ") it is a macro character: "
          (:value ,(get-macro-character char))))))
 
-(unless (find-method #'emacs-inspect nil (list (find-class t)))
+(unless (find-method #'emacs-inspect nil (list (find-class t)) nil)
   (defmethod emacs-inspect ((object t))
     "Generic method for inspecting any kind of object.
 
