@@ -55,9 +55,16 @@
                               collect package)))
     (remove-if (lambda (node)
                  (let ((name (sb-sprof::node-name node)))
-                   (and (symbolp name)
-                        (member (symbol-package name) swank-packages
-                                :test #'eq))))
+                   (typecase name
+                     (symbol
+                      (member (symbol-package name) swank-packages
+                              :test #'eq))
+                     (cons name
+                      (find-if (lambda (x)
+                                 (and (symbolp x)
+                                      (member (symbol-package x) swank-packages
+                                              :test #'eq)))
+                               name)))))
                nodes)))
 
 (defun serialize-call-graph (&key exclude-swank (sort 'cumul))
