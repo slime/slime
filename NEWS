@@ -1,4 +1,9 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
+* 2.31 (December 2024)
+** The REPL now runs on the main thread.
+** inferior-lisp output is shown in the REPL.
+** Added M-x sldb-inspect-restart and M-x sldb-inspect-frame-function
+
 * 2.30 (April 2024)
 ** Better I/O performance
 ** Macroexpand for macrolet
