@@ -80,11 +80,6 @@
        ,data
      ,@body))
 
-;;; No locking
-(defmacro with-slime-output-stream-no-lock (stream &body body)
-  `(let ((data (data ,stream)))
-     (with-stream-data-no-lock data ,@body)))
-
 (defun maybe-schedule-flush (data)
   (with-stream-data-no-lock data
     (when flush-thread
@@ -95,8 +90,8 @@
             t)))))
 
 ;;; A non-method write-char due to locking inside CLOS.
-(defun write-char* (stream char)
-  (with-slime-output-stream-no-lock stream
+(defun write-char* (data char)
+  (with-stream-data-no-lock data
     (setf (schar buffer fill-pointer) char)
     (incf fill-pointer)
     (incf column)
@@ -108,7 +103,7 @@
 
 (defmethod stream-write-char ((stream slime-output-stream) char)
   (with-slime-output-stream stream
-    (write-char* stream char))
+    (write-char* data char))
   char)
 
 (defmethod stream-write-string ((stream slime-output-stream) string
@@ -160,7 +155,7 @@
 (defmethod stream-fresh-line ((stream slime-output-stream))
   (with-slime-output-stream stream
     (cond ((zerop column) nil)
-          (t (write-char* stream #\Newline) t))))
+          (t (write-char* data #\Newline) t))))
 
 #+sbcl
 (defmethod stream-file-position ((stream slime-output-stream) &optional position)
