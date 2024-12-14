@@ -253,7 +253,7 @@
 (progn
   (defun input-ready-p (stream)
     (or (not (fd-stream-input-buffer-empty-p stream))
-        (handle-listen (sockint::fd->handle (sb-impl::fd-stream-fd stream)))))
+        (handle-listen (sb-impl::fd-stream-fd stream))))
 
   (sb-alien:define-alien-routine ("WSACreateEvent" wsa-create-event)
       sb-win32:handle)
