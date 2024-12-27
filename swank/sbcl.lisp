@@ -556,7 +556,7 @@ When Emacs presents the message it already has the source popped up
 and the source form highlighted. This makes much of the information in
 the error-context redundant."
   (let ((sb-int:*print-condition-references* nil))
-    (princ-to-string condition)))
+    (swank::safe-condition-message condition)))
 
 (defun compiler-error-context (error-context)
   "Describe a compiler error for Emacs including context information."
