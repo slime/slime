@@ -1718,7 +1718,8 @@ Errors are trapped and invoke our debugger."
       (send-to-emacs `(:return ,(current-thread)
                                ,(if ok
                                     `(:ok ,result)
-                                    `(:abort ,(prin1-to-string condition)))
+                                    `(:abort ,(with-condition-printing nil
+                                                (prin1-to-string condition))))
                                ,id)))))
 
 (defvar *echo-area-prefix* "=> "
@@ -2118,27 +2119,31 @@ conditions are simply reported."
     (send-to-emacs `(:debug-condition ,(current-thread-id)
                                       ,(princ-to-string real-condition)))))
 
+(defmacro with-condition-printing (lines &body body)
+  `(let* ((*print-readably* nil)
+          (*print-pretty* t)
+          (*print-right-margin* 65)
+          (*print-circle* t)
+          (*print-length* (or *print-length* 64))
+          #+#.(swank/backend:with-symbol '*print-vector-length* 'sb-ext)
+          (sb-ext:*print-vector-length* (or sb-ext:*print-vector-length* 1000))
+          (*print-level* (or *print-level* 6))
+          (*print-lines* (or *print-lines* ,lines)))
+     ,@body))
+
 (defun %%condition-message (condition)
   (let ((limit (ash 1 16)))
     (with-string-stream (stream :length limit)
       (handler-case
-          (let ((*print-readably* nil)
-                (*print-pretty* t)
-                (*print-right-margin* 65)
-                (*print-circle* t)
-                (*print-length* (or *print-length* 64))
-                #+#.(swank/backend:with-symbol '*print-vector-length* 'sb-ext)
-                (sb-ext:*print-vector-length* (or sb-ext:*print-vector-length* 1000))
-                (*print-level* (or *print-level* 6))
-                (*print-lines* (or *print-lines* limit)))
+          (with-condition-printing limit
             (print-condition condition stream))
         (serious-condition (c)
           (ignore-errors
-            (with-standard-io-syntax
-              (let ((*print-readably* nil))
-                (format stream "~&Error (~a) during printing: " (type-of c))
-                (print-unreadable-object (condition stream :type t
-                                                    :identity t))))))))))
+           (with-standard-io-syntax
+             (let ((*print-readably* nil))
+               (format stream "~&Error (~a) during printing: " (type-of c))
+               (print-unreadable-object (condition stream :type t
+                                                          :identity t))))))))))
 
 (defun %condition-message (condition)
   (string-trim #(#\newline #\space #\tab)
