@@ -1697,6 +1697,18 @@ Fall back to the current if no such package exists."
   (or (and string (guess-package string))
       *package*))
 
+(defmacro with-condition-printing (lines &body body)
+  `(let* ((*print-readably* nil)
+          (*print-pretty* t)
+          (*print-right-margin* 65)
+          (*print-circle* t)
+          (*print-length* (or *print-length* 64))
+          #+#.(swank/backend:with-symbol '*print-vector-length* 'sb-ext)
+          (sb-ext:*print-vector-length* (or sb-ext:*print-vector-length* 1000))
+          (*print-level* (or *print-level* 6))
+          (*print-lines* (or *print-lines* ,lines)))
+     ,@body))
+
 (defun eval-for-emacs (form buffer-package id)
   "Bind *BUFFER-PACKAGE* to BUFFER-PACKAGE and evaluate FORM.
 Return the result to the continuation ID.
@@ -2118,18 +2130,6 @@ conditions are simply reported."
   (let ((real-condition (original-condition condition)))
     (send-to-emacs `(:debug-condition ,(current-thread-id)
                                       ,(princ-to-string real-condition)))))
-
-(defmacro with-condition-printing (lines &body body)
-  `(let* ((*print-readably* nil)
-          (*print-pretty* t)
-          (*print-right-margin* 65)
-          (*print-circle* t)
-          (*print-length* (or *print-length* 64))
-          #+#.(swank/backend:with-symbol '*print-vector-length* 'sb-ext)
-          (sb-ext:*print-vector-length* (or sb-ext:*print-vector-length* 1000))
-          (*print-level* (or *print-level* 6))
-          (*print-lines* (or *print-lines* ,lines)))
-     ,@body))
 
 (defun %%condition-message (condition)
   (let ((limit (ash 1 16)))
