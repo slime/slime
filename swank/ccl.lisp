@@ -872,3 +872,8 @@
   (ccl:hash-table-weak-p hashtable))
 
 (pushnew 'deinit-log-output ccl:*save-exit-functions*)
+
+(defimplementation structure-accessor-p (symbol)
+  (find-if (lambda (def)
+             (typep def 'ccl::structure-accessor-definition-type))
+           (ccl:find-definition-sources symbol) :key #'caar))
