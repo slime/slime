@@ -1589,3 +1589,8 @@ Implementations intercept calls to SPEC and call, in this order:
 (definterface augment-features ()
   "*features* or something else "
   *features*)
+
+(definterface structure-accessor-p (symbol)
+  "Does SYMBOL name a structure accessor?"
+  (declare (ignore symbol))
+  nil)
