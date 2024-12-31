@@ -2524,7 +2524,8 @@ Record compiler notes signalled as `compiler-condition's."
 ;;;; Loading
 
 (defslimefun load-file (filename)
-  (to-string (load (filename-to-pathname filename))))
+  (with-buffer-syntax ()
+    (to-string (load (filename-to-pathname filename)))))
 
 
 ;;;;; swank-require
