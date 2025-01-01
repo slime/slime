@@ -35,10 +35,12 @@
 ;; If still not found, error out.
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (unless (member :asdf *features*)
-    (error "Could not load ASDF.
+    (warn "Could not load ASDF.
 Please update your implementation or
 install a recent release of ASDF and in your ~~/.swank.lisp specify:
  (defparameter swank::*asdf-path* #p\"/path/containing/asdf/asdf.lisp\")")))
+#-asdf
+(throw 'dont-load t)
 
 ;;; If ASDF is too old, punt.
 ;; As of January 2014, Quicklisp has been providing 2.26 for a year

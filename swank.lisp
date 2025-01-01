@@ -2534,11 +2534,12 @@ Record compiler notes signalled as `compiler-condition's."
   "Load the module MODULE."
   (dolist (module (ensure-list modules))
     (unless (member (string module) *modules* :test #'string=)
-      (require module (if filename
-                          (filename-to-pathname filename)
-                          (module-filename module)))
-      (assert (member (string module) *modules* :test #'string=)
-              () "Required module ~s was not provided" module)))
+      (catch 'dont-load
+        (require module (if filename
+                            (filename-to-pathname filename)
+                            (module-filename module)))
+        (assert (member (string module) *modules* :test #'string=)
+                () "Required module ~s was not provided" module))))
   *modules*)
 
 (defvar *find-module* 'find-module
