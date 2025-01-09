@@ -102,6 +102,7 @@
         (maybe-schedule-flush data))))
 
 (defmethod stream-write-char ((stream slime-output-stream) char)
+  (check-type char character)
   (with-slime-output-stream stream
     (write-char* data char))
   char)
