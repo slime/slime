@@ -654,8 +654,9 @@ edit s-exprs, e.g. for source buffers and the REPL.")
   (set-keymap-parent slime-mode-indirect-map slime-mode-map))
 
 (defun slime-init-keymap (keymap-name prefixp bothp bindings)
-  (set keymap-name (make-sparse-keymap))
-  (when prefixp (define-prefix-command keymap-name))
+  (unless (symbol-value keymap-name)
+    (set keymap-name (make-sparse-keymap))
+    (when prefixp (define-prefix-command keymap-name)))
   (slime-bind-keys (eval keymap-name) bothp bindings))
 
 (defun slime-bind-keys (keymap bothp bindings)
