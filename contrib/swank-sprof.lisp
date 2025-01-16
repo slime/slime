@@ -50,24 +50,31 @@
           (samples-percent (sb-sprof::node-accrued-count node))))
 
 (defun filter-swank-nodes (nodes)
-  (let ((swank-packages (load-time-value
-                         (mapcar #'find-package
-                                 '(swank swank/rpc swank/mop
-                                   swank/match swank/backend)))))
+  (let ((swank-packages (loop for package in (list-all-packages)
+                              when (search "SWANK" (package-name package) :test #'char-equal)
+                              collect package)))
     (remove-if (lambda (node)
                  (let ((name (sb-sprof::node-name node)))
-                   (and (symbolp name)
-                        (member (symbol-package name) swank-packages
-                                :test #'eq))))
+                   (typecase name
+                     (symbol
+                      (member (symbol-package name) swank-packages
+                              :test #'eq))
+                     (cons name
+                      (find-if (lambda (x)
+                                 (and (symbolp x)
+                                      (member (symbol-package x) swank-packages
+                                              :test #'eq)))
+                               name)))))
                nodes)))
 
-(defun serialize-call-graph (&key exclude-swank)
+(defun serialize-call-graph (&key exclude-swank (sort 'cumul))
   (let ((nodes (sb-sprof::call-graph-flat-nodes *call-graph*)))
     (when exclude-swank
       (setf nodes (filter-swank-nodes nodes)))
     (setf nodes (sort (copy-list nodes) #'>
-                      ;; :key #'sb-sprof::node-count)))
-                      :key #'sb-sprof::node-accrued-count))
+                      :key (ecase sort
+                             (swank-io-package::self #'sb-sprof::node-count)
+                             (swank-io-package::cumul #'sb-sprof::node-accrued-count))))
     (setf *number-nodes* (make-hash-table))
     (setf *node-numbers* (make-hash-table))
     (loop for node in nodes
@@ -84,9 +91,9 @@
                       (return (append list
                                       `((nil "Elsewhere" ,rest nil nil)))))))))
 
-(defslimefun swank-sprof-get-call-graph (&key exclude-swank)
+(defslimefun swank-sprof-get-call-graph (&key exclude-swank sort)
   (when (setf *call-graph* (sb-sprof:report :type nil))
-    (serialize-call-graph :exclude-swank exclude-swank)))
+    (serialize-call-graph :exclude-swank exclude-swank :sort sort)))
 
 (defslimefun swank-sprof-expand-node (index)
   (let* ((node (gethash index *number-nodes*)))

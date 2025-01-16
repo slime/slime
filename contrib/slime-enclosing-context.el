@@ -145,7 +145,11 @@ Examples:
 
 (defun slime-binding-op-body-pos (op)
   (let ((special-lambda-list (slime-lookup-binding-op op)))
-    (if special-lambda-list (cl-position '&body special-lambda-list))))
+    (when special-lambda-list
+      (cl-position (if (eq (car special-lambda-list) 'labels)
+                       '&bindings
+                       '&body)
+                   special-lambda-list))))
 
 (defun slime-binding-op-bindings-pos (op)
   (let ((special-lambda-list (slime-lookup-binding-op op)))

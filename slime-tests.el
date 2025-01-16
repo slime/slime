@@ -1328,6 +1328,26 @@ Reconnect afterwards."
                               (not (member hook slime-connected-hook)))
                             5))))
 
+(def-slime-test slime-modeline-string-test
+  (expected current-connection buffer-connection
+   connection-name current-package modeline-state-string)
+  "slime-modeline-string returns string in proper format."
+  '((" Slime" nil nil nil nil nil)
+    (" {sbcl local-conn-1 state}" 'mocked-conn 'mocked-local-conn
+     "local-conn-1" "sbcl" " state")
+    (" [sbcl conn-1 state]" 'mocked-conn nil "conn-1" "sbcl" " state"))
+  (with-temp-buffer
+    (lisp-mode)
+    (slime-check ("slime-modeline-string returns \"%s\"" expected)
+      (cl-letf (((symbol-function 'slime-current-connection)
+		 (lambda () (or buffer-connection current-connection)))
+		((symbol-function 'slime-connection-name) (lambda (_) connection-name))
+		((symbol-function 'slime-current-package) (lambda () current-package))
+		((symbol-function 'slime-modeline-state-string)
+                 (lambda (_) modeline-state-string)))
+	(setq slime-buffer-connection buffer-connection)
+	(equal expected (slime-modeline-string))))))
+
 
 ;;;; SLIME-loading tests that launch separate Emacsen
 ;;;;

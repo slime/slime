@@ -71,7 +71,7 @@ If the exact version cannot be found then return the current one from disk."
   "Return the source code for FILENAME as written on DATE in a string.
 Return NIL if the right version cannot be found."
   (when *cache-sourcecode*
-    (let* ((filename (pathname filename))
+    (let* ((filename (truename filename))
            (entry (gethash filename *source-file-cache*)))
       (cond ((and entry (equal date (source-cache-entry.date entry)))
              ;; Cache hit.
@@ -89,7 +89,7 @@ Return NIL if the right version cannot be found."
 
 (defun source-cached-p (filename)
   "Is any version of FILENAME in the source cache?"
-  (if (gethash (pathname filename) *source-file-cache*) t))
+  (if (gethash (truename filename) *source-file-cache*) t))
 
 (defun read-file (filename)
   "Return the entire contents of FILENAME as a string."

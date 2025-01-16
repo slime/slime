@@ -245,11 +245,6 @@
 ;;; `ffi:c-inline' to be handled as C/C++ code?
 ;;;
 ;;;   call-with-syntax-hooks
-
-;;; Return a suitable initial value for SWANK:*READTABLE-ALIST*.
-;;;
-;;;   default-readtable-alist
-
 
 ;;;; Packages
 

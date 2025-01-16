@@ -10,6 +10,13 @@
 ;;; separately for each Lisp. Each is declared as a generic function
 ;;; for which swank-<implementation>.lisp provides methods.
 
+(in-package swank)
+
+;;; Forward references
+(defvar *communication-style*)
+(defvar *swank-debugger-condition* nil
+  "The condition being debugged.")
+
 (in-package swank/backend)
 
 
@@ -477,10 +484,6 @@ This is used to resolve filenames without directory component."
   "Call FN with hooks to handle special syntax."
   (funcall fn))
 
-(definterface default-readtable-alist ()
-  "Return a suitable initial value for SWANK:*READTABLE-ALIST*."
-  '())
-
 
 ;;;; Packages
 
@@ -653,9 +656,8 @@ The stream calls READ-STRING when input is needed.")
          :name "auto-flush-thread"))
 
 (definterface really-finish-output (stream)
-  "Make an auto-flush thread"
-  (spawn (lambda () (auto-flush-loop stream *auto-flush-interval* nil))
-         :name "auto-flush-thread"))
+  "FINISH-OUTPUT or more"
+  (finish-output stream))
 
 
 ;;;; Documentation
@@ -937,7 +939,11 @@ relatively to the frame associated to FRAME-NUMBER.")
 (definterface disassemble-frame (frame-number)
   "Disassemble the code for the FRAME-NUMBER.
 The output should be written to standard output.
-FRAME-NUMBER is a non-negative integer.")
+FRAME-NUMBER is a non-negative integer."
+  (disassemble (frame-function frame-number)))
+
+(definterface frame-function (frame-number)
+  "Return the frame function.")
 
 (definterface eval-in-frame (form frame-number)
    "Evaluate a Lisp form in the lexical context of a stack frame
@@ -1217,16 +1223,6 @@ inserted into the buffer as is, or a list of the form:
  non-NIL the currently inspected object will be re-inspected
  after calling the lambda.
 "))
-
-(defmethod emacs-inspect ((object t))
-  "Generic method for inspecting any kind of object.
-
-Since we don't know how to deal with OBJECT we simply dump the
-output of CL:DESCRIBE."
-   `("Type: " (:value ,(type-of object)) (:newline)
-     "Don't know how to inspect the object, dumping output of CL:DESCRIBE:"
-     (:newline) (:newline)
-     ,(with-output-to-string (desc) (describe object desc))))
 
 (definterface eval-context (object)
   "Return a list of bindings corresponding to OBJECT's slots."
@@ -1593,3 +1589,8 @@ Implementations intercept calls to SPEC and call, in this order:
 (definterface augment-features ()
   "*features* or something else "
   *features*)
+
+(definterface structure-accessor-p (symbol)
+  "Does SYMBOL name a structure accessor?"
+  (declare (ignore symbol))
+  nil)

@@ -5,7 +5,13 @@
 
 (defpackage swank-repl
   (:use cl swank/backend)
-  (:export *send-repl-results-function*)
+  (:export *send-repl-results-function*
+           clear-repl-variables
+           listener-eval
+           listener-get-value
+           create-repl
+           listener-save-value
+           redirect-trace-output)
   (:import-from
    swank
 
@@ -26,7 +32,6 @@
    connection.user-output
    connection.user-io
    connection.trace-output
-   connection.dedicated-output
    connection.env
 
    multithreaded-connection
@@ -66,23 +71,9 @@
 
    ;; FIXME: those should be exported from swank-repl only, but how to
    ;; do that whithout breaking init files?
-   *use-dedicated-output-stream*
-   *dedicated-output-stream-port*
    *globally-redirect-io*))
 
 (in-package swank-repl)
-
-(defvar *use-dedicated-output-stream* nil
-  "When T swank will attempt to create a second connection to Emacs
-which is used just to send output.")
-
-(defvar *dedicated-output-stream-port* 0
-  "Which port we should use for the dedicated output stream.")
-
-(defvar *dedicated-output-stream-buffering*
-  (if (eq *communication-style* :spawn) t nil)
-  "The buffering scheme that should be used for the output stream.
-Valid values are nil, t, :line")
 
 (defvar *globally-redirect-io* :started-from-emacs
   "When T globally redirect all standard streams to Emacs.
@@ -93,22 +84,17 @@ When :STARTED-FROM-EMACS redirect when launched by M-x slime")
     ((t) t)
     (:started-from-emacs swank-loader:*started-from-emacs*)))
 
-(defun open-streams (connection properties)
-  "Return the 5 streams for IO redirection:
-DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
+(defun open-streams (connection)
+  "Return the 4 streams for IO redirection:
+INPUT OUTPUT IO REPL-RESULTS"
   (let* ((input-fn
            (lambda ()
              (with-connection (connection)
                (with-simple-restart (abort-read
                                      "Abort reading input from Emacs.")
                  (read-user-input-from-emacs)))))
-         (dedicated-output (if *use-dedicated-output-stream*
-                               (open-dedicated-output-stream
-                                connection
-                                (getf properties :coding-system))))
          (in (make-input-stream input-fn))
-         (out (or dedicated-output
-                  (make-output-stream (make-output-function connection))))
+         (out (make-output-stream (make-output-function connection)))
          (io (make-two-way-stream in out))
          (repl-results (swank:make-output-stream-for-target connection
                                                             :repl-result)))
@@ -116,7 +102,7 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
       (multithreaded-connection
        (setf (mconn.auto-flush-thread connection)
              (make-auto-flush-thread out))))
-    (values dedicated-output in out io repl-results)))
+    (values in out io repl-results)))
 
 (defun make-output-function (connection)
   "Create function to send user output to Emacs."
@@ -128,32 +114,8 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
       ;; processed, most importantly an interrupt-thread request.
       (wait-for-event `(:write-done)))))
 
-(defun open-dedicated-output-stream (connection coding-system)
-  "Open a dedicated output connection to the Emacs on SOCKET-IO.
-Return an output stream suitable for writing program output.
-
-This is an optimized way for Lisp to deliver output to Emacs."
-  (let ((socket (socket-quest *dedicated-output-stream-port* nil))
-        (ef (find-external-format-or-lose coding-system)))
-    (unwind-protect
-         (let ((port (local-port socket)))
-           (encode-message `(:open-dedicated-output-stream ,port
-                                                           ,coding-system)
-                           (connection.socket-io connection))
-           (let ((dedicated (accept-connection
-                             socket
-                             :external-format ef
-                             :buffering *dedicated-output-stream-buffering*
-                             :timeout 30)))
-             (authenticate-client dedicated)
-             (close-socket socket)
-             (setf socket nil)
-             dedicated))
-      (when socket
-        (close-socket socket)))))
-
-(defmethod thread-for-evaluation ((connection multithreaded-connection)
-				  (id (eql :find-existing)))
+(defmethod thread-for-evaluation :around ((connection multithreaded-connection)
+				          (id (eql :find-existing)))
   (or (car (mconn.active-threads connection))
       (find-repl-thread connection)))
 
@@ -167,7 +129,9 @@ This is an optimized way for Lisp to deliver output to Emacs."
         (t
          (let ((thread (mconn.repl-thread connection)))
            (cond ((not thread) nil)
-                 ((thread-alive-p thread) thread)
+                 ((and (not (eq thread 'aborted))
+                       (thread-alive-p thread))
+                  thread)
                  (t
                   (setf (mconn.repl-thread connection)
                         (spawn-repl-thread connection "new-repl-thread"))))))))
@@ -179,17 +143,21 @@ This is an optimized way for Lisp to deliver output to Emacs."
          :name name))
 
 (defun repl-loop (connection)
-  (handle-requests connection))
+  (unwind-protect
+       (handle-requests connection)
+    (when (typep connection 'multithreaded-connection)
+      (setf (mconn.repl-thread connection)
+            'aborted))))
 
 ;;;;; Redirection during requests
 ;;;
 ;;; We always redirect the standard streams to Emacs while evaluating
 ;;; an RPC. This is done with simple dynamic bindings.
 
-(defslimefun create-repl (target &key coding-system)
+(defslimefun create-repl (target)
   (assert (eq target nil))
   (let ((conn *emacs-connection*))
-    (initialize-streams-for-connection conn `(:coding-system ,coding-system))
+    (initialize-streams-for-connection conn)
     (with-struct* (connection. @ conn)
       (setf (@ env)
 	    `((*standard-input*  . ,(@ user-input))
@@ -200,20 +168,32 @@ This is an optimized way for Lisp to deliver output to Emacs."
 		    (*debug-io*        . ,(@ user-io))
 		    (*query-io*        . ,(@ user-io))
 		    (*terminal-io*     . ,(@ user-io))))))
-      (maybe-redirect-global-io conn)
       (add-hook *connection-closed-hook* 'update-redirection-after-close)
       (typecase conn
 	(multithreaded-connection
-	 (setf (mconn.repl-thread conn)
-	       (spawn-repl-thread conn "repl-thread"))))
+         (cond (swank::*main-thread*
+                (send swank::*main-thread*
+                      (list :run-on-main-thread
+                            (lambda ()
+                              (maybe-redirect-global-io conn)
+                              (shiftf (mconn.repl-thread conn)
+                                      swank::*main-thread* nil)
+                              (swank::with-io-redirection (conn)
+                                (with-bindings *default-worker-thread-bindings*
+                                  (repl-loop conn)))))))
+               (t
+                (maybe-redirect-global-io conn)
+	        (setf (mconn.repl-thread conn)
+	              (spawn-repl-thread conn "repl-thread")))))
+        (t
+         (maybe-redirect-global-io conn)))
       (list (package-name *package*)
             (package-string-for-prompt *package*)))))
 
-(defun initialize-streams-for-connection (connection properties)
-  (multiple-value-bind (dedicated in out io repl-results)
-      (open-streams connection properties)
-    (setf (connection.dedicated-output connection) dedicated
-          (connection.user-io connection)          io
+(defun initialize-streams-for-connection (connection)
+  (multiple-value-bind (in out io repl-results)
+      (open-streams connection)
+    (setf (connection.user-io connection)          io
           (connection.user-output connection)      out
           (connection.user-input connection)       in
           (connection.repl-results connection)     repl-results)

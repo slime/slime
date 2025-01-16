@@ -934,3 +934,13 @@ Execute BODY with NAME's function slot set to FUNCTION."
                 ,@(if restart-function 
                       `((:init-function ,restart-function))))))
     (apply #'ext:saveinitmem args)))
+
+(pushnew (lambda ()
+           (when *log-output*
+             (setf *log-output* nil))
+           (swank::init-log-output))
+         custom:*init-hooks*)
+
+(defimplementation structure-accessor-p (symbol)
+  (and (get symbol 'system::defstruct-reader)
+       t))

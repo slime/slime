@@ -12,7 +12,7 @@
 @end direntry
 @c %**end of header
 
-@set EDITION 2.29.1
+@set EDITION 2.30
 @set UPDATED @today{}
 @set TITLE SLIME User Manual
 @settitle @value{TITLE}, version @value{EDITION}
@@ -1899,29 +1899,6 @@ the pretty printer for formatting backtraces in @SLDB{}, you can use:
 @example
 (push '(*print-pretty* . t) swank:*sldb-printer-bindings*).
 @end example
-
-@vindex SWANK:*USE-DEDICATED-OUTPUT-STREAM*
-@item SWANK:*USE-DEDICATED-OUTPUT-STREAM*
-This variable controls whether to use an unsafe efficiency hack for
-sending printed output from Lisp to Emacs.  The default is @code{nil},
-don't use it, and is strongly recommended to keep.
-
-When @code{t}, a separate socket is established solely for Lisp to send
-printed output to Emacs through, which is faster than sending the output
-in protocol-messages to Emacs.  However, as nothing can be guaranteed
-about the timing between the dedicated output stream and the stream of
-protocol messages, the output of a Lisp command can arrive before or
-after the corresponding REPL results.  Thus output and REPL results can
-end up in the wrong order, or even interleaved, in the REPL buffer.
-Using a dedicated output stream also makes it more difficult to
-communicate to a Lisp running on a remote host via SSH
-(@pxref{Connecting to a remote lisp}).
-
-@vindex SWANK:*DEDICATED-OUTPUT-STREAM-PORT*
-@item SWANK:*DEDICATED-OUTPUT-STREAM-PORT*
-When @code{*USE-DEDICATED-OUTPUT-STREAM*} is @code{t} the stream will
-be opened on this port. The default value, @code{0}, means that the
-stream will be opened on some random port.
 
 @vindex SWANK:*LOG-EVENTS*
 @item SWANK:*LOG-EVENTS*

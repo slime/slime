@@ -3,7 +3,7 @@
 ;; URL: https://github.com/slime/slime
 ;; Package-Requires: ((emacs "24.3") (macrostep "0.9"))
 ;; Keywords: languages, lisp, slime
-;; Version: 2.29.1
+;; Version: 2.31.git
 
 ;;;; License and Commentary
 
@@ -504,7 +504,7 @@ information."
             (pkg   (slime-current-package)))
         (concat " "
                 (if local "{" "[")
-                (if pkg (string-replace "%" "%%" (slime-pretty-package-name pkg)) "?")
+                (if pkg (replace-regexp-in-string "%" "%%" (slime-pretty-package-name pkg)) "?")
                 " "
                 ;; ignore errors for closed connections
                 (ignore-errors (slime-connection-name conn))
@@ -654,8 +654,9 @@ edit s-exprs, e.g. for source buffers and the REPL.")
   (set-keymap-parent slime-mode-indirect-map slime-mode-map))
 
 (defun slime-init-keymap (keymap-name prefixp bothp bindings)
-  (set keymap-name (make-sparse-keymap))
-  (when prefixp (define-prefix-command keymap-name))
+  (unless (symbol-value keymap-name)
+    (set keymap-name (make-sparse-keymap))
+    (when prefixp (define-prefix-command keymap-name)))
   (slime-bind-keys (eval keymap-name) bothp bindings))
 
 (defun slime-bind-keys (keymap bothp bindings)
@@ -1202,6 +1203,9 @@ Return true if we have been given permission to continue."
 (defvar slime-inferior-process-start-hook nil
   "Hook called whenever a new process gets started.")
 
+(defvar slime-inferior-lisp-connected nil)
+(defvar slime-terminal-output-function 'identity)
+
 (defun slime-start-lisp (program program-args env directory buffer)
   "Does the same as `inferior-lisp' but less ugly.
 Return the created process."
@@ -1209,6 +1213,8 @@ Return the created process."
     (when directory
       (cd (expand-file-name directory)))
     (comint-mode)
+    (set (make-local-variable 'slime-inferior-lisp-connected) nil)
+    (add-hook 'comint-preoutput-filter-functions 'slime-insert-inferior-lisp-output 0 t)
     (let ((process-environment (append env process-environment))
           (process-connection-type nil))
       (comint-exec (current-buffer) "inferior-lisp" program nil program-args))
@@ -1490,19 +1496,6 @@ EVAL'd by Lisp."
       (and (not (multibyte-string-p string))
            (not (slime-coding-system-mulibyte-p coding-system)))))
 
-(defun slime-net-close (process &optional debug)
-  (setq slime-net-processes (remove process slime-net-processes))
-  (when (eq process slime-default-connection)
-    (setq slime-default-connection nil))
-  (cond (debug
-         (set-process-sentinel process 'ignore)
-         (set-process-filter process 'ignore)
-         (delete-process process))
-        (t
-         (run-hook-with-args 'slime-net-process-close-hooks process)
-         ;; killing the buffer also closes the socket
-         (kill-buffer (process-buffer process)))))
-
 (defun slime-net-sentinel (process message)
   (message "Lisp connection closed unexpectedly: %s" message)
   (slime-net-close process))
@@ -1603,8 +1596,7 @@ This is more compatible with the CL reader."
 ;;; with. Typically there would only be one, but a user can choose to
 ;;; connect to many Lisps simultaneously.
 ;;;
-;;; A connection consists of a control socket, optionally an extra
-;;; socket dedicated to receiving Lisp output (an optimization), and a
+;;; A connection consists of a control socket and a
 ;;; set of connection-local state variables.
 ;;;
 ;;; The state variables are stored as buffer-local variables in the
@@ -1855,6 +1847,13 @@ This is automatically synchronized from Lisp.")
     (slime-eval-async '(swank:connection-info)
       (slime-curry #'slime-set-connection-info proc))))
 
+(defun slime-insert-inferior-lisp-output (string)
+  (let ((slime-dispatching-connection slime-inferior-lisp-connected))
+    (when (and slime-dispatching-connection
+               (eq (process-status slime-dispatching-connection) 'open))
+      (funcall slime-terminal-output-function string)))
+  string)
+
 (defun slime-set-connection-info (connection info)
   "Initialize CONNECTION with INFO received from Lisp."
   (let ((slime-dispatching-connection connection)
@@ -1878,8 +1877,9 @@ This is automatically synchronized from Lisp.")
         (setf (slime-machine-instance) instance))
       (cl-destructuring-bind (&key coding-systems) encoding
         (setf (slime-connection-coding-systems) coding-systems)))
-    (let ((args (let ((p (slime-inferior-process)))
-                  (if p (slime-inferior-lisp-args p)))))
+    (let* ((process (slime-inferior-process))
+           (args (and process
+                      (slime-inferior-lisp-args process))))
       (let ((name (plist-get args ':name)))
         (when name
           (unless (string= (slime-lisp-implementation-name) name)
@@ -1887,9 +1887,27 @@ This is automatically synchronized from Lisp.")
                   (slime-generate-connection-name (symbol-name name))))))
       (slime-load-contribs)
       (run-hooks 'slime-connected-hook)
+      (when process
+        (with-current-buffer (process-buffer process)
+          (setq slime-inferior-lisp-connected connection)))
       (let ((fun (plist-get args ':init-function)))
         (when fun (funcall fun))))
     (message "Connected. %s" (slime-random-words-of-encouragement))))
+
+(defun slime-net-close (process &optional debug)
+  (setq slime-net-processes (remove process slime-net-processes))
+  (when (eq process slime-default-connection)
+    (setq slime-default-connection nil))
+  (when (eq process slime-dispatching-connection)
+    (setq slime-dispatching-connection nil))
+  (cond (debug
+         (set-process-sentinel process 'ignore)
+         (set-process-filter process 'ignore)
+         (delete-process process))
+        (t
+         (run-hook-with-args 'slime-net-process-close-hooks process)
+         ;; killing the buffer also closes the socket
+         (kill-buffer (process-buffer process)))))
 
 (defun slime-check-version (version conn)
   (or (equal version slime-protocol-version)
@@ -4117,7 +4135,7 @@ inserted in the current buffer."
 Use `slime-re-evaluate-defvar' if the from starts with '(defvar'"
   (interactive)
   (let ((form (slime-defun-at-point)))
-    (cond ((string-match "^(defvar " form)
+    (cond ((string-prefix-p "(defvar " form t)
            (slime-re-evaluate-defvar form))
           (t
            (slime-interactive-eval form)))))
@@ -4578,7 +4596,8 @@ The most important commands:
   ("\M-," 'slime-xref-retract)
   ([remap next-line] 'slime-xref-next-line)
   ([remap previous-line] 'slime-xref-prev-line)
-  )
+  ([mouse-1] 'slime-mouse-show-xref)
+  ([mouse-3] 'slime-mouse-goto-xref))
 
 
 ;;;;; XREF results buffer and window management
@@ -4603,12 +4622,17 @@ source-location."
   (cl-loop for (group . refs) in xref-alist do
            (slime-insert-propertized '(face bold) group "\n")
            (cl-loop for (label location) in refs do
-                    (slime-insert-propertized
+                    (slime-propertize-region
                      (list 'slime-location location
                            'face 'font-lock-keyword-face)
-                     "  " (slime-one-line-ify label) "\n")))
+                     (insert "  ")
+                     (slime-insert-propertized
+                      '(mouse-face highlight)
+                      (slime-one-line-ify label))
+                     (insert "\n"))))
   ;; Remove the final newline to prevent accidental window-scrolling
-  (backward-delete-char 1))
+  (backward-delete-char 1)
+  (insert " "))
 
 (defun slime-xref-next-line ()
   (interactive)
@@ -4774,6 +4798,19 @@ This is used by `slime-goto-next-xref'")
   (interactive)
   (let ((location (slime-xref-location-at-point)))
     (slime-show-source-location location t 1)))
+
+(defun slime-mouse-show-xref (event)
+  (interactive "@e")
+  (let* ((point (posn-point (event-end event)))
+         (location (get-text-property point 'slime-location)))
+    (when (and location
+               (eq (get-char-property point 'mouse-face) 'highlight))
+      (slime-show-source-location location t 1))))
+
+(defun slime-mouse-goto-xref (event)
+  (interactive "@e")
+  (slime-mouse-show-xref event)
+  (quit-window))
 
 (defun slime-goto-next-xref (&optional backward)
   "Goto the next cross-reference location."
@@ -5111,11 +5148,6 @@ argument is given, with CL:MACROEXPAND."
 (defvar sldb-hook nil
   "Hook run on entry to the debugger.")
 
-(defcustom sldb-initial-restart-limit 6
-  "Maximum number of restarts to display initially."
-  :group 'slime-debugger
-  :type 'integer)
-
 
 ;;;;; Local variables in the debugger buffer
 
@@ -5349,7 +5381,7 @@ CONTS is a list of pending Emacs continuations."
       (sldb-insert-condition condition)
       (insert "\n\n" (sldb-in-face section "Restarts:") "\n")
       (setq sldb-restart-list-start-marker (point-marker))
-      (sldb-insert-restarts restarts 0 sldb-initial-restart-limit)
+      (sldb-insert-restarts restarts)
       (insert "\n" (sldb-in-face section "Backtrace:") "\n")
       (setq sldb-backtrace-start-marker (point-marker))
       (save-excursion
@@ -5452,33 +5484,19 @@ EXTRAS is currently used for the stepper."
            ;;(error "Unhandled extra element:" extra)
            )))))
 
-(defun sldb-insert-restarts (restarts start count)
+(defun sldb-insert-restarts (restarts)
   "Insert RESTARTS and add the needed text props
 RESTARTS should be a list ((NAME DESCRIPTION) ...)."
-  (let* ((len (length restarts))
-         (end (if count (min (+ start count) len) len)))
-    (cl-loop for (name string) in (cl-subseq restarts start end)
-             for number from start
-             do (slime-insert-propertized
-                 `(,@nil restart ,number
-                         sldb-default-action sldb-invoke-restart
-                         mouse-face highlight)
-                 " " (sldb-in-face restart-number (number-to-string number))
-                 ": ["  (sldb-in-face restart-type name) "] "
-                 (sldb-in-face restart string))
-             (insert "\n"))
-    (when (< end len)
-      (let ((pos (point)))
-        (slime-insert-propertized
-         (list 'sldb-default-action
-               (slime-rcurry #'sldb-insert-more-restarts restarts pos end))
-         " --more--\n")))))
-
-(defun sldb-insert-more-restarts (restarts position start)
-  (goto-char position)
-  (let ((inhibit-read-only t))
-    (delete-region position (1+ (line-end-position)))
-    (sldb-insert-restarts restarts start nil)))
+  (cl-loop for (name string) in restarts
+           for number from 0
+           do (slime-insert-propertized
+               `(,@nil restart ,number
+                       sldb-default-action sldb-invoke-restart
+                       mouse-face highlight)
+               " " (sldb-in-face restart-number (number-to-string number))
+               ": ["  (sldb-in-face restart-type name) "] "
+               (sldb-in-face restart string))
+           (insert "\n")))
 
 (defun sldb-frame.string (frame)
   (cl-destructuring-bind (_ str &optional _) frame str))
@@ -5923,6 +5941,12 @@ VAR should be a plist with the keys :name, :id, and :value."
   (slime-eval-async '(swank:inspect-current-condition)
     'slime-open-inspector))
 
+(defun sldb-inspect-frame-function ()
+  (interactive)
+  (let ((frame (sldb-frame-number-at-point)))
+    (slime-eval-async `(swank:inspect-frame-function ,frame)
+      'slime-open-inspector)))
+
 (defun sldb-print-condition ()
   (interactive)
   (slime-eval-describe `(swank:sdlb-print-condition)))
@@ -5997,6 +6021,12 @@ restart to invoke, otherwise use the restart at point."
         ((list 'swank:invoke-nth-restart-for-emacs sldb-level restart))
       ((:ok value) (message "Restart returned: %s" value))
       ((:abort _)))))
+
+(defun sldb-inspect-restart (&optional number)
+  (interactive)
+  (let ((restart (or number (sldb-restart-at-point))))
+    (slime-eval-async `(swank:inspect-nth-restart ,restart)
+                      'slime-open-inspector)))
 
 (defun sldb-invoke-restart-by-name (restart-name)
   (interactive (list (let ((completion-ignore-case t))
@@ -6569,8 +6599,7 @@ that value.
          (slime-inspector-fetch-more value))
         (slime-action-number
          (slime-eval-async `(swank:inspector-call-nth-action ,value)
-           opener))
-        (t (user-error "No object at point"))))))
+           opener))))))
 
 (defun slime-inspector-operate-on-click (event)
   "Move to events' position and operate the part."
@@ -6581,9 +6610,7 @@ that value.
                     (get-text-property point 'slime-range-button)
                     (get-text-property point 'slime-action-number)))
            (goto-char point)
-           (slime-inspector-operate-on-point))
-          (t
-           (user-error "No clickable part here")))))
+           (slime-inspector-operate-on-point)))))
 
 (defun slime-inspector-pop ()
   "Reinspect the previous object."

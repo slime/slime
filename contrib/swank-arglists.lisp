@@ -1034,13 +1034,12 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 
 (defmethod arglist-dispatch ((operator (eql 'define-compiler-macro)) arguments)
   (match (cons operator arguments)
-    (('define-compiler-macro (#'function-exists-p gf-name) . _)
-     (let ((gf (fdefinition gf-name)))
-       (with-available-arglist (arglist) (decode-arglist (arglist gf))
-         (return-from arglist-dispatch
-           (make-arglist :provided-args (list gf-name)
-                         :required-args (list arglist)
-                         :rest "body" :body-p t)))))
+    (('define-compiler-macro (#'function-exists-p fun-name) . _)
+     (with-available-arglist (arglist) (decode-arglist (arglist fun-name))
+       (return-from arglist-dispatch
+         (make-arglist :provided-args (list fun-name)
+                       :required-args (list arglist)
+                       :rest "body" :body-p t))))
     (_)) ; Fall through
   (call-next-method))
 
@@ -1144,6 +1143,7 @@ RAW-FORM that does have an arglist. The highlighted parameter is
 wrapped in ===> X <===.
 
 Second, a boolean value telling whether the returned string can be cached."
+  (setf *pre-reply-hook* nil) ;; reduce latency
   (handler-bind ((serious-condition
                   #'(lambda (c)
                       (unless (debug-on-swank-error)

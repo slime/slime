@@ -1,5 +1,4 @@
 (require 'slime)
-(require 'bridge)
 (require 'cl-lib)
 
 (define-slime-contrib slime-presentations
@@ -21,7 +20,6 @@
    (add-hook 'slime-connected-hook 'slime-presentations-on-connected)
    (add-hook 'slime-repl-return-hooks 'slime-presentation-on-return-pressed)
    (add-hook 'slime-repl-current-input-hooks 'slime-presentation-current-input)
-   (add-hook 'slime-open-stream-hooks 'slime-presentation-on-stream-open)
    (add-hook 'slime-repl-clear-buffer-hook 'slime-clear-presentations)
    (add-hook 'slime-edit-definition-hooks 'slime-edit-presentation)
    (setq sldb-insert-frame-variable-value-function
@@ -806,19 +804,6 @@ buffer. Presentations of old results are expanded into code."
     (slime-repl-grab-old-output end-of-input)
     (slime-repl-recenter-if-needed)
     t))
-
-(defun slime-presentation-bridge-insert (process output)
-  (slime-output-filter process (or output "")))
-
-(defun slime-presentation-on-stream-open (stream)
-  (install-bridge)
-  (setq bridge-insert-function #'slime-presentation-bridge-insert)
-  (setq bridge-destination-insert nil)
-  (setq bridge-source-insert nil)
-  (setq bridge-handlers
-	(cl-list* '("<" . slime-mark-presentation-start-handler)
-	          '(">" . slime-mark-presentation-end-handler)
-	          bridge-handlers)))
 
 (defun slime-clear-presentations ()
   "Forget all objects associated to SLIME presentations.
