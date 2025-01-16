@@ -972,10 +972,6 @@ If REGEXP is non-nil, only lines matching REGEXP are considered."
            (when slime-repl-history-original-input
              (insert-and-inherit slime-repl-history-original-input)
 	     (backward-char slime-repl-history-original-input-tail-length))
-	   ;; Exit autosearch (it's easy to restart) but not M-r.
-	   ;; &&& No longer needed, I think.
-	   ;; (unless (and regexp (not slime-repl-history-original-input))
-	   ;;   (setq this-command nil))
            (setq msg (cond ((= pos min-pos) "End of history")
                            ((= pos max-pos) "Beginning of history"))))
           (slime-repl-wrap-history
@@ -984,7 +980,6 @@ If REGEXP is non-nil, only lines matching REGEXP are considered."
     (when (or (<= pos min-pos) (<= max-pos pos))
       (when regexp
         (setq msg (concat msg "; no matching item"))))
-    ;;(message "%s [%d %d %s]" msg start-pos pos regexp)
     (message "%s%s" msg (cond ((not regexp) "")
                               (t (format "; current regexp: %s" regexp))))
     (setq slime-repl-input-history-position pos)))
