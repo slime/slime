@@ -4059,7 +4059,11 @@ inserted in the current buffer."
   (interactive (list (slime-read-from-minibuffer "Slime Eval: ")))
   (cl-case current-prefix-arg
     ((nil)
-     (slime-eval-with-transcript `(swank:interactive-eval ,string)))
+     (slime-eval-with-transcript `(swank:interactive-eval ,string
+                                                          ,(if resize-mini-windows
+                                                               (truncate (max-mini-window-lines))
+                                                               1)
+                                                          ,(window-width))))
     ((-)
      (slime-eval-save string))
     (t
@@ -4145,7 +4149,11 @@ Use `slime-re-evaluate-defvar' if the from starts with '(defvar'"
   (interactive "r")
   (slime-eval-with-transcript
    `(swank:interactive-eval-region
-     ,(buffer-substring-no-properties start end))))
+     ,(buffer-substring-no-properties start end)
+     ,(if resize-mini-windows
+          (truncate (max-mini-window-lines))
+          1)
+     ,(window-width))))
 
 (defun slime-pprint-eval-region (start end)
   "Evaluate region; pprint the value in a buffer."
@@ -5899,7 +5907,7 @@ VAR should be a plist with the keys :name, :id, and :value."
 (defun sldb-eval-in-frame (frame string package)
   "Prompt for an expression and evaluate it in the selected frame."
   (interactive (sldb-read-form-for-frame "Eval in frame (%s)> "))
-  (slime-eval-async `(swank:eval-string-in-frame ,string ,frame ,package)
+  (slime-eval-async `(swank:eval-string-in-frame ,string ,frame ,package )
     (if current-prefix-arg
         'slime-write-string
       'slime-display-eval-result)))
@@ -5908,7 +5916,11 @@ VAR should be a plist with the keys :name, :id, and :value."
   "Prompt for an expression, evaluate in selected frame, pretty-print result."
   (interactive (sldb-read-form-for-frame "Eval in frame (%s)> "))
   (slime-eval-async
-      `(swank:pprint-eval-string-in-frame ,string ,frame ,package)
+      `(swank:pprint-eval-string-in-frame ,string ,frame ,package
+                                          ,(if resize-mini-windows
+                                               (truncate (max-mini-window-lines))
+                                               1)
+                                          ,(window-width))
     (lambda (result)
       (slime-show-description result nil))))
 

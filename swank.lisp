@@ -1737,33 +1737,65 @@ Errors are trapped and invoke our debugger."
 (defvar *echo-area-prefix* "=> "
   "A prefix that `format-values-for-echo-area' should use.")
 
-(defun format-values-for-echo-area (values)
+(defun format-values-for-echo-area (values max-lines width)
   (with-buffer-syntax ()
-    (let ((*print-readably* nil))
-      (cond ((null values) "; No value")
-            ((and (integerp (car values)) (null (cdr values)))
-             (let ((i (car values)))
-               (format nil "~A~D (~a bit~:p, #x~X, #o~O, #b~B)" 
-                       *echo-area-prefix*
-                       i (integer-length i) i i i)))
-            ((and (typep (car values) 'ratio)
-                  (null (cdr values))
-                  (ignore-errors
-                   ;; The ratio may be to large to be represented as a single float
-                   (format nil "~A~D (~:*~f)" 
-                           *echo-area-prefix*
-                           (car values)))))
-            (t (format nil "~a~{~S~^, ~}" *echo-area-prefix* values))))))
+    (let* ((*print-readably* nil)
+           (*print-right-margin* (- width 10))
+           (output
+             (with-output-to-string (out)
+               (cond ((null values) "; No value")
+                     ((and (integerp (car values)) (null (cdr values)))
+                      (let ((i (car values)))
+                        (format out "~A~D (~a bit~:p, #x~X, #o~O, #b~B)"
+                                *echo-area-prefix*
+                                i (integer-length i) i i i)))
+                     ((and (typep (car values) 'ratio)
+                           (null (cdr values))
+                           (ignore-errors
+                            ;; The ratio may be to large to be represented as a single float
+                            (format out "~A~D (~:*~f)"
+                                    *echo-area-prefix*
+                                    (car values)))))
+                     (t (format out "~a~{~S~^, ~}" *echo-area-prefix* values)))))
+           (max-chars (* max-lines width))
+           (lines (count #\Newline output)))
+      (if (and (<= (length output) max-chars)
+               (<= lines max-chars))
+          output
+          (let ((lines-left max-lines)
+                (chars-left max-chars)
+                (start 0))
+            (with-output-to-string (out)
+              (loop for newline = (position #\Newline output :start start)
+                    do
+                    (let* ((end (or newline
+                                    (length output)))
+                           (line-length (- end start)))
+                      (if (or (> line-length chars-left)
+                              (= lines-left 1))
+                          (cond ((zerop start)
+                                 (write-string output out :start start :end (- chars-left 25))
+                                 (write-string " ... " out)
+                                 (write-string output out :start (- (length output) 20))
+                                 (return))
+                                (t
+                                 (write-string " ... " out)
+                                 (write-string output out :start (- (length output) 20))
+                                 (return)))
+                          (write-string output out :start start
+                                                   :end (when newline
+                                                          (1+ newline))))
+                      (decf lines-left)
+                      (decf chars-left line-length))
+                    while newline
+                    do (setf start (1+ newline)))))))))
 
-(defmacro values-to-string (values)
-  `(format-values-for-echo-area (multiple-value-list ,values)))
-
-(defslimefun interactive-eval (string)
+(defslimefun interactive-eval (string lines width)
   (with-buffer-syntax ()
     (with-retry-restart (:msg "Retry SLIME interactive evaluation request.")
       (let ((values (multiple-value-list (eval (from-string string)))))
         (finish-output)
-        (format-values-for-echo-area values)))))
+        (format-values-for-echo-area values lines width)))))
 
 (defslimefun eval-and-grab-output (string)
   (with-buffer-syntax ()
@@ -1789,10 +1821,10 @@ last form."
          (setq values (multiple-value-list (eval form)))
          (finish-output))))))
 
-(defslimefun interactive-eval-region (string)
+(defslimefun interactive-eval-region (string lines width)
   (with-buffer-syntax ()
     (with-retry-restart (:msg "Retry SLIME interactive evaluation request.")
-      (format-values-for-echo-area (eval-region string)))))
+      (format-values-for-echo-area (eval-region string) lines width))))
 
 (defslimefun re-evaluate-defvar (form)
   (with-buffer-syntax ()
@@ -2299,8 +2331,9 @@ has changed, ignore the request."
     (with-buffer-syntax (package)
       (funcall print values))))
 
-(defslimefun eval-string-in-frame (string frame package)
-  (eval-in-frame-aux frame string package #'format-values-for-echo-area))
+(defslimefun eval-string-in-frame (string frame package lines width)
+  (eval-in-frame-aux frame string package
+                     (lambda (values) (format-values-for-echo-area values lines width))))
 
 (defslimefun pprint-eval-string-in-frame (string frame package)
   (eval-in-frame-aux frame string package #'swank-pprint))
