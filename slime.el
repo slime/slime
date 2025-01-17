@@ -4051,6 +4051,12 @@ the display stuff that we neither need nor want."
 
 ;;;; Interactive evaluation.
 
+(defun slime-max-mini-window-lines (&optional frame)
+  (cond ((floatp max-mini-window-height) (* (frame-height frame)
+					    max-mini-window-height))
+	((integerp max-mini-window-height) max-mini-window-height)
+	(t 1)))
+
 (defun slime-interactive-eval (string)
   "Read and evaluate STRING and print value in minibuffer.
 
@@ -4061,7 +4067,7 @@ inserted in the current buffer."
     ((nil)
      (slime-eval-with-transcript `(swank:interactive-eval ,string
                                                           ,(if resize-mini-windows
-                                                               (truncate (max-mini-window-lines))
+                                                               (truncate (slime-max-mini-window-lines))
                                                                1)
                                                           ,(window-width))))
     ((-)
@@ -4151,7 +4157,7 @@ Use `slime-re-evaluate-defvar' if the from starts with '(defvar'"
    `(swank:interactive-eval-region
      ,(buffer-substring-no-properties start end)
      ,(if resize-mini-windows
-          (truncate (max-mini-window-lines))
+          (truncate (slime-max-mini-window-lines))
           1)
      ,(window-width))))
 
@@ -5918,7 +5924,7 @@ VAR should be a plist with the keys :name, :id, and :value."
   (slime-eval-async
       `(swank:pprint-eval-string-in-frame ,string ,frame ,package
                                           ,(if resize-mini-windows
-                                               (truncate (max-mini-window-lines))
+                                               (truncate (slime-max-mini-window-lines))
                                                1)
                                           ,(window-width))
     (lambda (result)
