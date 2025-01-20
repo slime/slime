@@ -3421,19 +3421,19 @@ Return nil if there's no previous object."
    ('car (car cons))
    ('cdr (cdr cons))))
 
-(defun find-cycle (list)
-  (declare (optimize debug))
-  (flet ((position* (item list)
-           (loop for i from 0
-                 for elt on list
-                 when (eql elt item)
-                   return i)))
-    (loop with ht = (make-hash-table :test #'eq)
-          for cons on list
-          if (nth-value 1 (gethash cons ht))
-            return (values cons (position* cons list))
-          else
-            do (setf (gethash cons ht) t))))
+(defun find-cycle (x)
+  (let ((fast x)
+        (slow x))
+    (loop (pop fast)
+          (pop fast)
+          (pop slow)
+          (when (eq fast slow)
+            (return)))
+    (loop for i from 0
+          when (eq x fast)
+            return (values x i)
+          do (pop x)
+             (pop fast))))
 
 (defun inspect-list (list)
   (multiple-value-bind (length tail) (safe-length list)
