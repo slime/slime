@@ -3421,14 +3421,36 @@ Return nil if there's no previous object."
    ('car (car cons))
    ('cdr (cdr cons))))
 
+(defun find-cycle (list)
+  (declare (optimize debug))
+  (flet ((position* (item list)
+           (loop for i from 0
+                 for elt on list
+                 when (eql elt item)
+                   return i)))
+    (loop with ht = (make-hash-table :test #'eq)
+          for cons on list
+          if (nth-value 1 (gethash cons ht))
+            return (values cons (position* cons list))
+          else
+            do (setf (gethash cons ht) t))))
+
 (defun inspect-list (list)
   (multiple-value-bind (length tail) (safe-length list)
     (flet ((frob (title list)
              (list* title '(:newline) (inspect-list-aux list))))
       (cond ((not length)
-             (frob "A circular list:"
-                   (cons (car list)
-                         (ldiff (cdr list) list))))
+             (multiple-value-bind (cycle distance) (find-cycle list)
+               (if (= distance 0)
+                   (frob "A circular list:"
+                         (cons (car list)
+                               (ldiff (cdr list) list)))
+                   (frob (format nil "A list containing a cycle, starting from ~
+                                      element ~D:"
+                                 distance)
+                         (append (subseq list 0 distance)
+                                 (cons (car cycle)
+                                       (ldiff (cdr cycle) cycle)))))))
             ((not tail)
              (frob "A proper list:" list))
             (t
