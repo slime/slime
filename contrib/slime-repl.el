@@ -980,6 +980,7 @@ If REGEXP is non-nil, only lines matching REGEXP are considered."
     (when (or (<= pos min-pos) (<= max-pos pos))
       (when regexp
         (setq msg (concat msg "; no matching item"))))
+    ;;(message "%s [%d %d %s]" msg start-pos pos regexp)
     (message "%s%s" msg (cond ((not regexp) "")
                               (t (format "; current regexp: %s" regexp))))
     (setq slime-repl-input-history-position pos)))
