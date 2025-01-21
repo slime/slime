@@ -962,7 +962,7 @@ Confirm that SUBFORM is correctly located."
     (exp)
     "Test basic inspector workingness."
     '(((let ((h (make-hash-table)))
-         (loop for i below 10 do (setf (gethash i h) i))
+         (cl-loop for i below 10 do (setf (gethash i h) i))
          h))
       ((make-array 10))
       ((make-list 10))

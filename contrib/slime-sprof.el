@@ -71,14 +71,14 @@
          (insert (format "%4s %-56s"
                          "Rank"
                          "Name"))
-         (loop for (label name) in '(("Self%" self) ("Cumul%" cumul))
-               do
-               (insert-text-button
-                label
-                'button t
-                'sort name
-                'action 'slime-sprof-sort)
-               (insert " "))
+         (cl-loop for (label name) in '(("Self%" self) ("Cumul%" cumul))
+                  do
+                  (insert-text-button
+                   label
+                   'button t
+                   'sort name
+                   'action 'slime-sprof-sort)
+                  (insert " "))
          (insert "Total%\n")
          (dolist (data graph)
            (slime-sprof-browser-insert-line data 54))))
