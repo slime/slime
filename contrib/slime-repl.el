@@ -61,6 +61,22 @@ current repl's (as per slime-output-buffer) window."
   :type '(boolean)
   :group 'slime-repl)
 
+(defcustom slime-repl-show-maximum-output-recenter-arg -1
+  "Offset from the bottom of the screen when showing the maximum
+amount of output in the SLIME REPL.
+If the number is negative (recommended setting),
+it counts up from the bottom of the window."
+  :type '(integer)
+  :group 'slime-repl)
+
+(defcustom slime-repl-return-recenter-arg -1
+  "Offset when recentering the screen after evaluating the current
+input string in the SLIME REPL.
+If the number is negative (recommended setting),
+it counts up from the bottom of the window."
+  :type '(integer)
+  :group 'slime-repl)
+
 (defface slime-repl-prompt-face
     '((t (:inherit font-lock-keyword-face)))
   "Face for the prompt in the SLIME REPL."
@@ -569,7 +585,7 @@ If `slime-repl-suppress-prompt' is true, does nothing and returns nil."
       (when win
         (with-selected-window win
           (set-window-point win (point-max))
-          (recenter -1))))))
+          (recenter slime-repl-show-maximum-output-recenter-arg))))))
 
 (defvar slime-repl-current-input-hooks)
 
@@ -702,7 +718,7 @@ balanced."
   (unless (pos-visible-in-window-p (point-max))
     (save-excursion
       (goto-char (point-max))
-      (recenter -1))))
+      (recenter slime-repl-return-recenter-arg))))
 
 (defun slime-repl-send-input (&optional newline)
   "Goto to the end of the input and send the current input.
