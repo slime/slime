@@ -1776,9 +1776,11 @@ stack."
              (return (car tail)))
            (when (eq timeout t) (return (values nil t)))
            #-darwin
-           (sb-thread:condition-wait waitq mutex)))
+           (let ((*slime-interrupts-enabled* t))
+             (sb-thread:condition-wait waitq mutex))))
        #+darwin
-       (wait-sem sem))))
+       (let ((*slime-interrupts-enabled* t))
+         (wait-sem sem)))))
 
   (let ((alist '())
         (mutex (sb-thread:make-mutex :name "register-thread")))

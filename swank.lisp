@@ -399,49 +399,6 @@ corresponding values in the CDR of VALUE."
                `((t (error "dcase failed: ~S" ,tmp))))))))
 
 
-;;;; Interrupt handling 
-
-;; Usually we'd like to enter the debugger when an interrupt happens.
-;; But for some operations, in particular send&receive, it's crucial
-;; that those are not interrupted when the mailbox is in an
-;; inconsistent/locked state. Obviously, if send&receive don't work we
-;; can't communicate and the debugger will not work.  To solve that
-;; problem, we try to handle interrupts only at certain safe-points.
-;;
-;; Whenever an interrupt happens we call the function
-;; INVOKE-OR-QUEUE-INTERRUPT.  Usually this simply invokes the
-;; debugger, but if interrupts are disabled the interrupt is put in a
-;; queue for later processing.  At safe-points, we call
-;; CHECK-SLIME-INTERRUPTS which looks at the queue and invokes the
-;; debugger if needed.
-;;
-;; The queue for interrupts is stored in a thread local variable.
-;; WITH-CONNECTION sets it up.  WITH-SLIME-INTERRUPTS allows
-;; interrupts, i.e. the debugger is entered immediately.  When we call
-;; "user code" or non-problematic code we allow interrupts.  When
-;; inside WITHOUT-SLIME-INTERRUPTS, interrupts are queued.  When we
-;; switch from "user code" to more delicate operations we need to
-;; disable interrupts.  In particular, interrupts should be disabled
-;; for SEND and RECEIVE-IF.
-
-;; If true execute interrupts, otherwise queue them.
-;; Note: `with-connection' binds *pending-slime-interrupts*.
-(defvar *slime-interrupts-enabled*)
-
-(defmacro with-interrupts-enabled% (flag body)
-  `(progn
-     ,@(if flag '((check-slime-interrupts)))
-     (multiple-value-prog1
-         (let ((*slime-interrupts-enabled* ,flag))
-           ,@body)
-       ,@(if flag '((check-slime-interrupts))))))
-
-(defmacro with-slime-interrupts (&body body)
-  `(with-interrupts-enabled% t ,body))
-
-(defmacro without-slime-interrupts (&body body)
-  `(with-interrupts-enabled% nil ,body))
-
 (defun queue-thread-interrupt (thread function)
   (interrupt-thread thread
                     (lambda ()
