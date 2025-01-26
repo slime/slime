@@ -836,30 +836,44 @@ if the file doesn't exist; otherwise the first line of the file."
          (force-user-output)
          ,k))))
 
-(defun handle-requests (connection &optional timeout)
+(defun handle-requests (connection &optional timeout interrupt-handler)
   "Read and process :emacs-rex requests.
 The processing is done in the extent of the toplevel restart."
   (with-connection (connection)
     (cond (*sldb-quit-restart*
-           (process-requests timeout))
+           (process-requests timeout interrupt-handler))
           (t
            (tagbody
             start
               (with-top-level-restart (connection (go start))
-                (process-requests timeout)))))))
+                (process-requests timeout interrupt-handler)))))))
 
-(defun process-requests (timeout)
+(defun process-requests (timeout &optional interrupt-handler)
   "Read and process requests from Emacs."
-  (loop
-   (multiple-value-bind (event timeout?)
-       (wait-for-event `(or (:emacs-rex . _)
-                            (:emacs-channel-send . _))
-                       timeout)
-     (when timeout? (return))
-     (dcase event
-       ((:emacs-rex &rest args) (apply #'eval-for-emacs args))
-       ((:emacs-channel-send channel (selector &rest args))
-        (channel-send channel selector args))))))
+  (prog (interruption)
+   again
+     (multiple-value-bind (event timeout?)
+         (call-with-interrupt-handler
+          (lambda (interrupt-function)
+            (when interrupt-handler
+              (funcall interrupt-handler interrupt-function))
+            (setf interruption interrupt-function)
+            (go interrupt))
+          (lambda ()
+            (wait-for-event `(or (:emacs-rex . _)
+                                 (:emacs-channel-send . _))
+                            timeout)))
+       
+       (when timeout? (return))
+       (dcase event
+         ((:emacs-rex &rest args) (apply #'eval-for-emacs args))
+         ((:emacs-channel-send channel (selector &rest args))
+          (channel-send channel selector args))))
+     (go again)
+   interrupt
+     (let ((*slime-interrupts-enabled* t))
+       (funcall interruption))
+     (go again)))
 
 (defun current-socket-io ()
   (connection.socket-io *emacs-connection*))
