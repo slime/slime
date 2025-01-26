@@ -2125,6 +2125,7 @@ after Emacs causes a restart to be invoked."
                             (symbol-value '*buffer-package*))
                        *package*))
         (*sldb-level* (1+ *sldb-level*))
+        (*print-readably* nil)
         (*sldb-stepping-p* nil))
     (force-user-output)
     (call-with-debugging-environment
