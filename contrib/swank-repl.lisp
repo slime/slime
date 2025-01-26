@@ -144,7 +144,22 @@ INPUT OUTPUT IO REPL-RESULTS"
 
 (defun repl-loop (connection)
   (unwind-protect
-       (handle-requests connection)
+       (prog (interruption)
+        again
+          (call-with-interrupt-handler
+           (lambda (interrupt-function)
+             (with-connection (connection)
+               (send-to-emacs `(:new-repl-output)))
+             (format t "Invoking an interrupt ~s~%" interrupt-function)
+             (setf interruption interrupt-function)
+             (go interrupt))
+           (lambda ()
+             (return 
+               (handle-requests connection))))
+        interrupt
+          (let ((*slime-interrupts-enabled* t))
+            (funcall interruption))
+          (go again))
     (when (typep connection 'multithreaded-connection)
       (setf (mconn.repl-thread connection)
             'aborted))))

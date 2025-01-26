@@ -2038,3 +2038,8 @@ stack."
 (defimplementation structure-accessor-p (symbol)
   #+#.(swank/backend:with-symbol 'structure-instance-accessor-p 'sb-kernel)
   (sb-kernel:structure-instance-accessor-p symbol))
+
+#+#.(swank/backend:with-symbol '*interrupt-handler* 'sb-thread)
+(defimplementation call-with-interrupt-handler (interrupt-handler function)
+  (let ((sb-thread:*interrupt-handler* interrupt-handler))
+    (funcall function)))

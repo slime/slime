@@ -704,6 +704,12 @@ balanced."
       (goto-char (point-max))
       (recenter -1))))
 
+(defun slime-repl-new-output ()
+  (with-current-buffer (slime-output-buffer)
+   (goto-char (point-max))
+   (slime-mark-input-start)
+   (slime-mark-output-start)))
+
 (defun slime-repl-send-input (&optional newline)
   "Goto to the end of the input and send the current input.
 If NEWLINE is true then add a newline at the end of the input."
@@ -727,9 +733,7 @@ If NEWLINE is true then add a newline at the end of the input."
       ;; by kill/yank.
       (overlay-put overlay 'face 'slime-repl-input-face)))
   (let ((input (slime-repl-current-input)))
-    (goto-char (point-max))
-    (slime-mark-input-start)
-    (slime-mark-output-start)
+    (slime-repl-new-output)
     (slime-repl-send-string input)))
 
 (defun slime-repl-grab-old-input (replace)
@@ -1679,6 +1683,8 @@ expansion will be added to the REPL's history.)"
 	 (with-current-buffer buffer
 	   (setq slime-buffer-package package))))
      t)
+    ((:new-repl-output)
+     (slime-repl-new-output))
     (t nil)))
 
 (defun slime-change-repl-to-default-connection ()

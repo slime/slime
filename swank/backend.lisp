@@ -1637,3 +1637,8 @@ Implementations intercept calls to SPEC and call, in this order:
   "Does SYMBOL name a structure accessor?"
   (declare (ignore symbol))
   nil)
+
+(definterface call-with-interrupt-handler (interrupt-handler function)
+  "Handle interrupts"
+  (declare (ignore interrupt-handler))
+  (funcall function))
