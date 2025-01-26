@@ -5910,7 +5910,9 @@ VAR should be a plist with the keys :name, :id, and :value."
 (defun sldb-eval-in-frame (frame string package)
   "Prompt for an expression and evaluate it in the selected frame."
   (interactive (sldb-read-form-for-frame "Eval in frame (%s)> "))
-  (slime-eval-async `(swank:eval-string-in-frame ,string ,frame ,package )
+  (slime-eval-async `(swank:eval-string-in-frame ,string ,frame ,package
+                                                 ,(slime-max-mini-window-lines)
+                                                 ,(window-width))
     (if current-prefix-arg
         'slime-write-string
       'slime-display-eval-result)))
