@@ -1674,6 +1674,8 @@ Fall back to the current if no such package exists."
           (*print-pretty* t)
           (*print-right-margin* 65)
           (*print-circle* t)
+          #+#.(swank/backend:with-symbol '*print-circle-not-shared* 'sb-ext)
+          (sb-ext:*print-circle-not-shared* t)
           (*print-length* (or *print-length* 64))
           #+#.(swank/backend:with-symbol '*print-vector-length* 'sb-ext)
           (sb-ext:*print-vector-length* (or sb-ext:*print-vector-length* 1000))
