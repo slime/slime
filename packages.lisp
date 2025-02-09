@@ -66,7 +66,8 @@
            #:with-lock
            #:*slime-interrupts-enabled*
            #:with-slime-interrupts
-           #:without-slime-interrupts))
+           #:without-slime-interrupts
+           #:with-unlocked-packages))
 
 (swank-loader:define-package #:swank/rpc
   (:use #:cl)

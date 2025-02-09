@@ -60,6 +60,7 @@ Exits Emacs when finished. The exit code is the number of failed tests."
           (when noninteractive
             (kill-emacs 252)))))
     (slime-sync-to-top-level 30)
+    (slime-eval `(swank/backend:unlock-package :swank))
     (let* ((selector (if randomize
                          `(member ,@(slime-shuffle-list
                                      (ert-select-tests (or test-name t) t)))
@@ -1294,7 +1295,7 @@ This test will fail more likely before dispatch caches are warmed up."
                                              :dont-close nil)))))
            (slime-sync-to-top-level 3)
            (slime-disconnect)
-           (slime-test-expect "Number of connections must remane the same"
+           (slime-test-expect "Number of connections must remain the same"
                               connection-count
                               (length slime-net-processes)))
       (slime-select-connection old-connection))))

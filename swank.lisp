@@ -2540,14 +2540,15 @@ Record compiler notes signalled as `compiler-condition's."
 
 (defslimefun swank-require (modules &optional filename)
   "Load the module MODULE."
-  (dolist (module (ensure-list modules))
-    (unless (member (string module) *modules* :test #'string=)
-      (catch 'dont-load
-        (require module (if filename
-                            (filename-to-pathname filename)
-                            (module-filename module)))
-        (assert (member (string module) *modules* :test #'string=)
-                () "Required module ~s was not provided" module))))
+  (with-unlocked-packages (swank swank/backend)
+    (dolist (module (ensure-list modules))
+      (unless (member (string module) *modules* :test #'string=)
+        (catch 'dont-load
+          (require module (if filename
+                              (filename-to-pathname filename)
+                              (module-filename module)))
+          (assert (member (string module) *modules* :test #'string=)
+                  () "Required module ~s was not provided" module)))))
   *modules*)
 
 (defvar *find-module* 'find-module
@@ -3895,7 +3896,9 @@ Collisions are caused because package information is ignored."
 (defun before-init (version load-path)
   (pushnew :swank *features*)
   (setq *swank-wire-protocol-version* version)
-  (setq *load-path* load-path))
+  (setq *load-path* load-path)
+  (loop for x in '(swank swank/backend swank/rpc swank/match swank-mop swank/gray)
+        do (lock-package x)))
 
 (defun init ()
   (run-hook *after-init-hook*))

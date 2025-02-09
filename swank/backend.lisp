@@ -1642,3 +1642,20 @@ Implementations intercept calls to SPEC and call, in this order:
   "Handle interrupts"
   (declare (ignore interrupt-handler))
   (funcall function))
+
+(definterface lock-package (package)
+  "Lock PACKAGE"
+  (declare (ignore package)))
+
+(definterface unlock-package (package)
+  "Unlock PACKAGE"
+  (declare (ignore package)))
+
+(definterface expand-with-unlocked-packages (packages body)
+  "Lock PACKAGE"
+  (declare (ignore packages))
+  `(progn ,@body))
+
+(defmacro with-unlocked-packages ((&rest packages) &body body)
+  (expand-with-unlocked-packages packages body))
+

@@ -347,7 +347,7 @@ dynamic binding."
 (defun prefixed-var (prefix variable-symbol)
   "(PREFIXED-VAR \"FOO\" '*BAR*) => SWANK::*FOO-BAR*"
   (let ((basename (subseq (symbol-name variable-symbol) 1)))
-    (intern (format nil "*~A-~A" (string prefix) basename) :swank)))
+    (intern (format nil "*~A-~A" (string prefix) basename) :swank-repl)))
 
 (defvar *standard-output-streams*
   '(*standard-output* *error-output* *trace-output*)

@@ -2043,3 +2043,12 @@ stack."
 (defimplementation call-with-interrupt-handler (interrupt-handler function)
   (let ((sb-thread:*interrupt-handler* interrupt-handler))
     (funcall function)))
+
+(defimplementation lock-package (package)
+  (sb-ext:lock-package package))
+
+(defimplementation unlock-package (package)
+  (sb-ext:unlock-package package))
+
+(defimplementation expand-with-unlocked-packages (packages body)
+  `(sb-ext:with-unlocked-packages ,packages ,@body))
