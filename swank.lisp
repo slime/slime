@@ -2540,7 +2540,7 @@ Record compiler notes signalled as `compiler-condition's."
 
 (defslimefun swank-require (modules &optional filename)
   "Load the module MODULE."
-  (with-unlocked-packages (swank swank/backend)
+  (with-unlocked-packages (swank/backend)
     (dolist (module (ensure-list modules))
       (unless (member (string module) *modules* :test #'string=)
         (catch 'dont-load
@@ -3897,7 +3897,7 @@ Collisions are caused because package information is ignored."
   (pushnew :swank *features*)
   (setq *swank-wire-protocol-version* version)
   (setq *load-path* load-path)
-  (loop for x in '(swank swank/backend swank/rpc swank/match swank-mop swank/gray)
+  (loop for x in '(swank/backend swank/rpc swank/match swank-mop swank/gray)
         do (lock-package x)))
 
 (defun init ()

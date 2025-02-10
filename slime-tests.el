@@ -60,7 +60,6 @@ Exits Emacs when finished. The exit code is the number of failed tests."
           (when noninteractive
             (kill-emacs 252)))))
     (slime-sync-to-top-level 30)
-    (slime-eval `(swank/backend:unlock-package :swank))
     (let* ((selector (if randomize
                          `(member ,@(slime-shuffle-list
                                      (ert-select-tests (or test-name t) t)))
