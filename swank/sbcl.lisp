@@ -1732,11 +1732,12 @@ stack."
 
   (defun mailbox (thread)
     "Return THREAD's mailbox."
-    (sb-thread:with-mutex (*mailbox-lock*)
-      (or (find thread *mailboxes* :key #'mailbox.thread)
-          (let ((mb (make-mailbox :thread thread)))
-            (push mb *mailboxes*)
-            mb))))
+    (sb-sys:without-interrupts
+     (sb-thread:with-mutex (*mailbox-lock*)
+       (or (find thread *mailboxes* :key #'mailbox.thread)
+           (let ((mb (make-mailbox :thread thread)))
+             (push mb *mailboxes*)
+             mb)))))
 
   (defimplementation wake-thread (thread)
     #-darwin
@@ -1748,15 +1749,16 @@ stack."
     (signal-sem (mailbox.sem (mailbox thread))))
 
   (defimplementation send (thread message)
-    (let* ((mbox (mailbox thread))
-           (mutex (mailbox.mutex mbox)))
-      (sb-thread:with-mutex (mutex)
-        (setf (mailbox.queue mbox)
-              (nconc (mailbox.queue mbox) (list message)))
-        #-darwin
-        (sb-thread:condition-broadcast (mailbox.waitqueue mbox))
-        #+darwin
-        (signal-sem (mailbox.sem mbox)))))
+    (sb-sys:without-interrupts
+      (let* ((mbox (mailbox thread))
+             (mutex (mailbox.mutex mbox)))
+        (sb-thread:with-mutex (mutex)
+          (setf (mailbox.queue mbox)
+                (nconc (mailbox.queue mbox) (list message)))
+          #-darwin
+          (sb-thread:condition-broadcast (mailbox.waitqueue mbox))
+          #+darwin
+          (signal-sem (mailbox.sem mbox))))))
   
   (defimplementation receive-if (test &optional timeout)
     (let* ((mbox (mailbox (current-thread)))
@@ -1768,16 +1770,17 @@ stack."
       (assert (or (not timeout) (eq timeout t)))
       (loop
        (check-slime-interrupts)
-       (sb-thread:with-mutex (mutex)
-         (let* ((q (mailbox.queue mbox))
-                (tail (member-if test q)))
-           (when tail
-             (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
-             (return (car tail)))
-           (when (eq timeout t) (return (values nil t)))
-           #-darwin
-           (let ((*slime-interrupts-enabled* t))
-             (sb-thread:condition-wait waitq mutex))))
+       (sb-thread:with-recursive-lock (mutex)
+         (sb-sys:without-interrupts
+           (let* ((q (mailbox.queue mbox))
+                  (tail (member-if test q)))
+             (when tail
+               (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
+               (return (car tail)))
+             (when (eq timeout t) (return (values nil t)))))
+         #-darwin
+         (let ((*slime-interrupts-enabled* t))
+           (sb-thread:condition-wait waitq mutex)))
        #+darwin
        (let ((*slime-interrupts-enabled* t))
          (wait-sem sem)))))
