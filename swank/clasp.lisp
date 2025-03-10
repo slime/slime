@@ -162,7 +162,8 @@
   (clasp-posix:getpid))
 
 (defimplementation set-default-directory (directory)
-  (ext:chdir (namestring directory))  ; adapts *DEFAULT-PATHNAME-DEFAULTS*.
+  (ext:chdir (namestring directory))
+  (setf *default-pathname-defaults* (pathname (ext:getcwd)))
   (default-directory))
 
 (defimplementation default-directory ()
