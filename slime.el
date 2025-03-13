@@ -7617,7 +7617,17 @@ The returned bounds are either nil or non-empty."
            (save-restriction
              (narrow-to-region (point) (point-max))
              (bounds-of-thing-at-point 'sexp)))
-      (bounds-of-thing-at-point 'sexp)))
+      (let ((bounds (bounds-of-thing-at-point 'sexp)))
+        ;; Regardless of `parse-sexp-ignore-comments', if there are no
+        ;; sexps before or after point, the bounds may include
+        ;; whitespace and comments. Detect this, and return nil.
+        (if (and bounds
+                 (= (car bounds) (point-min))
+                 (save-excursion
+                   (goto-char (car bounds))
+                   (looking-at "[;\n[:space:]]")))
+            nil
+          bounds))))
 
 (defun slime-sexp-at-point ()
   "Return the sexp at point as a string, otherwise nil."
