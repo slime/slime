@@ -1683,6 +1683,8 @@ Fall back to the current if no such package exists."
           (*print-lines* (or *print-lines* ,lines)))
      ,@body))
 
+(defvar *eval-continuation* nil)
+
 (defun eval-for-emacs (form buffer-package id)
   "Bind *BUFFER-PACKAGE* to BUFFER-PACKAGE and evaluate FORM.
 Return the result to the continuation ID.
@@ -1692,7 +1694,8 @@ Errors are trapped and invoke our debugger."
          (let ((*buffer-package* (guess-buffer-package buffer-package))
                (*buffer-readtable* (guess-buffer-readtable buffer-package))
                (*pending-continuations* (cons id *pending-continuations*))
-               (*pre-reply-hook* *pre-reply-hook*))
+               (*pre-reply-hook* *pre-reply-hook*)
+               (*eval-continuation* id))
            (check-type *buffer-package* package)
            (check-type *buffer-readtable* readtable)
            ;; APPLY would be cleaner than EVAL. 

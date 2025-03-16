@@ -11,7 +11,8 @@
            listener-get-value
            create-repl
            listener-save-value
-           redirect-trace-output)
+           redirect-trace-output
+           run-function-and-switch-to-new-thread)
   (:import-from
    swank
 
@@ -152,6 +153,17 @@ INPUT OUTPUT IO REPL-RESULTS"
     (when (typep connection 'multithreaded-connection)
       (setf (mconn.repl-thread connection)
             'aborted))))
+
+(defun run-function-and-switch-to-new-thread (function)
+  (let ((connection *emacs-connection*))
+    (assert (typep connection 'multithreaded-connection))
+    (assert (eql (current-thread) (mconn.repl-thread connection)))
+    (setf (mconn.repl-thread connection)
+	  (spawn-repl-thread connection "new-repl-thread"))
+    (send-to-emacs (list :return (current-thread)
+                         `(:ok nil)
+                         swank::*eval-continuation*))
+    (funcall function)))
 
 ;;;;; Redirection during requests
 ;;;
