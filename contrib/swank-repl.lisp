@@ -144,7 +144,11 @@ INPUT OUTPUT IO REPL-RESULTS"
 
 (defun repl-loop (connection)
   (unwind-protect
-       (handle-requests connection)
+       (handle-requests connection nil
+                        (lambda (interrupt-function)
+                          (with-connection (connection)
+                            (send-to-emacs `(:new-repl-output)))
+                          (format t "Invoking an interrupt ~s~%" interrupt-function)))
     (when (typep connection 'multithreaded-connection)
       (setf (mconn.repl-thread connection)
             'aborted))))
@@ -343,7 +347,7 @@ dynamic binding."
 (defun prefixed-var (prefix variable-symbol)
   "(PREFIXED-VAR \"FOO\" '*BAR*) => SWANK::*FOO-BAR*"
   (let ((basename (subseq (symbol-name variable-symbol) 1)))
-    (intern (format nil "*~A-~A" (string prefix) basename) :swank)))
+    (intern (format nil "*~A-~A" (string prefix) basename) :swank-repl)))
 
 (defvar *standard-output-streams*
   '(*standard-output* *error-output* *trace-output*)

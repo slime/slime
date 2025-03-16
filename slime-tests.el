@@ -1294,7 +1294,7 @@ This test will fail more likely before dispatch caches are warmed up."
                                              :dont-close nil)))))
            (slime-sync-to-top-level 3)
            (slime-disconnect)
-           (slime-test-expect "Number of connections must remane the same"
+           (slime-test-expect "Number of connections must remain the same"
                               connection-count
                               (length slime-net-processes)))
       (slime-select-connection old-connection))))

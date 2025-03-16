@@ -1329,19 +1329,15 @@ stack."
     (code-location-source-location
      (sb-di:frame-code-location (nth-frame index)))))
 
-(defvar *keep-non-valid-locals* nil)
-
 (defun frame-debug-vars (frame)
   "Return a vector of debug-variables in frame."
   (let* ((all-vars (sb-di::debug-fun-debug-vars (sb-di:frame-debug-fun frame)))
          (loc (sb-di:frame-code-location frame))
-         (vars (if *keep-non-valid-locals*
-                   all-vars
-                   (remove-if (lambda (var)
-                                (ecase (sb-di:debug-var-validity var loc)
-                                  (:valid nil)
-                                  ((:invalid :unknown) t)))
-                              all-vars)))
+         (vars (remove-if (lambda (var)
+                            (ecase (sb-di:debug-var-validity var loc)
+                              (:valid nil)
+                              ((:invalid :unknown) t)))
+                          all-vars))
          more-context
          more-count)
     (values (when vars
@@ -1732,11 +1728,12 @@ stack."
 
   (defun mailbox (thread)
     "Return THREAD's mailbox."
-    (sb-thread:with-mutex (*mailbox-lock*)
-      (or (find thread *mailboxes* :key #'mailbox.thread)
-          (let ((mb (make-mailbox :thread thread)))
-            (push mb *mailboxes*)
-            mb))))
+    (sb-sys:without-interrupts
+     (sb-thread:with-mutex (*mailbox-lock*)
+       (or (find thread *mailboxes* :key #'mailbox.thread)
+           (let ((mb (make-mailbox :thread thread)))
+             (push mb *mailboxes*)
+             mb)))))
 
   (defimplementation wake-thread (thread)
     #-darwin
@@ -1748,15 +1745,16 @@ stack."
     (signal-sem (mailbox.sem (mailbox thread))))
 
   (defimplementation send (thread message)
-    (let* ((mbox (mailbox thread))
-           (mutex (mailbox.mutex mbox)))
-      (sb-thread:with-mutex (mutex)
-        (setf (mailbox.queue mbox)
-              (nconc (mailbox.queue mbox) (list message)))
-        #-darwin
-        (sb-thread:condition-broadcast (mailbox.waitqueue mbox))
-        #+darwin
-        (signal-sem (mailbox.sem mbox)))))
+    (sb-sys:without-interrupts
+      (let* ((mbox (mailbox thread))
+             (mutex (mailbox.mutex mbox)))
+        (sb-thread:with-mutex (mutex)
+          (setf (mailbox.queue mbox)
+                (nconc (mailbox.queue mbox) (list message)))
+          #-darwin
+          (sb-thread:condition-broadcast (mailbox.waitqueue mbox))
+          #+darwin
+          (signal-sem (mailbox.sem mbox))))))
   
   (defimplementation receive-if (test &optional timeout)
     (let* ((mbox (mailbox (current-thread)))
@@ -1768,17 +1766,20 @@ stack."
       (assert (or (not timeout) (eq timeout t)))
       (loop
        (check-slime-interrupts)
-       (sb-thread:with-mutex (mutex)
-         (let* ((q (mailbox.queue mbox))
-                (tail (member-if test q)))
-           (when tail
-             (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
-             (return (car tail)))
-           (when (eq timeout t) (return (values nil t)))
-           #-darwin
+       (sb-thread:with-recursive-lock (mutex)
+         (sb-sys:without-interrupts
+           (let* ((q (mailbox.queue mbox))
+                  (tail (member-if test q)))
+             (when tail
+               (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
+               (return (car tail)))
+             (when (eq timeout t) (return (values nil t)))))
+         #-darwin
+         (let ((*slime-interrupts-enabled* t))
            (sb-thread:condition-wait waitq mutex)))
        #+darwin
-       (wait-sem sem))))
+       (let ((*slime-interrupts-enabled* t))
+         (wait-sem sem)))))
 
   (let ((alist '())
         (mutex (sb-thread:make-mutex :name "register-thread")))
@@ -2036,3 +2037,17 @@ stack."
 (defimplementation structure-accessor-p (symbol)
   #+#.(swank/backend:with-symbol 'structure-instance-accessor-p 'sb-kernel)
   (sb-kernel:structure-instance-accessor-p symbol))
+
+#+#.(swank/backend:with-symbol '*interrupt-handler* 'sb-thread)
+(defimplementation call-with-interrupt-handler (interrupt-handler function)
+  (let ((sb-thread:*interrupt-handler* interrupt-handler))
+    (funcall function)))
+
+(defimplementation lock-package (package)
+  (sb-ext:lock-package package))
+
+(defimplementation unlock-package (package)
+  (sb-ext:unlock-package package))
+
+(defimplementation expand-with-unlocked-packages (packages body)
+  `(sb-ext:with-unlocked-packages ,packages ,@body))
