@@ -20,8 +20,8 @@
   "Face for displaying edit but not compiled code."
   :group 'slime-mode-faces)
 
-(define-minor-mode slime-highlight-edits-mode 
-  "Minor mode to highlight not-yet-compiled code." nil)
+(define-minor-mode slime-highlight-edits-mode
+  "Minor mode to highlight not-yet-compiled code.")
 
 (add-hook 'slime-highlight-edits-mode-on-hook
           'slime-highlight-edits-init-buffer)
