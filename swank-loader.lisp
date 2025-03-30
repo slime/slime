@@ -304,13 +304,6 @@ If LOAD is true, load the fasl file."
                                      fasl-dir)
     (compile-files contrib-src-files fasl-dir load quiet)))
 
-(defun preload-everything (&key (src-dir (contrib-dir *source-directory*))
-                             (swank-src-dir *source-directory*))
-  (let* ((swank-src-files (src-files *swank-files* swank-src-dir))
-         (contrib-src-files (src-files *contribs* src-dir)))
-    (mapc #'load swank-src-files)
-    (mapc #'load contrib-src-files)))
-
 (defun loadup ()
   (load-swank)
   (compile-contribs :load t))
@@ -365,10 +358,8 @@ global variabes in SWANK."
   (when setup
     (setup)))
 
-(defun dump-image (filename &key preload-everything)
-  (init :setup nil)
-  (when preload-everything
-    (preload-everything))
+(defun dump-image (filename &key (load-contribs t))
+  (init :setup nil :load-contribs load-contribs)
   (funcall (q "swank/backend:save-image") filename))
 
 (defun list-fasls (&key (include-contribs t) (compile t)
