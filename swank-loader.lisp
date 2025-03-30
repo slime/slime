@@ -264,7 +264,8 @@ If LOAD is true, load the fasl file."
     swank-mrepl
     swank-trace-dialog
     swank-macrostep
-    swank-quicklisp)
+    swank-quicklisp
+    swank-indentation)
   "List of names for contrib modules.")
 
 (defun append-dir (absolute name)
@@ -320,11 +321,7 @@ If LOAD is true, load the fasl file."
   (when (#-clisp probe-file
          #+clisp ext:probe-directory
          (contrib-dir *source-directory*))
-    (eval `(pushnew (lambda ()
-                      (,(q "swank/backend:with-unlocked-packages") 
-                       (swank swank/backend)
-                       (compile-contribs)))
-                    ,(q "swank::*after-init-hook*"))))
+    (eval `(pushnew 'compile-contribs ,(q "swank::*after-init-hook*"))))
   (funcall (q "swank::init")))
 
 (defun list-swank-packages ()

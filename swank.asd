@@ -28,9 +28,9 @@
                  (uiop:symbol-call :swank-loader :slime-version-string)
                  (list
                   (uiop:symbol-call :swank-loader :contrib-dir
-                     (symbol-value (find-symbol "*FASL-DIRECTORY*" 'swank-loader)))
+                     (symbol-value (intern "*FASL-DIRECTORY*" 'swank-loader)))
                   (uiop:symbol-call :swank-loader :contrib-dir
-                     (symbol-value (find-symbol "*SOURCE-DIRECTORY*" 'swank-loader))))))
+                     (symbol-value (intern "*SOURCE-DIRECTORY*" 'swank-loader))))))
   :components ((:file "swank-loader")
                (:file "packages")
                (:file "xref" :if-feature :clisp)
