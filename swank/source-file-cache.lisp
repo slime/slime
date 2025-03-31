@@ -56,10 +56,11 @@ Maps from truename to source-cache-entry structure.")
 (defimplementation buffer-first-change (filename)
   "Load a file into the cache when the user modifies its buffer.
 This is a win if the user then saves the file and tries to M-. into it."
-  (unless (source-cached-p filename)
-    (ignore-errors
-      (source-cache-get filename (file-write-date filename))))
-  nil)
+  (when *cache-sourcecode*
+    (unless (source-cached-p filename)
+      (ignore-errors
+       (source-cache-get filename (file-write-date filename))))
+    nil))
 
 (defun get-source-code (filename code-date)
   "Return the source code for FILENAME as written on DATE in a string.
@@ -70,22 +71,21 @@ If the exact version cannot be found then return the current one from disk."
 (defun source-cache-get (filename date)
   "Return the source code for FILENAME as written on DATE in a string.
 Return NIL if the right version cannot be found."
-  (when *cache-sourcecode*
-    (let* ((filename (truename filename))
-           (entry (gethash filename *source-file-cache*)))
-      (cond ((and entry (equal date (source-cache-entry.date entry)))
-             ;; Cache hit.
-             (source-cache-entry.text entry))
-            ((or (null entry)
-                 (not (equal date (source-cache-entry.date entry))))
-             ;; Cache miss.
-             (if (equal (file-write-date filename) date)
-                 ;; File on disk has the correct version.
-                 (let ((source (read-file filename)))
-                   (setf (gethash filename *source-file-cache*)
-                         (make-source-cache-entry source date))
-                   source)
-                 nil))))))
+  (let* ((filename (truename filename))
+         (entry (gethash filename *source-file-cache*)))
+    (cond ((and entry (equal date (source-cache-entry.date entry)))
+           ;; Cache hit.
+           (source-cache-entry.text entry))
+          ((or (null entry)
+               (not (equal date (source-cache-entry.date entry))))
+           ;; Cache miss.
+           (if (equal (file-write-date filename) date)
+               ;; File on disk has the correct version.
+               (let ((source (read-file filename)))
+                 (setf (gethash filename *source-file-cache*)
+                       (make-source-cache-entry source date))
+                 source)
+               nil)))))
 
 (defun source-cached-p (filename)
   "Is any version of FILENAME in the source cache?"
