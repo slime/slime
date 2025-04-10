@@ -1,4 +1,4 @@
-;;; slime-autoloads.el --- autoload definitions for SLIME -*- no-byte-compile: t -*-
+;;; slime-autoloads.el --- autoload definitions for SLIME -*- no-byte-compile: t; lexical-binding: t -*-
 
 ;; Copyright (C) 2007  Helmut Eller
 
