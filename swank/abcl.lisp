@@ -1019,29 +1019,22 @@
 
 #+abcl-introspect
 (defimplementation find-definitions (symbol)
-  (when (stringp symbol) 
-    ;; allow a string to be passed. If it is package prefixed, remove the prefix 
-    (setq symbol (intern (string-upcase 
-                          (subseq symbol (1+ (or (position #\: symbol :from-end t) -1))))
-                         'keyword)))
   (let ((sources nil)
         (implementation-variables nil)
         (implementation-functions nil))
-    (loop for package in (list-all-packages)
-          for sym = (find-symbol (string symbol) package)
-          when (and sym (equal (symbol-package sym) package))
-            do
-               (when (sys::autoloadp symbol)
-                 (sys::resolve symbol))
-               (let ((source (or (get sym 'ext::source) (get sym 'sys::source)))
-                     (i-var  (maybe-implementation-variable sym))
-                     (i-fun  (implementation-source-location sym)))
-                 (when source
-                   (setq sources (append sources (or (get sym 'ext::source) (get sym 'sys::source)))))
-                 (when i-var
-                   (push i-var implementation-variables))
-                 (when i-fun
-                   (push i-fun implementation-functions))))
+    (when (sys::autoloadp symbol)
+      (sys::resolve symbol))
+    (let ((source (or (get symbol 'ext::source)
+                      (get symbol 'sys::source)))
+          (i-var  (maybe-implementation-variable symbol))
+          (i-fun  (implementation-source-location symbol)))
+      (when source
+        (setq sources (append sources (or (get symbol 'ext::source)
+                                          (get symbol 'sys::source)))))
+      (when i-var
+        (push i-var implementation-variables))
+      (when i-fun
+        (push i-fun implementation-functions)))
     (setq sources (remove-duplicates sources :test 'equalp))
     (append (remove-duplicates implementation-functions :test 'equalp)
             (mapcar (lambda(s) (slime-location-from-source-annotation symbol s)) sources)
