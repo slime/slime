@@ -648,6 +648,21 @@ A negative argument means move backward instead."
           (when choice
             (call-interactively (gethash choice choice-to-lambda))))))))
 
+(defun slime-presentation-menu-at-point (point)
+  (interactive "d")
+  (let* ((buffer (current-buffer))
+         (choice-to-lambda (make-hash-table)))
+    (cl-multiple-value-bind (presentation from to)
+        (with-current-buffer buffer
+          (slime-presentation-around-point point))
+      (unless presentation
+        (error "No presentation at point"))
+      (let ((menu (slime-menu-choices-for-presentation
+                   presentation buffer from to choice-to-lambda)))
+        (let ((choice (x-popup-menu t menu)))
+          (when choice
+            (call-interactively (gethash choice choice-to-lambda))))))))
+
 (defun slime-presentation-expression (presentation)
   "Return a string that contains a CL s-expression accessing
 the presented object."
