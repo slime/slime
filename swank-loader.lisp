@@ -279,6 +279,12 @@ If LOAD is true, load the fasl file."
 (defun load-swank (&key (src-dir *source-directory*)
                      (fasl-dir *fasl-directory*)
                         quiet)
+  #+asdf
+  (if (asdf:locate-system "swank")
+      (asdf:load-system "swank")
+      (with-compilation-unit ()
+        (compile-files (src-files *swank-files* src-dir) fasl-dir t quiet)))
+  #-asdf
   (with-compilation-unit ()
     (compile-files (src-files *swank-files* src-dir) fasl-dir t quiet))
   (funcall (q "swank::before-init")
