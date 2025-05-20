@@ -3775,17 +3775,16 @@ function name is prompted."
   (slime-xrefs slime-edit-uses-xrefs
                symbol
                (lambda (xrefs type symbol package)
-                 (cond
-                  ((null xrefs)
-                   (message "No xref information found for %s." symbol))
-                  ((and (slime-length= xrefs 1)          ; one group
-                        (slime-length= (cdar  xrefs) 1)) ; one ref in group
-                   (cl-destructuring-bind (_ (_ loc)) (cl-first xrefs)
-                     (slime-push-definition-stack)
-                     (slime-pop-to-location loc)))
-                  (t
-                   (slime-push-definition-stack)
-                   (slime-show-xref-buffer xrefs type symbol package))))))
+                 (cond ((null xrefs)
+                        (message "No xref information found for %s." symbol))
+                       (t
+                        (slime-with-xref-buffer (type symbol package)
+                                                (cl-loop for (group . refs) in xrefs do
+                                                         (cl-fresh-line)
+                                                         (slime-insert-propertized '(face bold) group "\n")
+                                                         do
+                                                         (slime-insert-xrefs
+                                                          (cadr (slime-analyze-xrefs refs))))))))))
 
 (defun slime-analyze-xrefs (xrefs)
   "Find common filenames in XREFS.
