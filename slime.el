@@ -2080,6 +2080,24 @@ search for and read an `in-package' form."
         (widen)
         (slime-find-buffer-package))))
 
+(defun slime-canonicalize-package (package-name)
+  "Find the CL:PACKAGE-NAME of the package with PACKAGE-NAME,
+which may be a package designator. When connected, nicknames are
+resolved in `slime-current-package'."
+  (when package-name
+    (if (slime-current-connection)
+        (slime-eval `(cl:let ((pkg (swank::guess-package ,package-name)))
+                             (cl:when pkg (cl:package-name pkg))))
+      (upcase (cond ((string-prefix-p "#:" package-name)
+                     (substring package-name 2))
+                    ((string-prefix-p ":" package-name)
+                     (substring package-name 1))
+                    ((and (string-prefix-p "\"" package-name)
+                          (string-suffix-p "\"" package-name))
+                     (substring package-name 1 (1- (length package-name))))
+                    (t
+                     package-name))))))
+
 (defvar slime-find-buffer-package-function 'slime-search-buffer-package
   "*Function to use for `slime-find-buffer-package'.
 The result should be the package-name (a string)
