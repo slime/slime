@@ -3747,62 +3747,7 @@ alist but ignores CDRs."
   `(:location (:file ,file-name) (:position ,position)
               ,(when hints `(:hints ,hints))))
 
-;;; The hooks are tried in order until one succeeds, otherwise the
-;;; default implementation involving `slime-find-definitions-function'
-;;; is used. The hooks are called with the same arguments as
-;;; `slime-edit-definition'.
-(defvar slime-edit-definition-hooks)
 
-(defun slime-edit-definition (&optional name where)
-  "Lookup the definition of the name at point.
-If there's no name at point, or a prefix argument is given, then the
-function name is prompted."
-  (interactive (list (or (and (not current-prefix-arg)
-                              (slime-symbol-at-point))
-                         (slime-read-symbol-name "Edit Definition of: "))))
-  ;; The hooks might search for a name in a different manner, so don't
-  ;; ask the user if it's missing before the hooks are run
-  (or (run-hook-with-args-until-success 'slime-edit-definition-hooks
-                                        name where)
-      (slime-edit-definition-cont (slime-find-definitions name)
-                                  name where)))
-
-(defun slime-edit-definition-cont (xrefs name where)
-  (cl-destructuring-bind (1loc file-alist) (slime-analyze-xrefs xrefs)
-    (cond ((null xrefs)
-           (error "No known definition for: %s (in %s)"
-                  name (slime-current-package)))
-          (1loc
-           (slime-push-definition-stack)
-           (slime-pop-to-location (slime-xref.location (car xrefs)) where))
-          ((slime-length= xrefs 1)      ; ((:error "..."))
-           (error "%s" (cadr (slime-xref.location (car xrefs)))))
-          (t
-           (slime-push-definition-stack)
-           (slime-show-xrefs file-alist 'definition name
-                             (slime-current-package))))))
-
-(defvar slime-edit-uses-xrefs
-  '(:calls :macroexpands :binds :references :sets :specializes))
-
-;;; FIXME. TODO: Would be nice to group the symbols (in each
-;;;              type-group) by their home-package.
-(defun slime-edit-uses (symbol)
-  "Lookup all the uses of SYMBOL."
-  (interactive (list (slime-read-symbol-name "Edit Uses of: ")))
-  (slime-xrefs slime-edit-uses-xrefs
-               symbol
-               (lambda (xrefs type symbol package)
-                 (cond ((null xrefs)
-                        (message "No xref information found for %s." symbol))
-                       (t
-                        (slime-with-xref-buffer (type symbol package)
-                                                (cl-loop for (group . refs) in xrefs do
-                                                         (cl-fresh-line)
-                                                         (slime-insert-propertized '(face bold) group "\n")
-                                                         do
-                                                         (slime-insert-xrefs
-                                                          (cadr (slime-analyze-xrefs refs))))))))))
 
 (defun slime-analyze-xrefs (xrefs)
   "Find common filenames in XREFS.
@@ -4964,6 +4909,62 @@ When displaying XREF information, this goes to the previous reference."
                                     ((nil) :failure)
                                     (t     result))))))))
 
+;;; The hooks are tried in order until one succeeds, otherwise the
+;;; default implementation involving `slime-find-definitions-function'
+;;; is used. The hooks are called with the same arguments as
+;;; `slime-edit-definition'.
+(defvar slime-edit-definition-hooks)
+
+(defun slime-edit-definition (&optional name where)
+  "Lookup the definition of the name at point.
+If there's no name at point, or a prefix argument is given, then the
+function name is prompted."
+  (interactive (list (or (and (not current-prefix-arg)
+                              (slime-symbol-at-point))
+                         (slime-read-symbol-name "Edit Definition of: "))))
+  ;; The hooks might search for a name in a different manner, so don't
+  ;; ask the user if it's missing before the hooks are run
+  (or (run-hook-with-args-until-success 'slime-edit-definition-hooks
+                                        name where)
+      (slime-edit-definition-cont (slime-find-definitions name)
+                                  name where)))
+
+(defun slime-edit-definition-cont (xrefs name where)
+  (cl-destructuring-bind (1loc file-alist) (slime-analyze-xrefs xrefs)
+    (cond ((null xrefs)
+           (error "No known definition for: %s (in %s)"
+                  name (slime-current-package)))
+          (1loc
+           (slime-push-definition-stack)
+           (slime-pop-to-location (slime-xref.location (car xrefs)) where))
+          ((slime-length= xrefs 1)      ; ((:error "..."))
+           (error "%s" (cadr (slime-xref.location (car xrefs)))))
+          (t
+           (slime-push-definition-stack)
+           (slime-show-xrefs file-alist 'definition name
+                             (slime-current-package))))))
+
+(defvar slime-edit-uses-xrefs
+  '(:calls :macroexpands :binds :references :sets :specializes))
+
+;;; FIXME. TODO: Would be nice to group the symbols (in each
+;;;              type-group) by their home-package.
+(defun slime-edit-uses (symbol)
+  "Lookup all the uses of SYMBOL."
+  (interactive (list (slime-read-symbol-name "Edit Uses of: ")))
+  (slime-xrefs slime-edit-uses-xrefs
+               symbol
+               (lambda (xrefs type symbol package)
+                 (cond ((null xrefs)
+                        (message "No xref information found for %s." symbol))
+                       (t
+                        (slime-with-xref-buffer (type symbol package)
+                                                (cl-loop for (group . refs) in xrefs do
+                                                         (cl-fresh-line)
+                                                         (slime-insert-propertized '(face bold) group "\n")
+                                                         do
+                                                         (slime-insert-xrefs
+                                                          (cadr (slime-analyze-xrefs refs))))))))))
 
 ;;;; Macroexpansion
 
