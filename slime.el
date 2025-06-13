@@ -4964,7 +4964,8 @@ function name is prompted."
                                                          (slime-insert-propertized '(face bold) group "\n")
                                                          do
                                                          (slime-insert-xrefs
-                                                          (cadr (slime-analyze-xrefs refs))))))))))
+                                                          (cadr (slime-analyze-xrefs refs))))
+                                                (goto-char (point-min))))))))
 
 ;;;; Macroexpansion
 
