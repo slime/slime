@@ -32,8 +32,7 @@
 ;; (setq lisp-indent-function 'common-lisp-indent-function)
 ;;
 ;; This file is substantially patched from original cl-indent.el,
-;; which is in Emacs proper. It does not require SLIME, but is instead
-;; required by one of it's contribs, `slime-indentation'.
+;; which is in Emacs proper.
 ;;
 ;; Before making modifications to this file, consider adding them to
 ;; Emacs's own `cl-indent' and refactoring this file to be an
@@ -616,7 +615,8 @@ given point. Defaults to `common-lisp-guess-current-package'.")
                 (caar system-info)
               (let ((guess nil)
                     (guess-n 0)
-                    (package (common-lisp-symbol-package full)))
+                    (package (slime-canonicalize-package
+                              (common-lisp-symbol-package full))))
                 (cl-dolist (info system-info guess)
                   (let* ((pkgs (cdr info))
                          (n (length pkgs)))

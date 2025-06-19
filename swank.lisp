@@ -1683,6 +1683,8 @@ Fall back to the current if no such package exists."
           (*print-lines* (or *print-lines* ,lines)))
      ,@body))
 
+(defvar *eval-continuation* nil)
+
 (defun eval-for-emacs (form buffer-package id)
   "Bind *BUFFER-PACKAGE* to BUFFER-PACKAGE and evaluate FORM.
 Return the result to the continuation ID.
@@ -1692,7 +1694,8 @@ Errors are trapped and invoke our debugger."
          (let ((*buffer-package* (guess-buffer-package buffer-package))
                (*buffer-readtable* (guess-buffer-readtable buffer-package))
                (*pending-continuations* (cons id *pending-continuations*))
-               (*pre-reply-hook* *pre-reply-hook*))
+               (*pre-reply-hook* *pre-reply-hook*)
+               (*eval-continuation* id))
            (check-type *buffer-package* package)
            (check-type *buffer-readtable* readtable)
            ;; APPLY would be cleaner than EVAL. 
@@ -2540,15 +2543,14 @@ Record compiler notes signalled as `compiler-condition's."
 
 (defslimefun swank-require (modules &optional filename)
   "Load the module MODULE."
-  (with-unlocked-packages (swank/backend)
-    (dolist (module (ensure-list modules))
-      (unless (member (string module) *modules* :test #'string=)
-        (catch 'dont-load
-          (require module (if filename
-                              (filename-to-pathname filename)
-                              (module-filename module)))
-          (assert (member (string module) *modules* :test #'string=)
-                  () "Required module ~s was not provided" module)))))
+  (dolist (module (ensure-list modules))
+    (unless (member (string module) *modules* :test #'string=)
+      (catch 'dont-load
+        (require module (if filename
+                            (filename-to-pathname filename)
+                            (module-filename module)))
+        (assert (member (string module) *modules* :test #'string=)
+                () "Required module ~s was not provided" module))))
   *modules*)
 
 (defvar *find-module* 'find-module
@@ -3896,9 +3898,8 @@ Collisions are caused because package information is ignored."
 (defun before-init (version load-path)
   (pushnew :swank *features*)
   (setq *swank-wire-protocol-version* version)
-  (setq *load-path* load-path)
-  (loop for x in '(swank/backend swank/rpc swank/match swank-mop swank/gray)
-        do (lock-package x)))
+  (setq *load-path* load-path))
+
 
 (defun init ()
   (run-hook *after-init-hook*))

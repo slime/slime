@@ -2080,6 +2080,24 @@ search for and read an `in-package' form."
         (widen)
         (slime-find-buffer-package))))
 
+(defun slime-canonicalize-package (package-name)
+  "Find the CL:PACKAGE-NAME of the package with PACKAGE-NAME,
+which may be a package designator. When connected, nicknames are
+resolved in `slime-current-package'."
+  (when package-name
+    (if (slime-current-connection)
+        (slime-eval `(cl:let ((pkg (swank::guess-package ,package-name)))
+                             (cl:when pkg (cl:package-name pkg))))
+      (upcase (cond ((string-prefix-p "#:" package-name)
+                     (substring package-name 2))
+                    ((string-prefix-p ":" package-name)
+                     (substring package-name 1))
+                    ((and (string-prefix-p "\"" package-name)
+                          (string-suffix-p "\"" package-name))
+                     (substring package-name 1 (1- (length package-name))))
+                    (t
+                     package-name))))))
+
 (defvar slime-find-buffer-package-function 'slime-search-buffer-package
   "*Function to use for `slime-find-buffer-package'.
 The result should be the package-name (a string)
@@ -3729,63 +3747,7 @@ alist but ignores CDRs."
   `(:location (:file ,file-name) (:position ,position)
               ,(when hints `(:hints ,hints))))
 
-;;; The hooks are tried in order until one succeeds, otherwise the
-;;; default implementation involving `slime-find-definitions-function'
-;;; is used. The hooks are called with the same arguments as
-;;; `slime-edit-definition'.
-(defvar slime-edit-definition-hooks)
 
-(defun slime-edit-definition (&optional name where)
-  "Lookup the definition of the name at point.
-If there's no name at point, or a prefix argument is given, then the
-function name is prompted."
-  (interactive (list (or (and (not current-prefix-arg)
-                              (slime-symbol-at-point))
-                         (slime-read-symbol-name "Edit Definition of: "))))
-  ;; The hooks might search for a name in a different manner, so don't
-  ;; ask the user if it's missing before the hooks are run
-  (or (run-hook-with-args-until-success 'slime-edit-definition-hooks
-                                        name where)
-      (slime-edit-definition-cont (slime-find-definitions name)
-                                  name where)))
-
-(defun slime-edit-definition-cont (xrefs name where)
-  (cl-destructuring-bind (1loc file-alist) (slime-analyze-xrefs xrefs)
-    (cond ((null xrefs)
-           (error "No known definition for: %s (in %s)"
-                  name (slime-current-package)))
-          (1loc
-           (slime-push-definition-stack)
-           (slime-pop-to-location (slime-xref.location (car xrefs)) where))
-          ((slime-length= xrefs 1)      ; ((:error "..."))
-           (error "%s" (cadr (slime-xref.location (car xrefs)))))
-          (t
-           (slime-push-definition-stack)
-           (slime-show-xrefs file-alist 'definition name
-                             (slime-current-package))))))
-
-(defvar slime-edit-uses-xrefs
-  '(:calls :macroexpands :binds :references :sets :specializes))
-
-;;; FIXME. TODO: Would be nice to group the symbols (in each
-;;;              type-group) by their home-package.
-(defun slime-edit-uses (symbol)
-  "Lookup all the uses of SYMBOL."
-  (interactive (list (slime-read-symbol-name "Edit Uses of: ")))
-  (slime-xrefs slime-edit-uses-xrefs
-               symbol
-               (lambda (xrefs type symbol package)
-                 (cond
-                  ((null xrefs)
-                   (message "No xref information found for %s." symbol))
-                  ((and (slime-length= xrefs 1)          ; one group
-                        (slime-length= (cdar  xrefs) 1)) ; one ref in group
-                   (cl-destructuring-bind (_ (_ loc)) (cl-first xrefs)
-                     (slime-push-definition-stack)
-                     (slime-pop-to-location loc)))
-                  (t
-                   (slime-push-definition-stack)
-                   (slime-show-xref-buffer xrefs type symbol package))))))
 
 (defun slime-analyze-xrefs (xrefs)
   "Find common filenames in XREFS.
@@ -4947,6 +4909,63 @@ When displaying XREF information, this goes to the previous reference."
                                     ((nil) :failure)
                                     (t     result))))))))
 
+;;; The hooks are tried in order until one succeeds, otherwise the
+;;; default implementation involving `slime-find-definitions-function'
+;;; is used. The hooks are called with the same arguments as
+;;; `slime-edit-definition'.
+(defvar slime-edit-definition-hooks)
+
+(defun slime-edit-definition (&optional name where)
+  "Lookup the definition of the name at point.
+If there's no name at point, or a prefix argument is given, then the
+function name is prompted."
+  (interactive (list (or (and (not current-prefix-arg)
+                              (slime-symbol-at-point))
+                         (slime-read-symbol-name "Edit Definition of: "))))
+  ;; The hooks might search for a name in a different manner, so don't
+  ;; ask the user if it's missing before the hooks are run
+  (or (run-hook-with-args-until-success 'slime-edit-definition-hooks
+                                        name where)
+      (slime-edit-definition-cont (slime-find-definitions name)
+                                  name where)))
+
+(defun slime-edit-definition-cont (xrefs name where)
+  (cl-destructuring-bind (1loc file-alist) (slime-analyze-xrefs xrefs)
+    (cond ((null xrefs)
+           (error "No known definition for: %s (in %s)"
+                  name (slime-current-package)))
+          (1loc
+           (slime-push-definition-stack)
+           (slime-pop-to-location (slime-xref.location (car xrefs)) where))
+          ((slime-length= xrefs 1)      ; ((:error "..."))
+           (error "%s" (cadr (slime-xref.location (car xrefs)))))
+          (t
+           (slime-push-definition-stack)
+           (slime-show-xrefs file-alist 'definition name
+                             (slime-current-package))))))
+
+(defvar slime-edit-uses-xrefs
+  '(:calls :macroexpands :binds :references :sets :specializes))
+
+;;; FIXME. TODO: Would be nice to group the symbols (in each
+;;;              type-group) by their home-package.
+(defun slime-edit-uses (symbol)
+  "Lookup all the uses of SYMBOL."
+  (interactive (list (slime-read-symbol-name "Edit Uses of: ")))
+  (slime-xrefs slime-edit-uses-xrefs
+               symbol
+               (lambda (xrefs type symbol package)
+                 (cond ((null xrefs)
+                        (message "No xref information found for %s." symbol))
+                       (t
+                        (slime-with-xref-buffer (type symbol package)
+                                                (cl-loop for (group . refs) in xrefs do
+                                                         (cl-fresh-line)
+                                                         (slime-insert-propertized '(face bold) group "\n")
+                                                         do
+                                                         (slime-insert-xrefs
+                                                          (cadr (slime-analyze-xrefs refs))))
+                                                (goto-char (point-min))))))))
 
 ;;;; Macroexpansion
 
@@ -7617,7 +7636,17 @@ The returned bounds are either nil or non-empty."
            (save-restriction
              (narrow-to-region (point) (point-max))
              (bounds-of-thing-at-point 'sexp)))
-      (bounds-of-thing-at-point 'sexp)))
+      (let ((bounds (bounds-of-thing-at-point 'sexp)))
+        ;; Regardless of `parse-sexp-ignore-comments', if there are no
+        ;; sexps before or after point, the bounds may include
+        ;; whitespace and comments. Detect this, and return nil.
+        (if (and bounds
+                 (= (car bounds) (point-min))
+                 (save-excursion
+                   (goto-char (car bounds))
+                   (looking-at "[;\n[:space:]]")))
+            nil
+          bounds))))
 
 (defun slime-sexp-at-point ()
   "Return the sexp at point as a string, otherwise nil."
