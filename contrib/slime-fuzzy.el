@@ -251,7 +251,13 @@ most recently enclosed macro or function."
 (defun slime-fuzzy-complete-symbol ()
   "Fuzzily completes the abbreviation at point into a symbol."
   (interactive)
-  (if (save-excursion (re-search-backward "\"[^ \t\n]+\\=" nil t))
+  (if (save-excursion (re-search-backward "\"[^ \t\n]+\\=" 
+                                          (when slime-repl-input-start-mark
+                                            (let ((start
+                                                    (marker-position slime-repl-input-start-mark)))
+                                              (when (> (point) start)
+                                                start)))
+                                          t))
       ;; don't add space after completion
       (let ((comint-completion-addsuffix '("/" . "")))
         (if slime-when-complete-filename-expand
