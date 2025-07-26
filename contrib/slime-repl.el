@@ -668,7 +668,7 @@ buffer."
 			(point-max))))))
 
 (defun slime-end-of-proprange-p (property)
-  (and (get-char-property (max 1 (1- (point))) property)
+  (and (get-char-property (max (point-min) (1- (point))) property)
        (not (get-char-property (point) property))))
 
 (defvar slime-repl-return-hooks)
