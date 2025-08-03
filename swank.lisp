@@ -734,7 +734,8 @@ first."
            (serve-requests (setf connection (make-connection socket client style))))
       (unless dont-close
         (%stop-server :socket socket)
-        (when (eq style :spawn)
+        (when (and connection
+                   (eq style :spawn))
           (with-connection (connection)
             (loop
              (dcase (wait-for-event `(:run-on-main-thread _))
