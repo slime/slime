@@ -2085,7 +2085,7 @@ search for and read an `in-package' form."
 which may be a package designator. When connected, nicknames are
 resolved in `slime-current-package'."
   (when package-name
-    (if (slime-current-connection)
+    (if (slime-background-activities-enabled-p)
         (slime-eval `(cl:let ((pkg (swank::guess-package ,package-name)))
                              (cl:when pkg (cl:package-name pkg))))
       (upcase (cond ((string-prefix-p "#:" package-name)
