@@ -265,29 +265,48 @@ most recently enclosed macro or function."
             ;; FIXME: use `comint-filename-completion' when dropping emacs23
             (funcall (if (>= emacs-major-version 24)
                          'comint-filename-completion
-                         'comint-dynamic-complete-as-filename))))
+                         'comint-dynamic-complete-as-filename)))
+        nil)
       (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
              (beg (move-marker (make-marker) (slime-symbol-start-pos)))
              (prefix (buffer-substring-no-properties beg end)))
         (cl-destructuring-bind (completion-set interrupted-p)
                                (slime-fuzzy-completions prefix)
-                               (if (null completion-set)
-                                   (progn (slime-minibuffer-respecting-message
-                                           "Can't find completion for \"%s\"" prefix)
-                                          (ding)
-                                          (slime-fuzzy-done))
-                                   (goto-char end)
-                                   (cond ((slime-length= completion-set 1)
-                                          ;; insert completed string
-                                          (insert-and-inherit (caar completion-set))
-                                          (delete-region beg end)
-                                          (goto-char (+ beg (length (caar completion-set))))
-                                          (slime-minibuffer-respecting-message "Sole completion")
-                                          (slime-fuzzy-done))
-                                         ;; Incomplete
-                                         (t
-                                          (slime-fuzzy-choices-buffer completion-set interrupted-p
-                                                                      beg end))))))))
+                               (if slime-fuzzy-default-completion-ui
+                                   (list beg end 
+                                         (cl-loop for (symbol-name score chunks classification-string) in completion-set
+                                                  collect (propertize symbol-name
+                                                                      'slime-fuzzy-kind
+                                                                      classification-string)) 
+                                         :company-kind (lambda (x)
+                                                         (let ((prop (get-text-property 0 'slime-fuzzy-kind x)))
+                                                           (when prop
+                                                             (cl-loop for (char kind) in '((?g method)
+                                                                                           (?m macro)
+                                                                                           (?f function)
+                                                                                           (?b variable)
+                                                                                           (?c class)
+                                                                                           (?t class)
+                                                                                           (?p module))
+                                                                      when (cl-find char prop)
+                                                                      return kind)))))
+                                   (if (null completion-set)
+                                       (progn (slime-minibuffer-respecting-message
+                                               "Can't find completion for \"%s\"" prefix)
+                                              (ding)
+                                              (slime-fuzzy-done))
+                                       (goto-char end)
+                                       (cond ((slime-length= completion-set 1)
+                                              ;; insert completed string
+                                              (insert-and-inherit (caar completion-set))
+                                              (delete-region beg end)
+                                              (goto-char (+ beg (length (caar completion-set))))
+                                              (slime-minibuffer-respecting-message "Sole completion")
+                                              (slime-fuzzy-done))
+                                             ;; Incomplete
+                                             (t
+                                              (slime-fuzzy-choices-buffer completion-set interrupted-p
+                                                                          beg end)))))))))
 
 
 (defun slime-get-fuzzy-buffer ()

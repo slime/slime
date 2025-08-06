@@ -270,6 +270,11 @@ argument."
   :type '(choice (const :tag "Compound" slime-complete-symbol*)
                  (const :tag "Fuzzy" slime-fuzzy-complete-symbol)))
 
+(defcustom slime-fuzzy-default-completion-ui nil
+  "*When true, use the default emacs completion UI."
+  :type 'boolean
+  :group 'slime-mode)
+
 (make-obsolete-variable 'slime-complete-symbol-function
                         'slime-completion-at-point-functions
                         "2015-10-18")
@@ -3611,11 +3616,17 @@ more than one space."
 ;; have to set `completion-at-point-functions' in every slime-like
 ;; buffer.
 (defun slime--completion-at-point ()
-  (cond (slime-complete-symbol-function
-         slime-complete-symbol-function)
-        (t
-         (run-hook-with-args-until-success
-          'slime-completion-at-point-functions))))
+  (let ((fun
+          (cond (slime-complete-symbol-function
+                 slime-complete-symbol-function)
+                (t
+                 (run-hook-with-args-until-success
+                  'slime-completion-at-point-functions)))))
+    (if (and slime-fuzzy-default-completion-ui
+             fun
+             (symbolp fun))
+        (funcall fun)
+        fun)))
 
 (defun slime-setup-completion ()
   (add-hook 'completion-at-point-functions #'slime--completion-at-point nil t))
