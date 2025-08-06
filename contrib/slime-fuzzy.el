@@ -309,7 +309,7 @@ Flags: boundp fboundp generic-function class macro special-operator package
   "Inserts the completion object `completion' as a formatted
 completion choice into the current buffer, and mark it with the
 proper text properties."
-  (cl-destructuring-bind (symbol-name classification-string chunks)
+  (cl-destructuring-bind (symbol-name classification-string _symbol chunks)
       completion
     (let ((start (point))
           (end))
