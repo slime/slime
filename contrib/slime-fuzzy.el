@@ -573,7 +573,9 @@ run."
          (goto-char slime-fuzzy-end)
          (setq slime-fuzzy-target-buffer nil))
         (t
-         (bury-buffer)
+         (let ((buf "*Fuzzy Completions*"))
+           (when buf
+             (bury-buffer buf)))
          (setq slime-fuzzy-target-buffer nil))))
 
 (provide 'slime-fuzzy)
