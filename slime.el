@@ -267,7 +267,7 @@ argument."
 (defcustom slime-complete-symbol-function 'nil
   "Obsolete. Use `slime-completion-at-point-functions' instead."
   :group 'slime-mode
-  :type '(choice (const :tag "Compound" slime-complete-symbol*)
+  :type '(choice (const :tag "Compound" slime-c-p-c-completion-at-point)
                  (const :tag "Fuzzy" slime-fuzzy-complete-symbol)))
 
 (defcustom slime-fuzzy-default-completion-ui nil
@@ -280,11 +280,13 @@ argument."
                         "2015-10-18")
 
 (defcustom slime-completion-at-point-functions
-  '(slime-filename-completion
+  '(slime-c-p-c-completion-at-point
+    slime-filename-completion
     slime-simple-completion-at-point)
   "List of functions to perform completion.
 Works like `completion-at-point-functions'.
 `slime--completion-at-point' uses this variable."
+  :type 'sexp
   :group 'slime-mode)
 
 ;;;;; slime-mode-faces
@@ -3608,6 +3610,7 @@ more than one space."
 
 (defalias 'slime-complete-symbol #'completion-at-point)
 (make-obsolete 'slime-complete-symbol #'completion-at-point "2015-10-17")
+(defvar slime-completion-at-point-functions*)
 
 ;; This is the function that we add to
 ;; `completion-at-point-functions'.  For backward-compatibilty we look
@@ -3620,8 +3623,10 @@ more than one space."
           (cond (slime-complete-symbol-function
                  slime-complete-symbol-function)
                 (t
-                 (run-hook-with-args-until-success
-                  'slime-completion-at-point-functions)))))
+                 (let ((slime-completion-at-point-functions*
+                         (cl-remove-if-not #'fboundp slime-completion-at-point-functions)))
+                   (run-hook-with-args-until-success
+                    'slime-completion-at-point-functions))))))
     (if (and slime-fuzzy-default-completion-ui
              fun
              (symbolp fun))

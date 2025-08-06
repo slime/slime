@@ -15,17 +15,12 @@
   (:on-load
    (push
     `(progn
-       (remove-hook 'slime-completion-at-point-functions
-		    #'slime-c-p-c-completion-at-point)
-       (remove-hook 'slime-connected-hook 'slime-c-p-c-on-connect)
        ,@(when (featurep 'slime-repl)
                `((define-key slime-mode-map "\C-c\C-s"
                    ',(lookup-key slime-mode-map "\C-c\C-s"))
                  (define-key slime-repl-mode-map "\C-c\C-s"
                    ',(lookup-key slime-repl-mode-map "\C-c\C-s")))))
     slime-c-p-c-init-undo-stack)
-   (add-hook 'slime-completion-at-point-functions
-	     #'slime-c-p-c-completion-at-point)
    (define-key slime-mode-map "\C-c\C-s" 'slime-complete-form)
    (when (featurep 'slime-repl)
      (define-key slime-repl-mode-map "\C-c\C-s" 'slime-complete-form)))
