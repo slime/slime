@@ -212,6 +212,13 @@ Complete listing of keybindings with *Fuzzy Completions*:
   (set (make-local-variable 'slime-fuzzy-current-completion-overlay)
        (make-overlay (point) (point) nil t nil)))
 
+(defun slime-minibuffer-respecting-message (format &rest format-args)
+  "Display TEXT as a message, without hiding any minibuffer contents."
+  (let ((text (format " [%s]" (apply #'format format format-args))))
+    (if (minibuffer-window-active-p (minibuffer-window))
+        (minibuffer-message text)
+        (message "%s" text))))
+
 (defun slime-fuzzy-completions (prefix &optional default-package)
   "Get the list of sorted completion objects from completing
 `prefix' in `package' from the connected Lisp."
@@ -554,16 +561,19 @@ run."
 
 (defun slime-fuzzy-done ()
   "Cleans up after the completion process."
-  (when slime-fuzzy-target-buffer
-    (set-buffer slime-fuzzy-target-buffer)
-    (slime-fuzzy-disable-target-buffer-completions-mode)
-    (let ((window (get-buffer-window (slime-get-fuzzy-buffer))))
-      (when window
-        (quit-window nil window)))
-    (if (slime-minibuffer-p slime-fuzzy-target-buffer)
-        (select-window (minibuffer-window))
-        (pop-to-buffer slime-fuzzy-target-buffer))
-    (goto-char slime-fuzzy-end)
-    (setq slime-fuzzy-target-buffer nil)))
+  (cond ((buffer-live-p slime-fuzzy-target-buffer)
+         (set-buffer slime-fuzzy-target-buffer)
+         (slime-fuzzy-disable-target-buffer-completions-mode)
+         (let ((window (get-buffer-window (slime-get-fuzzy-buffer))))
+           (when window
+             (quit-window nil window)))
+         (if (slime-minibuffer-p slime-fuzzy-target-buffer)
+             (select-window (minibuffer-window))
+             (pop-to-buffer slime-fuzzy-target-buffer))
+         (goto-char slime-fuzzy-end)
+         (setq slime-fuzzy-target-buffer nil))
+        (t
+         (bury-buffer)
+         (setq slime-fuzzy-target-buffer nil))))
 
 (provide 'slime-fuzzy)
