@@ -148,13 +148,12 @@ that emacs is expecting.  Converts symbols to strings, fixes case
 issues, and adds information (as a string) describing if the symbol is
 bound, fbound, a class, a macro, a generic-function, a
 special-operator, or a package."
-  (with-struct (fuzzy-matching. symbol score package-chunks symbol-chunks
+  (with-struct (fuzzy-matching. symbol package-chunks symbol-chunks
                                 symbol-p)
                fuzzy-matching
     (multiple-value-bind (name added-length)
         (fuzzy-format-matching fuzzy-matching user-input-string)
       (list name
-            (format nil "~,2f" score)
             (append package-chunks
                     (mapcar (lambda (chunk)
                               ;; Fix up chunk positions to account for possible

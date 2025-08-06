@@ -274,7 +274,7 @@ most recently enclosed macro or function."
                                (slime-fuzzy-completions prefix)
                                (if slime-fuzzy-default-completion-ui
                                    (list beg end 
-                                         (cl-loop for (symbol-name score chunks classification-string) in completion-set
+                                         (cl-loop for (symbol-name chunks classification-string) in completion-set
                                                   collect (propertize symbol-name
                                                                       'slime-fuzzy-kind
                                                                       classification-string)) 
@@ -282,14 +282,18 @@ most recently enclosed macro or function."
                                                          (let ((prop (get-text-property 0 'slime-fuzzy-kind x)))
                                                            (when prop
                                                              (cl-loop for (char kind) in '((?g method)
-                                                                                           (?m macro)
                                                                                            (?f function)
                                                                                            (?b variable)
                                                                                            (?c class)
                                                                                            (?t class)
                                                                                            (?p module))
                                                                       when (cl-find char prop)
-                                                                      return kind)))))
+                                                                      return kind))))
+                                         :annotation-function
+                                         (lambda (x)
+                                           (let ((kind (get-text-property 0 'slime-fuzzy-kind x)))
+                                             (when kind
+                                               (concat " " kind)))))
                                    (if (null completion-set)
                                        (progn (slime-minibuffer-respecting-message
                                                "Can't find completion for \"%s\"" prefix)
@@ -324,7 +328,7 @@ Flags: boundp fboundp generic-function class macro special-operator package
   "Inserts the completion object `completion' as a formatted
 completion choice into the current buffer, and mark it with the
 proper text properties."
-  (cl-destructuring-bind (symbol-name score chunks classification-string)
+  (cl-destructuring-bind (symbol-name chunks classification-string)
       completion
     (let ((start (point))
           (end))
@@ -338,9 +342,8 @@ proper text properties."
       (put-text-property start (point) 'mouse-face 'highlight)
       (dotimes (i (- max-length (- end start)))
         (insert " "))
-      (insert (format " %s %s\n"
-                      classification-string
-                      score))
+      (insert (format "  %s\n"
+                      classification-string))
       (put-text-property start (point) 'completion completion))))
 
 (defun slime-fuzzy-insert (text)
@@ -409,21 +412,18 @@ done."
       (dolist (completion completions)
         (setf max-length (max max-length (length (cl-first completion)))))
 
-      (insert "Completion:")
+      (insert "Completion")
       (dotimes (i (- max-length 10)) (insert " "))
-      ;;     Flags:   Score:
-      ;; ... -------  --------
+      ;;     Flags
+      ;; ... -------
       ;;     bfgctmsp
       (let* ((example-classification-string (cl-fourth (cl-first completions)))
-             (classification-length (length example-classification-string))
-             (spaces (- classification-length (length "Flags:"))))
-        (insert "Flags:")
-        (dotimes (i spaces) (insert " "))
-        (insert " Score:\n")
+             (classification-length (length example-classification-string)))
+        (insert "  Flags\n")
         (dotimes (i max-length) (insert "-"))
         (insert " ")
         (dotimes (i classification-length) (insert "-"))
-        (insert " --------\n")
+        (insert " ---------\n")
         (setq slime-fuzzy-first (point)))
 
       (dolist (completion completions)
