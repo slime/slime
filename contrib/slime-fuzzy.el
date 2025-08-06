@@ -397,15 +397,12 @@ done."
       (dotimes (i (- max-length 10)) (insert " "))
       ;;     Flags
       ;; ... -------
-      ;;     bfgctmsp
-      (let* ((example-classification-string (cl-fourth (cl-first completions)))
-             (classification-length (length example-classification-string)))
-        (insert "  Flags\n")
-        (dotimes (i max-length) (insert "-"))
-        (insert " ")
-        (dotimes (i classification-length) (insert "-"))
-        (insert " ---------\n")
-        (setq slime-fuzzy-first (point)))
+      ;;     bfgctmspa
+      (insert "  Flags\n")
+      (dotimes (i max-length) (insert "-"))
+      (insert " ")
+      (insert " ---------\n")
+      (setq slime-fuzzy-first (point))
 
       (dolist (completion completions)
         (setq slime-fuzzy-last (point)) ; will eventually become the last entry
