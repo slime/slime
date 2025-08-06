@@ -131,15 +131,15 @@ current repl's (as per slime-output-buffer) window."
   "A non-nil value means that history will be replaced from the mark.
 
 Instead of replacing form input-start, look up history and replace input
-from the mark. Calling 'slime-repl-previous-input',
- 'slime-repl-previous-matching-input' or their -next counterparts with a prefix
+from the mark. Calling `slime-repl-previous-input',
+ `slime-repl-previous-matching-input' or their -next counterparts with a prefix
  argument sets this variable for the duration of one history lookup.")
 
 (defun slime-repl-history-yank-start ()
-  "The position which 'slime-repl-previous-input' will replace from.
+  "The position which `slime-repl-previous-input' will replace from.
 
-When 'slime-repl-history-use-mark' is non-nil, and (mark) is after the current
-input start, return it.  Otherwise, return 'slime-repl-input-start-mark'."
+When `slime-repl-history-use-mark' is non-nil, and (mark) is after the current
+input start, return it.  Otherwise, return `slime-repl-input-start-mark'."
   (if (and slime-repl-history-use-mark (mark))
       (max (mark) slime-repl-input-start-mark)
       slime-repl-input-start-mark))
@@ -930,7 +930,7 @@ Empty strings and duplicates are ignored."
 
 (defun slime-repl-history-replace (direction &optional regexp)
   "Replace the current input with the next line in DIRECTION.
-DIRECTION is 'forward' or 'backward' (in the history list).
+DIRECTION is `forward' or `backward' (in the history list).
 If REGEXP is non-nil, only lines matching REGEXP are considered."
   (setq slime-repl-history-pattern regexp)
   (let* ((min-pos -1)
