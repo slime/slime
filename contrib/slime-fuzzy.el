@@ -273,27 +273,8 @@ most recently enclosed macro or function."
         (cl-destructuring-bind (completion-set interrupted-p)
                                (slime-fuzzy-completions prefix)
                                (if slime-fuzzy-default-completion-ui
-                                   (list beg end 
-                                         (cl-loop for (symbol-name chunks classification-string) in completion-set
-                                                  collect (propertize symbol-name
-                                                                      'slime-fuzzy-kind
-                                                                      classification-string)) 
-                                         :company-kind (lambda (x)
-                                                         (let ((prop (get-text-property 0 'slime-fuzzy-kind x)))
-                                                           (when prop
-                                                             (cl-loop for (char kind) in '((?g method)
-                                                                                           (?f function)
-                                                                                           (?b variable)
-                                                                                           (?c class)
-                                                                                           (?t class)
-                                                                                           (?p module))
-                                                                      when (cl-find char prop)
-                                                                      return kind))))
-                                         :annotation-function
-                                         (lambda (x)
-                                           (let ((kind (get-text-property 0 'slime-fuzzy-kind x)))
-                                             (when kind
-                                               (concat " " kind)))))
+                                   (cl-list* beg end 
+                                             (slime-format-completions completion-set))
                                    (if (null completion-set)
                                        (progn (slime-minibuffer-respecting-message
                                                "Can't find completion for \"%s\"" prefix)
@@ -328,7 +309,7 @@ Flags: boundp fboundp generic-function class macro special-operator package
   "Inserts the completion object `completion' as a formatted
 completion choice into the current buffer, and mark it with the
 proper text properties."
-  (cl-destructuring-bind (symbol-name chunks classification-string)
+  (cl-destructuring-bind (symbol-name classification-string chunks)
       completion
     (let ((start (point))
           (end))

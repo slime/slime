@@ -55,28 +55,31 @@ format. The cases are as follows:
 	   (completion-set
 	    (format-completion-set (nconc symbol-set package-set) 
 				   internal-p package-name)))
-      (when completion-set
-	(list completion-set (longest-compound-prefix completion-set))))))
+      completion-set)))
 
 
 ;;;;; Find completion set
 
 (defun symbol-completion-set (name package-name package internal-p matchp)
   "Return the set of completion-candidates as strings."
-  (mapcar (completion-output-symbol-converter name)
-	  (and package
-	       (mapcar #'symbol-name
-		       (find-matching-symbols name
-					      package
-					      (and (not internal-p)
-						   package-name)
-					      matchp)))))
+  (when package
+    (let ((converter (completion-output-symbol-converter name)))
+      (mapcar (lambda (s)
+                (cons (funcall converter (symbol-name s))
+                      s))
+	      (find-matching-symbols name
+				     package
+				     (and (not internal-p)
+					  package-name)
+				     matchp)))))
 
 (defun package-completion-set (name package-name package internal-p matchp)
   (declare (ignore package internal-p))
-  (mapcar (completion-output-package-converter name)
-	  (and (not package-name)
-	       (find-matching-packages name matchp))))
+  (unless package-name
+   (let ((converter (completion-output-package-converter name)))
+     (mapcar (lambda (c)
+               (cons (funcall converter c) "-------p-"))
+	     (find-matching-packages name matchp)))))
 
 (defun find-matching-symbols (string package external test)
   "Return a list of symbols in PACKAGE matching STRING.
@@ -250,19 +253,6 @@ DELIMITER may be a character, or a list of characters."
 
 ;;;;; Extending the input string by completion
 
-(defun longest-compound-prefix (completions &optional (delimiter #\-))
-  "Return the longest compound _prefix_ for all COMPLETIONS."
-  (flet ((tokenizer (string) (tokenize-completion string delimiter)))
-    (untokenize-completion
-     (loop for token-list in (transpose-lists (mapcar #'tokenizer completions))
-           if (notevery #'string= token-list (rest token-list))
-           ;; Note that we possibly collect the "" here as well, so that
-           ;; UNTOKENIZE-COMPLETION will append a delimiter for us.
-             collect (longest-common-prefix token-list)
-             and do (loop-finish)
-           else collect (first token-list))
-     delimiter)))
-
 (defun tokenize-completion (string delimiter)
   "Return all substrings of STRING delimited by DELIMITER."
   (loop with end
@@ -293,6 +283,6 @@ For example:
   (let* ((matcher (make-compound-prefix-matcher #\_ :test #'char-equal))
          (completion-set (character-completion-set prefix matcher))
          (completions (sort completion-set #'string<)))
-    (list completions (longest-compound-prefix completions #\_))))
+    completions))
 
 (provide :swank-c-p-c)

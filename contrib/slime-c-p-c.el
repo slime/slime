@@ -55,13 +55,39 @@
 (defun slime-c-p-c-completion-at-point ()
   (slime-complete-symbol*))
 
+(defun slime-format-completions (completions)
+  (list
+   (cl-loop for (symbol-name classification-string symbol) in completions
+            collect (propertize symbol-name
+                                'slime-kind classification-string
+                                'slime-symbol symbol)) 
+   :company-kind (lambda (x)
+                   (let ((prop (get-text-property 0 'slime-kind x)))
+                     (when prop
+                       (cl-loop for (char kind) in '((?g method)
+                                                     (?f function)
+                                                     (?b variable)
+                                                     (?c class)
+                                                     (?t class)
+                                                     (?p module))
+                                when (cl-find char prop)
+                                return kind))))
+   :company-docsig (lambda (x)
+                     (let ((sym (get-text-property 0 'slime-symbol x)))
+                       (when sym
+                         (slime-eval `(swank:describe-symbol ,sym)))))
+   :annotation-function
+   (lambda (x)
+     (let ((kind (get-text-property 0 'slime-kind x)))
+       (when kind
+         (concat " " kind))))))
+
 (defun slime-expand-abbreviations-and-complete ()
   (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
          (beg (move-marker (make-marker) (slime-symbol-start-pos)))
-         (prefix (buffer-substring-no-properties beg end))
-         (completion-result (slime-contextual-completions beg end))
-         (completion-set (cl-first completion-result)))
-    (list beg end completion-set)))
+         (prefix (buffer-substring-no-properties beg end)))
+    (cl-list* beg end 
+              (slime-format-completions (slime-contextual-completions beg end)))))
 
 (cl-defun slime-contextual-completions (beg end)
   "Return a list of completions of the token from BEG to END in the

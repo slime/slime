@@ -2663,8 +2663,7 @@ the filename of the module (or nil if the file doesn't exist).")
 
 (defslimefun simple-completions (prefix package)
   "Return a list of completions for the string PREFIX."
-  (let ((strings (all-completions prefix package)))
-    (list strings (longest-common-prefix strings))))
+  (all-completions prefix package))
 
 (defun all-completions (prefix package)
   (multiple-value-bind (name pname intern) (tokenize-symbol prefix)
@@ -2677,7 +2676,7 @@ the filename of the module (or nil if the file doesn't exist).")
            (strings (loop for sym in syms
                           for str = (unparse-symbol sym)
                           when (prefix-match-p name str) ; remove |Foo|
-                          collect str)))
+                          collect (cons str sym))))
       (format-completion-set strings intern pname))))
 
 (defun matching-symbols (package external test)
@@ -2712,11 +2711,45 @@ the filename of the module (or nil if the file doesn't exist).")
                  (if diff-pos (subseq s1 0 diff-pos) s1))))
         (reduce #'common-prefix strings))))
 
+(defun symbol-classification-string (symbol)
+  "Return a string in the form -f-c---- where each letter stands for
+boundp fboundp generic-function class macro special-operator package accessor"
+  (let ((letters "bfgctmspa")
+        (result (copy-seq "---------")))
+    (flet ((flip (letter)
+             (setf (char result (position letter letters))
+                   letter)))
+      (when (boundp symbol) (flip #\b))
+      (when (fboundp symbol)
+        (flip #\f)
+        (when (typep (ignore-errors (fdefinition symbol))
+                     'generic-function)
+          (flip #\g)))
+      (when (type-specifier-p symbol) (flip #\t))
+      (when (find-class symbol nil)   (flip #\c) )
+      (when (macro-function symbol)   (flip #\m))
+      (when (special-operator-p symbol) (flip #\s))
+      (when (find-package symbol)       (flip #\p))
+      (when (structure-accessor-p symbol) (flip #\a))
+      result)))
+
 (defun format-completion-set (strings internal-p package-name)
   "Format a set of completion strings.
 Returns a list of completions with package qualifiers if needed."
-  (mapcar (lambda (string) (untokenize-symbol package-name internal-p string))
-          (sort strings #'string<)))
+  (with-standard-io-syntax
+    (let ((*package* (find-package :keyword)))
+      (sort (mapcar (lambda (c)
+                      (if (stringp c)
+                          (list (untokenize-symbol package-name internal-p c))
+                          (destructuring-bind (name &rest symbol) c
+                            (list* (untokenize-symbol package-name internal-p name)
+                                   (if (stringp symbol)
+                                       symbol
+                                       (symbol-classification-string symbol))
+                                   (when (symbolp symbol)
+                                     (list (write-to-string symbol :readably t)))))))
+                    strings)
+            #'string< :key #'car))))
 
 
 ;;;; Simple arglist display

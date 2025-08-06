@@ -1226,8 +1226,7 @@ to the context provided by RAW-FORM."
                         (mapcar #'symbol-name matching-keywords)))
                (completion-set
                 (format-completion-set strings nil "")))
-          (list completion-set
-                (longest-compound-prefix completion-set)))))))
+          completion-set)))))
 
 (defparameter +cursor-marker+ '%cursor-marker%)
 

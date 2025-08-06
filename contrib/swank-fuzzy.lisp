@@ -154,6 +154,10 @@ special-operator, or a package."
     (multiple-value-bind (name added-length)
         (fuzzy-format-matching fuzzy-matching user-input-string)
       (list name
+            (if symbol-p
+                (symbol-classification-string symbol)
+                "-------p-")
+            (and symbol-p (write-to-string symbol :readably nil))
             (append package-chunks
                     (mapcar (lambda (chunk)
                               ;; Fix up chunk positions to account for possible
@@ -161,10 +165,7 @@ special-operator, or a package."
                               (let ((offset (first chunk))
                                     (string (second chunk)))
                                 (list (+ added-length offset) string)))
-                            symbol-chunks))
-            (if symbol-p
-                (symbol-classification-string symbol)
-                "-------p")))))
+                            symbol-chunks))))))
 
 (defun fuzzy-completion-set (string default-package-name
                              &key limit time-limit-in-msec)
@@ -185,9 +186,11 @@ exhausted."
       (if (array-has-fill-pointer-p matchings)
           (setf (fill-pointer matchings) limit)
           (setf matchings (make-array limit :displaced-to matchings))))
-    (map-into matchings #'(lambda (m)
-                            (fuzzy-convert-matching-for-emacs m string))
-              matchings)
+    (with-standard-io-syntax
+      (let ((*package* (find-package :keyword)))
+       (map-into matchings #'(lambda (m)
+                               (fuzzy-convert-matching-for-emacs m string))
+                 matchings)))
     (values matchings interrupted-p)))
 
 

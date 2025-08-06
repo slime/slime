@@ -3636,7 +3636,7 @@ more than one space."
 Perform completion similar to `elisp-completion-at-point'."
   (let* ((end (point))
          (beg (slime-symbol-start-pos)))
-    (list beg end (completion-table-dynamic #'slime-simple-completions))))
+    (list beg end (slime-simple-completions))))
 
 (defun slime-filename-completion ()
   "If point is at a string starting with \", complete it as filename.
@@ -3713,12 +3713,10 @@ alist but ignores CDRs."
   (mapcar (lambda (x) (cons x nil)) list))
 
 (defun slime-simple-completions (prefix)
-  (cl-destructuring-bind (completions _partial)
-      (let ((slime-current-thread t))
-        (slime-eval
-         `(swank:simple-completions ,(substring-no-properties prefix)
-                                    ',(slime-current-package))))
-    completions))
+  (let ((slime-current-thread t))
+    (slime-eval
+     `(swank:simple-completions ,(substring-no-properties prefix)
+                                ',(slime-current-package)))))
 
 
 ;;;; Edit definition

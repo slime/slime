@@ -611,7 +611,7 @@ confronted with nasty #.-fu."
 			      "swank::compile-file-output"
 			      "swank::compile-file-pathname"))
       ("cl:m-v-l" ()))
-  (let ((completions (slime-simple-completions prefix)))
+  (let ((completions (mapcar #'car (slime-simple-completions prefix))))
     (slime-test-expect "Completion set" expected-completions completions)))
 
 (def-slime-test read-from-minibuffer

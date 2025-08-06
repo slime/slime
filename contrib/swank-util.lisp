@@ -39,26 +39,4 @@ keywords: :BOUNDP, :FBOUNDP, :CONSTANT, :GENERIC-FUNCTION,
         (push :generic-function result))
       result)))
 
-(defun symbol-classification-string (symbol)
-  "Return a string in the form -f-c---- where each letter stands for
-boundp fboundp generic-function class macro special-operator package accessor"
-  (let ((letters "bfgctmspa")
-        (result (copy-seq "---------")))
-    (flet ((flip (letter)
-             (setf (char result (position letter letters))
-                   letter)))
-      (when (boundp symbol) (flip #\b))
-      (when (fboundp symbol)
-        (flip #\f)
-        (when (typep (ignore-errors (fdefinition symbol))
-                     'generic-function)
-          (flip #\g)))
-      (when (type-specifier-p symbol) (flip #\t))
-      (when (find-class symbol nil)   (flip #\c) )
-      (when (macro-function symbol)   (flip #\m))
-      (when (special-operator-p symbol) (flip #\s))
-      (when (find-package symbol)       (flip #\p))
-      (when (structure-accessor-p symbol) (flip #\a))
-      result)))
-
 (provide :swank-util)
