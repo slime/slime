@@ -3636,7 +3636,7 @@ more than one space."
 Perform completion similar to `elisp-completion-at-point'."
   (let* ((end (point))
          (beg (slime-symbol-start-pos)))
-    (list beg end (slime-simple-completions))))
+    (list beg end (completion-table-dynamic #'slime-simple-completions))))
 
 (defun slime-filename-completion ()
   "If point is at a string starting with \", complete it as filename.
