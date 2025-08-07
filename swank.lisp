@@ -2729,7 +2729,7 @@ boundp fboundp generic-function class macro special-operator package accessor"
       (when (find-class symbol nil)   (flip #\c) )
       (when (macro-function symbol)   (flip #\m))
       (when (special-operator-p symbol) (flip #\s))
-      (when (find-package symbol)       (flip #\p))
+      (when (ignore-errors (find-package symbol)) (flip #\p))
       (when (structure-accessor-p symbol) (flip #\a))
       result)))
 
