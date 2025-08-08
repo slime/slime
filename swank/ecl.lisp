@@ -39,7 +39,8 @@
     (require :serve-event)
     (pushnew :serve-event *features*)))
 
-(declaim (optimize (debug 3)))
+(declaim (ext:debug-ihs-frame)
+         (ext:debug-variable-bindings))
 
 ;;; Swank-mop
 
