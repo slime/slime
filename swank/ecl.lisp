@@ -26,12 +26,11 @@
               Sorry for the inconvenience.~%~%"
            (lisp-implementation-version))))
 
-;; Hard dependencies.
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (require 'sockets))
-
 ;; Soft dependencies.
 (eval-when (:compile-toplevel :load-toplevel :execute)
+  (when (probe-file "sys:sockets.fas")
+    (require 'sockets)
+    (pushnew :sockets *features*))
   (when (probe-file "sys:profile.fas")
     (require :profile)
     (pushnew :profile *features*))
@@ -72,6 +71,8 @@
 
 ;;;; TCP Server
 
+#+sockets
+(progn
 (defun resolve-hostname (name)
   (car (sb-bsd-sockets:host-ent-addresses
         (sb-bsd-sockets:get-host-by-name name))))
@@ -109,9 +110,9 @@
                                                   ((nil) :none)
                                                   (:line :line))
                                      :element-type (if external-format
-                                                       'character 
+                                                       'character
                                                        '(unsigned-byte 8))
-                                     :external-format external-format))
+                                     :external-format external-format)))
 
 ;;; Call FN whenever SOCKET is readable.
 ;;;
@@ -199,7 +200,7 @@
   (etypecase socket
     (fixnum socket)
     (two-way-stream (socket-fd (two-way-stream-input-stream socket)))
-    (sb-bsd-sockets:socket (sb-bsd-sockets:socket-file-descriptor socket))
+    #+sockets (sb-bsd-sockets:socket (sb-bsd-sockets:socket-file-descriptor socket))
     (file-stream (si:file-stream-fd socket))))
 
 ;;; Create a character stream for the file descriptor FD. This
