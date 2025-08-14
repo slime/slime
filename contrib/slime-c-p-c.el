@@ -70,7 +70,12 @@
    :company-docsig (lambda (x)
                      (let ((sym (get-text-property 0 'slime-symbol x)))
                        (when sym
-                         (slime-eval `(swank:describe-symbol ,sym)))))
+                         (slime-eval `(swank:operator-arglist ,sym ,(slime-current-package))))))
+   :company-doc-buffer (lambda (x)
+                         (let ((sym (get-text-property 0 'slime-symbol x)))
+                           (when sym
+                             (slime-eval-describe `(swank:describe-symbol ,sym) nil)
+                             (slime-buffer-name :description))))
    :annotation-function
    (lambda (x)
      (let ((kind (get-text-property 0 'slime-kind x)))
