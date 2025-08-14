@@ -39,21 +39,15 @@ function. See Fuzzy Completion in the manual for details.")
 The main result is a list of completion objects, where a completion
 object is:
 
-    (COMPLETED-STRING SCORE (&rest CHUNKS) CLASSIFICATION-STRING)
+    (COMPLETED-STRING CLASSIFICATION-STRING SYMBOL-NAME (&rest CHUNKS))
 
 where a CHUNK is a description of a matched substring:
 
     (OFFSET SUBSTRING)
 
-and FLAGS is short string describing properties of the symbol (see
-SYMBOL-CLASSIFICATION-STRING).
+and CLASSIFICATION-STRING is a short string describing properties of
+the symbol (see SYMBOL-CLASSIFICATION-STRING).
 
-E.g., completing \"mvb\" in a package that uses COMMON-LISP would
-return something like:
-
-    ((\"multiple-value-bind\" 26.588236 ((0 \"m\") (9 \"v\") (15 \"b\"))
-     (:FBOUNDP :MACRO))
-     ...)
 
 If STRING is package qualified the result list will also be
 qualified.  If string is non-qualified the result strings are
