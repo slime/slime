@@ -4543,8 +4543,11 @@ With prefix argument include internal symbols."
 (defun slime-info ()
   "Open Slime manual"
   (interactive)
-  (let ((file (expand-file-name "doc/slime.info" slime-path)))
-    (if (file-exists-p file)
+  (let ((file (seq-some (lambda (name)
+                          (let ((f (expand-file-name name slime-path)))
+                            (and (file-exists-p f) f)))
+                        '("doc/slime.info" "slime.info"))))
+    (if file
         (info file)
       (message "No slime.info, run `make slime.info' in %s"
                (expand-file-name "doc/" slime-path)))))
