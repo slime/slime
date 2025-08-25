@@ -29,7 +29,8 @@ Because my Emacs config automatically installs slime, I had to disable automatic
 installation in my Emacs config.
 
 
-slime are correct.
+I changed to this fragment that loads the fork.
+
 
 ```
 (if (file-exists-p "~/Programming/EmacsPlugins/slime/slime.el")
