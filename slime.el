@@ -1746,7 +1746,8 @@ Goes in reverse order, relative to `slime-next-connection'."
   (interactive)
   (slime-cycle-connections-within slime-net-processes))
 
-;;; I am not sure if this is needed, because slime selector also shows it
+;;; In my Emacs config I have the shortcut which may prove useful
+;; (global-set-key (kbd "C-z <f2>") 'slime-show-current-connection)
 (defun slime-show-current-connection ()
   "Show current slime connection."
   (interactive)
