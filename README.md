@@ -15,6 +15,20 @@ Lisp process for compilation, debugging, documentation lookup, and so on.
 For much more information, consult [the manual][1].
 
 
+Replacing MELPA version with this fork
+--------------------------------------
+Because my Emacs config automatically installs slime, I had to disable automatic
+installation in my Emacs config.
+
+Use the script as inspiration, but ensure your slime version and path to forked
+slime are correct.
+
+```
+cd ~/.emacs.d/elpa/
+rm -rv ./slime-20250817.2347
+ln -s ~/Programming/EmacsPlugins/slime ./slime-20250817.2347
+```
+
 Quick setup instructions
 ------------------------
 
@@ -46,7 +60,7 @@ Contact
 -------
 
 If you have problems, first have a look at the list of
-[known issues and workarounds][6]. 
+[known issues and workarounds][6].
 
 Questions and comments are best directed to the mailing list at
 `slime-devel@common-lisp.net`, but you have to [subscribe][3] first.
