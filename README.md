@@ -19,8 +19,8 @@ About this fork
 ---------------
 This is experiment with adding comments to slime connections.
 
-If you open slime and run M-x slime-selecctor
-and press C on one of connections you get the ability to add comment to a
+If you open slime and run M-x slime-selector
+and press C on one of connections you get the ability to add a comment to the
 connection, which may be useful when working with multiple REPLs.
 
 Replacing MELPA version with this fork
