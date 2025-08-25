@@ -1746,6 +1746,7 @@ Goes in reverse order, relative to `slime-next-connection'."
   (interactive)
   (slime-cycle-connections-within slime-net-processes))
 
+;;; I am not sure if this is needed, because slime selector also shows it
 (defun slime-show-current-connection ()
   "Show current slime connection."
   (interactive)
