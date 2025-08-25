@@ -1876,7 +1876,7 @@ This is automatically synchronized from Lisp.")
             (slime-communication-style) style
             (slime-lisp-features) features
             (slime-lisp-modules) modules
-            (slime-connection-comment) "") ; TODO no iswa what default comment would be
+            (slime-connection-comment) "") ; TODO no idea what default comment would be
       (cl-destructuring-bind (&key type name version program)
           lisp-implementation
         (setf (slime-lisp-implementation-type) type
