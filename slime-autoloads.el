@@ -50,6 +50,11 @@
 
 ;;; slime-autoloads.el ends here
 
+
+
+;;; Generated autoloads from slime-tests.el
+
+(register-definition-prefixes "slime-tests" '("arglist" "async-eval-debugging" "break" "comp" "def-slime-test" "dis" "end-of-file" "find-definition" "flow-control" "indentation" "inspector" "inter" "locally-bound-debugger-hook" "loop-interrupt-" "macroexpand" "narrowing" "read" "report-condition-with-circular-list" "sbcl-world-lock" "sexp-at-point." "symbol-at-point." "traditional-recipe" "unwind-to-previous-sldb-level" "utf-8-source"))
 
 ;;; Generated autoloads from slime.el
 
