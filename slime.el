@@ -1746,6 +1746,15 @@ Goes in reverse order, relative to `slime-next-connection'."
   (interactive)
   (slime-cycle-connections-within slime-net-processes))
 
+(defun slime-show-current-connection ()
+  "Show current slime connection."
+  (interactive)
+  (let ((c (slime-connection)))
+    (message "current Lisp: %s %s %s"
+             (slime-connection-name c)
+             (process-contact c)
+             (slime-connection-comment c))))
+
 (cl-defmacro slime-with-connection-buffer ((&optional process) &rest body)
   "Execute BODY in the process-buffer of PROCESS.
 If PROCESS is not specified, `slime-connection' is used.
