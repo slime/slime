@@ -1811,6 +1811,9 @@ This is automatically synchronized from Lisp.")
 (slime-def-connection-var slime-connection-name nil
   "The short name for connection.")
 
+(slime-def-connection-var slime-connection-notes nil
+  "The short notes for connection.")
+
 (slime-def-connection-var slime-inferior-process nil
   "The inferior process for the connection if any.")
 
@@ -1871,7 +1874,8 @@ This is automatically synchronized from Lisp.")
       (setf (slime-pid) pid
             (slime-communication-style) style
             (slime-lisp-features) features
-            (slime-lisp-modules) modules)
+            (slime-lisp-modules) modules
+            (slime-connection-notes) (read-from-minibuffer "enter notes for this connection: "))
       (cl-destructuring-bind (&key type name version program)
           lisp-implementation
         (setf (slime-lisp-implementation-type) type
@@ -6449,9 +6453,9 @@ was called originally."
 (defun slime-draw-connection-list ()
   (let ((default-pos nil)
         (default slime-default-connection)
-        (fstring "%s%2s  %-10s  %-17s  %-7s %-s\n"))
-    (insert (format fstring " " "Nr" "Name" "Port" "Pid" "Type")
-            (format fstring " " "--" "----" "----" "---" "----"))
+        (fstring "%s%2s  %-10s  %-17s  %-7s %-s %-s \n"))
+    (insert (format fstring " " "Nr" "Name" "Port" "Pid" "Type" "Notes")
+            (format fstring " " "--" "----" "----" "---" "----" "-----"))
     (setf slime-net-processes
           (cl-remove-if-not (lambda (conn)
                               (eq (process-status conn) 'open))
@@ -6466,7 +6470,8 @@ was called originally."
                (slime-connection-name p)
                (or (process-id p) (process-contact p))
                (slime-pid p)
-               (slime-lisp-implementation-type p))))
+               (slime-lisp-implementation-type p)
+               (slime-connection-notes p))))
     (when default-pos
       (goto-char default-pos))))
 
