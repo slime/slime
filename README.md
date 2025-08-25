@@ -28,13 +28,17 @@ Replacing MELPA version with this fork
 Because my Emacs config automatically installs slime, I had to disable automatic
 installation in my Emacs config.
 
-Use the script as inspiration, but ensure your slime version and path to forked
+
 slime are correct.
 
 ```
-cd ~/.emacs.d/elpa/
-rm -rv ./slime-20250817.2347
-ln -s ~/Programming/EmacsPlugins/slime ./slime-20250817.2347
+(if (file-exists-p "~/Programming/EmacsPlugins/slime/slime.el")
+    ;; use my fork
+    (use-package slime
+      :load-path "~/Programming/EmacsPlugins/slime")
+  ;; use the upstream version
+  (use-package slime
+    :ensure t))
 ```
 
 Quick setup instructions
