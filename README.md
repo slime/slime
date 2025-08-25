@@ -31,6 +31,9 @@ installation in my Emacs config.
 
 I changed to this fragment that loads the fork.
 
+I was inspired by:
+https://www.reddit.com/r/lisp/comments/1mzs90y/how_am_i_supposed_to_work_on_my_own_fork_of_slime/
+
 
 ```
 (if (file-exists-p "~/Programming/EmacsPlugins/slime/slime.el")
