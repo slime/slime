@@ -15,6 +15,14 @@ Lisp process for compilation, debugging, documentation lookup, and so on.
 For much more information, consult [the manual][1].
 
 
+About this fork
+---------------
+This is experiment with adding comments to slime connections.
+
+If you open slime and run M-x slime-selecctor
+and press C on one of connections you get the ability to add comment to a
+connection, which may be useful when working with multiple REPLs.
+
 Replacing MELPA version with this fork
 --------------------------------------
 Because my Emacs config automatically installs slime, I had to disable automatic
