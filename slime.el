@@ -3,8 +3,7 @@
 ;; URL: https://github.com/slime/slime
 ;; Package-Requires: ((emacs "24.3") (macrostep "0.9"))
 ;; Keywords: languages, lisp, slime
-;; Package-Version: 20250817.2347
-;; Package-Revision: fe2090079cf9
+;; Version: 2.31.git
 
 ;;;; License and Commentary
 
@@ -1728,9 +1727,10 @@ This doesn't mean it will connect right after Slime is loaded."
          (next (car tail)))
     (slime-select-connection next)
     (run-hooks 'slime-cycle-connections-hook)
-    (message "Lisp: %s %s"
+    (message "Lisp: %s %s %s"
              (slime-connection-name next)
-             (process-contact next))))
+             (process-contact next)
+             (slime-connection-comment))))
 
 (defun slime-next-connection ()
   "Change current slime connection, cycling through all connections."
@@ -1812,6 +1812,9 @@ This is automatically synchronized from Lisp.")
 (slime-def-connection-var slime-connection-name nil
   "The short name for connection.")
 
+(slime-def-connection-var slime-connection-comment nil
+  "The short comment for connection.")
+
 (slime-def-connection-var slime-inferior-process nil
   "The inferior process for the connection if any.")
 
@@ -1872,7 +1875,8 @@ This is automatically synchronized from Lisp.")
       (setf (slime-pid) pid
             (slime-communication-style) style
             (slime-lisp-features) features
-            (slime-lisp-modules) modules)
+            (slime-lisp-modules) modules
+            (slime-connection-comment) "") ; TODO no iswa what default comment would be
       (cl-destructuring-bind (&key type name version program)
           lisp-implementation
         (setf (slime-lisp-implementation-type) type
@@ -6400,7 +6404,8 @@ was called originally."
   ("d"         'slime-connection-list-make-default)
   ("g"         'slime-update-connection-list)
   ((kbd "C-k") 'slime-quit-connection-at-point)
-  ("R"         'slime-restart-connection-at-point))
+  ("R"         'slime-restart-connection-at-point)
+  ("C"         'slime-connection-update-comment-at-point))
 
 (defun slime-connection-at-point ()
   (or (get-text-property (point) 'slime-connection)
@@ -6418,10 +6423,20 @@ was called originally."
       (sit-for 0 100)))
   (slime-update-connection-list))
 
+(defun slime-connection-update-comment-at-point (connection)
+  "Update the connection comment"
+  (interactive (list (slime-connection-at-point)))
+  (let ((slime-dispatching-connection connection))
+    ;; update the connection comment
+    (setf
+     (slime-connection-comment) (read-from-minibuffer "enter comment for this connection: ")))
+  (slime-update-connection-list))
+
 (defun slime-restart-connection-at-point (connection)
   (interactive (list (slime-connection-at-point)))
   (let ((slime-dispatching-connection connection))
     (slime-restart-inferior-lisp)))
+
 
 (defun slime-connection-list-make-default ()
   "Make the connection at point the default connection."
@@ -6450,9 +6465,9 @@ was called originally."
 (defun slime-draw-connection-list ()
   (let ((default-pos nil)
         (default slime-default-connection)
-        (fstring "%s%2s  %-10s  %-17s  %-7s %-s\n"))
-    (insert (format fstring " " "Nr" "Name" "Port" "Pid" "Type")
-            (format fstring " " "--" "----" "----" "---" "----"))
+        (fstring "%s%2s  %-10s  %-17s  %-7s  %-s  %-s \n"))
+    (insert (format fstring " " "Nr" "Name" "Port" "Pid" "Type" "Comment")
+            (format fstring " " "--" "----" "----" "---" "----" "-------"))
     (setf slime-net-processes
           (cl-remove-if-not (lambda (conn)
                               (eq (process-status conn) 'open))
@@ -6467,7 +6482,8 @@ was called originally."
                (slime-connection-name p)
                (or (process-id p) (process-contact p))
                (slime-pid p)
-               (slime-lisp-implementation-type p))))
+               (slime-lisp-implementation-type p)
+               (slime-connection-comment p))))
     (when default-pos
       (goto-char default-pos))))
 
