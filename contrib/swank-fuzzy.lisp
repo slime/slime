@@ -151,7 +151,7 @@ special-operator, or a package."
             (if symbol-p
                 (symbol-classification-string symbol)
                 "-------p-")
-            (and symbol-p (write-to-string symbol :readably nil))
+            (and symbol-p (write-to-string symbol))
             (append package-chunks
                     (mapcar (lambda (chunk)
                               ;; Fix up chunk positions to account for possible
@@ -181,10 +181,11 @@ exhausted."
           (setf (fill-pointer matchings) limit)
           (setf matchings (make-array limit :displaced-to matchings))))
     (with-standard-io-syntax
-      (let ((*package* (find-package :keyword)))
-       (map-into matchings #'(lambda (m)
-                               (fuzzy-convert-matching-for-emacs m string))
-                 matchings)))
+      (let ((*package* (find-package :keyword))
+            (*print-readably* nil))
+        (map-into matchings (lambda (m)
+                              (fuzzy-convert-matching-for-emacs m string))
+                  matchings)))
     (values matchings interrupted-p)))
 
 
