@@ -126,7 +126,12 @@ Examples:
 
 (defvar slime-variable-binding-ops-alist
   '((let &bindings &body)
-    (let* &bindings &body)))
+    (let* &bindings &body)
+    (multiple-value-bind &bindings form &body)
+    (defun name &bindings &body)
+    ;; Doesn't really handle destructuring, but ok for two levels.
+    (defmacro name &bindings &body)
+    (destructuring-bind &bindings form &body)))
 
 (defvar slime-function-binding-ops-alist
   '((flet &bindings &body)
@@ -164,23 +169,31 @@ points where their bindings are established as second value."
 (defun slime-find-bound-names (ops indices points)
   (let ((binding-names) (binding-start-points))
     (save-excursion
-      (cl-loop for (op . nil) in ops
-               for index in indices
-               for point in points
-               do (when (and (slime-binding-op-p op)
-                             ;; Are the bindings of OP in scope?
-                             (>= index (slime-binding-op-body-pos op)))
-                    (goto-char point)
-                    (forward-sexp (slime-binding-op-bindings-pos op))
-                    (down-list)
-                    (ignore-errors
+     (cl-loop for (op . nil) in ops
+              for index in indices
+              for point in points
+              for binding-op = (slime-lookup-binding-op op)
+              do (when (and binding-op
+                            ;; Are the bindings of OP in scope?
+                            (>= index (slime-binding-op-body-pos op)))
+                   (goto-char point)
+                   (forward-sexp (slime-binding-op-bindings-pos op))
+                   (down-list)
+                   (let ((varp (assoc (car binding-op) slime-variable-binding-ops-alist)))
+                     (ignore-errors
                       (cl-loop
-                       (down-list)
-                       (push (slime-symbol-at-point) binding-names)
-                       (push (save-excursion (backward-up-list) (point))
-                             binding-start-points)
-                       (up-list)))))
-      (cl-values (nreverse binding-names) (nreverse binding-start-points)))))
+                       (let ((listp (if varp
+                                        (ignore-errors (down-list) t)
+                                        (progn (down-list) t))))
+                         (push (slime-symbol-at-point) binding-names)
+                         (push (if listp
+                                   (save-excursion (backward-up-list) (point))
+                                   (point))
+                               binding-start-points)
+                         (if listp
+                             (up-list)
+                             (forward-sexp))))))))
+     (cl-values (nreverse binding-names) (nreverse binding-start-points)))))
 
 
 (defun slime-enclosing-bound-functions ()
