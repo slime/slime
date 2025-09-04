@@ -27,24 +27,13 @@
   (:on-unload
    (while slime-c-p-c-init-undo-stack
      (eval (pop slime-c-p-c-init-undo-stack)))))
-
-(defun slime-maybe-complete-as-filename ()
-   "If point is at a string starting with \", complete it as filename.
- Return nil if point is not at filename."
-   (when (save-excursion (re-search-backward "\"[^ \t\n]+\\="
-                                            (max (point-min)
-                                                 (- (point) 1000)) t))
-     (let ((comint-completion-addsuffix '("/" . "\"")))
-      (comint-replace-by-expanded-filename)
-      t)))
 
 
 (defun slime-complete-symbol* ()
   "Expand abbreviations and complete the symbol at point."
   ;; NB: It is only the name part of the symbol that we actually want
   ;; to complete -- the package prefix, if given, is just context.
-  (if (slime-maybe-complete-as-filename)
-      nil
+  (or (slime-filename-completion)
       (slime-expand-abbreviations-and-complete)))
 
 (defun slime-c-p-c-completion-at-point ()
