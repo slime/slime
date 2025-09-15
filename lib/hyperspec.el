@@ -111,11 +111,12 @@ Visit http://www.lispworks.com/reference/HyperSpec/ for more information.
 If you copy the HyperSpec to another location, customize the variable
 `common-lisp-hyperspec-root' to point to that location."
   (interactive (list (common-lisp-hyperspec-read-symbol-name)))
-  (let ((name (common-lisp-hyperspec--strip-cl-package
-	       (downcase symbol-name))))
+  (let* ((name (common-lisp-hyperspec--strip-cl-package (downcase symbol-name)))
+	 (hyperspec-root-path (if (string-suffix-p "/" common-lisp-hyperspec-root)
+                                  common-lisp-hyperspec-root
+                                (concat common-lisp-hyperspec-root "/"))))
     (cl-maplist (lambda (entry)
-		  (browse-url (concat common-lisp-hyperspec-root "Body/"
-				      (car entry)))
+		  (browse-url (concat hyperspec-root-path "Body/" (car entry)))
 		  (when (cdr entry)
 		    (sleep-for 1.5)))
 		(or (common-lisp-hyperspec--find name)
