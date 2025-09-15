@@ -111,13 +111,20 @@ Visit http://www.lispworks.com/reference/HyperSpec/ for more information.
 If you copy the HyperSpec to another location, customize the variable
 `common-lisp-hyperspec-root' to point to that location."
   (interactive (list (common-lisp-hyperspec-read-symbol-name)))
-  (let ((name (common-lisp-hyperspec--strip-cl-package
-	       (downcase symbol-name)))
-        (hyperspec-root-path (let ((root (file-name-as-directory
-                                          (expand-file-name common-lisp-hyperspec-root))))
-                               (if (file-name-absolute-p root)
-                                   (concat "file://" root)
-                                 root))))
+  (let* ((name (common-lisp-hyperspec--strip-cl-package (downcase symbol-name)))
+         (hyperspec-root-path (cond
+                               ((string-match-p "\\`https?://" common-lisp-hyperspec-root)
+                                common-lisp-hyperspec-root)
+                               ((string-match-p "\\`file://" common-lisp-hyperspec-root)
+                                (let* ((path (substring common-lisp-hyperspec-root (length "file://"))))
+                                  (unless (file-exists-p path)
+                                    (error "Common Lisp HyperSpec root %s does not exist" path))
+                                  common-lisp-hyperspec-root))
+                               (t
+                                (let* ((path (expand-file-name common-lisp-hyperspec-root)))
+                                  (unless (file-exists-p path)
+                                    (error "Common Lisp HyperSpec root %s does not exist" path))
+                                  (format "file://%s" (file-name-as-directory path)))))))
     (cl-maplist (lambda (entry)
 		  (browse-url (concat hyperspec-root-path "Body/" (car entry)))
 		  (when (cdr entry)
