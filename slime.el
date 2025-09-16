@@ -3643,9 +3643,10 @@ more than one space."
                          (cl-remove-if-not #'fboundp slime-completion-at-point-functions)))
                    (run-hook-with-args-until-success
                     'slime-completion-at-point-functions))))))
-    (if (and slime-fuzzy-default-completion-ui
-             fun
-             (symbolp fun))
+    (if (and fun
+             (symbolp fun)
+             (or slime-fuzzy-default-completion-ui
+                 (not (eq fun 'slime-fuzzy-complete-symbol))))
         (funcall fun)
         fun)))
 
