@@ -43,5 +43,6 @@ symbol at point, or if QUERY is non-nil."
 (put 'define-vop 'common-lisp-indent-function
      'slime-indent-define-vop)
 (put 'if-vop-existsp 'common-lisp-indent-function '(4 2 2))
+(put 'combination-case 'common-lisp-indent-function '(4 &rest (&whole 2 &rest 1)))
 
 (provide 'slime-sbcl-exts)
