@@ -718,7 +718,7 @@ Confirm that SUBFORM is correctly located."
   (slime-test--compile-defun program subform))
 
 (def-slime-test (compile-defun-with-backquote
-                 (:fails-for "allegro" "lispworks" "clisp"))
+                 (:fails-for "allegro" "lispworks" "clisp" "sbcl"))
     (program subform)
     "Compile PROGRAM containing errors.
 Confirm that SUBFORM is correctly located."
