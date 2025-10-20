@@ -96,18 +96,9 @@ The source locations are stored in SOURCE-MAP."
 	       (multiple-value-bind (fun nt) (get-macro-character char rt)
 		 (when fun
 		   (let ((wrapper (make-source-recorder fun source-map)))
-		     (set-macro-character char wrapper nt rt)))))))
-	 (install-special-backquote-readers (rt)
-	   (set-macro-character #\` (lambda (s c) (list 'backq (read s t nil t))) t rt)
-	   (set-macro-character #\, (lambda (s c) (let ((n (read-char s)))
-						    (case n
-						      ((#\. #\@))
-						      (t (unread-char n s)))
-						    (list 'comma (read s t nil t))))
-				t rt)))
+		     (set-macro-character char wrapper nt rt))))))))
     (let ((rt (copy-readtable readtable)))
       (install-special-sharpdot-reader rt)
-      #+sbcl (install-special-backquote-readers rt)
       (install-wrappers rt)
       rt)))
 
