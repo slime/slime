@@ -112,6 +112,29 @@ Also don't error if `ert.el' is missing."
         `(ert-deftest ,name () ,(or docstring "No docstring for this test.")
            :tags ',tags
            ,@args))))
+  
+  (defun split-version-string (string)
+    (cl-loop for part in (split-string string "\\.")
+             while (string-match-p "^[[:digit:]]+$" part)
+             collect (string-to-number part)))
+
+  (defun version>= (x y)
+    (if (or x y)
+        (let ((head-x (or (car x) 0))
+              (head-y (or (car y) 0)))
+          (or (> head-x head-y)
+              (and (= head-x head-y)
+                   (version>= (cdr x) (cdr y)))))
+        t))
+  
+  (defun fails-for-p (fails)
+    (cl-loop for fail in fails
+             for version = (string-match-p "-" fail)
+             for name = (substring fail 0 version)
+             thereis (and (equal (slime-lisp-implementation-name) name)
+                          (or (not version)
+                              (version>= (split-version-string (substring fail (1+ version)))
+                                         (split-version-string (slime-lisp-implementation-version)))))))
 
   (defun slime-test-ert-test-for (name input i doc _body fails-for style fname)
     `(define-slime-ert-test
@@ -128,11 +151,9 @@ Also don't error if `ert.el' is missing."
                                   (lambda (result)
                                     (ert-test-result-type-p
                                      result
-                                     (if (member
-                                          (slime-lisp-implementation-name)
-                                          ',fails-for)
+                                     (if (fails-for-p ',fails-for)
                                          :failed
-                                       :passed))))))
+                                         :passed))))))
 
        ,@(when style
            `((let ((style (slime-communication-style)))
