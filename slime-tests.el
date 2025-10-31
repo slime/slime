@@ -738,10 +738,8 @@ Confirm that SUBFORM is correctly located."
        (/ 1 0)))
   (slime-test--compile-defun program subform))
 
-;; SBCL used to pass this one but since they changed the
-;; backquote/unquote reader it fails.
 (def-slime-test (compile-defun-with-backquote
-                 (:fails-for "allegro" "lispworks" "clisp" "sbcl"))
+                 (:fails-for "allegro" "lispworks" "clisp" "sbcl-2.5.10"))
     (program subform)
     "Compile PROGRAM containing errors.
 Confirm that SUBFORM is correctly located."
