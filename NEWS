@@ -1,4 +1,10 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
+* 2.32 (unreleased)
+** M-. for local variables bind by defun, multiple-value-bind
+** Completion uses the default emacs interface. Allowing company mode to work.
+   (slime-fuzzy needs (setq slime-fuzzy-default-completion-ui t)
+** CL implementations compatibility improvements.
+
 * 2.31 (December 2024)
 ** The REPL now runs on the main thread.
 ** inferior-lisp output is shown in the REPL.
@@ -19,7 +25,7 @@
 *** Fix missing source position from string buffer location
 ** CLASP
 *** Add interface to debug stepper
-*** Update xref implmentation
+*** Update xref implementation
 *** Close temp file before compile-file
 *** Fix detection of serve-event module
 ** Boring bug fixes
@@ -70,21 +76,21 @@ Numerous additions, including
 *** Minor improvements.
 
 * 2.23 (December 2018)
-*** Improved compatiblity with different versions of Emacs, SBCL, Clasp, Allegro.
+*** Improved compatibility with different versions of Emacs, SBCL, Clasp, Allegro.
 *** Bug fixes
 
 * 2.22 (July 2018)
-*** Improved compatiblity with Emacs 26
+*** Improved compatibility with Emacs 26
 
 * 2.21 (June 2018)
-*** Improved compatiblity with Emacs 26
+*** Improved compatibility with Emacs 26
 *** Mezzano support
 
 * 2.20 (August 2017)
 ** Core
 *** More secure handling of ~/.slime-secret
 ** SBCL backend
-*** Compatiblity with the latest SBCL and older SBCL.
+*** Compatibility with the latest SBCL and older SBCL.
 ** ECL backend
 *** Numerous enhancements
 
@@ -95,7 +101,7 @@ Swank will bind the PORT on this interface. By default, interface is 127.0.0.1.
 This argument can be used, for example, to bind swank on IPv6 interface "::1".
 ** SBCL backend
 *** Now swank can be bound to IPv6 interface and can work on IPv6-only machines.
-*** Compatiblity with the latest SBCL
+*** Compatibility with the latest SBCL
 
 * 2.18 (May 2016)
 *** Mostly bug fixes and compatibility with newer implementations
