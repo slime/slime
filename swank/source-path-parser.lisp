@@ -86,7 +86,7 @@ before and after of calling FN in the hashtable SOURCE-MAP."
 The source locations are stored in SOURCE-MAP."
   (flet ((install-special-sharpdot-reader (rt)
 	   (let ((fun (ignore-errors
-			(get-dispatch-macro-character #\# #\. rt))))
+		       (get-dispatch-macro-character #\# #\. rt))))
 	     (when fun
 	       (let ((wrapper (make-sharpdot-reader fun)))
 		 (set-dispatch-macro-character #\# #\. wrapper rt)))))
@@ -99,6 +99,7 @@ The source locations are stored in SOURCE-MAP."
 		     (set-macro-character char wrapper nt rt))))))))
     (let ((rt (copy-readtable readtable)))
       (install-special-sharpdot-reader rt)
+      (swank/backend:install-special-backquote-readers rt)
       (install-wrappers rt)
       rt)))
 

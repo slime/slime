@@ -1642,3 +1642,7 @@ Implementations intercept calls to SPEC and call, in this order:
   "Handle interrupts"
   (declare (ignore interrupt-handler))
   (funcall function))
+
+(definterface install-special-backquote-readers (rt)
+  "install-special-backquote-readers"
+  (declare (ignore rt)))

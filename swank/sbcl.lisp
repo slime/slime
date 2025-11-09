@@ -50,7 +50,13 @@
      (let ((sym (find-symbol "META-INFO" "SB-C")))
        (and sym
             (fboundp sym)
-            (funcall sym :setf :inverse ()))))))
+            (funcall sym :setf :inverse ())))))
+
+  (defun sbcl-version>= (&rest subversions)
+    #+#.(swank/backend:with-symbol 'assert-version->= 'sb-ext)
+    (values (ignore-errors (apply #'sb-ext:assert-version->= subversions) t))
+    #-#.(swank/backend:with-symbol 'assert-version->= 'sb-ext)
+    nil))
 
 ;;; swank-mop
 
@@ -1976,12 +1982,6 @@ stack."
 
 ;;;; wrap interface implementation
 
-(defun sbcl-version>= (&rest subversions)
-  #+#.(swank/backend:with-symbol 'assert-version->= 'sb-ext)
-  (values (ignore-errors (apply #'sb-ext:assert-version->= subversions) t))
-  #-#.(swank/backend:with-symbol 'assert-version->= 'sb-ext)
-  nil)
-
 (defimplementation wrap (spec indicator &key before after replace)
   (when (wrapped-p spec indicator)
     (warn "~a already wrapped with indicator ~a, unwrapping first"
@@ -2042,3 +2042,17 @@ stack."
 (defimplementation call-with-interrupt-handler (interrupt-handler function)
   (let ((sb-thread:*interrupt-handler* interrupt-handler))
     (funcall function)))
+
+#+#.(swank/backend:boolean-to-feature-expression (swank/sbcl::sbcl-version>= 2 5 10 1))
+(defimplementation install-special-backquote-readers (rt)
+  (set-macro-character #\` (lambda (s c)
+                             (declare (ignore c))
+                             (list 'backq (read s t nil t))) t rt)
+  (set-macro-character #\, (lambda (s c)
+                             (declare (ignore c))
+                             (let ((n (read-char s)))
+			       (case n
+				 ((#\. #\@))
+				 (t (unread-char n s)))
+			       (list 'comma (read s t nil t))))
+		       t rt))
