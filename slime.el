@@ -1381,8 +1381,10 @@ The default condition handler for timer functions (see
              (slime-user-first-name)))
   "Scientifically-proven optimal words of hackerish encouragement.")
 
-(defvar slime-show-words-of-encouragement-p t
-  "Should words of encouragement be shown on connection?")
+(defcustom slime-show-words-of-encouragement t
+  "If non-NIL, words of encouragement are shown on connection."
+  :type '(boolean)
+  :group 'slime-lisp)
 
 (defun slime-random-words-of-encouragement ()
   "Return a string of hackerish encouragement."
@@ -1901,7 +1903,7 @@ This is automatically synchronized from Lisp.")
           (setq slime-inferior-lisp-connected connection)))
       (let ((fun (plist-get args ':init-function)))
         (when fun (funcall fun))))
-    (message "Connected. %s" (if slime-show-words-of-encouragement-p
+    (message "Connected. %s" (if slime-show-words-of-encouragement
                                  (slime-random-words-of-encouragement)
                                ""))))
 
