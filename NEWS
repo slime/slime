@@ -1,5 +1,5 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
-* 2.32 (unreleased)
+* 2.32 (December 2025)
 ** M-. for local variables bind by defun, multiple-value-bind
 ** Completion uses the default emacs interface. Allowing company mode to work.
    (slime-fuzzy needs (setq slime-fuzzy-default-completion-ui t)
