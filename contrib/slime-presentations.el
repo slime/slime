@@ -324,8 +324,8 @@ string or buffer `object'."
   "Check all presentations within and adjacent to the change.
 When a presentation has been altered, change it to plain text."
   (let ((inhibit-modification-hooks t))
-    (let ((real-start (max 1 (1- start)))
-          (real-end   (min (1+ (buffer-size)) (1+ end)))
+    (let ((real-start (max (point-min) (1- start)))
+          (real-end   (min (point-max) (1+ end)))
           (any-change nil))
       ;; positions around the change
       (slime-for-each-presentation-in-region
