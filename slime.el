@@ -1494,9 +1494,11 @@ EVAL'd by Lisp."
                    (concat (slime-prin1-to-string sexp) "\n")
                    'utf-8-unix))
          (string (concat (slime-net-encode-length (length payload))
-                         payload)))
+                         payload))
+         (sender (or (process-get proc 'slime-net-send-function)
+                     #'process-send-string)))
     (slime-log-event sexp)
-    (process-send-string proc string)))
+    (funcall sender proc string)))
 
 (defun slime-safe-encoding-p (coding-system string)
   "Return true iff CODING-SYSTEM can safely encode STRING."
@@ -1980,7 +1982,7 @@ Return nil if there's no process object for the connection."
   (let ((c (or connection (slime-connection))))
     (cl-ecase (slime-communication-style c)
       ((:fd-handler nil) t)
-      ((:spawn :sigio) nil))))
+      ((:spawn :sigio :async) nil))))
 
 (defvar slime-inhibit-pipelining t
   "*If true, don't send background requests if Lisp is already busy.")

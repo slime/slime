@@ -165,7 +165,7 @@ Backend code should treat the connection structure as opaque.")
   ;; The list of packages represented in the cache:
   (indentation-cache-packages '())
   ;; The communication style used.
-  (communication-style nil :type (member nil :spawn :sigio :fd-handler))
+  (communication-style nil :type (member nil :async :spawn :sigio :fd-handler))
   )
 
 (defun print-connection (conn stream depth)
@@ -207,11 +207,16 @@ Backend code should treat the connection structure as opaque.")
   (active-threads '() :type list)
   )
 
+(defstruct (asynchronous-connection (:include singlethreaded-connection)
+                                    (:conc-name aconn.)))
+
 (defvar *emacs-connection* nil
   "The connection to Emacs currently in use.")
 
 (defun make-connection (socket stream style)
   (let ((conn (funcall (ecase style
+                         (:async
+                          #'make-asynchronous-connection)
                          (:spawn 
                           #'make-multithreaded-connection)
                          ((:sigio nil :fd-handler)
@@ -693,12 +698,15 @@ e.g.: (restart-loop (http-request url) (use-value (new) (setq url new)))"
              (note () (add-server socket port (current-thread)))
              (serve-loop () (note) (loop do (serve) while dont-close)))
       (ecase style
-        (:spawn (initialize-multiprocessing
-                 (lambda ()
-                   (if (or dont-close
-                           *main-thread-used*)
-                       (spawn #'serve-loop :name (format nil "Swank ~s" port))
-                       (serve-loop)))))
+        (:async
+         (error "SETUP-SERVER can't run with a ~s connection." style))
+        (:spawn
+         (initialize-multiprocessing
+          (lambda ()
+            (if (or dont-close
+                    *main-thread-used*)
+                (spawn #'serve-loop :name (format nil "Swank ~s" port))
+                (serve-loop)))))
         ((:fd-handler :sigio)
          (note)
          (add-fd-handler socket #'serve))
@@ -767,6 +775,8 @@ if the file doesn't exist; otherwise the first line of the file."
 (defun serve-requests (connection)
   "Read and process all requests on connections."
   (etypecase connection
+    (asynchronous-connection
+     (error "SERVE-REQUSTS not implemented for :ASYNC connection."))
     (multithreaded-connection
      (spawn-threads-for-connection connection))
     (singlethreaded-connection
@@ -777,6 +787,9 @@ if the file doesn't exist; otherwise the first line of the file."
 
 (defun stop-serving-requests (connection)
   (etypecase connection
+    (asynchronous-connection
+     ;; The act of closing the stream terminates the :ASYNC connection.
+     t)
     (multithreaded-connection
      (cleanup-connection-threads connection))
     (singlethreaded-connection
@@ -1073,8 +1086,31 @@ event was found."
       (etypecase c
         (multithreaded-connection
          (receive-if (lambda (e) (event-match-p e pattern)) timeout))
+        (asynchronous-connection
+         (wait-for-event/async-read c pattern timeout))
         (singlethreaded-connection
          (wait-for-event/event-loop c pattern timeout))))))
+
+;;; This function is similar to WAIT-FOR-EVENT/EVENT-LOOP, but instead of
+;;; WAIT-FOR-INPUT it works with GRAY streams (STREAM-LISTEN et al).
+(defun wait-for-event/async-read (connection pattern timeout)
+  (assert (or (not timeout) (eq timeout t)))
+  (loop
+    (check-slime-interrupts)
+    (let ((event (poll-for-event connection pattern)))
+      (when event (return (car event))))
+    (let ((events-enqueued (aconn.events-enqueued connection)))
+      (cond
+        ;; New events pushed or executed an interrupt. Loop over.
+        ((or (/= events-enqueued (aconn.events-enqueued connection))
+             (check-slime-interrupts))
+         nil)
+        ;; No input available and we are not about to be waiting.
+        ((and timeout (not (listen (current-socket-io))))
+         (return (values nil t)))
+        ;; Process the next message as soon as it is available.
+        ((dispatch-event connection
+                         (decode-message (current-socket-io))))))))
 
 (defun wait-for-event/event-loop (connection pattern timeout)
   (assert (or (not timeout) (eq timeout t)))

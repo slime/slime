@@ -29,13 +29,22 @@
       stream-line-column
       stream-read-char-no-hang
 
+      fundamental-binary-output-stream
+      stream-write-byte
+      stream-write-sequence
+
+      fundamental-binary-input-stream
+      stream-read-byte
+      stream-read-sequence
+
       #+sbcl stream-file-position))
     nil)
 
 (defpackage swank/gray
   (:use cl swank/backend)
   (:import-from #.(gray-package-name) . #.*gray-stream-symbols*)
-  (:export . #.*gray-stream-symbols*))
+  (:shadowing-import-from #.(gray-package-name) "CLOSE")
+  (:export "CLOSE" . #.*gray-stream-symbols*))
 
 (in-package swank/gray)
 
