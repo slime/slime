@@ -2437,6 +2437,9 @@ Debugged requests are ignored."
 (defvar slime-log-events t
   "*Log protocol events to the *slime-events* buffer.")
 
+(defvar slime-lisp-mode-in-events-buffer nil
+  "*Non-nil means use lisp-mode in *slime-events*.")
+
 (defvar slime-outline-mode-in-events-buffer nil
   "*Non-nil means use outline-mode in *slime-events*.")
 
@@ -2476,6 +2479,8 @@ Debugged requests are ignored."
           (set (make-local-variable 'outline-regexp) "^(")
           (set (make-local-variable 'comment-start) ";")
           (set (make-local-variable 'comment-end) "")
+          (when slime-lisp-mode-in-events-buffer
+            (lisp-mode))
           (when slime-outline-mode-in-events-buffer
             (outline-minor-mode)))
         buffer)))
