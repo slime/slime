@@ -2311,7 +2311,7 @@ Debugged requests are ignored."
              (slime-check-rpc-allowed fn)
              (apply fn args)))
           ((:ed-rpc thread tag fn-name &rest args)
-           (slime-rpc-from-lisp thread tag (intern-soft fn-name) args))
+           (slime-rpc-from-lisp thread tag (intern-soft fn-name) fn-name args))
           ((:emacs-return thread tag value)
            (slime-send `(:emacs-return ,thread ,tag ,value)))
           ((:ed what)
@@ -3972,10 +3972,18 @@ The result is a (possibly empty) list of definitions."
     (error "Lisp tried to RPC `%s', but it wasn't defined via `defslimefun'."
            fn)))
 
-(defun slime-rpc-from-lisp (thread tag fn args)
-  (if (not (slime-rpc-allowed-p fn))
-      (slime-dispatch-event '(:ed-rpc-forbidden ,thread ,tag ,fn))
-    (apply #'slime--funcall-and-dispatch-result thread tag fn args)))
+(defun slime-rpc-from-lisp (thread tag fnsymbol fnname args)
+  "Calls the function in fnsymbol and returns the result to Lisp.
+
+   If the symbol isn't found or is not allowed to be called we report that
+   it's forbidden.  The not-found == forbidden case is to avoid leaking
+   information to a hostile Lisp."
+  (if (or (null fnsymbol)
+          (not (slime-rpc-allowed-p fnsymbol)))
+      (slime-dispatch-event `(:emacs-return
+                              ,thread ,tag
+                              (:ed-rpc-forbidden ,(upcase fnname))))
+    (apply #'slime--funcall-and-dispatch-result thread tag fnsymbol args)))
 
 
 ;;;; `ED'
