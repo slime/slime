@@ -869,7 +869,8 @@ QUALITIES is an alist with (quality . value)"
   (with-definition-source (pathname form-path character-offset plist
                            file-write-date) definition-source
     (let* ((namestring (namestring (translate-logical-pathname pathname)))
-           (pos (or (and form-path
+           (pos (or character-offset
+                    (and form-path
                          (or
                           #+#.(swank/backend:with-symbol 'definition-source-form-number 'sb-introspect)
                           (and (sb-introspect:definition-source-form-number definition-source)
@@ -877,7 +878,6 @@ QUALITIES is an alist with (quality . value)"
                           (ignore-errors
                            (source-file-position namestring file-write-date
                                                  form-path))))
-                    character-offset
                     0))
            (snippet (source-hint-snippet namestring file-write-date pos)))
       (make-location `(:file ,namestring)
