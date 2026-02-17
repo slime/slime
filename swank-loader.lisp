@@ -387,7 +387,7 @@ global variabes in SWANK."
   package definition is subsequently reevaluated. See the section on
   [package variance](http://www.sbcl.org/manual/#Package-Variance) in
   the SBCL manual."
-  `(eval-when (:compile-toplevel :load-toplevel, :execute)
+  `(eval-when (:compile-toplevel :load-toplevel :execute)
      (locally
          (declare #+sbcl
                   (sb-ext:muffle-conditions sb-kernel::package-at-variance))
