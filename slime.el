@@ -4124,6 +4124,11 @@ inserted in the current buffer."
   (interactive)
   (slime-interactive-eval (slime-last-expression)))
 
+(defun slime-inspect-last-expression ()
+  "Inspect the result of evaluating the expression preceding point."
+  (interactive)
+  (slime-inspect (slime-last-expression)))
+
 (defun slime-eval-defun ()
   "Evaluate the current toplevel form.
 Use `slime-re-evaluate-defvar' if the from starts with '(defvar'"
