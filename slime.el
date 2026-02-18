@@ -2487,7 +2487,7 @@ Debugged requests are ignored."
   "Kill and restart the Lisp subprocess."
   (interactive)
   (cl-assert (slime-inferior-process) () "No inferior lisp process")
-  (slime-quit-lisp-internal (slime-connection) 'slime-restart-sentinel t))
+  (%slime-quit-inferior-lisp (slime-connection) 'slime-restart-sentinel t))
 
 (defun slime-restart-sentinel (process _message)
   "Restart the inferior lisp process.
@@ -5173,12 +5173,12 @@ argument is given, with CL:MACROEXPAND."
 (defun slime-quit ()
   (error "Not implemented properly.  Use `slime-interrupt' instead."))
 
-(defun slime-quit-lisp (&optional kill)
+(defun slime-quit-inferior-lisp (&optional kill)
   "Quit lisp, kill the inferior process and associated buffers."
   (interactive "P")
-  (slime-quit-lisp-internal (slime-connection) 'slime-quit-sentinel kill))
+  (%slime-quit-inferior-lisp (slime-connection) 'slime-quit-sentinel kill))
 
-(defun slime-quit-lisp-internal (connection sentinel kill)
+(defun %slime-quit-inferior-lisp (connection sentinel kill)
   (let ((slime-dispatching-connection connection))
     (slime-eval-async '(swank:quit-lisp))
     (let* ((process (slime-inferior-process connection)))
@@ -6405,37 +6405,48 @@ was called originally."
     (set (make-local-variable 'truncate-lines) t)))
 
 (slime-define-keys slime-connection-list-mode-map
-  ("d"         'slime-connection-list-make-default)
-  ("g"         'slime-update-connection-list)
-  ((kbd "C-k") 'slime-quit-connection-at-point)
-  ("R"         'slime-restart-connection-at-point))
+  ("d"    'slime-connection-list/make-default)
+  ("g"    'slime-connection-list/update)
+  ("D"    'slime-connection-list/disconnect)
+  ("\C-k" 'slime-connection-list/quit-inferior-lisp)
+  ("\C-r" 'slime-connection-list/restart-inferior-lisp))
 
 (defun slime-connection-at-point ()
   (or (get-text-property (point) 'slime-connection)
       (user-error "No connection at point")))
 
-(defun slime-quit-connection-at-point (connection)
+(defun slime-connection-list/disconnect (connection)
   (interactive (list (slime-connection-at-point)))
+  (slime-net-close connection)
+  (slime-connection-list/update))
+
+(defun slime-connection-list/quit-inferior-lisp (connection)
+  (interactive (list (slime-connection-at-point)))
+  ;; NOTE: maybe we should ask:
+  ;; (y-or-n-p "Are you sure you want to quit the inferior lisp process?")
+  ;; but it was decided not to here: https://github.com/slime/slime/pull/107
   (let ((slime-dispatching-connection connection)
         (end (time-add (current-time) (seconds-to-time 3))))
-    (slime-quit-lisp t)
+    (slime-quit-inferior-lisp t)
     (while (memq connection slime-net-processes)
       (when (time-less-p end (current-time))
         (message "Quit timeout expired.  Disconnecting.")
         (delete-process connection))
       (sit-for 0 100)))
-  (slime-update-connection-list))
+  (slime-connection-list/update))
 
-(defun slime-restart-connection-at-point (connection)
+(defun slime-connection-list/restart-inferior-lisp (connection)
   (interactive (list (slime-connection-at-point)))
+  ;; See above:
+  ;; (y-or-n-p "Are you sure you want to restart the inferior lisp process?")
   (let ((slime-dispatching-connection connection))
     (slime-restart-inferior-lisp)))
 
-(defun slime-connection-list-make-default ()
+(defun slime-connection-list/make-default ()
   "Make the connection at point the default connection."
   (interactive)
   (slime-select-connection (slime-connection-at-point))
-  (slime-update-connection-list))
+  (slime-connection-list/update))
 
 (defvar slime-connections-buffer-name (slime-buffer-name :connections))
 
@@ -6446,7 +6457,7 @@ was called originally."
                             :mode 'slime-connection-list-mode)
     (slime-draw-connection-list)))
 
-(defun slime-update-connection-list ()
+(defun slime-connection-list/update ()
   "Display a list of all connections."
   (interactive)
   (let ((pos (point))
