@@ -68,7 +68,9 @@ designator's format. The cases are as follows:
                               (zerop time-limit-in-msec)))
          (time-limit (if no-time-limit-p nil time-limit-in-msec)))
     (multiple-value-bind (completion-set interrupted-p)
-        (fuzzy-completion-set string default-package-name :limit limit
+        ;; Deep down there's a type SIMPLE-STRING required...
+        (fuzzy-completion-set (coerce string 'simple-string)
+                              default-package-name :limit limit
                               :time-limit-in-msec time-limit)
       ;; We may send this as elisp [] arrays to spare a coerce here,
       ;; but then the network serialization were slower by handling arrays.
