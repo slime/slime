@@ -46,10 +46,11 @@ Otherwise NIL is returned."
 
 (defun valid-operator-symbol-p (symbol)
   "Is SYMBOL the name of a function, a macro, or a special-operator?"
-  (or (fboundp symbol)
-      (macro-function symbol)
-      (special-operator-p symbol)
-      (member symbol '(declare declaim))))
+  (and (symbolp symbol)
+       (or (fboundp symbol)
+           (macro-function symbol)
+           (special-operator-p symbol)
+           (member symbol '(declare declaim)))))
 
 (defun function-exists-p (form)
   (and (valid-function-name-p form)
@@ -998,7 +999,7 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 (defgeneric arglist-dispatch (operator arguments)
   ;; Default method
   (:method (operator arguments)
-    (unless (and (symbolp operator) (valid-operator-symbol-p operator))
+    (unless (valid-operator-symbol-p operator)
       (return-from arglist-dispatch :not-available))
     (when (equalp (package-name (symbol-package operator)) "closer-mop")
       (let ((standard-symbol (or (find-symbol (symbol-name operator) :cl)
@@ -1257,7 +1258,7 @@ to the context provided by RAW-FORM."
        (yield-failure ()
          (values nil :not-available))
        (operator-p (operator local-ops)
-         (or (and (symbolp operator) (valid-operator-symbol-p operator))
+         (or (valid-operator-symbol-p operator)
              (assoc operator local-ops :test #'op=)))
        (op= (op1 op2)
          (cond ((and (symbolp op1) (symbolp op2))
