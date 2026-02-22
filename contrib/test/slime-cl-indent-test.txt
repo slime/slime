@@ -1004,3 +1004,30 @@
  (list foo
        bar
        baz))
+
+;;; Test: indent-96
+
+`("foo"
+  "bar")
+
+;;; Test: indent-97
+
+`("foo" "baz" "quux"
+  "bar" "frob")
+
+;;; Test: indent-98
+
+`("foo" ()
+  "bar" "baz" "quux")
+
+;;; Test: indent-99
+
+`(    "foo" ()
+  "bar" "baz" "quux")
+
+;;; Test: indent-100
+
+`("foo" ()
+  ("bar" ())
+  ("baz" () "fred")
+  ("quux" ()))

@@ -903,7 +903,12 @@ For example, the function `case' has an indent property
 
             (cond ((and (or (eq (char-after (1- containing-sexp)) ?\')
                             (and (not lisp-backquote-indentation)
-                                 (eq (char-after (1- containing-sexp)) ?\`)))
+                                 (eq (char-after (1- containing-sexp)) ?\`))
+                            ;; `("foo" ...) is not valid Lisp, indent it as data.
+                            (save-excursion
+                              (goto-char containing-sexp)
+                              (backward-char)
+                              (looking-at "`\\s-*\(\\s-*\\\"")))
                         (not (eq (char-after (- containing-sexp 2)) ?\#)))
                    ;; No indentation for "'(...)" elements
                    (setq calculated (1+ sexp-column)))
