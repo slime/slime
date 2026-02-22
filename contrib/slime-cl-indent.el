@@ -907,8 +907,9 @@ For example, the function `case' has an indent property
                             ;; `("foo" ...) is not valid Lisp, indent it as data.
                             (save-excursion
                               (goto-char containing-sexp)
-                              (backward-char)
-                              (looking-at "`\\s-*\(\\s-*\\\"")))
+                              (unless (= (point) (point-min))
+                                (backward-char)
+                                (looking-at "`\\s-*\(\\s-*\\\""))))
                         (not (eq (char-after (- containing-sexp 2)) ?\#)))
                    ;; No indentation for "'(...)" elements
                    (setq calculated (1+ sexp-column)))
