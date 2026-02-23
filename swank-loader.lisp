@@ -67,7 +67,7 @@
   '(:powerpc :ppc :ppc64 :x86 :x86-64 :x86_64 :amd64 :i686 :i586 :i486 :pc386 :iapx386
     :sparc64 :sparc :hppa64 :hppa :arm :armv5l :armv6l :armv7l :arm64 :aarch64
     :pentium3 :pentium4
-    :mips :mipsel :loongarch64
+    :mips :mipsel :loongarch64 :riscv
     :java-1.4 :java-1.5 :java-1.6 :java-1.7))
 
 (defun q (s) (read-from-string s))
