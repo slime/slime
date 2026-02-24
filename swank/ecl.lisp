@@ -203,6 +203,14 @@
     #+sockets (sb-bsd-sockets:socket (sb-bsd-sockets:socket-file-descriptor socket))
     (file-stream (si:file-stream-fd socket))))
 
+(defun socket-fd* (socket)
+  (typecase socket
+    (fixnum socket)
+    (two-way-stream (socket-fd* (two-way-stream-input-stream socket)))
+    #+sockets (sb-bsd-sockets:socket (sb-bsd-sockets:socket-file-descriptor socket))
+    (file-stream (si:file-stream-fd socket))
+    (otherwise nil)))
+
 ;;; Create a character stream for the file descriptor FD. This
 ;;; interface implementation requires either `ffi:c-inline' or has to
 ;;; wait for the exported interface.
@@ -1009,38 +1017,48 @@
 ;;; Instead of busy waiting with communication-style NIL, use select()
 ;;; on the sockets' streams.
 #+serve-event
-(defimplementation wait-for-input (streams &optional timeout)
-  (assert (member timeout '(nil t)))
-  (flet ((poll-streams (streams timeout)
-           (let* ((serve-event::*descriptor-handlers*
-                   (copy-list serve-event::*descriptor-handlers*))
-                  (active-fds '())
-                  (fd-stream-alist
-                   (loop for s in streams
-                      for fd = (socket-fd s)
-                      collect (cons fd s)
-                      do (serve-event:add-fd-handler fd :input
-                                                     #'(lambda (fd)
-                                                         (push fd active-fds))))))
-             (serve-event:serve-event timeout)
-             (loop for fd in active-fds collect (cdr (assoc fd fd-stream-alist))))))
-    (loop
-       (cond ((check-slime-interrupts) (return :interrupt))
-             (timeout (return (poll-streams streams 0)))
-             (t
-              (when-let (ready (poll-streams streams 0.2))
-                (return ready)))))))
+(defun poll-streams (streams timeout)
+  (let* ((serve-event::*descriptor-handlers*
+           (copy-list serve-event::*descriptor-handlers*))
+         (active-fds '())
+         (fd-stream-alist
+           (loop for s in streams
+                 for fd = (socket-fd s)
+                 collect (cons fd s)
+                 do (serve-event:add-fd-handler fd :input
+                                                #'(lambda (fd)
+                                                    (push fd active-fds))))))
+    (serve-event:serve-event timeout)
+    (loop for fd in active-fds collect (cdr (assoc fd fd-stream-alist)))))
+
+#+serve-event
+(defun poll-streams/no-fds (streams timeout)
+  (when-let (ready (remove-if-not #'listen streams))
+    (return-from poll-streams/no-fds ready))
+  (sleep timeout)
+  (remove-if-not #'listen streams))
 
 #-serve-event
+(defun poll-streams (streams timeout)
+  (when-let (ready (remove-if-not #'listen streams))
+    (return-from poll-streams ready))
+  (sleep timeout)
+  (remove-if-not #'listen streams))
+
 (defimplementation wait-for-input (streams &optional timeout)
   (assert (member timeout '(nil t)))
   (loop
-   (cond ((check-slime-interrupts) (return :interrupt))
-         (timeout (return (remove-if-not #'listen streams)))
-         (t
-          (let ((ready (remove-if-not #'listen streams)))
-            (if ready (return ready))
-            (sleep 0.1))))))
+    (cond ((check-slime-interrupts)
+           (return :interrupt))
+          (timeout
+           (return (remove-if-not #'listen streams)))
+          #+serve-event
+          ((not (every #'socket-fd* streams))
+           (when-let (ready (poll-streams/no-fds streams 0.1))
+             (return ready)))
+          (t
+           (when-let (ready (poll-streams streams 0.1))
+             (return ready))))))
 
 
 ;;;; Locks
