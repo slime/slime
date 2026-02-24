@@ -433,7 +433,7 @@ PROPERTIES specifies any default face properties."
                   '(:inherit font-lock-variable-name-face))
   (local-value    "local variable values")
   (catch-tag      "catch tags"
-                  '(:inherit highlight)))
+                  '(:inherit font-lock-variable-name-face)))
 
 
 ;;;; Minor modes
@@ -5891,10 +5891,9 @@ The details include local variable bindings and CATCH-tags."
         (let ((indent1 "      ")
               (indent2 "        "))
           (when locals
-            (insert indent1 (sldb-in-face section "Locals:") "\n")
             (sldb-insert-locals locals indent2 frame))
           (when catches
-            (insert indent1 (sldb-in-face section "Catch-tags:") "\n")
+            (insert indent1 (sldb-in-face section "Catch tags") "\n")
             (dolist (tag catches)
               (slime-propertize-region `(catch-tag ,tag)
                 (insert indent2 (sldb-in-face catch-tag (format "%s" tag))
