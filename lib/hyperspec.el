@@ -38,21 +38,25 @@
 (require 'browse-url)                   ;you need the Emacs 20 version
 (require 'thingatpt)
 
-(defvar common-lisp-hyperspec-root
+(defcustom common-lisp-hyperspec-root
   "http://www.lispworks.com/reference/HyperSpec/"
   "The root of the Common Lisp HyperSpec URL.
 If you copy the HyperSpec to your local system, set this variable to
-something like \"file://usr/local/doc/HyperSpec/\".")
+something like \"file://usr/local/doc/HyperSpec/\"."
+  :type 'string
+  :group 'slime)
 
 ;;; Added variable for CLHS symbol table. See details below.
 ;;;
 ;;; 20011201 Edi Weitz
 
-(defvar common-lisp-hyperspec-symbol-table nil
+(defcustom common-lisp-hyperspec-symbol-table nil
   "The HyperSpec symbol table file.
 If you copy the HyperSpec to your local system, set this variable to
 the location of the symbol table which is usually \"Map_Sym.txt\"
-or \"Symbol-Table.text\".")
+or \"Symbol-Table.text\"."
+  :type 'string
+  :group 'slime)
 
 (defvar common-lisp-hyperspec-history nil
   "History of symbols looked up in the Common Lisp HyperSpec.")
