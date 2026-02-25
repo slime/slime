@@ -1570,9 +1570,11 @@ considered to represent a symbol internal to some current package.)"
                                             :element-type 'character
                                             :fill-pointer 0)))))
             (t
-             (vector-push-extend (casify-char char) token))))
+             (vector-push-extend char token))))
     (unless vertical
-          (values token package (or (not package) internp)))))
+      (values (casify-string token)
+              (if package (casify-string package) package)
+              (or (not package) internp)))))
 
 (defun untokenize-symbol (package-name internal-p symbol-name)
   "The inverse of TOKENIZE-SYMBOL.
@@ -1585,15 +1587,23 @@ considered to represent a symbol internal to some current package.)"
         (internal-p 		(cat package-name "::" symbol-name))
         (t 			(cat package-name ":" symbol-name))))
 
-(defun casify-char (char)
-  "Convert CHAR accoring to readtable-case."
+(defun casify-string (string)
+  "Convert STRING accoring to readtable-case."
   (ecase (readtable-case *readtable*)
-    (:preserve char)
-    (:upcase   (char-upcase char))
-    (:downcase (char-downcase char))
-    (:invert (if (upper-case-p char)
-                 (char-downcase char)
-                 (char-upcase char)))))
+    (:preserve string)
+    (:upcase   (string-upcase string))
+    (:downcase (string-downcase string))
+    (:invert (cond ((every (lambda (c)
+                             (or (not (alpha-char-p c))
+                                 (upper-case-p c)))
+                           string)
+                    (string-downcase string))
+                   ((every (lambda (c)
+                             (or (not (alpha-char-p c))
+                                 (lower-case-p c)))
+                           string)
+                    (string-upcase string))
+                   (t string)))))
 
 
 (defun find-symbol-with-status (symbol-name status 
