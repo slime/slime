@@ -1014,7 +1014,8 @@ The processing is done in the extent of the toplevel restart."
         ((:reader-error packet condition)
          (encode-message `(:reader-error ,packet
                                          ,(safe-condition-message condition))
-                         (current-socket-io))))))
+                         (current-socket-io)))
+        (t (encode-message event (current-socket-io))))))
 
 
 (defun send-event (thread event)
