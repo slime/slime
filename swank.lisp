@@ -1375,6 +1375,11 @@ converted to lower case."
     (number (let ((*print-base* 10))
               (princ-to-string form)))))
 
+(define-condition rpc-forbidden-error (error)
+  ((fn-name :initarg :fn-name :reader rpc-forbidden-fn-name))
+  (:report (lambda (c s) (format s "ED-RPC forbidden for ~a" (rpc-forbidden-fn-name c))))
+  (:documentation "Specialized error for forbidden or missing rpc endpoints."))
+
 (defun wait-for-emacs-return (tag)
   (let ((event (caddr (wait-for-event `(:emacs-return ,tag result)))))
     (dcase event
@@ -1383,7 +1388,7 @@ converted to lower case."
       ((:error kind . data) (error "~a: ~{~a~}" kind data))
       ((:abort) (abort))
       ;; only in reply to :ed-rpc{-no-wait} events.
-      ((:ed-rpc-forbidden fn) (error "ED-RPC forbidden for ~a" fn)))))
+      ((:ed-rpc-forbidden fn) (error 'rpc-forbidden-error :fn-name fn)))))
 
 (defun eval-in-emacs (form &optional nowait)
   "Eval FORM in Emacs.
@@ -1404,7 +1409,10 @@ converted to lower case."
 
 (defun ed-rpc (fn &rest args)
   "Invoke FN in Emacs (or some lesser editor). FN should be defined in
-Emacs Lisp via `defslimefun' or otherwise marked as RPCallable."
+Emacs Lisp via `defslimefun' or otherwise marked as RPCallable.
+
+If the function is not marked as RPCallable, or is undefined, an
+rpc-forbidden-error will be thrown."
   (let ((tag (make-tag)))
     (send-to-emacs `(:ed-rpc ,(current-thread-id) ,tag
                              ,(symbol-name-for-emacs fn)
