@@ -171,6 +171,13 @@ This applies to the *inferior-lisp* buffer and the network connections."
   :type 'boolean
   :group 'slime-ui)
 
+(defcustom slime-close-old-connections nil
+  "Call `slime-disconnect-all' before connecting with `slime-connect'."
+  :type '(choice (const nil)
+          (const ask)
+          (const t))
+  :group 'slime-lisp)
+
 ;;;;; slime-lisp
 
 (defgroup slime-lisp nil
@@ -1118,9 +1125,12 @@ DIRECTORY change to this directory before starting the process.
                        nil nil '(slime-connect-port-history . 1)))
                      nil t))
   (slime-setup)
-  (when (and interactive-p
+  (when (and slime-close-old-connections
+             interactive-p
              slime-net-processes
-             (y-or-n-p "Close old connections first? "))
+             (if (eq slime-close-old-connections 'ask)
+                 (y-or-n-p "Close old connections first? ")
+                 t))
     (slime-disconnect-all))
   (message "Connecting to Swank on port %S.." port)
   (slime-setup-connection (apply 'slime-net-connect host port parameters)))
