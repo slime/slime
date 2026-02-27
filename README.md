@@ -15,6 +15,36 @@ Lisp process for compilation, debugging, documentation lookup, and so on.
 For much more information, consult [the manual][1].
 
 
+About this fork
+---------------
+This is experiment with adding comments to slime connections.
+
+If you open slime and run M-x slime-selector
+and press C on one of connections you get the ability to add a comment to the
+connection, which may be useful when working with multiple REPLs.
+
+Replacing MELPA version with this fork
+--------------------------------------
+Because my Emacs config automatically installs slime, I had to disable automatic
+installation in my Emacs config.
+
+
+I changed to this fragment that loads the fork.
+
+I was inspired by:
+https://www.reddit.com/r/lisp/comments/1mzs90y/how_am_i_supposed_to_work_on_my_own_fork_of_slime/
+
+
+```
+(if (file-exists-p "~/Programming/EmacsPlugins/slime/slime.el")
+    ;; use my fork
+    (use-package slime
+      :load-path "~/Programming/EmacsPlugins/slime")
+  ;; use the upstream version
+  (use-package slime
+    :ensure t))
+```
+
 Quick setup instructions
 ------------------------
 
@@ -46,7 +76,7 @@ Contact
 -------
 
 If you have problems, first have a look at the list of
-[known issues and workarounds][6]. 
+[known issues and workarounds][6].
 
 Questions and comments are best directed to the mailing list at
 `slime-devel@common-lisp.net`, but you have to [subscribe][3] first.
