@@ -4141,7 +4141,9 @@ inserted in the current buffer."
 Use `slime-re-evaluate-defvar' if the from starts with '(defvar'"
   (interactive)
   (let ((form (slime-defun-at-point)))
-    (cond ((string-prefix-p "(defvar " form t)
+    (cond ((or (string-prefix-p "(defvar " form t)
+               (string-prefix-p "(defglobal " form t)
+               (string-prefix-p "(sb-ext:defglobal " form t))
            (slime-re-evaluate-defvar form))
           (t
            (slime-interactive-eval form)))))
