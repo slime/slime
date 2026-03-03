@@ -49,8 +49,9 @@ use `slime-export-symbol-representation-function'.")
         (while (re-search-forward slime-defpackage-regexp nil t)
           (when (slime-package-equal package (slime-sexp-at-point))
             (backward-sexp)
-            (cl-return (make-slime-file-location (buffer-file-name)
-                                                 (1- (point))))))))))
+            (cl-return (make-slime-file-location
+                        (slime-to-lisp-filename (buffer-file-name)) 
+                        (1- (point))))))))))
 
 (defun slime-package-equal (designator1 designator2)
   ;; First try to be lucky and compare the strings themselves (for the
@@ -72,13 +73,13 @@ use `slime-export-symbol-representation-function'.")
 
 (defun slime-find-possible-package-file (buffer-file-name)
   (cl-labels ((file-name-subdirectory (dirname)
-                                      (expand-file-name
-                                       (concat (file-name-as-directory (slime-to-lisp-filename dirname))
-                                               (file-name-as-directory ".."))))
+                                      (slime-from-lisp-filename
+                                       (expand-file-name
+                                        (concat (file-name-as-directory (slime-to-lisp-filename dirname))
+                                                (file-name-as-directory "..")))))
               (try (dirname)
                    (cl-dolist (package-file-name slime-package-file-candidates)
-                     (let ((f (slime-to-lisp-filename
-                               (concat dirname package-file-name))))
+                     (let ((f (concat dirname package-file-name)))
                        (when (file-readable-p f)
                          (cl-return f))))))
     (when buffer-file-name
@@ -288,7 +289,7 @@ symbol in the Lisp image if possible."
     (unless symbol (error "No symbol at point."))
     (cond (current-prefix-arg
            (if (cl-plusp (slime-frob-defpackage-form package :unexport symbol))
-               (message "Symbol `%s' no longer exported form `%s'"
+               (message "Symbol `%s' no longer exported from `%s'"
                         symbol package)
              (message "Symbol `%s' is not exported from `%s'"
                       symbol package))
