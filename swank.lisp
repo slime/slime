@@ -1775,14 +1775,105 @@ Errors are trapped and invoke our debugger."
         (finish-output)
         (format-values-for-echo-area values lines width)))))
 
-(defslimefun eval-and-grab-output (string)
+(defun nest (n f x)
+  (check-type n (integer 0))
+  (check-type f function)
+  (until (zerop n)
+    (psetf x (funcall f x)
+           n (1- n)))
+  x)
+
+(defun macroexpander (macroexp-spec &optional (package-designator
+                                               "COMMON-LISP"))
+  "Return type: valid entry for a car in a compound form.
+
+MACROEXP-SPEC is presumed to have prefix  macroexp ."
+  (declare (type string macroexp-spec))
+  (let ((suffix (subseq macroexp-spec (length "macroexp"))))
+    (or (multiple-value-bind (suffix end) (ignore-errors
+                                           (read-from-string suffix))
+          (when (and end (= end (length suffix))
+                     (integerp suffix))
+            (if (eql 1 suffix)
+                'macroexpand-1
+              `(lambda (form) (nest ,suffix #'macroexpand-1 form)))))
+        (intern macroexp-spec (find-package package-designator)))))
+
+(defmacro fif (test f x)
+  "If TEST evaluates to non-nil, return (F X).  Otherwise, return X."
+  (let ((internal-function-name (make-symbol "FIF-VALUE")))
+    `(flet ((,internal-function-name () ,x))
+       (if ,test (funcall ,f (,internal-function-name))
+         (,internal-function-name)))))
+
+;; Support for common-lisp-indent-function in elisp
+;; (put 'fif 'common-lisp-indent-function '(nil &body))
+
+(defmacro wrap-if (condition wrapper var &optional (form nil form-supplied-p))
+  (check-type var variable)
+  `(fif ,condition (lambda (,var) ,wrapper) ,(if form-supplied-p form var)))
+
+(defslimefun eval-and-grab-output
+    (string &key (targets-to-capture '(*standard-output* values)
+                                     targets-provided-p)
+            macroexp)
+  "Evaluate contents of STRING, return alist of results including various output streams. Possible keys in the returned alist should be listed in the value of `slime-output-targets' variable in `slime.el'."
   (with-buffer-syntax ()
     (with-retry-restart (:msg "Retry SLIME evaluation request.")
-      (let* ((s (make-string-output-stream))
-             (*standard-output* s)
-             (values (multiple-value-list (eval (from-string string)))))
-        (list (get-output-stream-string s) 
-              (format nil "~{~S~^~%~}" values))))))
+      (macrolet ((maybe-value-string (form)
+                   `(if (member 'values targets-to-capture)
+                        ,form
+                        ""))
+                 (maybe-output-stream-string (stream-symbol)
+                   `(if (member ',stream-symbol targets-to-capture)
+                        (get-output-stream-string ,stream-symbol)
+                        ""))
+                 (maybe-make-string-output-stream (stream-symbol)
+                   `(if (member ',stream-symbol targets-to-capture)
+                        (make-string-output-stream)
+                        ,stream-symbol)))
+        (let* ((form (let ((forms (from-string string)))
+                       (if macroexp
+                           (when forms
+                             (let* (last
+                                    (most (loop for rest on forms
+                                                if (cdr rest) collect (car rest)
+                                                else do (setq last (car rest)))))
+                               (wrap-if most `(progn
+                                                ,@most
+                                                ,last)
+                                        last
+                                        `(,(macroexpander macroexp)
+                                          ',last))))
+                           `(progn ,@forms))))
+               (*trace-output*
+                 (maybe-make-string-output-stream *trace-output*))
+               (*error-output*
+                 (maybe-make-string-output-stream *error-output*))
+               (*standard-output*
+                 (maybe-make-string-output-stream *standard-output*))
+               (values (multiple-value-list (eval form))))
+          (if targets-provided-p
+              ;; It is not clear what would be the most natural order here.
+              ;; We picked the reversed binding order.
+              (list
+               (cons 'values
+                     (maybe-value-string (format nil "~{~S~^~%~}" values)))
+               (cons '*standard-output*
+                     (maybe-output-stream-string *standard-output*))
+               (cons '*error-output*
+                     (maybe-output-stream-string *error-output*))
+               (cons '*trace-output*
+                     (maybe-output-stream-string *trace-output*)))
+              ;; targets are not provided by callers
+              ;; who presume older interface (slime 2.28 or earlier)
+              ;; to eval-and-grab-output
+              ;; This check (and targets-provided-p argument itself)
+              ;; - can be dropped when Emacs 28 becomes unsupported
+              ;; - can very likely be dropped when Org 9.5 becomes unsupported
+              (list (maybe-output-stream-string *standard-output*)
+                    (maybe-value-string
+                     (format nil "~{~S~^~%~}" values)))))))))
 
 (defun eval-region (string)
   "Evaluate STRING.
