@@ -35,7 +35,7 @@
   (let ((arglist (slime-retrieve-arglist name)))
     (if (eq arglist :not-available)
         (error "Arglist not available")
-        (message "%s" (slime-autodoc--fontify arglist)))))
+      (message "%s" (slime-autodoc--fontify arglist)))))
 
 ;; used also in slime-c-p-c.el.
 (defun slime-retrieve-arglist (name)
@@ -45,7 +45,7 @@
     (car (slime-eval `(swank:autodoc '(,name ,slime-cursor-marker))))))
 
 (defun slime-autodoc-manually ()
-  "Like autodoc informtion forcing multiline display."
+  "Like autodoc information forcing multiline display."
   (interactive)
   (let ((doc (slime-autodoc t)))
     (cond (doc (eldoc-message doc))
