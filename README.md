@@ -18,8 +18,9 @@ For much more information, consult [the manual][1].
 Quick setup instructions
 ------------------------
 
-  1. [Set up the MELPA repository][2], if you haven't already, and install
-     SLIME using `M-x package-install RET slime RET`.
+  1. Install SLIME using `M-x package-install RET slime RET`.
+     SLIME is available from [NonGNU ELPA][8] (included by default since
+     Emacs 28) and [MELPA][2].
 
   2. In your `~/.emacs` file, point the `inferior-lisp-program`
      variable to your favourite Common Lisp implementation:
@@ -62,3 +63,4 @@ See the [CONTRIBUTING.md][5] file for instructions on how to contribute.
 [5]: https://github.com/slime/slime/blob/master/CONTRIBUTING.md
 [6]: https://github.com/slime/slime/issues?labels=workaround&state=closed
 [7]: http://common-lisp.net/project/slime/doc/html/Installation.html#Installing-from-Git
+[8]: https://elpa.nongnu.org/nongnu/slime.html
