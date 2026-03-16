@@ -1809,10 +1809,17 @@ last form."
     (with-retry-restart (:msg "Retry SLIME evaluation request.")
       (let ((form (read-from-string form)))
         (destructuring-bind (dv name &optional value doc) form
-          (declare (ignore value doc))
-          (assert (eq dv 'defvar))
-          (makunbound name)
-          (prin1-to-string (eval form)))))))
+          (declare (ignore doc))
+          (case dv
+            #+sbcl
+            (sb-ext:defglobal
+                (set name (eval value))
+                (prin1-to-string name))
+            (defvar
+              (makunbound name)
+              (prin1-to-string (eval form)))
+            (t
+              (eval form))))))))
 
 (defvar *swank-pprint-bindings*
   `((*print-pretty*   . t) 

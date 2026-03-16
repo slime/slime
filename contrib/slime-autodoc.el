@@ -35,7 +35,7 @@
   (let ((arglist (slime-retrieve-arglist name)))
     (if (eq arglist :not-available)
         (error "Arglist not available")
-        (message "%s" (slime-autodoc--fontify arglist)))))
+      (message "%s" (slime-autodoc--fontify arglist)))))
 
 ;; used also in slime-c-p-c.el.
 (defun slime-retrieve-arglist (name)
@@ -45,7 +45,7 @@
     (car (slime-eval `(swank:autodoc '(,name ,slime-cursor-marker))))))
 
 (defun slime-autodoc-manually ()
-  "Like autodoc informtion forcing multiline display."
+  "Like autodoc information forcing multiline display."
   (interactive)
   (let ((doc (slime-autodoc t)))
     (cond (doc (eldoc-message doc))
@@ -181,12 +181,25 @@ If it's not in the cache, the cache will be updated asynchronously."
 	    `((,(concat prefix "A") . slime-autodoc-manually)
 	      (,(concat prefix (kbd "C-A")) . slime-autodoc-manually)
 	      (,(kbd "SPC") . slime-autodoc-space)))
-  (set (make-local-variable 'eldoc-minor-mode-string) nil)
-  (if (boundp 'eldoc-documentation-functions)
-      (add-hook 'eldoc-documentation-functions 'slime-autodoc nil t)
+  (cond
+   (slime-autodoc-mode
+    (set (make-local-variable 'eldoc-minor-mode-string) nil)
+    ;; eldoc-documentation-functions was introduced in emacs 28.1:
+    (if (boundp 'eldoc-documentation-functions)
+        (add-hook 'eldoc-documentation-functions 'slime-autodoc nil t)
+      ;; If eldoc-documentation-functions is not bound, assume we are on emacs
+      ;; <28.1. Hence, use the old eldoc protocol that puts a single
+      ;; documentation function into eldoc-documentation-function.
       (set (make-local-variable 'eldoc-documentation-function) 'slime-autodoc))
-  (eldoc-mode arg)
-  (setq slime-autodoc-mode t)
+    (eldoc-mode 1))
+   (t
+    ;; Reset eldoc-minor-mode-string to its (global) default value:
+    (kill-local-variable 'eldoc-minor-mode-string)
+    (if (boundp 'eldoc-documentation-functions)
+        (remove-hook 'eldoc-documentation-functions 'slime-autodoc t)
+      ;; Reset eldoc-documentation-function to its (global) default value:
+      (kill-local-variable 'eldoc-documentation-function 'slime-autodoc))
+    (eldoc-mode 0)))
   (when (called-interactively-p 'interactive)
     (message "Slime autodoc mode %s."
              (if slime-autodoc-mode "enabled" "disabled"))))
