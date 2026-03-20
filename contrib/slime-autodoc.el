@@ -198,7 +198,6 @@ If it's not in the cache, the cache will be updated asynchronously."
     (if (boundp 'eldoc-documentation-functions)
         (remove-hook 'eldoc-documentation-functions 'slime-autodoc t)
       ;; Reset eldoc-documentation-function to its (global) default value:
-      (kill-local-variable 'eldoc-documentation-function 'slime-autodoc))
     (eldoc-mode 0)))
   (when (called-interactively-p 'interactive)
     (message "Slime autodoc mode %s."
