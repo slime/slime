@@ -77,6 +77,37 @@ Otherwise NIL is returned."
          (progn ,@body))))
 
 
+;;;; Optional autodoc extensions
+
+(defvar *autodoc-operator-functions* '()
+  "Functions called with an operator symbol.
+
+If any function returns non-NIL, the operator is treated as having
+autodoc support even when it does not have an ordinary Lisp arglist.")
+
+(defvar *autodoc-functions* '()
+  "Functions called to produce autodoc for a parsed form.
+
+Each function is called with FORM, ARGLIST, OBJ-AT-CURSOR, FORM-PATH,
+and PRINT-RIGHT-MARGIN. It should return NIL to decline, or two
+values: a documentation string and a boolean cache flag.")
+
+(defun extended-autodoc-operator-p (operator)
+  (some (lambda (function)
+          (funcall function operator))
+        *autodoc-operator-functions*))
+
+(defun extended-autodoc (form arglist obj-at-cursor form-path
+                         print-right-margin)
+  (dolist (function *autodoc-functions*)
+    (multiple-value-bind (doc cache-p)
+        (funcall function
+                 form arglist obj-at-cursor form-path print-right-margin)
+      (when doc
+        (return-from extended-autodoc
+          (values doc cache-p))))))
+
+
 ;;;; Arglist Definition
 
 (defstruct (arglist (:conc-name arglist.) (:predicate arglist-p))
@@ -1156,16 +1187,21 @@ Second, a boolean value telling whether the returned string can be cached."
         (cond ((boundp-and-interesting obj-at-cursor)
                (list (print-variable-to-string obj-at-cursor) nil))
               (t
-               (list
-                (with-available-arglist (arglist) arglist
-                  (decoded-arglist-to-string
-                   arglist
-                   :print-right-margin print-right-margin
-                   :operator (car form)
-                   :highlight (form-path-to-arglist-path form-path
-                                                         form
-                                                         arglist)))
-                t)))))))
+               (multiple-value-bind (doc cache-p)
+                   (extended-autodoc form arglist obj-at-cursor form-path
+                                     print-right-margin)
+                 (if doc
+                     (list doc cache-p)
+                     (list
+                      (with-available-arglist (arglist) arglist
+                        (decoded-arglist-to-string
+                         arglist
+                         :print-right-margin print-right-margin
+                         :operator (car form)
+                         :highlight (form-path-to-arglist-path form-path
+                                                               form
+                                                               arglist)))
+                      t)))))))))
 
 (defun boundp-and-interesting (symbol)
   (and symbol
@@ -1257,7 +1293,9 @@ to the context provided by RAW-FORM."
        (yield-failure ()
          (values nil :not-available))
        (operator-p (operator local-ops)
-         (or (and (symbolp operator) (valid-operator-symbol-p operator))
+         (or (and (symbolp operator)
+                  (or (valid-operator-symbol-p operator)
+                      (extended-autodoc-operator-p operator)))
              (assoc operator local-ops :test #'op=)))
        (op= (op1 op2)
          (cond ((and (symbolp op1) (symbolp op2))
