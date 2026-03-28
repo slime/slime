@@ -49,3 +49,84 @@
 (provide 'slime-autoloads)
 
 ;;; slime-autoloads.el ends here
+
+
+
+;;; Generated autoloads from slime-tests.el
+
+(register-definition-prefixes "slime-tests" '("arglist" "async-eval-debugging" "break" "comp" "def-slime-test" "dis" "end-of-file" "find-definition" "flow-control" "indentation" "inspector" "inter" "locally-bound-debugger-hook" "loop-interrupt-" "macroexpand" "narrowing" "read" "report-condition-with-circular-list" "sbcl-world-lock" "sexp-at-point." "symbol-at-point." "traditional-recipe" "unwind-to-previous-sldb-level" "utf-8-source"))
+
+;;; Generated autoloads from slime.el
+
+(autoload 'slime-setup "slime" "\
+Setup Emacs so that lisp-mode buffers always use SLIME.
+CONTRIBS is a list of contrib packages to load. If `nil', use
+`slime-contribs'. 
+
+(fn &optional (CONTRIBS nil CONTRIBS-P))" t)
+(autoload 'slime-mode "slime" "\
+\\<slime-mode-map>SLIME: The Superior Lisp Interaction Mode for Emacs (minor-mode).
+
+Commands to compile the current buffer's source file and visually
+highlight any resulting compiler notes and warnings:
+\\[slime-compile-and-load-file]	- Compile and load the current buffer's file.
+\\[slime-compile-file]	- Compile (but not load) the current buffer's file.
+\\[slime-compile-defun]	- Compile the top-level form at point.
+
+Commands for visiting compiler notes:
+\\[slime-next-note]	- Goto the next form with a compiler note.
+\\[slime-previous-note]	- Goto the previous form with a compiler note.
+\\[slime-remove-notes]	- Remove compiler-note annotations in buffer.
+
+Finding definitions:
+\\[slime-edit-definition]
+- Edit the definition of the function called at point.
+\\[slime-pop-find-definition-stack]
+- Pop the definition stack to go back from a definition.
+
+Documentation commands:
+\\[slime-describe-symbol]	- Describe symbol.
+\\[slime-apropos]	- Apropos search.
+\\[slime-disassemble-symbol]	- Disassemble a function.
+
+Evaluation commands:
+\\[slime-eval-defun]	- Evaluate top-level from containing point.
+\\[slime-eval-last-expression]	- Evaluate sexp before point.
+\\[slime-pprint-eval-last-expression]	- Evaluate sexp before point, pretty-print result.
+
+Full set of commands:
+\\{slime-mode-map}
+
+This is a minor mode.  If called interactively, toggle the `Slime mode'
+mode.  If the prefix argument is positive, enable the mode, and if it is
+zero or negative, disable the mode.
+
+If called from Lisp, toggle the mode if ARG is `toggle'.  Enable the
+mode if ARG is nil, omitted, or is a positive number.  Disable the mode
+if ARG is a negative number.
+
+To check whether the minor mode is enabled in the current buffer,
+evaluate the variable `slime-mode'.
+
+The mode's hook is called both when the mode is enabled and when it is
+disabled.
+
+(fn &optional ARG)" t)
+(autoload 'slime "slime" "\
+Start an inferior^_superior Lisp and connect to its Swank server.
+
+(fn &optional COMMAND CODING-SYSTEM)" t)
+(autoload 'slime-connect "slime" "\
+Connect to a running Swank server. Return the connection.
+
+(fn HOST PORT &optional CODING-SYSTEM INTERACTIVE-P &rest PARAMETERS)" t)
+(autoload 'slime-selector "slime" "\
+Select a new buffer by type, indicated by a single character.
+The user is prompted for a single character indicating the method by
+which to choose a new buffer. The `?' character describes the
+available methods.
+
+See `def-slime-selector-method' for defining new methods.
+
+(fn &optional OTHER-WINDOW)" t)
+(register-definition-prefixes "slime" '("def-slime-selector-method" "define-sl" "defslimefun" "inferior-lisp-program" "make-slime-" "sldb-" "slime-" "topline"))
