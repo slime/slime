@@ -60,8 +60,8 @@
 (require 'cl-lib)
 
 (eval-and-compile
-  (if (< emacs-major-version 23)
-      (error "Slime requires an Emacs version of 23, or above")))
+  (if (< emacs-major-version 24)
+      (error "Slime requires an Emacs version of 24, or above")))
 
 (require 'hyperspec "lib/hyperspec")
 (require 'thingatpt)
@@ -755,6 +755,14 @@ corresponding values in the CDR of VALUE."
                                  ,struct-var)))))
                     slots)
          . ,body))))
+
+;;; A copy of static-if from emacs 30.2
+(defmacro slime-static-if (condition then-form &rest else-forms)
+  (declare (indent 2)
+           (debug (sexp sexp &rest sexp)))
+  (if (eval condition lexical-binding)
+      then-form
+      (cons 'progn else-forms)))
 
 ;;;;; Very-commonly-used functions
 
@@ -5513,14 +5521,11 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
               (t
                (sldb--mark-last-window (selected-window))
                ;; An interactive exit should restore configuration per
-               ;; `quit-window's protocol. FIXME: remove
-               ;; `previous-window' hack when dropping Emacs23 support
+               ;; `quit-window's protocol.
                (let ((previous-window (window-parameter (selected-window)
                                                         'sldb-restore)))
                  (quit-window t)
-                 (if (and (not (>= emacs-major-version 24))
-                          (window-live-p previous-window))
-                     (select-window previous-window)))))))))
+                 (select-window previous-window))))))))
 
 (defun sldb-close-step-buffer (buffer)
   (when (buffer-live-p buffer)
