@@ -60,26 +60,20 @@ See also `slime-create-filename-translator'."
 
 Handles the signature of `tramp-make-tramp-file-name' changing
 over time."
-  (cond
-   ((>= emacs-major-version 26)
-    ;; Emacs 26 requires the method to be provided and the signature of
-    ;; `tramp-make-tramp-file-name' has changed.
-    (tramp-make-tramp-file-name (tramp-find-method nil username remote-host)
-                                username
-                                nil
-                                remote-host
-                                nil
-                                lisp-filename))
-   ((boundp 'tramp-multi-methods)
-    (tramp-make-tramp-file-name nil nil
-                                username
-                                remote-host
-                                lisp-filename))
-   (t
-    (tramp-make-tramp-file-name nil
-                                username
-                                remote-host
-                                lisp-filename))))
+  (slime-static-if
+   (>= emacs-major-version 26)
+   ;; Emacs 26 requires the method to be provided and the signature of
+   ;; `tramp-make-tramp-file-name' has changed.
+   (tramp-make-tramp-file-name (tramp-find-method nil username remote-host)
+                               username
+                               nil
+                               remote-host
+                               nil
+                               lisp-filename)
+   (tramp-make-tramp-file-name nil
+                               username
+                               remote-host
+                               lisp-filename)))
 
 (cl-defun slime-create-filename-translator (&key machine-instance
                                                  remote-host
