@@ -62,14 +62,11 @@ Handles the signature of `tramp-make-tramp-file-name' changing
 over time."
   (slime-static-if
    (>= emacs-major-version 26)
-   ;; Emacs 26 requires the method to be provided and the signature of
-   ;; `tramp-make-tramp-file-name' has changed.
-   (tramp-make-tramp-file-name (tramp-find-method nil username remote-host)
-                               username
-                               nil
-                               remote-host
-                               nil
-                               lisp-filename)
+   (tramp-make-tramp-file-name (make-tramp-file-name 
+                                :method (tramp-find-method nil username remote-host)
+                                :user username
+                                :host remote-host
+                                :localname lisp-filename))
    (tramp-make-tramp-file-name nil
                                username
                                remote-host
