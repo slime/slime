@@ -7,12 +7,12 @@
   "Filename translations for tramp"
   (:authors "Marco Baringer <mb@bese.it>")
   (:license "GPL")
-  (:on-load 
+  (:on-load
    (setq slime-to-lisp-filename-function #'slime-tramp-to-lisp-filename)
    (setq slime-from-lisp-filename-function #'slime-tramp-from-lisp-filename)))
 
 (defcustom slime-filename-translations nil
-  "Assoc list of hostnames and filename translation functions.  
+  "Assoc list of hostnames and filename translation functions.
 Each element is of the form (HOSTNAME-REGEXP TO-LISP FROM-LISP).
 
 HOSTNAME-REGEXP is a regexp which is applied to the connection's
@@ -55,31 +55,44 @@ See also `slime-create-filename-translator'."
                            slime-filename-translations)))
         (t (list #'identity #'identity))))
 
+(defmacro tramp-make-tramp-file-name-args (username remote-host lisp-filename)
+  (cond
+   ((>= emacs-major-version 29)
+    `(list (tramp-find-method nil ,username ,remote-host)
+           (concat ,username
+                   "@"
+                   ,remote-host
+                   ":"
+                   ,lisp-filename)))
+   ((and (>= emacs-major-version 26) (< emacs-major-version 29))
+    ;; Emacs 26 requires the method to be provided and the signature of
+    ;; `tramp-make-tramp-file-name' has changed.
+    `(list (tramp-find-method nil ,username ,remote-host)
+           ,username
+           nil
+           ,remote-host
+           nil
+           ,lisp-filename))
+   ((boundp 'tramp-multi-methods)
+    `(list nil nil
+           ,username
+           ,remote-host
+           ,lisp-filename))
+   (t
+    `(list nil
+           ,username
+           ,remote-host
+           ,lisp-filename))))
+
 (defun slime-make-tramp-file-name (username remote-host lisp-filename)
   "Tramp compatability function.
 
 Handles the signature of `tramp-make-tramp-file-name' changing
 over time."
-  (cond
-   ((>= emacs-major-version 26)
-    ;; Emacs 26 requires the method to be provided and the signature of
-    ;; `tramp-make-tramp-file-name' has changed.
-    (tramp-make-tramp-file-name (tramp-find-method nil username remote-host)
-                                username
-                                nil
-                                remote-host
-                                nil
-                                lisp-filename))
-   ((boundp 'tramp-multi-methods)
-    (tramp-make-tramp-file-name nil nil
-                                username
-                                remote-host
-                                lisp-filename))
-   (t
-    (tramp-make-tramp-file-name nil
-                                username
-                                remote-host
-                                lisp-filename))))
+  ;; Use the tramp-make-tramp-file-name-args macro, to avoid
+  ;; compilation warnings.
+  (apply #'tramp-make-tramp-file-name
+         (tramp-make-tramp-file-name-args username remote-host lisp-filename)))
 
 (cl-defun slime-create-filename-translator (&key machine-instance
                                                  remote-host
