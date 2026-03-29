@@ -1176,11 +1176,10 @@ DIRECTORY change to this directory before starting the process.
 (defun slime-recompile-bytecode ()
   "Recompile and reload slime."
   (interactive)
-  (let* ((slime-lib (file-name-sans-extension (locate-library "slime")))
-         (sourcefile (concat slime-lib
-                             ".el")))
+  (let ((sourcefile (concat (file-name-sans-extension (locate-library "slime"))
+                            ".el")))
     (byte-compile-file sourcefile)
-    (load slime-lib)))
+    (load (byte-compile-dest-file sourcefile))))
 
 (defun slime-urge-bytecode-recompile ()
   "Urge the user to recompile slime.elc.
