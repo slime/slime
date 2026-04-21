@@ -84,7 +84,7 @@
            (slime-sprof-browser-insert-line data 54))))
       (if (= line 1)
           (goto-char point)
-          (goto-line 2)))))
+          (slime-goto-line 2)))))
 
 (defun slime-sprof-sort (arg)
   (let* ((pos (if (markerp arg) arg (point)))
