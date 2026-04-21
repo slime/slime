@@ -2117,6 +2117,7 @@ after Emacs causes a restart to be invoked."
                        *package*))
         (*sldb-level* (1+ *sldb-level*))
         (*print-readably* nil)
+        (*read-suppress* nil)
         (*sldb-stepping-p* nil))
     (force-user-output)
     (call-with-debugging-environment
