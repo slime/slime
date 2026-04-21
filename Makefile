@@ -4,7 +4,7 @@
 
 # Variables
 #
-EMACS=emacs
+EMACS?=emacs
 LISP=sbcl
 
 LOAD_PATH=-L .

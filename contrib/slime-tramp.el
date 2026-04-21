@@ -7,12 +7,12 @@
   "Filename translations for tramp"
   (:authors "Marco Baringer <mb@bese.it>")
   (:license "GPL")
-  (:on-load 
+  (:on-load
    (setq slime-to-lisp-filename-function #'slime-tramp-to-lisp-filename)
    (setq slime-from-lisp-filename-function #'slime-tramp-from-lisp-filename)))
 
 (defcustom slime-filename-translations nil
-  "Assoc list of hostnames and filename translation functions.  
+  "Assoc list of hostnames and filename translation functions.
 Each element is of the form (HOSTNAME-REGEXP TO-LISP FROM-LISP).
 
 HOSTNAME-REGEXP is a regexp which is applied to the connection's
