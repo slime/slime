@@ -1082,3 +1082,21 @@
     (s)
   x
   y)
+
+;;; Test: indent-103
+
+(foo    ; one-semicolon comment
+ 1
+ 2)
+
+;;; Test: indent-104
+
+(foo    ;; two-semicolon comment
+        1
+        2)
+
+;;; Test: indent-105
+
+(foo 1
+                                        ; strange one-semicolon comment
+ 2)

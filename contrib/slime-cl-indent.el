@@ -1008,7 +1008,9 @@ For example, the function `case' has an indent property
                                       (back-to-indentation)
                                       (point))))
               (common-lisp-backward-comment-or-sexp)))
-          (current-column))))))
+          (if (or (looking-at ";;") (not (looking-at ";")))
+              (current-column)
+            one))))))
 
 (defun common-lisp-backward-comment-or-sexp ()
   (forward-comment -1)
