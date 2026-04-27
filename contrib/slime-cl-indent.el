@@ -78,6 +78,14 @@ If nil, indent backquoted lists as data, i.e., like quoted lists."
   :type 'boolean
   :group 'lisp-indent)
 
+(defcustom lisp-indent-apparent-data t
+  "Whether to indent lists in which the textual representation of the first
+element starts with one of the `:#\"(' characters. If nil, indent such
+lists as data, i.e., like quoted lists, except this does not affect
+nested lists."
+  :type 'boolean
+  :group 'lisp-indent)
+
 (defcustom lisp-loop-indent-subclauses t
   "Whether or not to indent loop subclauses."
   :type 'boolean
@@ -438,6 +446,7 @@ OPTIONS are:
    (lisp-tag-indentation 1)
    (lisp-tag-body-indentation 3)
    (lisp-backquote-indentation t)
+   (lisp-indent-apparent-data t)
    (lisp-loop-indent-subclauses t)
    (lisp-loop-indent-forms-like-keywords nil)
    (lisp-simple-loop-indentation 2)
@@ -994,7 +1003,10 @@ For example, the function `case' has an indent property
       (down-list)
       (let ((one (current-column)))
         (skip-chars-forward " \t")
-        (if (or (eolp) (looking-at ";"))
+        (if (or (eolp)
+                (if lisp-indent-apparent-data
+                    (looking-at ";")
+                    (looking-at "[;:#\"(]")))
             ;; Indent one column from the opening paren.
             one
           ;; Skip over the sexp in the function name position.
