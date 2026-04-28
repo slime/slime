@@ -4653,7 +4653,7 @@ source-location."
                       (slime-one-line-ify label))
                      (insert "\n"))))
   ;; Remove the final newline to prevent accidental window-scrolling
-  (backward-delete-char 1)
+  (delete-char -1)
   (insert " "))
 
 (defun slime-xref-next-line ()
@@ -5080,7 +5080,7 @@ This variable specifies both what was expanded and how.")
     (erase-buffer)
     (insert expansion)
     (goto-char (point-min))
-    (font-lock-fontify-buffer)))
+    (font-lock-ensure (point-min) (point-max))))
 
 (defun slime-create-macroexpansion-buffer ()
   (let ((name (slime-buffer-name :macroexpansion)))
@@ -6586,7 +6586,7 @@ KILL-BUFFER hooks for the inspector buffer."
                     'face 'slime-inspector-value-face)
             (insert title))
           (while (eq (char-before) ?\n)
-            (backward-delete-char 1))
+            (delete-char -1))
           (insert "\n" (fontify label "--------------------") "\n")
           (save-excursion
             (slime-inspector-insert-content content))
