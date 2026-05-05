@@ -7653,11 +7653,26 @@ and skips comments."
 (defun slime-region-for-defun-at-point ()
   "Return the start and end position of defun at point."
   (save-excursion
-    (save-match-data
-      (end-of-defun)
-      (let ((end (point)))
-        (beginning-of-defun)
-        (list (point) end)))))
+   (save-match-data
+    (end-of-defun)
+    (let ((end (point)))
+      (beginning-of-defun)
+      (let ((start (point))
+            (local-funs (ignore-errors
+                         (save-excursion
+                          (backward-up-list 1)
+                          (let ((point (point)))
+                            (down-list 1)
+                            (when (member-ignore-case (slime-symbol-at-point)
+                                                      '("flet" "labels" "macrolet" "symbol-macrolet"))
+                              point))))))
+        (or (when local-funs
+              (goto-char local-funs)
+              (ignore-errors (forward-sexp))
+              (let ((local-funs-end (point)))
+                (when (> local-funs-end end)
+                  (list local-funs local-funs-end))))
+            (list start end)))))))
 
 (defun slime-beginning-of-symbol ()
   "Move to the beginning of the CL-style symbol at point."
