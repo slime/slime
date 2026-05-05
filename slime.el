@@ -7630,12 +7630,16 @@ and skips comments."
     (let ((end (point)))
       (beginning-of-defun)
       (let ((start (point))
-            (local-funs (re-search-backward "^\s*(flet\\|labels\\|macrolet" 
-                                            (let ((bound (- (point) 10000)))
-                                              (when (> bound 0)
-                                                bound))
-                                            t)))
+            (local-funs (ignore-errors
+                         (save-excursion
+                          (backward-up-list 1)
+                          (let ((point (point)))
+                            (down-list 1)
+                            (when (member-ignore-case (slime-symbol-at-point)
+                                                      '("flet" "labels" "macrolet" "symbol-macrolet"))
+                              point))))))
         (or (when local-funs
+              (goto-char local-funs)
               (ignore-errors (forward-sexp))
               (let ((local-funs-end (point)))
                 (when (> local-funs-end end)
