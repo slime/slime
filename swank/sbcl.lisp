@@ -727,7 +727,8 @@ QUALITIES is an alist with (quality . value)"
     :source-transform :define-source-transform
     :ir1-convert :def-ir1-translator
     :declaration declaim
-    :alien-type :define-alien-type)
+    :alien-type :define-alien-type
+    :alien-callback :define-alien-callable)
   "Map SB-INTROSPECT definition type names to Slime-friendly forms")
 
 (defun definition-specifier (type)
