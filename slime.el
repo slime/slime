@@ -7626,14 +7626,10 @@ and skips comments."
   "Return the start and end position of defun at point."
   (save-excursion
    (save-match-data
-    ;; If the point is just before a defun go inside or
-    ;; beginning-of-defun will go to the previous sexp
-    (when (thing-at-point 'sexp)
-      (ignore-errors (down-list 1)))
-    (beginning-of-defun)
-    (let ((start (point)))
-      (end-of-defun)
-      (let ((end (point))
+    (end-of-defun)
+    (let ((end (point)))
+      (beginning-of-defun)
+      (let ((start (point))
             (local-funs (ignore-errors
                          (save-excursion
                           (backward-up-list 1)
@@ -7646,8 +7642,7 @@ and skips comments."
               (goto-char local-funs)
               (ignore-errors (forward-sexp))
               (let ((local-funs-end (point)))
-                (when (> local-funs-end end)
-                  (list local-funs local-funs-end))))
+                (list local-funs local-funs-end)))
             (list start end)))))))
 
 (defun slime-beginning-of-symbol ()
