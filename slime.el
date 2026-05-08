@@ -7626,10 +7626,10 @@ and skips comments."
   "Return the start and end position of defun at point."
   (save-excursion
    (save-match-data
-    (end-of-defun)
-    (let ((end (point)))
-      (beginning-of-defun)
-      (let ((start (point))
+    (beginning-of-defun)
+    (let ((start (point)))
+      (end-of-defun)
+      (let ((end (point))
             (local-funs (ignore-errors
                          (save-excursion
                           (backward-up-list 1)
