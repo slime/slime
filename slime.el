@@ -7626,6 +7626,10 @@ and skips comments."
   "Return the start and end position of defun at point."
   (save-excursion
    (save-match-data
+    ;; If the point is just before a defun go inside or
+    ;; beginning-of-defun will go to the previous sexp
+    (when (thing-at-point 'sexp)
+      (ignore-errors (down-list 1)))
     (beginning-of-defun)
     (let ((start (point)))
       (end-of-defun)
