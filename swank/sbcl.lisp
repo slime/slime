@@ -1522,19 +1522,39 @@ stack."
 
 
 ;;;; Inspector
+
+(defun inspected-parts (o)
+  (multiple-value-bind (text label parts) (sb-impl::inspected-parts o)
+    (list* (string-right-trim '(#\Newline) text)
+           '(:newline)
+           (if label
+               (loop for (l . v) in parts
+                     append (label-value-line l v))
+               (loop for value in parts
+                     for i from 0
+                     append (label-value-line i value))))))
+
+(defmethod emacs-inspect :around ((o structure-object))
+  (let ((show-internals
+          (swank::ensure-istate-metadata o :show-struct-internals (swank::box nil))))
+    (append `(" Show the internal structure: "
+              (:action ,(if (swank::ref show-internals)
+                            "[X]"
+                            "[ ]")
+               ,(lambda ()
+                  (setf (swank::ref show-internals)
+                        (not (swank::ref show-internals))))
+               :refreshp t)
+              (:newline))
+            (if (swank::ref show-internals)
+                (inspected-parts o)
+                (call-next-method)))))
+
 (defmethod emacs-inspect ((o t))
   (cond ((sb-di::indirect-value-cell-p o)
          (label-value-line* (:value (sb-kernel:value-cell-ref o))))
 	(t
-         (multiple-value-bind (text label parts) (sb-impl::inspected-parts o)
-           (list* (string-right-trim '(#\Newline) text)
-                  '(:newline)
-                  (if label
-                      (loop for (l . v) in parts
-                            append (label-value-line l v))
-                      (loop for value in parts
-                            for i from 0
-                            append (label-value-line i value))))))))
+         (inspected-parts o))))
 
 (defmethod emacs-inspect ((o function))
   (cond ((sb-kernel:simple-fun-p o)
