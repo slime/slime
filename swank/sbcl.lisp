@@ -1088,11 +1088,10 @@ Return a list of the form (NAME LOCATION)."
 
 (defun make-invoke-debugger-hook (hook)
   (when hook
-    #'(sb-int:named-lambda swank-invoke-debugger-hook
-          (condition old-hook)
-        (if *debugger-hook*
-            nil         ; decline, *DEBUGGER-HOOK* will be tried next.
-            (funcall hook condition old-hook)))))
+    (lambda (condition old-hook)
+      (if *debugger-hook*
+          nil         ; decline, *DEBUGGER-HOOK* will be tried next.
+          (funcall hook condition old-hook)))))
 
 (defun set-break-hook (hook)
   (setq sb-ext:*invoke-debugger-hook* (make-invoke-debugger-hook hook)))
