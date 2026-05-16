@@ -1536,17 +1536,17 @@ stack."
 
 (defmethod emacs-inspect :around ((o structure-object))
   (let ((show-internals
-          (swank::ensure-istate-metadata o :show-struct-internals (swank::box nil))))
+          (swank::ensure-istate-metadata o :show-struct-internals (cons :box nil))))
     (append `(" Show the internal structure: "
-              (:action ,(if (swank::ref show-internals)
+              (:action ,(if (cdr show-internals)
                             "[X]"
                             "[ ]")
                ,(lambda ()
-                  (setf (swank::ref show-internals)
-                        (not (swank::ref show-internals))))
+                  (setf (cdr show-internals)
+                        (not (cdr show-internals))))
                :refreshp t)
               (:newline))
-            (if (swank::ref show-internals)
+            (if (cdr show-internals)
                 (inspected-parts o)
                 (call-next-method)))))
 
