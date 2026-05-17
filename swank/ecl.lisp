@@ -397,8 +397,15 @@
     (if foundp arglist :not-available)))
 
 (defimplementation type-specifier-p (symbol)
-  (or (subtypep nil symbol)
-      (not (eq (type-specifier-arglist symbol) :not-available))))
+  ;; TODO: replace by ECL's own implementation once that is added to ECL
+  (or
+   ;; Hardcoded types that are not covered by a type predicate
+   (member symbol '(eql member not or and satisfies
+                    standard-char complex-array))
+   (sys:get-sysprop symbol 'SYS::TYPE-PREDICATE)
+   (sys:get-sysprop symbol 'SYS::DEFTYPE-DEFINITION)
+   (find-class symbol nil)
+   (not (eq (type-specifier-arglist symbol) :not-available))))
 
 (defimplementation function-name (f)
   (typecase f
