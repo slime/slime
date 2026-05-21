@@ -78,6 +78,14 @@ If nil, indent backquoted lists as data, i.e., like quoted lists."
   :type 'boolean
   :group 'lisp-indent)
 
+(defcustom lisp-indent-apparent-data t
+  "Whether to indent lists in which the textual representation of the first
+element starts with one of the `:#\"(' characters. If nil, indent such
+lists as data, i.e., like quoted lists, except this does not affect
+nested lists."
+  :type 'boolean
+  :group 'lisp-indent)
+
 (defcustom lisp-loop-indent-subclauses t
   "Whether or not to indent loop subclauses."
   :type 'boolean
@@ -438,6 +446,7 @@ OPTIONS are:
    (lisp-tag-indentation 1)
    (lisp-tag-body-indentation 3)
    (lisp-backquote-indentation t)
+   (lisp-indent-apparent-data t)
    (lisp-loop-indent-subclauses t)
    (lisp-loop-indent-forms-like-keywords nil)
    (lisp-simple-loop-indentation 2)
@@ -796,242 +805,229 @@ For example, the function `case' has an indent property
   (when (or (common-lisp-looking-back ",") (common-lisp-looking-back ",@"))
     (when (re-search-backward "[^,@'],")
       (forward-char 1)))
-  (let ((normal-indent (current-column)))
-    ;; Walk up list levels until we see something
-    ;;  which does special things with subforms.
-    (let ((depth 0)
-          ;; Path describes the position of point in terms of
-          ;;  list-structure with respect to containing lists.
-          ;; `foo' has a path of (0 3 1) in `((a b c (d foo) f) g)'.
-          (path ())
-          ;; set non-nil when somebody works out the indentation to use
-          calculated
-          ;; If non-nil, this is an indentation to use
-          ;; if nothing else specifies it more firmly.
-          tentative-calculated
-          (last-point indent-point)
-          ;; the position of the open-paren of the innermost containing list
-          (containing-form-start (common-lisp-indent-parse-state-start state))
-          ;; the column of the above
-          sexp-column)
-      ;; Move to start of innermost containing list
-      (goto-char containing-form-start)
-      (setq sexp-column (current-column))
-
-      ;; Look over successively less-deep containing forms
-      (while (and (not calculated)
-                  (< depth lisp-indent-maximum-backtracking))
-        (let ((containing-sexp (point)))
-          (forward-char 1)
-          (parse-partial-sexp (point) indent-point 1 t)
-          ;; Move to the car of the relevant containing form
-          (let (tem full function method tentative-defun)
-            (if (not (looking-at "\\sw\\|\\s_"))
-                ;; This form doesn't seem to start with a symbol
-                (setq function nil method nil full nil)
-              (setq tem (point))
-              (forward-sexp 1)
-              (setq full (downcase (buffer-substring-no-properties
-                                        tem (point)))
-                    function full)
-              (goto-char tem)
-              (setq tem (intern-soft function)
-                    method (common-lisp-get-indentation tem))
-              (cond ((and (null method)
-                          (string-match ":[^:]+" function))
-                     ;; The pleblisp package feature
-                     (setq function (substring function
-                                               (1+ (match-beginning 0)))
-                           method (common-lisp-get-indentation
-                                   (intern-soft function) full)))
-                    ((and (null method))
-                     ;; backwards compatibility
-                     (setq method (common-lisp-get-indentation tem)))))
-            (let ((n 0))
-              ;; How far into the containing form is the current form?
-              (if (< (point) indent-point)
-                  (while (condition-case ()
-                             (progn
-                               (forward-sexp 1)
-                               (if (>= (point) indent-point)
-                                   nil
-                                 (parse-partial-sexp (point)
-                                                     indent-point 1 t)
-                                 (setq n (1+ n))
-                                 t))
-                           (error nil))))
-              (setq path (cons n path)))
-
-            ;; Guess.
-            (when (and (not method) function (null (cdr path)))
-              ;; (package prefix was stripped off above)
-              (cond ((and (string-match "\\`def" function)
-                          (not (string-match "\\`default" function))
-                          (not (string-match "\\`definition" function))
-                          (not (string-match "\\`definer" function)))
-                     (setq tentative-defun t))
-                    ((string-match
-                      (eval-when-compile
-                        (concat "\\`\\("
-                                (regexp-opt '("with" "without" "do"))
-                                "\\)-"))
-                      function)
-                     (setq method '(&lambda &body)))))
-
-            ;; #+ and #- cleverness.
-            (save-excursion
-              (goto-char indent-point)
-              (backward-sexp)
-              (let ((indent (current-column)))
-                (when (or (looking-at common-lisp-feature-expr-regexp)
-                          (ignore-errors
-                            (backward-sexp)
-                            (when (looking-at
-                                   common-lisp-feature-expr-regexp)
-                              (setq indent (current-column))
-                              (let ((line (line-number-at-pos)))
-                                (while
-                                    (ignore-errors
-                                      (backward-sexp 2)
-                                      (and
-                                       (= line (line-number-at-pos))
-                                       (looking-at
-                                        common-lisp-feature-expr-regexp)))
-                                  (setq indent (current-column))))
-                              t)))
-                  (setq calculated (list indent containing-form-start)))))
-            (let ((prev-char (char-after (1- containing-sexp))))
-              (cond ((and (or (eq prev-char ?\')
-                              (and (eq prev-char ?\`)
-                                   (if lisp-backquote-indentation
-                                       ;; `("foo" ...) is not valid Lisp, indent it as data.
-                                       (save-excursion
-                                        (goto-char containing-sexp)
-                                        (looking-at "\\s-*\(\\s-*\\\""))
-                                       t)))
-                          (not (eq (char-after (- containing-sexp 2)) ?\#)))
-                     ;; No indentation for "'(...)" elements
-                     (setq calculated (1+ sexp-column)))
-                    ((eq prev-char ?\#)
-                     ;; "#(...)"
-                     (setq calculated (1+ sexp-column)))
-                    ((null method)
-                     ;; If this looks like a call to a `def...' form,
-                     ;; think about indenting it as one, but do it
-                     ;; tentatively for cases like
-                     ;; (flet ((defunp ()
-                     ;;          nil)))
-                     ;; Set both normal-indent and tentative-calculated.
-                     ;; The latter ensures this value gets used
-                     ;; if there are no relevant containing constructs.
-                     ;; The former ensures this value gets used
-                     ;; if there is a relevant containing construct
-                     ;; but we are nested within the structure levels
-                     ;; that it specifies indentation for.
-                     (if tentative-defun
-                         (setq tentative-calculated
-                               (common-lisp-indent-call-method
-                                function lisp-indent-defun-method
-                                path state indent-point
-                                sexp-column normal-indent)
-                               normal-indent tentative-calculated)
-                         (when lisp-align-keywords-in-calls
-                           ;; No method so far. If we're looking at a keyword,
-                           ;; align with the first keyword in this expression.
-                           ;; This gives a reasonable indentation to most things
-                           ;; with keyword arguments.
-                           (save-excursion
-                            (goto-char indent-point)
-                            (back-to-indentation)
-                            (when (common-lisp-looking-at-keyword)
-                              (while (common-lisp-backward-keyword-argument)
-                                     (when (common-lisp-looking-at-keyword)
-                                       (setq calculated
-                                             (list (current-column)
-                                                   containing-form-start)))))))))
-                    ((integerp method)
-                     ;; convenient top-level hack.
-                     ;;  (also compatible with lisp-indent-function)
-                     ;; The number specifies how many `distinguished'
-                     ;;  forms there are before the body starts
-                     ;; Equivalent to (4 4 ... &body)
-                     (setq calculated (cond ((cdr path)
-                                             normal-indent)
-                                            ((<= (car path) method)
-                                             ;; `distinguished' form
-                                             (list (+ sexp-column 4)
+  ;; Walk up list levels until we see something which does special
+  ;; things with subforms.
+  (let* ((depth 0)
+         ;; Path describes the position of point in terms of
+         ;;  list-structure with respect to containing lists.
+         ;; `foo' has a path of (0 3 1) in `((a b c (d foo) f) g)'.
+         (path ())
+         ;; set non-nil when somebody works out the indentation to use
+         calculated
+         ;; If non-nil, this is an indentation to use
+         ;; if nothing else specifies it more firmly.
+         tentative-calculated
+         (last-point indent-point)
+         ;; the position of the open-paren of the innermost containing list
+         (containing-form-start (common-lisp-indent-parse-state-start state))
+         (normal-indent (common-lisp-normal-indent indent-point
                                                    containing-form-start))
-                                            ((= (car path) (1+ method))
-                                             ;; first body form.
-                                             (+ sexp-column lisp-body-indent))
-                                            (t
-                                             ;; other body form
-                                             normal-indent))))
-                    (t
-                     (setq calculated
-                           (common-lisp-indent-call-method
-                            function method path state indent-point
-                            sexp-column normal-indent))))))
-          (goto-char containing-sexp)
-          (setq last-point containing-sexp)
-          (unless calculated
-            (condition-case ()
-                (progn (backward-up-list 1)
-                       (setq depth (1+ depth)))
-              (error
-               (setq depth lisp-indent-maximum-backtracking))))))
+         ;; the column of the above
+         sexp-column)
+    ;; Move to start of innermost containing list
+    (goto-char containing-form-start)
+    (setq sexp-column (current-column))
 
-      (or calculated tentative-calculated
-          ;; Fallback.
-          ;;
-          ;; Instead of punting directly to calculate-lisp-indent we
-          ;; handle a few of cases it doesn't deal with:
-          ;;
-          ;; A: (foo (
-          ;;          bar zot
-          ;;          quux))
-          ;;
-          ;;    would align QUUX with ZOT.
-          ;;
-          ;; B:
-          ;;   (foo (or x
-          ;;            y) t
-          ;;        z)
-          ;;
-          ;;   would align the Z with Y.
-          ;;
-          ;; C:
-          ;;   (foo ;; Comment
-          ;;        (bar)
-          ;;        ;; Comment 2
-          ;;        (quux))
-          ;;
-          ;;   would indent BAR and QUUX by one.
-          (ignore-errors
-            (save-excursion
-              (goto-char indent-point)
-              (back-to-indentation)
-              (let ((p (point)))
-                (goto-char containing-form-start)
-                (down-list)
-                (let ((one (current-column)))
-                  (skip-chars-forward " \t")
-                  (if (or (eolp) (looking-at ";"))
-                      ;; A.
-                      (list one containing-form-start)
-                    (forward-sexp 2)
-                    (backward-sexp)
-                    (if (/= p (point))
-                        ;; B.
-                        (list (current-column) containing-form-start)
-                      (backward-sexp)
-                      (forward-sexp)
-                      (let ((tmp (+ (current-column) 1)))
-                        (skip-chars-forward " \t")
-                        (if (looking-at ";")
-                            ;; C.
-                            (list tmp containing-form-start)))))))))))))
+    ;; Look over successively less-deep containing forms
+    (while (and (not calculated)
+                (< depth lisp-indent-maximum-backtracking))
+      (let ((containing-sexp (point)))
+        (forward-char 1)
+        (parse-partial-sexp (point) indent-point 1 t)
+        ;; Move to the car of the relevant containing form
+        (let (tem full function method tentative-defun)
+          (if (not (looking-at "\\sw\\|\\s_"))
+              ;; This form doesn't seem to start with a symbol
+              (setq function nil method nil full nil)
+            (setq tem (point))
+            (forward-sexp 1)
+            (setq full (downcase (buffer-substring-no-properties
+                                  tem (point)))
+                  function full)
+            (goto-char tem)
+            (setq tem (intern-soft function)
+                  method (common-lisp-get-indentation tem))
+            (cond ((and (null method)
+                        (string-match ":[^:]+" function))
+                   ;; The pleblisp package feature
+                   (setq function (substring function
+                                             (1+ (match-beginning 0)))
+                         method (common-lisp-get-indentation
+                                 (intern-soft function) full)))
+                  ((and (null method))
+                   ;; backwards compatibility
+                   (setq method (common-lisp-get-indentation tem)))))
+          (let ((n 0))
+            ;; How far into the containing form is the current form?
+            (if (< (point) indent-point)
+                (while (condition-case ()
+                           (progn
+                             (forward-sexp 1)
+                             (if (>= (point) indent-point)
+                                 nil
+                               (parse-partial-sexp (point)
+                                                   indent-point 1 t)
+                               (setq n (1+ n))
+                               t))
+                         (error nil))))
+            (setq path (cons n path)))
 
+          ;; Guess.
+          (when (and (not method) function (null (cdr path)))
+            ;; (package prefix was stripped off above)
+            (cond ((and (string-match "\\`def" function)
+                        (not (string-match "\\`default" function))
+                        (not (string-match "\\`definition" function))
+                        (not (string-match "\\`definer" function)))
+                   (setq tentative-defun t))
+                  ((string-match
+                    (eval-when-compile
+                      (concat "\\`\\("
+                              (regexp-opt '("with" "without" "do"))
+                              "\\)-"))
+                    function)
+                   (setq method '(&lambda &body)))))
+
+          ;; #+ and #- cleverness.
+          (save-excursion
+            (goto-char indent-point)
+            (backward-sexp)
+            (let ((indent (current-column)))
+              (when (or (looking-at common-lisp-feature-expr-regexp)
+                        (ignore-errors
+                          (backward-sexp)
+                          (when (looking-at
+                                 common-lisp-feature-expr-regexp)
+                            (setq indent (current-column))
+                            (let ((line (line-number-at-pos)))
+                              (while
+                                  (ignore-errors
+                                    (backward-sexp 2)
+                                    (and
+                                     (= line (line-number-at-pos))
+                                     (looking-at
+                                      common-lisp-feature-expr-regexp)))
+                                (setq indent (current-column))))
+                            t)))
+                (setq calculated (list indent containing-form-start)))))
+          (let ((prev-char (char-after (1- containing-sexp))))
+            (cond ((and (or (eq prev-char ?\')
+                            (and (eq prev-char ?\`)
+                                 (if lisp-backquote-indentation
+                                     ;; `("foo" ...) is not valid Lisp, indent it as data.
+                                     (save-excursion
+                                       (goto-char containing-sexp)
+                                       (looking-at "\\s-*\(\\s-*\\\""))
+                                   t)))
+                        (not (eq (char-after (- containing-sexp 2)) ?\#)))
+                   ;; No indentation for "'(...)" elements
+                   (setq calculated (1+ sexp-column)))
+                  ((eq prev-char ?\#)
+                   ;; "#(...)"
+                   (setq calculated (1+ sexp-column)))
+                  ((null method)
+                   ;; If this looks like a call to a `def...' form,
+                   ;; think about indenting it as one, but do it
+                   ;; tentatively for cases like
+                   ;; (flet ((defunp ()
+                   ;;          nil)))
+                   ;; Set both normal-indent and tentative-calculated.
+                   ;; The latter ensures this value gets used
+                   ;; if there are no relevant containing constructs.
+                   ;; The former ensures this value gets used
+                   ;; if there is a relevant containing construct
+                   ;; but we are nested within the structure levels
+                   ;; that it specifies indentation for.
+                   (if tentative-defun
+                       (setq tentative-calculated
+                             (common-lisp-indent-call-method
+                              function lisp-indent-defun-method
+                              path state indent-point
+                              sexp-column normal-indent)
+                             normal-indent tentative-calculated)
+                     (when lisp-align-keywords-in-calls
+                       ;; No method so far. If we're looking at a keyword,
+                       ;; align with the first keyword in this expression.
+                       ;; This gives a reasonable indentation to most things
+                       ;; with keyword arguments.
+                       (save-excursion
+                         (goto-char indent-point)
+                         (back-to-indentation)
+                         (when (common-lisp-looking-at-keyword)
+                           (while (common-lisp-backward-keyword-argument)
+                             (when (common-lisp-looking-at-keyword)
+                               (setq calculated
+                                     (list (current-column)
+                                           containing-form-start)))))))))
+                  ((integerp method)
+                   ;; convenient top-level hack.
+                   ;;  (also compatible with lisp-indent-function)
+                   ;; The number specifies how many `distinguished'
+                   ;;  forms there are before the body starts
+                   ;; Equivalent to (4 4 ... &body)
+                   (setq calculated (cond ((cdr path)
+                                           normal-indent)
+                                          ((<= (car path) method)
+                                           ;; `distinguished' form
+                                           (list (+ sexp-column 4)
+                                                 containing-form-start))
+                                          ((= (car path) (1+ method))
+                                           ;; first body form.
+                                           (+ sexp-column lisp-body-indent))
+                                          (t
+                                           ;; other body form
+                                           normal-indent))))
+                  (t
+                   (setq calculated
+                         (common-lisp-indent-call-method
+                          function method path state indent-point
+                          sexp-column normal-indent))))))
+        (goto-char containing-sexp)
+        (setq last-point containing-sexp)
+        (unless calculated
+          (condition-case ()
+              (progn (backward-up-list 1)
+                     (setq depth (1+ depth)))
+            (error
+             (setq depth lisp-indent-maximum-backtracking))))))
+
+    (or calculated tentative-calculated
+        (list normal-indent containing-form-start))))
+
+(defun common-lisp-normal-indent (indent-point containing-form-start)
+  (save-excursion
+    (goto-char indent-point)
+    (back-to-indentation)
+    (let ((indented-point (point)))
+      (goto-char containing-form-start)
+      (down-list)
+      (let ((one (current-column)))
+        (skip-chars-forward " \t")
+        (if (or (eolp)
+                (if lisp-indent-apparent-data
+                    (looking-at ";")
+                    (looking-at "[;:#\"(]")))
+            ;; Indent one column from the opening paren.
+            one
+          ;; Skip over the sexp in the function name position.
+          (forward-sexp)
+          (skip-chars-forward " \t")
+          (let ((first-arg-or-comment-pos (point)))
+            (goto-char indent-point)
+            (common-lisp-backward-comment-or-sexp)
+            (while (and (< first-arg-or-comment-pos (point))
+                        (/= (point) (save-excursion
+                                      (back-to-indentation)
+                                      (point))))
+              (common-lisp-backward-comment-or-sexp)))
+          (if (or (looking-at ";;") (not (looking-at ";")))
+              (current-column)
+            one))))))
+
+(defun common-lisp-backward-comment-or-sexp ()
+  (forward-comment -1)
+  (unless (looking-at ";")
+    (backward-sexp)))
 
 (defun common-lisp-indent-call-method (function method path state indent-point
                                        sexp-column normal-indent)

@@ -342,6 +342,14 @@
          y) t
      bar)
 
+;;; Test: indent-30/def
+
+(defun foo ()
+  (foo fii
+       (or x
+           y) t
+       bar))
+
 ;;; Test: indent-31
 
 (foo
@@ -509,9 +517,9 @@
 
 (cond
   ((> x y) (foo)
-   ;; This isn't ideal -- I at least would align with (FOO here.
-   (bar) (quux)
-   (zot))
+           ;; Comment
+           (bar) (quux)
+           (zot))
   (qux (foo)
        (bar)
        (zot))
@@ -521,17 +529,47 @@
   (t (foo)
      (bar)))
 
+;;; Test: indent-48/def
+
+(defun foo ()
+  (cond
+    ((> x y) (foo)
+             ;; Comment
+             (bar) (quux)
+             (zot))
+    (qux (foo)
+         (bar)
+         (zot))
+    (zot
+     (foo)
+     (foo2))
+    (t (foo)
+       (bar))))
+
 ;;; Test: indent-49
 
 (cond ((> x y) (foo)
-       ;; This isn't ideal -- I at least would align with (FOO here.
-       (bar))
+               ;; Comment
+               (bar))
       (qux (foo)
            (bar))
       (zot
        (foo))
       (t (foo)
          (bar)))
+
+;;; Test: indent-49/def
+
+(defun foo ()
+  (cond ((> x y) (foo)
+                 ;; Comment
+                 (bar))
+        (qux (foo)
+             (bar))
+        (zot
+         (foo))
+        (t (foo)
+           (bar))))
 
 ;;; Test: indent-50
 ;;
@@ -901,9 +939,9 @@
 ;;; Test: indent-85
 
 (and      ;; Foo
-     (something)
-     ;; Quux
-     (more))
+          (something)
+          ;; Quux
+          (more))
 
 ;;; Test: indent-86
 
@@ -1031,3 +1069,82 @@
   ("bar" ())
   ("baz" () "fred")
   ("quux" ()))
+
+;;; Test: indent-101
+
+(with-output-to-string (s)
+  x
+  y)
+
+;;; Test: indent-102
+
+(with-output-to-string
+    (s)
+  x
+  y)
+
+;;; Test: indent-103
+
+(foo    ; one-semicolon comment
+ 1
+ 2)
+
+;;; Test: indent-104
+
+(foo    ;; two-semicolon comment
+        1
+        2)
+
+;;; Test: indent-105
+
+(foo 1
+                                        ; strange one-semicolon comment
+ 2)
+
+;;; Test: indent-106
+;;
+;; lisp-indent-apparent-data: nil
+;; lisp-align-keywords-in-calls: nil
+
+(defsystem foo
+  :defsystem-depends-on (#:a #:b
+                         #:c)
+  :depends-on ("a" "b"
+               "c" "d")
+  :components ((:module "dir/"
+                :serial t)))
+
+;;; Test: indent-107
+;;
+;; lisp-indent-apparent-data: t
+;; lisp-align-keywords-in-calls: nil
+
+(defsystem foo
+  :defsystem-depends-on (#:a #:b
+                             #:c)
+  :depends-on ("a" "b"
+                   "c" "d")
+  :components ((:module "dir/"
+                        :serial t)))
+
+;;; Test: indent-108
+;;
+;; lisp-indent-apparent-data: nil
+
+(defxxx foo ()
+  ("x" "y"
+   (bar 1 2
+        3))
+  ((x y) 1
+   2))
+
+;;; Test: indent-109
+;;
+;; lisp-indent-apparent-data: t
+
+(defxxx foo ()
+  ("x" "y"
+       (bar 1 2
+            3))
+  ((x y) 1
+         2))

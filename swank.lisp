@@ -3478,9 +3478,9 @@ Return nil if there's no previous object."
                                  (cons (car cycle)
                                        (ldiff (cdr cycle) cycle)))))))
             ((not tail)
-             (frob "A proper list:" list))
+             (frob (format nil "A proper list of length ~a:" length) list))
             (t
-             (frob "An improper list:" list))))))
+             (frob (format nil "An improper list of length ~a:" length) list))))))
 
 (defun inspect-list-aux (list)
   (loop for i from 0  for rest on list  while (consp rest)  append 

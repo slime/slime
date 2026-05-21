@@ -727,7 +727,8 @@ QUALITIES is an alist with (quality . value)"
     :source-transform :define-source-transform
     :ir1-convert :def-ir1-translator
     :declaration declaim
-    :alien-type :define-alien-type)
+    :alien-type :define-alien-type
+    :alien-callback :define-alien-callable)
   "Map SB-INTROSPECT definition type names to Slime-friendly forms")
 
 (defun definition-specifier (type)
@@ -1521,19 +1522,39 @@ stack."
 
 
 ;;;; Inspector
+
+(defun inspected-parts (o)
+  (multiple-value-bind (text label parts) (sb-impl::inspected-parts o)
+    (list* (string-right-trim '(#\Newline) text)
+           '(:newline)
+           (if label
+               (loop for (l . v) in parts
+                     append (label-value-line l v))
+               (loop for value in parts
+                     for i from 0
+                     append (label-value-line i value))))))
+
+(defmethod emacs-inspect :around ((o structure-object))
+  (let ((show-internals
+          (swank::ensure-istate-metadata o :show-struct-internals (cons :box nil))))
+    (append `(" Show the internal structure: "
+              (:action ,(if (cdr show-internals)
+                            "[X]"
+                            "[ ]")
+               ,(lambda ()
+                  (setf (cdr show-internals)
+                        (not (cdr show-internals))))
+               :refreshp t)
+              (:newline))
+            (if (cdr show-internals)
+                (inspected-parts o)
+                (call-next-method)))))
+
 (defmethod emacs-inspect ((o t))
   (cond ((sb-di::indirect-value-cell-p o)
          (label-value-line* (:value (sb-kernel:value-cell-ref o))))
 	(t
-         (multiple-value-bind (text label parts) (sb-impl::inspected-parts o)
-           (list* (string-right-trim '(#\Newline) text)
-                  '(:newline)
-                  (if label
-                      (loop for (l . v) in parts
-                            append (label-value-line l v))
-                      (loop for value in parts
-                            for i from 0
-                            append (label-value-line i value))))))))
+         (inspected-parts o))))
 
 (defmethod emacs-inspect ((o function))
   (cond ((sb-kernel:simple-fun-p o)

@@ -20,10 +20,10 @@
 (defun frame-name (name)
   (if (consp name)
       (case (first name)
-        ((sb-c::xep sb-c::tl-xep
-                    sb-c::&more-processor
-                    sb-c::top-level-form
-                    sb-c::&optional-processor)
+        (#.(loop for name in '(#:xep #:tl-xep #:&more-processor
+                               #:top-level-form #:&optional-processor)
+                 when (find-symbol (string name) :sb-c)
+                 collect it)
          (second name))
         (sb-pcl::fast-method
          (cdr name))
