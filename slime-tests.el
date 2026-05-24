@@ -1546,4 +1546,41 @@ Reconnect afterwards."
       (when slime-xref-last-buffer
         (kill-buffer slime-xref-last-buffer)))))
 
+(defslimefun slime-test-echo-callback (value) value)
+(def-slime-test slime-swank-ed-rpc ()
+  "Use swank:ed-rpc on a defslimefun. It should call it and return the value."
+  '(())
+  (slime-check "Checking the echo callback is reachable."
+               (eq 55 (slime-eval  `(swank:ed-rpc 'slime-test-echo-callback 55))))
+  (slime-check-top-level))
+
+(def-slime-test slime-swank-ed-rpc-undefined-function ()
+  "Use swank:ed-rpc on a function that doesn't exist. It should report it as forbidden."
+  '(())
+  (slime-compile-string
+   (prin1-to-string `(defun cl-user::test-undefined-rpc ()
+                       (handler-case (swank:ed-rpc 'slime-test-undefined-callback 55)
+                         (swank:rpc-forbidden-error (err) (princ-to-string err)))))
+   0)
+  (unintern 'slime-test-undefined-callback obarray)
+  (let ((expected "ED-RPC forbidden for SLIME-TEST-UNDEFINED-CALLBACK")
+        (result (slime-eval '(cl-user::test-undefined-rpc))))
+    (slime-check ("Error message (%S) is %S" expected result)
+      (equal expected result))))
+
+(defslimefun slime-test-forbidden-callback (value) value)
+(put 'slime-test-forbidden-callback 'slime-rpc nil)
+(def-slime-test slime-swank-ed-rpc-forbidden-function ()
+  "Use swank:ed-rpc on a function that doesn't exist. It should report it as forbidden."
+  '(())
+  (slime-compile-string
+   (prin1-to-string `(defun cl-user::test-forbidden-rpc ()
+                       (handler-case (swank:ed-rpc 'slime-test-forbidden-callback 55)
+                         (swank:rpc-forbidden-error (err) (princ-to-string err)))))
+   0)
+  (let ((expected "ED-RPC forbidden for SLIME-TEST-FORBIDDEN-CALLBACK")
+        (result (slime-eval '(cl-user::test-forbidden-rpc))))
+    (slime-check ("Error message (%S) is %S" expected result)
+      (equal expected result))))
+
 (provide 'slime-tests)

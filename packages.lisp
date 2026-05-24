@@ -188,6 +188,7 @@
            #:quit-lisp
            #:eval-for-emacs
            #:eval-in-emacs
+           #:rpc-forbidden-error
            #:ed-rpc
            #:ed-rpc-no-wait
            #:y-or-n-p-in-emacs
