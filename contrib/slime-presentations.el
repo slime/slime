@@ -223,6 +223,8 @@ Return buffer index and whether a start-tag was found."
                          (buffer (with-current-buffer object 1))
                          (string 0))
                        nil)))
+        (when (= change-point point)
+          (error "Unable to find presentation start"))
         (setq this-presentation (get-text-property change-point
                                                    presentation object))
         (unless this-presentation
@@ -246,6 +248,8 @@ end-tag was found."
                          (buffer (with-current-buffer object (point-max)))
                          (string (length object)))
                        nil)))
+        (when (= change-point point)
+          (error "Unable to find presentation end"))
         (setq point change-point)
         (setq this-presentation (get-text-property point
                                                    presentation object))))
