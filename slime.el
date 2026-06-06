@@ -2152,14 +2152,26 @@ or nil if nothing suitable can be found.")
 ;;  (in-package |CL|)
 ;;  (in-package #+ansi-cl :cl #-ansi-cl 'lisp)
 
+;;; Note that when the cursor is within the in-package form, this
+;;; can return nil.
 (defun slime-search-buffer-package ()
   (let ((case-fold-search t)
         (regexp (concat "^[ \t]*(\\(cl:\\|common-lisp:\\)?in-package\\>[ \t']*"
-                        "\\([^)]+\\)[ \t]*)")))
-    (save-excursion
-      (when (or (re-search-backward regexp nil t)
-                (re-search-forward regexp nil t))
-        (match-string-no-properties 2)))))
+                        "\\([^)]+\\)[ \t]*)"))
+        result)
+    (dolist (search-forward-p '(nil t))
+      (save-excursion
+        (while (and (not result)
+                    (if search-forward-p
+                        (re-search-forward regexp nil t)
+                      (re-search-backward regexp nil t)))
+          (let ((ppss (save-excursion
+                        (syntax-ppss (match-beginning 0)))))
+            ;; Skip matches in strings and comments (including the #|
+            ;; |# syntax).
+            (unless (or (nth 3 ppss) (nth 4 ppss))
+              (setq result (match-string-no-properties 2)))))))
+    result))
 
 ;;; Synchronous requests are implemented in terms of asynchronous
 ;;; ones. We make an asynchronous request with a continuation function

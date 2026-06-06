@@ -395,6 +395,37 @@ conditions (assertions)."
                        (slime-sexp-at-point)
                        #'eq)))
 
+(def-slime-test in-package.1 (string matches)
+  "Check that slime-search-buffer-package handles funny cases."
+  '(("(in-package :correct)"
+     ((1 1 ":correct")
+      (2 21 nil)
+      (22 22 ":correct")))
+    ("(in-package \"P1\")\n(defun foo ())\n(cL:in-PACKAGE #:p2)\n(defun bar())\n"
+     ((1 1 "\"P1\"")
+      ;; This is weird but harmless. We are in the first in-package form.
+      (2 17 "#:p2")
+      (18 53 "\"P1\"")
+      (54 69 "#:p2")))
+    ("(in-package :first)\n(in-package :second)\n#|\n(in-package :not-this)\n|#\n\"\n(in-package :or-this)\n\""
+     ((1 1 ":first")
+      ;; Within the (in-package :first)
+      (2 19 ":second")
+      ;; Before the end of (in-package :second)
+      (20 40 ":first")
+      (41 97 ":second"))))
+  (with-temp-buffer
+    (lisp-mode)
+    (insert string)
+    (dolist (match matches)
+      (cl-destructuring-bind (min max expected) match
+        (cl-loop for pos upfrom min upto max
+                 do (goto-char pos)
+                     (let ((package (slime-search-buffer-package)))
+                       (slime-check ("Checking %S => at pos %S got %S"
+                                     match pos package)
+                         (equal package expected))))))))
+
 (def-slime-test narrowing ()
     "Check that narrowing is properly sustained."
     '()
