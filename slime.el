@@ -2000,7 +2000,7 @@ Return nil if there's no process object for the connection."
   (let ((c (or connection (slime-connection))))
     (cl-ecase (slime-communication-style c)
       ((:fd-handler nil) t)
-      ((:spawn :sigio) nil))))
+      ((:spawn :sigio :async) nil))))
 
 (defvar slime-inhibit-pipelining t
   "*If true, don't send background requests if Lisp is already busy.")
