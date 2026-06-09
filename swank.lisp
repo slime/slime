@@ -1548,9 +1548,15 @@ considered to represent a symbol internal to some current package.)"
 
 (defun tokenize-symbol-thoroughly (string)
   "This version of TOKENIZE-SYMBOL handles escape characters."
-  ;; READTABLE-CASE = :INVERT is handled in two pass: first pass
+  ;; READTABLE-CASE = :INVERT is handled in two passes: first pass
   ;; records UNESCAPED-*-CASE, second pass actually casifies
-  (labels ((tokenize (case)
+  (labels ((casify-char (char readtable-case)
+             "Convert CHAR according to READTABLE-CASE."
+             (ecase readtable-case
+               (:preserve char)
+               (:upcase   (char-upcase char))
+               (:downcase (char-downcase char))))
+           (tokenize (case)
              (let ((package nil)
                    (token (make-array (length string) :element-type 'character
                                                       :fill-pointer 0))
@@ -1561,34 +1567,34 @@ considered to represent a symbol internal to some current package.)"
                    (unescaped-lower-case nil)
                    (casify (if (eq case :invert) :preserve case)))
                (loop for char across string do
-                 (cond
-                   (backslash
-                    (vector-push-extend char token)
-                    (setq backslash nil))
-                   ((char= char #\\) ; Quotes next character, even within |...|
-                    (setq backslash t))
-                   ((char= char #\|)
-                    (setq vertical (not vertical)))
-                   (vertical
-                    (vector-push-extend char token))
-                   ((char= char #\:)
-                    (cond ((and package internp)
-                           (return-from tokenize-symbol-thoroughly))
-                          (package
-                           (setq internp t))
-                          (t
-                           (setq package token
-                                 token (make-array (length string)
-                                                   :element-type 'character
-                                                   :fill-pointer 0)))))
-                   (t
-                    (cond ((upper-case-p char)
-                           (setq unescaped-upper-case t))
-                          ((lower-case-p char)
-                           (setq unescaped-lower-case t)))
-                    (vector-push-extend (casify-char char casify) token))))
+                     (cond
+                       (backslash
+                        (vector-push char token)
+                        (setq backslash nil))
+                       ((char= char #\\) ; Quotes next character, even within |...|
+                        (setq backslash t))
+                       ((char= char #\|)
+                        (setq vertical (not vertical)))
+                       (vertical
+                        (vector-push char token))
+                       ((char= char #\:)
+                        (cond ((and package internp)
+                               (return-from tokenize-symbol-thoroughly))
+                              (package
+                               (setq internp t))
+                              (t
+                               (setq package token
+                                     token (make-array (length string)
+                                                       :element-type 'character
+                                                       :fill-pointer 0)))))
+                       (t
+                        (cond ((upper-case-p char)
+                               (setq unescaped-upper-case t))
+                              ((lower-case-p char)
+                               (setq unescaped-lower-case t)))
+                        (vector-push (casify-char char casify) token))))
                (unless vertical
-                 ;; Here is second pass for READTABLE-CASE = :INVERT
+                 ;; second pass for READTABLE-CASE = :INVERT
                  (cond ((and (eq case :invert) (not unescaped-upper-case))
                         (tokenize :upcase))
                        ((and (eq case :invert) (not unescaped-lower-case))
@@ -1606,14 +1612,6 @@ considered to represent a symbol internal to some current package.)"
   (cond ((not package-name) 	symbol-name)
         (internal-p 		(cat package-name "::" symbol-name))
         (t 			(cat package-name ":" symbol-name))))
-
-(defun casify-char (char readtable-case)
-  "Convert CHAR accoring to READTABLE-CASE."
-  (ecase readtable-case
-    (:preserve char)
-    (:upcase   (char-upcase char))
-    (:downcase (char-downcase char))))
-
 
 (defun find-symbol-with-status (symbol-name status 
                                 &optional (package *package*))
