@@ -9,7 +9,7 @@
 ;;; (See the slime-devel mailing list archive for details.)
 ;;;
 ;;; nregex.lisp - My 4/8/92 attempt at a Lisp based regular expression
-;;;               parser. 
+;;;               parser.
 ;;;
 ;;;               This regular expression parser operates by taking a
 ;;;               regular expression and breaking it down into a list
@@ -31,7 +31,7 @@
 ;;;; CND - 6/3/2001
 (defpackage slime-nregex
   (:use #:common-lisp)
-  (:export 
+  (:export
    #:regex
    #:regex-compile
   ))
@@ -75,8 +75,8 @@
     (if (= *regex-groupings* 0)
 	(return-from regex t))
     (dotimes (i *regex-groupings*)
-      (push (funcall 'subseq 
-		     string 
+      (push (funcall 'subseq
+		     string
 		     (car (aref *regex-groups* i))
 		     (cadr (aref *regex-groups* i)))
 	    result))
@@ -97,7 +97,7 @@
 ;;; string was used.  If the result is a set of characters, return an
 ;;; array of bits indicating which characters should be set.  If the
 ;;; expression is one of the sub-group matches return a
-;;; list-expression that will provide the match.  
+;;; list-expression that will provide the match.
 ;;;
 (defun regex-quoted (char-string &optional (invert nil))
   "Usage: (regex-quoted <char-string> &optional invert)
@@ -138,7 +138,7 @@
 	       ;;
 	       ;; It is a single character specified in octal
 	       ;;
-	       (progn 
+	       (progn
 		 (setf result (do ((x 0 (1+ x))
 				   (return 0))
 				  ((= x 2) return)
@@ -159,7 +159,7 @@
 						  :end1 (+ index (length nstring))))
 				    (return-from compare nil)
 				  (incf index (length nstring)))))))))
-	  (t 
+	  (t
 	   (setf result first)))
     (if (and (vectorp result) invert)
 	(bit-xor result #*1111111110011111111111111111111101111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111 t))
@@ -178,8 +178,8 @@
   (info "Now entering regex-compile with \"~A\"~%" source)
   ;;
   ;; This routine works in two parts.
-  ;; The first pass take the regular expression and produces a list of 
-  ;; operators and lisp expressions for the entire regular expression.  
+  ;; The first pass take the regular expression and produces a list of
+  ;; operators and lisp expressions for the entire regular expression.
   ;; The second pass takes this list and produces the lambda expression.
   (let ((expression '())		; holder for expressions
 	(group 1)			; Current group index
@@ -187,7 +187,7 @@
 	(result nil)			; holder for built expression.
 	(fast-first nil))		; holder for quick unanchored scan
     ;;
-    ;; If the expression was an empty string then it alway
+    ;; If the expression was an empty string then it always
     ;; matches (so lets leave early)
     ;;
     (if (= (length source) 0)
@@ -212,13 +212,13 @@
     ;;
     ;; Also, If this is not an anchored search and the first character is
     ;; a literal, then do a quick scan to see if it is even in the string.
-    ;; If not then we can issue a quick nil, 
+    ;; If not then we can issue a quick nil,
     ;; otherwise we can start the search at the matching character to skip
     ;; the checks of the non-matching characters anyway.
     ;;
-    ;; If I really wanted to speed up this section of code it would be 
+    ;; If I really wanted to speed up this section of code it would be
     ;; easy to recognize the case of a fairly long multi-character literal
-    ;; and generate a Boyer-Moore search for the entire literal. 
+    ;; and generate a Boyer-Moore search for the entire literal.
     ;;
     ;; I generate the code to do a loop because on CMU Lisp this is about
     ;; twice as fast a calling position.
@@ -282,7 +282,7 @@
 	   ;;
 	   (incf group)
 	   (push group group-stack)
-	   (add-exp `((setf (aref *regex-groups* ,(1- group)) 
+	   (add-exp `((setf (aref *regex-groups* ,(1- group))
 			    (list index nil))))
 	   (add-exp `(,group)))
 	  ((#\))
@@ -313,7 +313,7 @@
 			   (not (eql (char source (+ x 2)) #\])))
 		      (if (>= (char-code (char source x))
 			     (char-code (char source (+ 2 x))))
-			  (error "Invalid range \"~A-~A\".  Ranges must be in acending order"
+			  (error "Invalid range \"~A-~A\".  Ranges must be in ascending order"
 				 (char source x) (char source (+ 2 x))))
 		      (do ((j (char-code (char source x)) (1+ j)))
 		       ((> j (char-code (char source (+ 2 x))))
@@ -344,7 +344,7 @@
 			    (return-from compare nil)))))))
 	  ((#\\ )
 	   ;;
-	   ;; Intreprete the next character as a special, range, octal, group or 
+	   ;; Intreprete the next character as a special, range, octal, group or
            ;; just the character itself.
 	   ;;
 	   (let ((length)
@@ -355,7 +355,7 @@
 		    (add-exp value))
 		   ((characterp value)
 		    (add-exp `((if (not (and (< index length)
-					     (eql (char string index) 
+					     (eql (char string index)
 						  ,value)))
 				   (return-from compare nil)
 				 (incf index)))))
@@ -369,7 +369,7 @@
 	     (incf eindex length)))
 	  (t
 	   ;;
-	   ;; We have a literal character.  
+	   ;; We have a literal character.
 	   ;; Scan to see how many we have and if it is more than one
 	   ;; generate a string= verses as single eql.
 	   ;;
@@ -379,9 +379,9 @@
 			    (if (position litchar *regex-special-chars*)
 				(return litchar)
 			      (progn
-				(info "Now adding ~A index ~A to lit~%" litchar 
+				(info "Now adding ~A index ~A to lit~%" litchar
 				      litindex)
-				(setf lit (concatenate 'string lit 
+				(setf lit (concatenate 'string lit
 						       (string litchar)))))))))
 	     (if (= (length lit) 1)
 		 (add-exp `((if (not (and (< index length)
@@ -393,7 +393,7 @@
 	       ;; check to see if the next character (if there is one)
 	       ;; is an astrisk or a plus or a question mark.  If so then we must not use this
 	       ;; character in the big literal.
-	       (progn 
+	       (progn
 		 (if (or (eql term #\*)
                          (eql term #\+)
                          (eql term #\?))
@@ -421,17 +421,17 @@
     ;; the END then save the new index if it didn't fail.
     ;; On an ASTRISK I need to take the previous expression and wrap
     ;; it in a do that will evaluate the expression till an error
-    ;; occurs and then another do that encompases the remainder of the
+    ;; occurs and then another do that encompasses the remainder of the
     ;; regular expression and iterates decrementing the index by one
     ;; of the matched expression sizes and then returns nil.  After
     ;; the last expression insert a form that does a return t so that
     ;; if the entire nested sub-expression succeeds then the loop
     ;; is broken manually.
-    ;; 
+    ;;
     (setf result (copy-tree nil))
     ;;
-    ;; Reversing the current expression makes building up the 
-    ;; lambda list easier due to the nexting of expressions when 
+    ;; Reversing the current expression makes building up the
+    ;; lambda list easier due to the nexting of expressions when
     ;; and astrisk has been encountered.
     (setf expression (reverse expression))
     (do ((elt 0 (1+ elt)))
@@ -454,9 +454,9 @@
 	       (setf result (append (list piece) result)))
 	      ((eql piece 'QUESTION)	; Wrap it in a block that won't fail
 	       (cond ((listp (nth (1+ elt) expression))
-		      (setf result 
+		      (setf result
 			    (append `((progn (block compare
-						    ,(nth (1+ elt) 
+						    ,(nth (1+ elt)
 							  expression))
 					     t))
 				    result))
@@ -474,7 +474,7 @@
 		      ;; This is a single character wild card so
 		      ;; do the simple form.
 		      ;;
-		      (setf result 
+		      (setf result
 			    `((let ((oindex index))
 				(block compare
 				       (do ()
@@ -495,7 +495,7 @@
 	       )
 	      (t t))))			; Just ignore everything else.
     ;;
-    ;; Now wrap the result in a lambda list that can then be 
+    ;; Now wrap the result in a lambda list that can then be
     ;; invoked or compiled, however the user wishes.
     ;;
     (if anchored

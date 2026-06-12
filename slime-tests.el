@@ -112,7 +112,7 @@ Also don't error if `ert.el' is missing."
         `(ert-deftest ,name () ,(or docstring "No docstring for this test.")
            :tags ',tags
            ,@args))))
-  
+
   (defun split-version-string (string)
     (cl-loop for part in (split-string string "\\.")
              while (string-match-p "^[[:digit:]]+$" part)
@@ -126,7 +126,7 @@ Also don't error if `ert.el' is missing."
               (and (= head-x head-y)
                    (version>= (cdr x) (cdr y)))))
         t))
-  
+
   (defun fails-for-p (fails)
     (cl-loop for fail in fails
              for version = (string-match-p "-" fail)
@@ -797,7 +797,7 @@ Confirm that SUBFORM is correctly located."
       (slime-wait-condition "Compilation finished" (lambda () (car cell))
                             5)
       (let ((result (cdr cell)))
-        (slime-check "Compilation successfull"
+        (slime-check "Compilation successful"
           (eq (slime-compilation-result.successp result) t))))))
 
 (def-slime-test utf-8-source
@@ -1057,7 +1057,7 @@ Confirm that SUBFORM is correctly located."
 
 (defun slime-execute-as-command (name)
   "Execute `name' as if it was done by the user through the
-Command Loop. Similiar to `call-interactively' but also pushes on
+Command Loop. Similar to `call-interactively' but also pushes on
 the buffer's undo-list."
   (undo-boundary)
   (call-interactively name))
@@ -1371,7 +1371,7 @@ This test will fail more likely before dispatch caches are warmed up."
 
 (def-slime-test disconnect-and-reconnect
     ()
-    "Close the connetion.
+    "Close the connection.
 Confirm that the subprocess continues gracefully.
 Reconnect afterwards."
     '(())

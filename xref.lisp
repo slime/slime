@@ -1,11 +1,11 @@
-;;; -*- Mode: LISP; Package: XREF; Syntax: Common-lisp;  -*- 
+;;; -*- Mode: LISP; Package: XREF; Syntax: Common-lisp;  -*-
 ;;; Mon Jan 21 16:21:20 1991 by Mark Kantrowitz <mkant@GLINDA.OZ.CS.CMU.EDU>
 ;;; xref.lisp
 
 ;;; ****************************************************************
-;;; List Callers: A Static Analysis Cross Referencing Tool for Lisp 
+;;; List Callers: A Static Analysis Cross Referencing Tool for Lisp
 ;;; ****************************************************************
-;;; 
+;;;
 ;;; The List Callers system is a portable Common Lisp cross referencing
 ;;; utility. It grovels over a set of files and compiles a database of the
 ;;; locations of all references for each symbol used in the files.
@@ -14,15 +14,15 @@
 ;;;
 ;;; When you change a function or variable definition, it can be useful
 ;;; to know its callers, in order to update each of them to the new
-;;; definition. Similarly, having a graphic display of the structure 
+;;; definition. Similarly, having a graphic display of the structure
 ;;; (e.g., call graph) of a program can help make undocumented code more
 ;;; understandable. This static code analyzer facilitates both capabilities.
-;;; The database compiled by xref is suitable for viewing by a graphical 
+;;; The database compiled by xref is suitable for viewing by a graphical
 ;;; browser. (Note: the reference graph is not necessarily a DAG. Since many
 ;;; graphical browsers assume a DAG, this will lead to infinite loops.
 ;;; Some code which is useful in working around this problem is included,
 ;;; as well as a sample text-indenting outliner and an interface to Bates'
-;;; PSGraph Postscript Graphing facility.) 
+;;; PSGraph Postscript Graphing facility.)
 ;;;
 ;;; Written by Mark Kantrowitz, July 1990.
 ;;;
@@ -44,8 +44,8 @@
 ;;; ANY WARRANTY. The author(s) do not accept responsibility to anyone for
 ;;; the consequences of using it or for whether it serves any particular
 ;;; purpose or works at all. No warranty is made about the software or its
-;;; performance. 
-;;; 
+;;; performance.
+;;;
 ;;; Use and copying of this software and the preparation of derivative
 ;;; works based on this software are permitted, so long as the following
 ;;; conditions are met:
@@ -54,44 +54,44 @@
 ;;;	o  No fees or compensation are charged for use, copies, or
 ;;;	   access to this software. You may charge a nominal
 ;;;	   distribution fee for the physical act of transferring a
-;;;	   copy, but you may not charge for the program itself. 
+;;;	   copy, but you may not charge for the program itself.
 ;;;	o  If you modify this software, you must cause the modified
 ;;;	   file(s) to carry prominent notices (a Change Log)
 ;;;	   describing the changes, who made the changes, and the date
 ;;;	   of those changes.
 ;;;	o  Any work distributed or published that in whole or in part
-;;;	   contains or is a derivative of this software or any part 
-;;;	   thereof is subject to the terms of this agreement. The 
+;;;	   contains or is a derivative of this software or any part
+;;;	   thereof is subject to the terms of this agreement. The
 ;;;	   aggregation of another unrelated program with this software
 ;;;	   or its derivative on a volume of storage or distribution
 ;;;	   medium does not bring the other program under the scope
 ;;;	   of these terms.
 ;;;	o  Permission is granted to manufacturers and distributors of
 ;;;	   lisp compilers and interpreters to include this software
-;;;	   with their distribution. 
+;;;	   with their distribution.
 ;;;
-;;; This software is made available AS IS, and is distributed without 
+;;; This software is made available AS IS, and is distributed without
 ;;; warranty of any kind, either expressed or implied.
-;;; 
+;;;
 ;;; In no event will the author(s) or their institutions be liable to you
 ;;; for damages, including lost profits, lost monies, or other special,
 ;;; incidental or consequential damages arising out of or in connection
 ;;; with the use or inability to use (including but not limited to loss of
 ;;; data or data being rendered inaccurate or losses sustained by third
-;;; parties or a failure of the program to operate as documented) the 
+;;; parties or a failure of the program to operate as documented) the
 ;;; program, even if you have been advised of the possibility of such
 ;;; damanges, or for any claim by any other party, whether in an action of
 ;;; contract, negligence, or other tortious action.
-;;; 
+;;;
 ;;; The current version of this software and a variety of related utilities
 ;;; may be obtained by anonymous ftp from ftp.cs.cmu.edu in the directory
 ;;;    user/ai/lang/lisp/code/tools/xref/
-;;; 
+;;;
 ;;; Please send bug reports, comments, questions and suggestions to
 ;;; mkant@cs.cmu.edu. We would also appreciate receiving any changes
-;;; or improvements you may make. 
-;;; 
-;;; If you wish to be added to the Lisp-Utilities@cs.cmu.edu mailing list, 
+;;; or improvements you may make.
+;;;
+;;; If you wish to be added to the Lisp-Utilities@cs.cmu.edu mailing list,
 ;;; send email to Lisp-Utilities-Request@cs.cmu.edu with your name, email
 ;;; address, and affiliation. This mailing list is primarily for
 ;;; notification about major updates, bug fixes, and additions to the lisp
@@ -105,7 +105,7 @@
 ;;; 27-FEB-91 mk   Added insert arg to psgraph-xref to allow the postscript
 ;;;                graphs to be inserted in Scribe documents.
 ;;; 21-FEB-91 mk   Added warning if not compiled.
-;;; 07-FEB-91 mk   Fixed bug in record-callers with regard to forms at 
+;;; 07-FEB-91 mk   Fixed bug in record-callers with regard to forms at
 ;;;                toplevel.
 ;;; 21-JAN-91 mk   Added file xref-test.lisp to test xref.
 ;;; 16-JAN-91 mk   Added definition WHO-CALLS to parallel the Symbolics syntax.
@@ -114,7 +114,7 @@
 ;;; 16-JAN-91 mk   Modified print-caller-tree and related functions
 ;;;                to allow the user to specify root nodes. If the user
 ;;;                doesn't specify them, it will default to all root
-;;;                nodes, as before. 
+;;;                nodes, as before.
 ;;; 16-JAN-91 mk   Added parameter *default-graphing-mode* to specify
 ;;;                the direction of the graphing. Either :call-graph,
 ;;;                where the children of a node are those functions called
@@ -172,7 +172,7 @@
 ;;; calls within backquote and quote, which we normally ignore. If
 ;;; we redefine QUOTE's pattern so that it treats the arg like a FORM,
 ;;; we'll probably get them (though maybe the syntax will be mangled),
-;;; but most likely a lot of spurious things as well. 
+;;; but most likely a lot of spurious things as well.
 ;;;
 ;;; Define an operation for Defsystem which will run XREF-FILE on the
 ;;; files of the system. Or yet simpler, when XREF sees a LOAD form
@@ -197,7 +197,7 @@
 ;;;
 ;;; Would pay to comment record-callers and record-callers* in more
 ;;; depth.
-;;; 
+;;;
 ;;; (&OPTIONAL &REST &KEY &AUX &BODY &WHOLE &ALLOW-OTHER-KEYS &ENVIRONMENT)
 
 ;;; ********************************
@@ -209,13 +209,13 @@
 ;;;       Macintosh Allegro Common Lisp (1.3.2)
 ;;;       ExCL (Franz Allegro CL 3.1.12 [DEC 3100] 3/30/90)
 ;;;       Lucid CL (Version 2.1 6-DEC-87)
-;;;    
+;;;
 ;;;    XREF has been tested (unsuccessfully) in the following lisps:
 ;;;       Ibuki Common Lisp (01/01, October 15, 1987)
 ;;;           - if interpreted, runs into stack overflow
 ;;;           - does not compile (tried ibcl on Suns, PMAXes and RTs)
 ;;;             seems to be due to a limitation in the c compiler.
-;;;    
+;;;
 ;;;    XREF needs to be tested in the following lisps:
 ;;;       Symbolics Common Lisp (8.0)
 ;;;       Lucid Common Lisp (3.0, 4.0)
@@ -238,13 +238,13 @@
 ;;; symbol, or display the call graph of portions of the program
 ;;; (including the entire program). This allows the programmer to debug
 ;;; and document the program's structure.
-;;; 
+;;;
 ;;; XREF is primarily intended for analyzing large programs, where it is
 ;;; difficult, if not impossible, for the programmer to grasp the structure
 ;;; of the whole program. Nothing precludes using XREF for smaller programs,
 ;;; where it can be useful for inspecting the relationships between pieces
 ;;; of the program and for documenting the program.
-;;; 
+;;;
 ;;; Two aspects of the Lisp programming language greatly simplify the
 ;;; analysis of Lisp programs:
 ;;; 	o  Lisp programs are naturally represented as data.
@@ -261,14 +261,14 @@
 ;;; tree. For example, one kind of relation is that the function defined
 ;;; by the definition calls the functions in its body. The relations are
 ;;; stored in a database for later examination by the user.
-;;; 
+;;;
 ;;; While XREF currently only works for programs written in Lisp, it could
 ;;; be extended to other programming languages by writing a function to
 ;;; generate parse trees for definitions in that language, and a core
 ;;; set of patterns for the language's syntax.
-;;; 
-;;; Since XREF normally does a static syntactic analysis of the program, 
-;;; it does not detect references due to the expansion of a macro definition. 
+;;;
+;;; Since XREF normally does a static syntactic analysis of the program,
+;;; it does not detect references due to the expansion of a macro definition.
 ;;; To do this in full generality XREF would have to have knowledge about the
 ;;; semantics of the program (e.g., macros which call other functions to
 ;;; do the expansion). This entails either modifying the compiler to
@@ -285,7 +285,7 @@
 ;;; has a pattern defined for dolist, it will not call macroexpand-1 on
 ;;; a form whose car is dolist.) For this to work properly, the code must
 ;;; be loaded before being processed by XREF, and XREF's parameters should
-;;; be set so that it processes forms in their proper packages. 
+;;; be set so that it processes forms in their proper packages.
 ;;;
 ;;; If macro expansion is disabled, the default rules for handling macro
 ;;; references may not be sufficient for some user-defined macros, because
@@ -316,7 +316,7 @@
 ;;;    and the total number of forms.
 ;;;
 ;;; -----
-;;; The following functions display information about the uses of the 
+;;; The following functions display information about the uses of the
 ;;; specified symbol as a function, variable, or constant.
 ;;;
 ;;; LIST-CALLERS (symbol)                                         [FUNCTION]
@@ -484,7 +484,7 @@
 ;;;
 ;;; Patterns may be either structures to match, or a predicate
 ;;; like symbolp/numberp/stringp. The pattern specification language
-;;; is similar to the notation used in CLtL2, but in a more lisp-like 
+;;; is similar to the notation used in CLtL2, but in a more lisp-like
 ;;; form:
 ;;;    (:eq name)           The form element must be eq to the symbol NAME.
 ;;;    (:test test)         TEST must be true when applied to the form element.
@@ -520,7 +520,7 @@
 ;;;                         a variable definition or mutation. Used
 ;;;                         in the definition of let, let*, etc.
 ;;;    VARIABLE             The corresponding form element should be
-;;;                         a variable reference. 
+;;;                         a variable reference.
 ;;;
 ;;; In all other pattern symbols, it looks up the symbols pattern substitution
 ;;; and recursively matches against the pattern. Automatically destructures
@@ -536,7 +536,7 @@
 ;;;    and others...
 ;;;
 ;;; Here's some sample pattern definitions:
-;;; (define-caller-pattern defun 
+;;; (define-caller-pattern defun
 ;;;   (name lambda-list
 ;;;	(:star (:or documentation-string declaration))
 ;;;	(:star form))
@@ -556,7 +556,7 @@
 ;;;
 ;;;    This is by no means perfect. For example, let and let* are treated
 ;;;    identically, instead of differentiating between serial and parallel
-;;;    binding. But it's still a useful tool. It can be helpful in 
+;;;    binding. But it's still a useful tool. It can be helpful in
 ;;;    maintaining code, debugging problems with patch files, determining
 ;;;    whether functions are multiply defined, and help you remember where
 ;;;    a function is defined or called.
@@ -569,17 +569,17 @@
 ;;;
 ;;; Xerox Interlisp Masterscope Program:
 ;;;   Larry M Masinter, Global program analysis in an interactive environment
-;;;   PhD Thesis, Stanford University, 1980. 
+;;;   PhD Thesis, Stanford University, 1980.
 ;;;
 ;;; Symbolics Who-Calls Database:
 ;;;   User's Guide to Symbolics Computers, Volume 1, Cambridge, MA, July 1986
 ;;;   Genera 7.0, pp 183-185.
-;;;   
+;;;
 
 ;;; ********************************
 ;;; Example ************************
 ;;; ********************************
-;;; 
+;;;
 ;;; Here is an example of running XREF on a short program.
 ;;; [In Scribe documentation, give a simple short program and resulting
 ;;;  XREF output, including postscript call graphs.]
@@ -661,37 +661,37 @@ Rooted calling trees:
 
 (defpackage :pxref
   (:use :common-lisp)
-  (:export #:list-callers 
-	   #:list-users 
-	   #:list-readers 
+  (:export #:list-callers
+	   #:list-users
+	   #:list-readers
 	   #:list-setters
 	   #:what-files-call
-	   #:who-calls 
-	   #:list-callees 
-	   #:source-file 
+	   #:who-calls
+	   #:list-callees
+	   #:source-file
 	   #:clear-tables
-	   #:define-pattern-substitution 
-	   #:define-caller-pattern 
-	   #:define-variable-pattern 
+	   #:define-pattern-substitution
+	   #:define-caller-pattern
+	   #:define-variable-pattern
 	   #:define-caller-pattern-synonyms
 	   #:clear-patterns
-	   #:*last-form* 
-	   #:*xref-verbose* 
-	   #:*handle-package-forms* 
+	   #:*last-form*
+	   #:*xref-verbose*
+	   #:*handle-package-forms*
 	   #:*handle-function-forms*
 	   #:*handle-macro-forms*
 	   #:*types-to-ignore*
-	   #:*last-caller-tree* 
-	   #:*default-graphing-mode* 
+	   #:*last-caller-tree*
+	   #:*default-graphing-mode*
 	   #:*indent-amount*
-	   #:xref-file 
+	   #:xref-file
 	   #:xref-files
 	   #:write-callers-database-to-file
 	   #:display-database
-	   #:print-caller-trees 
-	   #:make-caller-tree 
-	   #:print-indented-tree 
-	   #:determine-file-dependencies 
+	   #:print-caller-trees
+	   #:make-caller-tree
+	   #:print-indented-tree
+	   #:determine-file-dependencies
 	   #:print-file-dependencies
 	   #:psgraph-xref
 	   ))
@@ -755,11 +755,11 @@ Rooted calling trees:
   "Lists all functions which call SYMBOL as a function (function invocation)."
   (callers-list symbol :callers))
 (defun list-readers (symbol)
-  "Lists all functions which refer to SYMBOL as a variable 
+  "Lists all functions which refer to SYMBOL as a variable
    (variable reference)."
   (callers-list symbol :readers))
 (defun list-setters (symbol)
-  "Lists all functions which bind/set SYMBOL as a variable 
+  "Lists all functions which bind/set SYMBOL as a variable
    (variable mutation)."
   (callers-list symbol :setters))
 (defun list-users (symbol)
@@ -776,13 +776,13 @@ Rooted calling trees:
     (:function (list-callers symbol))
     (:reader   (list-readers symbol))
     (:setter   (list-setters symbol))
-    (:variable (append (list-readers symbol) 
+    (:variable (append (list-readers symbol)
 		       (list-setters symbol)))
     (otherwise (append (list-callers symbol)
 		       (list-readers symbol)
 		       (list-setters symbol)))))
 (defun what-files-call (symbol)
-  "Lists names of files that contain uses of SYMBOL 
+  "Lists names of files that contain uses of SYMBOL
    as a function, variable, or constant."
   (callers-list symbol :file))
 (defun list-callees (symbol)
@@ -823,13 +823,13 @@ Rooted calling trees:
   (gethash name *pattern-substitution-table*))
 (defmacro define-pattern-substitution (name pattern)
   "Defines NAME to be equivalent to the specified pattern. Useful for
-   making patterns more readable. For example, the LAMBDA-LIST is 
+   making patterns more readable. For example, the LAMBDA-LIST is
    defined as a pattern substitution, making the definition of the
    DEFUN caller-pattern simpler."
   `(setf (gethash ',name *pattern-substitution-table*)
 	 ',pattern))
 
-;;; Function/Macro caller patterns: 
+;;; Function/Macro caller patterns:
 ;;; The car of the form is skipped, so we don't need to specify
 ;;; (:eq function-name) like we would for a substitution.
 ;;;
@@ -839,11 +839,11 @@ Rooted calling trees:
 ;;; package depends on the LISP package, so a symbol like 'xref::cons is
 ;;; translated automatically into 'lisp::cons. However, since
 ;;; (equal 'foo::bar 'baz::bar) returns nil unless both 'foo::bar and
-;;; 'baz::bar are inherited from the same package (e.g., LISP), 
-;;; if package handling is turned on the user must specify package 
+;;; 'baz::bar are inherited from the same package (e.g., LISP),
+;;; if package handling is turned on the user must specify package
 ;;; names in the caller pattern definitions for functions that occur
 ;;; in packages other than LISP, otherwise the symbols will not match.
-;;; 
+;;;
 ;;; Perhaps we should enforce the definition of caller patterns in the
 ;;; XREF package by wrapping the body of define-caller-pattern in
 ;;; the XREF package:
@@ -854,10 +854,10 @@ Rooted calling trees:
 ;;;    	     `(progn
 ;;;    	        (when ',caller-type
 ;;;         	     (setf (pattern-caller-type ',name) ',caller-type))
-;;;    	        (when ',value 
+;;;    	        (when ',value
 ;;;    	          (setf (gethash ',name *caller-pattern-table*)
 ;;;    		        ',value)))
-;;;          (setf *package* old-package)))) 
+;;;          (setf *package* old-package))))
 ;;; Either that, or for the purpose of pattern testing we should compare
 ;;; printreps. [The latter makes the primitive patterns like VAR
 ;;; reserved words.]
@@ -870,12 +870,12 @@ Rooted calling trees:
    described by PATTERN. CALLER-TYPE, if specified, assigns a type to
    the pattern, which may be used to exclude references to NAME while
    viewing the database. For example, all the Common Lisp definitions
-   have a caller-type of :lisp or :lisp2, so that you can exclude 
+   have a caller-type of :lisp or :lisp2, so that you can exclude
    references to common lisp functions from the calling tree."
   `(progn
      (when ',caller-type
        (setf (pattern-caller-type ',name) ',caller-type))
-     (when ',pattern 
+     (when ',pattern
        (setf (gethash ',name *caller-pattern-table*)
 	     ',pattern))))
 
@@ -931,7 +931,7 @@ Rooted calling trees:
 (defvar *handle-package-forms* nil	;'(lisp::in-package)
   "When non-NIL, and XREF-FILE sees a package-setting form like IN-PACKAGE,
    sets the current package to the specified package by evaluating the
-   form. When done with the file, xref-file resets the package to its 
+   form. When done with the file, xref-file resets the package to its
    original value. In some of the displaying functions, when this variable
    is non-NIL one may specify that all symbols from a particular set of
    packages be ignored. This is only useful if the files use different
@@ -977,7 +977,7 @@ Rooted calling trees:
 		   (consp form)
 		   (member (car form) *handle-package-forms*))
 	  (eval form))))
-    (when verbose 
+    (when verbose
       (format t "~&~D forms processed." count))
     (setq *package* old-package)
     (values)))
@@ -986,16 +986,16 @@ Rooted calling trees:
   "When T, XREF-FILE tries to be smart about forms which occur in
    a function position, such as lambdas and arbitrary Lisp forms.
    If so, it recursively calls record-callers with pattern 'FORM.
-   If the form is a lambda, makes the caller a caller of :unnamed-lambda.") 
+   If the form is a lambda, makes the caller a caller of :unnamed-lambda.")
 
 (defvar *handle-macro-forms* t
   "When T, if the file was loaded before being processed by XREF, and the
    car of a form is a macro, it notes that the parent calls the macro,
-   and then calls macroexpand-1 on the form.") 
+   and then calls macroexpand-1 on the form.")
 
 (defvar *callees-database-includes-variables* nil)
 
-(defun record-callers (filename form 
+(defun record-callers (filename form
 				&optional pattern parent (environment nil)
 				funcall)
   "RECORD-CALLERS is the main routine used to walk down the code. It matches
@@ -1013,7 +1013,7 @@ Rooted calling trees:
 	   (:IGNORE
 	    ;; Ignores the rest of the form.
 	    (values t parent environment))
-	   (NAME    
+	   (NAME
 	    ;; This is the name of a new definition.
 	    (push filename (source-file form))
 	    (values t form   environment))
@@ -1029,21 +1029,21 @@ Rooted calling trees:
 		       (pushnew :unnamed-lambda (callers-list parent
 							      :callees))))
 		   (record-callers filename form 'form parent environment))
-		  (t 
+		  (t
 		   ;; If we're just a regular function name call.
 		   (pushnew filename (callers-list form :file))
 		   (when parent
 		     (pushnew parent (callers-list form :callers))
 		     (pushnew form (callers-list parent :callees)))
-		   (values t parent environment)))) 
-	   (VAR     
+		   (values t parent environment))))
+	   (VAR
 	    ;; This is the name of a new variable definition.
 	    ;; Includes arglist parameters.
 	    (when (and (symbolp form) (not (keywordp form))
 		       (not (member form lambda-list-keywords)))
 	      (pushnew form (car environment))
 	      (pushnew filename (callers-list form :file))
-	      (when parent 
+	      (when parent
 ;		  (pushnew form (callers-list parent :callees))
 		(pushnew parent (callers-list form :setters)))
 	      (values t parent environment)))
@@ -1055,7 +1055,7 @@ Rooted calling trees:
 	      (when *callees-database-includes-variables*
 		(pushnew form (callers-list parent :callees))))
 	    (values t parent environment))
-	   (FORM    
+	   (FORM
 	    ;; A random form (var or funcall).
 	    (cond ((consp form)
 		   ;; Get new pattern from TAG.
@@ -1077,9 +1077,9 @@ Rooted calling trees:
 			    ;; The car of the form is a macro and
 			    ;; macro processing is turned on. Macroexpand-1
 			    ;; the form and try again.
-			    (record-callers filename 
+			    (record-callers filename
 					    (macroexpand-1 form)
-					    'form parent environment 
+					    'form parent environment
 					    :funcall))
 			   ((null (cdr form))
 			    ;; No more left to be processed. Note that
@@ -1091,10 +1091,10 @@ Rooted calling trees:
 			    (record-callers filename (cdr form)
 					    '((:star FORM))
 					    parent environment :funcall)))))
-		  (t 
+		  (t
 		   (when (and (not (lookup form environment))
 			      (not (numberp form))
-			      ;; the following line should probably be 
+			      ;; the following line should probably be
 			      ;; commented out?
 			      (not (keywordp form))
 			      (not (stringp form))
@@ -1107,11 +1107,11 @@ Rooted calling trees:
 		       (when *callees-database-includes-variables*
 			 (pushnew form (callers-list parent :callees)))))
 		   (values t parent environment))))
-	   (otherwise 
+	   (otherwise
 	    ;; Pattern Substitution
 	    (let ((new-pattern (lookup-pattern-substitution pattern)))
 	      (if new-pattern
-		  (record-callers filename form new-pattern 
+		  (record-callers filename form new-pattern
 				  parent environment)
 		  (when (eq pattern form)
 		    (values t parent environment)))))))
@@ -1134,31 +1134,31 @@ Rooted calling trees:
 			    parent environment))
 	   (otherwise
 	    (multiple-value-bind (d p env)
-		(record-callers* filename form pattern 
+		(record-callers* filename form pattern
 				 parent (cons nil environment))
 	      (values d p (if funcall environment env))))))))
 
 (defun record-callers* (filename form pattern parent environment
-				 &optional continuation 
+				 &optional continuation
 				 in-optionals in-keywords)
   "RECORD-CALLERS* handles complex list-structure patterns, such as
    ordered lists of subpatterns, patterns involving :star, :plus,
    &optional, &key, &rest, and so on. CONTINUATION is a stack of
    unprocessed patterns, IN-OPTIONALS and IN-KEYWORDS are corresponding
    stacks which determine whether &rest or &key has been seen yet in
-   the current pattern."   
+   the current pattern."
   ;; form must be a cons or nil.
 ;  (when form)
   (if (null pattern)
       (if (null continuation)
 	  (values t parent environment)
 	  (record-callers* filename form (car continuation) parent environment
-			   (cdr continuation) 
+			   (cdr continuation)
 			   (cdr in-optionals)
 			   (cdr in-keywords)))
       (let ((pattern-elt (car pattern)))
 	(cond ((car-eq pattern-elt :optional)
-	       (if (null form) 
+	       (if (null form)
 		   (values t parent environment)
 		   (multiple-value-bind (processed par env)
 		       (record-callers* filename form (cdr pattern-elt)
@@ -1242,7 +1242,7 @@ Rooted calling trees:
    in the database handling functions. :lisp is CLtL 1st edition,
    :lisp2 is additional patterns from CLtL 2nd edition.")
 
-(defun display-database (&optional (database :callers) 
+(defun display-database (&optional (database :callers)
 				   (types-to-ignore *types-to-ignore*))
   "Prints out the name of each symbol and all its callers. Specify database
    :callers (the default) to get function call references, :fill to the get
@@ -1274,27 +1274,27 @@ Rooted calling trees:
    through the code, so this can save some time.)"
   (with-open-file (stream filename :direction :output)
     (format stream "~&(clear-tables)")
-    (maphash #'(lambda (x y) 
+    (maphash #'(lambda (x y)
 		 (format stream "~&(setf (source-file '~S) '~S)"
 			 x y))
 	     *source-file*)
-    (maphash #'(lambda (x y) 
+    (maphash #'(lambda (x y)
 		 (format stream "~&(setf (callers-list '~S :file) '~S)"
 			 x y))
 	     *file-callers-database*)
-    (maphash #'(lambda (x y) 
+    (maphash #'(lambda (x y)
 		 (format stream "~&(setf (callers-list '~S :callers) '~S)"
 			 x y))
 	     *callers-database*)
-    (maphash #'(lambda (x y) 
+    (maphash #'(lambda (x y)
 		 (format stream "~&(setf (callers-list '~S :callees) '~S)"
 			 x y))
 	     *callees-database*)
-    (maphash #'(lambda (x y) 
+    (maphash #'(lambda (x y)
 		 (format stream "~&(setf (callers-list '~S :readers) '~S)"
 			 x y))
 	     *readers-database*)
-    (maphash #'(lambda (x y) 
+    (maphash #'(lambda (x y)
 		 (format stream "~&(setf (callers-list '~S :setters) '~S)"
 			 x y))
 	     *setters-database*)))
@@ -1304,7 +1304,7 @@ Rooted calling trees:
 ;;; Print Caller Trees *************
 ;;; ********************************
 ;;; The following function is useful for reversing a caller table into
-;;; a callee table. Possibly later we'll extend xref to create two 
+;;; a callee table. Possibly later we'll extend xref to create two
 ;;; such database hash tables. Needs to include vars as well.
 (defun invert-hash-table (table &optional (types-to-ignore *types-to-ignore*))
   "Makes a copy of the hash table in which (name value*) pairs
@@ -1312,7 +1312,7 @@ Rooted calling trees:
   (let ((target (make-hash-table :test #'equal)))
     (maphash #'(lambda (key values)
 		 (dolist (value values)
-		   (unless (member (pattern-caller-type key) 
+		   (unless (member (pattern-caller-type key)
 				   types-to-ignore)
 		     (pushnew key (gethash value target)))))
 	     table)
@@ -1345,16 +1345,16 @@ Rooted calling trees:
 
 ;;; The following functions demonstrate a possible way to interface
 ;;; xref to a graphical browser such as psgraph to mimic the capabilities
-;;; of Masterscope's graphical browser. 
+;;; of Masterscope's graphical browser.
 
 (defvar *last-caller-tree* nil)
 
 (defvar *default-graphing-mode* :call-graph
   "Specifies whether we graph up or down. If :call-graph, the children
    of a node are the functions it calls. If :caller-graph, the children
-   of a node are the functions that call it.") 
+   of a node are the functions that call it.")
 
-(defun gather-tree (parents &optional already-seen 
+(defun gather-tree (parents &optional already-seen
 			    (mode *default-graphing-mode*)
 			    (types-to-ignore *types-to-ignore*) compact)
   "Extends the tree, copying it into list structure, until it repeats
@@ -1364,7 +1364,7 @@ Rooted calling trees:
 		    (:call-graph   *callees-database*)
 		    (:caller-graph *callers-database*))))
     (declare (special *already-seen*))
-    (labels 
+    (labels
 	((amass-tree
 	  (parents &optional already-seen)
 	  (let (result this-item)
@@ -1374,7 +1374,7 @@ Rooted calling trees:
 		(pushnew parent *already-seen*)
 		(if (member parent already-seen)
 		    (setq this-item nil) ; :ignore
-		    (if compact 
+		    (if compact
 			(multiple-value-setq (this-item already-seen)
 			    (amass-tree (gethash parent database)
 					(cons parent already-seen)))
@@ -1386,7 +1386,7 @@ Rooted calling trees:
 		(unless (eq this-item :ignore)
 		  (push (if this-item
 			    (list parent this-item)
-			    parent) 
+			    parent)
 			result))))
 	    (values result		;(reverse result)
 		    already-seen))))
@@ -1407,7 +1407,7 @@ Rooted calling trees:
 			  (:caller-graph *callers-database*))))
     (maphash #'(lambda (name value)
 		 (declare (ignore value))
-		 (unless (member (pattern-caller-type name) 
+		 (unless (member (pattern-caller-type name)
 				 types-to-ignore)
 		   (if (gethash name database)
 		       (push name called-callers)
@@ -1424,7 +1424,7 @@ Rooted calling trees:
    call it.
    If compact is T, tries to eliminate the already-seen nodes, so that
    the graph for a node is printed at most once. Otherwise it will duplicate
-   the node's tree (except for cycles). This is usefull because the call tree
+   the node's tree (except for cycles). This is useful because the call tree
    is actually a directed graph, so we can either duplicate references or
    display only the first one."
   ;; Would be nice to print out line numbers and whenever we skip a duplicated
@@ -1436,7 +1436,7 @@ Rooted calling trees:
       (setq *last-caller-tree* trees)
       (let ((more-trees (gather-tree (set-difference called-callers
 						     already-seen)
-				     already-seen 
+				     already-seen
 				     mode types-to-ignore compact)))
 	(values trees more-trees)))))
 
@@ -1469,7 +1469,7 @@ Rooted calling trees:
    in printing out the database. For example, '(:lisp) would ignore all
    calls to common lisp functions. COMPACT is a flag to tell the program
    to try to compact the trees a bit by not printing trees if they have
-   already been seen. ROOT-NODES is a list of root nodes of trees to 
+   already been seen. ROOT-NODES is a list of root nodes of trees to
    display. If ROOT-NODES is nil, tries to find all root nodes in the
    database."
   (multiple-value-bind (rooted cycles)
@@ -1480,7 +1480,7 @@ Rooted calling trees:
       (format t "~&Rooted calling trees:")
       (print-indented-tree rooted 2))
     (when cycles
-      (when rooted      
+      (when rooted
 	(format t "~2%"))
       (format t "~&Cyclic calling trees:")
       (print-indented-tree cycles 2))))
@@ -1559,14 +1559,14 @@ Rooted calling trees:
 |#
 #|
 ;;; Code to print out graphical trees of CLOS class hierarchies.
-(defun print-class-hierarchy (&optional (start-class 'anything) 
+(defun print-class-hierarchy (&optional (start-class 'anything)
 					(file "classes.ps"))
   (let ((start (find-class start-class)))
     (when start
       (with-open-file (*standard-output* file :direction :output)
-	(psgraph:psgraph start 
+	(psgraph:psgraph start
 			 #'clos::class-direct-subclasses
-			 #'(lambda (x) 
+			 #'(lambda (x)
 			     (list (format nil "~A" (clos::class-name x))))
 			 t nil #'eq)))))
 
@@ -1610,10 +1610,10 @@ Rooted calling trees:
 (define-pattern-substitution declaration ((:eq declare)(:rest :ignore)))
 (define-pattern-substitution destination form)
 (define-pattern-substitution control-string string)
-(define-pattern-substitution format-arguments 
+(define-pattern-substitution format-arguments
   ((:star form)))
 (define-pattern-substitution fn
-  (:or ((:eq quote) function) 
+  (:or ((:eq quote) function)
        ((:eq function) function)
        function))
 
@@ -1632,14 +1632,14 @@ Rooted calling trees:
 (define-variable-pattern lambda-parameters-limit :lisp)
 (define-caller-pattern lambda (lambda-list (:rest body)) :lisp)
 
-(define-caller-pattern defun 
+(define-caller-pattern defun
   (name lambda-list
 	(:star (:or documentation-string declaration))
 	(:star form))
   :lisp)
 
 ;;; perhaps this should use VAR, instead of NAME
-(define-caller-pattern defvar 
+(define-caller-pattern defvar
   (var (:optional initial-value (:optional documentation-string)))
   :lisp)
 (define-caller-pattern defparameter
@@ -1701,7 +1701,7 @@ Rooted calling trees:
 
 ;;; Quote is a problem. In Defmacro & friends, we'd like to actually
 ;;; look at the argument, 'cause it hides internal function calls
-;;; of the defmacro. 
+;;; of the defmacro.
 (define-caller-pattern quote (:ignore) :lisp)
 
 (define-caller-pattern function ((:or fn form)) :lisp)
@@ -1724,13 +1724,13 @@ Rooted calling trees:
 (define-caller-pattern psetf ((:star form form)) :lisp)
 (define-caller-pattern shiftf ((:plus form) form) :lisp)
 (define-caller-pattern rotatef ((:star form)) :lisp)
-(define-caller-pattern define-modify-macro 
+(define-caller-pattern define-modify-macro
   (name
    lambda-list
    fn
    (:optional documentation-string))
   :lisp)
-(define-caller-pattern defsetf 
+(define-caller-pattern defsetf
   (:or (name name (:optional documentation-string))
        (name lambda-list (var)
 	(:star (:or declaration documentation-string))
@@ -1773,21 +1773,21 @@ Rooted calling trees:
 (define-caller-pattern progv
   (form form (:star form)) :lisp)
 (define-caller-pattern flet
-  (((:star (name lambda-list 
+  (((:star (name lambda-list
 		 (:star (:or declaration
 			     documentation-string))
 		 (:star form))))
    (:star form))
   :lisp)
 (define-caller-pattern labels
-  (((:star (name lambda-list 
+  (((:star (name lambda-list
 		 (:star (:or declaration
 			     documentation-string))
 		 (:star form))))
    (:star form))
   :lisp)
 (define-caller-pattern macrolet
-  (((:star (name lambda-list 
+  (((:star (name lambda-list
 		 (:star (:or declaration
 			     documentation-string))
 		 (:star form))))
@@ -1806,9 +1806,9 @@ Rooted calling trees:
   (form
    (:star ((:or symbol
 		((:star symbol)))
-	   (:star form)))) 
+	   (:star form))))
   :lisp)
-(define-caller-pattern typecase (form (:star (symbol (:star form)))) 
+(define-caller-pattern typecase (form (:star (symbol (:star form))))
   :lisp)
 
 ;;; Blocks and Exits
@@ -1827,7 +1827,7 @@ Rooted calling trees:
   :lisp)
 (define-caller-pattern do*
   (((:star (:or var
-		(var (:optional form (:optional form)))))) 
+		(var (:optional form (:optional form))))))
    (form (:star form))
    (:star declaration)
    (:star (:or tag form)))
@@ -1858,7 +1858,7 @@ Rooted calling trees:
    (:star declaration)
    (:star (:or tag form)))
   :lisp)
-(define-caller-pattern prog*    
+(define-caller-pattern prog*
   (((:star (:or var (var (:optional form)))))
    (:star declaration)
    (:star (:or tag form)))
@@ -1898,7 +1898,7 @@ Rooted calling trees:
 (define-variable-pattern *macroexpand-hook* :lisp)
 
 ;;; Destructuring
-(define-caller-pattern destructuring-bind 
+(define-caller-pattern destructuring-bind
   (lambda-list form
 	       (:star declaration)
 	       (:star form))
@@ -1916,15 +1916,15 @@ Rooted calling trees:
   :lisp2)
 
 ;;; Environments
-(define-caller-pattern variable-information (form &optional :ignore) 
+(define-caller-pattern variable-information (form &optional :ignore)
   :lisp2)
 (define-caller-pattern function-information (fn &optional :ignore) :lisp2)
 (define-caller-pattern declaration-information (form &optional :ignore) :lisp2)
 (define-caller-pattern augment-environment (form &key (:star :ignore)) :lisp2)
-(define-caller-pattern define-declaration 
+(define-caller-pattern define-declaration
   (name
    lambda-list
-   (:star form)) 
+   (:star form))
   :lisp2)
 (define-caller-pattern parse-macro (name lambda-list form) :lisp2)
 (define-caller-pattern enclose (form &optional :ignore) :lisp2)
@@ -1986,20 +1986,20 @@ Rooted calling trees:
 (define-caller-pattern unuse-package ((:rest :ignore)) :lisp)
 (define-caller-pattern defpackage (name (:rest :ignore)) :lisp2)
 (define-caller-pattern find-all-symbols (form) :lisp)
-(define-caller-pattern do-symbols 
+(define-caller-pattern do-symbols
   ((var (:optional form (:optional form)))
-   (:star declaration) 
-   (:star (:or tag form))) 
+   (:star declaration)
+   (:star (:or tag form)))
   :lisp)
-(define-caller-pattern do-external-symbols 
+(define-caller-pattern do-external-symbols
   ((var (:optional form (:optional form)))
-   (:star declaration) 
-   (:star (:or tag form))) 
+   (:star declaration)
+   (:star (:or tag form)))
   :lisp)
-(define-caller-pattern do-all-symbols 
+(define-caller-pattern do-all-symbols
   ((var (:optional form))
-   (:star declaration) 
-   (:star (:or tag form))) 
+   (:star declaration)
+   (:star (:or tag form)))
   :lisp)
 (define-caller-pattern with-package-iterator
   ((name form (:plus :ignore))
@@ -2189,7 +2189,7 @@ Rooted calling trees:
 (define-variable-pattern double-float-negative-epsilon :lisp)
 (define-variable-pattern long-float-negative-epsilon :lisp)
 
-;;; Characters 
+;;; Characters
 (define-variable-pattern char-code-limit :lisp)
 (define-variable-pattern char-font-limit :lisp)
 (define-variable-pattern char-bits-limit :lisp)
@@ -2479,7 +2479,7 @@ Rooted calling trees:
 (define-caller-pattern string (form) :lisp)
 
 ;;; Structures
-(define-caller-pattern defstruct 
+(define-caller-pattern defstruct
   ((:or name (name (:rest :ignore)))
    (:optional documentation-string)
    (:plus :ignore))
@@ -2573,7 +2573,7 @@ Rooted calling trees:
 (define-variable-pattern *print-level* :lisp)
 (define-variable-pattern *print-length* :lisp)
 (define-variable-pattern *print-array* :lisp)
-(define-caller-pattern with-standard-io-syntax 
+(define-caller-pattern with-standard-io-syntax
   ((:star declaration)
    (:star form))
   :lisp2)
@@ -2612,7 +2612,7 @@ Rooted calling trees:
 (define-caller-pattern finish-output ((:optional form)) :lisp)
 (define-caller-pattern force-output ((:optional form)) :lisp)
 (define-caller-pattern clear-output ((:optional form)) :lisp)
-(define-caller-pattern print-unreadable-object 
+(define-caller-pattern print-unreadable-object
   ((form form &key (:star form))
    (:star declaration)
    (:star form))
@@ -2691,10 +2691,10 @@ Rooted calling trees:
 (define-variable-pattern *break-on-warnings* :lisp)
 (define-caller-pattern break (&optional form (:star form)) :lisp)
 (define-caller-pattern check-type (form form (:optional form)) :lisp)
-(define-caller-pattern assert 
+(define-caller-pattern assert
   (form
    (:optional ((:star var))
-	      (:optional form (:star form)))) 
+	      (:optional form (:star form))))
   :lisp)
 (define-caller-pattern etypecase (form (:star (symbol (:star form)))) :lisp)
 (define-caller-pattern ctypecase (form (:star (symbol (:star form)))) :lisp)
@@ -2703,7 +2703,7 @@ Rooted calling trees:
    (:star ((:or symbol ((:star symbol)))
 	   (:star form))))
   :lisp)
-(define-caller-pattern ccase 
+(define-caller-pattern ccase
   (form
    (:star ((:or symbol ((:star symbol)))
 	   (:star form))))
@@ -2719,7 +2719,7 @@ Rooted calling trees:
 (define-caller-pattern load-time-value (form (:optional form)) :lisp2)
 (define-caller-pattern disassemble (form) :lisp)
 (define-caller-pattern function-lambda-expression (fn) :lisp2)
-(define-caller-pattern with-compilation-unit (((:star :ignore)) (:star form)) 
+(define-caller-pattern with-compilation-unit (((:star :ignore)) (:star form))
   :lisp2)
 
 ;;; Documentation
@@ -2739,7 +2739,7 @@ Rooted calling trees:
 (define-caller-pattern get-decoded-time () :lisp)
 (define-caller-pattern get-universal-time () :lisp)
 (define-caller-pattern decode-universal-time (form &optional form) :lisp)
-(define-caller-pattern encode-universal-time 
+(define-caller-pattern encode-universal-time
   (form form form form form form &optional form) :lisp)
 (define-caller-pattern get-internal-run-time () :lisp)
 (define-caller-pattern get-internal-real-time () :lisp)
@@ -2792,14 +2792,14 @@ Rooted calling trees:
 (define-caller-pattern compute-applicable-methods (fn (:star form)) :lisp2)
 (define-caller-pattern defclass (name &rest :ignore) :lisp2)
 (define-caller-pattern defgeneric (name lambda-list &rest :ignore) :lisp2)
-(define-caller-pattern define-method-combination 
+(define-caller-pattern define-method-combination
   (name lambda-list ((:star :ignore))
 	(:optional ((:eq :arguments) :ignore))
 	(:optional ((:eq :generic-function) :ignore))
 	(:star (:or declaration documentation-string))
 	(:star form))
   :lisp2)
-(define-caller-pattern defmethod 
+(define-caller-pattern defmethod
   (name (:star symbol) lambda-list
 	(:star (:or declaration documentation-string))
 	(:star form))
@@ -2810,7 +2810,7 @@ Rooted calling trees:
 (define-caller-pattern function-keywords (&rest :ignore) :lisp2)
 (define-caller-pattern generic-flet (((:star (name lambda-list))) (:star form))
   :lisp2)
-(define-caller-pattern generic-labels 
+(define-caller-pattern generic-labels
   (((:star (name lambda-list))) (:star form))
   :lisp2)
 (define-caller-pattern generic-function (lambda-list) :lisp2)
@@ -2833,9 +2833,9 @@ Rooted calling trees:
 (define-caller-pattern slot-missing (fn form form form &optional form) :lisp2)
 (define-caller-pattern slot-unbound (fn form form) :lisp2)
 (define-caller-pattern slot-value (form form) :lisp2)
-(define-caller-pattern update-instance-for-different-class 
+(define-caller-pattern update-instance-for-different-class
   (form form (:star form)) :lisp2)
-(define-caller-pattern update-instance-for-redefined-class 
+(define-caller-pattern update-instance-for-redefined-class
   (form form (:star form)) :lisp2)
 (define-caller-pattern with-accessors
   (((:star :ignore)) form
@@ -2866,7 +2866,7 @@ Rooted calling trees:
 (define-caller-pattern make-condition (form &rest :ignore) :lisp2)
 (define-caller-pattern with-simple-restart
   ((name form (:star form)) (:star form)) :lisp2)
-(define-caller-pattern restart-case 
+(define-caller-pattern restart-case
   (form
    (:star (form form (:star form))))
   :lisp2)
