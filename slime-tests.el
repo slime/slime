@@ -112,7 +112,7 @@ Also don't error if `ert.el' is missing."
         `(ert-deftest ,name () ,(or docstring "No docstring for this test.")
            :tags ',tags
            ,@args))))
-  
+
   (defun split-version-string (string)
     (cl-loop for part in (split-string string "\\.")
              while (string-match-p "^[[:digit:]]+$" part)
@@ -126,7 +126,7 @@ Also don't error if `ert.el' is missing."
               (and (= head-x head-y)
                    (version>= (cdr x) (cdr y)))))
         t))
-  
+
   (defun fails-for-p (fails)
     (cl-loop for fail in fails
              for version = (string-match-p "-" fail)
@@ -394,6 +394,37 @@ conditions (assertions)."
                        nil
                        (slime-sexp-at-point)
                        #'eq)))
+
+(def-slime-test in-package.1 (string matches)
+  "Check that slime-search-buffer-package handles funny cases."
+  '(("(in-package :correct)"
+     ((1 1 ":correct")
+      (2 21 nil)
+      (22 22 ":correct")))
+    ("(in-package \"P1\")\n(defun foo ())\n(cL:in-PACKAGE #:p2)\n(defun bar())\n"
+     ((1 1 "\"P1\"")
+      ;; This is weird but harmless. We are in the first in-package form.
+      (2 17 "#:p2")
+      (18 53 "\"P1\"")
+      (54 69 "#:p2")))
+    ("(in-package :first)\n(in-package :second)\n#|\n(in-package :not-this)\n|#\n\"\n(in-package :or-this)\n\""
+     ((1 1 ":first")
+      ;; Within the (in-package :first)
+      (2 19 ":second")
+      ;; Before the end of (in-package :second)
+      (20 40 ":first")
+      (41 97 ":second"))))
+  (with-temp-buffer
+    (lisp-mode)
+    (insert string)
+    (dolist (match matches)
+      (cl-destructuring-bind (min max expected) match
+        (cl-loop for pos upfrom min upto max
+                 do (goto-char pos)
+                     (let ((package (slime-search-buffer-package)))
+                       (slime-check ("Checking %S => at pos %S got %S"
+                                     match pos package)
+                         (equal package expected))))))))
 
 (def-slime-test narrowing ()
     "Check that narrowing is properly sustained."
@@ -766,7 +797,7 @@ Confirm that SUBFORM is correctly located."
       (slime-wait-condition "Compilation finished" (lambda () (car cell))
                             5)
       (let ((result (cdr cell)))
-        (slime-check "Compilation successfull"
+        (slime-check "Compilation successful"
           (eq (slime-compilation-result.successp result) t))))))
 
 (def-slime-test utf-8-source
@@ -1026,7 +1057,7 @@ Confirm that SUBFORM is correctly located."
 
 (defun slime-execute-as-command (name)
   "Execute `name' as if it was done by the user through the
-Command Loop. Similiar to `call-interactively' but also pushes on
+Command Loop. Similar to `call-interactively' but also pushes on
 the buffer's undo-list."
   (undo-boundary)
   (call-interactively name))
@@ -1340,7 +1371,7 @@ This test will fail more likely before dispatch caches are warmed up."
 
 (def-slime-test disconnect-and-reconnect
     ()
-    "Close the connetion.
+    "Close the connection.
 Confirm that the subprocess continues gracefully.
 Reconnect afterwards."
     '(())

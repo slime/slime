@@ -401,7 +401,7 @@ Works like `completion-at-point-functions'.
 
 (defmacro define-sldb-faces (&rest faces)
   "Define the set of SLDB faces.
-Each face specifiation is (NAME DESCRIPTION &optional PROPERTIES).
+Each face specification is (NAME DESCRIPTION &optional PROPERTIES).
 NAME is a symbol; the face will be called sldb-NAME-face.
 DESCRIPTION is a one-liner for the customization buffer.
 PROPERTIES specifies any default face properties."
@@ -449,7 +449,7 @@ PROPERTIES specifies any default face properties."
 
 (defvar slime-mode-indirect-map (make-sparse-keymap)
   "Empty keymap which has `slime-mode-map' as it's parent.
-This is a hack so that we can reinitilize the real slime-mode-map
+This is a hack so that we can reinitialize the real slime-mode-map
 more easily. See `slime-init-keymaps'.")
 
 (defvar slime-buffer-connection)
@@ -1255,7 +1255,7 @@ Return the created process."
   (slime-read-port-and-connect process))
 
 (defvar slime-inferior-lisp-args nil
-  "A buffer local variable in the inferior proccess.
+  "A buffer local variable in the inferior process.
 See `slime-start'.")
 
 (defun slime-start-swank-server (process args)
@@ -2168,14 +2168,26 @@ or nil if nothing suitable can be found.")
 ;;  (in-package |CL|)
 ;;  (in-package #+ansi-cl :cl #-ansi-cl 'lisp)
 
+;;; Note that when the cursor is within the in-package form, this
+;;; can return nil.
 (defun slime-search-buffer-package ()
   (let ((case-fold-search t)
         (regexp (concat "^[ \t]*(\\(cl:\\|common-lisp:\\)?in-package\\>[ \t']*"
-                        "\\([^)]+\\)[ \t]*)")))
-    (save-excursion
-      (when (or (re-search-backward regexp nil t)
-                (re-search-forward regexp nil t))
-        (match-string-no-properties 2)))))
+                        "\\([^)]+\\)[ \t]*)"))
+        result)
+    (dolist (search-forward-p '(nil t))
+      (save-excursion
+        (while (and (not result)
+                    (if search-forward-p
+                        (re-search-forward regexp nil t)
+                      (re-search-backward regexp nil t)))
+          (let ((ppss (save-excursion
+                        (syntax-ppss (match-beginning 0)))))
+            ;; Skip matches in strings and comments (including the #|
+            ;; |# syntax).
+            (unless (or (nth 3 ppss) (nth 4 ppss))
+              (setq result (match-string-no-properties 2)))))))
+    result))
 
 ;;; Synchronous requests are implemented in terms of asynchronous
 ;;; ones. We make an asynchronous request with a continuation function
@@ -3490,7 +3502,7 @@ are supported:
 ;; may have been modified (but hopefully not near the beginning!)
 
 (defun slime-isearch (string)
-  "Find the longest occurence of STRING either backwards of forwards.
+  "Find the longest occurrence of STRING either backwards of forwards.
 If multiple matches exist the choose the one nearest to point."
   (goto-char
    (let* ((start (point))
@@ -3603,12 +3615,12 @@ The highlighting is automatically undone with a timer."
 
 (defun slime-find-next-note ()
   "Go to the next position with the `slime-note' text property.
-Retuns the note overlay if such a position is found, otherwise nil."
+Returns the note overlay if such a position is found, otherwise nil."
   (slime-search-property 'slime-note nil #'slime-note-at-point))
 
 (defun slime-find-previous-note ()
   "Go to the next position with the `slime-note' text property.
-Retuns the note overlay if such a position is found, otherwise nil."
+Returns the note overlay if such a position is found, otherwise nil."
   (slime-search-property 'slime-note t #'slime-note-at-point))
 
 
@@ -3843,7 +3855,7 @@ FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
     (goto-char point)))
 
 (defun slime-postprocess-xref (original-xref)
-  "Process (for normalization purposes) an Xref comming directly
+  "Process (for normalization purposes) an Xref coming directly
 from SWANK before the rest of Slime sees it. In particular,
 convert ETAGS based xrefs to actual file+position based
 locations."
@@ -4095,9 +4107,9 @@ inserted in the current buffer."
      (slime-eval-print string))))
 
 (defvar slime-transcript-start-hook nil
-  "Hook run before start an evalution.")
+  "Hook run before start an evaluation.")
 (defvar slime-transcript-stop-hook nil
-  "Hook run after finishing a evalution.")
+  "Hook run after finishing a evaluation.")
 
 (defun slime-display-eval-result (value)
   (slime-message "%s" value))
@@ -5065,7 +5077,7 @@ function name is prompted."
       (undo-only arg))))
 
 (defvar slime-eval-macroexpand-expression nil
-  "Specifies the last macroexpansion preformed.
+  "Specifies the last macroexpansion performed.
 This variable specifies both what was expanded and how.")
 
 (defun slime-eval-macroexpand (expander &optional string)
@@ -5095,7 +5107,7 @@ This variable specifies both what was expanded and how.")
     (erase-buffer)
     (insert expansion)
     (goto-char (point-min))
-    (font-lock-ensure (point-min) (point-max))))
+    (font-lock-fontify-buffer)))
 
 (defun slime-create-macroexpansion-buffer ()
   (let ((name (slime-buffer-name :macroexpansion)))
@@ -6686,7 +6698,7 @@ position of point in the current buffer."
 
 (defun slime-inspector-operate-on-point ()
   "Invoke the command for the text at point.
-1. If point is on a value then recursivly call the inspector on
+1. If point is on a value then recursively call the inspector on
 that value.
 2. If point is on an action then call that action.
 3. If point is on a range-button fetch and insert the range."
@@ -7670,8 +7682,7 @@ and skips comments."
               (goto-char local-funs)
               (ignore-errors (forward-sexp))
               (let ((local-funs-end (point)))
-                (when (> local-funs-end end)
-                  (list local-funs local-funs-end))))
+                (list local-funs local-funs-end)))
             (list start end)))))))
 
 (defun slime-beginning-of-symbol ()

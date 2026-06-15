@@ -345,7 +345,7 @@ If DELETE is true, delete any existing SWANK packages.
 If RELOAD is true, reload SWANK, even if the SWANK package already exists.
 If LOAD-CONTRIBS is true, load all contribs
 If SETUP is true, load user init files and initialize some
-global variabes in SWANK."
+global variables in SWANK."
   (when from-emacs
     (setf *started-from-emacs* t))
   (when (and delete (find-package :swank))
