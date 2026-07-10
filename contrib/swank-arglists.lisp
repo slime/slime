@@ -1560,13 +1560,13 @@ ARGLIST-DUMMY."
   (unless (null raw-form)
     (loop for element in raw-form
           collect (etypecase element
-                    (string (read-conversatively element))
+                    (string (read-conservatively element))
                     (list   (parse-raw-form element))
                     (symbol (prog1 element
                               ;; Comes after list, so ELEMENT can't be NIL.
                               (assert (eq element +cursor-marker+))))))))
 
-(defun read-conversatively (string)
+(defun read-conservatively (string)
   "Tries to find the symbol that's represented by STRING.
 
 If it can't, this either means that STRING does not represent a
