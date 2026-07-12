@@ -14,7 +14,17 @@
 ;; ~/.emacs, and still use any implementation they want.
 #+sbcl
 (progn
-  
+
+(defun find-instruction (name)
+  #+(and
+     #.(swank/backend:with-symbol '*inst-encoder* 'sb-assem)
+     #.(swank/backend:with-symbol '*backend-instruction-set-package* 'sb-assem))
+  (and name
+       (or (gethash (find-symbol name sb-assem::*backend-instruction-set-package*)
+                    sb-assem::*inst-encoder*)
+           (find-symbol (format nil "M:~A" name)
+                        sb-assem::*backend-instruction-set-package*))))
+
 ;;; Display arglist of instructions.
 ;;;
 (defmethod compute-enriched-decoded-arglist ((operator-form (eql 'sb-assem:inst))
@@ -37,14 +47,7 @@
                      (symbol
                       (string-upcase instruction))))
                  (instr-fn
-                   #+(and
-                      #.(swank/backend:with-symbol '*inst-encoder* 'sb-assem)
-                      #.(swank/backend:with-symbol '*backend-instruction-set-package* 'sb-assem))
-                   (and instr-name
-                        (or (gethash (find-symbol instr-name sb-assem::*backend-instruction-set-package*)
-                                     sb-assem::*inst-encoder*)
-                            (find-symbol (format nil "M:~A" instr-name)
-                                         sb-assem::*backend-instruction-set-package*)))))
+                   (find-instruction instr-name)))
             (when (consp instr-fn)
               (setf instr-fn (car instr-fn)))
             (cond ((functionp instr-fn)
@@ -62,7 +65,14 @@
                   (t
                    (call-next-method))))))))
 
-
+(defslimefun inst-location (name)
+  (let ((inst (find-instruction (string-upcase name))))
+    (cond ((functionp inst)
+           (find-definition-for-thing inst))
+          ((fboundp inst)
+           (let ((macro (macro-function inst)))
+             (when macro
+              (find-definition-for-thing macro)))))))
 ) ; PROGN
 
 (provide :swank-sbcl-exts)

@@ -6,7 +6,11 @@
   (:authors "Tobias C. Rittweiler <tcr@freebits.de>")
   (:license "GPL")
   (:slime-dependencies slime-references)
-  (:swank-dependencies swank-sbcl-exts))
+  (:swank-dependencies swank-sbcl-exts)
+  (:on-load
+   (add-hook 'slime-edit-definition-hooks 'slime-edit-inst))
+  (:on-unload
+   (remove-hook 'slime-edit-definition-hooks 'slime-edit-inst)))
 
 (defun slime-sbcl-bug-at-point ()
   (save-excursion
@@ -39,6 +43,20 @@ symbol at point, or if QUERY is non-nil."
       (+ sexp-column 2)
       (lisp-indent-259 '((&whole 4) &body)
                        path state indent-point sexp-column normal-indent)))
+
+(defun slime-edit-inst (name &optional where)
+  (when (ignore-errors
+         (save-excursion
+          (backward-up-list 1)
+          (down-list 1)
+          (looking-at "inst")))
+    (let ((location (slime-eval `(swank:inst-location ,name))))
+      (unless (eq (car location) :error)
+        (slime-edit-definition-cont
+         (and location (list (make-slime-xref :dspec `(,name)
+                                              :location location)))
+         name
+         where)))))
 
 (put 'define-vop 'common-lisp-indent-function
      'slime-indent-define-vop)
