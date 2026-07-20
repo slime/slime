@@ -67,12 +67,14 @@
 
 (defslimefun inst-location (name)
   (let ((inst (find-instruction (string-upcase name))))
+    (when (consp inst)
+      (setf inst (car inst)))
     (cond ((functionp inst)
            (find-definition-for-thing inst))
           ((fboundp inst)
            (let ((macro (macro-function inst)))
              (when macro
-              (find-definition-for-thing macro)))))))
+               (find-definition-for-thing macro)))))))
 ) ; PROGN
 
 (provide :swank-sbcl-exts)

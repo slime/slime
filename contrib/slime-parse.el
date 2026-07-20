@@ -214,6 +214,12 @@ For other contexts we return the symbol at point."
            `(:defstruct ,(if (consp name)
                              (car name)
                            name)))
+          ((save-excursion
+            (slime-beginning-of-list)
+            (let ((symbol (read (current-buffer))))
+              (when (and (symbolp symbol)
+                         (string-prefix-p "def" (symbol-name symbol) t))))
+            `(:def ,name)))
           (t
            name))))
 
@@ -307,9 +313,10 @@ Point is placed before the first expression in the list."
 
 (defun slime-definition-at-point (&optional only-functional)
   "Return object corresponding to the definition at point."
-  (let* ((functional '(:defun :defgeneric :defmethod :defmacro :define-compiler-macro))
+  (let* ((functional '(:defun :defgeneric :defmethod :defmacro :define-compiler-macro :def))
          (all '(:defun :defgeneric :defmacro :define-modify-macro :define-compiler-macro 
-                :defmethod :defparameter :defvar :defconstant :defclass :defstruct :defpackage))
+                :defmethod :defparameter :defvar :defconstant :defclass :defstruct :defpackage
+                :def))
          (toplevel (slime-parse-toplevel-form (if only-functional
                                                   functional
                                                   all))))
@@ -318,7 +325,7 @@ Point is placed before the first expression in the list."
                  (not (member (car toplevel) functional))))
         (error "Not in a definition")
       (slime-dcase toplevel
-        (((:defun :defgeneric) symbol)
+        (((:defun :defgeneric :def) symbol)
          (format "#'%s" symbol))
         (((:defmacro :define-modify-macro) symbol)
          (format "(macro-function '%s)" symbol))
