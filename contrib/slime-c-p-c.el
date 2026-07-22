@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t; -*-
 (require 'slime)
 (require 'cl-lib)
 
@@ -44,7 +45,7 @@
    (cl-loop for (symbol-name classification-string symbol) in completions
             collect (propertize symbol-name
                                 'slime-kind classification-string
-                                'slime-symbol symbol)) 
+                                'slime-symbol symbol))
    :company-kind (lambda (x)
                    (let ((prop (get-text-property 0 'slime-kind x)))
                      (when prop
@@ -75,7 +76,7 @@
   (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
          (beg (move-marker (make-marker) (slime-symbol-start-pos)))
          (prefix (buffer-substring-no-properties beg end)))
-    (cl-list* beg end 
+    (cl-list* beg end
               (slime-format-completions (slime-contextual-completions beg end)))))
 
 (cl-defun slime-contextual-completions (beg end)
@@ -86,9 +87,9 @@ current buffer."
      ((and (< beg (point-max))
            (string= (buffer-substring-no-properties beg (1+ beg)) ":"))
       ;; Contextual keyword completion
-      (let ((completions 
+      (let ((completions
              (slime-completions-for-keyword token
-                                            (save-excursion 
+                                            (save-excursion
                                               (goto-char beg)
                                               (slime-parse-form-upto-point)))))
         (when (cl-first completions)
@@ -122,7 +123,7 @@ current buffer."
 ;;; Complete form
 
 (defun slime-complete-form ()
-  "Complete the form at point.  
+  "Complete the form at point.
 This is a superset of the functionality of `slime-insert-arglist'."
   (interactive)
   ;; Find the (possibly incomplete) form around point.
@@ -143,4 +144,3 @@ This is a superset of the functionality of `slime-insert-arglist'."
               (indent-sexp)))))))
 
 (provide 'slime-c-p-c)
-

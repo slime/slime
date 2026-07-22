@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t; -*-
 (require 'slime)
 (require 'cl-lib)
 
@@ -43,7 +44,7 @@ grouped by severity.
                    :print-fn slime-tree-printer))
 
 (defun slime-tree-for-severity (severity notes collapsed-p)
-  (make-slime-tree :item (format "%s (%d)" 
+  (make-slime-tree :item (format "%s (%d)"
                                  (slime-severity-label severity)
                                  (length notes))
                    :kids (mapcar #'slime-tree-for-note notes)
@@ -53,12 +54,12 @@ grouped by severity.
   (let* ((alist (slime-alistify notes #'slime-note.severity #'eq))
          (collapsed-p (slime-length> alist 1)))
     (cl-loop for (severity . notes) in alist
-             collect (slime-tree-for-severity severity notes 
+             collect (slime-tree-for-severity severity notes
                                               collapsed-p))))
 
 (defvar slime-compiler-notes-mode-map)
 
-(define-derived-mode slime-compiler-notes-mode fundamental-mode 
+(define-derived-mode slime-compiler-notes-mode fundamental-mode
   "Compiler-Notes"
   "\\<slime-compiler-notes-mode-map>\
 \\{slime-compiler-notes-mode-map}
@@ -77,7 +78,7 @@ grouped by severity.
   (cl-destructuring-bind (mouse-2 (w pos &rest _) &rest __) event
     (save-excursion
       (goto-char pos)
-      (let ((fn (get-text-property (point) 
+      (let ((fn (get-text-property (point)
                                    'slime-compiler-notes-default-action)))
 	(if fn (funcall fn) (slime-compiler-notes-show-details))))))
 
@@ -123,7 +124,7 @@ grouped by severity.
 
 (defun slime-tree-insert-list (list prefix)
   "Insert a list of trees."
-  (cl-loop for (elt . rest) on list 
+  (cl-loop for (elt . rest) on list
            do (cond (rest
                      (insert prefix " |")
                      (slime-tree-insert elt (concat prefix " |"))

@@ -1,4 +1,4 @@
-;;; slime-repl.el ---
+;;; slime-repl.el ---  -*- lexical-binding: t; -*-
 ;;
 ;; Original Author: Helmut Eller
 ;; Contributors: too many to mention

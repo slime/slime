@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t; -*-
 (require 'slime)
 (require 'slime-repl)
 (require 'cl-lib)
@@ -41,7 +42,7 @@ Otherwise leave point unchanged and return NIL."
     (beginning-of-line)
     (cond ((re-search-forward slime-comment-start-regexp boundary t)
            (point))
-          (t (goto-char boundary) 
+          (t (goto-char boundary)
              nil))))
 
 (defvar slime-close-parens-limit nil
@@ -52,7 +53,7 @@ close the form.")
 (defun slime-close-all-parens-in-sexp (&optional region)
   "Balance parentheses of open s-expressions at point.
 Insert enough right parentheses to balance unmatched left parentheses.
-Delete extra left parentheses.  Reformat trailing parentheses 
+Delete extra left parentheses.  Reformat trailing parentheses
 Lisp-stylishly.
 
 If REGION is true, operate on the region. Otherwise operate on
