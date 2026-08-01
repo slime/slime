@@ -219,8 +219,8 @@ For other contexts we return the symbol at point."
             (slime-beginning-of-list)
             (let ((symbol (read (current-buffer))))
               (when (and (symbolp symbol)
-                         (string-prefix-p "def" (symbol-name symbol) t))))
-            `(:def ,name)))
+                         (string-prefix-p "def" (symbol-name symbol) t))
+                `(:def ,name)))))
           (t
            name))))
 
