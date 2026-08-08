@@ -3612,7 +3612,8 @@ Return NIL if LIST is circular."
    (label-value-line*
     ("Char code" (char-code char))
     ("Lower cased" (char-downcase char))
-    ("Upper cased" (char-upcase char)))
+    ("Upper cased" (char-upcase char))
+    ("String" (string char)))
    (if (get-macro-character char)
        `("In the current readtable ("
          (:value ,*readtable*) ") it is a macro character: "
