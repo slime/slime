@@ -231,6 +231,7 @@ Contributed Packages
 * Scratch Buffer::
 * SLIME Trace Dialog::
 * slime-sprof::
+* xterm-color:: 
 * slime-fancy::
 * Quicklisp::
 
@@ -2129,6 +2130,7 @@ particular packages do.
 * Scratch Buffer::
 * SLIME Trace Dialog::
 * slime-sprof::
+* xterm-color::
 * SLIME Enhanced M-.::
 * slime-fancy::
 * Quicklisp::
@@ -3130,6 +3132,40 @@ Disassemble function.
 Toggle exclusion of swank functions from the report.
 
 @end table
+
+@node xterm-color
+@section xterm-color
+With a suitably configured Emacs--compiled into @code{(>
+emacs-major-version 28)}--this contrib loads
+the @code{xterm-color} @url{https://github.com/atomontage/xterm-color}
+package for the interpretation and diplay of ANSI terminal
+controlsequences.  As opposed to the builtin @code{ansi-color}
+machinery, this implementation utilizes a proper state machine to deal
+with rather than being incompletely based upon regular expressions.
+
+A sample configuration is given below, for a SLIME that is present on
+the local filesystem under the @code{~/work/slime/} directory.
+
+@example
+    (use-package xterm-color
+      :ensure t)
+
+    (use-package slime
+      :load-path "~/work/slime" ;; change to local SLIME installation if you have one
+      :ensure t ;; if the load-path doesn't work, fallback to install via package archives
+      :defer t
+      :after (xterm-color)
+      :config
+      (slime-setup '(slime-repl
+		     slime-xterm-color
+                     ;; insert yer own faves 
+		     slime-fancy))
+      :bind ("\C-cs" . 'slime-selector)) ;; xach likes this methinks
+@end example
+
+Replacing Emacs's builtin machinery for ANSI sequences can be made
+more efficient by reading the strategies suggested
+at @url{https://github.com/atomontage/xterm-color/blob/master/README.org}.
 
 @node SLIME Enhanced M-.
 @section SLIME Enhanced M-.
