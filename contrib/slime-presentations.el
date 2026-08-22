@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t; -*-
 (require 'slime)
 (require 'cl-lib)
 
@@ -15,7 +16,7 @@
                (set (make-local-variable 'parse-sexp-lookup-properties) t)
                (add-hook 'after-change-functions
                          'slime-after-change-function 'append t)
-               (add-to-list 'yank-handled-properties 
+               (add-to-list 'yank-handled-properties
                             '(slime-repl-presentation . slime-yank-presentations-handler))))
    (add-hook 'slime-event-hooks 'slime-dispatch-presentation-event)
    (setq slime-write-string-function 'slime-presentation-write)

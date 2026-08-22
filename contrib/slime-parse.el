@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t; -*-
 (require 'slime)
 (require 'cl-lib)
 
@@ -301,7 +302,7 @@ Point is placed before the first expression in the list."
 
 (defun slime-arglist-specializers (arglist)
   (cond ((or (null arglist)
-	     (cl-member (cl-first arglist) '(&optional &key &rest &aux) 
+	     (cl-member (cl-first arglist) '(&optional &key &rest &aux)
                         :test #'slime-symbols-match-p))
 	 (list))
 	((consp (cl-first arglist))
@@ -314,7 +315,7 @@ Point is placed before the first expression in the list."
 (defun slime-definition-at-point (&optional only-functional)
   "Return object corresponding to the definition at point."
   (let* ((functional '(:defun :defgeneric :defmethod :defmacro :define-compiler-macro :def))
-         (all '(:defun :defgeneric :defmacro :define-modify-macro :define-compiler-macro 
+         (all '(:defun :defgeneric :defmacro :define-modify-macro :define-compiler-macro
                 :defmethod :defparameter :defvar :defconstant :defclass :defstruct :defpackage
                 :def))
          (toplevel (slime-parse-toplevel-form (if only-functional
