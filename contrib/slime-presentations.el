@@ -59,9 +59,10 @@
 
 (defun slime-yank-presentations-handler (category start end)
   (unless (eq major-mode 'slime-repl-mode)
-    (let ((inhibit-modification-hooks t))
-      (set-text-properties start end nil))
-    t))
+    (when (text-property-not-all start end 'slime-repl-presentation nil)
+      (let ((inhibit-modification-hooks t))
+        (set-text-properties start end nil))))
+  t)
 
 (make-variable-buffer-local
  (defvar slime-presentation-start-to-point (make-hash-table)))
