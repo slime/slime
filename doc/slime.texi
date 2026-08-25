@@ -3135,16 +3135,19 @@ Toggle exclusion of swank functions from the report.
 
 @node xterm-color
 @section xterm-color
-With a suitably configured Emacs--compiled into @code{(>
-emacs-major-version 28)}--this contrib loads
+With a suitably configured Emacs, which is compiled into @code{(>
+emacs-major-version 29)} ff., this contrib loads
 the @code{xterm-color} @url{https://github.com/atomontage/xterm-color}
 package for the interpretation and diplay of ANSI terminal
-controlsequences.  As opposed to the builtin @code{ansi-color}
-machinery, this implementation utilizes a proper state machine to deal
-with rather than being incompletely based upon regular expressions.
+control sequences.  As opposed to the builtin @code{ansi-color}
+machinery as of @code{(>= emacs-major-version 31)} which valiantly
+tries to be complete via regular expressions, this implementation
+utilizes a state machine.
 
 A sample configuration is given below, for a SLIME that is present on
-the local filesystem under the @code{~/work/slime/} directory.
+the local filesystem under the @code{~/work/slime/} directory.  If one
+wishes to use a SLIME under revision control from a package
+repository, comment out the @code{load-path} clause.
 
 @example
     (use-package xterm-color
@@ -3163,9 +3166,31 @@ the local filesystem under the @code{~/work/slime/} directory.
       :bind ("\C-cs" . 'slime-selector)) ;; xach likes this methinks
 @end example
 
+One may verify that the @code{xterm-color} package has been usefully
+loaded in the current Emacs session via invoking the
+interactive @code{xterm-color-test} elisp function.
+
+
+
 Replacing Emacs's builtin machinery for ANSI sequences can be made
-more efficient by reading the strategies suggested
-at @url{https://github.com/atomontage/xterm-color/blob/master/README.org}.
+more efficient by reading the strategies suggested at
+@url{https://github.com/atomontage/xterm-color/blob/master/README.org}.
+N.b. The @code{xterm-color} machinery replaces ANSI sequences while it
+sets Emacs display properties.  This can cause problems with modes
+such as @code{ag.el} and @code{rg.el} which depend on parsing the ANSI
+sequence bytes.  The following workaround fixes
+such @code{compilation-mode} derivatives by not filtering ANSI
+sequences on buffers whose name does not start with ``*compilation''.
+
+@example
+  (define-advice compilation-filter (:around (f proc string) xterm-color)
+    ;;https://github.com/atomontage/xterm-color/issues/37
+    (let ((string
+	   (if (string-prefix-p "*compilation" (buffer-name (process-buffer proc)))
+	       (xterm-color-filter string)
+	     string)))
+      (funcall f proc string))))
+@end example
 
 @node SLIME Enhanced M-.
 @section SLIME Enhanced M-.
