@@ -124,6 +124,13 @@ INPUT OUTPUT IO REPL-RESULTS"
 				  (id (eql :repl-thread)))
   (find-repl-thread connection))
 
+(defmethod thread-for-evaluation ((connection multithreaded-connection)
+				  (id (eql :inactive-repl-thread)))
+  (let ((repl (find-repl-thread connection)))
+    (if (member repl (mconn.active-threads connection) :test #'eq)
+        (thread-for-evaluation connection t)
+        repl)))
+
 (defun find-repl-thread (connection)
   (cond ((not (use-threads-p))
          (current-thread))

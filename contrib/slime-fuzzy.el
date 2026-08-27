@@ -230,7 +230,8 @@ Complete listing of keybindings with *Fuzzy Completions*:
                                                (slime-current-package))
                   :limit ,slime-fuzzy-completion-limit
                   :time-limit-in-msec
-                  ,slime-fuzzy-completion-time-limit-in-msec))))
+                  ,slime-fuzzy-completion-time-limit-in-msec)
+                nil :avoid-busy-repl)))
 
 (defun slime-fuzzy-selected (prefix completion)
   "Tell the connected Lisp that the user selected completion
