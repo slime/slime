@@ -42,7 +42,7 @@
   (let ((name (cl-etypecase name
 		(string name)
 		(symbol (symbol-name name)))))
-    (car (slime-eval `(swank:autodoc '(,name ,slime-cursor-marker)) nil :avoid-busy-repl))))
+    (car (slime-eval `(swank:autodoc '(,name ,slime-cursor-marker))))))
 
 (defun slime-autodoc-manually ()
   "Like autodoc information forcing multiline display."
@@ -153,8 +153,7 @@ If it's not in the cache, the cache will be updated asynchronously."
   (slime-eval-async
    `(swank:autodoc ',context
 		   :print-right-margin ,(window-width (minibuffer-window)))
-   (slime-curry #'slime-autodoc--async% context multilinep)
-   nil :avoid-busy-repl))
+   (slime-curry #'slime-autodoc--async% context multilinep)))
 
 (defun slime-autodoc--async% (context multilinep doc)
   (cl-destructuring-bind (doc &optional cache-p) doc
