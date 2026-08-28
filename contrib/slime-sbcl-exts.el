@@ -49,7 +49,10 @@ symbol at point, or if QUERY is non-nil."
          (save-excursion
           (backward-up-list 1)
           (down-list 1)
-          (looking-at "inst ")))
+          (and (looking-at "inst ")
+               (progn (forward-sexp 2)
+                      (backward-sexp)
+                      (looking-at name)))))
     (let ((location (slime-eval `(swank:inst-location ,name))))
       (unless (eq (car location) :error)
         (slime-edit-definition-cont
