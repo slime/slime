@@ -49,7 +49,7 @@ symbol at point, or if QUERY is non-nil."
          (save-excursion
           (backward-up-list 1)
           (down-list 1)
-          (looking-at "inst")))
+          (looking-at "inst ")))
     (let ((location (slime-eval `(swank:inst-location ,name))))
       (unless (eq (car location) :error)
         (slime-edit-definition-cont
@@ -58,8 +58,8 @@ symbol at point, or if QUERY is non-nil."
          name
          where)))))
 
-(put 'define-vop 'common-lisp-indent-function
-     'slime-indent-define-vop)
+(put 'define-vop 'common-lisp-indent-function 'slime-indent-define-vop)
+(put 'define-allocator 'common-lisp-indent-function 'slime-indent-define-vop)
 (put 'if-vop-existsp 'common-lisp-indent-function '(4 2 2))
 (put 'combination-case 'common-lisp-indent-function '(4 &rest (&whole 2 &rest 1)))
 
