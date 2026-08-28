@@ -17,6 +17,8 @@
 ;;   (setq swank-loader::*fasl-directory* "/tmp/fasl/")
 ;;   (swank-loader:init)
 
+(require 'uiop)
+
 (cl:defpackage :swank-loader
   (:use :cl)
   (:export :init
@@ -156,22 +158,9 @@ Return nil if nothing appropriate is available."
             when (string-starts-with line prefix)
               return (subseq line (length prefix))))))
 
-(defun getenv (name)
-  "Obtains the current value of the POSIX environment variable NAME."
-  (declare (type (or string symbol) name))
-  (let ((name (string name)))
-    ;; TODO allegro lispworks clozure corman cormanlisp armedbear scl mkcl
-    (or #+abcl (ext:getenv name)
-        #+ccl (ccl:getenv name)
-        #+clisp (ext:getenv name)
-        #+ecl (si:getenv name)
-        #+gcl (si:getenv name)
-        #+mkcl (mkcl:getenv name)
-        #+sbcl (sb-ext:posix-getenv name))))
-
 (defun slime-home-dir ()
-  (let ((env (getenv "SLIME_HOME"))
-        (xdg-data (getenv "XDG_DATA_HOME"))
+  (let ((env (uiop:getenv "SLIME_HOME"))
+        (xdg-data (uiop:getenv "XDG_DATA_HOME"))
         (slime-dir (make-pathname :directory '(:relative "slime")))
         (dot-slime-dir (make-pathname :directory '(:relative ".slime"))))
     (cond
