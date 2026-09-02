@@ -17,6 +17,8 @@
 ;;   (setq swank-loader::*fasl-directory* "/tmp/fasl/")
 ;;   (swank-loader:init)
 
+(require 'uiop)
+
 (cl:defpackage :swank-loader
   (:use :cl)
   (:export :init
@@ -158,14 +160,27 @@ Return nil if nothing appropriate is available."
             when (string-starts-with line prefix)
               return (subseq line (length prefix))))))
 
+(defun slime-home-dir ()
+  (let ((env (uiop:getenv "SLIME_HOME"))
+        (xdg-data (uiop:getenv "XDG_DATA_HOME"))
+        (slime-dir (make-pathname :directory '(:relative "slime")))
+        (dot-slime-dir (make-pathname :directory '(:relative ".slime"))))
+    (cond
+      (env
+       (truename env))
+      (xdg-data
+       (merge-pathnames slime-dir (truename xdg-data)))
+      (t
+       (merge-pathnames dot-slime-dir (user-homedir-pathname))))))
+
 (defun default-fasl-dir ()
   (merge-pathnames
    (make-pathname
-    :directory `(:relative ".slime" "fasl"
+    :directory `(:relative "fasl"
                  ,@(if (slime-version-string) (list (slime-version-string)))
                  ,(unique-dir-name)
                  ,@(if *load-truename* (cdr (pathname-directory *load-truename*)))))
-   (user-homedir-pathname)))
+   (slime-home-dir)))
 
 (defvar *fasl-directory* (default-fasl-dir)
   "The directory where fasl files should be placed.")
