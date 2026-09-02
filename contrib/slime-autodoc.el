@@ -152,9 +152,9 @@ If it's not in the cache, the cache will be updated asynchronously."
 
 (defun slime-autodoc--async (context multilinep)
   (slime-eval-async
-      `(swank:autodoc ',context
-		      :print-right-margin ,(window-width (minibuffer-window)))
-    (slime-curry #'slime-autodoc--async% context multilinep)))
+   `(swank:autodoc ',context
+		   :print-right-margin ,(window-width (minibuffer-window)))
+   (slime-curry #'slime-autodoc--async% context multilinep)))
 
 (defun slime-autodoc--async% (context multilinep doc)
   (cl-destructuring-bind (doc &optional cache-p) doc

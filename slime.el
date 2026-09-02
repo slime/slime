@@ -2197,9 +2197,13 @@ or nil if nothing suitable can be found.")
 (defvar slime-stack-eval-tags nil
   "List of stack-tags of continuations waiting on the stack.")
 
-(defun slime-eval (sexp &optional package)
+(defun slime-eval (sexp &optional package thread)
   "Evaluate EXPR on the superior Lisp and return the result."
   (when (null package) (setq package (slime-current-package)))
+  (unless thread
+    (setf thread slime-current-thread))
+  (when (eq slime-current-thread :repl-thread)
+    (setq thread :inactive-repl-thread))
   (let* ((tag (cl-gensym (format "slime-result-%d-"
                                  (1+ (slime-continuation-counter)))))
 	 (slime-stack-eval-tags (cons tag slime-stack-eval-tags)))
@@ -2207,7 +2211,7 @@ or nil if nothing suitable can be found.")
      #'funcall
      (catch tag
        (slime-rex (tag sexp)
-           (sexp package)
+           (sexp package thread)
          ((:ok value)
           (unless (member tag slime-stack-eval-tags)
             (error "Reply to canceled synchronous eval request tag=%S sexp=%S"
@@ -2223,11 +2227,15 @@ or nil if nothing suitable can be found.")
              (error "Lisp connection closed unexpectedly"))
            (accept-process-output nil 0.01)))))))
 
-(defun slime-eval-async (sexp &optional cont package)
+(defun slime-eval-async (sexp &optional cont package thread)
   "Evaluate EXPR on the superior Lisp and call CONT with the result."
   (declare (indent 1))
+  (unless thread
+    (setf thread slime-current-thread))
+  (when (eq slime-current-thread :repl-thread)
+    (setq thread :inactive-repl-thread))
   (slime-rex (cont (buffer (current-buffer)))
-      (sexp (or package (slime-current-package)))
+      (sexp (or package (slime-current-package)) thread)
     ((:ok result)
      (when cont
        (set-buffer buffer)
