@@ -1,0 +1,127 @@
+;;;; -*- mode: lisp -*-
+;;;;
+;;;; This file is .txt, because it's not meant to be evaluated.
+;;;; common-lisp-run-indentation-tests in slime-cl-ident.el
+;;;; parses this and runs the specified tests.
+
+;;; Test: export-adds-export-section
+;;
+;; do: (slime-frob-defpackage-form "#:my-package" :export 'foo)
+
+(defpackage #:my-package
+  (:use #:cl))
+
+;; gives
+
+(defpackage #:my-package
+  (:use #:cl)
+  (:export
+   #:foo))
+
+;;; Test: export-extends-existing-export
+;;
+;; do: (slime-frob-defpackage-form "#:my-package" :export 'foo)
+
+(defpackage #:my-package
+  (:export #:*bar*)
+  (:use #:cl))
+
+;; gives
+
+(defpackage #:my-package
+  (:export #:*bar*
+           #:foo)
+  (:use #:cl))
+
+
+
+;;; Test: export-edits-correct-package
+;;
+;; do: (slime-frob-defpackage-form "#:my-package.2" :export 'bar)
+
+(defpackage #:my-package.1
+  (:use #:cl)
+  (:export #:foo))
+
+(defpackage #:my-package.2
+  (:use #:cl)
+  (:export #:foo))
+
+(defpackage #:my-package.3
+  (:use #:cl)
+  (:export #:foo))
+
+;; gives
+
+(defpackage #:my-package.1
+  (:use #:cl)
+  (:export #:foo))
+
+(defpackage #:my-package.2
+  (:use #:cl)
+  (:export #:foo
+           #:bar))
+
+(defpackage #:my-package.3
+  (:use #:cl)
+  (:export #:foo))
+
+;;; Test: unexport-removes-from-export
+;;
+;; do: (slime-frob-defpackage-form "#:my-package" :unexport 'foo)
+
+(defpackage #:my-package
+  (:use #:cl)
+  (:export #:*bar*
+           #:foo))
+
+;; gives
+
+(defpackage #:my-package
+  (:use #:cl)
+  (:export #:*bar*
+           ))
+
+;;; Test: unexport-keeps-empty-export
+;;
+;; do: (slime-frob-defpackage-form "#:my-package" :unexport 'foo)
+
+(defpackage #:my-package
+  (:use #:cl)
+  (:export #:foo))
+
+;; gives
+
+(defpackage #:my-package
+  (:use #:cl)
+  (:export ))
+
+;;; Test: unexport-edits-correct-package
+;;
+;; do: (slime-frob-defpackage-form "#:my-package.2" :unexport 'foo)
+
+(defpackage #:my-package.1
+  (:use #:cl)
+  (:export #:foo))
+
+(defpackage #:my-package.2
+  (:use #:cl)
+  (:export #:foo))
+
+(defpackage #:my-package.3
+  (:use #:cl)
+  (:export #:foo))
+
+;; gives
+
+(defpackage #:my-package.1
+  (:use #:cl)
+  (:export #:foo))
+
+(defpackage #:my-package.2
+  (:use #:cl)
+  (:export ))
+
+(defpackage #:my-package.3
+  (:use #:cl)
+  (:export #:foo))
