@@ -3079,7 +3079,14 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
   (multiple-value-bind (symbol found)
       (find-definitions-find-symbol-or-package name)
     (when found
-      (mapcar #'xref>elisp (remove-duplicates (find-definitions symbol) :test #'equal)))))
+      (mapcar #'xref>elisp 
+              (stable-sort (remove-duplicates (find-definitions symbol) :test #'equal)
+                           #'>
+                           :key
+                           (lambda (def)
+                             (if (assoc :error (cdr def))
+                                 0
+                                 1)))))))
 
 ;;; Generic function so contribs can extend it.
 (defgeneric xref-doit (type thing)
