@@ -2681,7 +2681,7 @@ the filename of the module (or nil if the file doesn't exist).")
                          (or #+#.(swank/backend:with-symbol '%method-function-fast-function 'sb-pcl)
                              (sb-pcl::%method-function-fast-function (swank-mop:method-function definition))
                              (swank-mop:method-generic-function definition))
-                         definition))))))
+                         (unencapsulated-function definition)))))))
 
 
 ;;;; Simple completion
@@ -3236,7 +3236,7 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
     (with-retry-restart (:msg "Retry SLIME inspection request.")
       (reset-inspector)
       (inspect-object (if definition
-                          (find-definition definition)
+                          (unencapsulated-function (find-definition definition))
                           (eval (read-from-string string)))))))
 
 (defun ensure-istate-metadata (o indicator default)

@@ -2077,3 +2077,8 @@ stack."
 				 (t (unread-char n s)))
 			       (list 'comma (read s t nil t))))
 		       t rt))
+
+#+#.(swank/backend:with-symbol 'unencapsulated-function 'sb-ext)
+(defimplementation unencapsulated-function (function)
+  (when (functionp function)
+    (sb-ext:unencapsulated-function function)))
