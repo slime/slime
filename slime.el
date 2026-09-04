@@ -4675,13 +4675,20 @@ source-location."
   (delete-char -1)
   (insert " "))
 
+(defvar slime-xref-next-line-show t
+  "If T, opens the next location, if NIL, just moves the pointer to the next location")
+
 (defun slime-xref-next-line ()
   (interactive)
-  (slime-xref-show-location (slime-search-property 'slime-location)))
+  (let ((loc (slime-search-property 'slime-location)))
+    (when slime-xref-next-line-show
+      (slime-xref-show-location loc))))
 
 (defun slime-xref-prev-line ()
   (interactive)
-  (slime-xref-show-location (slime-search-property 'slime-location t)))
+  (let ((loc (slime-search-property 'slime-location t)))
+    (when slime-xref-next-line-show
+      (slime-xref-show-location loc))))
 
 (defun slime-xref-show-location (loc)
   (cl-ecase (car loc)
