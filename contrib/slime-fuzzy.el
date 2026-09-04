@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t; -*-
 (require 'slime)
 (require 'slime-repl)
 (require 'slime-c-p-c)
@@ -258,7 +259,7 @@ most recently enclosed macro or function."
 (defun slime-fuzzy-complete-symbol ()
   "Fuzzily completes the abbreviation at point into a symbol."
   (interactive)
-  (if (save-excursion (re-search-backward "\"[^ \t\n]+\\=" 
+  (if (save-excursion (re-search-backward "\"[^ \t\n]+\\="
                                           (when slime-repl-input-start-mark
                                             (let ((start
                                                     (marker-position slime-repl-input-start-mark)))
@@ -277,7 +278,7 @@ most recently enclosed macro or function."
         (cl-destructuring-bind (completion-set interrupted-p)
                                (slime-fuzzy-completions prefix)
                                (if slime-fuzzy-default-completion-ui
-                                   (cl-list* beg end 
+                                   (cl-list* beg end
                                              (slime-format-completions completion-set))
                                    (if (null completion-set)
                                        (progn (slime-minibuffer-respecting-message
