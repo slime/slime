@@ -43,8 +43,8 @@
              (indent-region (point-min) (point-max))
              (delete-trailing-whitespace)
              (should (equal expected (buffer-string))))))))
-  
-  (defun slime-indentation-test-forms-for-file (file)
+
+  (defun slime-indentation-test-forms-for-file ()
     (with-current-buffer
         (find-file-noselect (concat slime-path
                                     "/contrib/test/slime-cl-indent-test.txt"))
@@ -74,7 +74,7 @@
 
 (defmacro slime-indentation-define-tests ()
     `(progn
-       ,@(slime-indentation-test-forms-for-file "slime-cl-indent-test.txt")))
+       ,@(slime-indentation-test-forms-for-file)))
 
 (slime-indentation-define-tests)
 
