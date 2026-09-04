@@ -4705,7 +4705,8 @@ This is used by `slime-goto-next-xref'")
     (setq slime-next-location-function 'slime-goto-next-xref)
     (setq slime-previous-location-function 'slime-goto-previous-xref)
     (setq slime-xref-last-buffer (current-buffer))
-    (goto-char (point-min))))
+    (goto-char (point-min))
+    (forward-line 1)))
 
 (defun slime-show-xrefs (xrefs type symbol package)
   "Show the results of an XREF query."
@@ -5033,7 +5034,8 @@ function name is prompted."
                                                          do
                                                          (slime-insert-xrefs
                                                           (cadr (slime-analyze-xrefs refs))))
-                                                (goto-char (point-min))))))))
+                                                (goto-char (point-min))
+                                                (forward-line 2)))))))
 
 ;;;; Macroexpansion
 
