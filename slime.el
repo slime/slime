@@ -2234,9 +2234,16 @@ or nil if nothing suitable can be found.")
 
 ;;; These functions can be handy too:
 
+(defun slime-active-connections ()
+  (setf slime-net-processes
+        (cl-remove-if-not (lambda (conn)
+                            (eq (process-status conn) 'open))
+                          slime-net-processes)))
+
 (defun slime-connected-p ()
   "Return true if the Swank connection is open."
-  (not (null slime-net-processes)))
+  (when (slime-active-connections)
+    t))
 
 (defun slime-check-connected ()
   "Signal an error if we are not connected to Lisp."
@@ -6512,11 +6519,7 @@ was called originally."
         (fstring "%s%2s  %-10s  %-17s  %-7s %-s\n"))
     (insert (format fstring " " "Nr" "Name" "Port" "Pid" "Type")
             (format fstring " " "--" "----" "----" "---" "----"))
-    (setf slime-net-processes
-          (cl-remove-if-not (lambda (conn)
-                              (eq (process-status conn) 'open))
-                            slime-net-processes))
-    (dolist (p (reverse slime-net-processes))
+    (dolist (p (reverse (slime-active-connections)))
       (when (eq default p) (setf default-pos (point)))
       (slime-insert-propertized
        (list 'slime-connection p)
