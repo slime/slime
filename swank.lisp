@@ -2681,7 +2681,7 @@ the filename of the module (or nil if the file doesn't exist).")
                          (or #+#.(swank/backend:with-symbol '%method-function-fast-function 'sb-pcl)
                              (sb-pcl::%method-function-fast-function (swank-mop:method-function definition))
                              (swank-mop:method-generic-function definition))
-                         definition))))))
+                         (unencapsulated-function definition)))))))
 
 
 ;;;; Simple completion
@@ -3079,7 +3079,14 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
   (multiple-value-bind (symbol found)
       (find-definitions-find-symbol-or-package name)
     (when found
-      (mapcar #'xref>elisp (remove-duplicates (find-definitions symbol) :test #'equal)))))
+      (mapcar #'xref>elisp 
+              (stable-sort (remove-duplicates (find-definitions symbol) :test #'equal)
+                           #'>
+                           :key
+                           (lambda (def)
+                             (if (assoc :error (cdr def))
+                                 0
+                                 1)))))))
 
 ;;; Generic function so contribs can extend it.
 (defgeneric xref-doit (type thing)
@@ -3229,7 +3236,7 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
     (with-retry-restart (:msg "Retry SLIME inspection request.")
       (reset-inspector)
       (inspect-object (if definition
-                          (find-definition definition)
+                          (unencapsulated-function (find-definition definition))
                           (eval (read-from-string string)))))))
 
 (defun ensure-istate-metadata (o indicator default)

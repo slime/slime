@@ -2250,9 +2250,16 @@ or nil if nothing suitable can be found.")
 
 ;;; These functions can be handy too:
 
+(defun slime-active-connections ()
+  (setf slime-net-processes
+        (cl-remove-if-not (lambda (conn)
+                            (eq (process-status conn) 'open))
+                          slime-net-processes)))
+
 (defun slime-connected-p ()
   "Return true if the Swank connection is open."
-  (not (null slime-net-processes)))
+  (when (slime-active-connections)
+    t))
 
 (defun slime-check-connected ()
   "Signal an error if we are not connected to Lisp."
@@ -4691,13 +4698,20 @@ source-location."
   (delete-char -1)
   (insert " "))
 
+(defvar slime-xref-next-line-show t
+  "If T, opens the next location, if NIL, just moves the pointer to the next location")
+
 (defun slime-xref-next-line ()
   (interactive)
-  (slime-xref-show-location (slime-search-property 'slime-location)))
+  (let ((loc (slime-search-property 'slime-location)))
+    (when slime-xref-next-line-show
+      (slime-xref-show-location loc))))
 
 (defun slime-xref-prev-line ()
   (interactive)
-  (slime-xref-show-location (slime-search-property 'slime-location t)))
+  (let ((loc (slime-search-property 'slime-location t)))
+    (when slime-xref-next-line-show
+      (slime-xref-show-location loc))))
 
 (defun slime-xref-show-location (loc)
   (cl-ecase (car loc)
@@ -4721,7 +4735,8 @@ This is used by `slime-goto-next-xref'")
     (setq slime-next-location-function 'slime-goto-next-xref)
     (setq slime-previous-location-function 'slime-goto-previous-xref)
     (setq slime-xref-last-buffer (current-buffer))
-    (goto-char (point-min))))
+    (goto-char (point-min))
+    (forward-line 1)))
 
 (defun slime-show-xrefs (xrefs type symbol package)
   "Show the results of an XREF query."
@@ -5049,7 +5064,8 @@ function name is prompted."
                                                          do
                                                          (slime-insert-xrefs
                                                           (cadr (slime-analyze-xrefs refs))))
-                                                (goto-char (point-min))))))))
+                                                (goto-char (point-min))
+                                                (forward-line 2)))))))
 
 ;;;; Macroexpansion
 
@@ -6689,7 +6705,7 @@ position of point in the current buffer."
   ;; FIXME: why would somebody narrow the buffer?
   (save-restriction
     (widen)
-    (cons (line-number-at-pos)
+s    (cons (line-number-at-pos)
           (current-column))))
 
 (defun slime-inspector-property-at-point ()

@@ -1646,3 +1646,7 @@ Implementations intercept calls to SPEC and call, in this order:
 (definterface install-special-backquote-readers (rt)
   "install-special-backquote-readers"
   (declare (ignore rt)))
+
+(definterface unencapsulated-function (name)
+   "Remove things like tracing."
+  name)
