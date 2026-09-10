@@ -6515,7 +6515,6 @@ was called originally."
   (let ((slime-dispatching-connection connection))
     (slime-restart-inferior-lisp)))
 
-
 (defun slime-connection-list-make-default ()
   "Make the connection at point the default connection."
   (interactive)
