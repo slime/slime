@@ -1826,7 +1826,8 @@ last form."
     (with-retry-restart (:msg "Retry SLIME evaluation request.")
       (let ((form (read-from-string form)))
         (destructuring-bind (dv name &optional value doc) form
-          (declare (ignore doc))
+          (declare (ignore doc)
+                   (ignorable value))
           (case dv
             #+sbcl
             (sb-ext:defglobal
@@ -3079,7 +3080,7 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
   (multiple-value-bind (symbol found)
       (find-definitions-find-symbol-or-package name)
     (when found
-      (mapcar #'xref>elisp 
+      (mapcar #'xref>elisp
               (stable-sort (remove-duplicates (find-definitions symbol) :test #'equal)
                            #'>
                            :key
