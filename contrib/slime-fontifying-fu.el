@@ -1,4 +1,3 @@
-;; -*- lexical-binding: t; -*-
 (require 'slime)
 (require 'slime-parse)
 (require 'slime-autodoc)

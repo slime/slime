@@ -1,4 +1,3 @@
-;; -*- lexical-binding: t; -*-
 (require 'slime)
 
 (define-slime-contrib slime-fancy

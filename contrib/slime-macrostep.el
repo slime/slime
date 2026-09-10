@@ -1,4 +1,4 @@
-;;; slime-macrostep.el -- fancy macro-expansion via macrostep.el  -*- lexical-binding: t; -*-
+;;; slime-macrostep.el -- fancy macro-expansion via macrostep.el
 
 ;; Authors: Luís Oliveira <luismbo@gmail.com>
 ;;          Jon Oddie <j.j.oddie@gmail.com
