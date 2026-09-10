@@ -6705,7 +6705,7 @@ position of point in the current buffer."
   ;; FIXME: why would somebody narrow the buffer?
   (save-restriction
     (widen)
-s    (cons (line-number-at-pos)
+    (cons (line-number-at-pos)
           (current-column))))
 
 (defun slime-inspector-property-at-point ()
