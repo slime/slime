@@ -3081,7 +3081,12 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
       (find-definitions-find-symbol-or-package name)
     (when found
       (mapcar #'xref>elisp
-              (stable-sort (remove-duplicates (find-definitions symbol) :test #'equal)
+              (stable-sort (sort (remove-duplicates (find-definitions symbol) :test #'equal)
+                                 #'string-lessp
+                                 :key
+                                 (lambda (def)
+                                   (or (second (assoc :file (cdr (assoc :location (cdr def)))))
+                                       "z")))
                            #'>
                            :key
                            (lambda (def)
