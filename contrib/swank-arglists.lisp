@@ -466,6 +466,7 @@ values: a documentation string and a boolean cache flag.")
   "ARG can be a symbol or a destructuring pattern."
   (etypecase arg
     (symbol        arg)
+    (number        arg)
     (arglist-dummy arg)
     (list          (decode-arglist arg))))
 
