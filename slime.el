@@ -1186,7 +1186,8 @@ DIRECTORY change to this directory before starting the process.
   (interactive)
   (let ((sourcefile (concat (file-name-sans-extension (locate-library "slime"))
                             ".el")))
-    (byte-compile-file sourcefile t)))
+    (byte-compile-file sourcefile)
+    (load (byte-compile-dest-file sourcefile))))
 
 (defun slime-urge-bytecode-recompile ()
   "Urge the user to recompile slime.elc.
