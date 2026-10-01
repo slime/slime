@@ -5560,7 +5560,8 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
                (let ((previous-window (window-parameter (selected-window)
                                                         'sldb-restore)))
                  (quit-window t)
-                 (select-window previous-window))))))))
+                 (when (window-live-p previous-window)
+                   (select-window previous-window)))))))))
 
 (defun sldb-close-step-buffer (buffer)
   (when (buffer-live-p buffer)
