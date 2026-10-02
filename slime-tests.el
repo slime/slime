@@ -1702,4 +1702,24 @@ messages to be rejected."
       (when slime-xref-last-buffer
         (kill-buffer slime-xref-last-buffer)))))
 
+(define-slime-ert-test slime-safe-indentation-specs ()
+  (dolist (spec '(4 "defun" ("as" "lisp-indent-do")
+                 (4 "&lambda" "&body")
+                 (("&whole" 4 "&rest" 1) "&body")))
+    (should (slime-safe-indentation-spec-p
+             (slime-intern-indentation-spec spec))))
+  (dolist (spec '("ignore" (4 "ignore") (("&whole" "ignore" 1))
+                 (lambda (&rest args) (message "called"))))
+    (should-not (slime-safe-indentation-spec-p
+                 (slime-intern-indentation-spec spec)))))
+
+(define-slime-ert-test slime-indentation-update-rejects-unsafe ()
+  (cl-letf (((symbol-function 'slime-update-system-indentation) nil)
+            ((symbol-plist 'slime-test-indent) nil))
+    (let ((slime-enable-evaluate-in-emacs nil))
+      (slime-handle-indentation-update '(("slime-test-indent" "ignore" nil)))
+      (should-not (get 'slime-test-indent 'common-lisp-indent-function))
+      (slime-handle-indentation-update '(("slime-test-indent" 4 nil)))
+      (should (eql (get 'slime-test-indent 'common-lisp-indent-function) 4)))))
+
 (provide 'slime-tests)

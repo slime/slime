@@ -7172,6 +7172,25 @@ Only considers buffers that are not already visible."
         (t
          spec)))
 
+(defun slime-safe-indentation-spec-p (spec)
+  "Return non-nil if SPEC cannot make Emacs call an arbitrary function.
+SPEC has already been processed by `slime-intern-indentation-spec'.
+
+SPEC is safe if it is (as SYMBOL), an alias to SYMBOL's locally
+configured indentation, or a tree whose leaves are all integers or
+one of nil, defun, &lambda, &body, &rest, &whole.  The indenters run
+code only by calling a symbol taken from the spec, and none of these
+leaves is callable, so this holds however the leaves are arranged.
+A malformed spec can at worst make indentation signal an error."
+  (pcase spec
+    (`(as ,(pred symbolp)) t)
+    (_ (cl-labels ((safe-p (x)
+                     (if (consp x)
+                         (and (safe-p (car x)) (safe-p (cdr x)))
+                       (or (integerp x)
+                           (memq x '(nil defun &lambda &body &rest &whole))))))
+         (safe-p spec)))))
+
 ;; FIXME: restore the old version without per-package
 ;; stuff. slime-indentation.el should be able tho disable the simple
 ;; version if needed.
@@ -7180,22 +7199,27 @@ Only considers buffers that are not already visible."
 
 ALIST is a list of (SYMBOL-NAME . INDENT-SPEC) of proposed indentation
 settings for `common-lisp-indent-function'. The appropriate property
-is setup, unless the user already set one explicitly."
+is setup, unless the user already set one explicitly.
+Specs that can specify arbitrary functions are ignored unless
+`slime-enable-evaluate-in-emacs' is non-nil."
   (dolist (info alist)
     (let ((symbol (intern (car info)))
           (indent (slime-intern-indentation-spec (cl-second info)))
           (packages (cl-third info)))
-      (if (and (boundp 'common-lisp-system-indentation)
-               (fboundp 'slime-update-system-indentation))
-          ;; A table provided by slime-cl-indent.el.
-          (funcall #'slime-update-system-indentation symbol indent packages)
-        ;; Does the symbol have an indentation value that we set?
-        (when (equal (get symbol 'common-lisp-indent-function)
-                     (get symbol 'slime-indent))
-          (put symbol 'common-lisp-indent-function indent)
-          (put symbol 'slime-indent indent)))
-      (run-hook-with-args 'slime-indentation-update-hooks
-                          symbol indent packages))))
+      (if (not (or slime-enable-evaluate-in-emacs
+                   (slime-safe-indentation-spec-p indent)))
+          (message "Ignoring unsafe indentation spec for %s" symbol)
+        (if (and (boundp 'common-lisp-system-indentation)
+                 (fboundp 'slime-update-system-indentation))
+            ;; A table provided by slime-cl-indent.el.
+            (funcall #'slime-update-system-indentation symbol indent packages)
+          ;; Does the symbol have an indentation value that we set?
+          (when (equal (get symbol 'common-lisp-indent-function)
+                       (get symbol 'slime-indent))
+            (put symbol 'common-lisp-indent-function indent)
+            (put symbol 'slime-indent indent)))
+        (run-hook-with-args 'slime-indentation-update-hooks
+                            symbol indent packages)))))
 
 
 ;;;; Contrib modules
