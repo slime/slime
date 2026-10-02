@@ -100,6 +100,7 @@ Exits Emacs when finished. The exit code is the number of failed tests."
   (defmacro define-slime-ert-test (name &rest args)
     "Like `ert-deftest', but set tags automatically.
 Also don't error if `ert.el' is missing."
+    (declare (indent defun))
     (if (not (featurep 'ert))
         (warn "No ert.el found: not defining test %s"
               name)
