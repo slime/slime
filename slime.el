@@ -1597,10 +1597,75 @@ EVAL'd by Lisp."
                  (progn
                    (decode-coding-region start end 'utf-8-unix)
                    (setq end (point-max))
+                   (slime-net-check-reader-syntax)
                    (read (current-buffer)))
                (error
                 (slime-handle-net-read-error error))))
       (delete-region (point-min) end))))
+
+(defun slime-net-check-reader-syntax ()
+
+  "Reject unsafe reader syntax between point and `point-max'.  Swank must not
+send #(...) strings, whose text properties can execute Elisp when displayed.
+Also reject #@, which skips arbitrary text, and would be hard to handle as it
+has slight differences in different versions of emacs, and reject #[...], whose
+legacy byte-code representation can cause another read of an encoded string.
+These restrictions do not apply to text inside strings, comments, or escaped
+symbol names. Leave point unchanged."
+
+  (save-excursion
+    (let ((start (point)))
+      ;; Most packets need no further scanning.
+      (when (re-search-forward "#[(@[]" nil t)
+        (goto-char start)
+        (cl-labels
+            ((skip-symbol
+               ()
+               ;; These are the reader's delimiters, independent of the
+               ;; buffer's syntax table.  A backslash quotes one character.
+               (while (progn
+                        (skip-chars-forward "^\0- \u00a0\"';#()`[],\\\\")
+                        (when (eq (char-after) ?\\)
+                          (forward-char 1)
+                          (unless (eobp) (forward-char 1))
+                          t)))))
+          (while (progn (skip-chars-forward "\0- \u00a0") (not (eobp)))
+            (let ((char (char-after)))
+              (cond
+               ((memq char '(?\" ??))
+                ;; Let the reader handle string and character escapes.
+                ;; Neither kind of literal can construct text properties.
+                (read (current-buffer)))
+               ((eq char ?\;) (forward-line 1))
+               ((memq char '(?\( ?\) ?\[ ?\] ?\' ?\`))
+                (forward-char 1))
+               ((eq char ?,)
+                (forward-char 1)
+                (when (eq (char-after) ?@) (forward-char 1)))
+               ;; A dot followed by ? starts a dotted cdr, not a symbol.
+               ((and (eq char ?.) (eq (char-after (1+ (point))) ??))
+                (forward-char 1))
+               ((and (eq char ?#)
+                     (looking-at "#\\(?:[bBoOxX]\\|[0-9]+[rR]\\)"))
+                ;; Radix integers have different delimiters from symbols.
+                (read (current-buffer)))
+               ((eq char ?#)
+                (forward-char 1)
+                (cond
+                 ((memq (char-after) '(?\( ?@ ?\[))
+                  (signal 'invalid-read-syntax
+                          (list (format "#%c is not allowed in Swank messages"
+                                        (char-after)))))
+                 ((eq (char-after) ?!) (forward-line 1))
+                 ((memq (char-after) '(?: ?_))
+                  (forward-char 1)
+                  (skip-symbol))
+                 ((looking-at "[0-9]+[=#]")
+                  (goto-char (match-end 0)))
+                 ;; Other dispatch prefixes do not hide reader syntax.
+                 ;; Scan their operands too, including nested containers.
+                 ((not (eobp)) (forward-char 1))))
+               (t (skip-symbol))))))))))
 
 (defun slime-net-decode-length ()
   (string-to-number (buffer-substring-no-properties (point) (+ (point) 6))
