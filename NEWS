@@ -1,5 +1,7 @@
 * SLIME News                                -*- mode: outline; coding: utf-8 -*-
 * 2.32 (December 2025)
+** Swank configuration, secrets, REPL history, runtime files, and fasls
+   use the XDG base directories, with legacy dotfiles still read when present.
 ** M-. for local variables bind by defun, multiple-value-bind
 ** Completion uses the default emacs interface. Allowing company mode to work.
    (slime-fuzzy needs (setq slime-fuzzy-default-completion-ui t)

@@ -24,13 +24,13 @@
                    (asdf:system-source-directory :swank))
               (set (intern "*FASL-DIRECTORY*" 'swank-loader)
                    (asdf:apply-output-translations (asdf:system-source-directory :swank)))
-              (uiop:symbol-call :swank :before-init
-                 (uiop:symbol-call :swank-loader :slime-version-string)
-                 (list
-                  (uiop:symbol-call :swank-loader :contrib-dir
-                     (symbol-value (intern "*FASL-DIRECTORY*" 'swank-loader)))
-                  (uiop:symbol-call :swank-loader :contrib-dir
-                     (symbol-value (intern "*SOURCE-DIRECTORY*" 'swank-loader))))))
+              (funcall (intern "BEFORE-INIT" :swank)
+                       (funcall (intern "SLIME-VERSION-STRING" :swank-loader))
+                       (list
+                        (funcall (intern "CONTRIB-DIR" :swank-loader)
+                                 (symbol-value (intern "*FASL-DIRECTORY*" 'swank-loader)))
+                        (funcall (intern "CONTRIB-DIR" :swank-loader)
+                                 (symbol-value (intern "*SOURCE-DIRECTORY*" 'swank-loader))))))
   :components ((:file "swank-loader")
                (:file "packages")
                (:file "xref" :if-feature :clisp)
