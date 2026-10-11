@@ -1022,9 +1022,11 @@ For example, the function `case' has an indent property
           one)))))
 
 (defun common-lisp-backward-comment-or-sexp ()
-  (forward-comment -1)
-  (unless (looking-at ";")
-    (backward-sexp)))
+  (let ((start (point)))
+    (forward-comment -1)
+    (unless (and (looking-at ";")
+                 (/= start (point)))
+      (backward-sexp))))
 
 
 ;; Dynamically bound in common-lisp-indent-call-method.
