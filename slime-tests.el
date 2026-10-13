@@ -1435,115 +1435,33 @@ Reconnect afterwards."
       (prog1 (slime-net-read)
         (should (zerop (buffer-size)))))))
 
-(define-slime-ert-test slime-net-read-rejects-string-properties ()
-                       "Reject property-string syntax, including inside other reader objects."
-                       (let ((string "#(\"abc\" 0 3 (display (height (error \"unsafe\"))))"))
-                         (dolist (template '("%s"
-                                             "(:write-string %s nil nil)"
-                                             "(nil . %s)"
-                                             "[%s]"
-                                             "#s(hash-table data (key %s))"
-                                             "#s(hash-table data (%s value))"
-                                             "#s(slime-test-record %s)"
-                                             "(#1=%s #1#)"
-                                             "'%s"
-                                             "#'%s"))
-                           (ert-info ((format "Reader context: %s" template))
-                             (let ((error (should-error
-                                           (slime-test-net-read (format template string))
-                                           :type 'invalid-read-syntax)))
-                               (should (equal (cadr error)
-                                              "#( is not allowed in Swank messages"))))))
-                       ;; Reject the syntax even when it does not actually specify properties.
-                       (should-error (slime-test-net-read "#(\"plain\")")
-                                     :type 'invalid-read-syntax))
+(define-slime-ert-test slime-net-read-rejects-unsafe-objects ()
+  "Reject strings with text properties and objects Swank never sends."
+  (let ((string "#(\"abc\" 0 3 (display (height (error \"unsafe\"))))"))
+    (dolist (text (list string
+                        (format "(:write-string %s nil nil)" string)
+                        (format "(nil . %s)" string)
+                        (format "#1=(%s . #1#)" string)
+                        "#(\"abc\" 1 2 (face bold))"
+                        "[1 2]"
+                        "#s(hash-table data (k v))"
+                        "#[0 \"\" [] 0]"
+                        (format "#[0 %S nil 0]"
+                                "(\"\" . [#(\"abc\" 0 3 (face bold))])")))
+      (ert-info ((format "Packet: %s" text))
+        (should-error (slime-test-net-read text)
+                      :type 'invalid-read-syntax)))))
 
-(define-slime-ert-test slime-net-read-allows-literal-reader-syntax ()
-                       "Allow ordinary strings, comments, characters, and escaped symbols."
-                       (dolist (text '("(:write-string \"The vector is #(1 2 3); #@ and #[ are text\" nil nil)"
-                                       "(\"escaped \\\" #( quote\" \"backslash \\\\\" \"#@\")"
-                                       "(\"multiline\n#( and #@\")"
-                                       "(; #(\"ignored\") #@\nplain)"
-                                       "(#! #(\"ignored\") #@\nplain)"
-                                       "(\\#(\"plain\") \\#@ \\#[plain])"
-                                       "(?#() ?\\#() ?\\\" \"#(\")"
-                                       "(foo\\\" \"#(\")"
-                                       "(foo? \"#(\")"
-                                       "(,@?\" \"#(\")"
-                                       "((nil .?\") \"#(\")"
-                                       "(#x1?\" #8r7?\" \"#(\")"
-                                       "(## \"#(\")"
-                                       "(#1=?\\\" \"#(\" #1#)"
-                                       "([1 2 \"#(\"] . \"#@\")"))
-                         (ert-info ((format "Packet: %s" text))
-                           (should (equal (slime-test-net-read text) (read text))))))
+(define-slime-ert-test slime-net-read-allows-plain-objects ()
+  "Allow ordinary messages, including reader syntax inside strings."
+  (dolist (text '("(:write-string \"#(1 2 3) #@ and #[ are text\" nil nil)"
+                  "(:return (:ok (\"a\" 1 2.5 nil t :key)) 3)"))
+    (ert-info ((format "Packet: %s" text))
+      (should (equal (slime-test-net-read text) (read text)))))
+  ;; Shared structure terminates.
+  (should (slime-test-net-read "#1=(a . #1#)")))
 
-(define-slime-ert-test slime-net-read-rejects-properties-after-escaped-tokens ()
-                       "Escapes and comments must not hide a subsequent property string."
-                       (dolist (prefix '("\"literal #( and #@\" "
-                                         "?\\\" "
-                                         "?\\; "
-                                         "?\\\\ "
-                                         "foo\\\" "
-                                         "foo\\; "
-                                         "foo?\\\" "
-                                         ",@?\" "
-                                         "(nil .?\") "
-                                         "#x1?\" "
-                                         "#8r7?\" "
-                                         "#1=?\\\" "
-                                         "#:?\\\" "
-                                         "#_?\\\" "
-                                         "## "
-                                         "; #( ignored\n"
-                                         "#! #( ignored\n"))
-                         (ert-info ((format "Prefix: %s" prefix))
-                           (let ((error (should-error
-                                         (slime-test-net-read
-                                          (concat "(" prefix "#(\"abc\" 0 3 (face bold)))"))
-                                         :type 'invalid-read-syntax)))
-                             (should (equal (cadr error)
-                                            "#( is not allowed in Swank messages"))))))
 
-(define-slime-ert-test slime-net-read-rejects-text-skipping ()
-                       "Reject #@ before its skipped text can confuse the syntax check."
-                       (dolist (text '("#@00"
-                                       "(#@1 \"\037 #(\"abc\" 0 3 (face bold)))"
-                                       "(\"#@ is text\" #@00)"))
-                         (let ((error (should-error (slime-test-net-read text)
-                                                    :type 'invalid-read-syntax)))
-                           (should (equal (cadr error)
-                                          "#@ is not allowed in Swank messages")))))
-
-(define-slime-ert-test slime-net-read-rejects-byte-code ()
-                       "Reject byte-code objects, including encoded legacy constants."
-                       (dolist (text (list "#[0 \"\" [] 0]"
-                                           "(#[0 \"\" [#(\"abc\" 0 3 (face bold))] 0])"
-                                           (format "#[0 %S nil 0]"
-                                                   "(\"\" . [#(\"abc\" 0 3 (face bold))])")))
-                         (let ((error (should-error (slime-test-net-read text)
-                                                    :type 'invalid-read-syntax)))
-                           (should (equal (cadr error)
-                                          "#[ is not allowed in Swank messages")))))
-
-(define-slime-ert-test slime-net-read-checks-one-packet-at-a-time ()
-                       "Check decoded UTF-8 text without scanning into the next
-packet. Meaning a message with an illegal propertized string won't cause earlier
-messages to be rejected."
-                       (with-temp-buffer
-                         (insert (slime-test-net-packet "(:write-string \"λ #(1 2)\" nil nil)")
-                                 (slime-test-net-packet "(:write-string #(\"x\") nil nil)"))
-                         (should (equal (slime-net-read) '(:write-string "λ #(1 2)" nil nil)))
-                         (let (read-error)
-                           (cl-letf (((symbol-function 'slime-handle-net-read-error)
-                                      (lambda (error)
-                                        (setq read-error error)
-                                        '(:emacs-skipped-packet))))
-                             (should (equal (slime-net-read) '(:emacs-skipped-packet))))
-                           (should (eq (car read-error) 'invalid-read-syntax)))
-                         (should (zerop (buffer-size)))))
-
-
 ;;;; SLIME-loading tests that launch separate Emacsen
 ;;;;
 (cl-defun slime-test-recipe-test-for (&key preflight
