@@ -1442,6 +1442,8 @@ Reconnect afterwards."
                         (format "(:write-string %s nil nil)" string)
                         (format "(nil . %s)" string)
                         (format "#1=(%s . #1#)" string)
+                        "#1=(a . #1#)"
+                        "(#1=a #1#)"
                         "#(\"abc\" 1 2 (face bold))"
                         "[1 2]"
                         "#s(hash-table data (k v))"
@@ -1457,9 +1459,7 @@ Reconnect afterwards."
   (dolist (text '("(:write-string \"#(1 2 3) #@ and #[ are text\" nil nil)"
                   "(:return (:ok (\"a\" 1 2.5 nil t :key)) 3)"))
     (ert-info ((format "Packet: %s" text))
-      (should (equal (slime-test-net-read text) (read text)))))
-  ;; Shared structure terminates.
-  (should (slime-test-net-read "#1=(a . #1#)")))
+      (should (equal (slime-test-net-read text) (read text))))))
 
 
 ;;;; SLIME-loading tests that launch separate Emacsen

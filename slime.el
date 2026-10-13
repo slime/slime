@@ -1597,7 +1597,10 @@ EVAL'd by Lisp."
                  (progn
                    (decode-coding-region start end 'utf-8-unix)
                    (setq end (point-max))
-                   (slime-net-check-object (read (current-buffer))))
+                   ;; Swank never sends #N= syntax.  Rejecting it means
+                   ;; slime-net-check-object doesn't need to check for cycles.
+                   (let ((read-circle nil))
+                     (slime-net-check-object (read (current-buffer)))))
                (error
                 (slime-handle-net-read-error error))))
       (delete-region (point-min) end))))
@@ -1606,15 +1609,12 @@ EVAL'd by Lisp."
   "Signal an error unless OBJECT is built from conses, symbols, numbers,
 and strings without text properties.  Return OBJECT.
 Text properties like `display' can run Elisp when the string is shown."
-  (let ((seen (make-hash-table :test 'eq))
-        (todo (list object)))
+  (let ((todo (list object)))
     (while todo
       (let ((x (pop todo)))
         (cond ((consp x)
-               (unless (gethash x seen)   ; #1= cycles
-                 (puthash x t seen)
-                 (push (car x) todo)
-                 (push (cdr x) todo)))
+               (push (car x) todo)
+               (push (cdr x) todo))
               ((stringp x)
                (when (or (text-properties-at 0 x) (next-property-change 0 x))
                  (signal 'invalid-read-syntax
