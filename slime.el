@@ -7165,15 +7165,12 @@ signal an error."
 
 ALIST is a list of (SYMBOL-NAME . INDENT-SPEC) of proposed indentation
 settings for `common-lisp-indent-function'. The appropriate property
-is setup, unless the user already set one explicitly.
-Specs that can specify arbitrary functions are ignored unless
-`slime-enable-evaluate-in-emacs' is non-nil."
+is setup, unless the user already set one explicitly."
   (dolist (info alist)
     (let ((symbol (intern (car info)))
           (indent (slime-intern-indentation-spec (cl-second info)))
           (packages (cl-third info)))
-      (if (not (or slime-enable-evaluate-in-emacs
-                   (slime-safe-indentation-spec-p indent)))
+      (if (not (slime-safe-indentation-spec-p indent))
           (message "Ignoring unsafe indentation spec for %s" symbol)
         (if (and (boundp 'common-lisp-system-indentation)
                  (fboundp 'slime-update-system-indentation))
