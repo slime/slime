@@ -1609,20 +1609,17 @@ EVAL'd by Lisp."
   "Signal an error unless OBJECT is built from conses, symbols, numbers,
 and strings without text properties.  Return OBJECT.
 Text properties like `display' can run Elisp when the string is shown."
-  (let ((todo (list object)))
-    (while todo
-      (let ((x (pop todo)))
-        (cond ((consp x)
-               (push (car x) todo)
-               (push (cdr x) todo))
-              ((stringp x)
-               (when (or (text-properties-at 0 x) (next-property-change 0 x))
-                 (signal 'invalid-read-syntax
-                         '("Text properties are not allowed in Swank messages"))))
-              ((not (or (symbolp x) (numberp x)))
-               (signal 'invalid-read-syntax
-                       (list (format "%s is not allowed in Swank messages"
-                                     (type-of x)))))))))
+  (cond ((consp object)
+         (slime-net-check-object (car object))
+         (slime-net-check-object (cdr object)))
+        ((stringp object)
+         (when (or (text-properties-at 0 object) (next-property-change 0 object))
+           (signal 'invalid-read-syntax
+                   '("Text properties are not allowed in Swank messages"))))
+        ((not (or (symbolp object) (numberp object)))
+         (signal 'invalid-read-syntax
+                 (list (format "%s is not allowed in Swank messages"
+                               (type-of object))))))
   object)
 
 (defun slime-net-decode-length ()
