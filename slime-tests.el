@@ -1623,7 +1623,9 @@ Reconnect afterwards."
 (define-slime-ert-test slime-safe-indentation-specs ()
   (dolist (spec '(4 "defun" ("as" "lisp-indent-do")
                  (4 "&lambda" "&body")
-                 (("&whole" 4 "&rest" 1) "&body")))
+                 (("&whole" 4 "&rest" 1) "&body")
+                 "lisp-indent-loop" (4 "lisp-indent-tagbody")
+                 ("&lambda" "&rest" "lisp-indent-function-lambda-hack")))
     (should (slime-safe-indentation-spec-p
              (slime-intern-indentation-spec spec))))
   (dolist (spec '("ignore" (4 "ignore") (("&whole" "ignore" 1))
@@ -1638,6 +1640,10 @@ Reconnect afterwards."
       (slime-handle-indentation-update '(("slime-test-indent" "ignore" nil)))
       (should-not (get 'slime-test-indent 'common-lisp-indent-function))
       (slime-handle-indentation-update '(("slime-test-indent" 4 nil)))
-      (should (eql (get 'slime-test-indent 'common-lisp-indent-function) 4)))))
+      (should (eql (get 'slime-test-indent 'common-lisp-indent-function) 4))
+      (slime-handle-indentation-update
+       '(("slime-test-indent" "lisp-indent-loop" nil)))
+      (should (eq (get 'slime-test-indent 'common-lisp-indent-function)
+                  'lisp-indent-loop)))))
 
 (provide 'slime-tests)

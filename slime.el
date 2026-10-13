@@ -7130,23 +7130,34 @@ Only considers buffers that are not already visible."
         (t
          spec)))
 
+(defconst slime-safe-indentation-functions
+  '(lisp-indent-tagbody lisp-indent-do lisp-indent-defsetf
+    lisp-indent-defmethod lisp-indent-function-lambda-hack
+    lisp-indent-loop common-lisp-indent-if*)
+  "Indent functions from slime-cl-indent and cl-indent that specs may name.
+These only inspect the buffer and dispatch through fixed specs, so
+calling them with any arguments is harmless.")
+
 (defun slime-safe-indentation-spec-p (spec)
   "Return non-nil if SPEC cannot make Emacs call an arbitrary function.
 SPEC has already been processed by `slime-intern-indentation-spec'.
 
 SPEC is safe if it is (as SYMBOL), an alias to SYMBOL's locally
-configured indentation, or a tree whose leaves are all integers or
-one of nil, defun, &lambda, &body, &rest, &whole.  The indenters run
-code only by calling a symbol taken from the spec, and none of these
-leaves is callable, so this holds however the leaves are arranged.
-A malformed spec can at worst make indentation signal an error."
+configured indentation, or a tree whose leaves are all integers,
+members of `slime-safe-indentation-functions', or one of nil, defun,
+&lambda, &body, &rest, &whole.  The indenters run code only by calling
+a symbol taken from the spec, and none of these leaves is callable
+except the known-safe indent functions, so this holds however the
+leaves are arranged.  A malformed spec can at worst make indentation
+signal an error."
   (pcase spec
     (`(as ,(pred symbolp)) t)
     (_ (cl-labels ((safe-p (x)
                      (if (consp x)
                          (and (safe-p (car x)) (safe-p (cdr x)))
                        (or (integerp x)
-                           (memq x '(nil defun &lambda &body &rest &whole))))))
+                           (memq x '(nil defun &lambda &body &rest &whole))
+                           (memq x slime-safe-indentation-functions)))))
          (safe-p spec)))))
 
 ;; FIXME: restore the old version without per-package
