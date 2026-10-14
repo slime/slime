@@ -1,4 +1,4 @@
-;; Tests for slime-macrostep.  The following are expected failures:
+;; Tests for slime-macrostep.  The following are expected failures:  -*- lexical-binding: t; -*-
 
 ;; - Under CLISP, highlighting of macro sub-forms fails because our
 ;;   pretty-printer dispatch table hacking causes infinite recursion:

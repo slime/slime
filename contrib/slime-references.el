@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t; -*-
 (require 'slime)
 (require 'advice)
 (require 'slime-compiler-notes-tree) ; FIXME: actually only uses the tree bits, so that should be a library.

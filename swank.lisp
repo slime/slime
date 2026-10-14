@@ -1826,7 +1826,8 @@ last form."
     (with-retry-restart (:msg "Retry SLIME evaluation request.")
       (let ((form (read-from-string form)))
         (destructuring-bind (dv name &optional value doc) form
-          (declare (ignore doc))
+          (declare (ignore doc)
+                   (ignorable value))
           (case dv
             #+sbcl
             (sb-ext:defglobal
@@ -2408,7 +2409,8 @@ and no continue restart available.")))))
   (successp nil :type boolean)
   (duration 0.0 :type float)
   (loadp nil :type boolean)
-  (faslfile nil :type (or null string)))
+  (faslfile nil :type (or null string))
+  (return-type nil))
 
 (defun measure-time-interval (fun)
   "Call FUN and return the first return value and the elapsed time.
@@ -2441,7 +2443,7 @@ The time is measured in seconds."
              ;; for errors in EVAL-WHEN or during macroexpansion.
              (restart-case (multiple-value-list (funcall function))
                (abort () :report "Abort compilation." (list nil))))))
-      (destructuring-bind (successp &optional loadp faslfile) result
+      (destructuring-bind (successp &optional loadp faslfile return-type) result
         (let ((faslfile (etypecase faslfile
                           (null nil)
                           (pathname (pathname-to-filename faslfile)))))
@@ -2449,7 +2451,9 @@ The time is measured in seconds."
                                    :duration seconds
                                    :successp (if successp t)
                                    :loadp (if loadp t)
-                                   :faslfile faslfile))))))
+                                   :faslfile faslfile
+                                   :return-type (and return-type
+                                                     (princ-to-string return-type))))))))
 
 (defun swank-compile-file* (pathname load-p &rest options &key policy
                                                       &allow-other-keys)
@@ -3079,8 +3083,13 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
   (multiple-value-bind (symbol found)
       (find-definitions-find-symbol-or-package name)
     (when found
-      (mapcar #'xref>elisp 
-              (stable-sort (remove-duplicates (find-definitions symbol) :test #'equal)
+      (mapcar #'xref>elisp
+              (stable-sort (sort (remove-duplicates (find-definitions symbol) :test #'equal)
+                                 #'string-lessp
+                                 :key
+                                 (lambda (def)
+                                   (or (second (assoc :file (cdr (assoc :location (cdr def)))))
+                                       "z")))
                            #'>
                            :key
                            (lambda (def)

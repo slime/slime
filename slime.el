@@ -2616,7 +2616,7 @@ region that will be compiled.")
                (:conc-name slime-compilation-result.)
                (:constructor nil)
                (:copier nil))
-  tag notes successp duration loadp faslfile)
+  tag notes successp duration loadp faslfile return-type)
 
 (defvar slime-last-compilation-result nil
   "The result of the most recently issued compilation.")
@@ -2738,12 +2738,16 @@ ASK asks the user."
     (always t)
     (ask (y-or-n-p "Compilation failed.  Load fasl file anyway? "))))
 
+(defvar slime-show-return-type-after-compilation nil)
+
 (defun slime-compilation-finished (result)
   (with-struct (slime-compilation-result. notes duration successp
-                                          loadp faslfile) result
+                                          loadp faslfile return-type) result
     (setf slime-last-compilation-result result)
     (slime-show-note-counts notes duration (cond ((not loadp) successp)
-                                                 (t (and faslfile successp))))
+                                                 (t (and faslfile successp)))
+                            (and slime-show-return-type-after-compilation
+                                 return-type))
     (when slime-highlight-compiler-notes
       (slime-highlight-notes notes))
     (run-hook-with-args 'slime-compilation-finished-hook notes)
@@ -2752,7 +2756,7 @@ ASK asks the user."
                    (slime-load-failed-fasl-p)))
       (slime-eval-async `(swank:load-file ,faslfile)))))
 
-(defun slime-show-note-counts (notes secs successp)
+(defun slime-show-note-counts (notes secs successp &optional return-type)
   (message (concat
             (cond (successp "Compilation finished")
                   (t (slime-add-face 'font-lock-warning-face
@@ -2767,7 +2771,10 @@ ASK asks the user."
              (sort (slime-alistify notes #'slime-note.severity #'eq)
                    (lambda (x y) (slime-severity< (car y) (car x))))
              "  ")
-            (if secs (format "  [%.2f secs]" secs)))))
+            (if secs (format "  [%.2f secs]" secs))
+            (when return-type
+              " => ")
+            return-type)))
 
 (defun slime-highlight-notes (notes)
   "Highlight compiler notes, warnings, and errors in the buffer."
@@ -2896,7 +2903,7 @@ Each newlines and following indentation is replaced by a single space."
     (slime-insert-compilation-log notes)
     (compilation-mode)))
 
-(defun slime-maybe-show-compilation-log (notes)
+(defun slime-maybe-show-compilation-log (notes &optional return-type)
   "Display the log on failed compilations or if NOTES is non-nil."
   (slime-create-compilation-log notes)
   (with-struct (slime-compilation-result. notes duration successp)
@@ -4709,6 +4716,7 @@ source-location."
 
 (defun slime-xref-prev-line ()
   (interactive)
+  (beginning-of-line)
   (let ((loc (slime-search-property 'slime-location t)))
     (when slime-xref-next-line-show
       (slime-xref-show-location loc))))
@@ -5576,7 +5584,8 @@ If LEVEL isn't the same as in the buffer reinitialize the buffer."
                (let ((previous-window (window-parameter (selected-window)
                                                         'sldb-restore)))
                  (quit-window t)
-                 (select-window previous-window))))))))
+                 (when (window-live-p previous-window)
+                   (select-window previous-window)))))))))
 
 (defun sldb-close-step-buffer (buffer)
   (when (buffer-live-p buffer)

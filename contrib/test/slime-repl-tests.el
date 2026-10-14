@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t; -*-
 (require 'slime-repl)
 (require 'slime-tests)
 (require 'cl-lib)

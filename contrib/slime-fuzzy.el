@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t; -*-
 (require 'slime)
 (require 'slime-repl)
 (require 'slime-c-p-c)
@@ -109,7 +110,7 @@ temporarily during completion.")
 ;; before everything else.
 (setf minor-mode-map-alist
       (cl-stable-sort minor-mode-map-alist
-                      (lambda (a b)
+                      (lambda (a _b)
                         (eq a 'slime-fuzzy-target-buffer-completions-mode))
                       :key #'car))
 
@@ -325,7 +326,7 @@ proper text properties."
                               (length (cl-second chunk)))
                            'face 'bold))
       (put-text-property start (point) 'mouse-face 'highlight)
-      (dotimes (i (- max-length (- end start)))
+      (dotimes (_ (- max-length (- end start)))
         (insert " "))
       (insert (format "  %s\n"
                       classification-string))
@@ -398,12 +399,12 @@ done."
         (setf max-length (max max-length (length (cl-first completion)))))
 
       (insert "Completion")
-      (dotimes (i (- max-length 10)) (insert " "))
+      (dotimes (_ (- max-length 10)) (insert " "))
       ;;     Flags
       ;; ... -------
       ;;     bfgctmspa
       (insert "  Flags\n")
-      (dotimes (i max-length) (insert "-"))
+      (dotimes (_ max-length) (insert "-"))
       (insert " ")
       (insert " ---------\n")
       (setq slime-fuzzy-first (point))

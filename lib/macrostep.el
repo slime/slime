@@ -1,4 +1,4 @@
-;;; macrostep.el --- interactive macro expander
+;;; macrostep.el --- interactive macro expander  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2012-2015 Jon Oddie <j.j.oddie@gmail.com>
 
@@ -750,7 +750,7 @@ Returns a cons of buffer positions, (START . END)."
              (error "Text at point is not a macro form."))))))
     (cons (point) (scan-sexps (point) 1))))
 
-(defun macrostep-sexp-at-point (&rest ignore)
+(defun macrostep-sexp-at-point (&rest _ignore)
   "Return the sexp near point for purposes of macro-stepper expansion.
 
 If the sexp near point is part of a macro expansion, returns the

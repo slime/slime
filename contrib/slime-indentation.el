@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t; -*-
 (require 'slime)
 (require 'slime-cl-indent)
 (require 'cl-lib)

@@ -1,4 +1,4 @@
-;; An experimental implementation of multiple REPLs multiplexed over a
+;; An experimental implementation of multiple REPLs multiplexed over a  -*- lexical-binding: t; -*-
 ;; single Slime socket.  M-x slime-new-mrepl creates a new REPL buffer.
 ;;
 (require 'slime)
@@ -109,7 +109,7 @@
 (defun slime-mrepl-input-sender (proc string)
   (slime-mrepl-send-string (substring-no-properties string)))
 
-(defun slime-mrepl-send-string (string &optional command-string)
+(defun slime-mrepl-send-string (string &optional _command-string)
   (slime-mrepl-send `(:process ,string)))
 
 (defun slime-mrepl-send (msg)

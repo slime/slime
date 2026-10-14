@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t; -*-
 (require 'slime-fontifying-fu)
 (require 'slime-tests)
 

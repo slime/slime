@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t; -*-
 (require 'slime-parse)
 (require 'slime-tests)
 

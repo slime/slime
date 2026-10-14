@@ -1,4 +1,4 @@
-;;; slime-repl.el ---
+;;; slime-repl.el ---  -*- lexical-binding: t; -*-
 ;;
 ;; Original Author: Helmut Eller
 ;; Contributors: too many to mention
@@ -477,16 +477,16 @@ joined together."))
 (defun slime-repl-mode-beginning-of-defun (&optional arg)
   (if (and arg (< arg 0))
       (slime-repl-mode-end-of-defun (- arg))
-    (dotimes (i (or arg 1))
+    (dotimes (_ (or arg 1))
       (slime-repl-previous-prompt))))
 
 (defun slime-repl-mode-end-of-defun (&optional arg)
   (if (and arg (< arg 0))
       (slime-repl-mode-beginning-of-defun (- arg))
-    (dotimes (i (or arg 1))
+    (dotimes (_ (or arg 1))
       (slime-repl-next-prompt))))
 
-(defun slime-repl-send-string (string &optional command-string)
+(defun slime-repl-send-string (string &optional _command-string)
   (cond (slime-repl-read-mode
          (slime-repl-return-string string))
         (t (slime-repl-eval-string string))))
@@ -1085,7 +1085,7 @@ from a user defined filename."
   (let ((file (or filename slime-repl-history-file)))
     (setq slime-repl-input-history (slime-repl-read-history file t))))
 
-(defun slime-repl-read-history (&optional filename noerrer)
+(defun slime-repl-read-history (&optional filename _noerrer)
   "Read and return the history from FILENAME.
 The default value for FILENAME is `slime-repl-history-file'.
 If NOERROR is true return and the file doesn't exits return nil."
@@ -1208,7 +1208,7 @@ The handler will use qeuery to ask the use if the error should be ingored."
   (interactive)
   (slime-dispatch-event `(:emacs-interrupt ,(car slime-read-string-threads))))
 
-(defun slime-repl-abort-read (thread tag)
+(defun slime-repl-abort-read (_thread _tag)
   (with-current-buffer (slime-output-buffer)
     (pop slime-read-string-threads)
     (pop slime-read-string-tags)

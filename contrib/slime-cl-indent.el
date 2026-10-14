@@ -1,4 +1,4 @@
-;;; slime-cl-indent.el --- enhanced lisp-indent mode
+;;; slime-cl-indent.el --- enhanced lisp-indent mode  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 1987, 2000-2011 Free Software Foundation, Inc.
 
@@ -817,7 +817,6 @@ For example, the function `case' has an indent property
          ;; If non-nil, this is an indentation to use
          ;; if nothing else specifies it more firmly.
          tentative-calculated
-         (last-point indent-point)
          ;; the position of the open-paren of the innermost containing list
          (containing-form-start (common-lisp-indent-parse-state-start state))
          (normal-indent (common-lisp-normal-indent indent-point
@@ -983,7 +982,6 @@ For example, the function `case' has an indent property
                           function method path state indent-point
                           sexp-column normal-indent))))))
         (goto-char containing-sexp)
-        (setq last-point containing-sexp)
         (unless calculated
           (condition-case ()
               (progn (backward-up-list 1)
@@ -998,36 +996,41 @@ For example, the function `case' has an indent property
   (save-excursion
     (goto-char indent-point)
     (back-to-indentation)
-    (let ((indented-point (point)))
-      (goto-char containing-form-start)
-      (down-list)
-      (let ((one (current-column)))
+    (goto-char containing-form-start)
+    (down-list)
+    (let ((one (current-column)))
+      (skip-chars-forward " \t")
+      (if (or (eolp)
+              (if lisp-indent-apparent-data
+                  (looking-at ";")
+                  (looking-at "[;:#\"(]")))
+          ;; Indent one column from the opening paren.
+          one
+        ;; Skip over the sexp in the function name position.
+        (forward-sexp)
         (skip-chars-forward " \t")
-        (if (or (eolp)
-                (if lisp-indent-apparent-data
-                    (looking-at ";")
-                    (looking-at "[;:#\"(]")))
-            ;; Indent one column from the opening paren.
-            one
-          ;; Skip over the sexp in the function name position.
-          (forward-sexp)
-          (skip-chars-forward " \t")
-          (let ((first-arg-or-comment-pos (point)))
-            (goto-char indent-point)
-            (common-lisp-backward-comment-or-sexp)
-            (while (and (< first-arg-or-comment-pos (point))
-                        (/= (point) (save-excursion
-                                      (back-to-indentation)
-                                      (point))))
-              (common-lisp-backward-comment-or-sexp)))
-          (if (or (looking-at ";;") (not (looking-at ";")))
-              (current-column)
-            one))))))
+        (let ((first-arg-or-comment-pos (point)))
+          (goto-char indent-point)
+          (common-lisp-backward-comment-or-sexp)
+          (while (and (< first-arg-or-comment-pos (point))
+                      (/= (point) (save-excursion
+                                    (back-to-indentation)
+                                    (point))))
+            (common-lisp-backward-comment-or-sexp)))
+        (if (or (looking-at ";;") (not (looking-at ";")))
+            (current-column)
+          one)))))
 
 (defun common-lisp-backward-comment-or-sexp ()
-  (forward-comment -1)
-  (unless (looking-at ";")
-    (backward-sexp)))
+  (let ((start (point)))
+    (forward-comment -1)
+    (unless (and (looking-at ";")
+                 (/= start (point)))
+      (backward-sexp))))
+
+
+;; Dynamically bound in common-lisp-indent-call-method.
+(defvar lisp-indent-error-function)
 
 (defun common-lisp-indent-call-method (function method path state indent-point
                                        sexp-column normal-indent)
@@ -1038,10 +1041,6 @@ For example, the function `case' has an indent property
                  sexp-column normal-indent)
       (lisp-indent-259 method path state indent-point
                        sexp-column normal-indent))))
-
-;; Dynamically bound in common-lisp-indent-call-method.
-(defvar lisp-indent-error-function)
-
 (defun lisp-indent-report-bad-format (m)
   (error "%s has a badly-formed %s property: %s"
          ;; Love those free variable references!!
@@ -1073,71 +1072,69 @@ environment\\|more\
 
 (defun lisp-properly-indent-lambda-list
     (indent-point sexp-column containing-form-start)
-  (let (limit)
-    (cond
-     ((save-excursion
-        (goto-char indent-point)
-        (back-to-indentation)
-        (setq limit (point))
-        (looking-at lisp-indent-lambda-list-keywords-regexp))
-      ;; We're facing a lambda-list keyword.
-      (if lisp-lambda-list-keyword-alignment
-          ;; Align to the first keyword if any, or to the beginning of
-          ;; the lambda-list.
-          (save-excursion
-            (goto-char containing-form-start)
-            (down-list)
-            (let ((key-indent nil)
-                  (next t))
-              (while (and next (< (point) indent-point))
-                (if (looking-at lisp-indent-lambda-list-keywords-regexp)
-                    (setq key-indent (current-column)
-                          next nil)
-                  (setq next (ignore-errors (forward-sexp) t))
-                  (if next
-                      (ignore-errors
-                        (forward-sexp)
-                        (backward-sexp)))))
-              (or key-indent
-                  (1+ sexp-column))))
-        ;; Align to the beginning of the lambda-list.
-        (1+ sexp-column)))
-     (t
-      ;; Otherwise, align to the first argument of the last lambda-list
-      ;; keyword, the keyword itself, or the beginning of the
-      ;; lambda-list.
-      (save-excursion
-        (goto-char indent-point)
-        (let ((indent nil)
-              (next t))
-          (while (and next (> (point) containing-form-start))
-            (setq next (ignore-errors (backward-sexp) t))
-            (let* ((col (current-column))
-                   (pos
-                    (save-excursion
-                      (ignore-errors (forward-sexp))
-                      (skip-chars-forward " \t")
-                      (if (eolp)
-                          (+ col
-                             lisp-lambda-list-keyword-parameter-indentation)
-                        col))))
-              (cond
-               ((looking-at lisp-indent-lambda-list-single-arg-keywords-regexp)
-                ;; Some keywords such as &whole have a single argument;
-                ;; following arguments are indented to the beginning of the
-                ;; lambda-list.
-                (setq indent col
-                      next nil))
-               ((looking-at lisp-indent-lambda-list-keywords-regexp)
-                (setq indent
-                      (if lisp-lambda-list-keyword-parameter-alignment
-                          (or indent pos)
+  (cond
+   ((save-excursion
+      (goto-char indent-point)
+      (back-to-indentation)
+      (looking-at lisp-indent-lambda-list-keywords-regexp))
+    ;; We're facing a lambda-list keyword.
+    (if lisp-lambda-list-keyword-alignment
+        ;; Align to the first keyword if any, or to the beginning of
+        ;; the lambda-list.
+        (save-excursion
+          (goto-char containing-form-start)
+          (down-list)
+          (let ((key-indent nil)
+                (next t))
+            (while (and next (< (point) indent-point))
+              (if (looking-at lisp-indent-lambda-list-keywords-regexp)
+                  (setq key-indent (current-column)
+                        next nil)
+                (setq next (ignore-errors (forward-sexp) t))
+                (if next
+                    (ignore-errors
+                      (forward-sexp)
+                      (backward-sexp)))))
+            (or key-indent
+                (1+ sexp-column))))
+      ;; Align to the beginning of the lambda-list.
+      (1+ sexp-column)))
+   (t
+    ;; Otherwise, align to the first argument of the last lambda-list
+    ;; keyword, the keyword itself, or the beginning of the
+    ;; lambda-list.
+    (save-excursion
+      (goto-char indent-point)
+      (let ((indent nil)
+            (next t))
+        (while (and next (> (point) containing-form-start))
+          (setq next (ignore-errors (backward-sexp) t))
+          (let* ((col (current-column))
+                 (pos
+                  (save-excursion
+                    (ignore-errors (forward-sexp))
+                    (skip-chars-forward " \t")
+                    (if (eolp)
                         (+ col
-                           lisp-lambda-list-keyword-parameter-indentation))
-                      next nil))
-               (t
-                (setq indent col)))))
-          (or indent (1+ sexp-column))))))))
+                           lisp-lambda-list-keyword-parameter-indentation)
+                      col))))
+            (cond
+             ((looking-at lisp-indent-lambda-list-single-arg-keywords-regexp)
+              ;; Some keywords such as &whole have a single argument;
+              ;; following arguments are indented to the beginning of the
+              ;; lambda-list.
+              (setq indent col
+                    next nil))
+             ((looking-at lisp-indent-lambda-list-keywords-regexp)
+              (setq indent
+                    (if lisp-lambda-list-keyword-parameter-alignment
+                        (or indent pos)
+                      (+ col
+                         lisp-lambda-list-keyword-parameter-indentation))
+                    next nil))
+             (t
+              (setq indent col)))))
+        (or indent (1+ sexp-column)))))))
 
 (defun common-lisp-lambda-list-initial-value-form-p (point)
   (let ((state 'x)
@@ -1333,7 +1330,7 @@ environment\\|more\
              path state indent-point sexp-column normal-indent)))
 
 (defun lisp-indent-defsetf
-    (path state indent-point sexp-column normal-indent)
+    (path state indent-point sexp-column _normal-indent)
   (list
    (cond
     ;; Inside the lambda-list in a long-form defsetf.
@@ -1396,7 +1393,7 @@ environment\\|more\
        (common-lisp-get-indentation 'defun)))
    path state indent-point sexp-column normal-indent))
 
-(defun lisp-indent-function-lambda-hack (path state indent-point
+(defun lisp-indent-function-lambda-hack (path _state _indent-point
                                          sexp-column normal-indent)
   ;; indent (function (lambda () <newline> <body-forms>)) kludgily.
   (if (or (cdr path) ; wtf?
@@ -1414,7 +1411,7 @@ environment\\|more\
               (+ sexp-column lisp-body-indent)))
        (error (+ sexp-column lisp-body-indent)))))
 
-(defun lisp-indent-loop (path state indent-point sexp-column normal-indent)
+(defun lisp-indent-loop (path state indent-point _sexp-column normal-indent)
   (if (cdr path)
       normal-indent
     (let* ((loop-start (elt state 1))
@@ -1650,7 +1647,7 @@ Cause subsequent clauses to be indented.")
   "Regexp matching if* keywords")
 
 (defun common-lisp-indent-if*
-    (path parse-state indent-point sexp-column normal-indent)
+    (_path parse-state indent-point _sexp-column _normal-indent)
   (list (common-lisp-indent-if*-1 parse-state indent-point)
 	(common-lisp-indent-parse-state-start parse-state)))
 

@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t; -*-
 (eval-and-compile
   (require 'slime))
 
@@ -32,7 +33,7 @@
      t)
     (t nil)))
 
-(defun slime-media-insert-image (image string &optional bol)
+(defun slime-media-insert-image (image string &optional _bol)
   (with-current-buffer (slime-output-buffer)
     (let ((marker (slime-repl-output-target-marker :repl-result)))
       (goto-char marker)

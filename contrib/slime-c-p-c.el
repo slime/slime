@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t; -*-
 (require 'slime)
 (require 'cl-lib)
 
@@ -73,9 +74,8 @@
 
 (defun slime-expand-abbreviations-and-complete ()
   (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
-         (beg (move-marker (make-marker) (slime-symbol-start-pos)))
-         (prefix (buffer-substring-no-properties beg end)))
-    (cl-list* beg end 
+         (beg (move-marker (make-marker) (slime-symbol-start-pos))))
+    (cl-list* beg end
               (slime-format-completions (slime-contextual-completions beg end)))))
 
 (cl-defun slime-contextual-completions (beg end)

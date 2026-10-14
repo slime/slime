@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t; -*-
 (require 'slime-presentations)
 (require 'slime-tests)
 (require 'slime-repl-tests "test/slime-repl-tests")
