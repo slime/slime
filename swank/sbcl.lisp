@@ -667,6 +667,14 @@ QUALITIES is an alist with (quality . value)"
 
 (defvar *trap-load-time-warnings* t)
 
+(defun defun-type (string)
+  (with-input-from-string (s string)
+    (let ((form (read s)))
+      (when (typep form '(cons (eql defun) (cons symbol)))
+        (let ((type (sb-int:info :function :type (second form))))
+          (when (sb-kernel:fun-type-p type)
+            (sb-kernel:type-specifier (sb-kernel:fun-type-returns type))))))))
+
 (defimplementation swank-compile-string (string &key buffer position filename
                                                 line column policy)
   (declare (ignore line column))
@@ -698,7 +706,12 @@ QUALITIES is an alist with (quality . value)"
              (declare (ignore warningsp))
              (when output-file
                (load-it output-file))
-             (not failurep))
+             (values
+              (not failurep)
+              nil
+              nil
+              (and output-file
+                   (defun-type string))))
         (ignore-errors
           (delete-file *buffer-tmpfile*)
           (delete-file (compile-file-pathname *buffer-tmpfile*)))))))
@@ -1451,7 +1464,7 @@ stack."
               (if (and (sb-int:legal-fun-name-p fname) (fboundp fname))
                   (values (fdefinition fname) args)
                   (values (sb-di:debug-fun-fun (sb-di:frame-debug-fun frame))
-                          (sb-debug::frame-args-as-list frame 
+                          (sb-debug::frame-args-as-list frame
                                                         #+#.(swank/backend:with-symbol '*default-argument-limit* 'sb-debug)
                                                         call-arguments-limit)))
             (when (functionp fun)
@@ -1782,7 +1795,7 @@ stack."
           (sb-thread:condition-broadcast (mailbox.waitqueue mbox))
           #+darwin
           (signal-sem (mailbox.sem mbox))))))
-  
+
   (defimplementation receive-if (test &optional timeout)
     (let* ((mbox (mailbox (current-thread)))
            (mutex (mailbox.mutex mbox))
