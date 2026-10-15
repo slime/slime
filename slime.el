@@ -1606,12 +1606,16 @@ EVAL'd by Lisp."
       (delete-region (point-min) end))))
 
 (defun slime-net-check-object (object)
-  "Signal an error unless OBJECT is built from conses, symbols, numbers,
-and strings without text properties.  Return OBJECT.
-Text properties like `display' can run Elisp when the string is shown."
+  "Signal an error unless OBJECT is known safe.
+Accepts conses, symbols, numbers, and strings without text properties.
+Text properties like `display' can run Elisp when the string is shown.
+Return OBJECT."
   (cond ((consp object)
-         (slime-net-check-object (car object))
-         (slime-net-check-object (cdr object)))
+         (cl-loop for tail on object
+                  do (slime-net-check-object (car tail))
+                  ;; final tail is nil for normal lists,
+                  ;; or the last element in a dotted list
+                  finally (slime-net-check-object tail)))
         ((stringp object)
          (when (or (text-properties-at 0 object) (next-property-change 0 object))
            (signal 'invalid-read-syntax
