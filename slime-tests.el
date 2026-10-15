@@ -100,6 +100,7 @@ Exits Emacs when finished. The exit code is the number of failed tests."
   (defmacro define-slime-ert-test (name &rest args)
     "Like `ert-deftest', but set tags automatically.
 Also don't error if `ert.el' is missing."
+    (declare (indent defun))
     (if (not (featurep 'ert))
         (warn "No ert.el found: not defining test %s"
               name)
@@ -1418,7 +1419,49 @@ Reconnect afterwards."
 	(setq slime-buffer-connection buffer-connection)
 	(equal expected (slime-modeline-string))))))
 
-
+;;;; Network reader
+
+(defun slime-test-net-packet (text)
+  "Encode TEXT as a Swank packet."
+  (let ((payload (encode-coding-string text 'utf-8-unix)))
+    (concat (slime-net-encode-length (length payload)) payload)))
+
+(defun slime-test-net-read (text)
+  "Read a packet containing TEXT without interactive error handling."
+  (with-temp-buffer
+    (insert (slime-test-net-packet text))
+    (cl-letf (((symbol-function 'slime-handle-net-read-error)
+               (lambda (error) (signal (car error) (cdr error)))))
+      (prog1 (slime-net-read)
+        (should (zerop (buffer-size)))))))
+
+(define-slime-ert-test slime-net-read-rejects-unsafe-objects ()
+  "Reject strings with text properties and objects Swank never sends."
+  (let ((string "#(\"abc\" 0 3 (display (height (error \"unsafe\"))))"))
+    (dolist (text (list string
+                        (format "(:write-string %s nil nil)" string)
+                        (format "(nil . %s)" string)
+                        (format "#1=(%s . #1#)" string)
+                        "#1=(a . #1#)"
+                        "(#1=a #1#)"
+                        "#(\"abc\" 1 2 (face bold))"
+                        "[1 2]"
+                        "#s(hash-table data (k v))"
+                        "#[0 \"\" [] 0]"
+                        (format "#[0 %S nil 0]"
+                                "(\"\" . [#(\"abc\" 0 3 (face bold))])")))
+      (ert-info ((format "Packet: %s" text))
+        (should-error (slime-test-net-read text)
+                      :type 'invalid-read-syntax)))))
+
+(define-slime-ert-test slime-net-read-allows-plain-objects ()
+  "Allow ordinary messages, including reader syntax inside strings."
+  (dolist (text '("(:write-string \"#(1 2 3) #@ and #[ are text\" nil nil)"
+                  "(:return (:ok (\"a\" 1 2.5 nil t :key)) 3)"))
+    (ert-info ((format "Packet: %s" text))
+      (should (equal (slime-test-net-read text) (read text))))))
+
+
 ;;;; SLIME-loading tests that launch separate Emacsen
 ;;;;
 (cl-defun slime-test-recipe-test-for (&key preflight
@@ -1576,5 +1619,31 @@ Reconnect afterwards."
       (remove-hook 'slime-compilation-finished-hook hook)
       (when slime-xref-last-buffer
         (kill-buffer slime-xref-last-buffer)))))
+
+(define-slime-ert-test slime-safe-indentation-specs ()
+  (dolist (spec '(4 "defun" ("as" "lisp-indent-do")
+                 (4 "&lambda" "&body")
+                 (("&whole" 4 "&rest" 1) "&body")
+                 "lisp-indent-loop" (4 "lisp-indent-tagbody")
+                 ("&lambda" "&rest" "lisp-indent-function-lambda-hack")))
+    (should (slime-safe-indentation-spec-p
+             (slime-intern-indentation-spec spec))))
+  (dolist (spec '("ignore" (4 "ignore") (("&whole" "ignore" 1))
+                 (lambda (&rest args) (message "called"))))
+    (should-not (slime-safe-indentation-spec-p
+                 (slime-intern-indentation-spec spec)))))
+
+(define-slime-ert-test slime-indentation-update-rejects-unsafe ()
+  (cl-letf (((symbol-function 'slime-update-system-indentation) nil)
+            ((symbol-plist 'slime-test-indent) nil))
+    (let ((slime-enable-evaluate-in-emacs nil))
+      (slime-handle-indentation-update '(("slime-test-indent" "ignore" nil)))
+      (should-not (get 'slime-test-indent 'common-lisp-indent-function))
+      (slime-handle-indentation-update '(("slime-test-indent" 4 nil)))
+      (should (eql (get 'slime-test-indent 'common-lisp-indent-function) 4))
+      (slime-handle-indentation-update
+       '(("slime-test-indent" "lisp-indent-loop" nil)))
+      (should (eq (get 'slime-test-indent 'common-lisp-indent-function)
+                  'lisp-indent-loop)))))
 
 (provide 'slime-tests)

@@ -26,6 +26,7 @@
        (slime-media-insert-image img string))
      t)
     ((:popup-buffer bufname string mode)
+     (slime-check-eval-in-emacs-enabled)
      (slime-with-popup-buffer (bufname :connection t :package t)
        (when mode (funcall mode))
        (princ string)

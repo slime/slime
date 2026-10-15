@@ -1597,10 +1597,34 @@ EVAL'd by Lisp."
                  (progn
                    (decode-coding-region start end 'utf-8-unix)
                    (setq end (point-max))
-                   (read (current-buffer)))
+                   ;; Swank never sends #N= syntax.  Rejecting it means
+                   ;; slime-net-check-object doesn't need to check for cycles.
+                   (let ((read-circle nil))
+                     (slime-net-check-object (read (current-buffer)))))
                (error
                 (slime-handle-net-read-error error))))
       (delete-region (point-min) end))))
+
+(defun slime-net-check-object (object)
+  "Signal an error unless OBJECT is known safe.
+Accepts conses, symbols, numbers, and strings without text properties.
+Text properties like `display' can run Elisp when the string is shown.
+Return OBJECT."
+  (cond ((consp object)
+         (cl-loop for tail on object
+                  do (slime-net-check-object (car tail))
+                  ;; final tail is nil for normal lists,
+                  ;; or the last element in a dotted list
+                  finally (slime-net-check-object tail)))
+        ((stringp object)
+         (when (or (text-properties-at 0 object) (next-property-change 0 object))
+           (signal 'invalid-read-syntax
+                   '("Text properties are not allowed in Swank messages"))))
+        ((not (or (symbolp object) (numberp object)))
+         (signal 'invalid-read-syntax
+                 (list (format "%s is not allowed in Swank messages"
+                               (type-of object))))))
+  object)
 
 (defun slime-net-decode-length ()
   (string-to-number (buffer-substring-no-properties (point) (+ (point) 6))
@@ -7115,6 +7139,36 @@ Only considers buffers that are not already visible."
         (t
          spec)))
 
+(defconst slime-safe-indentation-functions
+  '(lisp-indent-tagbody lisp-indent-do lisp-indent-defsetf
+    lisp-indent-defmethod lisp-indent-function-lambda-hack
+    lisp-indent-loop common-lisp-indent-if*)
+  "Indent functions from slime-cl-indent and cl-indent that specs may name.
+These only inspect the buffer and dispatch through fixed specs, so
+calling them with any arguments is harmless.")
+
+(defun slime-safe-indentation-spec-p (spec)
+  "Return non-nil if SPEC cannot make Emacs call an arbitrary function.
+SPEC has already been processed by `slime-intern-indentation-spec'.
+
+SPEC is safe if it is (as SYMBOL), an alias to SYMBOL's locally
+configured indentation, or a tree whose leaves are all integers,
+members of `slime-safe-indentation-functions', or one of nil, defun,
+&lambda, &body, &rest, &whole.  The indenters run code only by calling
+a symbol taken from the spec, and none of these leaves is callable
+except the known-safe indent functions, so this holds however the
+leaves are arranged.  A malformed spec can at worst make indentation
+signal an error."
+  (pcase spec
+    (`(as ,(pred symbolp)) t)
+    (_ (cl-labels ((safe-p (x)
+                     (if (consp x)
+                         (and (safe-p (car x)) (safe-p (cdr x)))
+                       (or (integerp x)
+                           (memq x '(nil defun &lambda &body &rest &whole))
+                           (memq x slime-safe-indentation-functions)))))
+         (safe-p spec)))))
+
 ;; FIXME: restore the old version without per-package
 ;; stuff. slime-indentation.el should be able tho disable the simple
 ;; version if needed.
@@ -7128,17 +7182,19 @@ is setup, unless the user already set one explicitly."
     (let ((symbol (intern (car info)))
           (indent (slime-intern-indentation-spec (cl-second info)))
           (packages (cl-third info)))
-      (if (and (boundp 'common-lisp-system-indentation)
-               (fboundp 'slime-update-system-indentation))
-          ;; A table provided by slime-cl-indent.el.
-          (funcall #'slime-update-system-indentation symbol indent packages)
-        ;; Does the symbol have an indentation value that we set?
-        (when (equal (get symbol 'common-lisp-indent-function)
-                     (get symbol 'slime-indent))
-          (put symbol 'common-lisp-indent-function indent)
-          (put symbol 'slime-indent indent)))
-      (run-hook-with-args 'slime-indentation-update-hooks
-                          symbol indent packages))))
+      (if (not (slime-safe-indentation-spec-p indent))
+          (message "Ignoring unsafe indentation spec for %s" symbol)
+        (if (and (boundp 'common-lisp-system-indentation)
+                 (fboundp 'slime-update-system-indentation))
+            ;; A table provided by slime-cl-indent.el.
+            (funcall #'slime-update-system-indentation symbol indent packages)
+          ;; Does the symbol have an indentation value that we set?
+          (when (equal (get symbol 'common-lisp-indent-function)
+                       (get symbol 'slime-indent))
+            (put symbol 'common-lisp-indent-function indent)
+            (put symbol 'slime-indent indent)))
+        (run-hook-with-args 'slime-indentation-update-hooks
+                            symbol indent packages)))))
 
 
 ;;;; Contrib modules
