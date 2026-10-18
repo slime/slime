@@ -2093,5 +2093,6 @@ stack."
 
 #+#.(swank/backend:with-symbol 'unencapsulated-function 'sb-ext)
 (defimplementation unencapsulated-function (function)
-  (when (functionp function)
-    (sb-ext:unencapsulated-function function)))
+  (if (functionp function)
+      (sb-ext:unencapsulated-function function)
+      function))
