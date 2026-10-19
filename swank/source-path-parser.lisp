@@ -204,20 +204,8 @@ Return the form and the source-map."
     (source-path-stream-position path s)))
 
 (defun source-path-file-position (path filename)
-  ;; We go this long way round, and don't directly operate on the file
-  ;; stream because FILE-POSITION (used above) is not totally savy even
-  ;; on file character streams; on SBCL, FILE-POSITION returns the binary
-  ;; offset, and not the character offset---screwing up on Unicode.
-  (let ((toplevel-number (first path))
-	(buffer))
-    (with-open-file (file filename)
-      (skip-toplevel-forms (1+ toplevel-number) file)
-      (let ((endpos (file-position file)))
-	(setq buffer (make-array (list endpos) :element-type 'character
-				 :initial-element #\Space))
-	(assert (file-position file 0))
-	(read-sequence buffer file :end endpos)))
-    (source-path-string-position path buffer)))
+  (with-open-file (file filename)
+    (source-path-stream-position path file)))
 
 (defgeneric sexp-in-bounds-p (sexp i)
   (:method ((list list) i)
