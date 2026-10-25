@@ -2,7 +2,7 @@
 (require 'slime-indentation)
 (require 'slime-tests)
 
-(define-common-lisp-style "common-lisp-indent-test"
+(slime-define-common-lisp-style "common-lisp-indent-test"
     ;; Used to specify a few complex indentation specs for testing.
     (:inherit "basic")
     (:indentation

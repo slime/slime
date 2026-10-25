@@ -25,11 +25,11 @@
 
 ;;; Commentary:
 
-;; This package supplies a single entry point, common-lisp-indent-function,
-;; which performs indentation in the preferred style for Common Lisp code.
-;; To enable it:
+;; This package supplies a single entry point,
+;; slime-common-lisp-indent-function, which performs indentation in the
+;; preferred style for Common Lisp code. To enable it:
 ;;
-;; (setq lisp-indent-function 'common-lisp-indent-function)
+;; (setq lisp-indent-function 'slime-common-lisp-indent-function)
 ;;
 ;; This file is substantially patched from original cl-indent.el,
 ;; which is in Emacs proper.
@@ -43,83 +43,224 @@
 (require 'slime) ; only for its cl-lib loading smartness
 (require 'cl-lib)
 
-(defgroup lisp-indent nil
+(defgroup slime-lisp-indent nil
   "Indentation in Lisp."
   :group 'lisp)
 
-(defcustom lisp-indent-maximum-backtracking 6
+(defconst slime-lisp-indent-old-functions-alist
+  '((common-lisp-style-name . slime-common-lisp-style-name)
+    (common-lisp-style-inherits . slime-common-lisp-style-inherits)
+    (common-lisp-style-variables . slime-common-lisp-style-variables)
+    (common-lisp-style-indentation . slime-common-lisp-style-indentation)
+    (common-lisp-style-hook . slime-common-lisp-style-hook)
+    (common-lisp-style-docstring . slime-common-lisp-style-docstring)
+    (common-lisp-make-style . slime-common-lisp-make-style)
+    (common-lisp-delete-style . slime-common-lisp-delete-style)
+    (common-lisp-find-style . slime-common-lisp-find-style)
+    (common-lisp-safe-style-p . slime-common-lisp-safe-style-p)
+    (common-lisp-add-style . slime-common-lisp-add-style)
+    (common-lisp-activate-style . slime-common-lisp-activate-style)
+    (common-lisp-active-style-methods . slime-lisp-active-style-methods)
+    (common-lisp-style-names . slime-common-lisp-style-names)
+    (common-lisp-set-style . slime-common-lisp-set-style)
+    (common-lisp-lisp-mode-hook . slime-common-lisp-lisp-mode-hook)
+    (common-lisp-guess-current-package . slime-common-lisp-guess-current-package)
+    (common-lisp-symbol-package . slime-common-lisp-symbol-package)
+    (common-lisp-get-indentation . slime-lisp-get-indentation)
+    (common-lisp-loop-type . slime-lisp-loop-type)
+    (common-lisp-trailing-comment . slime-lisp-trailing-comment)
+    (common-lisp-indent-function . slime-common-lisp-indent-function)
+    (common-lisp-looking-back . slime-lisp-looking-back)
+    (common-lisp-looking-at-keyword . slime-lisp-looking-at-keyword)
+    (common-lisp-backward-keyword-argument . slime-lisp-backward-keyword-argument)
+    (common-lisp-indent-function-1 . slime-common-lisp-indent-function-1)
+    (common-lisp-normal-indent . slime-lisp-normal-indent)
+    (common-lisp-backward-comment-or-sexp . slime-lisp-backward-comment-or-sexp)
+    (common-lisp-indent-call-method . slime-lisp-indent-call-method)
+    (lisp-indent-report-bad-format . slime-lisp-indent-report-bad-format)
+    (lisp-indent-lambda-list . slime-lisp-indent-lambda-list)
+    (lisp-properly-indent-lambda-list . slime-lisp-properly-indent-lambda-list)
+    (common-lisp-lambda-list-initial-value-form-p
+     . slime-lisp-lambda-list-initial-value-form-p)
+    (lisp-indent-259 . slime-lisp-indent-259)
+    (lisp-indent-tagbody . slime-lisp-indent-tagbody)
+    (lisp-indent-do . slime-lisp-indent-do)
+    (lisp-indent-defsetf . slime-lisp-indent-defsetf)
+    (lisp-beginning-of-defmethod-qualifiers
+     . slime-lisp-beginning-of-defmethod-qualifiers)
+    (lisp-indent-defmethod . slime-lisp-indent-defmethod)
+    (lisp-indent-function-lambda-hack . slime-lisp-indent-function-lambda-hack)
+    (lisp-indent-loop . slime-lisp-indent-loop)
+    (common-lisp-indent-parse-state-depth . slime-lisp-indent-parse-state-depth)
+    (common-lisp-indent-parse-state-start . slime-lisp-indent-parse-state-start)
+    (common-lisp-indent-parse-state-prev . slime-lisp-indent-parse-state-prev)
+    (common-lisp-loop-part-indentation . slime-lisp-loop-part-indentation)
+    (common-lisp-indent-loop-macro-1 . slime-lisp-indent-loop-macro-1)
+    (common-lisp-loop-advance-past-keyword-on-line
+     . slime-lisp-loop-advance-past-keyword-on-line)
+    (common-lisp-indent-if* . slime-lisp-indent-if*)
+    (common-lisp-indent-if*-1 . slime-lisp-indent-if*-1)
+    (common-lisp-indent-if*-advance-past-keyword-on-line
+     . slime-lisp-indent-if*-advance-past-keyword-on-line)
+    (common-lisp-init-standard-indentation . slime-lisp-init-standard-indentation))
+  "An alist mapping old function names to the new `slime-' prefixed ones.")
+
+(defconst slime-lisp-indent-old-variables-alist
+  '((lisp-indent-maximum-backtracking . slime-lisp-indent-maximum-backtracking)
+    (lisp-tag-indentation . slime-lisp-tag-indentation)
+    (lisp-tag-body-indentation . slime-lisp-tag-body-indentation)
+    (lisp-backquote-indentation . slime-lisp-backquote-indentation)
+    (lisp-indent-apparent-data . slime-lisp-indent-apparent-data)
+    (lisp-loop-indent-subclauses . slime-lisp-loop-indent-subclauses)
+    (lisp-simple-loop-indentation . slime-lisp-simple-loop-indentation)
+    (lisp-loop-clauses-indentation . slime-lisp-loop-clauses-indentation)
+    (lisp-loop-indent-body-forms-relative-to-loop-start
+     . slime-lisp-loop-indent-body-forms-relative-to-loop-start)
+    (lisp-loop-body-forms-indentation . slime-lisp-loop-body-forms-indentation)
+    (lisp-loop-indent-forms-like-keywords . slime-lisp-loop-indent-forms-like-keywords)
+    (lisp-align-keywords-in-calls . slime-lisp-align-keywords-in-calls)
+    (lisp-lambda-list-indentation . slime-lisp-lambda-list-indentation)
+    (lisp-lambda-list-keyword-alignment . slime-lisp-lambda-list-keyword-alignment)
+    (lisp-lambda-list-keyword-parameter-indentation
+     . slime-lisp-lambda-list-keyword-parameter-indentation)
+    (lisp-lambda-list-keyword-parameter-alignment
+     . slime-lisp-lambda-list-keyword-parameter-alignment)
+    (lisp-indent-defun-method . slime-lisp-indent-defun-method)
+    (common-lisp-styles . slime-common-lisp-styles)
+    (common-lisp-active-style . slime-common-lisp-active-style)
+    (common-lisp-set-style-history . slime-common-lisp-set-style-history)
+    (common-lisp-style-default . slime-common-lisp-style-default)
+    (common-lisp-system-indentation . slime-common-lisp-system-indentation)
+    (common-lisp-current-package-function
+     . slime-common-lisp-current-package-function)
+    (common-lisp-feature-expr-regexp . slime-lisp-feature-expr-regexp)
+    (lisp-indent-error-function . slime-lisp-indent-error-function)
+    (lisp-indent-lambda-list-keywords-regexp
+     . slime-lisp-indent-lambda-list-keywords-regexp)
+    (lisp-indent-lambda-list-single-arg-keywords-regexp
+     . slime-lisp-indent-lambda-list-single-arg-keywords-regexp)
+    (common-lisp-body-introducing-loop-macro-keyword
+     . slime-lisp-body-introducing-loop-macro-keyword)
+    (common-lisp-accumlation-loop-macro-keyword
+     . slime-lisp-accumlation-loop-macro-keyword)
+    (common-lisp-prefix-loop-macro-keyword . slime-lisp-prefix-loop-macro-keyword)
+    (common-lisp-indent-clause-joining-loop-macro-keyword
+     . slime-lisp-indent-clause-joining-loop-macro-keyword)
+    (common-lisp-indent-indented-loop-macro-keyword
+     . slime-lisp-indent-indented-loop-macro-keyword)
+    (common-lisp-indenting-loop-macro-keyword
+     . slime-lisp-indenting-loop-macro-keyword)
+    (common-lisp-loop-macro-else-keyword . slime-lisp-loop-macro-else-keyword)
+    (common-lisp-indent-if*-keyword . slime-lisp-indent-if*-keyword))
+  "An alist mapping old variable names to the new `slime-' prefixed ones.")
+
+(define-minor-mode slime-lisp-indent-compatibility-mode
+  "Enable backward compatibility with the old slime-cl-indent.
+This aliases all functions and variables in slime-cl-indent.el to their
+old [common-]lisp- prefixed names, shadowing some definitions in the
+built-in cl-indent.el. This mode is on by default, so to prevent
+activating it you can customize the variable or put
+  (setopt slime-lisp-indent-compatibility-mode nil)
+in your init file before Slime loads."
+  :global t
+  :init-value t
+  (require 'cl-indent)
+  (dolist (pair slime-lisp-indent-old-functions-alist)
+    (if slime-lisp-indent-compatibility-mode
+        (advice-add (car pair) :override (cdr pair)
+                    '((name . slime-lisp-indent-compatibility-mode)))
+      (advice-remove (car pair) (cdr pair))))
+  (dolist (pair slime-lisp-indent-old-variables-alist)
+    (cond ((eq (indirect-variable (car pair)) (cdr pair))
+           (unless slime-lisp-indent-compatibility-mode
+             (let ((oldv (get (car pair) 'slime--saved-value)))
+               (makunbound (car pair))
+               (when oldv
+                 (set-default (car pair) (car oldv))
+                 (put (car pair) 'slime--saved-value nil)))))
+          (slime-lisp-indent-compatibility-mode
+           (put (car pair) 'slime--saved-value
+                (and (default-boundp (car pair))
+                     (list (default-value (car pair)))))
+           (makunbound (car pair))
+           (defvaralias (car pair) (cdr pair))))))
+
+(when slime-lisp-indent-compatibility-mode
+  (slime-lisp-indent-compatibility-mode))
+
+(defcustom slime-lisp-indent-maximum-backtracking 6
   "Maximum depth to backtrack out from a sublist for structured indentation.
 If this variable is 0, no backtracking will occur and forms such as `flet'
 may not be correctly indented if this value is less than 4."
   :type 'integer
-  :group 'lisp-indent)
+  :group 'slime-lisp-indent)
 
-(defcustom lisp-tag-indentation 1
+(defcustom slime-lisp-tag-indentation 1
   "Indentation of tags relative to containing list.
-This variable is used by the function `lisp-indent-tagbody'."
+This variable is used by the function `slime-lisp-indent-tagbody'."
   :type 'integer
-  :group 'lisp-indent)
+  :group 'slime-lisp-indent)
 
-(defcustom lisp-tag-body-indentation 3
+(defcustom slime-lisp-tag-body-indentation 3
   "Indentation of non-tagged lines relative to containing list.
-This variable is used by the function `lisp-indent-tagbody' to indent normal
-lines (lines without tags).
+This variable is used by the function `slime-lisp-indent-tagbody' to
+indent normal lines (lines without tags).
 The indentation is relative to the indentation of the parenthesis enclosing
 the special form.  If the value is t, the body of tags will be indented
 as a block at the same indentation as the first s-expression following
 the tag.  In this case, any forms before the first tag are indented
 by `lisp-body-indent'."
   :type 'integer
-  :group 'lisp-indent)
+  :group 'slime-lisp-indent)
 
-(defcustom lisp-backquote-indentation t
+(defcustom slime-lisp-backquote-indentation t
   "Whether or not to indent backquoted lists as code.
 If nil, indent backquoted lists as data, i.e., like quoted lists."
   :type 'boolean
-  :group 'lisp-indent)
+  :group 'slime-lisp-indent)
 
-(defcustom lisp-indent-apparent-data t
+(defcustom slime-lisp-indent-apparent-data t
   "Whether to indent lists in which the textual representation of the first
 element starts with one of the `:#\"(' characters. If nil, indent such
 lists as data, i.e., like quoted lists, except this does not affect
 nested lists."
   :type 'boolean
-  :group 'lisp-indent)
+  :group 'slime-lisp-indent)
 
-(defcustom lisp-loop-indent-subclauses t
+(defcustom slime-lisp-loop-indent-subclauses t
   "Whether or not to indent loop subclauses."
   :type 'boolean
-  :group 'lisp-indent)
+  :group 'slime-lisp-indent)
 
-(defcustom lisp-simple-loop-indentation 2
+(defcustom slime-lisp-simple-loop-indentation 2
   "Indentation of forms in simple loop forms."
   :type 'integer
-  :group 'lisp-indent)
+  :group 'slime-lisp-indent)
 
-(defcustom lisp-loop-clauses-indentation 2
+(defcustom slime-lisp-loop-clauses-indentation 2
   "Indentation of loop clauses if `loop' is immediately followed by a newline."
   :type 'integer
-  :group 'lisp-indent)
+  :group 'slime-lisp-indent)
 
-(defcustom lisp-loop-indent-body-forms-relative-to-loop-start nil
+(defcustom slime-lisp-loop-indent-body-forms-relative-to-loop-start nil
   "When true, indent loop body clauses relative to the open paren of the loop
 form, instead of the keyword position."
   :type 'boolean
-  :group 'lisp-indent)
+  :group 'slime-lisp-indent)
 
-(defcustom lisp-loop-body-forms-indentation 3
+(defcustom slime-lisp-loop-body-forms-indentation 3
   "Indentation of loop body clauses."
   :type 'integer
-  :group 'lisp-indent)
+  :group 'slime-lisp-indent)
 
-(defcustom lisp-loop-indent-forms-like-keywords nil
+(defcustom slime-lisp-loop-indent-forms-like-keywords nil
   "Whether or not to indent loop subforms just like
-loop keywords. Only matters when `lisp-loop-indent-subclauses'
+loop keywords. Only matters when `slime-lisp-loop-indent-subclauses'
 is nil."
   :type 'boolean
-  :group 'lisp-indent)
+  :group 'slime-lisp-indent)
 
-(defcustom lisp-align-keywords-in-calls t
+(defcustom slime-lisp-align-keywords-in-calls t
   "Whether to align keyword arguments vertically or not.
 If t (the default), keywords in contexts where no other
 indentation rule takes precedence are aligned like this:
@@ -133,13 +274,13 @@ call arguments:
 \(make-instance 'foo :bar t
                :quux 42)"
   :type 'boolean
-  :group 'lisp-indent)
+  :group 'slime-lisp-indent)
 
-(defcustom lisp-lambda-list-indentation t
+(defcustom slime-lisp-lambda-list-indentation t
   "Whether to indent lambda-lists specially. Defaults to t. Setting this to
-nil makes `lisp-lambda-list-keyword-alignment',
-`lisp-lambda-list-keyword-parameter-alignment', and
-`lisp-lambda-list-keyword-parameter-indentation' meaningless, causing
+nil makes `slime-lisp-lambda-list-keyword-alignment',
+`slime-lisp-lambda-list-keyword-parameter-alignment', and
+`slime-lisp-lambda-list-keyword-parameter-indentation' meaningless, causing
 lambda-lists to be indented as if they were data:
 
 \(defun example (a b &optional o1 o2
@@ -149,9 +290,9 @@ lambda-lists to be indented as if they were data:
                 k3 k4)
   #|...|#)"
   :type 'boolean
-  :group 'lisp-indent)
+  :group 'slime-lisp-indent)
 
-(defcustom lisp-lambda-list-keyword-alignment nil
+(defcustom slime-lisp-lambda-list-keyword-alignment nil
   "Whether to vertically align lambda-list keywords together.
 If nil (the default), keyworded lambda-list parts are aligned
 with the initial mandatory arguments, like this:
@@ -167,20 +308,20 @@ If non-nil, alignment is done with the first keyword
                       &key key1 key2)
   #|...|#)"
   :type 'boolean
-  :group 'lisp-indent)
+  :group 'slime-lisp-indent)
 
-(defcustom lisp-lambda-list-keyword-parameter-indentation 2
+(defcustom slime-lisp-lambda-list-keyword-parameter-indentation 2
   "Indentation of lambda list keyword parameters.
-See `lisp-lambda-list-keyword-parameter-alignment'
+See `slime-lisp-lambda-list-keyword-parameter-alignment'
 for more information."
   :type 'integer
-  :group 'lisp-indent)
+  :group 'slime-lisp-indent)
 
-(defcustom lisp-lambda-list-keyword-parameter-alignment nil
+(defcustom slime-lisp-lambda-list-keyword-parameter-alignment nil
   "Whether to vertically align lambda-list keyword parameters together.
 If nil (the default), the parameters are aligned
 with their corresponding keyword, plus the value of
-`lisp-lambda-list-keyword-parameter-indentation', like this:
+`slime-lisp-lambda-list-keyword-parameter-indentation', like this:
 
 \(defun foo (arg1 arg2 &key key1 key2
                         key3 key4)
@@ -193,18 +334,18 @@ If non-nil, alignment is done with the first parameter
                            key3 key4)
   #|...|#)"
   :type 'boolean
-  :group 'lisp-indent)
+  :group 'slime-lisp-indent)
 
 
-(defvar lisp-indent-defun-method '(4 &lambda &body)
+(defvar slime-lisp-indent-defun-method '(4 &lambda &body)
   "Defun-like indentation method.
-This applies when the value of the `common-lisp-indent-function' property
+This applies when the value of the `slime-common-lisp-indent-function' property
 is set to `defun'.")
 
 
 ;;;; Named styles.
 ;;;;
-;;;; -*- common-lisp-style: foo -*-
+;;;; -*- slime-common-lisp-style: foo -*-
 ;;;;
 ;;;; sets the style for the buffer.
 ;;;;
@@ -218,99 +359,102 @@ is set to `defun'.")
 ;;;; indentations for Common Lisp symbols. HOOK is a function to call when
 ;;;; activating the style. DOCSTRING is the documentation for the style.
 ;;;;
-;;;; Convenience accessors `common-lisp-style-name', &co exist.
+;;;; Convenience accessors `slime-common-lisp-style-name', &co exist.
 ;;;;
-;;;; `common-lisp-style' stores the name of the current style.
+;;;; `slime-common-lisp-style' stores the name of the current style.
 ;;;;
-;;;; `common-lisp-style-default' stores the name of the style to use when none
+;;;; `slime-common-lisp-style-default' stores the name of the style to use when none
 ;;;; has been specified.
 ;;;;
-;;;; `common-lisp-active-style' stores a cons of the list specifying the
+;;;; `slime-common-lisp-active-style' stores a cons of the list specifying the
 ;;;; current style, and a hash-table containing all indentation methods of
 ;;;; that style and any styles it inherits from. Whenever we're indenting, we
 ;;;; check that this is up to date, and recompute when necessary.
 ;;;;
-;;;; Just setting the buffer local common-lisp-style will be enough to have
-;;;; the style take effect. `common-lisp-set-style' can also be called
+;;;; Just setting the buffer local slime-common-lisp-style will be enough to have
+;;;; the style take effect. `slime-common-lisp-set-style' can also be called
 ;;;; explicitly, however, and offers name completion, etc.
 
 ;;; Convenience accessors
-(defun common-lisp-style-name (style) (cl-first style))
-(defun common-lisp-style-inherits (style) (cl-second style))
-(defun common-lisp-style-variables (style) (cl-third style))
-(defun common-lisp-style-indentation (style) (cl-fourth style))
-(defun common-lisp-style-hook (style) (cl-fifth style))
-(defun common-lisp-style-docstring (style) (cl-sixth style))
+(defun slime-common-lisp-style-name (style) (cl-first style))
+(defun slime-common-lisp-style-inherits (style) (cl-second style))
+(defun slime-common-lisp-style-variables (style) (cl-third style))
+(defun slime-common-lisp-style-indentation (style) (cl-fourth style))
+(defun slime-common-lisp-style-hook (style) (cl-fifth style))
+(defun slime-common-lisp-style-docstring (style) (cl-sixth style))
 
-(defun common-lisp-make-style (stylename inherits variables indentation hook
-                               documentation)
+(defun slime-common-lisp-make-style (stylename inherits variables indentation hook
+                                     documentation)
   (list stylename inherits variables indentation hook documentation))
 
-(defvar common-lisp-style nil)
+;; backward compatibility, doesn't clobber any builtin variable
+(defvaralias 'common-lisp-style 'slime-common-lisp-style)
 
-;;; `define-common-lisp-style' updates the docstring of
-;;; `common-lisp-style', using this as the base.
-(put 'common-lisp-style 'common-lisp-style-base-doc
+(defvar slime-common-lisp-style nil)
+
+;;; `slime-define-common-lisp-style' updates the docstring of
+;;; `slime-common-lisp-style', using this as the base.
+(put 'slime-common-lisp-style 'slime-common-lisp-style-base-doc
      "Name of the Common Lisp indentation style used in the current buffer.
 Set this by giving eg.
 
-  ;; -*- common-lisp-style: sbcl -*-
+  ;; -*- slime-common-lisp-style: sbcl -*-
 
-in the first line of the file, or by calling `common-lisp-set-style'. If
-buffer has no style specified, but `common-lisp-style-default' is set, that
-style is used instead. Use `define-common-lisp-style' to define new styles.")
+in the first line of the file, or by calling `slime-common-lisp-set-style'. If
+buffer has no style specified, but `slime-common-lisp-style-default' is set, that
+style is used instead. Use `slime-define-common-lisp-style' to define new styles.")
 
-(make-variable-buffer-local 'common-lisp-style)
-(set-default 'common-lisp-style nil)
+(make-variable-buffer-local 'slime-common-lisp-style)
+(set-default 'slime-common-lisp-style nil)
 
 ;;; `lisp-mode' kills all buffer-local variables. Setting the
 ;;; `permanent-local' property allows us to retain the style.
-(put 'common-lisp-style 'permanent-local t)
+(put 'slime-common-lisp-style 'permanent-local t)
 
 ;;; Mark as safe when the style doesn't evaluate arbitrary code.
-(put 'common-lisp-style 'safe-local-variable 'common-lisp-safe-style-p)
+(put 'slime-common-lisp-style 'safe-local-variable 'slime-common-lisp-safe-style-p)
 
 ;;; Common Lisp indentation style specifications.
-(defvar common-lisp-styles (make-hash-table :test 'equal))
+(defvar slime-common-lisp-styles (make-hash-table :test 'equal))
 
-(defun common-lisp-delete-style (stylename)
-  (remhash stylename common-lisp-styles))
+(defun slime-common-lisp-delete-style (stylename)
+  (remhash stylename slime-common-lisp-styles))
 
-(defun common-lisp-find-style (stylename)
+(defun slime-common-lisp-find-style (stylename)
   (let ((name (if (symbolp stylename)
                   (symbol-name stylename)
                 stylename)))
-    (or (gethash name common-lisp-styles)
+    (or (gethash name slime-common-lisp-styles)
         (error "Unknown Common Lisp style: %s" name))))
 
-(defun common-lisp-safe-style-p (stylename)
+(defun slime-common-lisp-safe-style-p (stylename)
   "True for known Common Lisp style without an :EVAL option.
 Ie. styles that will not evaluate arbitrary code on activation."
-  (let* ((style (ignore-errors (common-lisp-find-style stylename)))
-         (base (common-lisp-style-inherits style)))
+  (let* ((style (ignore-errors (slime-common-lisp-find-style stylename)))
+         (base (slime-common-lisp-style-inherits style)))
     (and style
-         (not (common-lisp-style-hook style))
+         (not (slime-common-lisp-style-hook style))
          (or (not base)
-             (common-lisp-safe-style-p base)))))
+             (slime-common-lisp-safe-style-p base)))))
 
-(defun common-lisp-add-style (stylename inherits variables indentation hooks
-                              documentation)
-  ;; Invalidate indentation methods cached in common-lisp-active-style.
+(defun slime-common-lisp-add-style (stylename inherits variables indentation hooks
+                                    documentation)
+  ;; Invalidate indentation methods cached in slime-common-lisp-active-style.
   (maphash (lambda (k v)
-             (puthash k (cl-copy-list v) common-lisp-styles))
-           common-lisp-styles)
+             (puthash k (cl-copy-list v) slime-common-lisp-styles))
+           slime-common-lisp-styles)
   ;; Add/Redefine the specified style.
   (puthash stylename
-           (common-lisp-make-style stylename inherits variables indentation
-                                   hooks documentation)
-           common-lisp-styles)
-  ;; Frob `common-lisp-style' docstring.
-  (let ((doc (get 'common-lisp-style 'common-lisp-style-base-doc))
+           (slime-common-lisp-make-style stylename inherits variables indentation
+                                         hooks documentation)
+           slime-common-lisp-styles)
+  ;; Frob `slime-common-lisp-style' docstring.
+  (let ((doc (get 'slime-common-lisp-style 'slime-common-lisp-style-base-doc))
         (all nil))
     (setq doc (concat doc "\n\nAvailable styles are:\n"))
     (maphash (lambda (name style)
-               (push (list name (common-lisp-style-docstring style)) all))
-             common-lisp-styles)
+               (push (list name (slime-common-lisp-style-docstring style)) all))
+             slime-common-lisp-styles)
     (dolist (info (sort all (lambda (a b) (string< (car a) (car b)))))
       (let ((style-name (cl-first info))
             (style-doc (cl-second info)))
@@ -320,67 +464,67 @@ Ie. styles that will not evaluate arbitrary code on activation."
                               "   " style-doc "\n"))
           (setq doc (concat doc
                             "\n " style-name " (undocumented)\n")))))
-    (put 'common-lisp-style 'variable-documentation doc))
+    (put 'slime-common-lisp-style 'variable-documentation doc))
   stylename)
 
 ;;; Activate STYLENAME, adding its indentation methods to METHODS -- and
 ;;; recurse on style inherited from.
-(defun common-lisp-activate-style (stylename methods)
-  (let* ((style (common-lisp-find-style stylename))
-         (basename (common-lisp-style-inherits style)))
+(defun slime-common-lisp-activate-style (stylename methods)
+  (let* ((style (slime-common-lisp-find-style stylename))
+         (basename (slime-common-lisp-style-inherits style)))
     ;; Recurse on parent.
     (when basename
-      (common-lisp-activate-style basename methods))
+      (slime-common-lisp-activate-style basename methods))
     ;; Copy methods
-    (dolist (spec (common-lisp-style-indentation style))
+    (dolist (spec (slime-common-lisp-style-indentation style))
       (puthash (cl-first spec) (cl-second spec) methods))
     ;; Bind variables.
-    (dolist (var (common-lisp-style-variables style))
+    (dolist (var (slime-common-lisp-style-variables style))
       (set (make-local-variable (cl-first var)) (cl-second var)))
     ;; Run hook.
-    (let ((hook (common-lisp-style-hook style)))
+    (let ((hook (slime-common-lisp-style-hook style)))
       (when hook
         (funcall hook)))))
 
-;;; When a style is being used, `common-lisp-active-style' holds a cons
+;;; When a style is being used, `slime-common-lisp-active-style' holds a cons
 ;;;
 ;;;   (STYLE . METHODS)
 ;;;
 ;;; where STYLE is the list specifying the currently active style, and
 ;;; METHODS is the table of indentation methods --  including inherited
-;;; ones -- for it. `common-lisp-active-style-methods' is reponsible
+;;; ones -- for it. `slime-lisp-active-style-methods' is reponsible
 ;;; for keeping this up to date.
-(make-variable-buffer-local (defvar common-lisp-active-style nil))
+(make-variable-buffer-local (defvar slime-common-lisp-active-style nil))
 
-;;; Makes sure common-lisp-active-style corresponds to common-lisp-style, and
+;;; Makes sure slime-common-lisp-active-style corresponds to slime-common-lisp-style, and
 ;;; pick up redefinitions, etc. Returns the method table for the currently
 ;;; active style.
-(defun common-lisp-active-style-methods ()
-  (let* ((name common-lisp-style)
-         (style (when name (common-lisp-find-style name))))
-    (if (eq style (car common-lisp-active-style))
-        (cdr common-lisp-active-style)
+(defun slime-lisp-active-style-methods ()
+  (let* ((name slime-common-lisp-style)
+         (style (when name (slime-common-lisp-find-style name))))
+    (if (eq style (car slime-common-lisp-active-style))
+        (cdr slime-common-lisp-active-style)
       (when style
         (let ((methods (make-hash-table :test 'equal)))
-          (common-lisp-activate-style name methods)
-          (setq common-lisp-active-style (cons style methods))
+          (slime-common-lisp-activate-style name methods)
+          (setq slime-common-lisp-active-style (cons style methods))
           methods)))))
 
-(defvar common-lisp-set-style-history nil)
+(defvar slime-common-lisp-set-style-history nil)
 
-(defun common-lisp-style-names ()
+(defun slime-common-lisp-style-names ()
   (let (names)
     (maphash (lambda (k v)
                (push (cons k v) names))
-             common-lisp-styles)
+             slime-common-lisp-styles)
     names))
 
-(defun common-lisp-set-style (stylename)
+(defun slime-common-lisp-set-style (stylename)
   "Set current buffer to use the Common Lisp style STYLENAME.
 STYLENAME, a string, must be an existing Common Lisp style. Styles
-are added (and updated) using `define-common-lisp-style'.
+are added (and updated) using `slime-define-common-lisp-style'.
 
-The buffer-local variable `common-lisp-style' will get set to STYLENAME.
+The buffer-local variable `slime-common-lisp-style' will get set to STYLENAME.
 
 A Common Lisp style is composed of local variables, indentation
 specifications, and may also contain arbitrary elisp code to run upon
@@ -389,22 +533,22 @@ activation."
    (list (let ((completion-ignore-case t)
                (prompt "Specify Common Lisp indentation style: "))
            (completing-read prompt
-                            (common-lisp-style-names) nil t nil
-                            'common-lisp-set-style-history))))
-  (setq common-lisp-style (common-lisp-style-name
-                           (common-lisp-find-style stylename))
-        common-lisp-active-style nil)
+                            (slime-common-lisp-style-names) nil t nil
+                            'slime-common-lisp-set-style-history))))
+  (setq slime-common-lisp-style (slime-common-lisp-style-name
+                                 (slime-common-lisp-find-style stylename))
+        slime-common-lisp-active-style nil)
   ;; Actually activates the style.
-  (common-lisp-active-style-methods)
+  (slime-lisp-active-style-methods)
   stylename)
 
-(defmacro define-common-lisp-style (name documentation &rest options)
+(defmacro slime-define-common-lisp-style (name documentation &rest options)
   "Define a Common Lisp indentation style.
 
 NAME is the name of the style.
 
 DOCUMENTATION is the docstring for the style, automatically added to the
-docstring of `common-lisp-style'.
+docstring of `slime-common-lisp-style'.
 
 OPTIONS are:
 
@@ -415,7 +559,7 @@ OPTIONS are:
  (:indentation (symbol spec) ...)
 
   Specifying custom indentations associated with the style. SPEC is
-  a normal `common-lisp-indent-function' indentation specification.
+  a normal `slime-common-lisp-indent-function' indentation specification.
 
  (:inherit style)
 
@@ -431,36 +575,38 @@ OPTIONS are:
   (when (consp documentation)
     (setq options (cons documentation options)
           documentation nil))
-  `(common-lisp-add-style ,name
-                          ',(cadr (assoc :inherit options))
-                          ',(cdr (assoc :variables options))
-                          ',(cdr (assoc :indentation options))
-                          ,(when (assoc :eval options)
-                             `(lambda ()
-                                ,@(cdr (assoc :eval options))))
-                          ,documentation))
+  `(slime-common-lisp-add-style ,name
+                                ',(cadr (assoc :inherit options))
+                                ',(cdr (assoc :variables options))
+                                ',(cdr (assoc :indentation options))
+                                ,(when (assoc :eval options)
+                                   `(lambda ()
+                                      ,@(cdr (assoc :eval options))))
+                                ,documentation))
 
-(define-common-lisp-style "basic-common"
+(defalias 'define-common-lisp-style 'slime-define-common-lisp-style)
+
+(slime-define-common-lisp-style "basic-common"
   (:variables
-   (lisp-indent-maximum-backtracking 6)
-   (lisp-tag-indentation 1)
-   (lisp-tag-body-indentation 3)
-   (lisp-backquote-indentation t)
-   (lisp-indent-apparent-data t)
-   (lisp-loop-indent-subclauses t)
-   (lisp-loop-indent-forms-like-keywords nil)
-   (lisp-simple-loop-indentation 2)
-   (lisp-align-keywords-in-calls t)
-   (lisp-lambda-list-indentation t)
-   (lisp-lambda-list-keyword-alignment nil)
-   (lisp-lambda-list-keyword-parameter-indentation 2)
-   (lisp-lambda-list-keyword-parameter-alignment nil)
-   (lisp-indent-defun-method (4 &lambda &body))
-   (lisp-loop-clauses-indentation 2)
-   (lisp-loop-indent-body-forms-relative-to-loop-start nil)
-   (lisp-loop-body-forms-indentation 3)))
+   (slime-lisp-indent-maximum-backtracking 6)
+   (slime-lisp-tag-indentation 1)
+   (slime-lisp-tag-body-indentation 3)
+   (slime-lisp-backquote-indentation t)
+   (slime-lisp-indent-apparent-data t)
+   (slime-lisp-loop-indent-subclauses t)
+   (slime-lisp-loop-indent-forms-like-keywords nil)
+   (slime-lisp-simple-loop-indentation 2)
+   (slime-lisp-align-keywords-in-calls t)
+   (slime-lisp-lambda-list-indentation t)
+   (slime-lisp-lambda-list-keyword-alignment nil)
+   (slime-lisp-lambda-list-keyword-parameter-indentation 2)
+   (slime-lisp-lambda-list-keyword-parameter-alignment nil)
+   (slime-lisp-indent-defun-method (4 &lambda &body))
+   (slime-lisp-loop-clauses-indentation 2)
+   (slime-lisp-loop-indent-body-forms-relative-to-loop-start nil)
+   (slime-lisp-loop-body-forms-indentation 3)))
 
-(define-common-lisp-style "basic-emacs25"
+(slime-define-common-lisp-style "basic-emacs25"
   "This style adds a workaround needed for Emacs 25"
   (:inherit "basic-common")
   (:variables
@@ -468,7 +614,7 @@ OPTIONS are:
    ;; ( and ; by indent-sexp.
    (comment-indent-function (lambda () nil))))
 
-(define-common-lisp-style "basic-emacs26"
+(slime-define-common-lisp-style "basic-emacs26"
   "This style is the same as basic-common. It doesn't need or
    want the workaround used in Emacs 25. In Emacs 26, that
    workaround introduces a weird behavior where a single
@@ -477,43 +623,43 @@ OPTIONS are:
   (:inherit "basic-common"))
 
 (if (>= emacs-major-version 26)
-    (define-common-lisp-style "basic"
+    (slime-define-common-lisp-style "basic"
       "This style merely gives all identation variables their default values,
        making it easy to create new styles that are proof against user
        customizations. It also adjusts comment indentation from default.
        All other predefined modes inherit from basic."
       (:inherit "basic-emacs26"))
-    (define-common-lisp-style "basic"
+    (slime-define-common-lisp-style "basic"
       "This style merely gives all identation variables their default values,
        making it easy to create new styles that are proof against user
        customizations. It also adjusts comment indentation from default.
        All other predefined modes inherit from basic."
       (:inherit "basic-emacs25")))
 
-(define-common-lisp-style "classic"
+(slime-define-common-lisp-style "classic"
   "This style of indentation emulates the most striking features of 1995
    vintage cl-indent.el once included as part of Slime: IF indented by two
    spaces, and CASE clause bodies indentented more deeply than the keys."
   (:inherit "basic")
   (:variables
-   (lisp-lambda-list-keyword-parameter-indentation 0))
+   (slime-lisp-lambda-list-keyword-parameter-indentation 0))
   (:indentation
    (case (4 &rest (&whole 2 &rest 3)))
    (if   (4 2 2))))
 
-(define-common-lisp-style "modern"
+(slime-define-common-lisp-style "modern"
   "A good general purpose style. Turns on lambda-list keyword and keyword
    parameter alignment, and turns subclause aware loop indentation off.
    (Loop indentation so because simpler style is more prevalent in existing
    sources, not because it is necessarily preferred.)"
   (:inherit "basic")
   (:variables
-   (lisp-lambda-list-keyword-alignment t)
-   (lisp-lambda-list-keyword-parameter-alignment t)
-   (lisp-lambda-list-keyword-parameter-indentation 0)
-   (lisp-loop-indent-subclauses nil)))
+   (slime-lisp-lambda-list-keyword-alignment t)
+   (slime-lisp-lambda-list-keyword-parameter-alignment t)
+   (slime-lisp-lambda-list-keyword-parameter-indentation 0)
+   (slime-lisp-loop-indent-subclauses nil)))
 
-(define-common-lisp-style "sbcl"
+(slime-define-common-lisp-style "sbcl"
   "Style used in SBCL sources. A good if somewhat intrusive general purpose
    style based on the \"modern\" style. Adds indentation for a few SBCL
    specific constructs, sets indentation to use spaces instead of tabs,
@@ -538,25 +684,25 @@ OPTIONS are:
    (!def-type-translator (as defun))
    (!def-debug-command (as defun))))
 
-(defcustom common-lisp-style-default nil
+(defcustom slime-common-lisp-style-default nil
     "Name of the Common Lisp indentation style to use in lisp-mode buffers if
 none has been specified."
   :type `(choice (const :tag "None" nil)
                  ,@(mapcar (lambda (spec)
                              `(const :tag ,(car spec) ,(car spec)))
-                           (common-lisp-style-names))
+                           (slime-common-lisp-style-names))
                  (string :tag "Other"))
-  :group 'lisp-indent)
+  :group 'slime-lisp-indent)
 
 ;;; If style is being used, that's a sufficient invitation to snag
 ;;; the indentation function.
-(defun common-lisp-lisp-mode-hook ()
-  (let ((style (or common-lisp-style common-lisp-style-default)))
+(defun slime-common-lisp-lisp-mode-hook ()
+  (let ((style (or slime-common-lisp-style slime-common-lisp-style-default)))
     (when style
       (set (make-local-variable 'lisp-indent-function)
-           'common-lisp-indent-function)
-      (common-lisp-set-style style))))
-(add-hook 'lisp-mode-hook 'common-lisp-lisp-mode-hook)
+           'slime-common-lisp-indent-function)
+      (slime-common-lisp-set-style style))))
+(add-hook 'lisp-mode-hook 'slime-common-lisp-lisp-mode-hook)
 
 
 ;;;; The indentation specs are stored at three levels. In order of priority:
@@ -564,12 +710,12 @@ none has been specified."
 ;;;; 1. Indentation as set by current style, from the indentation table
 ;;;;    in the current style.
 ;;;;
-;;;; 2. Globally set indentation, from the `common-lisp-indent-function'
+;;;; 2. Globally set indentation, from the `slime-common-lisp-indent-function'
 ;;;;    property of the symbol.
 ;;;;
 ;;;; 3. Per-package indentation derived by the system. A live Common Lisp
 ;;;;    system may (via Slime, eg.) add indentation specs to
-;;;;    common-lisp-system-indentation, where they are associated with
+;;;;    slime-common-lisp-system-indentation, where they are associated with
 ;;;;    the package of the symbol. Then we run some lossy heuristics and
 ;;;;    find something that looks promising.
 ;;;;
@@ -582,9 +728,9 @@ none has been specified."
 ;;;
 ;;; We never add stuff here by ourselves: this is for things like Slime to
 ;;; fill.
-(defvar common-lisp-system-indentation (make-hash-table :test 'equal))
+(defvar slime-common-lisp-system-indentation (make-hash-table :test 'equal))
 
-(defun common-lisp-guess-current-package ()
+(defun slime-common-lisp-guess-current-package ()
   (let (pkg)
     (save-excursion
       (ignore-errors
@@ -597,35 +743,38 @@ none has been specified."
                                start (1- (point)))))))))
     pkg))
 
-(defvar common-lisp-current-package-function 'common-lisp-guess-current-package
+(defvar slime-common-lisp-current-package-function
+  'slime-common-lisp-guess-current-package
   "Used to derive the package name to use for indentation at a
-given point. Defaults to `common-lisp-guess-current-package'.")
+given point. Defaults to `slime-common-lisp-guess-current-package'.")
 
-(defun common-lisp-symbol-package (string)
+(defun slime-common-lisp-symbol-package (string)
   (if (and (stringp string) (string-match ":" string))
       (let ((p (match-beginning 0)))
         (if (eql 0 p)
             "KEYWORD"
           (upcase (substring string 0 p))))
-    (funcall common-lisp-current-package-function)))
+    (funcall slime-common-lisp-current-package-function)))
 
-(defun common-lisp-get-indentation (name &optional full)
+(defun slime-lisp-get-indentation (name &optional full)
   "Retrieves the indentation information for NAME."
   (let ((method
          (or
           ;; From style
-          (when common-lisp-style
-            (gethash name (common-lisp-active-style-methods)))
+          (when slime-common-lisp-style
+            (gethash name (slime-lisp-active-style-methods)))
           ;; From global settings.
+          (get name 'slime-common-lisp-indent-function)
+          ;; From builtin `common-lisp-indent-function'
           (get name 'common-lisp-indent-function)
           ;; From system derived information.
-          (let ((system-info (gethash name common-lisp-system-indentation)))
+          (let ((system-info (gethash name slime-common-lisp-system-indentation)))
             (if (not (cdr system-info))
                 (caar system-info)
               (let ((guess nil)
                     (guess-n 0)
                     (package (slime-canonicalize-package
-                              (common-lisp-symbol-package full))))
+                              (slime-common-lisp-symbol-package full))))
                 (cl-dolist (info system-info guess)
                   (let* ((pkgs (cdr info))
                          (n (length pkgs)))
@@ -638,12 +787,12 @@ given point. Defaults to `common-lisp-guess-current-package'.")
                            (setf guess (car info)
                                  guess-n n)))))))))))
     (if (and (consp method) (eq 'as (car method)))
-        (common-lisp-get-indentation (cadr method))
+        (slime-lisp-get-indentation (cadr method))
       method)))
 
 ;;;; LOOP indentation, the simple version
 
-(defun common-lisp-loop-type (loop-start)
+(defun slime-lisp-loop-type (loop-start)
   "Returns the type of the loop form at LOOP-START.
 Possible types are SIMPLE, SIMPLE/SPLIT, EXTENDED, and EXTENDED/SPLIT. */SPLIT
 refers to extended loops whose body does not start on the same line as the
@@ -677,7 +826,7 @@ opening parenthesis of the loop."
            'simple/split
          'simple)))))
 
-(defun common-lisp-trailing-comment ()
+(defun slime-lisp-trailing-comment ()
   (ignore-errors
     ;; If we had a trailing comment just before this, find it.
     (save-excursion
@@ -688,21 +837,21 @@ opening parenthesis of the loop."
         (1- (current-column))))))
 
 ;;;###autoload
-(defun common-lisp-indent-function (indent-point state)
+(defun slime-common-lisp-indent-function (indent-point state)
   "Function to indent the arguments of a Lisp function call.
 This is suitable for use as the value of the variable
 `lisp-indent-function'.  INDENT-POINT is the point at which the
 indentation function is called, and STATE is the
 `parse-partial-sexp' state at that position.  Browse the
-`lisp-indent' customize group for options affecting the behavior
+`slime-lisp-indent' customize group for options affecting the behavior
 of this function.
 
 If the indentation point is in a call to a Lisp function, that
-function's common-lisp-indent-function property specifies how
+function's slime-common-lisp-indent-function property specifies how
 this function should indent it.  Possible values for this
 property are:
 
-* defun, meaning indent according to `lisp-indent-defun-method';
+* defun, meaning indent according to `slime-lisp-indent-defun-method';
   i.e., like (4 &lambda &body), as explained below.
 
 * any other symbol, meaning a function to call.  The function should
@@ -713,10 +862,10 @@ property are:
   to reach foo take the 0th element of the outermost list, then
   the 3rd element of the next list, and finally the 1st element.
   STATE and INDENT-POINT are as in the arguments to
-  `common-lisp-indent-function'.  SEXP-COLUMN is the column of
+  `slime-common-lisp-indent-function'.  SEXP-COLUMN is the column of
   the open parenthesis of the innermost containing list.
   NORMAL-INDENT is the column the indentation point was
-  originally in.  This function should behave like `lisp-indent-259'.
+  originally in.  This function should behave like `slime-lisp-indent-259'.
 
 * an integer N, meaning indent the first N arguments like
   function arguments, and any further arguments like a body.
@@ -761,38 +910,38 @@ For example, the function `case' has an indent property
   * arguments after the first should be lists, and there may be any number
     of them.  The first list element has an offset of 2, all the rest
     have an offset of 2+1=3."
-  (common-lisp-indent-function-1 indent-point state))
+  (slime-common-lisp-indent-function-1 indent-point state))
 
 ;;; XEmacs doesn't have looking-back, so we define a simple one. Faster to
 ;;; boot, and sufficient for our needs.
-(defun common-lisp-looking-back (string)
+(defun slime-lisp-looking-back (string)
   (let ((len (length string)))
     (cl-dotimes (i len t)
       (unless (eql (elt string (- len i 1)) (char-before (- (point) i)))
         (cl-return nil)))))
 
-(defvar common-lisp-feature-expr-regexp "#!?\\(+\\|-\\)")
+(defvar slime-lisp-feature-expr-regexp "#!?\\(+\\|-\\)")
 
 ;;; Semi-feature-expression aware keyword check.
-(defun common-lisp-looking-at-keyword ()
+(defun slime-lisp-looking-at-keyword ()
   (or (looking-at ":")
-      (and (looking-at common-lisp-feature-expr-regexp)
+      (and (looking-at slime-lisp-feature-expr-regexp)
            (save-excursion
              (forward-sexp)
              (skip-chars-forward " \t\n")
-             (common-lisp-looking-at-keyword)))))
+             (slime-lisp-looking-at-keyword)))))
 
 ;;; Semi-feature-expression aware backwards movement for keyword
 ;;; argument pairs.
-(defun common-lisp-backward-keyword-argument ()
+(defun slime-lisp-backward-keyword-argument ()
   (ignore-errors
     (backward-sexp 2)
-    (when (looking-at common-lisp-feature-expr-regexp)
+    (when (looking-at slime-lisp-feature-expr-regexp)
       (cond ((ignore-errors
                (save-excursion
                  (backward-sexp 2)
-                 (looking-at common-lisp-feature-expr-regexp)))
-             (common-lisp-backward-keyword-argument))
+                 (looking-at slime-lisp-feature-expr-regexp)))
+             (slime-lisp-backward-keyword-argument))
             ((ignore-errors
                (save-excursion
                  (backward-sexp 1)
@@ -800,9 +949,9 @@ For example, the function `case' has an indent property
              (backward-sexp))))
     t))
 
-(defun common-lisp-indent-function-1 (indent-point state)
+(defun slime-common-lisp-indent-function-1 (indent-point state)
   ;; If we're looking at a splice, move to the first comma.
-  (when (or (common-lisp-looking-back ",") (common-lisp-looking-back ",@"))
+  (when (or (slime-lisp-looking-back ",") (slime-lisp-looking-back ",@"))
     (when (re-search-backward "[^,@'],")
       (forward-char 1)))
   ;; Walk up list levels until we see something which does special
@@ -818,9 +967,9 @@ For example, the function `case' has an indent property
          ;; if nothing else specifies it more firmly.
          tentative-calculated
          ;; the position of the open-paren of the innermost containing list
-         (containing-form-start (common-lisp-indent-parse-state-start state))
-         (normal-indent (common-lisp-normal-indent indent-point
-                                                   containing-form-start))
+         (containing-form-start (slime-lisp-indent-parse-state-start state))
+         (normal-indent (slime-lisp-normal-indent indent-point
+                                                  containing-form-start))
          ;; the column of the above
          sexp-column)
     ;; Move to start of innermost containing list
@@ -829,7 +978,7 @@ For example, the function `case' has an indent property
 
     ;; Look over successively less-deep containing forms
     (while (and (not calculated)
-                (< depth lisp-indent-maximum-backtracking))
+                (< depth slime-lisp-indent-maximum-backtracking))
       (let ((containing-sexp (point)))
         (forward-char 1)
         (parse-partial-sexp (point) indent-point 1 t)
@@ -845,17 +994,17 @@ For example, the function `case' has an indent property
                   function full)
             (goto-char tem)
             (setq tem (intern-soft function)
-                  method (common-lisp-get-indentation tem))
+                  method (slime-lisp-get-indentation tem))
             (cond ((and (null method)
                         (string-match ":[^:]+" function))
                    ;; The pleblisp package feature
                    (setq function (substring function
                                              (1+ (match-beginning 0)))
-                         method (common-lisp-get-indentation
+                         method (slime-lisp-get-indentation
                                  (intern-soft function) full)))
                   ((and (null method))
                    ;; backwards compatibility
-                   (setq method (common-lisp-get-indentation tem)))))
+                   (setq method (slime-lisp-get-indentation tem)))))
           (let ((n 0))
             ;; How far into the containing form is the current form?
             (if (< (point) indent-point)
@@ -892,11 +1041,11 @@ For example, the function `case' has an indent property
             (goto-char indent-point)
             (backward-sexp)
             (let ((indent (current-column)))
-              (when (or (looking-at common-lisp-feature-expr-regexp)
+              (when (or (looking-at slime-lisp-feature-expr-regexp)
                         (ignore-errors
                           (backward-sexp)
                           (when (looking-at
-                                 common-lisp-feature-expr-regexp)
+                                 slime-lisp-feature-expr-regexp)
                             (setq indent (current-column))
                             (let ((line (line-number-at-pos)))
                               (while
@@ -905,14 +1054,14 @@ For example, the function `case' has an indent property
                                     (and
                                      (= line (line-number-at-pos))
                                      (looking-at
-                                      common-lisp-feature-expr-regexp)))
+                                      slime-lisp-feature-expr-regexp)))
                                 (setq indent (current-column))))
                             t)))
                 (setq calculated (list indent containing-form-start)))))
           (let ((prev-char (char-after (1- containing-sexp))))
             (cond ((and (or (eq prev-char ?\')
                             (and (eq prev-char ?\`)
-                                 (if lisp-backquote-indentation
+                                 (if slime-lisp-backquote-indentation
                                      ;; `("foo" ...) is not valid Lisp, indent it as data.
                                      (save-excursion
                                        (goto-char containing-sexp)
@@ -939,12 +1088,12 @@ For example, the function `case' has an indent property
                    ;; that it specifies indentation for.
                    (if tentative-defun
                        (setq tentative-calculated
-                             (common-lisp-indent-call-method
-                              function lisp-indent-defun-method
+                             (slime-lisp-indent-call-method
+                              function slime-lisp-indent-defun-method
                               path state indent-point
                               sexp-column normal-indent)
                              normal-indent tentative-calculated)
-                     (when lisp-align-keywords-in-calls
+                     (when slime-lisp-align-keywords-in-calls
                        ;; No method so far. If we're looking at a keyword,
                        ;; align with the first keyword in this expression.
                        ;; This gives a reasonable indentation to most things
@@ -952,9 +1101,9 @@ For example, the function `case' has an indent property
                        (save-excursion
                          (goto-char indent-point)
                          (back-to-indentation)
-                         (when (common-lisp-looking-at-keyword)
-                           (while (common-lisp-backward-keyword-argument)
-                             (when (common-lisp-looking-at-keyword)
+                         (when (slime-lisp-looking-at-keyword)
+                           (while (slime-lisp-backward-keyword-argument)
+                             (when (slime-lisp-looking-at-keyword)
                                (setq calculated
                                      (list (current-column)
                                            containing-form-start)))))))))
@@ -978,7 +1127,7 @@ For example, the function `case' has an indent property
                                            normal-indent))))
                   (t
                    (setq calculated
-                         (common-lisp-indent-call-method
+                         (slime-lisp-indent-call-method
                           function method path state indent-point
                           sexp-column normal-indent))))))
         (goto-char containing-sexp)
@@ -987,12 +1136,12 @@ For example, the function `case' has an indent property
               (progn (backward-up-list 1)
                      (setq depth (1+ depth)))
             (error
-             (setq depth lisp-indent-maximum-backtracking))))))
+             (setq depth slime-lisp-indent-maximum-backtracking))))))
 
     (or calculated tentative-calculated
         (list normal-indent containing-form-start))))
 
-(defun common-lisp-normal-indent (indent-point containing-form-start)
+(defun slime-lisp-normal-indent (indent-point containing-form-start)
   (save-excursion
     (goto-char indent-point)
     (back-to-indentation)
@@ -1001,7 +1150,7 @@ For example, the function `case' has an indent property
     (let ((one (current-column)))
       (skip-chars-forward " \t")
       (if (or (eolp)
-              (if lisp-indent-apparent-data
+              (if slime-lisp-indent-apparent-data
                   (looking-at ";")
                   (looking-at "[;:#\"(]")))
           ;; Indent one column from the opening paren.
@@ -1011,74 +1160,74 @@ For example, the function `case' has an indent property
         (skip-chars-forward " \t")
         (let ((first-arg-or-comment-pos (point)))
           (goto-char indent-point)
-          (common-lisp-backward-comment-or-sexp)
+          (slime-lisp-backward-comment-or-sexp)
           (while (and (< first-arg-or-comment-pos (point))
                       (/= (point) (save-excursion
                                     (back-to-indentation)
                                     (point))))
-            (common-lisp-backward-comment-or-sexp)))
+            (slime-lisp-backward-comment-or-sexp)))
         (if (or (looking-at ";;") (not (looking-at ";")))
             (current-column)
           one)))))
 
-(defun common-lisp-backward-comment-or-sexp ()
+(defun slime-lisp-backward-comment-or-sexp ()
   (let ((start (point)))
     (forward-comment -1)
     (unless (and (looking-at ";")
                  (/= start (point)))
       (backward-sexp))))
 
+;; Dynamically bound in slime-lisp-indent-call-method.
+(defvar slime-lisp-indent-error-function)
 
-;; Dynamically bound in common-lisp-indent-call-method.
-(defvar lisp-indent-error-function)
-
-(defun common-lisp-indent-call-method (function method path state indent-point
-                                       sexp-column normal-indent)
-  (let ((lisp-indent-error-function function))
+(defun slime-lisp-indent-call-method (function method path state indent-point
+                                      sexp-column normal-indent)
+  (let ((slime-lisp-indent-error-function function))
     (if (symbolp method)
         (funcall method
                  path state indent-point
                  sexp-column normal-indent)
-      (lisp-indent-259 method path state indent-point
-                       sexp-column normal-indent))))
-(defun lisp-indent-report-bad-format (m)
+      (slime-lisp-indent-259 method path state indent-point
+                             sexp-column normal-indent))))
+
+(defun slime-lisp-indent-report-bad-format (m)
   (error "%s has a badly-formed %s property: %s"
          ;; Love those free variable references!!
-         lisp-indent-error-function 'common-lisp-indent-function m))
+         slime-lisp-indent-error-function 'slime-common-lisp-indent-function m))
 
 
 ;; Lambda-list indentation is now done in LISP-INDENT-LAMBDA-LIST.
-;; See also `lisp-lambda-list-keyword-alignment',
-;; `lisp-lambda-list-keyword-parameter-alignment' and
-;; `lisp-lambda-list-keyword-parameter-indentation' -- dvl
+;; See also `slime-lisp-lambda-list-keyword-alignment',
+;; `slime-lisp-lambda-list-keyword-parameter-alignment' and
+;; `slime-lisp-lambda-list-keyword-parameter-indentation' -- dvl
 
-(defvar lisp-indent-lambda-list-keywords-regexp
+(defvar slime-lisp-indent-lambda-list-keywords-regexp
   "&\\(\
 optional\\|rest\\|key\\|allow-other-keys\\|aux\\|whole\\|body\\|\
 environment\\|more\
 \\)\\>"
   "Regular expression matching lambda-list keywords.")
 
-(defvar lisp-indent-lambda-list-single-arg-keywords-regexp
+(defvar slime-lisp-indent-lambda-list-single-arg-keywords-regexp
   "&\\(whole\\|environment\\)\\>"
   "Regular expression matching lambda-list keywords which take a single argument.")
 
-(defun lisp-indent-lambda-list
+(defun slime-lisp-indent-lambda-list
     (indent-point sexp-column containing-form-start)
-  (if (not lisp-lambda-list-indentation)
+  (if (not slime-lisp-lambda-list-indentation)
       (1+ sexp-column)
-    (lisp-properly-indent-lambda-list
+    (slime-lisp-properly-indent-lambda-list
      indent-point sexp-column containing-form-start)))
 
-(defun lisp-properly-indent-lambda-list
+(defun slime-lisp-properly-indent-lambda-list
     (indent-point sexp-column containing-form-start)
   (cond
    ((save-excursion
       (goto-char indent-point)
       (back-to-indentation)
-      (looking-at lisp-indent-lambda-list-keywords-regexp))
+      (looking-at slime-lisp-indent-lambda-list-keywords-regexp))
     ;; We're facing a lambda-list keyword.
-    (if lisp-lambda-list-keyword-alignment
+    (if slime-lisp-lambda-list-keyword-alignment
         ;; Align to the first keyword if any, or to the beginning of
         ;; the lambda-list.
         (save-excursion
@@ -1087,7 +1236,7 @@ environment\\|more\
           (let ((key-indent nil)
                 (next t))
             (while (and next (< (point) indent-point))
-              (if (looking-at lisp-indent-lambda-list-keywords-regexp)
+              (if (looking-at slime-lisp-indent-lambda-list-keywords-regexp)
                   (setq key-indent (current-column)
                         next nil)
                 (setq next (ignore-errors (forward-sexp) t))
@@ -1116,27 +1265,27 @@ environment\\|more\
                     (skip-chars-forward " \t")
                     (if (eolp)
                         (+ col
-                           lisp-lambda-list-keyword-parameter-indentation)
+                           slime-lisp-lambda-list-keyword-parameter-indentation)
                       col))))
             (cond
-             ((looking-at lisp-indent-lambda-list-single-arg-keywords-regexp)
+             ((looking-at slime-lisp-indent-lambda-list-single-arg-keywords-regexp)
               ;; Some keywords such as &whole have a single argument;
               ;; following arguments are indented to the beginning of the
               ;; lambda-list.
               (setq indent col
                     next nil))
-             ((looking-at lisp-indent-lambda-list-keywords-regexp)
+             ((looking-at slime-lisp-indent-lambda-list-keywords-regexp)
               (setq indent
-                    (if lisp-lambda-list-keyword-parameter-alignment
+                    (if slime-lisp-lambda-list-keyword-parameter-alignment
                         (or indent pos)
                       (+ col
-                         lisp-lambda-list-keyword-parameter-indentation))
+                         slime-lisp-lambda-list-keyword-parameter-indentation))
                     next nil))
              (t
               (setq indent col)))))
         (or indent (1+ sexp-column)))))))
 
-(defun common-lisp-lambda-list-initial-value-form-p (point)
+(defun slime-lisp-lambda-list-initial-value-form-p (point)
   (let ((state 'x)
         (point (save-excursion
                  (goto-char point)
@@ -1149,7 +1298,7 @@ environment\\|more\
         (cond ((or (looking-at "&key") (looking-at "&optional")
                    (looking-at "&aux"))
                (setq state 'key))
-              ((looking-at lisp-indent-lambda-list-keywords-regexp)
+              ((looking-at slime-lisp-indent-lambda-list-keywords-regexp)
                (setq state 'x)))
         (if (not (ignore-errors (forward-sexp) t))
             (setq point nil)
@@ -1174,7 +1323,7 @@ environment\\|more\
 
 ;; Blame the crufty control structure on dynamic scoping
 ;;  -- not on me!
-(defun lisp-indent-259
+(defun slime-lisp-indent-259
     (method path state indent-point sexp-column normal-indent)
   (catch 'exit
     (let* ((p (cdr path))
@@ -1182,7 +1331,7 @@ environment\\|more\
            (n (1- (car path)))
            tem tail)
       (if (not (consp method))
-          (lisp-indent-report-bad-format method))
+          (slime-lisp-indent-report-bad-format method))
       (while n
         ;; This while loop is for advancing along a method
         ;; until the relevant (possibly &rest/&body) pattern
@@ -1205,7 +1354,7 @@ environment\\|more\
                               (integerp (cadr tem))))))
             (and (symbolp tem)        ;a function to call to do the work.
                  (null (cdr method)))
-            (lisp-indent-report-bad-format method))
+            (slime-lisp-indent-report-bad-format method))
         (cond ((eq tem '&body)
                ;; &body means (&rest <lisp-body-indent>)
                (throw 'exit
@@ -1230,13 +1379,13 @@ environment\\|more\
                               (list normal-indent containing-form-start))))
               ((eq tem '&lambda)
                (throw 'exit
-                      (cond ((not (common-lisp-looking-back ")"))
+                      (cond ((not (slime-lisp-looking-back ")"))
                              ;; If it's not a list at all, indent it
                              ;; like body instead.
                              (if (null p)
                                  (+ sexp-column lisp-body-indent)
                                normal-indent))
-                            ((common-lisp-lambda-list-initial-value-form-p
+                            ((slime-lisp-lambda-list-initial-value-form-p
                               indent-point)
                              (if (consp normal-indent)
                                  normal-indent
@@ -1245,7 +1394,7 @@ environment\\|more\
                              (list (+ sexp-column 4) containing-form-start))
                             (t
                              ;; Indentation within a lambda-list. -- dvl
-                             (list (lisp-indent-lambda-list
+                             (list (slime-lisp-indent-lambda-list
                                     indent-point
                                     sexp-column
                                     containing-form-start)
@@ -1291,7 +1440,7 @@ environment\\|more\
                                  (funcall tem path state indent-point
                                           sexp-column normal-indent))))))))))))
 
-(defun lisp-indent-tagbody (path state indent-point sexp-column normal-indent)
+(defun slime-lisp-indent-tagbody (path state indent-point sexp-column normal-indent)
   (if (not (null (cdr path)))
       normal-indent
     (save-excursion
@@ -1299,29 +1448,29 @@ environment\\|more\
       (back-to-indentation)
       (list (cond ((looking-at "\\sw\\|\\s_")
                    ;; a tagbody tag
-                   (+ sexp-column lisp-tag-indentation))
-                  ((integerp lisp-tag-body-indentation)
-                   (+ sexp-column lisp-tag-body-indentation))
-                  ((eq lisp-tag-body-indentation 't)
+                   (+ sexp-column slime-lisp-tag-indentation))
+                  ((integerp slime-lisp-tag-body-indentation)
+                   (+ sexp-column slime-lisp-tag-body-indentation))
+                  ((eq slime-lisp-tag-body-indentation 't)
                    (condition-case ()
                        (progn (backward-sexp 1) (current-column))
                      (error (1+ sexp-column))))
                   (t (+ sexp-column lisp-body-indent)))
-;            (cond ((integerp lisp-tag-body-indentation)
-;                   (+ sexp-column lisp-tag-body-indentation))
-;                  ((eq lisp-tag-body-indentation 't)
+;            (cond ((integerp slime-lisp-tag-body-indentation)
+;                   (+ sexp-column slime-lisp-tag-body-indentation))
+;                  ((eq slime-lisp-tag-body-indentation 't)
 ;                   normal-indent)
 ;                  (t
 ;                   (+ sexp-column lisp-body-indent)))
             (elt state 1)
             ))))
 
-(defun lisp-indent-do (path state indent-point sexp-column normal-indent)
+(defun slime-lisp-indent-do (path state indent-point sexp-column normal-indent)
   (if (>= (car path) 3)
-      (let ((lisp-tag-body-indentation lisp-body-indent))
-        (funcall (function lisp-indent-tagbody)
+      (let ((slime-lisp-tag-body-indentation lisp-body-indent))
+        (funcall (function slime-lisp-indent-tagbody)
                  path state indent-point sexp-column normal-indent))
-    (funcall (function lisp-indent-259)
+    (funcall (function slime-lisp-indent-259)
              '((&whole nil &rest
                 ;; the following causes weird indentation
                 ;;(&whole 1 1 2 nil)
@@ -1329,13 +1478,13 @@ environment\\|more\
                (&whole nil &rest 1))
              path state indent-point sexp-column normal-indent)))
 
-(defun lisp-indent-defsetf
+(defun slime-lisp-indent-defsetf
     (path state indent-point sexp-column _normal-indent)
   (list
    (cond
     ;; Inside the lambda-list in a long-form defsetf.
     ((and (eql 2 (car path)) (cdr path))
-     (lisp-indent-lambda-list indent-point sexp-column (elt state 1)))
+     (slime-lisp-indent-lambda-list indent-point sexp-column (elt state 1)))
     ;; Long form: has a lambda-list.
     ((or (cdr path)
          (save-excursion
@@ -1359,7 +1508,7 @@ environment\\|more\
           (t 2)))))
    (elt state 1)))
 
-(defun lisp-beginning-of-defmethod-qualifiers ()
+(defun slime-lisp-beginning-of-defmethod-qualifiers ()
   (let ((regexp-1 "(defmethod\\|(DEFMETHOD")
         (regexp-2 "(:method\\|(:METHOD"))
     (while (and (not (or (looking-at regexp-1)
@@ -1375,14 +1524,14 @@ environment\\|more\
            (forward-sexp 1)
            0))))
 
-;; LISP-INDENT-DEFMETHOD now supports the presence of more than one method
+;; SLIME-LISP-INDENT-DEFMETHOD now supports the presence of more than one method
 ;; qualifier and indents the method's lambda list properly. -- dvl
-(defun lisp-indent-defmethod
+(defun slime-lisp-indent-defmethod
     (path state indent-point sexp-column normal-indent)
-  (lisp-indent-259
+  (slime-lisp-indent-259
    (let ((nskip nil))
      (if (save-excursion
-           (when (setq nskip (lisp-beginning-of-defmethod-qualifiers))
+           (when (setq nskip (slime-lisp-beginning-of-defmethod-qualifiers))
              (skip-chars-forward " \t\n")
              (while (looking-at "\\sw\\|\\s_")
                (cl-incf nskip)
@@ -1390,11 +1539,11 @@ environment\\|more\
                (skip-chars-forward " \t\n"))
              t))
          (append (make-list nskip 4) '(&lambda &body))
-       (common-lisp-get-indentation 'defun)))
+       (slime-lisp-get-indentation 'defun)))
    path state indent-point sexp-column normal-indent))
 
-(defun lisp-indent-function-lambda-hack (path _state _indent-point
-                                         sexp-column normal-indent)
+(defun slime-lisp-indent-function-lambda-hack (path _state _indent-point
+                                               sexp-column normal-indent)
   ;; indent (function (lambda () <newline> <body-forms>)) kludgily.
   (if (or (cdr path) ; wtf?
           (> (car path) 3))
@@ -1411,27 +1560,27 @@ environment\\|more\
               (+ sexp-column lisp-body-indent)))
        (error (+ sexp-column lisp-body-indent)))))
 
-(defun lisp-indent-loop (path state indent-point _sexp-column normal-indent)
+(defun slime-lisp-indent-loop (path state indent-point _sexp-column normal-indent)
   (if (cdr path)
       normal-indent
     (let* ((loop-start (elt state 1))
-           (type (common-lisp-loop-type loop-start)))
-      (cond ((and lisp-loop-indent-subclauses
+           (type (slime-lisp-loop-type loop-start)))
+      (cond ((and slime-lisp-loop-indent-subclauses
                   (member type '(extended extended/split)))
-             (list (common-lisp-indent-loop-macro-1 state indent-point)
-                   (common-lisp-indent-parse-state-start state)))
+             (list (slime-lisp-indent-loop-macro-1 state indent-point)
+                   (slime-lisp-indent-parse-state-start state)))
             (t
-             (common-lisp-loop-part-indentation indent-point state type))))))
+             (slime-lisp-loop-part-indentation indent-point state type))))))
 
 ;;;; LOOP indentation, the complex version -- handles subclause indentation
 
 ;; Regexps matching various varieties of loop macro keyword ...
-(defvar common-lisp-body-introducing-loop-macro-keyword
+(defvar slime-lisp-body-introducing-loop-macro-keyword
   "\\(#?:\\)?\\(do\\(ing\\)?\\|finally\\|initially\\)"
   "Regexp matching loop macro keywords which introduce body forms.")
 
 ;; Not currenctly used
-(defvar common-lisp-accumlation-loop-macro-keyword
+(defvar slime-lisp-accumlation-loop-macro-keyword
   "\\(#?:\\)?\\(collect\\(ing\\)?\\|append\\(ing\\)?\\|nconc\\(ing\\)?\\|\
 count\\(ing\\)?\\|sum\\(ming\\)?\\|maximiz\\(e\\|ing\\)\\|\
 minimiz\\(e\\|ing\\)\\)"
@@ -1439,40 +1588,40 @@ minimiz\\(e\\|ing\\)\\)"
 
 ;; This is so "and when" and "else when" get handled right
 ;; (not to mention "else do" !!!)
-(defvar common-lisp-prefix-loop-macro-keyword
+(defvar slime-lisp-prefix-loop-macro-keyword
   "\\(#?:\\)?\\(and\\|else\\)"
   "Regexp matching loop macro keywords which are prefixes.")
 
-(defvar common-lisp-indent-clause-joining-loop-macro-keyword
+(defvar slime-lisp-indent-clause-joining-loop-macro-keyword
   "\\(#?:\\)?and"
   "Regexp matching 'and', and anything else there ever comes to be like it.")
 
-(defvar common-lisp-indent-indented-loop-macro-keyword
+(defvar slime-lisp-indent-indented-loop-macro-keyword
   "\\(#?:\\)?\\(\\(up\\|down\\)?(from\\|to)\\|below\\|above\\|in\\(to\\)?\\|\
 on\\|=\\|then\\|across\\|being\\|each\\|the\\|of\\|using\\|\
 \\(present-\\|external-\\)?symbols?\\|fixnum\\|float\\|t\\|nil\\|of-type\\)"
   "Regexp matching keywords introducing loop subclauses.
 Always indented two.")
 
-(defvar common-lisp-indenting-loop-macro-keyword
+(defvar slime-lisp-indenting-loop-macro-keyword
   "\\(#?:\\)?\\(when\\|unless\\|if\\)"
   "Regexp matching keywords introducing conditional clauses.
 Cause subsequent clauses to be indented.")
 
-(defvar common-lisp-loop-macro-else-keyword "\\(#?:\\)?else")
+(defvar slime-lisp-loop-macro-else-keyword "\\(#?:\\)?else")
 
 ;;; Attempt to indent the loop macro ...
 
-(defun common-lisp-indent-parse-state-depth (parse-state)
+(defun slime-lisp-indent-parse-state-depth (parse-state)
   (car parse-state))
 
-(defun common-lisp-indent-parse-state-start (parse-state)
+(defun slime-lisp-indent-parse-state-start (parse-state)
   (car (cdr parse-state)))
 
-(defun common-lisp-indent-parse-state-prev (parse-state)
+(defun slime-lisp-indent-parse-state-prev (parse-state)
   (car (cdr (cdr parse-state))))
 
-(defun common-lisp-loop-part-indentation (indent-point state type)
+(defun slime-lisp-loop-part-indentation (indent-point state type)
   "Compute the indentation of loop form constituents."
   (let* ((loop-start (elt state 1))
          (loop-indentation (save-excursion
@@ -1485,7 +1634,7 @@ Cause subsequent clauses to be indented.")
     (goto-char indent-point)
     (back-to-indentation)
     (cond ((eq type 'simple/split)
-           (+ loop-indentation lisp-simple-loop-indentation))
+           (+ loop-indentation slime-lisp-simple-loop-indentation))
           ((eq type 'simple)
            (+ loop-indentation 6))
           ;; We are already in a body, with forms in it.
@@ -1496,15 +1645,15 @@ Cause subsequent clauses to be indented.")
                     (setq indent (current-column)))
                   (when (and indent
                              (looking-at
-                              common-lisp-body-introducing-loop-macro-keyword))
+                              slime-lisp-body-introducing-loop-macro-keyword))
                     t)))
            (list indent loop-start))
           ;; Keyword-style or comment outside body
-          ((or lisp-loop-indent-forms-like-keywords
+          ((or slime-lisp-loop-indent-forms-like-keywords
                (looking-at re)
                (looking-at ";"))
            (if (and (looking-at ";")
-                    (let ((p (common-lisp-trailing-comment)))
+                    (let ((p (slime-lisp-trailing-comment)))
                       (when p
                         (setq loop-indentation p))))
                (list loop-indentation loop-start)
@@ -1513,14 +1662,14 @@ Cause subsequent clauses to be indented.")
           (t
            (list (+ loop-indentation 9) loop-start)))))
 
-(defun common-lisp-indent-loop-macro-1 (parse-state indent-point)
+(defun slime-lisp-indent-loop-macro-1 (parse-state indent-point)
   (catch 'return-indentation
     (save-excursion
       ;; Find first clause of loop macro, and use it to establish
       ;; base column for indentation
-      (goto-char (common-lisp-indent-parse-state-start parse-state))
+      (goto-char (slime-lisp-indent-parse-state-start parse-state))
       (let ((loop-start-column (current-column)))
-        (common-lisp-loop-advance-past-keyword-on-line)
+        (slime-lisp-loop-advance-past-keyword-on-line)
 
         (when (eolp)
           (forward-line 1)
@@ -1528,14 +1677,14 @@ Cause subsequent clauses to be indented.")
           ;; If indenting first line after "(loop <newline>"
           ;; cop out ...
           (if (<= indent-point (point))
-              (throw 'return-indentation (+ lisp-loop-clauses-indentation
+              (throw 'return-indentation (+ slime-lisp-loop-clauses-indentation
                                             loop-start-column)))
           (back-to-indentation))
 
         (let* ((case-fold-search t)
                (loop-macro-first-clause (point))
                (previous-expression-start
-                (common-lisp-indent-parse-state-prev parse-state))
+                (slime-lisp-indent-parse-state-prev parse-state))
                (default-value (current-column))
                (loop-body-p nil)
                (loop-body-indentation nil)
@@ -1545,17 +1694,17 @@ Cause subsequent clauses to be indented.")
           (goto-char previous-expression-start)
 
           ;; Handle a body-introducing-clause which ends a line specially.
-          (if (looking-at common-lisp-body-introducing-loop-macro-keyword)
+          (if (looking-at slime-lisp-body-introducing-loop-macro-keyword)
               (let ((keyword-position (current-column)))
                 (setq loop-body-p t)
                 (setq loop-body-indentation
-                      (if (common-lisp-loop-advance-past-keyword-on-line)
+                      (if (slime-lisp-loop-advance-past-keyword-on-line)
                           (current-column)
                         (back-to-indentation)
                         (if (/= (current-column) keyword-position)
                             (+ 2 (current-column))
-                          (+ lisp-loop-body-forms-indentation
-                             (if lisp-loop-indent-body-forms-relative-to-loop-start
+                          (+ slime-lisp-loop-body-forms-indentation
+                             (if slime-lisp-loop-indent-body-forms-relative-to-loop-start
                                  loop-start-column
                                keyword-position))))))
 
@@ -1567,8 +1716,8 @@ Cause subsequent clauses to be indented.")
             ;; as if there were a "when" and indent under it ...
             (let ((exit nil))
               (while (and (null exit)
-                          (looking-at common-lisp-prefix-loop-macro-keyword))
-                (if (null (common-lisp-loop-advance-past-keyword-on-line))
+                          (looking-at slime-lisp-prefix-loop-macro-keyword))
+                (if (null (slime-lisp-loop-advance-past-keyword-on-line))
                     (progn (setq exit t)
                            (back-to-indentation)))))
 
@@ -1579,16 +1728,16 @@ Cause subsequent clauses to be indented.")
               ;; We're in the middle of a clause body ...
               (setq loop-body-p t)
               (setq loop-body-indentation (current-column)))
-             ((looking-at common-lisp-body-introducing-loop-macro-keyword)
+             ((looking-at slime-lisp-body-introducing-loop-macro-keyword)
               (setq loop-body-p t)
               ;; Know there's something else on the line (or would
               ;; have been caught above)
-              (common-lisp-loop-advance-past-keyword-on-line)
+              (slime-lisp-loop-advance-past-keyword-on-line)
               (setq loop-body-indentation (current-column)))
              (t
               (setq loop-body-p nil)
-              (if (or (looking-at common-lisp-indenting-loop-macro-keyword)
-                      (looking-at common-lisp-prefix-loop-macro-keyword))
+              (if (or (looking-at slime-lisp-indenting-loop-macro-keyword)
+                      (looking-at slime-lisp-prefix-loop-macro-keyword))
                   (setq default-value (+ 2 (current-column))))
               (setq indented-clause-indentation (+ 2 (current-column)))
               ;; We still need loop-body-indentation for "syntax errors" ...
@@ -1608,11 +1757,11 @@ Cause subsequent clauses to be indented.")
             ;; vanilla clause.
             (if loop-body-p
                 loop-body-indentation
-              (or (and (looking-at ";") (common-lisp-trailing-comment))
+              (or (and (looking-at ";") (slime-lisp-trailing-comment))
                   default-value)))
-           ((looking-at common-lisp-indent-indented-loop-macro-keyword)
+           ((looking-at slime-lisp-indent-indented-loop-macro-keyword)
             indented-clause-indentation)
-           ((looking-at common-lisp-indent-clause-joining-loop-macro-keyword)
+           ((looking-at slime-lisp-indent-clause-joining-loop-macro-keyword)
             (let ((stolen-indent-column nil))
               (forward-line -1)
               (while (and (null stolen-indent-column)
@@ -1621,8 +1770,8 @@ Cause subsequent clauses to be indented.")
                 (if (and (< (current-column) loop-body-indentation)
                          (looking-at "\\(#?:\\)?\\sw"))
                     (progn
-                      (if (looking-at common-lisp-loop-macro-else-keyword)
-                          (common-lisp-loop-advance-past-keyword-on-line))
+                      (if (looking-at slime-lisp-loop-macro-else-keyword)
+                          (slime-lisp-loop-advance-past-keyword-on-line))
                       (setq stolen-indent-column
                             (current-column)))
                   (forward-line -1)))
@@ -1631,7 +1780,7 @@ Cause subsequent clauses to be indented.")
                 default-value)))
            (t default-value)))))))
 
-(defun common-lisp-loop-advance-past-keyword-on-line ()
+(defun slime-lisp-loop-advance-past-keyword-on-line ()
   (forward-word 1)
   (while (and (looking-at "\\s-") (not (eolp)))
     (forward-char 1))
@@ -1642,27 +1791,27 @@ Cause subsequent clauses to be indented.")
 ;;;; IF* is not standard, but a plague upon the land
 ;;;; ...let's at least try to indent it.
 
-(defvar common-lisp-indent-if*-keyword
+(defvar slime-lisp-indent-if*-keyword
   "threnret\\|elseif\\|then\\|else"
   "Regexp matching if* keywords")
 
-(defun common-lisp-indent-if*
+(defun slime-lisp-indent-if*
     (_path parse-state indent-point _sexp-column _normal-indent)
-  (list (common-lisp-indent-if*-1 parse-state indent-point)
-	(common-lisp-indent-parse-state-start parse-state)))
+  (list (slime-lisp-indent-if*-1 parse-state indent-point)
+	(slime-lisp-indent-parse-state-start parse-state)))
 
-(defun common-lisp-indent-if*-1 (parse-state indent-point)
+(defun slime-lisp-indent-if*-1 (parse-state indent-point)
   (catch 'return-indentation
     (save-excursion
       ;; Find first clause of if* macro, and use it to establish
       ;; base column for indentation
-      (goto-char (common-lisp-indent-parse-state-start parse-state))
+      (goto-char (slime-lisp-indent-parse-state-start parse-state))
       (let ((if*-start-column (current-column)))
-	(common-lisp-indent-if*-advance-past-keyword-on-line)
+	(slime-lisp-indent-if*-advance-past-keyword-on-line)
 	(let* ((case-fold-search t)
 	       (if*-first-clause (point))
 	       (previous-expression-start
-                (common-lisp-indent-parse-state-prev parse-state))
+                (slime-lisp-indent-parse-state-prev parse-state))
 	       (default-value (current-column))
 	       (if*-body-p nil)
 	       (if*-body-indentation nil))
@@ -1676,11 +1825,11 @@ Cause subsequent clauses to be indented.")
           ;; Found start of if* clause preceding the one we're trying
           ;; to indent. Glean context ...
           (cond
-           ((looking-at common-lisp-indent-if*-keyword)
+           ((looking-at slime-lisp-indent-if*-keyword)
             (setq if*-body-p t)
             ;; Know there's something else on the line (or would
             ;; have been caught above)
-            (common-lisp-indent-if*-advance-past-keyword-on-line)
+            (slime-lisp-indent-if*-advance-past-keyword-on-line)
             (setq if*-body-indentation (current-column)))
            ((looking-at "#'\\|'\\|(")
             ;; We're in the middle of a clause body ...
@@ -1703,14 +1852,14 @@ Cause subsequent clauses to be indented.")
             (if if*-body-p
                 if*-body-indentation
               default-value))
-           ((not (looking-at common-lisp-indent-if*-keyword))
+           ((not (looking-at slime-lisp-indent-if*-keyword))
             ;; Clause body ...
             if*-body-indentation)
            (t
             (- (+ 7 if*-start-column)
                (- (match-end 0) (match-beginning 0))))))))))
 
-(defun common-lisp-indent-if*-advance-past-keyword-on-line ()
+(defun slime-lisp-indent-if*-advance-past-keyword-on-line ()
   (forward-word 1)
   (while (and (looking-at "\\s-") (not (eolp)))
     (forward-char 1))
@@ -1720,7 +1869,7 @@ Cause subsequent clauses to be indented.")
 
 
 ;;;; Indentation specs for standard symbols, and a few semistandard ones.
-(defun common-lisp-init-standard-indentation ()
+(defun slime-lisp-init-standard-indentation ()
   (let ((l '((block 1)
              (case        (4 &rest (&whole 2 &rest 1)))
              (ccase       (as case))
@@ -1743,7 +1892,7 @@ Cause subsequent clauses to be indented.")
              (defconst         (as defcustom))
              (define-condition (as defclass))
              (define-modify-macro (4 &lambda &body))
-             (defsetf      lisp-indent-defsetf)
+             (defsetf      slime-lisp-indent-defsetf)
              (defun       (4 &lambda &body))
              (defgeneric  (4 &lambda &body))
              (define-setf-method   (as defun))
@@ -1751,12 +1900,12 @@ Cause subsequent clauses to be indented.")
              (defmacro     (as defun))
              (defsubst     (as defun))
              (deftype      (as defun))
-             (defmethod   lisp-indent-defmethod)
+             (defmethod   slime-lisp-indent-defmethod)
              (defpackage  (4 2))
              (defstruct   ((&whole 4 &rest (&whole 2 &rest 1))
                            &rest (&whole 2 &rest 1)))
              (destructuring-bind (&lambda 4 &body))
-             (do          lisp-indent-do)
+             (do          slime-lisp-indent-do)
              (do*         (as do))
              (dolist      ((&whole 4 2 1) &body))
              (dotimes     (as dolist))
@@ -1770,26 +1919,26 @@ Cause subsequent clauses to be indented.")
              (restart-case (as handler-case))
              ;; single-else style (then and else equally indented)
              (if          (&rest nil))
-             (if*         common-lisp-indent-if*)
-             (lambda      (&lambda &rest lisp-indent-function-lambda-hack))
+             (if*         slime-lisp-indent-if*)
+             (lambda      (&lambda &rest slime-lisp-indent-function-lambda-hack))
              (let         ((&whole 4 &rest (&whole 1 1 2)) &body))
              (let*         (as let))
              (compiler-let (as let))
              (handler-bind (as let))
              (restart-bind (as let))
              (locally 1)
-             (loop           lisp-indent-loop)
-             (:method        lisp-indent-defmethod) ; in `defgeneric'
+             (loop           slime-lisp-indent-loop)
+             (:method        slime-lisp-indent-defmethod) ; in `defgeneric'
              (multiple-value-bind ((&whole 6 &rest 1) 4 &body))
              (multiple-value-call (4 &body))
              (multiple-value-prog1 1)
              (multiple-value-setq (4 2))
              (multiple-value-setf (as multiple-value-setq))
-             (named-lambda (4 &lambda &rest lisp-indent-function-lambda-hack))
+             (named-lambda (4 &lambda &rest slime-lisp-indent-function-lambda-hack))
              (pprint-logical-block (4 2))
              (print-unreadable-object ((&whole 4 1 &rest 1) &body))
              ;; Combines the worst features of BLOCK, LET and TAGBODY
-             (prog        (&lambda &rest lisp-indent-tagbody))
+             (prog        (&lambda &rest slime-lisp-indent-tagbody))
              (prog* (as prog))
              (prog1 1)
              (prog2 2)
@@ -1798,7 +1947,7 @@ Cause subsequent clauses to be indented.")
              (return 0)
              (return-from (nil &body))
              (symbol-macrolet (as let))
-             (tagbody     lisp-indent-tagbody)
+             (tagbody     slime-lisp-indent-tagbody)
              (throw 1)
              (unless 1)
              (unwind-protect (5 &body))
@@ -1821,10 +1970,8 @@ Cause subsequent clauses to be indented.")
         (unless (symbolp name)
           (error "Cannot set Common Lisp indentation of a non-symbol: %s"
                  name))
-        (put name 'common-lisp-indent-function indentation)))))
-(common-lisp-init-standard-indentation)
+        (put name 'slime-common-lisp-indent-function indentation)))))
+(slime-lisp-init-standard-indentation)
 
-(provide 'cl-indent)
 (provide 'slime-cl-indent)
-
 ;;; slime-cl-indent.el ends here

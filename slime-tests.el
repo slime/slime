@@ -1638,12 +1638,12 @@ Reconnect afterwards."
             ((symbol-plist 'slime-test-indent) nil))
     (let ((slime-enable-evaluate-in-emacs nil))
       (slime-handle-indentation-update '(("slime-test-indent" "ignore" nil)))
-      (should-not (get 'slime-test-indent 'common-lisp-indent-function))
+      (should-not (get 'slime-test-indent 'slime-common-lisp-indent-function))
       (slime-handle-indentation-update '(("slime-test-indent" 4 nil)))
-      (should (eql (get 'slime-test-indent 'common-lisp-indent-function) 4))
+      (should (eql (get 'slime-test-indent 'slime-common-lisp-indent-function) 4))
       (slime-handle-indentation-update
        '(("slime-test-indent" "lisp-indent-loop" nil)))
-      (should (eq (get 'slime-test-indent 'common-lisp-indent-function)
+      (should (eq (get 'slime-test-indent 'slime-common-lisp-indent-function)
                   'lisp-indent-loop)))))
 
 (provide 'slime-tests)
