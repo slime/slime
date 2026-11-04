@@ -904,6 +904,12 @@ used with a prefix argument (C-u), doesn't switch back afterwards."
   :type 'boolean
   :group 'slime-repl)
 
+
+(defcustom slime-repl-eli-history-behavior nil
+  "*When T put history at point, when nil replace current REPL input."
+  :type 'boolean
+  :group 'slime-repl)
+
 (make-variable-buffer-local
  (defvar slime-repl-input-history '()
    "History list of strings read from the REPL buffer."))
@@ -928,6 +934,16 @@ Empty strings and duplicates are ignored."
 (defvar slime-repl-history-pattern nil
   "The regexp most recently used for finding input history.")
 
+(defun slime-repl-insert-history (pos prev-pos)
+  (let ((previous (nth prev-pos slime-repl-input-history))
+        (content (nth pos slime-repl-input-history)))
+    (when (slime-repl-history-search-in-progress-p)
+      (let ((prev-point (point)))
+        (backward-char (length previous))
+        (delete-region (min (point) prev-point)
+                       (max (point) prev-point))))
+    (insert-and-inherit content)))
+
 (defun slime-repl-history-replace (direction &optional regexp)
   "Replace the current input with the next line in DIRECTION.
 DIRECTION is 'forward' or 'backward' (in the history list).
@@ -942,7 +958,9 @@ If REGEXP is non-nil, only lines matching REGEXP are considered."
                                               (slime-repl-current-input)))
          (msg nil))
     (cond ((and (< min-pos pos) (< pos max-pos))
-           (slime-repl-replace-input (nth pos slime-repl-input-history))
+           (if slime-repl-eli-history-behavior
+               (slime-repl-insert-history pos pos0)
+             (slime-repl-replace-input (nth pos slime-repl-input-history)))
            (setq msg (format "History item: %d" pos)))
           ((not slime-repl-wrap-history)
            (setq msg (cond ((= pos min-pos) "End of history")
@@ -993,8 +1011,15 @@ Otherwise use the current input as search pattern.
 With a prefix-arg, do replacement from the mark."
   (interactive)
   (let ((slime-repl-history-use-mark (or slime-repl-history-use-mark
-                                         current-prefix-arg)))
+                                         current-prefix-arg))
+        (slime-repl-eli-history-behavior nil))
     (slime-repl-history-replace 'backward (slime-repl-history-pattern t))))
+
+(defun slime-repl-previous-input-nomatch ()
+  "Cycle backwards through input history. Unlike `slime-repl-previous-input`,
+do not use the current input as a search pattern: simply walk the history."
+  (interactive)
+  (slime-repl-history-replace 'backward nil))
 
 (defun slime-repl-next-input ()
   "Cycle forwards through input history.
@@ -1003,8 +1028,15 @@ See `slime-repl-previous-input'.
 With a prefix-arg, do replacement from the mark."
   (interactive)
   (let ((slime-repl-history-use-mark (or slime-repl-history-use-mark
-                                         current-prefix-arg)))
+                                         current-prefix-arg))
+        (slime-repl-eli-history-behavior nil))
     (slime-repl-history-replace 'forward (slime-repl-history-pattern t))))
+
+(defun slime-repl-next-input-nomatch ()
+  "Cycle forwards through input history.
+See `slime-repl-previous-input-nomatch'."
+  (interactive)
+  (slime-repl-history-replace 'forward nil))
 
 (defun slime-repl-forward-input ()
   "Cycle forwards through input history."
