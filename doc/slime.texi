@@ -1770,9 +1770,12 @@ conditions debugged with @SLDB{} be recorded in the @REPL{} buffer.
 @section Lisp-side (Swank)
 
 The Lisp server side of @SLIME{} (known as ``Swank'') offers several
-variables to configure. The initialization file @file{~/.swank.lisp}
-is automatically evaluated at startup and can be used to set these
-variables.
+variables to configure. The initialization file
+@file{$XDG_CONFIG_HOME/slime/init.lisp} is automatically evaluated at
+startup and can be used to set these variables. If it is absent, SLIME
+checks @env{XDG_CONFIG_DIRS} and then the legacy @file{~/.swank.lisp}.
+The Swank fasl cache is stored below @env{XDG_CACHE_HOME}, falling back
+to @file{~/.cache}.
 
 @menu
 * Communication style::

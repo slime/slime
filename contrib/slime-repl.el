@@ -81,7 +81,15 @@ current repl's (as per slime-output-buffer) window."
   "Face for the result of an evaluation in the SLIME REPL."
   :group 'slime-repl)
 
-(defcustom slime-repl-history-file "~/.slime-history.eld"
+(defcustom slime-repl-history-file
+  (let ((legacy (expand-file-name "~/.slime-history.eld")))
+    (if (file-exists-p legacy)
+        legacy
+      (expand-file-name "slime/history.eld"
+                        (or (and (getenv "XDG_STATE_HOME")
+                                 (file-name-absolute-p (getenv "XDG_STATE_HOME"))
+                                 (getenv "XDG_STATE_HOME"))
+                            (expand-file-name "~/.local/state/")))))
   "File to save the persistent REPL history to."
   :type 'string
   :group 'slime-repl)

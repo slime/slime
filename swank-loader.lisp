@@ -25,7 +25,8 @@
            :*source-directory*
            :*fasl-directory*
            :*started-from-emacs*
-           :define-package))
+           :define-package
+           :find-config-file))
 
 (cl:in-package :swank-loader)
 
@@ -158,14 +159,72 @@ Return nil if nothing appropriate is available."
             when (string-starts-with line prefix)
               return (subseq line (length prefix))))))
 
+(defun getenv (name)
+  "Obtains the current value of the POSIX environment variable NAME."
+  (declare (type (or string symbol) name))
+  (let ((name (string name)))
+    (or #+abcl (ext:getenv name)
+        #+ccl (ccl:getenv name)
+        #+clisp (ext:getenv name)
+        #+ecl (si:getenv name)
+        #+gcl (si:getenv name)
+        #+mkcl (mkcl:getenv name)
+        #+sbcl (sb-ext:posix-getenv name))))
+
+(defun xdg-directory (name default)
+  (let ((value (getenv name)))
+    (if (and value
+             (plusp (length value))
+             (char= (char value 0) #\/))
+        (pathname (if (char= (char value (1- (length value))) #\/)
+                      value
+                      (concatenate 'string value "/")))
+        default)))
+
+(defun xdg-config-dirs ()
+  (let ((home (xdg-directory "XDG_CONFIG_HOME"
+                             (merge-pathnames ".config/" (user-homedir-pathname))))
+        (dirs (getenv "XDG_CONFIG_DIRS")))
+    (cons home
+          (if (and dirs (plusp (length dirs)))
+              (loop with start = 0
+                    for end = (position #\: dirs :start start)
+                    for value = (subseq dirs start end)
+                    when (and (plusp (length value)) (char= (char value 0) #\/))
+                      collect (pathname (if (char= (char value (1- (length value))) #\/)
+                                            value
+                                            (concatenate 'string value "/")))
+                    while end
+                    do (setf start (1+ end)))
+              (list #p"/etc/xdg/")))))
+
+(defun find-config-file (name &optional legacy)
+  (or (loop for directory in (xdg-config-dirs)
+            for file = (probe-file (merge-pathnames name
+                                                    (merge-pathnames "slime/" directory)))
+            when file return file)
+      (and legacy (probe-file (merge-pathnames legacy (user-homedir-pathname))))))
+
+(defun slime-cache-dir ()
+  (let* ((home (user-homedir-pathname))
+         (legacy (merge-pathnames ".slime/" home))
+         (default (merge-pathnames ".cache/" home))
+         (slime-home (getenv "SLIME_HOME")))
+    (cond
+      ((and slime-home (plusp (length slime-home)))
+       (xdg-directory "SLIME_HOME" legacy))
+      ((probe-file (merge-pathnames "fasl/" legacy)) legacy)
+      (t (merge-pathnames "slime/"
+                          (xdg-directory "XDG_CACHE_HOME" default))))))
+
 (defun default-fasl-dir ()
   (merge-pathnames
    (make-pathname
-    :directory `(:relative ".slime" "fasl"
+    :directory `(:relative "fasl"
                  ,@(if (slime-version-string) (list (slime-version-string)))
                  ,(unique-dir-name)
                  ,@(if *load-truename* (cdr (pathname-directory *load-truename*)))))
-   (user-homedir-pathname)))
+   (slime-cache-dir)))
 
 (defvar *fasl-directory* (default-fasl-dir)
   "The directory where fasl files should be placed.")
@@ -226,9 +285,8 @@ If LOAD is true, load the fasl file."
 
 (defun load-user-init-file ()
   "Load the user init file, return NIL if it does not exist."
-  (load (merge-pathnames (user-homedir-pathname)
-                         (make-pathname :name ".swank" :type "lisp"))
-        :if-does-not-exist nil))
+  (let ((file (find-config-file "init.lisp" ".swank.lisp")))
+    (when file (load file))))
 
 (defun load-site-init-file (dir)
   (load (make-pathname :name "site-init" :type "lisp"
