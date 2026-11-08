@@ -6693,6 +6693,12 @@ If PREV resp. NEXT are true insert more-buttons as needed."
          (insert string)))
       ((:label string)
        (insert (slime-inspector-fontify label string)))
+      ((:image image string)
+       (if (fboundp 'slime-media-decode-image)
+           (insert-image (or (find-image (slime-media-decode-image image))
+                             (create-image image))
+                         string)
+         (error "Contrib slime-media needed to display :image inspector parts")))
       ((:action string id)
        (slime-insert-propertized (list 'slime-action-number id
                                        'mouse-face 'highlight
