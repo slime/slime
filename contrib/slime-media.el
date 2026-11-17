@@ -9,7 +9,8 @@
   (:slime-dependencies slime-repl)
   (:swank-dependencies swank-media)
   (:on-load
-   (add-hook 'slime-event-hooks 'slime-dispatch-media-event)))
+   (add-hook 'slime-event-hooks 'slime-dispatch-media-event)
+   (add-hook 'slime-inspector-ispec-functions 'slime-media-inspector-ispec)))
 
 (defun slime-media-decode-image (image)
   (mapcar (lambda (image)
@@ -17,6 +18,15 @@
 		(plist-put image :data (base64-decode-string (plist-get image :data)))
 	      image))
 	  image))
+
+(defun slime-media-inspector-ispec (ispec)
+  "Display :image ISPEC in inspector."
+  (slime-dcase ispec
+    ((:image image string)
+     (insert-image (or (find-image (slime-media-decode-image image))
+                       (create-image image))
+                   string))
+    (t nil)))
 
 (defun slime-dispatch-media-event (event)
   (slime-dcase event

@@ -1136,7 +1136,8 @@ Return a list of the form (NAME LOCATION)."
     (symbol
      (cond ((eq (symbol-package ref) (symbol-package :test))
             ref)
-           (t (symbol-name ref))))))
+           (t (let ((*package* (find-package :keyword)))
+                (prin1-to-string ref)))))))
 
 (defvar *sldb-stack-top*)
 
