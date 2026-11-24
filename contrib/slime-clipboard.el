@@ -14,7 +14,7 @@ The clipboard command prefix is C-c @.
  C-c @ @   inserts a reference to an object in the clipboard
  C-c @ ?   displays the clipboard
 
-This package also also binds the + key in the inspector and
+This package also binds the + key in the inspector and
 debugger to add the object at point to the clipboard."
   (:authors "Helmut Eller  <heller@common-lisp.net>")
   (:license "GPL")
