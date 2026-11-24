@@ -1440,7 +1440,7 @@ expansion will be added to the REPL's history.)"
                `(swank:compile-file-if-needed
                  ,(slime-to-lisp-filename filename) t)
                #'slime-compilation-finished)))
-  (:one-liner "Compile (if neccessary) and load a lisp file."))
+  (:one-liner "Compile (if necessary) and load a lisp file."))
 
 (defslime-repl-shortcut nil  ("restart-inferior-lisp")
   (:handler 'slime-restart-inferior-lisp)
