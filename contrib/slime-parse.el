@@ -380,7 +380,7 @@ Point is placed before the first expression in the list."
         (cl-incf n)))
     n))
 
-;;; This is similiar to `slime-enclosing-form-paths' in the
+;;; This is similar to `slime-enclosing-form-paths' in the
 ;;; `slime-parse' contrib except that this does not do any duck-tape
 ;;; parsing, and gets reader conditionals right.
 (defun slime-current-form-path ()

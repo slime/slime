@@ -358,7 +358,7 @@ so that the new text is present."
       (minibufferp buffer)))
 
 (defun slime-fuzzy-choices-buffer (completions interrupted-p start end)
-  "Creates (if neccessary), populates, and pops up the *Fuzzy
+  "Creates (if necessary), populates, and pops up the *Fuzzy
 Completions* buffer with the completions from `completions' and
 the completion slot in the current buffer bounded by `start' and
 `end'.  This saves the window configuration before popping the
