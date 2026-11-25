@@ -1296,7 +1296,10 @@ See `slime-start'."
   (expand-file-name (format "slime.%S" (emacs-pid)) (slime-temp-directory)))
 
 (defun slime-temp-directory ()
-  (cond ((fboundp 'temp-directory) (temp-directory))
+  (cond ((and (getenv "XDG_RUNTIME_DIR")
+              (file-name-absolute-p (getenv "XDG_RUNTIME_DIR")))
+         (file-name-as-directory (getenv "XDG_RUNTIME_DIR")))
+        ((fboundp 'temp-directory) (temp-directory))
         ((boundp 'temporary-file-directory) temporary-file-directory)
         (t "/tmp/")))
 
@@ -1437,10 +1440,28 @@ Return nil if the file doesn't exist or is empty; otherwise the
 first line of the file."
   (condition-case _err
       (with-temp-buffer
-	(insert-file-contents "~/.slime-secret")
-	(goto-char (point-min))
-	(buffer-substring (point-min) (line-end-position)))
+        (insert-file-contents (slime-xdg-config-file "secret" ".slime-secret"))
+	      (goto-char (point-min))
+	      (buffer-substring (point-min) (line-end-position)))
     (file-error nil)))
+
+(defun slime-xdg-dir (variable fallback)
+  (let ((value (getenv variable)))
+    (if (and value (file-name-absolute-p value))
+        (file-name-as-directory value)
+      (file-name-as-directory (expand-file-name fallback "~/")))))
+
+(defun slime-xdg-config-file (name legacy)
+  (or (let* ((dir (slime-xdg-dir "XDG_CONFIG_HOME" ".config"))
+             (file (expand-file-name (concat "slime/" name) dir)))
+        (when (file-readable-p file) file))
+      (catch 'file
+        (dolist (dir (split-string (or (getenv "XDG_CONFIG_DIRS") "/etc/xdg") ":" t))
+          (when (file-name-absolute-p dir)
+            (let ((file (expand-file-name (concat "slime/" name)
+                                          (file-name-as-directory dir))))
+              (when (file-readable-p file) (throw 'file file))))))
+      (expand-file-name legacy "~/")))
 
 ;;; Interface
 
