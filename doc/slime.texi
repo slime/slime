@@ -1313,7 +1313,7 @@ with:
 @end example
 
 If a collision causes you irritation, don't have a nervous breakdown,
-just override the Elisp symbol's @code{common-lisp-indent-function}
+just override the Elisp symbol's @code{slime-common-lisp-indent-function}
 property to your taste. @SLIME{} won't override your custom settings, it
 just tries to give you good defaults.
 

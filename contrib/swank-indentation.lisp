@@ -31,7 +31,7 @@ emacs.")
 (defun symbol-indentation (symbol)
   "Return a form describing the indentation of SYMBOL. 
 
-The form is to be used as the `common-lisp-indent-function' property 
+The form is to be used as the `slime-common-lisp-indent-function' property
 in Emacs."
   (cond
     ((has-application-indentation-hint-p symbol)

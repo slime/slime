@@ -42,8 +42,8 @@ symbol at point, or if QUERY is non-nil."
        (ignore-errors (down-list))
        (looking-at ":generator"))
       (+ sexp-column 2)
-      (lisp-indent-259 '((&whole 4) &body)
-                       path state indent-point sexp-column normal-indent)))
+      (slime-lisp-indent-259 '((&whole 4) &body)
+                             path state indent-point sexp-column normal-indent)))
 
 (defun slime-edit-inst (name &optional where)
   (when (ignore-errors
@@ -62,10 +62,10 @@ symbol at point, or if QUERY is non-nil."
          name
          where)))))
 
-(put 'define-vop 'common-lisp-indent-function 'slime-indent-define-vop)
-(put 'define-allocator 'common-lisp-indent-function 'slime-indent-define-vop)
-(put 'if-vop-existsp 'common-lisp-indent-function '(4 2 2))
-(put 'combination-case 'common-lisp-indent-function '(4 &rest (&whole 2 &rest 1)))
-(put 'cmatch 'common-lisp-indent-function '(4 &rest (&whole 2 &rest 1)))
+(put 'define-vop 'slime-common-lisp-indent-function 'slime-indent-define-vop)
+(put 'define-allocator 'slime-common-lisp-indent-function 'slime-indent-define-vop)
+(put 'if-vop-existsp 'slime-common-lisp-indent-function '(4 2 2))
+(put 'combination-case 'slime-common-lisp-indent-function '(4 &rest (&whole 2 &rest 1)))
+(put 'cmatch 'slime-common-lisp-indent-function '(4 &rest (&whole 2 &rest 1)))
 
 (provide 'slime-sbcl-exts)
